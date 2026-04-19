@@ -156,26 +156,13 @@ def _consolidation_table(doc, impact_areas: list):
     return total
 
 
-def generate_ptam_docx(ptam: dict, user: dict) -> bytes:
-    """Generate a DOCX file from PTAM data. Returns bytes."""
-    doc = Document()
-
-    # Margins
-    for section in doc.sections:
-        section.top_margin = Cm(2.5)
-        section.bottom_margin = Cm(2.5)
-        section.left_margin = Cm(2.5)
-        section.right_margin = Cm(2.5)
-
-    # --- COVER ---
+def _render_cover_section(doc, ptam: dict):
     _add_heading(doc, "LAUDO DE PARECER TÉCNICO DE AVALIAÇÃO MERCADOLÓGICA", size=16)
     _add_heading(doc, f"PTAM nº {ptam.get('number', '---')}", size=14)
     doc.add_paragraph()
-
     _add_section_title(doc, "Imóvel Avaliado")
     _add_para(doc, ptam.get("property_label") or ptam.get("property_address", ""), bold=True)
     doc.add_paragraph()
-
     _add_label_value(doc, "Solicitante", ptam.get("solicitante", ""))
     _add_label_value(doc, "Processo", ptam.get("judicial_process", ""))
     _add_label_value(doc, "Ação", ptam.get("judicial_action", ""))
@@ -183,90 +170,64 @@ def generate_ptam_docx(ptam: dict, user: dict) -> bytes:
     _add_label_value(doc, "Requerente", ptam.get("requerente", ""))
     _add_label_value(doc, "Requerido", ptam.get("requerido", ""))
     _add_label_value(doc, "Juiz", ptam.get("judge", ""))
-    doc.add_page_break()
 
-    # --- FINALIDADE ---
-    _add_section_title(doc, "Finalidade")
-    _add_para(doc, ptam.get("purpose", ""))
-    doc.add_paragraph()
 
-    # --- IMÓVEL AVALIANDO ---
+def _render_property_section(doc, ptam: dict):
     _add_section_title(doc, "Imóvel Avaliando")
     _add_label_value(doc, "Endereço", ptam.get("property_address", ""))
     _add_label_value(doc, "Cidade/UF", ptam.get("property_city", ""))
     _add_label_value(doc, "Matrícula", ptam.get("property_matricula", ""))
     _add_label_value(doc, "Proprietário", ptam.get("property_owner", ""))
-    area_ha = ptam.get("property_area_ha", 0)
-    area_sqm = ptam.get("property_area_sqm", 0)
-    if area_ha:
-        _add_label_value(doc, "Área", f"{area_ha} hectares")
-    if area_sqm:
-        _add_label_value(doc, "Equivalente a", _format_area(area_sqm))
+    if ptam.get("property_area_ha"):
+        _add_label_value(doc, "Área", f"{ptam.get('property_area_ha')} hectares")
+    if ptam.get("property_area_sqm"):
+        _add_label_value(doc, "Equivalente a", _format_area(ptam.get("property_area_sqm")))
     _add_label_value(doc, "Confrontações", ptam.get("property_confrontations", ""))
     _add_para(doc, ptam.get("property_description", ""))
-    doc.add_paragraph()
 
-    # --- VISTORIA ---
+
+def _render_vistoria_section(doc, ptam: dict):
     _add_section_title(doc, "Vistoria")
     _add_label_value(doc, "Data da Vistoria", ptam.get("vistoria_date", ""))
-    _add_heading(doc, "1. Objetivo da Vistoria", size=12, center=False)
-    _add_para(doc, ptam.get("vistoria_objective", ""))
-    _add_heading(doc, "2. Metodologia Adotada", size=12, center=False)
-    _add_para(doc, ptam.get("vistoria_methodology", ""))
+    sections = [
+        ("1. Objetivo da Vistoria", "vistoria_objective"),
+        ("2. Metodologia Adotada", "vistoria_methodology"),
+    ]
+    for title, key in sections:
+        _add_heading(doc, title, size=12, center=False)
+        _add_para(doc, ptam.get(key, ""))
     _add_heading(doc, "3. Caracterização Física", size=12, center=False)
     _add_label_value(doc, "3.1 Topografia", ptam.get("topography", ""))
     _add_label_value(doc, "3.2 Solo e Cobertura Vegetal", ptam.get("soil_vegetation", ""))
-    _add_heading(doc, "4. Benfeitorias Existentes", size=12, center=False)
-    _add_para(doc, ptam.get("benfeitorias", ""))
-    _add_heading(doc, "5. Acessibilidade e Infraestrutura", size=12, center=False)
-    _add_para(doc, ptam.get("accessibility", ""))
-    _add_heading(doc, "6. Contexto Urbano e Mercadológico", size=12, center=False)
-    _add_para(doc, ptam.get("urban_context", ""))
-    _add_heading(doc, "7. Estado Geral de Conservação", size=12, center=False)
-    _add_para(doc, ptam.get("conservation_state", ""))
-    _add_heading(doc, "8. Síntese Conclusiva da Vistoria", size=12, center=False)
-    _add_para(doc, ptam.get("vistoria_synthesis", ""))
-    doc.add_page_break()
+    remaining = [
+        ("4. Benfeitorias Existentes", "benfeitorias"),
+        ("5. Acessibilidade e Infraestrutura", "accessibility"),
+        ("6. Contexto Urbano e Mercadológico", "urban_context"),
+        ("7. Estado Geral de Conservação", "conservation_state"),
+        ("8. Síntese Conclusiva da Vistoria", "vistoria_synthesis"),
+    ]
+    for title, key in remaining:
+        _add_heading(doc, title, size=12, center=False)
+        _add_para(doc, ptam.get(key, ""))
 
-    # --- ANÁLISE MERCADOLÓGICA ---
-    if ptam.get("market_analysis"):
-        _add_section_title(doc, "Análise Mercadológica")
-        _add_para(doc, ptam.get("market_analysis", ""))
-        doc.add_paragraph()
 
-    # --- METODOLOGIA ---
-    _add_section_title(doc, "Metodologia Utilizada")
-    _add_para(doc, ptam.get("methodology", ""), bold=True)
-    _add_para(doc, ptam.get("methodology_justification", ""))
-    doc.add_paragraph()
+def _render_impact_area(doc, area: dict, idx: int):
+    _add_section_title(doc, f"Avaliação — {area.get('name', f'Área de Impacto {idx:02d}')}")
+    _add_label_value(doc, "Classificação", area.get("classification", ""))
+    _add_label_value(doc, "Área Impactada", _format_area(area.get("area_sqm", 0)))
+    _add_label_value(doc, "Valor Unitário Adotado", _format_currency(area.get("unit_value", 0)) + "/m²")
+    total_v = area.get("total_value") or (area.get("area_sqm", 0) * area.get("unit_value", 0))
+    _add_label_value(doc, "Valor Indenizatório", _format_currency(total_v))
+    if area.get("majoration_note"):
+        _add_label_value(doc, "Majoração Aplicada", area.get("majoration_note", ""))
+    if area.get("notes"):
+        _add_para(doc, area.get("notes", ""))
+    if area.get("samples"):
+        _add_heading(doc, "Amostragem", size=12, center=False)
+        _samples_table(doc, area.get("samples", []))
 
-    # --- ÁREAS DE IMPACTO ---
-    impact_areas = ptam.get("impact_areas", []) or []
-    for idx, area in enumerate(impact_areas, start=1):
-        _add_section_title(doc, f"Avaliação — {area.get('name', f'Área de Impacto {idx:02d}')}")
-        _add_label_value(doc, "Classificação", area.get("classification", ""))
-        _add_label_value(doc, "Área Impactada", _format_area(area.get("area_sqm", 0)))
-        _add_label_value(doc, "Valor Unitário Adotado", _format_currency(area.get("unit_value", 0)) + "/m²")
-        total_v = area.get("total_value") or (area.get("area_sqm", 0) * area.get("unit_value", 0))
-        _add_label_value(doc, "Valor Indenizatório", _format_currency(total_v))
-        if area.get("majoration_note"):
-            _add_label_value(doc, "Majoração Aplicada", area.get("majoration_note", ""))
-        if area.get("notes"):
-            _add_para(doc, area.get("notes", ""))
-        if area.get("samples"):
-            _add_heading(doc, "Amostragem", size=12, center=False)
-            _samples_table(doc, area.get("samples", []))
-        doc.add_paragraph()
 
-    # --- CONSOLIDAÇÃO ---
-    if impact_areas:
-        _add_section_title(doc, "Consolidação das Indenizações")
-        total_calc = _consolidation_table(doc, impact_areas)
-        if not ptam.get("total_indemnity"):
-            ptam["total_indemnity"] = total_calc
-
-    # --- CONCLUSÃO ---
-    doc.add_page_break()
+def _render_conclusion_section(doc, ptam: dict, user: dict):
     _add_section_title(doc, "Conclusão")
     _add_para(doc, ptam.get("conclusion_text", ""))
     if ptam.get("total_indemnity"):
@@ -283,15 +244,12 @@ def generate_ptam_docx(ptam: dict, user: dict) -> bytes:
             r2 = p2.add_run(f"({ptam.get('total_indemnity_words')})")
             r2.italic = True
             r2.font.size = Pt(11)
-
     doc.add_paragraph()
     doc.add_paragraph()
     city = ptam.get("conclusion_city", "Açailândia/MA")
     date_str = ptam.get("conclusion_date", datetime.utcnow().strftime("%d/%m/%Y"))
     loc = doc.add_paragraph(f"{city}, {date_str}.")
     loc.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-
-    # Signature block
     doc.add_paragraph()
     doc.add_paragraph()
     sig = doc.add_paragraph("_" * 50)
@@ -308,7 +266,53 @@ def generate_ptam_docx(ptam: dict, user: dict) -> bytes:
         crea_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         crea_p.add_run(user.get("crea"))
 
-    # Save to bytes
+
+def generate_ptam_docx(ptam: dict, user: dict) -> bytes:
+    """Generate a DOCX file from PTAM data. Returns bytes."""
+    doc = Document()
+    for section in doc.sections:
+        section.top_margin = Cm(2.5)
+        section.bottom_margin = Cm(2.5)
+        section.left_margin = Cm(2.5)
+        section.right_margin = Cm(2.5)
+
+    _render_cover_section(doc, ptam)
+    doc.add_page_break()
+
+    _add_section_title(doc, "Finalidade")
+    _add_para(doc, ptam.get("purpose", ""))
+    doc.add_paragraph()
+
+    _render_property_section(doc, ptam)
+    doc.add_paragraph()
+
+    _render_vistoria_section(doc, ptam)
+    doc.add_page_break()
+
+    if ptam.get("market_analysis"):
+        _add_section_title(doc, "Análise Mercadológica")
+        _add_para(doc, ptam.get("market_analysis", ""))
+        doc.add_paragraph()
+
+    _add_section_title(doc, "Metodologia Utilizada")
+    _add_para(doc, ptam.get("methodology", ""), bold=True)
+    _add_para(doc, ptam.get("methodology_justification", ""))
+    doc.add_paragraph()
+
+    impact_areas = ptam.get("impact_areas", []) or []
+    for idx, area in enumerate(impact_areas, start=1):
+        _render_impact_area(doc, area, idx)
+        doc.add_paragraph()
+
+    if impact_areas:
+        _add_section_title(doc, "Consolidação das Indenizações")
+        total_calc = _consolidation_table(doc, impact_areas)
+        if not ptam.get("total_indemnity"):
+            ptam["total_indemnity"] = total_calc
+
+    doc.add_page_break()
+    _render_conclusion_section(doc, ptam, user)
+
     buf = BytesIO()
     doc.save(buf)
     return buf.getvalue()

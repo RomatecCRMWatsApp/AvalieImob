@@ -189,7 +189,7 @@ const ImpactAreaEditor = ({ area, onChange, onRemove, onAi, aiLoading, idx }) =>
               <thead className="text-xs text-gray-500"><tr><th className="p-2 text-left">Bairro</th><th className="p-2 text-left">Área (m²)</th><th className="p-2 text-left">Valor (R$)</th><th className="p-2 text-center">R$/m²</th><th className="p-2 text-left">Fonte</th><th /></tr></thead>
               <tbody>
                 {area.samples.map((s, i) => (
-                  <SampleRow key={i} s={s} onChange={(ns) => updateSample(i, ns)} onRemove={() => removeSample(i)} />
+                  <SampleRow key={s._key || `s-${i}`} s={s} onChange={(ns) => updateSample(i, ns)} onRemove={() => removeSample(i)} />
                 ))}
               </tbody>
             </table>
@@ -219,7 +219,7 @@ export const StepImpactAreas = ({ form, setForm, onAi, aiLoading }) => {
       )}
       <div className="space-y-4">
         {(form.impact_areas || []).map((a, i) => (
-          <ImpactAreaEditor key={i} area={a} onChange={(na) => updateArea(i, na)} onRemove={() => removeArea(i)} onAi={onAi} aiLoading={aiLoading} idx={i} />
+          <ImpactAreaEditor key={a._key || `ia-${i}`} area={a} onChange={(na) => updateArea(i, na)} onRemove={() => removeArea(i)} onAi={onAi} aiLoading={aiLoading} idx={i} />
         ))}
       </div>
     </div>

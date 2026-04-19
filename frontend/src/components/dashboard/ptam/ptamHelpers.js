@@ -24,12 +24,14 @@ export const PTAM_STEPS = [
 ];
 
 export const emptyImpactArea = () => ({
+  _key: `ia_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
   name: 'Área de Impacto 01', classification: 'Rural',
   area_sqm: 0, unit_value: 0, total_value: 0,
   majoration_note: '', samples: [], notes: '',
 });
 
 export const emptySample = () => ({
+  _key: `s_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
   number: 0, neighborhood: '', area_total: 0, value: 0, value_per_sqm: 0, description: '', source: '',
 });
 

@@ -38,7 +38,11 @@ const PtamList = () => {
     } catch { toast({ title: 'Erro ao baixar', variant: 'destructive' }); }
   };
 
-  const statusColor = (s) => s === 'Emitido' ? 'bg-emerald-100 text-emerald-800' : s === 'Em revisão' ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-700';
+  const statusColor = (s) => {
+    if (s === 'Emitido') return 'bg-emerald-100 text-emerald-800';
+    if (s === 'Em revisão') return 'bg-amber-100 text-amber-800';
+    return 'bg-gray-100 text-gray-700';
+  };
 
   return (
     <div className="space-y-6">

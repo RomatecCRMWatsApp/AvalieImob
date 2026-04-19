@@ -246,6 +246,9 @@ backend:
         - working: true
           agent: "testing"
           comment: "✅ TESTED: All PTAM endpoints working perfectly after model fix. Create/Read/Update/Delete operations work. Auto-generated number format (2026-0001) correct. DOCX generation produces valid 38KB file with proper headers. User isolation verified. Complex nested data structure (impact_areas with samples) handled correctly."
+        - working: true
+          agent: "testing"
+          comment: "✅ REGRESSION TEST PASSED: PTAM DOCX generation working correctly after refactoring. Tested complete flow: register user (docx-regress-test@romatec.com) → create PTAM with minimal data → download DOCX → verify format. All checks passed: Content-Type correct, 37,714 bytes, valid ZIP/DOCX structure with 17 files, proper filename (PTAM_2026-0001.docx). Refactored helper functions in ptam_docx.py working perfectly."
 
 frontend:
   - task: "Landing page + Login/Register + Dashboard (all real API integrated)"
@@ -346,4 +349,21 @@ agent_communication:
         - All endpoints use proper JWT authentication and user scoping
         
         **PTAM ENDPOINTS FULLY FUNCTIONAL** - Ready for production use.
+    - agent: "testing"
+      message: |
+        🎉 PTAM DOCX REGRESSION TEST COMPLETED SUCCESSFULLY
+        
+        **REGRESSION TEST RESULTS:**
+        - ✅ User authentication (docx-regress-test@romatec.com) working
+        - ✅ PTAM creation with minimal data successful (ID: 979b9ec6-bfaa-4ceb-8816-054b46b659ec)
+        - ✅ Auto-generated number: 2026-0001
+        - ✅ DOCX download via GET /api/ptam/{id}/docx working perfectly
+        - ✅ Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document
+        - ✅ Content-Disposition: attachment; filename="PTAM_2026-0001.docx"
+        - ✅ File size: 37,714 bytes (> 5000 requirement)
+        - ✅ DOCX signature: "PK" (valid ZIP format)
+        - ✅ Valid DOCX structure with 17 internal files
+        - ✅ Test cleanup successful (PTAM deleted)
+        
+        **CONCLUSION:** PTAM DOCX generation working correctly after refactoring into helper functions. All verification checks passed. No regressions detected.
 

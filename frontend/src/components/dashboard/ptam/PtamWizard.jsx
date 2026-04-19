@@ -8,6 +8,17 @@ import { ptamAPI, aiAPI } from '../../../lib/api';
 import { EMPTY_PTAM, PTAM_STEPS, computeImpactTotals, sumIndemnity } from './ptamHelpers';
 import { StepIdentification, StepProperty, StepVistoria, StepMethodology, StepImpactAreas, StepConclusion } from './PtamSteps';
 
+const getStepClasses = (active, done) => {
+  if (active) return 'bg-emerald-900 text-white';
+  if (done) return 'bg-emerald-50 text-emerald-900 hover:bg-emerald-100';
+  return 'text-gray-500 hover:bg-gray-50';
+};
+const getStepIconClasses = (active, done) => {
+  if (active) return 'bg-white/20';
+  if (done) return 'bg-emerald-200';
+  return 'bg-gray-100';
+};
+
 const PtamWizard = () => {
   const { id } = useParams();
   const nav = useNavigate();
@@ -133,8 +144,8 @@ const PtamWizard = () => {
             const active = i === step;
             const done = i < step;
             return (
-              <button key={s.id} onClick={() => setStep(i)} className={`flex-1 min-w-[120px] flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${active ? 'bg-emerald-900 text-white' : done ? 'bg-emerald-50 text-emerald-900 hover:bg-emerald-100' : 'text-gray-500 hover:bg-gray-50'}`}>
-                <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${active ? 'bg-white/20' : done ? 'bg-emerald-200' : 'bg-gray-100'}`}>{done ? <Check className="w-3.5 h-3.5" /> : <Icon className="w-3.5 h-3.5" />}</div>
+              <button key={s.id} onClick={() => setStep(i)} className={`flex-1 min-w-[120px] flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${getStepClasses(active, done)}`}>
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${getStepIconClasses(active, done)}`}>{done ? <Check className="w-3.5 h-3.5" /> : <Icon className="w-3.5 h-3.5" />}</div>
                 <span className="whitespace-nowrap font-medium">{i + 1}. {s.label}</span>
               </button>
             );

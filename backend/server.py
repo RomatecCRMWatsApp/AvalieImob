@@ -355,11 +355,14 @@ async def download_ptam_docx(pid: str, uid: str = Depends(get_current_user_id)):
     if not doc:
         raise HTTPException(status_code=404, detail="PTAM não encontrado")
     user = await _user_doc(uid)
+    data = None
     try:
         data = generate_ptam_docx(doc, user)
     except Exception as e:
         logger.exception("DOCX generation error")
         raise HTTPException(status_code=500, detail=f"Erro ao gerar DOCX: {str(e)[:200]}")
+    if not data:
+        raise HTTPException(status_code=500, detail="Falha ao gerar documento")
     filename = f"PTAM_{doc.get('number', 'sem-numero').replace('/', '-')}.docx"
     return Response(
         content=data,
