@@ -1,62 +1,46 @@
-import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { trpc } from "../lib/trpc";
-
-export interface User {
-  id: string;
-  email: string;
-  nome: string;
-  role: "admin" | "avaliador" | "cliente";
-  crea?: string;
-  incra?: string;
-}
+import { setToken, removeToken } from "../lib/auth";
 
 export function useAuth() {
   const navigate = useNavigate();
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const me = trpc.auth.me.useQuery();
+  const utils = trpc.useUtils();
 
-  const meQuery = trpc.auth.me.useQuery();
-
-  useEffect(() => {
-    if (meQuery.data) {
-      setUser(meQuery.data as User);
-    } else if (!meQuery.isLoading && !meQuery.data) {
-      setUser(null);
-    }
-    setLoading(meQuery.isLoading);
-  }, [meQuery.data, meQuery.isLoading]);
-
-  const login = async (email: string, senha: string) => {
-    try {
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL || "http://localhost:3001/api/trpc"}/auth.login`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, senha }),
-        }
-      );
-
-      if (!response.ok) throw new Error("Login failed");
-
-      const data = await response.json();
-      const token = data.result.data.token;
-
-      localStorage.setItem("token", token);
-      setUser(data.result.data);
+  const loginMutation = trpc.auth.login.useMutation({
+    onSuccess: (data) => {
+      setToken(data.token);
+      localStorage.setItem("userId", data.userId);
+      localStorage.setItem("user", JSON.stringify(data));
+      void utils.auth.me.invalidate();
       navigate("/dashboard");
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: String(error) };
-    }
-  };
+    },
+  });
+
+  const registerMutation = trpc.auth.registro.useMutation({
+    onSuccess: (data) => {
+      setToken(data.token);
+      localStorage.setItem("userId", data.userId);
+      void utils.auth.me.invalidate();
+      navigate("/dashboard");
+    },
+  });
 
   const logout = () => {
-    localStorage.removeItem("token");
-    setUser(null);
+    removeToken();
+    void utils.auth.me.reset();
     navigate("/login");
   };
 
-  return { user, loading, login, logout, isAuthenticated: !!user };
+  return {
+    user: me.data,
+    isLoading: me.isLoading,
+    login: loginMutation.mutate,
+    loginPending: loginMutation.isPending,
+    loginError: loginMutation.error?.message ?? null,
+    register: registerMutation.mutate,
+    registerPending: registerMutation.isPending,
+    registerError: registerMutation.error?.message ?? null,
+    logout,
+  };
 }
