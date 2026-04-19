@@ -43,7 +43,7 @@ const Dashboard = () => {
       {/* Sidebar */}
       <aside className={`fixed lg:sticky top-0 inset-y-0 left-0 z-40 w-72 bg-emerald-950 text-white flex flex-col transition-transform duration-300 h-screen ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
         <div className="p-6 border-b border-white/10 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3">
+          <Link to="/dashboard" className="flex items-center gap-3">
             <img src={BRAND.logo} alt="" className="h-10 w-10 bg-white/10 rounded p-1" />
             <div>
               <div className="font-display text-lg font-bold">RomaTec</div>
