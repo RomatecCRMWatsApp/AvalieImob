@@ -65,15 +65,15 @@ if (existsSync(frontendDist)) {
 }
 
 async function start() {
+  app.listen(PORT, () => {
+    console.log(`✅ Servidor rodando em http://localhost:${PORT}`);
+    console.log(`📡 tRPC: http://localhost:${PORT}/api/trpc`);
+  });
+
   try {
     await initializeDatabase();
-    app.listen(PORT, () => {
-      console.log(`✅ Servidor rodando em http://localhost:${PORT}`);
-      console.log(`📡 tRPC: http://localhost:${PORT}/api/trpc`);
-    });
   } catch (error) {
-    console.error("✗ Erro ao iniciar servidor:", error);
-    process.exit(1);
+    console.error("✗ Erro ao conectar database:", error);
   }
 }
 
