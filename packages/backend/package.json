@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
-    "bundle": "esbuild src/index.ts --bundle --platform=node --target=node18 --outfile=server.js --format=cjs --external:express --external:cors --external:'@trpc/server' --external:dotenv --external:mysql2 --external:drizzle-orm --external:bcryptjs --external:jsonwebtoken --external:uuid --external:openai --external:axios --external:zod --external:fsevents",
+    "bundle": "esbuild src/index.ts --bundle --platform=node --target=node18 --outfile=server.js --format=cjs --external:express --external:cors --external:'@trpc/server' --external:dotenv --external:mysql2 --external:drizzle-orm --external:bcryptjs --external:jsonwebtoken --external:uuid --external:openai --external:axios --external:zod --external:docx --external:fsevents",
     "start": "node server.js",
     "lint": "eslint src"
   },
@@ -24,6 +24,7 @@
     "mysql2": "^3.6.0",
     "openai": "^4.28.0",
     "uuid": "^9.0.1",
+    "docx": "^8.5.0",
     "zod": "^3.22.4"
   },
   "devDependencies": {
