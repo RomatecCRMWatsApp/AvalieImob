@@ -1,6 +1,6 @@
 [build]
 builder = "nixpacks"
-buildCommand = "npm install --legacy-peer-deps && cd packages/frontend && npm run build && cd ../backend && npm run bundle"
+buildCommand = "npm install --legacy-peer-deps && cd packages/frontend && npm run build && cd ../backend && npm install --legacy-peer-deps && npm run bundle"
 
 [deploy]
 startCommand = "node packages/backend/server.js"
