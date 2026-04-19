@@ -488,8 +488,8 @@ async def upload_image(file: UploadFile = File(...), uid: str = Depends(get_acti
     data = await file.read()
     if len(data) > MAX_IMAGE_SIZE_BYTES:
         raise HTTPException(
-            status_code=400,
-            detail=f"Arquivo muito grande ({len(data) // 1024} KB). Máximo: 5 MB."
+            status_code=413,
+            detail="Arquivo muito grande. Tamanho máximo: 5MB"
         )
 
     image_id = str(uuid.uuid4())

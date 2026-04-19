@@ -49,7 +49,7 @@ const ImageUploader = ({
     const newTypes = {};
     for (const file of toUpload) {
       if (file.size > 5 * 1024 * 1024) {
-        toast({ title: `Arquivo "${file.name}" muito grande (máx 5 MB)`, variant: 'destructive' });
+        toast({ title: `Arquivo muito grande. Tamanho máximo: 5MB`, variant: 'destructive' });
         continue;
       }
       try {
