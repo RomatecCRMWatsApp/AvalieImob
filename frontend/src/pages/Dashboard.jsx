@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, NavLink, Routes, Route, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, Building2, BarChart3, FileText, Sparkles, CreditCard, Settings, LogOut, Menu, X, Bell, FileCheck2 } from 'lucide-react';
+import { LayoutDashboard, Users, Building2, BarChart3, FileText, Sparkles, CreditCard, Settings, LogOut, Menu, X, Bell, FileCheck2, Globe } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { useAuth } from '../contexts/AuthContext';
 import { BRAND } from '../mock/mock';
@@ -64,6 +64,13 @@ const Dashboard = () => {
               </NavLink>
             );
           })}
+          <div className="pt-2 mt-2 border-t border-white/10">
+            <Link to="/" onClick={() => setMobileOpen(false)}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-emerald-100 hover:bg-white/10 transition-colors">
+              <Globe className="w-4 h-4" />
+              Nossos Serviços
+            </Link>
+          </div>
         </nav>
 
         <div className="p-4 border-t border-white/10">

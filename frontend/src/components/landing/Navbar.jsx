@@ -7,6 +7,7 @@ import { BRAND } from '../../mock/mock';
 const Navbar = () => {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const isLoggedIn = !!localStorage.getItem('romatec_token');
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -42,8 +43,14 @@ const Navbar = () => {
         </nav>
 
         <div className="hidden lg:flex items-center gap-3">
-          <Link to="/login"><Button variant="ghost" className="text-emerald-900 hover:text-emerald-900 hover:bg-emerald-50">Entrar</Button></Link>
-          <Link to="/cadastro"><Button className="bg-emerald-900 hover:bg-emerald-800 text-white">Assinar agora</Button></Link>
+          {isLoggedIn ? (
+            <Link to="/dashboard"><Button className="bg-emerald-900 hover:bg-emerald-800 text-white">Meu Dashboard</Button></Link>
+          ) : (
+            <>
+              <Link to="/login"><Button variant="ghost" className="text-emerald-900 hover:text-emerald-900 hover:bg-emerald-50">Entrar</Button></Link>
+              <Link to="/cadastro"><Button className="bg-emerald-900 hover:bg-emerald-800 text-white">Assinar agora</Button></Link>
+            </>
+          )}
         </div>
 
         <button className="lg:hidden p-2" onClick={() => setOpen(!open)} aria-label="Menu">
@@ -58,8 +65,14 @@ const Navbar = () => {
               <a key={l.href} href={l.href} onClick={() => setOpen(false)} className="text-sm font-medium text-gray-700 hover:text-emerald-900">{l.label}</a>
             ))}
             <div className="flex gap-3 pt-4 border-t border-gray-100">
-              <Link to="/login" className="flex-1"><Button variant="outline" className="w-full border-emerald-900 text-emerald-900">Entrar</Button></Link>
-              <Link to="/cadastro" className="flex-1"><Button className="w-full bg-emerald-900 hover:bg-emerald-800 text-white">Assinar</Button></Link>
+              {isLoggedIn ? (
+                <Link to="/dashboard" className="flex-1"><Button className="w-full bg-emerald-900 hover:bg-emerald-800 text-white">Meu Dashboard</Button></Link>
+              ) : (
+                <>
+                  <Link to="/login" className="flex-1"><Button variant="outline" className="w-full border-emerald-900 text-emerald-900">Entrar</Button></Link>
+                  <Link to="/cadastro" className="flex-1"><Button className="w-full bg-emerald-900 hover:bg-emerald-800 text-white">Assinar</Button></Link>
+                </>
+              )}
             </div>
           </div>
         </div>
