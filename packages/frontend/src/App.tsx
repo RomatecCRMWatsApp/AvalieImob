@@ -1,45 +1,56 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { TRPCProvider } from "./lib/trpc-provider";
-import { LoginPage } from "./pages/LoginPage";
-import { DashboardLayout } from "./pages/DashboardPage";
-import { CalculoComparativoPage } from "./pages/CalculoComparativoPage";
+import { NotificationProvider } from "./contexts/NotificationContext";
+import { ToastContainer } from "./components/UI/Toast";
+import { AuthGuard } from "./components/Auth/AuthGuard";
+import { AppLayout } from "./components/Layout/AppLayout";
+import { Login } from "./pages/Login";
+import { Register } from "./pages/Register";
+import { Dashboard } from "./pages/Dashboard";
+import { Clientes } from "./pages/Clientes";
+import { Imoveis } from "./pages/Imoveis";
+import { Avaliacoes } from "./pages/Avaliacoes";
+import { PTAMs } from "./pages/PTAMs";
+import { Audios } from "./pages/Audios";
+import { Calculos } from "./pages/Calculos";
 
-function PrivateRoute({ children }: { children: React.ReactNode }) {
-  const token = localStorage.getItem("token");
-  return token ? <>{children}</> : <Navigate to="/login" />;
+function ProtectedRoutes() {
+  return (
+    <AuthGuard>
+      <AppLayout />
+    </AuthGuard>
+  );
 }
 
 function App() {
   return (
     <TRPCProvider>
-      <Router>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
+      <NotificationProvider>
+        <Router>
+          <Routes>
+            {/* Public */}
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
 
-          <Route
-            path="/dashboard"
-            element={
-              <PrivateRoute>
-                <DashboardLayout />
-              </PrivateRoute>
-            }
-          />
+            {/* Protected layout */}
+            <Route element={<ProtectedRoutes />}>
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/clientes" element={<Clientes />} />
+              <Route path="/imoveis" element={<Imoveis />} />
+              <Route path="/avaliacoes" element={<Avaliacoes />} />
+              <Route path="/ptams" element={<PTAMs />} />
+              <Route path="/audios" element={<Audios />} />
+              <Route path="/calculos" element={<Calculos />} />
+            </Route>
 
-          <Route
-            path="/dashboard/calculos"
-            element={
-              <PrivateRoute>
-                <DashboardLayout>
-                  <CalculoComparativoPage />
-                </DashboardLayout>
-              </PrivateRoute>
-            }
-          />
-
-          <Route path="/" element={<Navigate to="/dashboard" />} />
-        </Routes>
-      </Router>
+            {/* Fallback */}
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </Router>
+        <ToastContainer />
+      </NotificationProvider>
     </TRPCProvider>
   );
 }
