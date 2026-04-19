@@ -453,6 +453,10 @@ async def create_preference(data: CreatePreferenceRequest, uid: str = Depends(ge
         "notification_url": f"{APP_URL}/api/payments/webhook",
         "external_reference": f"{uid}|{data.plan_id}",
         "statement_descriptor": "AVALIEIMOB",
+        "payment_methods": {
+            "excluded_payment_types": [],
+            "installments": 12,
+        },
     }
 
     result = sdk.preference().create(preference_data)
