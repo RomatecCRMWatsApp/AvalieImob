@@ -273,7 +273,7 @@ async def ai_chat(data: AIMessage, uid: str = Depends(get_current_user_id)):
         "role": "user", "content": data.message, "ts": datetime.utcnow()
     })
     try:
-        chat = LlmChat(api_key=api_key, session_id=session_id, system_message=SYSTEM_PROMPT).with_model("anthropic", "claude-sonnet-4-5-20250929")
+        chat = LlmChat(api_key=api_key, session_id=session_id, system_message=SYSTEM_PROMPT).with_model("openai", "gpt-5-mini")
         reply = await chat.send_message(UserMessage(text=data.message))
     except Exception as e:
         logger.exception("AI error")

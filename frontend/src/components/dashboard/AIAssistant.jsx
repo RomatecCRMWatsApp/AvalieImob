@@ -72,7 +72,7 @@ const AIAssistant = () => {
           <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-700 to-emerald-900 flex items-center justify-center"><Sparkles className="w-6 h-6 text-white" /></div>
           <div>
             <h1 className="font-display text-3xl font-bold text-gray-900">Assistente IA</h1>
-            <p className="text-gray-600">Claude Sonnet 4.5 especializado em NBR 14.653.</p>
+            <p className="text-gray-600">GPT-5-mini especializado em NBR 14.653.</p>
           </div>
         </div>
         <Button variant="outline" size="sm" onClick={newSession}>Nova conversa</Button>
@@ -112,7 +112,7 @@ const AIAssistant = () => {
             <Textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} placeholder="Descreva o que deseja aperfeiçoar ou gerar..." className="min-h-[60px] resize-none" disabled={loading} />
             <Button onClick={() => send()} disabled={loading || !input.trim()} className="bg-emerald-900 hover:bg-emerald-800 text-white h-auto"><Send className="w-4 h-4" /></Button>
           </div>
-          <div className="text-[11px] text-gray-400 mt-2">Powered by Claude Sonnet 4.5 · Conversa persistida no servidor.</div>
+          <div className="text-[11px] text-gray-400 mt-2">Powered by GPT-5-mini · Conversa persistida no servidor.</div>
         </div>
       </div>
     </div>
