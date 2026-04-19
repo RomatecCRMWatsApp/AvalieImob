@@ -172,6 +172,7 @@ class PtamMarketSample(BaseModel):
     collection_date: Optional[str] = ""
     contact_phone: Optional[str] = ""
     notes: Optional[str] = ""
+    foto: Optional[str] = None  # ID da imagem da amostra
 
 
 class PtamBase(BaseModel):
@@ -243,6 +244,10 @@ class PtamBase(BaseModel):
     imovel_num_vagas: Optional[int] = 0
     imovel_piscina: Optional[bool] = False
     imovel_caracteristicas_adicionais: Optional[str] = ""
+
+    # ── Seção 3 — Fotos e Documentos do Imóvel ───────────────────────────────
+    fotos_imovel: List[str] = Field(default_factory=list)       # IDs de imagens do imóvel
+    fotos_documentos: List[str] = Field(default_factory=list)   # IDs de documentos fotografados
 
     # ── Seção 6 — Amostras de Mercado ────────────────────────────────────────
     market_samples: List[PtamMarketSample] = Field(default_factory=list)

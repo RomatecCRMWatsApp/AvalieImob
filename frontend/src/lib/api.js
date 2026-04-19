@@ -127,3 +127,16 @@ export const paymentsAPI = {
   createPreference: (plan_id) => api.post('/payments/create-preference', { plan_id }).then(r => r.data),
   status: () => api.get('/payments/status').then(r => r.data),
 };
+
+// ---- Upload de imagens
+export const uploadAPI = {
+  uploadImage: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/upload/image', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then(r => r.data);
+  },
+  getImageUrl: (imageId) => `${API_BASE}/upload/image/${imageId}`,
+  deleteImage: (imageId) => api.delete(`/upload/image/${imageId}`).then(r => r.data),
+};

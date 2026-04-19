@@ -37,6 +37,8 @@ export const EMPTY_PTAM = {
   property_area_sqm: 0,
   property_confrontations: '',
   property_description: '',
+  fotos_imovel: [],
+  fotos_documentos: [],
 
   // Seção 4 — Caracterização da Região
   regiao_infraestrutura: '',
@@ -139,6 +141,7 @@ export const emptyMarketSample = () => ({
   collection_date: '',
   contact_phone: '',
   notes: '',
+  foto: null,
 });
 
 /** Legacy — impact area factory kept for backward compat */

@@ -5,6 +5,7 @@ import { Textarea } from '../../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { Plus, Trash2, Sparkles } from 'lucide-react';
 import { emptyMarketSample, emptyImpactArea, emptySample, computeStats } from './ptamHelpers';
+import ImageUploader from './ImageUploader';
 
 // ── Shared primitives ──────────────────────────────────────────────────────────
 
@@ -209,6 +210,22 @@ export const StepImovelId = ({ form, setForm }) => (
         <Textarea value={form.property_description} onChange={(e) => setForm({ ...form, property_description: e.target.value })} rows={4} />
       </Field>
     </div>
+
+    {/* ── Fotos e Documentos ─────────────────────────────────────────── */}
+    <div className="mt-8 space-y-6 border-t border-gray-100 pt-6">
+      <ImageUploader
+        label="Fotos do Imóvel (máx 20)"
+        images={form.fotos_imovel || []}
+        onImagesChange={(ids) => setForm({ ...form, fotos_imovel: ids })}
+        maxImages={20}
+      />
+      <ImageUploader
+        label="Documentos do Imóvel — matrícula, IPTU, escritura (máx 10)"
+        images={form.fotos_documentos || []}
+        onImagesChange={(ids) => setForm({ ...form, fotos_documentos: ids })}
+        maxImages={10}
+      />
+    </div>
   </div>
 );
 
@@ -345,6 +362,15 @@ const MarketSampleRow = ({ s, onChange, onRemove, idx }) => {
       <td className="px-2 py-1.5"><Input value={s.source || ''} onChange={(e) => onChange({ ...s, source: e.target.value })} placeholder="Fonte" className="text-xs h-8" /></td>
       <td className="px-2 py-1.5 w-28"><Input type="date" value={s.collection_date || ''} onChange={(e) => onChange({ ...s, collection_date: e.target.value })} className="text-xs h-8" /></td>
       <td className="px-2 py-1.5 w-28"><Input value={s.contact_phone || ''} onChange={(e) => onChange({ ...s, contact_phone: e.target.value })} placeholder="Telefone" className="text-xs h-8" /></td>
+      <td className="px-2 py-1.5 w-24">
+        <ImageUploader
+          images={s.foto ? [s.foto] : []}
+          onImagesChange={(ids) => onChange({ ...s, foto: ids[0] || null })}
+          maxImages={1}
+          single
+          label=""
+        />
+      </td>
       <td className="px-2 py-1.5">
         <button type="button" onClick={onRemove} className="p-1.5 text-red-500 hover:bg-red-50 rounded">
           <Trash2 className="w-3.5 h-3.5" />
@@ -394,7 +420,7 @@ export const StepAmostras = ({ form, setForm, onAi, aiLoading }) => {
         </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-gray-200">
-          <table className="w-full text-sm min-w-[900px]">
+          <table className="w-full text-sm min-w-[1050px]">
             <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wider">
               <tr>
                 <th className="px-2 py-2 text-center">#</th>
@@ -406,6 +432,7 @@ export const StepAmostras = ({ form, setForm, onAi, aiLoading }) => {
                 <th className="px-2 py-2 text-left">Fonte</th>
                 <th className="px-2 py-2 text-left">Data coleta</th>
                 <th className="px-2 py-2 text-left">Telefone</th>
+                <th className="px-2 py-2 text-left">Foto</th>
                 <th className="px-2 py-2" />
               </tr>
             </thead>
