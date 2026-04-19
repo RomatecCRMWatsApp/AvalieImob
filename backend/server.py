@@ -250,7 +250,7 @@ async def dashboard_stats(uid: str = Depends(get_current_user_id)):
     }
 
 
-# ===== AI (Emergent LLM) =============================================
+# ===== AI (OpenAI) ===================================================
 SYSTEM_PROMPT = (
     "Você é um assistente especialista em avaliação imobiliária brasileira, PTAM e laudos técnicos, "
     "seguindo rigorosamente a NBR 14.653 da ABNT (partes 1 a 7). Responda sempre em português-BR, "
@@ -264,20 +264,24 @@ SYSTEM_PROMPT = (
 
 @api.post("/ai/chat", response_model=AIMessageResponse)
 async def ai_chat(data: AIMessage, uid: str = Depends(get_current_user_id)):
-    from emergentintegrations.llm.chat import LlmChat, UserMessage
-    api_key = os.environ.get("EMERGENT_LLM_KEY")
+    from openai import AsyncOpenAI
+    api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
         raise HTTPException(status_code=500, detail="LLM não configurado")
-    session_id = f"{uid}_{data.session_id}"
     # Persist user message
     await db.ai_messages.insert_one({
         "user_id": uid, "session_id": data.session_id,
         "role": "user", "content": data.message, "ts": datetime.utcnow()
     })
-    reply = ""
+    # Load conversation history from MongoDB
+    history = await db.ai_messages.find({"user_id": uid, "session_id": data.session_id}).sort("ts", 1).to_list(50)
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    for h in history:
+        messages.append({"role": h["role"], "content": h["content"]})
     try:
-        chat = LlmChat(api_key=api_key, session_id=session_id, system_message=SYSTEM_PROMPT).with_model("openai", "gpt-5-mini")
-        reply = await chat.send_message(UserMessage(text=data.message))
+        client_ai = AsyncOpenAI(api_key=api_key)
+        resp = await client_ai.chat.completions.create(model="gpt-4o-mini", messages=messages, max_tokens=2000)
+        reply = resp.choices[0].message.content or ""
     except Exception as e:
         logger.exception("AI error")
         raise HTTPException(status_code=500, detail=f"Erro na IA: {str(e)[:200]}")
