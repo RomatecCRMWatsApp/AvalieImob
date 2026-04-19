@@ -136,6 +136,26 @@ const CeoSection = () => {
             ))}
           </div>
         </div>
+        {/* Cross-link to parent company site */}
+        <div className="mt-12 bg-gradient-to-r from-emerald-900 via-emerald-800 to-emerald-900 rounded-2xl p-8 text-white text-center">
+          <div className="text-xs font-semibold tracking-[0.2em] text-amber-300 mb-3">FAMÍLIA ROMATEC</div>
+          <h3 className="font-display text-2xl md:text-3xl font-bold mb-3">
+            Conheça também a <span className="italic text-amber-300">RomaTec Consultoria Total</span>
+          </h3>
+          <p className="text-emerald-100 max-w-2xl mx-auto mb-6">
+            Projetos, engenharia, agrimensura, georreferenciamento e regularização fundiária.
+            Uma década de excelência técnica a serviço de empresas, construtoras e escritórios de engenharia.
+          </p>
+          <a
+            href="https://www.romatecconsult.com.br"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-emerald-950 font-semibold px-6 py-3 rounded-lg transition-colors"
+          >
+            Visitar romatecconsult.com.br
+            <span aria-hidden>→</span>
+          </a>
+        </div>
       </div>
     </section>
   );

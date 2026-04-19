@@ -10,8 +10,10 @@ export const BRAND = {
   address: 'Rua São Raimundo, nº 10 - Centro - Açailândia/MA',
   location: 'Açailândia · Maranhão · Brasil',
   whatsapp: '(99) 99181-1246',
-  email: 'contato@consultoriaromatec.com.br',
-  website: 'www.romatecconsult.com.br',
+  email: 'contato@romatecavalieimob.com.br',
+  email_legacy: 'contato@consultoriaromatec.com.br',
+  website: 'www.romatecavalieimob.com.br',
+  website_parent: 'www.romatecconsult.com.br',
 };
 
 export const FEATURES = [

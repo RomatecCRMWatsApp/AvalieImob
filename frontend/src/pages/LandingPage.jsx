@@ -8,6 +8,7 @@ import Pricing from '../components/landing/Pricing';
 import About from '../components/landing/About';
 import CeoSection from '../components/landing/CeoSection';
 import Footer from '../components/landing/Footer';
+import WhatsAppButton from '../components/landing/WhatsAppButton';
 
 const LandingPage = () => {
   return (
@@ -23,6 +24,7 @@ const LandingPage = () => {
         <CeoSection />
       </main>
       <Footer />
+      <WhatsAppButton />
     </div>
   );
 };
