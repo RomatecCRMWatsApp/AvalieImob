@@ -77,10 +77,14 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 # ===== SUBSCRIPTION GUARD DEPENDENCY ================================
 async def get_active_subscriber(uid: str = Depends(get_current_user_id)):
-    """Verifica se o usuario possui assinatura ativa. Rejeita com 403 se inativa/expirada."""
+    """Verifica se o usuario possui assinatura ativa. Admin bypassa a verificação."""
     u = await db.users.find_one({"id": uid})
     if not u:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    # Admin bypassa subscription check
+    role = u.get("role", "user")
+    if role == "admin":
+        return uid
     plan_status = u.get("plan_status", "inactive")
     plan_expires = u.get("plan_expires")
     now = datetime.utcnow()
@@ -138,7 +142,7 @@ async def login(request: Request, data: UserLogin):
     if not u or not verify_password(data.password, u.get("password_hash", "")):
         raise HTTPException(status_code=401, detail="Credenciais inválidas")
     token = create_token(u["id"])
-    defaults = {"crea": "", "plan": "mensal", "plan_status": "inactive", "plan_expires": None, "company": "", "bio": ""}
+    defaults = {"crea": "", "role": "user", "plan": "mensal", "plan_status": "inactive", "plan_expires": None, "company": "", "bio": ""}
     pub = UserPublic(**{k: u.get(k) if u.get(k) is not None else defaults.get(k, "") for k in UserPublic.model_fields})
     return AuthResponse(user=pub, token=token)
 
@@ -146,7 +150,7 @@ async def login(request: Request, data: UserLogin):
 @api.get("/auth/me", response_model=UserPublic)
 async def me(uid: str = Depends(get_current_user_id)):
     u = await _user_doc(uid)
-    defaults = {"crea": "", "plan": "mensal", "plan_status": "inactive", "plan_expires": None, "company": "", "bio": ""}
+    defaults = {"crea": "", "role": "user", "plan": "mensal", "plan_status": "inactive", "plan_expires": None, "company": "", "bio": ""}
     fields = {k: u.get(k) if u.get(k) is not None else defaults.get(k, "") for k in UserPublic.model_fields}
     return UserPublic(**fields)
 
