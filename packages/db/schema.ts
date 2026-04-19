@@ -7,7 +7,7 @@ import {
   decimal,
   datetime,
   boolean,
-  enum as dbEnum,
+  mysqlEnum as dbEnum,
   index,
   primaryKey,
   unique,
