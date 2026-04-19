@@ -1,256 +1,776 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Textarea } from '../../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { Plus, Trash2, Sparkles } from 'lucide-react';
-import { emptyImpactArea, emptySample } from './ptamHelpers';
+import { emptyMarketSample, emptyImpactArea, emptySample, computeStats } from './ptamHelpers';
 
-const Field = ({ label, children, full }) => (
-  <div className={full ? 'col-span-2' : ''}>
+// ── Shared primitives ──────────────────────────────────────────────────────────
+
+const Field = ({ label, children, full, half }) => (
+  <div className={full ? 'col-span-2' : half ? 'col-span-1' : ''}>
     <label className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
     {children}
   </div>
 );
 
 const AiButton = ({ onClick, loading }) => (
-  <Button type="button" size="sm" variant="ghost" className="text-emerald-700 hover:text-emerald-900 hover:bg-emerald-50" onClick={onClick} disabled={loading}>
-    <Sparkles className="w-3.5 h-3.5 mr-1" /> {loading ? '...' : 'Aperfeiçoar com IA'}
+  <Button
+    type="button" size="sm" variant="ghost"
+    className="text-emerald-700 hover:text-emerald-900 hover:bg-emerald-50"
+    onClick={onClick} disabled={loading}
+  >
+    <Sparkles className="w-3.5 h-3.5 mr-1" />
+    {loading ? '...' : 'Aperfeiçoar com IA'}
   </Button>
 );
 
-export const StepIdentification = ({ form, setForm, onAi, aiLoading }) => (
-  <div className="space-y-5">
-    <div>
-      <h2 className="font-display text-xl font-bold text-gray-900">Identificação do PTAM</h2>
-      <p className="text-sm text-gray-600 mt-1">Dados do processo, solicitante e base legal.</p>
+const SectionHeader = ({ title, subtitle }) => (
+  <div className="mb-6">
+    <h2 className="font-display text-xl font-bold text-gray-900">{title}</h2>
+    {subtitle && <p className="text-sm text-gray-500 mt-1">{subtitle}</p>}
+  </div>
+);
+
+const StatBox = ({ label, value, unit = '' }) => (
+  <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 text-center">
+    <div className="text-xs text-emerald-700 uppercase tracking-wider mb-1">{label}</div>
+    <div className="text-2xl font-bold text-emerald-900">
+      {typeof value === 'number' ? value.toLocaleString('pt-BR', { maximumFractionDigits: 2 }) : value}
     </div>
+    {unit && <div className="text-xs text-gray-500 mt-0.5">{unit}</div>}
+  </div>
+);
+
+// ── Step 1: Identificação do Solicitante ──────────────────────────────────────
+export const StepSolicitante = ({ form, setForm }) => (
+  <div>
+    <SectionHeader
+      title="1. Identificação do Solicitante"
+      subtitle="Dados da parte que solicita a avaliação."
+    />
     <div className="grid grid-cols-2 gap-4">
-      <Field label="Número do PTAM"><Input value={form.number} onChange={(e) => setForm({ ...form, number: e.target.value })} placeholder="7010" /></Field>
-      <Field label="Solicitante"><Input value={form.solicitante} onChange={(e) => setForm({ ...form, solicitante: e.target.value })} placeholder="Nome do solicitante" /></Field>
-      <Field label="Processo judicial"><Input value={form.judicial_process} onChange={(e) => setForm({ ...form, judicial_process: e.target.value })} placeholder="Nº do processo" /></Field>
-      <Field label="Ação"><Input value={form.judicial_action} onChange={(e) => setForm({ ...form, judicial_action: e.target.value })} placeholder="Ex: Servidão Administrativa" /></Field>
-      <Field label="Fórum/Vara"><Input value={form.forum} onChange={(e) => setForm({ ...form, forum: e.target.value })} /></Field>
-      <Field label="Juiz"><Input value={form.judge} onChange={(e) => setForm({ ...form, judge: e.target.value })} /></Field>
-      <Field label="Requerente" full><Input value={form.requerente} onChange={(e) => setForm({ ...form, requerente: e.target.value })} /></Field>
-      <Field label="Requerido" full><Input value={form.requerido} onChange={(e) => setForm({ ...form, requerido: e.target.value })} /></Field>
-      <Field label="Finalidade do laudo" full>
-        <Textarea value={form.purpose} onChange={(e) => setForm({ ...form, purpose: e.target.value })} rows={4} placeholder="Descreva a finalidade do parecer técnico..." />
-        <div className="mt-1 flex justify-end"><AiButton onClick={() => onAi('purpose')} loading={aiLoading === 'purpose'} /></div>
+      <Field label="Número do PTAM">
+        <Input value={form.number} onChange={(e) => setForm({ ...form, number: e.target.value })} placeholder="7010/2025" />
+      </Field>
+      <Field label="Nome do Solicitante">
+        <Input value={form.solicitante_nome} onChange={(e) => setForm({ ...form, solicitante_nome: e.target.value })} placeholder="Nome completo ou razão social" />
+      </Field>
+      <Field label="CPF / CNPJ">
+        <Input value={form.solicitante_cpf_cnpj} onChange={(e) => setForm({ ...form, solicitante_cpf_cnpj: e.target.value })} placeholder="000.000.000-00" />
+      </Field>
+      <Field label="Telefone">
+        <Input value={form.solicitante_telefone} onChange={(e) => setForm({ ...form, solicitante_telefone: e.target.value })} placeholder="(99) 99999-9999" />
+      </Field>
+      <Field label="E-mail">
+        <Input type="email" value={form.solicitante_email} onChange={(e) => setForm({ ...form, solicitante_email: e.target.value })} placeholder="email@exemplo.com.br" />
+      </Field>
+      <Field label="Endereço do Solicitante" full>
+        <Input value={form.solicitante_endereco} onChange={(e) => setForm({ ...form, solicitante_endereco: e.target.value })} placeholder="Rua, número, bairro, cidade – UF, CEP" />
       </Field>
     </div>
   </div>
 );
 
-export const StepProperty = ({ form, setForm }) => (
-  <div className="space-y-5">
-    <div>
-      <h2 className="font-display text-xl font-bold text-gray-900">Imóvel Avaliando</h2>
-      <p className="text-sm text-gray-600 mt-1">Dados do imóvel objeto da avaliação.</p>
-    </div>
-    <div className="grid grid-cols-2 gap-4">
-      <Field label="Rótulo/Título do imóvel" full><Input value={form.property_label} onChange={(e) => setForm({ ...form, property_label: e.target.value })} placeholder="Ex: GLEBA PEQUIÁ-BREJÃO, PARTE DO LOTE 78" /></Field>
-      <Field label="Endereço completo" full><Input value={form.property_address} onChange={(e) => setForm({ ...form, property_address: e.target.value })} /></Field>
-      <Field label="Cidade/UF"><Input value={form.property_city} onChange={(e) => setForm({ ...form, property_city: e.target.value })} /></Field>
-      <Field label="Matrícula"><Input value={form.property_matricula} onChange={(e) => setForm({ ...form, property_matricula: e.target.value })} /></Field>
-      <Field label="Proprietário" full><Input value={form.property_owner} onChange={(e) => setForm({ ...form, property_owner: e.target.value })} /></Field>
-      <Field label="Área (hectares)"><Input type="number" step="0.0001" value={form.property_area_ha} onChange={(e) => setForm({ ...form, property_area_ha: Number(e.target.value) })} /></Field>
-      <Field label="Área (m²)"><Input type="number" value={form.property_area_sqm} onChange={(e) => setForm({ ...form, property_area_sqm: Number(e.target.value) })} /></Field>
-      <Field label="Confrontações" full><Textarea value={form.property_confrontations} onChange={(e) => setForm({ ...form, property_confrontations: e.target.value })} rows={3} /></Field>
-      <Field label="Descrição geral" full><Textarea value={form.property_description} onChange={(e) => setForm({ ...form, property_description: e.target.value })} rows={5} /></Field>
-    </div>
-  </div>
-);
-
-export const StepVistoria = ({ form, setForm, onAi, aiLoading }) => {
-  const fields = [
-    { key: 'vistoria_objective', label: 'Objetivo da Vistoria' },
-    { key: 'vistoria_methodology', label: 'Metodologia Adotada' },
-    { key: 'topography', label: 'Topografia' },
-    { key: 'soil_vegetation', label: 'Solo e Cobertura Vegetal' },
-    { key: 'benfeitorias', label: 'Benfeitorias Existentes' },
-    { key: 'accessibility', label: 'Acessibilidade e Infraestrutura' },
-    { key: 'urban_context', label: 'Contexto Urbano e Mercadológico' },
-    { key: 'conservation_state', label: 'Estado Geral de Conservação' },
-    { key: 'vistoria_synthesis', label: 'Síntese Conclusiva da Vistoria' },
-  ];
+// ── Step 2: Objetivo da Avaliação ─────────────────────────────────────────────
+export const StepObjetivo = ({ form, setForm, onAi, aiLoading }) => {
+  const isJudicial = form.finalidade === 'judicial';
   return (
-    <div className="space-y-5">
-      <div>
-        <h2 className="font-display text-xl font-bold text-gray-900">Vistoria</h2>
-        <p className="text-sm text-gray-600 mt-1">Caracterização física e técnica do imóvel vistoriado.</p>
-      </div>
-      <Field label="Data da vistoria">
-        <Input type="date" value={form.vistoria_date} onChange={(e) => setForm({ ...form, vistoria_date: e.target.value })} className="max-w-xs" />
-      </Field>
-      <div className="space-y-4">
-        {fields.map((f) => (
-          <Field key={f.key} label={f.label} full>
-            <Textarea value={form[f.key] || ''} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} rows={3} />
-            <div className="mt-1 flex justify-end"><AiButton onClick={() => onAi(f.key)} loading={aiLoading === f.key} /></div>
-          </Field>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-export const StepMethodology = ({ form, setForm, onAi, aiLoading }) => (
-  <div className="space-y-5">
     <div>
-      <h2 className="font-display text-xl font-bold text-gray-900">Metodologia Utilizada</h2>
-      <p className="text-sm text-gray-600 mt-1">Conforme ABNT NBR 14.653.</p>
-    </div>
-    <Field label="Método escolhido">
-      <Select value={form.methodology} onValueChange={(v) => setForm({ ...form, methodology: v })}>
-        <SelectTrigger><SelectValue /></SelectTrigger>
-        <SelectContent>
-          <SelectItem value="Método Comparativo Direto de Dados de Mercado">Método Comparativo Direto</SelectItem>
-          <SelectItem value="Método Evolutivo">Método Evolutivo</SelectItem>
-          <SelectItem value="Método Involutivo">Método Involutivo</SelectItem>
-          <SelectItem value="Método da Renda">Método da Renda</SelectItem>
-          <SelectItem value="Método do Custo de Reprodução">Método do Custo de Reprodução</SelectItem>
-        </SelectContent>
-      </Select>
-    </Field>
-    <Field label="Justificativa e fundamentação do método" full>
-      <Textarea value={form.methodology_justification} onChange={(e) => setForm({ ...form, methodology_justification: e.target.value })} rows={5} />
-      <div className="mt-1 flex justify-end"><AiButton onClick={() => onAi('methodology_justification')} loading={aiLoading === 'methodology_justification'} /></div>
-    </Field>
-    <Field label="Análise mercadológica (região, oferta, demanda)" full>
-      <Textarea value={form.market_analysis} onChange={(e) => setForm({ ...form, market_analysis: e.target.value })} rows={5} />
-      <div className="mt-1 flex justify-end"><AiButton onClick={() => onAi('market_analysis')} loading={aiLoading === 'market_analysis'} /></div>
-    </Field>
-  </div>
-);
-
-const SampleRow = ({ s, onChange, onRemove }) => (
-  <tr className="border-t border-gray-100">
-    <td className="p-2"><Input value={s.neighborhood} onChange={(e) => onChange({ ...s, neighborhood: e.target.value })} placeholder="Bairro" /></td>
-    <td className="p-2"><Input type="number" value={s.area_total} onChange={(e) => { const v = Number(e.target.value); onChange({ ...s, area_total: v, value_per_sqm: v ? Math.round((s.value || 0) / v * 100) / 100 : 0 }); }} placeholder="m²" /></td>
-    <td className="p-2"><Input type="number" value={s.value} onChange={(e) => { const v = Number(e.target.value); onChange({ ...s, value: v, value_per_sqm: s.area_total ? Math.round(v / s.area_total * 100) / 100 : 0 }); }} placeholder="R$" /></td>
-    <td className="p-2 text-sm text-center">R$ {Number(s.value_per_sqm || 0).toFixed(2)}</td>
-    <td className="p-2"><Input value={s.source} onChange={(e) => onChange({ ...s, source: e.target.value })} placeholder="Fonte" /></td>
-    <td className="p-2"><button onClick={onRemove} className="text-red-600 hover:bg-red-50 p-1.5 rounded" type="button"><Trash2 className="w-4 h-4" /></button></td>
-  </tr>
-);
-
-const ImpactAreaEditor = ({ area, onChange, onRemove, onAi, aiLoading, idx }) => {
-  const updateSample = (sIdx, newS) => {
-    const samples = area.samples.map((s, i) => (i === sIdx ? newS : s));
-    onChange({ ...area, samples });
-  };
-  const addSample = () => onChange({ ...area, samples: [...(area.samples || []), emptySample()] });
-  const removeSample = (sIdx) => onChange({ ...area, samples: area.samples.filter((_, i) => i !== sIdx) });
-  const total = Number(area.area_sqm || 0) * Number(area.unit_value || 0);
-  const avg = area.samples?.length ? area.samples.reduce((a, b) => a + Number(b.value_per_sqm || 0), 0) / area.samples.length : 0;
-
-  return (
-    <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex-1 grid grid-cols-2 gap-3">
-          <Field label="Nome da área"><Input value={area.name} onChange={(e) => onChange({ ...area, name: e.target.value })} /></Field>
-          <Field label="Classificação">
-            <Select value={area.classification} onValueChange={(v) => onChange({ ...area, classification: v })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Rural">Rural</SelectItem>
-                <SelectItem value="Urbana">Urbana</SelectItem>
-                <SelectItem value="Industrial">Industrial</SelectItem>
-                <SelectItem value="Mista">Mista</SelectItem>
-              </SelectContent>
-            </Select>
+      <SectionHeader
+        title="2. Objetivo da Avaliação"
+        subtitle="Descreva a finalidade e o contexto legal da avaliação."
+      />
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Finalidade principal" full>
+          <Select value={form.finalidade} onValueChange={(v) => setForm({ ...form, finalidade: v })}>
+            <SelectTrigger><SelectValue placeholder="Selecione a finalidade..." /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="compra_venda">Compra e Venda</SelectItem>
+              <SelectItem value="financiamento">Financiamento / Garantia Bancária</SelectItem>
+              <SelectItem value="judicial">Uso Judicial / Inventário</SelectItem>
+              <SelectItem value="inventario">Inventário / Partilha</SelectItem>
+              <SelectItem value="locacao">Locação</SelectItem>
+              <SelectItem value="garantia">Garantia de Crédito</SelectItem>
+              <SelectItem value="permuta">Permuta</SelectItem>
+              <SelectItem value="outros">Outros</SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
+        {form.finalidade === 'outros' && (
+          <Field label="Especifique a finalidade" full>
+            <Input value={form.finalidade_outros} onChange={(e) => setForm({ ...form, finalidade_outros: e.target.value })} />
           </Field>
-        </div>
-        <button onClick={onRemove} type="button" className="ml-3 p-2 text-red-600 hover:bg-red-50 rounded self-start"><Trash2 className="w-4 h-4" /></button>
-      </div>
-      <div className="grid grid-cols-3 gap-3">
-        <Field label="Área impactada (m²)"><Input type="number" value={area.area_sqm} onChange={(e) => onChange({ ...area, area_sqm: Number(e.target.value) })} /></Field>
-        <Field label="Valor unitário (R$/m²)"><Input type="number" step="0.01" value={area.unit_value} onChange={(e) => onChange({ ...area, unit_value: Number(e.target.value) })} /></Field>
-        <Field label="Total calculado"><div className="h-9 flex items-center font-bold brand-green">R$ {total.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}</div></Field>
-      </div>
-      <Field label="Majoração aplicada (ex: produção florestal)" full><Input value={area.majoration_note || ''} onChange={(e) => onChange({ ...area, majoration_note: e.target.value })} /></Field>
-      <Field label="Observações / fundamentação específica" full>
-        <Textarea value={area.notes || ''} onChange={(e) => onChange({ ...area, notes: e.target.value })} rows={3} />
-        <div className="mt-1 flex justify-end"><AiButton onClick={() => onAi(`impact_${idx}_notes`)} loading={aiLoading === `impact_${idx}_notes`} /></div>
-      </Field>
-
-      <div className="border-t border-gray-100 pt-4">
-        <div className="flex items-center justify-between mb-2">
-          <div>
-            <div className="font-semibold text-sm text-gray-900">Amostras de mercado</div>
-            {area.samples?.length > 0 && <div className="text-xs text-gray-500">Média: R$ {avg.toFixed(2)}/m²</div>}
+        )}
+        <Field label="Descrição do objetivo" full>
+          <Textarea
+            value={form.purpose}
+            onChange={(e) => setForm({ ...form, purpose: e.target.value })}
+            rows={4}
+            placeholder="Descreva o objetivo da avaliação de forma técnica..."
+          />
+          <div className="mt-1 flex justify-end">
+            <AiButton onClick={() => onAi('purpose')} loading={aiLoading === 'purpose'} />
           </div>
-          <Button type="button" size="sm" variant="outline" onClick={addSample}><Plus className="w-3.5 h-3.5 mr-1" />Amostra</Button>
-        </div>
-        {area.samples?.length > 0 && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="text-xs text-gray-500"><tr><th className="p-2 text-left">Bairro</th><th className="p-2 text-left">Área (m²)</th><th className="p-2 text-left">Valor (R$)</th><th className="p-2 text-center">R$/m²</th><th className="p-2 text-left">Fonte</th><th /></tr></thead>
-              <tbody>
-                {area.samples.map((s, i) => (
-                  <SampleRow key={s._key || `s-${i}`} s={s} onChange={(ns) => updateSample(i, ns)} onRemove={() => removeSample(i)} />
-                ))}
-              </tbody>
-            </table>
-          </div>
+        </Field>
+        {isJudicial && (
+          <>
+            <Field label="Processo judicial">
+              <Input value={form.judicial_process} onChange={(e) => setForm({ ...form, judicial_process: e.target.value })} placeholder="Nº do processo" />
+            </Field>
+            <Field label="Tipo de ação">
+              <Input value={form.judicial_action} onChange={(e) => setForm({ ...form, judicial_action: e.target.value })} placeholder="Ex: Inventário, Desapropriação" />
+            </Field>
+            <Field label="Fórum / Vara">
+              <Input value={form.forum} onChange={(e) => setForm({ ...form, forum: e.target.value })} />
+            </Field>
+            <Field label="Juiz(a)">
+              <Input value={form.judge} onChange={(e) => setForm({ ...form, judge: e.target.value })} />
+            </Field>
+            <Field label="Requerente" full>
+              <Input value={form.requerente} onChange={(e) => setForm({ ...form, requerente: e.target.value })} />
+            </Field>
+            <Field label="Requerido" full>
+              <Input value={form.requerido} onChange={(e) => setForm({ ...form, requerido: e.target.value })} />
+            </Field>
+          </>
         )}
       </div>
     </div>
   );
 };
 
-export const StepImpactAreas = ({ form, setForm, onAi, aiLoading }) => {
-  const addArea = () => setForm({ ...form, impact_areas: [...(form.impact_areas || []), { ...emptyImpactArea(), name: `Área de Impacto ${String((form.impact_areas?.length || 0) + 1).padStart(2, '0')}` }] });
-  const updateArea = (idx, newA) => setForm({ ...form, impact_areas: form.impact_areas.map((a, i) => (i === idx ? newA : a)) });
-  const removeArea = (idx) => setForm({ ...form, impact_areas: form.impact_areas.filter((_, i) => i !== idx) });
+// ── Step 3: Identificação do Imóvel ──────────────────────────────────────────
+export const StepImovelId = ({ form, setForm }) => (
+  <div>
+    <SectionHeader
+      title="3. Identificação do Imóvel"
+      subtitle="Localização, registro e classificação do imóvel avaliando."
+    />
+    <div className="grid grid-cols-2 gap-4">
+      <Field label="Tipo de imóvel" full>
+        <Select value={form.property_type} onValueChange={(v) => setForm({ ...form, property_type: v })}>
+          <SelectTrigger><SelectValue placeholder="Selecione o tipo..." /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="casa">Casa</SelectItem>
+            <SelectItem value="apartamento">Apartamento</SelectItem>
+            <SelectItem value="terreno">Terreno Urbano</SelectItem>
+            <SelectItem value="rural">Imóvel Rural</SelectItem>
+            <SelectItem value="comercial">Sala / Loja Comercial</SelectItem>
+            <SelectItem value="industrial">Galpão / Industrial</SelectItem>
+            <SelectItem value="outros">Outros</SelectItem>
+          </SelectContent>
+        </Select>
+      </Field>
+      <Field label="Rótulo / Título do imóvel" full>
+        <Input value={form.property_label} onChange={(e) => setForm({ ...form, property_label: e.target.value })} placeholder="Ex: Apartamento 302, Bloco A, Edifício Alfa" />
+      </Field>
+      <Field label="Endereço completo" full>
+        <Input value={form.property_address} onChange={(e) => setForm({ ...form, property_address: e.target.value })} placeholder="Rua, número, complemento" />
+      </Field>
+      <Field label="Bairro">
+        <Input value={form.property_neighborhood} onChange={(e) => setForm({ ...form, property_neighborhood: e.target.value })} />
+      </Field>
+      <Field label="Cidade">
+        <Input value={form.property_city} onChange={(e) => setForm({ ...form, property_city: e.target.value })} />
+      </Field>
+      <Field label="Estado (UF)">
+        <Input value={form.property_state} onChange={(e) => setForm({ ...form, property_state: e.target.value })} placeholder="MA" maxLength={2} />
+      </Field>
+      <Field label="CEP">
+        <Input value={form.property_cep} onChange={(e) => setForm({ ...form, property_cep: e.target.value })} placeholder="00000-000" />
+      </Field>
+      <Field label="Matrícula">
+        <Input value={form.property_matricula} onChange={(e) => setForm({ ...form, property_matricula: e.target.value })} />
+      </Field>
+      <Field label="Cartório / Ofício de Registro" full>
+        <Input value={form.property_cartorio} onChange={(e) => setForm({ ...form, property_cartorio: e.target.value })} placeholder="Ex: 1º Ofício de Registro de Imóveis de ..." />
+      </Field>
+      <Field label="Latitude (GPS)">
+        <Input value={form.property_gps_lat} onChange={(e) => setForm({ ...form, property_gps_lat: e.target.value })} placeholder="-4.9485" />
+      </Field>
+      <Field label="Longitude (GPS)">
+        <Input value={form.property_gps_lng} onChange={(e) => setForm({ ...form, property_gps_lng: e.target.value })} placeholder="-47.4009" />
+      </Field>
+      <Field label="Proprietário(s)" full>
+        <Input value={form.property_owner} onChange={(e) => setForm({ ...form, property_owner: e.target.value })} />
+      </Field>
+      <Field label="Área total (m²)">
+        <Input type="number" step="0.01" value={form.property_area_sqm} onChange={(e) => setForm({ ...form, property_area_sqm: Number(e.target.value) })} />
+      </Field>
+      <Field label="Área (hectares)">
+        <Input type="number" step="0.0001" value={form.property_area_ha} onChange={(e) => setForm({ ...form, property_area_ha: Number(e.target.value) })} />
+      </Field>
+      <Field label="Confrontações / Limites" full>
+        <Textarea value={form.property_confrontations} onChange={(e) => setForm({ ...form, property_confrontations: e.target.value })} rows={3} placeholder="Norte: ..., Sul: ..., Leste: ..., Oeste: ..." />
+      </Field>
+      <Field label="Descrição geral do imóvel" full>
+        <Textarea value={form.property_description} onChange={(e) => setForm({ ...form, property_description: e.target.value })} rows={4} />
+      </Field>
+    </div>
+  </div>
+);
 
+// ── Step 4: Caracterização da Região ─────────────────────────────────────────
+export const StepRegiao = ({ form, setForm, onAi, aiLoading }) => {
+  const fields = [
+    { key: 'regiao_infraestrutura',    label: 'Infraestrutura Urbana', placeholder: 'Pavimentação, iluminação, calçadas, drenagem pluvial...' },
+    { key: 'regiao_servicos_publicos', label: 'Serviços Públicos', placeholder: 'Água, esgoto, energia elétrica, coleta de lixo, transporte...' },
+    { key: 'regiao_uso_predominante',  label: 'Uso Predominante do Solo', placeholder: 'Residencial unifamiliar, misto, comercial...' },
+    { key: 'regiao_padrao_construtivo',label: 'Padrão Construtivo da Região', placeholder: 'Alto / médio / simples — características predominantes...' },
+    { key: 'regiao_tendencia_mercado', label: 'Tendência de Mercado', placeholder: 'Valorização, estabilidade, desvalorização — fatores...' },
+    { key: 'regiao_observacoes',       label: 'Observações Complementares', placeholder: 'Outros aspectos relevantes da região...' },
+  ];
   return (
-    <div className="space-y-5">
-      <div className="flex items-start justify-between">
-        <div>
-          <h2 className="font-display text-xl font-bold text-gray-900">Áreas de Impacto</h2>
-          <p className="text-sm text-gray-600 mt-1">Adicione uma ou mais áreas de impacto com amostragens e valores próprios.</p>
-        </div>
-        <Button type="button" onClick={addArea} className="bg-emerald-900 hover:bg-emerald-800 text-white"><Plus className="w-4 h-4 mr-2" />Nova área</Button>
-      </div>
-      {(!form.impact_areas || form.impact_areas.length === 0) && (
-        <div className="text-center py-10 bg-emerald-50/40 rounded-xl border border-dashed border-emerald-900/20 text-gray-500">Nenhuma área de impacto cadastrada.</div>
-      )}
-      <div className="space-y-4">
-        {(form.impact_areas || []).map((a, i) => (
-          <ImpactAreaEditor key={a._key || `ia-${i}`} area={a} onChange={(na) => updateArea(i, na)} onRemove={() => removeArea(i)} onAi={onAi} aiLoading={aiLoading} idx={i} />
+    <div>
+      <SectionHeader
+        title="4. Caracterização da Região"
+        subtitle="Descreva as características do entorno e do mercado local."
+      />
+      <div className="space-y-5">
+        {fields.map((f) => (
+          <div key={f.key}>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">{f.label}</label>
+            <Textarea
+              value={form[f.key] || ''}
+              onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
+              rows={3}
+              placeholder={f.placeholder}
+            />
+            <div className="mt-1 flex justify-end">
+              <AiButton onClick={() => onAi(f.key)} loading={aiLoading === f.key} />
+            </div>
+          </div>
         ))}
       </div>
     </div>
   );
 };
 
-export const StepConclusion = ({ form, setForm, onAi, aiLoading }) => {
-  const total = (form.impact_areas || []).reduce((acc, a) => acc + Number(a.area_sqm || 0) * Number(a.unit_value || 0), 0);
+// ── Step 5: Caracterização do Imóvel ─────────────────────────────────────────
+export const StepCaracterizacao = ({ form, setForm, onAi, aiLoading }) => (
+  <div>
+    <SectionHeader
+      title="5. Caracterização do Imóvel"
+      subtitle="Características físicas e construtivas do imóvel avaliando."
+    />
+    <div className="grid grid-cols-2 gap-4">
+      <Field label="Área do terreno (m²)">
+        <Input type="number" step="0.01" value={form.imovel_area_terreno} onChange={(e) => setForm({ ...form, imovel_area_terreno: Number(e.target.value) })} />
+      </Field>
+      <Field label="Área construída (m²)">
+        <Input type="number" step="0.01" value={form.imovel_area_construida} onChange={(e) => setForm({ ...form, imovel_area_construida: Number(e.target.value) })} />
+      </Field>
+      <Field label="Idade do imóvel (anos)">
+        <Input type="number" min="0" value={form.imovel_idade} onChange={(e) => setForm({ ...form, imovel_idade: Number(e.target.value) })} />
+      </Field>
+      <Field label="Estado de conservação">
+        <Select value={form.imovel_estado_conservacao} onValueChange={(v) => setForm({ ...form, imovel_estado_conservacao: v })}>
+          <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="otimo">Ótimo</SelectItem>
+            <SelectItem value="bom">Bom</SelectItem>
+            <SelectItem value="regular">Regular</SelectItem>
+            <SelectItem value="ruim">Ruim</SelectItem>
+            <SelectItem value="pessimo">Péssimo</SelectItem>
+          </SelectContent>
+        </Select>
+      </Field>
+      <Field label="Padrão de acabamento">
+        <Select value={form.imovel_padrao_acabamento} onValueChange={(v) => setForm({ ...form, imovel_padrao_acabamento: v })}>
+          <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="alto">Alto</SelectItem>
+            <SelectItem value="medio">Médio</SelectItem>
+            <SelectItem value="simples">Simples</SelectItem>
+            <SelectItem value="minimo">Mínimo</SelectItem>
+          </SelectContent>
+        </Select>
+      </Field>
+      <Field label="Número de quartos">
+        <Input type="number" min="0" value={form.imovel_num_quartos} onChange={(e) => setForm({ ...form, imovel_num_quartos: Number(e.target.value) })} />
+      </Field>
+      <Field label="Número de banheiros">
+        <Input type="number" min="0" value={form.imovel_num_banheiros} onChange={(e) => setForm({ ...form, imovel_num_banheiros: Number(e.target.value) })} />
+      </Field>
+      <Field label="Vagas de garagem">
+        <Input type="number" min="0" value={form.imovel_num_vagas} onChange={(e) => setForm({ ...form, imovel_num_vagas: Number(e.target.value) })} />
+      </Field>
+      <Field label="Piscina">
+        <Select value={form.imovel_piscina ? 'sim' : 'nao'} onValueChange={(v) => setForm({ ...form, imovel_piscina: v === 'sim' })}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="nao">Não</SelectItem>
+            <SelectItem value="sim">Sim</SelectItem>
+          </SelectContent>
+        </Select>
+      </Field>
+      <Field label="Características adicionais / benfeitorias" full>
+        <Textarea
+          value={form.imovel_caracteristicas_adicionais || ''}
+          onChange={(e) => setForm({ ...form, imovel_caracteristicas_adicionais: e.target.value })}
+          rows={4}
+          placeholder="Descreva acabamentos, instalações, reformas, itens diferenciados..."
+        />
+        <div className="mt-1 flex justify-end">
+          <AiButton onClick={() => onAi('imovel_caracteristicas_adicionais')} loading={aiLoading === 'imovel_caracteristicas_adicionais'} />
+        </div>
+      </Field>
+    </div>
+  </div>
+);
+
+// ── Step 6: Amostras de Mercado ────────────────────────────────────────────────
+
+const MarketSampleRow = ({ s, onChange, onRemove, idx }) => {
+  const handleValue = (field, raw) => {
+    const v = Number(raw);
+    const area = field === 'area' ? v : Number(s.area || 0);
+    const value = field === 'value' ? v : Number(s.value || 0);
+    const vpm = area > 0 ? Math.round((value / area) * 100) / 100 : 0;
+    onChange({ ...s, [field]: v, value_per_sqm: vpm });
+  };
+
   return (
-    <div className="space-y-5">
-      <div>
-        <h2 className="font-display text-xl font-bold text-gray-900">Conclusão</h2>
-        <p className="text-sm text-gray-600 mt-1">Valor final consolidado.</p>
+    <tr className="border-t border-gray-100 text-sm">
+      <td className="px-2 py-1.5 text-center text-gray-400 font-mono">{idx + 1}</td>
+      <td className="px-2 py-1.5"><Input value={s.address || ''} onChange={(e) => onChange({ ...s, address: e.target.value })} placeholder="Endereço" className="text-xs h-8" /></td>
+      <td className="px-2 py-1.5"><Input value={s.neighborhood || ''} onChange={(e) => onChange({ ...s, neighborhood: e.target.value })} placeholder="Bairro" className="text-xs h-8" /></td>
+      <td className="px-2 py-1.5 w-24"><Input type="number" value={s.area || ''} onChange={(e) => handleValue('area', e.target.value)} placeholder="m²" className="text-xs h-8" /></td>
+      <td className="px-2 py-1.5 w-28"><Input type="number" value={s.value || ''} onChange={(e) => handleValue('value', e.target.value)} placeholder="R$" className="text-xs h-8" /></td>
+      <td className="px-2 py-1.5 w-24 text-center font-semibold text-emerald-800">
+        {s.value_per_sqm > 0 ? `R$ ${Number(s.value_per_sqm).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}` : '—'}
+      </td>
+      <td className="px-2 py-1.5"><Input value={s.source || ''} onChange={(e) => onChange({ ...s, source: e.target.value })} placeholder="Fonte" className="text-xs h-8" /></td>
+      <td className="px-2 py-1.5 w-28"><Input type="date" value={s.collection_date || ''} onChange={(e) => onChange({ ...s, collection_date: e.target.value })} className="text-xs h-8" /></td>
+      <td className="px-2 py-1.5 w-28"><Input value={s.contact_phone || ''} onChange={(e) => onChange({ ...s, contact_phone: e.target.value })} placeholder="Telefone" className="text-xs h-8" /></td>
+      <td className="px-2 py-1.5">
+        <button type="button" onClick={onRemove} className="p-1.5 text-red-500 hover:bg-red-50 rounded">
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      </td>
+    </tr>
+  );
+};
+
+export const StepAmostras = ({ form, setForm, onAi, aiLoading }) => {
+  const samples = form.market_samples || [];
+  const add = () => setForm({ ...form, market_samples: [...samples, emptyMarketSample()] });
+  const update = (i, ns) => setForm({ ...form, market_samples: samples.map((s, idx) => idx === i ? ns : s) });
+  const remove = (i) => setForm({ ...form, market_samples: samples.filter((_, idx) => idx !== i) });
+
+  const validCount = samples.filter((s) => (s.value_per_sqm || 0) > 0).length;
+
+  return (
+    <div>
+      <SectionHeader
+        title="6. Amostras de Mercado"
+        subtitle="Cadastre as amostras coletadas para a pesquisa de mercado (mínimo 3)."
+      />
+
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-gray-500">{samples.length} amostra(s) cadastrada(s)</span>
+          {validCount < 3 && (
+            <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-0.5">
+              Adicione pelo menos 3 amostras com área e valor
+            </span>
+          )}
+          {validCount >= 3 && (
+            <span className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2 py-0.5">
+              {validCount} amostras com R$/m²
+            </span>
+          )}
+        </div>
+        <Button type="button" onClick={add} className="bg-emerald-900 hover:bg-emerald-800 text-white text-sm">
+          <Plus className="w-4 h-4 mr-1" /> Nova amostra
+        </Button>
       </div>
-      <div className="bg-gradient-to-br from-emerald-900 to-emerald-950 text-white rounded-xl p-6">
-        <div className="text-xs text-emerald-200 uppercase tracking-wider mb-1">Valor total consolidado</div>
-        <div className="font-display text-4xl font-bold">R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-        <div className="text-xs text-emerald-200 mt-2">Soma automática das áreas de impacto</div>
+
+      {samples.length === 0 ? (
+        <div className="text-center py-12 bg-emerald-50/40 rounded-xl border-2 border-dashed border-emerald-200 text-gray-500">
+          Nenhuma amostra cadastrada. Clique em "Nova amostra" para começar.
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-gray-200">
+          <table className="w-full text-sm min-w-[900px]">
+            <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wider">
+              <tr>
+                <th className="px-2 py-2 text-center">#</th>
+                <th className="px-2 py-2 text-left">Endereço</th>
+                <th className="px-2 py-2 text-left">Bairro</th>
+                <th className="px-2 py-2 text-left">Área (m²)</th>
+                <th className="px-2 py-2 text-left">Valor (R$)</th>
+                <th className="px-2 py-2 text-center">R$/m²</th>
+                <th className="px-2 py-2 text-left">Fonte</th>
+                <th className="px-2 py-2 text-left">Data coleta</th>
+                <th className="px-2 py-2 text-left">Telefone</th>
+                <th className="px-2 py-2" />
+              </tr>
+            </thead>
+            <tbody>
+              {samples.map((s, i) => (
+                <MarketSampleRow
+                  key={s._key || `ms-${i}`}
+                  s={s}
+                  idx={i}
+                  onChange={(ns) => update(i, ns)}
+                  onRemove={() => remove(i)}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div className="mt-6">
+        <label className="block text-sm font-medium text-gray-700 mb-1.5">Análise de mercado (texto descritivo)</label>
+        <Textarea
+          value={form.market_analysis || ''}
+          onChange={(e) => setForm({ ...form, market_analysis: e.target.value })}
+          rows={4}
+          placeholder="Descreva o comportamento do mercado imobiliário local, oferta, demanda, liquidez..."
+        />
+        <div className="mt-1 flex justify-end">
+          <AiButton onClick={() => onAi('market_analysis')} loading={aiLoading === 'market_analysis'} />
+        </div>
       </div>
-      <div className="grid grid-cols-2 gap-4">
-        <Field label="Valor total (sobrescrever se necessário)"><Input type="number" step="0.01" value={form.total_indemnity || total} onChange={(e) => setForm({ ...form, total_indemnity: Number(e.target.value) })} /></Field>
-        <Field label="Cidade"><Input value={form.conclusion_city} onChange={(e) => setForm({ ...form, conclusion_city: e.target.value })} placeholder="Açailândia/MA" /></Field>
-      </div>
-      <Field label="Valor por extenso" full>
-        <Input value={form.total_indemnity_words} onChange={(e) => setForm({ ...form, total_indemnity_words: e.target.value })} placeholder="Ex: onze milhões, trezentos e dezessete mil reais" />
-      </Field>
-      <Field label="Data"><Input type="date" value={form.conclusion_date} onChange={(e) => setForm({ ...form, conclusion_date: e.target.value })} className="max-w-xs" /></Field>
-      <Field label="Texto de conclusão técnica" full>
-        <Textarea value={form.conclusion_text} onChange={(e) => setForm({ ...form, conclusion_text: e.target.value })} rows={6} />
-        <div className="mt-1 flex justify-end"><AiButton onClick={() => onAi('conclusion_text')} loading={aiLoading === 'conclusion_text'} /></div>
-      </Field>
     </div>
   );
 };
+
+// ── Step 7: Metodologia ────────────────────────────────────────────────────────
+export const StepMetodologia = ({ form, setForm, onAi, aiLoading }) => (
+  <div>
+    <SectionHeader
+      title="7. Metodologia"
+      subtitle="Método avaliativo adotado conforme ABNT NBR 14.653."
+    />
+    <div className="space-y-5">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1.5">Método escolhido</label>
+        <Select value={form.methodology} onValueChange={(v) => setForm({ ...form, methodology: v })}>
+          <SelectTrigger className="max-w-md"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Método Comparativo Direto de Dados de Mercado">Método Comparativo Direto de Dados de Mercado</SelectItem>
+            <SelectItem value="Método Evolutivo">Método Evolutivo</SelectItem>
+            <SelectItem value="Método Involutivo">Método Involutivo</SelectItem>
+            <SelectItem value="Método da Renda">Método da Renda</SelectItem>
+            <SelectItem value="Método do Custo de Reprodução">Método do Custo de Reprodução</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1.5">Justificativa e fundamentação do método</label>
+        <Textarea
+          value={form.methodology_justification || ''}
+          onChange={(e) => setForm({ ...form, methodology_justification: e.target.value })}
+          rows={6}
+          placeholder="Justifique tecnicamente a escolha do método conforme as características do imóvel e disponibilidade de dados..."
+        />
+        <div className="mt-1 flex justify-end">
+          <AiButton onClick={() => onAi('methodology_justification')} loading={aiLoading === 'methodology_justification'} />
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+// ── Step 8: Cálculos e Tratamento Estatístico ─────────────────────────────────
+export const StepCalculos = ({ form, setForm, onAi, aiLoading }) => {
+  const samples = form.market_samples || [];
+  const auto = computeStats(samples);
+
+  useEffect(() => {
+    if (samples.length > 0) {
+      setForm((f) => ({
+        ...f,
+        calc_media: auto.media,
+        calc_mediana: auto.mediana,
+        calc_desvio_padrao: auto.desvio_padrao,
+        calc_coef_variacao: auto.coef_variacao,
+      }));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [samples.length]);
+
+  const validSamples = samples.filter((s) => (s.value_per_sqm || 0) > 0);
+  const cvClass = auto.coef_variacao <= 15 ? 'text-emerald-700' : auto.coef_variacao <= 30 ? 'text-amber-600' : 'text-red-600';
+
+  return (
+    <div>
+      <SectionHeader
+        title="8. Cálculos e Tratamento Estatístico"
+        subtitle="Estatísticas calculadas automaticamente com base nas amostras coletadas."
+      />
+
+      {validSamples.length === 0 ? (
+        <div className="p-6 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-sm mb-6">
+          Nenhuma amostra com área e valor informados. Volte ao passo 6 e preencha as amostras.
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-4 gap-4 mb-6">
+            <StatBox label="Média R$/m²" value={auto.media} unit={`${validSamples.length} amostras`} />
+            <StatBox label="Mediana R$/m²" value={auto.mediana} />
+            <StatBox label="Desvio Padrão" value={auto.desvio_padrao} />
+            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 text-center">
+              <div className="text-xs text-emerald-700 uppercase tracking-wider mb-1">CV (%)</div>
+              <div className={`text-2xl font-bold ${cvClass}`}>
+                {auto.coef_variacao.toFixed(2)}%
+              </div>
+              <div className="text-xs text-gray-500 mt-0.5">
+                {auto.coef_variacao <= 15 ? 'Homogêneo' : auto.coef_variacao <= 30 ? 'Heterogêneo' : 'Muito heterogêneo'}
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gray-50 rounded-xl border border-gray-200 p-4 mb-6">
+            <table className="w-full text-sm">
+              <thead className="text-xs text-gray-500 uppercase">
+                <tr>
+                  <th className="text-left py-1.5 px-2">#</th>
+                  <th className="text-left py-1.5 px-2">Endereço / Bairro</th>
+                  <th className="text-right py-1.5 px-2">Área (m²)</th>
+                  <th className="text-right py-1.5 px-2">Valor (R$)</th>
+                  <th className="text-right py-1.5 px-2">R$/m²</th>
+                </tr>
+              </thead>
+              <tbody>
+                {validSamples.map((s, i) => (
+                  <tr key={s._key || i} className="border-t border-gray-100">
+                    <td className="py-1.5 px-2 text-gray-400">{i + 1}</td>
+                    <td className="py-1.5 px-2">{s.address || s.neighborhood || '—'}</td>
+                    <td className="py-1.5 px-2 text-right">{Number(s.area || 0).toLocaleString('pt-BR')}</td>
+                    <td className="py-1.5 px-2 text-right">{Number(s.value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                    <td className="py-1.5 px-2 text-right font-semibold text-emerald-800">
+                      {Number(s.value_per_sqm || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">Grau de Fundamentação (NBR 14.653-2)</label>
+          <Select value={form.calc_grau_fundamentacao} onValueChange={(v) => setForm({ ...form, calc_grau_fundamentacao: v })}>
+            <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="I">Grau I</SelectItem>
+              <SelectItem value="II">Grau II</SelectItem>
+              <SelectItem value="III">Grau III</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div />
+        <div className="col-span-2">
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">Fatores de Homogeneização aplicados</label>
+          <Textarea
+            value={form.calc_fatores_homogeneizacao || ''}
+            onChange={(e) => setForm({ ...form, calc_fatores_homogeneizacao: e.target.value })}
+            rows={3}
+            placeholder="Descreva os fatores aplicados: localização, área, padrão construtivo, etc."
+          />
+          <div className="mt-1 flex justify-end">
+            <AiButton onClick={() => onAi('calc_fatores_homogeneizacao')} loading={aiLoading === 'calc_fatores_homogeneizacao'} />
+          </div>
+        </div>
+        <div className="col-span-2">
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">Observações sobre os cálculos</label>
+          <Textarea
+            value={form.calc_observacoes || ''}
+            onChange={(e) => setForm({ ...form, calc_observacoes: e.target.value })}
+            rows={3}
+            placeholder="Outliers descartados, ajustes realizados, limitações dos dados..."
+          />
+          <div className="mt-1 flex justify-end">
+            <AiButton onClick={() => onAi('calc_observacoes')} loading={aiLoading === 'calc_observacoes'} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── Step 9: Resultado da Avaliação ────────────────────────────────────────────
+export const StepResultado = ({ form, setForm }) => {
+  const stats = computeStats(form.market_samples || []);
+  const area = Number(form.imovel_area_construida || form.imovel_area_terreno || form.property_area_sqm || 0);
+  const unitario = form.resultado_valor_unitario || stats.media || 0;
+  const total = unitario * area;
+
+  // confidence interval ±10% as default
+  const inf = unitario * 0.9;
+  const sup = unitario * 1.1;
+
+  const fmtBrl = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+  return (
+    <div>
+      <SectionHeader
+        title="9. Resultado da Avaliação"
+        subtitle="Valor final do imóvel calculado com base nas amostras e método adotado."
+      />
+
+      <div className="bg-gradient-to-br from-emerald-900 to-emerald-950 text-white rounded-2xl p-7 mb-6">
+        <div className="text-xs text-emerald-300 uppercase tracking-widest mb-1">Valor de Mercado Estimado</div>
+        <div className="font-display text-5xl font-bold mb-2">
+          {fmtBrl(form.resultado_valor_total || total)}
+        </div>
+        <div className="text-sm text-emerald-200">
+          Valor unitário: {fmtBrl(unitario)}/m² &nbsp;·&nbsp; Área de referência: {area.toLocaleString('pt-BR')} m²
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">Valor unitário R$/m² (base)</label>
+          <Input
+            type="number" step="0.01"
+            value={form.resultado_valor_unitario || unitario}
+            onChange={(e) => setForm({ ...form, resultado_valor_unitario: Number(e.target.value), resultado_valor_total: Number(e.target.value) * area })}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">Valor total (R$)</label>
+          <Input
+            type="number" step="0.01"
+            value={form.resultado_valor_total || total}
+            onChange={(e) => setForm({ ...form, resultado_valor_total: Number(e.target.value), total_indemnity: Number(e.target.value) })}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">Intervalo de confiança — Inf. R$/m²</label>
+          <Input
+            type="number" step="0.01"
+            value={form.resultado_intervalo_inf || inf}
+            onChange={(e) => setForm({ ...form, resultado_intervalo_inf: Number(e.target.value) })}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">Intervalo de confiança — Sup. R$/m²</label>
+          <Input
+            type="number" step="0.01"
+            value={form.resultado_intervalo_sup || sup}
+            onChange={(e) => setForm({ ...form, resultado_intervalo_sup: Number(e.target.value) })}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">Data de referência da avaliação</label>
+          <Input type="date" value={form.resultado_data_referencia || ''} onChange={(e) => setForm({ ...form, resultado_data_referencia: e.target.value })} />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">Prazo de validade do laudo</label>
+          <Input value={form.resultado_prazo_validade || ''} onChange={(e) => setForm({ ...form, resultado_prazo_validade: e.target.value })} placeholder="Ex: 6 meses" />
+        </div>
+        <div className="col-span-2">
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">Valor por extenso</label>
+          <Input
+            value={form.total_indemnity_words || ''}
+            onChange={(e) => setForm({ ...form, total_indemnity_words: e.target.value })}
+            placeholder="Ex: cento e cinquenta mil reais"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">Cidade de emissão</label>
+          <Input value={form.conclusion_city || ''} onChange={(e) => setForm({ ...form, conclusion_city: e.target.value })} placeholder="São Luís/MA" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">Data de emissão</label>
+          <Input type="date" value={form.conclusion_date || ''} onChange={(e) => setForm({ ...form, conclusion_date: e.target.value })} />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── Step 10: Considerações Finais ─────────────────────────────────────────────
+export const StepConclusao = ({ form, setForm, onAi, aiLoading }) => (
+  <div>
+    <SectionHeader
+      title="10. Considerações Finais"
+      subtitle="Ressalvas, pressupostos e assinatura do responsável técnico."
+    />
+    <div className="space-y-5">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1.5">Ressalvas</label>
+        <Textarea
+          value={form.consideracoes_ressalvas || ''}
+          onChange={(e) => setForm({ ...form, consideracoes_ressalvas: e.target.value })}
+          rows={3}
+          placeholder="Registre ressalvas importantes sobre dados, documentação ou condições do imóvel..."
+        />
+        <div className="mt-1 flex justify-end">
+          <AiButton onClick={() => onAi('consideracoes_ressalvas')} loading={aiLoading === 'consideracoes_ressalvas'} />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1.5">Pressupostos</label>
+        <Textarea
+          value={form.consideracoes_pressupostos || ''}
+          onChange={(e) => setForm({ ...form, consideracoes_pressupostos: e.target.value })}
+          rows={3}
+          placeholder="Pressupostos adotados na avaliação..."
+        />
+        <div className="mt-1 flex justify-end">
+          <AiButton onClick={() => onAi('consideracoes_pressupostos')} loading={aiLoading === 'consideracoes_pressupostos'} />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1.5">Limitações</label>
+        <Textarea
+          value={form.consideracoes_limitacoes || ''}
+          onChange={(e) => setForm({ ...form, consideracoes_limitacoes: e.target.value })}
+          rows={3}
+          placeholder="Limitações da avaliação, dados indisponíveis, restrições de acesso ao imóvel..."
+        />
+        <div className="mt-1 flex justify-end">
+          <AiButton onClick={() => onAi('consideracoes_limitacoes')} loading={aiLoading === 'consideracoes_limitacoes'} />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1.5">Texto de conclusão técnica</label>
+        <Textarea
+          value={form.conclusion_text || ''}
+          onChange={(e) => setForm({ ...form, conclusion_text: e.target.value })}
+          rows={5}
+          placeholder="Texto final de conclusão do laudo..."
+        />
+        <div className="mt-1 flex justify-end">
+          <AiButton onClick={() => onAi('conclusion_text')} loading={aiLoading === 'conclusion_text'} />
+        </div>
+      </div>
+
+      <div className="border-t border-gray-100 pt-5">
+        <div className="text-sm font-semibold text-gray-900 mb-3">Responsável Técnico</div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Nome completo</label>
+            <Input value={form.responsavel_nome || ''} onChange={(e) => setForm({ ...form, responsavel_nome: e.target.value })} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">CRECI</label>
+            <Input value={form.responsavel_creci || ''} onChange={(e) => setForm({ ...form, responsavel_creci: e.target.value })} placeholder="CRECI/MA nº 000000" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">CNAI</label>
+            <Input value={form.responsavel_cnai || ''} onChange={(e) => setForm({ ...form, responsavel_cnai: e.target.value })} placeholder="CNAI nº 000000" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+// ── Legacy exports (kept so PtamWizard.jsx still compiles if needed) ──────────
+export const StepIdentification = ({ form, setForm, onAi, aiLoading }) => <StepSolicitante form={form} setForm={setForm} />;
+export const StepProperty = ({ form, setForm }) => <StepImovelId form={form} setForm={setForm} />;
+export const StepVistoria = ({ form, setForm, onAi, aiLoading }) => <StepRegiao form={form} setForm={setForm} onAi={onAi} aiLoading={aiLoading} />;
+export const StepMethodology = ({ form, setForm, onAi, aiLoading }) => <StepMetodologia form={form} setForm={setForm} onAi={onAi} aiLoading={aiLoading} />;
+export const StepImpactAreas = ({ form, setForm, onAi, aiLoading }) => <StepAmostras form={form} setForm={setForm} onAi={onAi} aiLoading={aiLoading} />;
+export const StepConclusion = ({ form, setForm, onAi, aiLoading }) => <StepConclusao form={form} setForm={setForm} onAi={onAi} aiLoading={aiLoading} />;
