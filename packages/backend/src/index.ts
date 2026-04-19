@@ -65,16 +65,34 @@ if (existsSync(frontendDist)) {
 }
 
 async function start() {
-  app.listen(PORT, () => {
-    console.log(`✅ Servidor rodando em http://localhost:${PORT}`);
-    console.log(`📡 tRPC: http://localhost:${PORT}/api/trpc`);
+  // Start server IMMEDIATELY so healthcheck passes
+  const server = app.listen(PORT, "0.0.0.0", () => {
+    console.log(`✅ Servidor rodando em http://0.0.0.0:${PORT}`);
+    console.log(`📡 tRPC: http://0.0.0.0:${PORT}/api/trpc`);
+    console.log(`❤️  Healthcheck: http://0.0.0.0:${PORT}/health`);
   });
 
+  // Initialize database asynchronously (doesn't block server startup)
   try {
     await initializeDatabase();
   } catch (error) {
-    console.error("✗ Erro ao conectar database:", error);
+    console.error("✗ Erro ao conectar database (retrying...):", error);
+    // Retry connection after 5 seconds
+    setTimeout(() => {
+      initializeDatabase().catch((err) => {
+        console.error("✗ Database connection failed after retry:", err);
+      });
+    }, 5000);
   }
+
+  // Graceful shutdown
+  process.on("SIGTERM", () => {
+    console.log("SIGTERM received, shutting down gracefully");
+    server.close(() => {
+      console.log("Server closed");
+      process.exit(0);
+    });
+  });
 }
 
 start();
