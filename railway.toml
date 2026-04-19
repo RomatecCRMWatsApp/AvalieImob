@@ -3,7 +3,7 @@ builder = "nixpacks"
 buildCommand = "npm install --legacy-peer-deps && cd packages/frontend && npm run build && cd ../backend && npm install --legacy-peer-deps && npm run bundle"
 
 [deploy]
-startCommand = "cd packages/backend && node server.js"
+startCommand = "node /app/packages/backend/server.js"
 healthcheckPath = "/health"
 healthcheckTimeout = 60
 restartPolicyMaxRetries = 3
