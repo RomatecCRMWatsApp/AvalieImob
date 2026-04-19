@@ -287,6 +287,28 @@ class PtamBase(BaseModel):
     conclusion_date: Optional[str] = ""  # legacy
     conclusion_city: Optional[str] = ""  # legacy
 
+    # ── Seção NBR 14653 — Campos normatizados adicionais ─────────────────────
+    # Documentação analisada (checklist)
+    documentos_analisados: List[str] = Field(default_factory=list)  # matricula, IPTU, planta, escritura, fotos
+    # Zoneamento conforme Plano Diretor
+    zoneamento: Optional[str] = ""  # ZR1, ZR2, ZC, ZI, ZEI, etc.
+    # Vistoria técnica detalhada
+    vistoria_responsavel: Optional[str] = ""
+    vistoria_condicoes: Optional[str] = ""  # condicoes de acesso / observacoes da vistoria
+    # Grau de precisão (NBR 14653-1 item 9)
+    grau_precisao: Optional[str] = "I"  # I | II | III
+    # Campo de arbítrio ±15% (NBR 14653-1 item 9.2.4)
+    campo_arbitrio_min: Optional[float] = 0  # valor -15%
+    campo_arbitrio_max: Optional[float] = 0  # valor +15%
+    # Prazo de validade do laudo
+    prazo_validade_meses: Optional[int] = 6  # default 6 meses
+    # Tipo de profissional responsável
+    tipo_profissional: Optional[str] = "corretor"  # corretor | engenheiro | arquiteto | perito_judicial
+    # Número de registro profissional (CRECI/CREA/CAU)
+    registro_profissional: Optional[str] = ""
+    # Número da ART ou RRT (opcional)
+    art_rrt_numero: Optional[str] = ""
+
     # ── Legacy — Impact areas (desapropriação/servidão) ───────────────────────
     impact_areas: List[PtamImpactArea] = Field(default_factory=list)
 

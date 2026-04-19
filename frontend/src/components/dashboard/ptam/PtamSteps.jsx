@@ -227,6 +227,40 @@ export const StepImovelId = ({ form, setForm }) => (
         acceptPdf
       />
     </div>
+
+    {/* ── Documentação Analisada (checklist NBR 14653 Seção 2) ──────── */}
+    <div className="mt-8 border-t border-gray-100 pt-6">
+      <div className="text-sm font-semibold text-gray-900 mb-3">Documentação Analisada <span className="text-xs font-normal text-gray-400">(NBR 14653 — Seção 2)</span></div>
+      <div className="grid grid-cols-2 gap-2">
+        {[
+          { id: 'matricula', label: 'Matrícula do imóvel' },
+          { id: 'IPTU', label: 'Carnê de IPTU' },
+          { id: 'planta', label: 'Planta / Projeto aprovado' },
+          { id: 'escritura', label: 'Escritura / Contrato' },
+          { id: 'fotos', label: 'Fotografias do imóvel' },
+          { id: 'habite_se', label: 'Habite-se / Auto de conclusão' },
+          { id: 'geo_rural', label: 'Georreferenciamento (rural)' },
+          { id: 'outros_docs', label: 'Outros documentos' },
+        ].map(({ id, label }) => {
+          const checked = (form.documentos_analisados || []).includes(id);
+          return (
+            <label key={id} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                checked={checked}
+                onChange={(e) => {
+                  const prev = form.documentos_analisados || [];
+                  const next = e.target.checked ? [...prev, id] : prev.filter((d) => d !== id);
+                  setForm({ ...form, documentos_analisados: next });
+                }}
+              />
+              {label}
+            </label>
+          );
+        })}
+      </div>
+    </div>
   </div>
 );
 
@@ -246,6 +280,32 @@ export const StepRegiao = ({ form, setForm, onAi, aiLoading }) => {
         title="4. Caracterização da Região"
         subtitle="Descreva as características do entorno e do mercado local."
       />
+
+      {/* Zoneamento conforme Plano Diretor */}
+      <div className="mb-5">
+        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+          Zoneamento (Plano Diretor) <span className="text-xs text-gray-400">— NBR 14653-2</span>
+        </label>
+        <div className="flex gap-2 items-center">
+          <Select value={form.zoneamento || ''} onValueChange={(v) => setForm({ ...form, zoneamento: v })}>
+            <SelectTrigger className="max-w-xs"><SelectValue placeholder="Selecione o zoneamento..." /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ZR1">ZR1 — Zona Residencial 1</SelectItem>
+              <SelectItem value="ZR2">ZR2 — Zona Residencial 2</SelectItem>
+              <SelectItem value="ZR3">ZR3 — Zona Residencial 3</SelectItem>
+              <SelectItem value="ZC">ZC — Zona Comercial</SelectItem>
+              <SelectItem value="ZCI">ZCI — Zona Comercial e Industrial</SelectItem>
+              <SelectItem value="ZI">ZI — Zona Industrial</SelectItem>
+              <SelectItem value="ZEI">ZEI — Zona de Expansão Industrial</SelectItem>
+              <SelectItem value="ZRu">ZRu — Zona Rural</SelectItem>
+              <SelectItem value="ZEIS">ZEIS — Zona Especial de Interesse Social</SelectItem>
+              <SelectItem value="outro">Outro (especificar nas observações)</SelectItem>
+            </SelectContent>
+          </Select>
+          <span className="text-xs text-gray-400">ou informe nas observações</span>
+        </div>
+      </div>
+
       <div className="space-y-5">
         {fields.map((f) => (
           <div key={f.key}>
@@ -688,6 +748,44 @@ export const StepResultado = ({ form, setForm }) => {
             onChange={(e) => setForm({ ...form, resultado_intervalo_sup: Number(e.target.value) })}
           />
         </div>
+
+        {/* Grau de Precisão — NBR 14653-1 item 9 */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            Grau de Precisão <span className="text-xs text-gray-400">— NBR 14653-1 item 9</span>
+          </label>
+          <Select value={form.grau_precisao || 'I'} onValueChange={(v) => setForm({ ...form, grau_precisao: v })}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="I">Grau I — Amplitude ≤ 30%</SelectItem>
+              <SelectItem value="II">Grau II — Amplitude ≤ 20%</SelectItem>
+              <SelectItem value="III">Grau III — Amplitude ≤ 10%</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Campo de Arbítrio — NBR 14653-1 item 9.2.4 */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            Campo de Arbítrio <span className="text-xs text-gray-400">— ±15% (NBR 14653-1 item 9.2.4)</span>
+          </label>
+          <div className="flex gap-2 items-center">
+            <Input
+              type="number" step="0.01" placeholder="-15% (mín)"
+              value={form.campo_arbitrio_min || ''}
+              onChange={(e) => setForm({ ...form, campo_arbitrio_min: Number(e.target.value) })}
+              className="flex-1"
+            />
+            <span className="text-gray-400 text-sm">até</span>
+            <Input
+              type="number" step="0.01" placeholder="+15% (máx)"
+              value={form.campo_arbitrio_max || ''}
+              onChange={(e) => setForm({ ...form, campo_arbitrio_max: Number(e.target.value) })}
+              className="flex-1"
+            />
+          </div>
+        </div>
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">Data de referência da avaliação</label>
           <Input type="date" value={form.resultado_data_referencia || ''} onChange={(e) => setForm({ ...form, resultado_data_referencia: e.target.value })} />
@@ -777,6 +875,21 @@ export const StepConclusao = ({ form, setForm, onAi, aiLoading }) => (
       <div className="border-t border-gray-100 pt-5">
         <div className="text-sm font-semibold text-gray-900 mb-3">Responsável Técnico</div>
         <div className="grid grid-cols-2 gap-4">
+          {/* Tipo de profissional */}
+          <div className="col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Tipo de profissional <span className="text-xs text-gray-400">— define habilitação legal</span>
+            </label>
+            <Select value={form.tipo_profissional || 'corretor'} onValueChange={(v) => setForm({ ...form, tipo_profissional: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="corretor">Corretor de Imóveis (CRECI) — Res. COFECI 957/06</SelectItem>
+                <SelectItem value="engenheiro">Engenheiro / Arquiteto (CREA + ART) — Lei 5.194/66</SelectItem>
+                <SelectItem value="arquiteto">Arquiteto (CAU + RRT) — Lei 12.378/10</SelectItem>
+                <SelectItem value="perito_judicial">Perito Judicial (CREA/CAU + Cadastro Tribunal) — CPC art. 156</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <div className="col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Nome completo</label>
             <Input value={form.responsavel_nome || ''} onChange={(e) => setForm({ ...form, responsavel_nome: e.target.value })} />
@@ -789,6 +902,45 @@ export const StepConclusao = ({ form, setForm, onAi, aiLoading }) => (
             <label className="block text-sm font-medium text-gray-700 mb-1.5">CNAI</label>
             <Input value={form.responsavel_cnai || ''} onChange={(e) => setForm({ ...form, responsavel_cnai: e.target.value })} placeholder="CNAI nº 000000" />
           </div>
+          {/* Registro profissional unificado (CRECI/CREA/CAU) */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Registro profissional (CREA / CAU)</label>
+            <Input
+              value={form.registro_profissional || ''}
+              onChange={(e) => setForm({ ...form, registro_profissional: e.target.value })}
+              placeholder="CREA/MA nº 000000 ou CAU/MA nº A000000"
+            />
+          </div>
+          {/* ART / RRT */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Nº ART / RRT <span className="text-xs text-gray-400">— Res. CONFEA 345/90 (quando exigível)</span>
+            </label>
+            <Input
+              value={form.art_rrt_numero || ''}
+              onChange={(e) => setForm({ ...form, art_rrt_numero: e.target.value })}
+              placeholder="Número da ART ou RRT"
+            />
+          </div>
+          {/* Prazo de validade */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Prazo de validade do laudo <span className="text-xs text-gray-400">— padrão 6 meses</span>
+            </label>
+            <Select
+              value={String(form.prazo_validade_meses || 6)}
+              onValueChange={(v) => setForm({ ...form, prazo_validade_meses: Number(v) })}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="3">3 meses</SelectItem>
+                <SelectItem value="6">6 meses (padrão NBR 14653)</SelectItem>
+                <SelectItem value="12">12 meses</SelectItem>
+                <SelectItem value="24">24 meses</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div />
         </div>
       </div>
     </div>

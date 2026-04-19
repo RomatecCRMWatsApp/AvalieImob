@@ -109,6 +109,28 @@ export const EMPTY_PTAM = {
   conclusion_date: '',
   conclusion_city: '',
 
+  // ── Campos NBR 14653 normatizados (novos) ──────────────────────────────────
+  // Documentação analisada (checklist — Seção 2)
+  documentos_analisados: [],
+  // Zoneamento conforme Plano Diretor (Seção 5)
+  zoneamento: '',
+  // Vistoria técnica detalhada
+  vistoria_responsavel: '',
+  vistoria_condicoes: '',
+  // Grau de precisão (NBR 14653-1 item 9)
+  grau_precisao: 'I',
+  // Campo de arbítrio ±15% (NBR 14653-1 item 9.2.4)
+  campo_arbitrio_min: 0,
+  campo_arbitrio_max: 0,
+  // Prazo de validade do laudo
+  prazo_validade_meses: 6,
+  // Tipo de profissional responsável
+  tipo_profissional: 'corretor',
+  // Número de registro profissional (CRECI/CREA/CAU)
+  registro_profissional: '',
+  // Número da ART ou RRT
+  art_rrt_numero: '',
+
   // Legacy impact areas (desapropriação)
   impact_areas: [],
 

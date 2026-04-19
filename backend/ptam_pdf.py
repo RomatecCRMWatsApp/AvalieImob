@@ -2,11 +2,16 @@
 
 Uses reportlab to produce a professional, print-ready PDF with:
   - Cover page with logo, title, PTAM number and city/date
-  - 7 content sections matching the PTAM model
-  - Tables for impact-area samples and consolidation
+  - 11 content sections matching the PTAM model (ABNT NBR 14653)
+  - Tables for market samples and consolidation
   - Green (#1B4D1B) header band on every page + gold (#D4A830) section titles
-  - Footer: 'RomaTec Consultoria Total — NBR 14.653' on every page
-  - Signature block at the end (evaluator name, CNAI/CRECI)
+  - Footer with full legal basis on every page
+  - Signature block at the end (evaluator name, CRECI/CREA/CAU, ART/RRT)
+
+Normative references:
+  ABNT NBR 14653-1, -2, -3 | Res. COFECI 957/2006
+  Lei 5.194/1966 | Lei 6.530/1978 | Res. CONFEA 345/90
+  Lei 13.786/2018 | CPC art. 156
 """
 from __future__ import annotations
 
@@ -266,12 +271,12 @@ class _RomaTecDoc(BaseDocTemplate):
         canvas.setFillColor(GREEN)
         canvas.rect(0, 0, page_w, footer_h, fill=1, stroke=0)
 
-        canvas.setFont("Helvetica", 8)
+        canvas.setFont("Helvetica", 7)
         canvas.setFillColor(WHITE)
         canvas.drawCentredString(
             page_w / 2,
             (footer_h - 0.3 * cm),
-            "RomaTec Consultoria Total  —  NBR 14.653",
+            "RomaTec Consultoria Total  —  ABNT NBR 14653-1/-2/-3  |  Res. COFECI 957/2006  |  Lei 5.194/66  |  Lei 6.530/78  |  Res. CONFEA 345/90  |  Lei 13.786/2018  |  CPC art. 156",
         )
 
         # page number (right)
@@ -491,6 +496,18 @@ def _build_cover(ptam: dict, logo_bytes: bytes | None, styles: dict) -> list:
                        textColor=GOLD),
     ))
 
+    # normative reference block
+    story.append(_spacer(0.3))
+    norm_text = (
+        "<b>Base normativa:</b> ABNT NBR 14653-1 (Procedimentos Gerais) | NBR 14653-2 (Imóveis Urbanos) | "
+        "NBR 14653-3 (Imóveis Rurais) | Res. COFECI 957/2006 | Lei 5.194/1966 | Lei 6.530/1978 | "
+        "Res. CONFEA 345/90 | Lei 13.786/2018 | CPC art. 156"
+    )
+    story.append(Paragraph(norm_text, ParagraphStyle(
+        "norm_ref", fontName="Helvetica", fontSize=8, alignment=TA_CENTER,
+        textColor=colors.HexColor("#555555"), spaceAfter=4,
+    )))
+
     story.append(PageBreak())
     return story
 
@@ -499,10 +516,32 @@ def _build_cover(ptam: dict, logo_bytes: bytes | None, styles: dict) -> list:
 
 def _build_identification(ptam: dict, styles: dict) -> list:
     story = []
-    story += _section(styles, "1. Identificação")
+    story += _section(styles, "1. Identificação e Objetivo")
+
+    # Tipo de avaliação / finalidade
+    finalidade_map = {
+        "compra_venda": "Compra e Venda",
+        "financiamento": "Financiamento / Garantia Bancária",
+        "judicial": "Uso Judicial / Inventário",
+        "inventario": "Inventário / Partilha",
+        "locacao": "Locação",
+        "garantia": "Garantia de Crédito",
+        "permuta": "Permuta",
+        "outros": "Outros",
+    }
+    finalidade_val = ptam.get("finalidade", "")
+    finalidade_str = finalidade_map.get(finalidade_val, finalidade_val) or ptam.get("purpose", "")
+    if finalidade_str:
+        story += _lv(styles, "Finalidade", finalidade_str)
+    if ptam.get("finalidade_outros"):
+        story += _lv(styles, "Especificação", ptam["finalidade_outros"])
+
     for label, key in [
-        ("Finalidade", "purpose"),
-        ("Solicitante", "solicitante"),
+        ("Solicitante", "solicitante_nome"),
+        ("CPF/CNPJ", "solicitante_cpf_cnpj"),
+        ("Endereço do Solicitante", "solicitante_endereco"),
+        ("Telefone", "solicitante_telefone"),
+        ("E-mail", "solicitante_email"),
         ("Processo Judicial", "judicial_process"),
         ("Ação Judicial", "judicial_action"),
         ("Fórum", "forum"),
@@ -511,16 +550,54 @@ def _build_identification(ptam: dict, styles: dict) -> list:
         ("Juiz", "judge"),
     ]:
         story += _lv(styles, label, ptam.get(key))
+    # Legacy fallback
+    if not ptam.get("solicitante_nome") and ptam.get("solicitante"):
+        story += _lv(styles, "Solicitante", ptam["solicitante"])
+    return story
+
+
+def _build_documentos_analisados(ptam: dict, styles: dict) -> list:
+    """Seção 2: Documentação Analisada — NBR 14653."""
+    docs = ptam.get("documentos_analisados") or []
+    docs_label = {
+        "matricula": "Matrícula do imóvel",
+        "IPTU": "Carnê de IPTU",
+        "planta": "Planta / Projeto aprovado",
+        "escritura": "Escritura / Contrato",
+        "fotos": "Fotografias do imóvel",
+        "habite_se": "Habite-se / Auto de conclusão",
+        "geo_rural": "Georreferenciamento (rural)",
+        "outros_docs": "Outros documentos",
+    }
+    # também conta fotos_imovel e fotos_documentos
+    fotos_count = len(ptam.get("fotos_imovel") or [])
+    doc_count = len(ptam.get("fotos_documentos") or [])
+
+    story = []
+    story += _section(styles, "2. Documentação Analisada")
+    if docs:
+        items_text = " | ".join(docs_label.get(d, d) for d in docs)
+        story.append(Paragraph(items_text, styles["value"]))
+    if fotos_count > 0:
+        story += _lv(styles, "Fotos do imóvel", f"{fotos_count} foto(s) anexada(s)")
+    if doc_count > 0:
+        story += _lv(styles, "Documentos digitalizados", f"{doc_count} arquivo(s) anexado(s)")
+    if not docs and fotos_count == 0 and doc_count == 0:
+        story.append(Paragraph("Documentação não especificada.", styles["body"]))
     return story
 
 
 def _build_property(ptam: dict, styles: dict) -> list:
     story = []
-    story += _section(styles, "2. Imóvel Avaliando")
+    story += _section(styles, "3. Identificação do Imóvel")
     for label, key in [
+        ("Tipo", "property_type"),
         ("Endereço", "property_address"),
+        ("Bairro", "property_neighborhood"),
         ("Cidade/UF", "property_city"),
+        ("CEP", "property_cep"),
         ("Matrícula", "property_matricula"),
+        ("Cartório", "property_cartorio"),
         ("Proprietário", "property_owner"),
         ("Confrontações", "property_confrontations"),
     ]:
@@ -529,14 +606,20 @@ def _build_property(ptam: dict, styles: dict) -> list:
         story += _lv(styles, "Área (ha)", ptam["property_area_ha"])
     if ptam.get("property_area_sqm"):
         story += _lv(styles, "Área (m²)", _fmt_area(ptam["property_area_sqm"]))
+    if ptam.get("property_gps_lat") and ptam.get("property_gps_lng"):
+        story += _lv(styles, "Coordenadas GPS", f"{ptam['property_gps_lat']}, {ptam['property_gps_lng']}")
     story += _body(styles, ptam.get("property_description", ""))
     return story
 
 
 def _build_vistoria(ptam: dict, styles: dict) -> list:
     story = []
-    story += _section(styles, "3. Vistoria")
+    story += _section(styles, "4. Vistoria Técnica")
     story += _lv(styles, "Data da Vistoria", ptam.get("vistoria_date"))
+    if ptam.get("vistoria_responsavel"):
+        story += _lv(styles, "Responsável pela Vistoria", ptam["vistoria_responsavel"])
+    if ptam.get("vistoria_condicoes"):
+        story += _lv(styles, "Condições de Acesso", ptam["vistoria_condicoes"])
 
     for sub_title, key in [
         ("1. Objetivo da Vistoria", "vistoria_objective"),
@@ -562,20 +645,117 @@ def _build_vistoria(ptam: dict, styles: dict) -> list:
     return story
 
 
+def _build_regiao(ptam: dict, styles: dict) -> list:
+    """Seção 5: Análise da Região — infraestrutura, zoneamento, liquidez."""
+    story = []
+    story += _section(styles, "5. Análise da Região")
+
+    # Zoneamento conforme Plano Diretor
+    if ptam.get("zoneamento"):
+        story += _lv(styles, "Zoneamento (Plano Diretor)", ptam["zoneamento"])
+
+    for label, key in [
+        ("Infraestrutura Urbana", "regiao_infraestrutura"),
+        ("Serviços Públicos", "regiao_servicos_publicos"),
+        ("Uso Predominante do Solo", "regiao_uso_predominante"),
+        ("Padrão Construtivo da Região", "regiao_padrao_construtivo"),
+        ("Tendência de Mercado", "regiao_tendencia_mercado"),
+        ("Observações Complementares", "regiao_observacoes"),
+    ]:
+        if ptam.get(key):
+            story += _subsection(styles, label)
+            story += _body(styles, ptam[key])
+
+    # legacy fields
+    for label, key in [
+        ("Contexto Urbano", "urban_context"),
+    ]:
+        if ptam.get(key) and not ptam.get("regiao_infraestrutura"):
+            story += _lv(styles, label, ptam.get(key))
+
+    return story if len(story) > 3 else []
+
+
+def _market_samples_table(samples: list) -> list:
+    """Table of market_samples (new PTAM model) — Seção 6."""
+    if not samples:
+        return []
+    headers = ["Nº", "Endereço / Bairro", "Área (m²)", "Valor (R$)", "R$/m²", "Fonte", "Data Coleta"]
+    data = [headers]
+    for idx, s in enumerate(samples, start=1):
+        vps = float(s.get("value_per_sqm") or 0)
+        data.append([
+            str(idx),
+            f"{s.get('address', '')} / {s.get('neighborhood', '')}".strip(" /"),
+            f"{float(s.get('area') or 0):,.2f}".replace(",", "X").replace(".", ",").replace("X", "."),
+            _fmt_currency(s.get("value", 0)).replace("R$ ", ""),
+            f"{vps:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."),
+            s.get("source", "") or "",
+            s.get("collection_date", "") or "",
+        ])
+    col_widths = [0.8 * cm, 5.0 * cm, 2.2 * cm, 2.5 * cm, 2.0 * cm, 2.5 * cm, 1.7 * cm]
+    tbl = Table(data, colWidths=col_widths, repeatRows=1)
+    tbl.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), GREEN),
+        ("TEXTCOLOR", (0, 0), (-1, 0), WHITE),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, 0), 8),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+        ("FONTSIZE", (0, 1), (-1, -1), 8),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [WHITE, LIGHT_GREEN]),
+        ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#C0C0C0")),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("ALIGN", (1, 1), (1, -1), "LEFT"),
+        ("ALIGN", (5, 1), (5, -1), "LEFT"),
+    ]))
+    return [tbl, _spacer(0.3)]
+
+
 def _build_market_analysis(ptam: dict, styles: dict) -> list:
-    if not ptam.get("market_analysis"):
+    market_samples = ptam.get("market_samples") or []
+    market_analysis = ptam.get("market_analysis", "") or ""
+    if not market_samples and not market_analysis:
         return []
     story = []
-    story += _section(styles, "4. Análise Mercadológica")
-    story += _body(styles, ptam.get("market_analysis", ""))
+    story += _section(styles, "6. Homogeneização e Amostras de Mercado")
+    story += _body(styles, market_analysis)
+    if market_samples:
+        story += _subsection(styles, "Elementos de Comparação Coletados (NBR 14653-2 item 8.2)")
+        story += _market_samples_table(market_samples)
+        # Stats summary
+        values = [float(s.get("value_per_sqm") or 0) for s in market_samples if s.get("value_per_sqm")]
+        if values:
+            n = len(values)
+            avg = sum(values) / n
+            sorted_v = sorted(values)
+            median = (sorted_v[n // 2 - 1] + sorted_v[n // 2]) / 2 if n % 2 == 0 else sorted_v[n // 2]
+            variance = sum((v - avg) ** 2 for v in values) / n
+            std = variance ** 0.5
+            cv = (std / avg * 100) if avg > 0 else 0
+            stats_text = (
+                f"<b>Estatísticas:</b> n={n} | Média: R$ {avg:,.2f}/m² | Mediana: R$ {median:,.2f}/m² | "
+                f"Desvio Padrão: R$ {std:,.2f} | CV: {cv:.2f}%"
+            ).replace(",", "X").replace(".", ",").replace("X", ".")
+            story.append(Paragraph(stats_text, styles["value"]))
     return story
 
 
 def _build_methodology(ptam: dict, styles: dict) -> list:
     story = []
-    story += _section(styles, "5. Metodologia")
+    story += _section(styles, "7. Metodologia")
     story += _lv(styles, "Método Utilizado", ptam.get("methodology"))
     story += _body(styles, ptam.get("methodology_justification", ""))
+    # fatores de homogeneizacao e estatisticas
+    if ptam.get("calc_fatores_homogeneizacao"):
+        story += _subsection(styles, "Fatores de Homogeneização Aplicados")
+        story += _body(styles, ptam["calc_fatores_homogeneizacao"])
+    if ptam.get("calc_grau_fundamentacao"):
+        story += _lv(styles, "Grau de Fundamentação (NBR 14653-2)", ptam["calc_grau_fundamentacao"])
+    if ptam.get("calc_observacoes"):
+        story += _lv(styles, "Observações sobre os Cálculos", ptam["calc_observacoes"])
     return story
 
 
@@ -585,7 +765,7 @@ def _build_impact_areas(ptam: dict, styles: dict) -> list:
         return []
 
     story = []
-    story += _section(styles, "6. Áreas de Impacto e Amostras")
+    story += _section(styles, "8. Áreas de Impacto e Amostras")
 
     for idx, area in enumerate(areas, start=1):
         name = area.get("name") or f"Área de Impacto {idx:02d}"
@@ -615,13 +795,16 @@ def _build_impact_areas(ptam: dict, styles: dict) -> list:
 
 def _build_conclusion(ptam: dict, user: dict, styles: dict) -> list:
     story = []
-    story += _section(styles, "7. Conclusão")
+    story += _section(styles, "9. Valor de Avaliação e Resultado")
     story += _body(styles, ptam.get("conclusion_text", ""))
 
-    if ptam.get("total_indemnity"):
+    # ── Valor principal ────────────────────────────────────────────────────────
+    valor_total = ptam.get("resultado_valor_total") or ptam.get("total_indemnity") or 0
+    valor_unitario = ptam.get("resultado_valor_unitario") or 0
+    if valor_total:
         story.append(_spacer(0.4))
         story.append(Paragraph(
-            f"Valor Total da Indenização: {_fmt_currency(ptam.get('total_indemnity', 0))}",
+            f"Valor de Mercado Avaliado: {_fmt_currency(valor_total)}",
             styles["conclusion_value"],
         ))
         if ptam.get("total_indemnity_words"):
@@ -629,8 +812,81 @@ def _build_conclusion(ptam: dict, user: dict, styles: dict) -> list:
                 f"({ptam['total_indemnity_words']})",
                 styles["conclusion_words"],
             ))
+        if valor_unitario:
+            story += _lv(styles, "Valor Unitário R$/m²", _fmt_currency(valor_unitario))
 
-    # location and date
+    # ── Intervalo de confiança ─────────────────────────────────────────────────
+    inf_val = ptam.get("resultado_intervalo_inf") or 0
+    sup_val = ptam.get("resultado_intervalo_sup") or 0
+    if inf_val and sup_val:
+        story += _lv(styles, "Intervalo de Confiança", f"{_fmt_currency(inf_val)} a {_fmt_currency(sup_val)}")
+
+    # ── Grau de Precisão — NBR 14653-1 item 9 ─────────────────────────────────
+    grau_precisao = ptam.get("grau_precisao") or ""
+    if grau_precisao:
+        grau_desc = {"I": "Grau I — Amplitude ≤ 30%", "II": "Grau II — Amplitude ≤ 20%", "III": "Grau III — Amplitude ≤ 10%"}
+        story += _lv(styles, "Grau de Precisão (NBR 14653-1 item 9)", grau_desc.get(grau_precisao, grau_precisao))
+
+    # ── Campo de Arbítrio — NBR 14653-1 item 9.2.4 ───────────────────────────
+    arb_min = ptam.get("campo_arbitrio_min") or 0
+    arb_max = ptam.get("campo_arbitrio_max") or 0
+    if arb_min or arb_max:
+        story += _lv(
+            styles, "Campo de Arbítrio (NBR 14653-1 item 9.2.4)",
+            f"{_fmt_currency(arb_min)} a {_fmt_currency(arb_max)}  (variação máx. ±15%)"
+        )
+
+    # ── Data de referência ─────────────────────────────────────────────────────
+    if ptam.get("resultado_data_referencia"):
+        story += _lv(styles, "Data de Referência da Avaliação", ptam["resultado_data_referencia"])
+
+    # ── Prazo de Validade ─────────────────────────────────────────────────────
+    story += _section(styles, "10. Prazo de Validade do Laudo")
+    prazo_meses = ptam.get("prazo_validade_meses") or 6
+    prazo_str = ptam.get("resultado_prazo_validade") or f"{prazo_meses} meses"
+    story.append(Paragraph(
+        f"Este Parecer Técnico tem validade de <b>{prazo_str}</b> a contar da data de emissão, "
+        "conforme preconiza a ABNT NBR 14653-1. Após esse período, nova avaliação deverá ser realizada.",
+        styles["body"],
+    ))
+
+    # ── Considerações, Ressalvas e Pressupostos ───────────────────────────────
+    if ptam.get("consideracoes_ressalvas") or ptam.get("consideracoes_pressupostos") or ptam.get("consideracoes_limitacoes"):
+        story += _section(styles, "10.1 Ressalvas, Pressupostos e Limitações")
+        if ptam.get("consideracoes_ressalvas"):
+            story += _subsection(styles, "Ressalvas")
+            story += _body(styles, ptam["consideracoes_ressalvas"])
+        if ptam.get("consideracoes_pressupostos"):
+            story += _subsection(styles, "Pressupostos")
+            story += _body(styles, ptam["consideracoes_pressupostos"])
+        if ptam.get("consideracoes_limitacoes"):
+            story += _subsection(styles, "Limitações")
+            story += _body(styles, ptam["consideracoes_limitacoes"])
+
+    # ── Declaração de Responsabilidade Técnica ────────────────────────────────
+    story += _section(styles, "11. Declaração de Responsabilidade Técnica")
+
+    tipo_prof = ptam.get("tipo_profissional") or user.get("role", "")
+    tipo_map = {
+        "corretor": "Corretor de Imóveis habilitado nos termos da Resolução COFECI 957/2006",
+        "engenheiro": "Engenheiro com Anotação de Responsabilidade Técnica (ART) conforme Resolução CONFEA 345/90",
+        "arquiteto": "Arquiteto e Urbanista com Registro de Responsabilidade Técnica (RRT)",
+        "perito_judicial": "Perito Judicial cadastrado no Tribunal, habilitado nos termos do CPC art. 156",
+    }
+    tipo_desc = tipo_map.get(tipo_prof, tipo_prof)
+    if tipo_desc:
+        story.append(Paragraph(
+            f"O(A) profissional signatário(a) deste Parecer Técnico de Avaliação Mercadológica é "
+            f"<b>{tipo_desc}</b>, responsabilizando-se técnica e legalmente pelo conteúdo e pelos "
+            "valores aqui expressos, conforme as normas regulamentadoras vigentes.",
+            styles["body"],
+        ))
+
+    art_rrt = ptam.get("art_rrt_numero") or ""
+    if art_rrt:
+        story += _lv(styles, "Nº ART / RRT (Res. CONFEA 345/90)", art_rrt)
+
+    # ── Location and date ──────────────────────────────────────────────────────
     city = ptam.get("conclusion_city", "")
     date_str = ptam.get("conclusion_date", datetime.utcnow().strftime("%d/%m/%Y"))
     if city or date_str:
@@ -640,7 +896,7 @@ def _build_conclusion(ptam: dict, user: dict, styles: dict) -> list:
             "loc", fontName="Helvetica", fontSize=10, alignment=TA_RIGHT, textColor=DARK,
         )))
 
-    # signature block
+    # ── Signature block ────────────────────────────────────────────────────────
     story.append(_spacer(1.5))
     sig_line_data = [["_" * 45]]
     sig_line_tbl = Table(sig_line_data, colWidths=[10 * cm])
@@ -655,16 +911,26 @@ def _build_conclusion(ptam: dict, user: dict, styles: dict) -> list:
     sig_line_tbl.hAlign = "CENTER"
     story.append(sig_line_tbl)
 
-    name = user.get("name", "")
+    # nome preferencial: do PTAM ou do user
+    name = ptam.get("responsavel_nome") or user.get("name", "")
     role = user.get("role", "")
-    crea = user.get("crea", "")
+    # registros: CRECI, CNAI, CREA/CAU
+    creci = ptam.get("responsavel_creci") or user.get("crea", "")
+    cnai = ptam.get("responsavel_cnai") or ""
+    registro = ptam.get("registro_profissional") or ""
 
     if name:
         story.append(Paragraph(f"<b>{name}</b>", styles["sig_line"]))
     if role:
         story.append(Paragraph(role, styles["sig_line"]))
-    if crea:
-        story.append(Paragraph(crea, styles["sig_line"]))
+    if creci:
+        story.append(Paragraph(creci, styles["sig_line"]))
+    if cnai:
+        story.append(Paragraph(cnai, styles["sig_line"]))
+    if registro:
+        story.append(Paragraph(registro, styles["sig_line"]))
+    if art_rrt:
+        story.append(Paragraph(f"ART/RRT nº {art_rrt}", styles["sig_line"]))
 
     return story
 
@@ -672,7 +938,21 @@ def _build_conclusion(ptam: dict, user: dict, styles: dict) -> list:
 # ── main entry point ──────────────────────────────────────────────────────────
 
 def generate_ptam_pdf(ptam: dict, user: dict) -> bytes:
-    """Generate a PDF from PTAM data. Returns bytes."""
+    """Generate a PDF from PTAM data. Returns bytes.
+
+    Sections (ABNT NBR 14653):
+      1. Identificação e Objetivo
+      2. Documentação Analisada
+      3. Identificação do Imóvel
+      4. Vistoria Técnica
+      5. Análise da Região
+      6. Homogeneização e Amostras de Mercado
+      7. Metodologia
+      8. Áreas de Impacto (legacy — desapropriação)
+      9. Valor de Avaliação e Resultado
+     10. Prazo de Validade / Ressalvas / Pressupostos
+     11. Declaração de Responsabilidade Técnica + Assinatura
+    """
     buf = io.BytesIO()
     logo_bytes = _fetch_logo()
 
@@ -687,26 +967,43 @@ def generate_ptam_pdf(ptam: dict, user: dict) -> bytes:
     # ── cover ────────────────────────────────────────────────────────────
     story += _build_cover(ptam, logo_bytes, styles)
 
-    # ── sections ─────────────────────────────────────────────────────────
+    # ── Seção 1: Identificação e Objetivo ────────────────────────────────
     story += _build_identification(ptam, styles)
     story.append(_spacer(0.5))
 
+    # ── Seção 2: Documentação Analisada ──────────────────────────────────
+    story += _build_documentos_analisados(ptam, styles)
+    story.append(_spacer(0.5))
+
+    # ── Seção 3: Identificação do Imóvel ─────────────────────────────────
     story += _build_property(ptam, styles)
     story.append(_spacer(0.5))
 
+    # ── Seção 4: Vistoria Técnica ─────────────────────────────────────────
     story += _build_vistoria(ptam, styles)
     story.append(PageBreak())
 
-    story += _build_market_analysis(ptam, styles)
-    if ptam.get("market_analysis"):
+    # ── Seção 5: Análise da Região ────────────────────────────────────────
+    regiao = _build_regiao(ptam, styles)
+    if regiao:
+        story += regiao
         story.append(_spacer(0.5))
 
+    # ── Seção 6: Amostras de Mercado / Homogeneização ────────────────────
+    story += _build_market_analysis(ptam, styles)
+    if ptam.get("market_analysis") or ptam.get("market_samples"):
+        story.append(_spacer(0.5))
+
+    # ── Seção 7: Metodologia ──────────────────────────────────────────────
     story += _build_methodology(ptam, styles)
     story.append(_spacer(0.5))
 
+    # ── Seção 8: Áreas de Impacto (legacy) ───────────────────────────────
     story += _build_impact_areas(ptam, styles)
-    story.append(_spacer(0.5))
+    if ptam.get("impact_areas"):
+        story.append(_spacer(0.5))
 
+    # ── Seções 9-11: Resultado, Prazo, Responsabilidade Técnica ──────────
     story += _build_conclusion(ptam, user, styles)
 
     doc.build(story)
