@@ -37,6 +37,7 @@ class User(BaseModel):
     plan_expires: Optional[datetime] = None
     company: Optional[str] = ""
     bio: Optional[str] = ""
+    company_logo: Optional[str] = None
     created_at: datetime = Field(default_factory=_now)
 
 
@@ -51,6 +52,7 @@ class UserPublic(BaseModel):
     plan_expires: Optional[datetime] = None
     company: Optional[str] = ""
     bio: Optional[str] = ""
+    company_logo: Optional[str] = None
 
 
 class AuthResponse(BaseModel):
@@ -64,6 +66,7 @@ class UserUpdate(BaseModel):
     crea: Optional[str] = None
     company: Optional[str] = None
     bio: Optional[str] = None
+    company_logo: Optional[str] = None
 
 
 # ---------- Clients ----------

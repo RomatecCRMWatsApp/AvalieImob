@@ -193,8 +193,9 @@ def _make_styles():
 class _RomaTecDoc(BaseDocTemplate):
     """Custom doc template that draws header and footer on every page."""
 
-    def __init__(self, buf: io.BytesIO):
+    def __init__(self, buf: io.BytesIO, company_logo_bytes: bytes | None = None):
         self.styles = _make_styles()
+        self._company_logo_bytes = company_logo_bytes
         margin_lr = 2.0 * cm
         margin_tb = 2.5 * cm
         header_h = 1.6 * cm
@@ -235,8 +236,23 @@ class _RomaTecDoc(BaseDocTemplate):
         canvas.setFillColor(GREEN)
         canvas.rect(0, page_h - header_h, page_w, header_h, fill=1, stroke=0)
 
-        # logo in header (tiny, if available)
-        if hasattr(doc, "_logo_bytes") and doc._logo_bytes:
+        # logo in header: prefer company logo, fall back to system logo
+        logo_bytes_to_use = self._company_logo_bytes or (doc._logo_bytes if hasattr(doc, "_logo_bytes") else None)
+        if logo_bytes_to_use:
+            try:
+                logo_buf = io.BytesIO(logo_bytes_to_use)
+                canvas.drawImage(
+                    logo_buf,
+                    margin,
+                    page_h - header_h + 0.15 * cm,
+                    width=1.2 * cm,
+                    height=1.2 * cm,
+                    preserveAspectRatio=True,
+                    mask="auto",
+                )
+            except Exception:
+                pass
+        elif hasattr(doc, "_logo_bytes") and doc._logo_bytes:
             try:
                 logo_buf = io.BytesIO(doc._logo_bytes)
                 canvas.drawImage(
@@ -251,10 +267,11 @@ class _RomaTecDoc(BaseDocTemplate):
             except Exception:
                 pass
 
-        # company name in header
+        # company name in header (prefer user company name, fall back to default)
+        header_company = getattr(doc, "_company_name", "") or "RomaTec Consultoria Total"
         canvas.setFont("Helvetica-Bold", 11)
         canvas.setFillColor(WHITE)
-        canvas.drawString(margin + 1.5 * cm, page_h - header_h + 0.5 * cm, "RomaTec Consultoria Total")
+        canvas.drawString(margin + 1.5 * cm, page_h - header_h + 0.5 * cm, header_company)
 
         # PTAM number (right side)
         ptam_num = getattr(doc, "_ptam_number", "")
@@ -1009,18 +1026,22 @@ def generate_ptam_pdf(ptam: dict, user: dict) -> bytes:
      11. Declaração de Responsabilidade Técnica + Assinatura
     """
     buf = io.BytesIO()
-    logo_bytes = _fetch_logo()
+    system_logo_bytes = _fetch_logo()
+    company_logo_bytes: bytes | None = user.get("_company_logo_bytes")
 
-    doc = _RomaTecDoc(buf)
-    doc._logo_bytes = logo_bytes
+    doc = _RomaTecDoc(buf, company_logo_bytes=company_logo_bytes)
+    doc._logo_bytes = system_logo_bytes
     doc._ptam_number = ptam.get("number", "")
+    doc._company_name = user.get("company", "") or ""
 
     styles = _make_styles()
 
     story: list = []
 
     # ── cover ────────────────────────────────────────────────────────────
-    story += _build_cover(ptam, logo_bytes, styles)
+    # For cover page: prefer company logo, else system logo
+    cover_logo_bytes = company_logo_bytes or system_logo_bytes
+    story += _build_cover(ptam, cover_logo_bytes, styles)
 
     # ── Seção 1: Identificação e Objetivo ────────────────────────────────
     story += _build_identification(ptam, styles)

@@ -145,7 +145,7 @@ async def login(request: Request, data: UserLogin):
     if not u or not verify_password(data.password, u.get("password_hash", "")):
         raise HTTPException(status_code=401, detail="Credenciais inválidas")
     token = create_token(u["id"])
-    defaults = {"crea": "", "role": "user", "plan": "mensal", "plan_status": "inactive", "plan_expires": None, "company": "", "bio": ""}
+    defaults = {"crea": "", "role": "user", "plan": "mensal", "plan_status": "inactive", "plan_expires": None, "company": "", "bio": "", "company_logo": None}
     pub = UserPublic(**{k: u.get(k) if u.get(k) is not None else defaults.get(k, "") for k in UserPublic.model_fields})
     return AuthResponse(user=pub, token=token)
 
@@ -153,7 +153,7 @@ async def login(request: Request, data: UserLogin):
 @api.get("/auth/me", response_model=UserPublic)
 async def me(uid: str = Depends(get_current_user_id)):
     u = await _user_doc(uid)
-    defaults = {"crea": "", "role": "user", "plan": "mensal", "plan_status": "inactive", "plan_expires": None, "company": "", "bio": ""}
+    defaults = {"crea": "", "role": "user", "plan": "mensal", "plan_status": "inactive", "plan_expires": None, "company": "", "bio": "", "company_logo": None}
     fields = {k: u.get(k) if u.get(k) is not None else defaults.get(k, "") for k in UserPublic.model_fields}
     return UserPublic(**fields)
 
@@ -161,7 +161,9 @@ async def me(uid: str = Depends(get_current_user_id)):
 @api.put("/auth/me", response_model=UserPublic)
 async def update_me(data: UserUpdate, uid: str = Depends(get_current_user_id)):
     u = await _user_doc(uid)
-    updates = {k: v for k, v in data.model_dump().items() if v is not None}
+    raw = data.model_dump()
+    # Allow company_logo to be explicitly set to None (logo removal)
+    updates = {k: v for k, v in raw.items() if v is not None or k == "company_logo"}
     if updates:
         await db.users.update_one({"id": uid}, {"$set": updates})
     u = await _user_doc(uid)
@@ -485,6 +487,13 @@ async def download_ptam_pdf(pid: str, uid: str = Depends(get_active_subscriber))
     if not doc:
         raise HTTPException(status_code=404, detail="PTAM não encontrado")
     user = await _user_doc(uid)
+    # Fetch company logo bytes if configured
+    company_logo_id = user.get("company_logo")
+    if company_logo_id:
+        logo_doc = await db.images.find_one({"id": company_logo_id, "user_id": uid})
+        if logo_doc:
+            import base64 as _b64
+            user["_company_logo_bytes"] = _b64.b64decode(logo_doc["data_b64"])
     try:
         data = generate_ptam_pdf(doc, user)
     except Exception as e:
