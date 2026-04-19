@@ -9,10 +9,13 @@ import { drizzle } from "drizzle-orm/mysql2";
 import { join } from "path";
 import { existsSync } from "fs";
 
+console.log("🚀 [STARTUP] Iniciando AvalieImob Backend...");
 dotenv.config();
 
 const PORT = process.env.PORT || 3001;
 const app = express();
+
+console.log(`✓ PORT=${PORT}`);
 
 app.use(cors({ origin: process.env.CORS_ORIGIN || "*", credentials: true }));
 app.use(express.json({ limit: "50mb" }));
@@ -47,12 +50,14 @@ app.use(
 
 // Health check
 app.get("/health", (_req, res) => {
+  console.log("🏥 [HEALTH] Healthcheck request recebido");
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
 // Serve React frontend (production)
-// Use process.cwd() para pegar a raiz da aplicação em produção
+console.log("🎨 [STARTUP] Procurando frontend dist...");
 const appRoot = process.cwd();
+console.log(`📂 Current dir: ${appRoot}`);
 const possiblePaths = [
   join(appRoot, "packages/frontend/dist"),
   join(__dirname, "../frontend/dist"),
@@ -82,40 +87,53 @@ if (frontendDist) {
 }
 
 async function start() {
-  // Start server IMMEDIATELY - don't wait for anything
-  const server = app.listen(PORT, "0.0.0.0", () => {
-    console.log(`✅ Servidor rodando em http://0.0.0.0:${PORT}`);
-    console.log(`📡 tRPC: http://0.0.0.0:${PORT}/api/trpc`);
-    console.log(`❤️  Healthcheck: http://0.0.0.0:${PORT}/health`);
-  });
-
-  // Initialize database in background (non-blocking)
-  setImmediate(async () => {
-    try {
-      await initializeDatabase();
-      console.log("✓ Database conectado com sucesso");
-    } catch (error) {
-      console.error("✗ Database connection failed, retrying...", error);
-      // Retry after 5 seconds
-      setTimeout(() => {
-        initializeDatabase().catch((err) => {
-          console.error("✗ Database retry failed:", err);
-        });
-      }, 5000);
-    }
-  });
-
-  // Graceful shutdown
-  process.on("SIGTERM", () => {
-    console.log("SIGTERM received, shutting down gracefully");
-    server.close(() => {
-      console.log("Server closed");
-      process.exit(0);
+  try {
+    console.log("\n🚀 [START] Iniciando servidor...");
+    const server = app.listen(PORT, "0.0.0.0", () => {
+      console.log("\n" + "=".repeat(60));
+      console.log(`✅ SUCESSO! Servidor rodando em http://0.0.0.0:${PORT}`);
+      console.log(`📡 API tRPC: http://0.0.0.0:${PORT}/api/trpc`);
+      console.log(`❤️  Healthcheck: http://0.0.0.0:${PORT}/health`);
+      console.log("=".repeat(60) + "\n");
     });
-  });
+
+    // Initialize database in background (non-blocking)
+    console.log("🔗 [BACKGROUND] Iniciando database em background...");
+    setImmediate(async () => {
+      try {
+        await initializeDatabase();
+      } catch (error) {
+        console.error("✗ [DB] Database connection failed, retrying in 5s...", error);
+        setTimeout(() => {
+          initializeDatabase().catch((err) => {
+            console.error("✗ [DB] Retry failed:", err);
+          });
+        }, 5000);
+      }
+    });
+
+    // Graceful shutdown
+    process.on("SIGTERM", () => {
+      console.log("\n[SHUTDOWN] SIGTERM received");
+      server.close(() => {
+        console.log("[SHUTDOWN] Server closed");
+        process.exit(0);
+      });
+    });
+  } catch (error) {
+    console.error("✗ [FATAL] Erro no start():", error);
+    process.exit(1);
+  }
 }
 
-start().catch((error) => {
-  console.error("Fatal error starting server:", error);
+// Wrap everything in try-catch to catch startup errors
+try {
+  console.log("📡 [STARTUP] Configurando tRPC...");
+  start().catch((error) => {
+    console.error("✗ [FATAL] Uncaught error:", error);
+    process.exit(1);
+  });
+} catch (error) {
+  console.error("✗ [FATAL] Erro durante setup:", error);
   process.exit(1);
-});
+}
