@@ -51,19 +51,20 @@ app.get("/health", (_req, res) => {
 });
 
 // Serve React frontend (production)
-// Tenta múltiplos caminhos para encontrar o frontend dist
+// Use process.cwd() para pegar a raiz da aplicação em produção
+const appRoot = process.cwd();
 const possiblePaths = [
-  join(__dirname, "../frontend/dist"),           // Relative to bundled server.js
-  join(__dirname, "packages/frontend/dist"),     // Relative to app root
-  "/app/packages/frontend/dist",                 // Absolute path in container
-  "./packages/frontend/dist",                    // Current working directory
+  join(appRoot, "packages/frontend/dist"),
+  join(__dirname, "../frontend/dist"),
+  "/app/packages/frontend/dist",
+  "./packages/frontend/dist",
 ];
 
 let frontendDist: string | null = null;
 for (const path of possiblePaths) {
   if (existsSync(path)) {
     frontendDist = path;
-    console.log(`✓ Frontend dist encontrado em: ${path}`);
+    console.log(`✓ Frontend dist encontrado: ${path}`);
     break;
   }
 }
@@ -73,9 +74,8 @@ if (frontendDist) {
   app.get("*", (_req, res) => {
     res.sendFile(join(frontendDist!, "index.html"));
   });
-  console.log(`✓ Servindo React frontend de: ${frontendDist}`);
 } else {
-  console.log("⚠️  Frontend dist não encontrado, servindo apenas API");
+  console.log("⚠️  Frontend dist não encontrado, API mode apenas");
   app.get("/", (_req, res) => {
     res.json({ message: "AvalieImob API v1.0.0" });
   });
