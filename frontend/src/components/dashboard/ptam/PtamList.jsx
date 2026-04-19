@@ -12,6 +12,7 @@ const PtamList = () => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pdfLoading, setPdfLoading] = useState({});
+  const [docxLoading, setDocxLoading] = useState({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -28,6 +29,7 @@ const PtamList = () => {
   };
 
   const download = async (p) => {
+    setDocxLoading((prev) => ({ ...prev, [p.id]: true }));
     try {
       const blob = await ptamAPI.downloadDocx(p.id);
       const url = window.URL.createObjectURL(blob);
@@ -36,7 +38,9 @@ const PtamList = () => {
       a.download = `PTAM_${(p.number || 'sem-numero').replace(/\//g, '-')}.docx`;
       a.click();
       window.URL.revokeObjectURL(url);
+      toast({ title: 'DOCX gerado com sucesso' });
     } catch { toast({ title: 'Erro ao baixar DOCX', variant: 'destructive' }); }
+    finally { setDocxLoading((prev) => ({ ...prev, [p.id]: false })); }
   };
 
   const downloadPdf = async (p) => {
@@ -102,7 +106,9 @@ const PtamList = () => {
                 <Button size="sm" variant="outline" title="Exportar PDF" onClick={() => downloadPdf(p)} disabled={pdfLoading[p.id]}>
                   {pdfLoading[p.id] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5" />}
                 </Button>
-                <Button size="sm" variant="outline" title="Exportar DOCX" onClick={() => download(p)}><Download className="w-3.5 h-3.5" /></Button>
+                <Button size="sm" variant="outline" title="Exportar DOCX" onClick={() => download(p)} disabled={docxLoading[p.id]}>
+                  {docxLoading[p.id] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                </Button>
                 <Button size="sm" variant="outline" className="text-red-600 hover:bg-red-50" onClick={() => remove(p.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
               </div>
             </div>
