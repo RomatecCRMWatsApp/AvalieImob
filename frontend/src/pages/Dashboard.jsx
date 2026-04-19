@@ -3,7 +3,7 @@ import { Link, NavLink, Routes, Route, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Building2, BarChart3, FileText, Sparkles,
   CreditCard, Settings, LogOut, Menu, X, Bell, FileCheck2, Globe,
-  Search, ChevronDown, User, Shield, Beef
+  Search, ChevronDown, User, Shield, Beef, Award
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { BRAND } from '../mock/mock';
@@ -16,6 +16,7 @@ import Samples from '../components/dashboard/Samples';
 import AIAssistant from '../components/dashboard/AIAssistant';
 import SubscriptionPage from '../components/dashboard/SubscriptionPage';
 import SettingsPage from '../components/dashboard/SettingsPage';
+import PerfilAvaliador from '../components/dashboard/PerfilAvaliador';
 import PtamList from '../components/dashboard/ptam/PtamList';
 import PtamWizard from '../components/dashboard/ptam/PtamWizard';
 import GarantiasList from '../components/dashboard/garantias/GarantiasList';
@@ -61,8 +62,9 @@ const NAV_GROUPS = [
   {
     label: 'Conta',
     items: [
-      { to: '/dashboard/assinatura', icon: CreditCard,     label: 'Assinatura' },
-      { to: '/dashboard/config',     icon: Settings,       label: 'Configurações' },
+      { to: '/dashboard/curriculo',  icon: Award,      label: 'Meu Currículo' },
+      { to: '/dashboard/assinatura', icon: CreditCard, label: 'Assinatura' },
+      { to: '/dashboard/config',     icon: Settings,   label: 'Configurações' },
     ],
   },
 ];
@@ -140,6 +142,13 @@ const AvatarMenu = ({ user, onLogout }) => {
             <div className="text-sm font-semibold text-gray-900">{user?.name}</div>
             <div className="text-xs text-gray-400 truncate">{user?.email}</div>
           </div>
+          <NavLink
+            to="/dashboard/curriculo"
+            className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+            onClick={() => setOpen(false)}
+          >
+            <Award className="w-4 h-4 text-gray-400" /> Meu Currículo
+          </NavLink>
           <NavLink
             to="/dashboard/config"
             className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
@@ -350,6 +359,7 @@ const Dashboard = () => {
             <Route path="semoventes/:id"    element={<SemoventeWizard />} />
             <Route path="laudos"      element={<Evaluations />} />
             <Route path="ia"          element={<AIAssistant />} />
+            <Route path="curriculo"   element={<PerfilAvaliador />} />
             <Route path="assinatura"  element={<SubscriptionPage />} />
             <Route path="config"      element={<SettingsPage />} />
           </Routes>
