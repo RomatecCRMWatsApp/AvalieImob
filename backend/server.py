@@ -29,6 +29,7 @@ from models import (
     EvaluationBase, Evaluation,
     AIMessage, AIMessageResponse,
     PtamBase, Ptam,
+    GarantiaBase, Garantia,
     Transaction, CreatePreferenceRequest,
     CreateTestUserRequest, AdminUserOut,
 )
@@ -464,6 +465,61 @@ async def download_ptam_pdf(pid: str, uid: str = Depends(get_active_subscriber))
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+# ===== GARANTIAS (NBR 14.653 partes 3 e 5) ===========================
+
+@api.get("/garantias", response_model=List[Garantia])
+async def list_garantias(tipo: Optional[str] = None, status: Optional[str] = None, uid: str = Depends(get_active_subscriber)):
+    q: dict = {"user_id": uid}
+    if tipo:
+        q["tipo_garantia"] = tipo
+    if status:
+        q["status"] = status
+    items = await db.garantias.find(q).sort("updated_at", -1).to_list(1000)
+    return [Garantia(**_serialize(i)) for i in items]
+
+
+@api.get("/garantias/{gid}", response_model=Garantia)
+async def get_garantia(gid: str, uid: str = Depends(get_active_subscriber)):
+    doc = await db.garantias.find_one({"id": gid, "user_id": uid})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Garantia não encontrada")
+    return Garantia(**_serialize(doc))
+
+
+@api.post("/garantias", response_model=Garantia)
+async def create_garantia(data: GarantiaBase, uid: str = Depends(get_active_subscriber)):
+    numero = data.numero
+    if not numero:
+        year = datetime.utcnow().year
+        count = await db.garantias.count_documents({"user_id": uid}) + 1
+        numero = f"GAR-{year}-{str(count).zfill(4)}"
+    payload = data.model_dump()
+    payload["numero"] = numero
+    g = Garantia(user_id=uid, **payload)
+    await db.garantias.insert_one(g.model_dump())
+    return g
+
+
+@api.put("/garantias/{gid}", response_model=Garantia)
+async def update_garantia(gid: str, data: GarantiaBase, uid: str = Depends(get_active_subscriber)):
+    doc = await db.garantias.find_one({"id": gid, "user_id": uid})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Garantia não encontrada")
+    updates = data.model_dump()
+    updates["updated_at"] = datetime.utcnow()
+    await db.garantias.update_one({"id": gid}, {"$set": updates})
+    new_doc = await db.garantias.find_one({"id": gid})
+    return Garantia(**_serialize(new_doc))
+
+
+@api.delete("/garantias/{gid}")
+async def delete_garantia(gid: str, uid: str = Depends(get_active_subscriber)):
+    res = await db.garantias.delete_one({"id": gid, "user_id": uid})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Garantia não encontrada")
+    return {"ok": True}
 
 
 # ===== PAYMENTS (Mercado Pago) =======================================

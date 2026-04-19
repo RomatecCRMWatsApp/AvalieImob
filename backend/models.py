@@ -328,6 +328,117 @@ class CreatePreferenceRequest(BaseModel):
     plan_id: str  # mensal | trimestral | anual
 
 
+# ---------- Garantias (NBR 14.653 partes 3 e 5) ----------
+
+class GarantiaSolicitante(BaseModel):
+    nome: Optional[str] = ""
+    cpf_cnpj: Optional[str] = ""
+    instituicao_financeira: Optional[str] = ""
+    telefone: Optional[str] = ""
+    email: Optional[str] = ""
+
+
+class GarantiaResponsavel(BaseModel):
+    nome: Optional[str] = ""
+    creci: Optional[str] = ""
+    cnai: Optional[str] = ""
+    registro: Optional[str] = ""
+
+
+class GarantiaBase(BaseModel):
+    # ── Identificação ─────────────────────────────────────────────────────────
+    numero: Optional[str] = ""
+    tipo_garantia: Optional[str] = "imovel_rural"  # imovel_rural | graos_safra | bovinos | equipamentos | veiculos | outros
+    finalidade: Optional[str] = "credito_rural"    # financiamento | credito_rural | penhor | alienacao_fiduciaria | outros
+
+    # ── Solicitante ───────────────────────────────────────────────────────────
+    solicitante: GarantiaSolicitante = Field(default_factory=GarantiaSolicitante)
+
+    # ── Descrição do Bem ──────────────────────────────────────────────────────
+    descricao_bem: Optional[str] = ""
+
+    # ── Localização / Vistoria ────────────────────────────────────────────────
+    endereco: Optional[str] = ""
+    municipio: Optional[str] = ""
+    uf: Optional[str] = ""
+    cep: Optional[str] = ""
+    gps_lat: Optional[str] = ""
+    gps_lng: Optional[str] = ""
+    matricula: Optional[str] = ""
+    cartorio: Optional[str] = ""
+    data_vistoria: Optional[str] = ""
+
+    # ── Campos rurais ─────────────────────────────────────────────────────────
+    area_total_ha: Optional[float] = 0          # para imovel_rural
+    area_construida_m2: Optional[float] = 0
+    uso_atual: Optional[str] = ""               # pastagem | lavoura | floresta | misto
+    benfeitorias: Optional[str] = ""
+    topografia: Optional[str] = ""
+    solo_vegetacao: Optional[str] = ""
+
+    # ── Campos graos/safra ────────────────────────────────────────────────────
+    cultura: Optional[str] = ""                 # soja | milho | cafe | etc.
+    quantidade_toneladas: Optional[float] = 0
+    sacas: Optional[float] = 0
+    produtividade_sc_ha: Optional[float] = 0
+    local_armazenagem: Optional[str] = ""
+    safra_referencia: Optional[str] = ""
+
+    # ── Campos bovinos ────────────────────────────────────────────────────────
+    raca_tipo: Optional[str] = ""
+    quantidade_cabecas: Optional[int] = 0
+    categoria: Optional[str] = ""              # boi_gordo | vaca | novilha | bezerro
+    peso_medio_kg: Optional[float] = 0
+    aptidao: Optional[str] = ""               # corte | leite | misto
+    local_rebanho: Optional[str] = ""
+
+    # ── Campos equipamentos/veículos ─────────────────────────────────────────
+    marca: Optional[str] = ""
+    modelo: Optional[str] = ""
+    ano_fabricacao: Optional[int] = 0
+    numero_serie: Optional[str] = ""
+    potencia: Optional[str] = ""
+    horimetro_hodometro: Optional[str] = ""
+
+    # ── Avaliação ─────────────────────────────────────────────────────────────
+    estado_conservacao: Optional[str] = "bom"  # otimo | bom | regular | precario
+    valor_unitario: Optional[float] = 0
+    valor_total: Optional[float] = 0
+    data_avaliacao: Optional[str] = ""
+    data_validade: Optional[str] = ""
+    metodologia: Optional[str] = ""
+    fundamentacao_legal: Optional[str] = "NBR 14.653"
+    mercado_referencia: Optional[str] = ""
+    fatores_depreciacao: Optional[str] = ""
+    grau_fundamentacao: Optional[str] = ""    # I | II | III
+
+    # ── Resultado ─────────────────────────────────────────────────────────────
+    resultado_intervalo_inf: Optional[float] = 0
+    resultado_intervalo_sup: Optional[float] = 0
+    resultado_em_extenso: Optional[str] = ""
+
+    # ── Conclusão ─────────────────────────────────────────────────────────────
+    consideracoes: Optional[str] = ""
+    ressalvas: Optional[str] = ""
+
+    # ── Responsável Técnico ───────────────────────────────────────────────────
+    responsavel: GarantiaResponsavel = Field(default_factory=GarantiaResponsavel)
+
+    # ── Fotos / Documentos ────────────────────────────────────────────────────
+    fotos: List[str] = Field(default_factory=list)
+    observacoes: Optional[str] = ""
+
+    # ── Meta ──────────────────────────────────────────────────────────────────
+    status: str = "rascunho"  # rascunho | em_andamento | concluido
+
+
+class Garantia(GarantiaBase):
+    id: str = Field(default_factory=_id)
+    user_id: str
+    created_at: datetime = Field(default_factory=_now)
+    updated_at: datetime = Field(default_factory=_now)
+
+
 # ---------- Admin ----------
 class CreateTestUserRequest(BaseModel):
     name: str

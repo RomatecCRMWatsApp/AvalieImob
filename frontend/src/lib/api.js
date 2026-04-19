@@ -106,6 +106,15 @@ export const ptamAPI = {
   downloadPdf: (id) => api.get(`/ptam/${id}/pdf`, { responseType: 'blob' }).then(r => r.data),
 };
 
+// ---- Garantias (NBR 14.653 partes 3 e 5)
+export const garantiasAPI = {
+  list: (params) => api.get('/garantias', { params }).then(r => r.data),
+  get: (id) => api.get(`/garantias/${id}`).then(r => r.data),
+  create: (data) => api.post('/garantias', data).then(r => r.data),
+  update: (id, data) => api.put(`/garantias/${id}`, data).then(r => r.data),
+  remove: (id) => api.delete(`/garantias/${id}`).then(r => r.data),
+};
+
 
 // ---- Subscription
 export const subAPI = {
