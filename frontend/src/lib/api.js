@@ -16,14 +16,31 @@ const PUBLIC_AUTH_ROUTES = ['/auth/login', '/auth/register'];
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
-      const url = err.config?.url || '';
+    const status = err.response?.status;
+    const url = err.config?.url || '';
+
+    if (status === 401) {
       const isPublic = PUBLIC_AUTH_ROUTES.some((route) => url.includes(route));
       if (!isPublic) {
         localStorage.removeItem('romatec_token');
         localStorage.removeItem('romatec_user');
       }
     }
+
+    if (status === 403) {
+      const detail = err.response?.data?.detail || '';
+      if (detail.toLowerCase().includes('assinatura')) {
+        // Dispatch a custom event so any component can show a toast or redirect
+        window.dispatchEvent(
+          new CustomEvent('avalieimob:subscription-required', { detail: { message: detail } })
+        );
+        // Only redirect if not already on the subscription page
+        if (!window.location.pathname.includes('/assinatura') && !window.location.pathname.includes('/subscription')) {
+          window.location.href = '/assinatura';
+        }
+      }
+    }
+
     return Promise.reject(err);
   }
 );

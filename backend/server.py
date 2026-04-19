@@ -1,6 +1,8 @@
 """RomaTec AvalieImob - FastAPI backend with JWT auth, CRUD, Emergent LLM integration."""
 from fastapi import FastAPI, APIRouter, Depends, HTTPException, status, Request
+from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
@@ -9,6 +11,11 @@ import uuid
 from pathlib import Path
 from datetime import datetime
 from typing import List, Optional
+
+# Rate limiting
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
@@ -42,11 +49,51 @@ mongo_url = os.environ["MONGO_URL"]
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ["DB_NAME"]]
 
+# ===== RATE LIMITER =================================================
+limiter = Limiter(key_func=get_remote_address, default_limits=["100/10minutes"])
+
 app = FastAPI(title="RomaTec AvalieImob API", version="1.0.0")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 api = APIRouter(prefix="/api")
 
 logger = logging.getLogger("romatec")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+
+
+# ===== SECURITY HEADERS MIDDLEWARE ==================================
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        return response
+
+
+# ===== SUBSCRIPTION GUARD DEPENDENCY ================================
+async def get_active_subscriber(uid: str = Depends(get_current_user_id)):
+    """Verifica se o usuario possui assinatura ativa. Rejeita com 403 se inativa/expirada."""
+    u = await db.users.find_one({"id": uid})
+    if not u:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    plan_status = u.get("plan_status", "inactive")
+    plan_expires = u.get("plan_expires")
+    now = datetime.utcnow()
+    # Expirou: atualiza status e rejeita
+    if plan_status == "active" and plan_expires and plan_expires < now:
+        plan_status = "expired"
+        await db.users.update_one({"id": uid}, {"$set": {"plan_status": "expired"}})
+    if plan_status != "active":
+        raise HTTPException(
+            status_code=403,
+            detail="Assinatura inativa. Acesse a página de assinatura para ativar seu plano."
+        )
+    return uid
 
 
 # Helpers ------------------------------------------------------------
@@ -67,7 +114,8 @@ async def _user_doc(user_id: str):
 
 # ===== AUTH =========================================================
 @api.post("/auth/register", response_model=AuthResponse)
-async def register(data: UserRegister):
+@limiter.limit("3/minute")
+async def register(request: Request, data: UserRegister):
     existing = await db.users.find_one({"email": data.email.lower()})
     if existing:
         raise HTTPException(status_code=400, detail="E-mail já cadastrado")
@@ -84,7 +132,8 @@ async def register(data: UserRegister):
 
 
 @api.post("/auth/login", response_model=AuthResponse)
-async def login(data: UserLogin):
+@limiter.limit("5/minute")
+async def login(request: Request, data: UserLogin):
     u = await db.users.find_one({"email": data.email.lower()})
     if not u or not verify_password(data.password, u.get("password_hash", "")):
         raise HTTPException(status_code=401, detail="Credenciais inválidas")
@@ -115,20 +164,20 @@ async def update_me(data: UserUpdate, uid: str = Depends(get_current_user_id)):
 
 # ===== CLIENTS =======================================================
 @api.get("/clients", response_model=List[Client])
-async def list_clients(uid: str = Depends(get_current_user_id)):
+async def list_clients(uid: str = Depends(get_active_subscriber)):
     items = await db.clients.find({"user_id": uid}).sort("created_at", -1).to_list(1000)
     return [Client(**_serialize(i)) for i in items]
 
 
 @api.post("/clients", response_model=Client)
-async def create_client(data: ClientBase, uid: str = Depends(get_current_user_id)):
+async def create_client(data: ClientBase, uid: str = Depends(get_active_subscriber)):
     c = Client(user_id=uid, **data.model_dump())
     await db.clients.insert_one(c.model_dump())
     return c
 
 
 @api.put("/clients/{cid}", response_model=Client)
-async def update_client(cid: str, data: ClientBase, uid: str = Depends(get_current_user_id)):
+async def update_client(cid: str, data: ClientBase, uid: str = Depends(get_active_subscriber)):
     doc = await db.clients.find_one({"id": cid, "user_id": uid})
     if not doc:
         raise HTTPException(status_code=404, detail="Cliente não encontrado")
@@ -138,7 +187,7 @@ async def update_client(cid: str, data: ClientBase, uid: str = Depends(get_curre
 
 
 @api.delete("/clients/{cid}")
-async def delete_client(cid: str, uid: str = Depends(get_current_user_id)):
+async def delete_client(cid: str, uid: str = Depends(get_active_subscriber)):
     res = await db.clients.delete_one({"id": cid, "user_id": uid})
     if res.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Cliente não encontrado")
@@ -147,7 +196,7 @@ async def delete_client(cid: str, uid: str = Depends(get_current_user_id)):
 
 # ===== PROPERTIES ====================================================
 @api.get("/properties", response_model=List[Property])
-async def list_properties(type: Optional[str] = None, uid: str = Depends(get_current_user_id)):
+async def list_properties(type: Optional[str] = None, uid: str = Depends(get_active_subscriber)):
     q = {"user_id": uid}
     if type and type.lower() != "todos":
         q["type"] = type
@@ -156,14 +205,14 @@ async def list_properties(type: Optional[str] = None, uid: str = Depends(get_cur
 
 
 @api.post("/properties", response_model=Property)
-async def create_property(data: PropertyBase, uid: str = Depends(get_current_user_id)):
+async def create_property(data: PropertyBase, uid: str = Depends(get_active_subscriber)):
     p = Property(user_id=uid, **data.model_dump())
     await db.properties.insert_one(p.model_dump())
     return p
 
 
 @api.put("/properties/{pid}", response_model=Property)
-async def update_property(pid: str, data: PropertyBase, uid: str = Depends(get_current_user_id)):
+async def update_property(pid: str, data: PropertyBase, uid: str = Depends(get_active_subscriber)):
     doc = await db.properties.find_one({"id": pid, "user_id": uid})
     if not doc:
         raise HTTPException(status_code=404, detail="Imóvel não encontrado")
@@ -173,7 +222,7 @@ async def update_property(pid: str, data: PropertyBase, uid: str = Depends(get_c
 
 
 @api.delete("/properties/{pid}")
-async def delete_property(pid: str, uid: str = Depends(get_current_user_id)):
+async def delete_property(pid: str, uid: str = Depends(get_active_subscriber)):
     res = await db.properties.delete_one({"id": pid, "user_id": uid})
     if res.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Imóvel não encontrado")
@@ -182,13 +231,13 @@ async def delete_property(pid: str, uid: str = Depends(get_current_user_id)):
 
 # ===== SAMPLES =======================================================
 @api.get("/samples", response_model=List[Sample])
-async def list_samples(uid: str = Depends(get_current_user_id)):
+async def list_samples(uid: str = Depends(get_active_subscriber)):
     items = await db.samples.find({"user_id": uid}).sort("created_at", -1).to_list(1000)
     return [Sample(**_serialize(i)) for i in items]
 
 
 @api.post("/samples", response_model=Sample)
-async def create_sample(data: SampleBase, uid: str = Depends(get_current_user_id)):
+async def create_sample(data: SampleBase, uid: str = Depends(get_active_subscriber)):
     price_per_sqm = round(data.value / data.area) if data.area else 0
     s = Sample(user_id=uid, price_per_sqm=price_per_sqm, **data.model_dump())
     await db.samples.insert_one(s.model_dump())
@@ -196,7 +245,7 @@ async def create_sample(data: SampleBase, uid: str = Depends(get_current_user_id
 
 
 @api.delete("/samples/{sid}")
-async def delete_sample(sid: str, uid: str = Depends(get_current_user_id)):
+async def delete_sample(sid: str, uid: str = Depends(get_active_subscriber)):
     res = await db.samples.delete_one({"id": sid, "user_id": uid})
     if res.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Amostra não encontrada")
@@ -205,13 +254,13 @@ async def delete_sample(sid: str, uid: str = Depends(get_current_user_id)):
 
 # ===== EVALUATIONS ===================================================
 @api.get("/evaluations", response_model=List[Evaluation])
-async def list_evaluations(uid: str = Depends(get_current_user_id)):
+async def list_evaluations(uid: str = Depends(get_active_subscriber)):
     items = await db.evaluations.find({"user_id": uid}).sort("created_at", -1).to_list(1000)
     return [Evaluation(**_serialize(i)) for i in items]
 
 
 @api.post("/evaluations", response_model=Evaluation)
-async def create_evaluation(data: EvaluationBase, uid: str = Depends(get_current_user_id)):
+async def create_evaluation(data: EvaluationBase, uid: str = Depends(get_active_subscriber)):
     year = datetime.utcnow().year
     prefix = {"PTAM": "PTAM", "Laudo": "LAU"}.get(data.type, "GAR")
     count = await db.evaluations.count_documents({"user_id": uid}) + 1
@@ -222,7 +271,7 @@ async def create_evaluation(data: EvaluationBase, uid: str = Depends(get_current
 
 
 @api.put("/evaluations/{eid}", response_model=Evaluation)
-async def update_evaluation(eid: str, data: EvaluationBase, uid: str = Depends(get_current_user_id)):
+async def update_evaluation(eid: str, data: EvaluationBase, uid: str = Depends(get_active_subscriber)):
     doc = await db.evaluations.find_one({"id": eid, "user_id": uid})
     if not doc:
         raise HTTPException(status_code=404, detail="Laudo não encontrado")
@@ -232,7 +281,7 @@ async def update_evaluation(eid: str, data: EvaluationBase, uid: str = Depends(g
 
 
 @api.delete("/evaluations/{eid}")
-async def delete_evaluation(eid: str, uid: str = Depends(get_current_user_id)):
+async def delete_evaluation(eid: str, uid: str = Depends(get_active_subscriber)):
     res = await db.evaluations.delete_one({"id": eid, "user_id": uid})
     if res.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Laudo não encontrado")
@@ -280,7 +329,8 @@ SYSTEM_PROMPT = (
 
 
 @api.post("/ai/chat", response_model=AIMessageResponse)
-async def ai_chat(data: AIMessage, uid: str = Depends(get_current_user_id)):
+@limiter.limit("10/minute")
+async def ai_chat(request: Request, data: AIMessage, uid: str = Depends(get_active_subscriber)):
     from openai import AsyncOpenAI
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
@@ -310,7 +360,7 @@ async def ai_chat(data: AIMessage, uid: str = Depends(get_current_user_id)):
 
 
 @api.get("/ai/history/{session_id}")
-async def ai_history(session_id: str, uid: str = Depends(get_current_user_id)):
+async def ai_history(session_id: str, uid: str = Depends(get_active_subscriber)):
     items = await db.ai_messages.find({"user_id": uid, "session_id": session_id}).sort("ts", 1).to_list(1000)
     return [{"role": i["role"], "content": i["content"], "ts": i["ts"].isoformat()} for i in items]
 
@@ -320,13 +370,13 @@ from fastapi.responses import Response
 
 
 @api.get("/ptam", response_model=List[Ptam])
-async def list_ptam(uid: str = Depends(get_current_user_id)):
+async def list_ptam(uid: str = Depends(get_active_subscriber)):
     items = await db.ptam_documents.find({"user_id": uid}).sort("updated_at", -1).to_list(1000)
     return [Ptam(**_serialize(i)) for i in items]
 
 
 @api.get("/ptam/{pid}", response_model=Ptam)
-async def get_ptam(pid: str, uid: str = Depends(get_current_user_id)):
+async def get_ptam(pid: str, uid: str = Depends(get_active_subscriber)):
     doc = await db.ptam_documents.find_one({"id": pid, "user_id": uid})
     if not doc:
         raise HTTPException(status_code=404, detail="PTAM não encontrado")
@@ -334,7 +384,7 @@ async def get_ptam(pid: str, uid: str = Depends(get_current_user_id)):
 
 
 @api.post("/ptam", response_model=Ptam)
-async def create_ptam(data: PtamBase, uid: str = Depends(get_current_user_id)):
+async def create_ptam(data: PtamBase, uid: str = Depends(get_active_subscriber)):
     number = data.number
     if not number:
         year = datetime.utcnow().year
@@ -348,7 +398,7 @@ async def create_ptam(data: PtamBase, uid: str = Depends(get_current_user_id)):
 
 
 @api.put("/ptam/{pid}", response_model=Ptam)
-async def update_ptam(pid: str, data: PtamBase, uid: str = Depends(get_current_user_id)):
+async def update_ptam(pid: str, data: PtamBase, uid: str = Depends(get_active_subscriber)):
     doc = await db.ptam_documents.find_one({"id": pid, "user_id": uid})
     if not doc:
         raise HTTPException(status_code=404, detail="PTAM não encontrado")
@@ -360,7 +410,7 @@ async def update_ptam(pid: str, data: PtamBase, uid: str = Depends(get_current_u
 
 
 @api.delete("/ptam/{pid}")
-async def delete_ptam(pid: str, uid: str = Depends(get_current_user_id)):
+async def delete_ptam(pid: str, uid: str = Depends(get_active_subscriber)):
     res = await db.ptam_documents.delete_one({"id": pid, "user_id": uid})
     if res.deleted_count == 0:
         raise HTTPException(status_code=404, detail="PTAM não encontrado")
@@ -368,7 +418,7 @@ async def delete_ptam(pid: str, uid: str = Depends(get_current_user_id)):
 
 
 @api.get("/ptam/{pid}/docx")
-async def download_ptam_docx(pid: str, uid: str = Depends(get_current_user_id)):
+async def download_ptam_docx(pid: str, uid: str = Depends(get_active_subscriber)):
     doc = await db.ptam_documents.find_one({"id": pid, "user_id": uid})
     if not doc:
         raise HTTPException(status_code=404, detail="PTAM não encontrado")
@@ -390,7 +440,7 @@ async def download_ptam_docx(pid: str, uid: str = Depends(get_current_user_id)):
 
 
 @api.get("/ptam/{pid}/pdf")
-async def download_ptam_pdf(pid: str, uid: str = Depends(get_current_user_id)):
+async def download_ptam_pdf(pid: str, uid: str = Depends(get_active_subscriber)):
     doc = await db.ptam_documents.find_one({"id": pid, "user_id": uid})
     if not doc:
         raise HTTPException(status_code=404, detail="PTAM não encontrado")
@@ -431,7 +481,8 @@ def _get_mp_sdk():
 
 
 @api.post("/payments/create-preference")
-async def create_preference(data: CreatePreferenceRequest, uid: str = Depends(get_current_user_id)):
+@limiter.limit("10/minute")
+async def create_preference(request: Request, data: CreatePreferenceRequest, uid: str = Depends(get_current_user_id)):
     plan = PLAN_CONFIG.get(data.plan_id)
     if not plan:
         raise HTTPException(status_code=400, detail="Plano inválido. Use: mensal, trimestral ou anual")
@@ -623,6 +674,8 @@ if _frontend_build.exists():
             return FileResponse(str(file_path))
         return FileResponse(str(_frontend_build / "index.html"))
 
+# Middleware (order matters: add after routes, before startup)
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
