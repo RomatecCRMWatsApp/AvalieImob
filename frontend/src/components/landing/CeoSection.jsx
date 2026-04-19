@@ -66,8 +66,8 @@ const CeoSection = () => {
               </div>
               <div className="flex items-start gap-3">
                 <Globe className="w-4 h-4 text-emerald-700 mt-0.5 flex-shrink-0" />
-                <a href="https://www.romatecconsult.com.br" target="_blank" rel="noreferrer" className="text-emerald-800 hover:underline break-all">
-                  www.romatecconsult.com.br
+                <a href="https://www.consultoriaromatec.com.br" target="_blank" rel="noreferrer" className="text-emerald-800 hover:underline break-all">
+                  www.consultoriaromatec.com.br
                 </a>
               </div>
             </div>
@@ -147,12 +147,12 @@ const CeoSection = () => {
             Uma década de excelência técnica a serviço de empresas, construtoras e escritórios de engenharia.
           </p>
           <a
-            href="https://www.romatecconsult.com.br"
+            href="https://www.consultoriaromatec.com.br"
             target="_blank"
             rel="noreferrer"
             className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-emerald-950 font-semibold px-6 py-3 rounded-lg transition-colors"
           >
-            Visitar romatecconsult.com.br
+            Visitar consultoriaromatec.com.br
             <span aria-hidden>→</span>
           </a>
         </div>
