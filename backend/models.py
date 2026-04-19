@@ -4,11 +4,11 @@ from datetime import datetime
 import uuid
 
 
-def _id():
+def _id() -> str:
     return str(uuid.uuid4())
 
 
-def _now():
+def _now() -> datetime:
     return datetime.utcnow()
 
 

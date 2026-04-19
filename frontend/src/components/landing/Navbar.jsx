@@ -20,6 +20,7 @@ const Navbar = () => {
     { href: '#fluxo', label: 'Fluxo' },
     { href: '#planos', label: 'Planos' },
     { href: '#sobre', label: 'Sobre' },
+    { href: '#ceo', label: 'CEO' },
     { href: '#contato', label: 'Contato' },
   ];
 

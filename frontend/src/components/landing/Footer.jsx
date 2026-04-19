@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Facebook, Instagram, Youtube, Mail, Phone, MapPin, Send } from 'lucide-react';
+import { Facebook, Instagram, Youtube, Mail, Phone, MapPin, Send, Globe } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
@@ -50,8 +50,15 @@ const Footer = () => {
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center"><MapPin className="w-4 h-4" /></div>
                 <div>
-                  <div className="text-xs text-emerald-300">Localização</div>
-                  <div className="text-sm font-semibold text-white">{BRAND.location}</div>
+                  <div className="text-xs text-emerald-300">Endereço</div>
+                  <div className="text-sm font-semibold text-white">{BRAND.address}</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center"><Globe className="w-4 h-4" /></div>
+                <div>
+                  <div className="text-xs text-emerald-300">Website</div>
+                  <a href={`https://${BRAND.website}`} target="_blank" rel="noreferrer" className="text-sm font-semibold text-white hover:text-amber-300">{BRAND.website}</a>
                 </div>
               </div>
             </div>

@@ -7,9 +7,11 @@ export const BRAND = {
   logo: 'https://customer-assets.emergentagent.com/job_review-simples/artifacts/0n08eo2p_02_icone_512.png',
   banner: 'https://customer-assets.emergentagent.com/job_review-simples/artifacts/36d07ysm_03_banner_1280x480.png',
   faixa: 'https://customer-assets.emergentagent.com/job_review-simples/artifacts/aujyegag_04_faixa_1200x200.png',
-  location: 'Maranhão · Brasil',
-  whatsapp: '(98) 99999-0000',
-  email: 'contato@romatecavalieimob.com.br'
+  address: 'Rua São Raimundo, nº 10 - Centro - Açailândia/MA',
+  location: 'Açailândia · Maranhão · Brasil',
+  whatsapp: '(99) 99181-1246',
+  email: 'contato@consultoriaromatec.com.br',
+  website: 'www.romatecconsult.com.br',
 };
 
 export const FEATURES = [
