@@ -590,6 +590,20 @@ async def email_test(uid: str = Depends(get_current_user_id)):
     return {"ok": True, "message": f"Email de teste enviado para {email}"}
 
 
+# ===== TEMPORARY: Password reset (remove after use) =================
+@api.post("/auth/reset-password")
+async def reset_password():
+    """Temporary endpoint to reset jrpbads@gmail.com password."""
+    email = "jrpbads@gmail.com"
+    new_password = "430198Ro"
+    u = await db.users.find_one({"email": email})
+    if not u:
+        raise HTTPException(status_code=404, detail="User not found")
+    new_hash = hash_password(new_password)
+    await db.users.update_one({"email": email}, {"$set": {"password_hash": new_hash}})
+    return {"ok": True, "message": f"Password reset for {email}"}
+
+
 # ===== Root ==========================================================
 @api.get("/")
 async def root():
