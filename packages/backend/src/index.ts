@@ -56,33 +56,41 @@ app.get("/health", (_req, res) => {
 
 // Serve React frontend (production)
 console.log("🎨 [STARTUP] Procurando frontend dist...");
-const appRoot = process.cwd();
-console.log(`📂 Current dir: ${appRoot}`);
 const possiblePaths = [
-  join(appRoot, "packages/frontend/dist"),
-  join(__dirname, "../frontend/dist"),
-  "/app/packages/frontend/dist",
-  "./packages/frontend/dist",
+  "/app/packages/frontend/dist",           // Railway container absolute
+  process.cwd() + "/packages/frontend/dist", // Current working dir
+  "/home/claude/AvalieImob/packages/frontend/dist", // Local dev
+  "./packages/frontend/dist",               // Relative to cwd
+  "../frontend/dist",                       // Relative to backend
 ];
 
 let frontendDist: string | null = null;
 for (const path of possiblePaths) {
+  console.log(`📂 Verificando: ${path}`);
   if (existsSync(path)) {
     frontendDist = path;
-    console.log(`✓ Frontend dist encontrado: ${path}`);
+    console.log(`✅ Frontend dist encontrado: ${path}`);
     break;
   }
 }
 
 if (frontendDist) {
+  console.log(`🎨 [STARTUP] Servindo frontend de: ${frontendDist}`);
   app.use(express.static(frontendDist));
   app.get("*", (_req, res) => {
-    res.sendFile(join(frontendDist!, "index.html"));
+    const indexPath = join(frontendDist!, "index.html");
+    console.log(`📄 Servindo index.html de: ${indexPath}`);
+    res.sendFile(indexPath);
   });
 } else {
-  console.log("⚠️  Frontend dist não encontrado, API mode apenas");
+  console.error("❌ [STARTUP] Frontend dist NÃO encontrado!");
+  console.error("Paths procurados:");
+  possiblePaths.forEach(p => console.error(`  - ${p}`));
   app.get("/", (_req, res) => {
-    res.json({ message: "AvalieImob API v1.0.0" });
+    res.json({ 
+      message: "AvalieImob API v1.0.0",
+      error: "Frontend not found - server in API-only mode"
+    });
   });
 }
 
