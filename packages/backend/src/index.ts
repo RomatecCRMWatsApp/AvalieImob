@@ -1,22 +1,22 @@
 import express from "express";
 import cors from "cors";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
-import { createContext } from "../lib/trpc";
-import { appRouter } from "../routers";
+import { createContext } from "./lib/trpc";
+import { appRouter } from "./routers";
 import dotenv from "dotenv";
 import mysql from "mysql2/promise";
 import { drizzle } from "drizzle-orm/mysql2";
+import { join } from "path";
+import { existsSync } from "fs";
 
 dotenv.config();
 
 const PORT = process.env.PORT || 3001;
 const app = express();
 
-// Middleware
-app.use(cors());
-app.use(express.json());
+app.use(cors({ origin: process.env.CORS_ORIGIN || "*", credentials: true }));
+app.use(express.json({ limit: "50mb" }));
 
-// Inicializar banco de dados
 async function initializeDatabase() {
   try {
     const pool = await mysql.createPool({
@@ -29,12 +29,8 @@ async function initializeDatabase() {
       connectionLimit: 10,
       queueLimit: 0,
     });
-
     const db = drizzle(pool);
-
-    // Armazenar db no contexto Express
     app.locals.db = db;
-
     console.log("✓ Database conectado");
     return db;
   } catch (error) {
@@ -43,33 +39,37 @@ async function initializeDatabase() {
   }
 }
 
-// tRPC middleware
+// tRPC
 app.use(
   "/api/trpc",
-  createExpressMiddleware({
-    router: appRouter,
-    createContext,
-  })
+  createExpressMiddleware({ router: appRouter, createContext })
 );
 
 // Health check
-app.get("/health", (req, res) => {
+app.get("/health", (_req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
-// Root endpoint
-app.get("/", (req, res) => {
-  res.json({ message: "AvalieImob API v1.0.0" });
-});
+// Serve React frontend (production)
+// __dirname is packages/backend/ when bundled with esbuild --format=cjs
+const frontendDist = join(__dirname, "../frontend/dist");
+if (existsSync(frontendDist)) {
+  app.use(express.static(frontendDist));
+  app.get("*", (_req, res) => {
+    res.sendFile(join(frontendDist, "index.html"));
+  });
+} else {
+  app.get("/", (_req, res) => {
+    res.json({ message: "AvalieImob API v1.0.0" });
+  });
+}
 
-// Inicializar servidor
 async function start() {
   try {
     await initializeDatabase();
-
     app.listen(PORT, () => {
-      console.log(`🚀 Server rodando em http://localhost:${PORT}`);
-      console.log(`📡 tRPC API: http://localhost:${PORT}/api/trpc`);
+      console.log(`✅ Servidor rodando em http://localhost:${PORT}`);
+      console.log(`📡 tRPC: http://localhost:${PORT}/api/trpc`);
     });
   } catch (error) {
     console.error("✗ Erro ao iniciar servidor:", error);
