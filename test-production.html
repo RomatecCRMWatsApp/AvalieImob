@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AvalieImob - Production Test</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #0f1419 0%, #1a1f2e 100%);
+      color: #e0e0e0;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 40px;
+      padding: 30px 0;
+      border-bottom: 2px solid #228B22;
+    }
+    
+    .header h1 {
+      font-size: 2.5em;
+      color: #228B22;
+      margin-bottom: 10px;
+    }
+    
+    .header p {
+      color: #d4af37;
+      font-size: 1.1em;
+    }
+    
+    .tests-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+      margin-bottom: 40px;
+    }
+    
+    .test-card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(34, 139, 34, 0.3);
+      border-radius: 8px;
+      padding: 20px;
+      backdrop-filter: blur(10px);
+      transition: all 0.3s ease;
+    }
+    
+    .test-card:hover {
+      border-color: #228B22;
+      background: rgba(34, 139, 34, 0.1);
+      transform: translateY(-5px);
+    }
+    
+    .test-card h2 {
+      color: #d4af37;
+      margin-bottom: 15px;
+      font-size: 1.3em;
+    }
+    
+    .test-card p {
+      color: #b0b0b0;
+      margin-bottom: 15px;
+      line-height: 1.6;
+    }
+    
+    button {
+      background: linear-gradient(135deg, #228B22 0%, #1a6b1a 100%);
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      width: 100%;
+    }
+    
+    button:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 20px rgba(34, 139, 34, 0.5);
+    }
+    
+    button:active {
+      transform: scale(0.98);
+    }
+    
+    .result {
+      margin-top: 15px;
+      padding: 10px;
+      border-radius: 5px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85em;
+      display: none;
+      word-wrap: break-word;
+    }
+    
+    .result.success {
+      background: rgba(34, 139, 34, 0.2);
+      border: 1px solid #228B22;
+      color: #90EE90;
+      display: block;
+    }
+    
+    .result.error {
+      background: rgba(220, 20, 60, 0.2);
+      border: 1px solid #DC143C;
+      color: #FF6B6B;
+      display: block;
+    }
+    
+    .result.loading {
+      background: rgba(212, 175, 55, 0.2);
+      border: 1px solid #d4af37;
+      color: #d4af37;
+      display: block;
+    }
+    
+    .status-board {
+      background: rgba(255, 255, 255, 0.05);
+      border: 2px solid #228B22;
+      border-radius: 8px;
+      padding: 30px;
+      margin-bottom: 40px;
+      backdrop-filter: blur(10px);
+    }
+    
+    .status-board h2 {
+      color: #228B22;
+      margin-bottom: 20px;
+      text-align: center;
+      font-size: 1.5em;
+    }
+    
+    .status-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(34, 139, 34, 0.2);
+    }
+    
+    .status-item:last-child {
+      border-bottom: none;
+    }
+    
+    .status-label {
+      color: #d4af37;
+      font-weight: 600;
+    }
+    
+    .status-value {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .badge {
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 0.85em;
+      font-weight: 600;
+    }
+    
+    .badge.active {
+      background: rgba(34, 139, 34, 0.3);
+      color: #90EE90;
+    }
+    
+    .badge.inactive {
+      background: rgba(220, 20, 60, 0.3);
+      color: #FF6B6B;
+    }
+    
+    .badge.pending {
+      background: rgba(212, 175, 55, 0.3);
+      color: #d4af37;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🚀 AvalieImob</h1>
+      <p>Production Environment Test Dashboard</p>
+    </div>
+    
+    <div class="status-board">
+      <h2>🎯 Environment Status</h2>
+      <div class="status-item">
+        <span class="status-label">Endpoint:</span>
+        <span class="status-value">
+          <code>https://avaliemob-production.up.railway.app</code>
+        </span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">Environment:</span>
+        <span class="status-value"><span class="badge active">Production</span></span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">Frontend:</span>
+        <span class="status-value"><span class="badge" id="badge-frontend">Testing...</span></span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">API Health:</span>
+        <span class="status-value"><span class="badge" id="badge-health">Testing...</span></span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">Database:</span>
+        <span class="status-value"><span class="badge pending">Background</span></span>
+      </div>
+    </div>
+    
+    <div class="tests-grid">
+      <div class="test-card">
+        <h2>❤️ Healthcheck</h2>
+        <p>Verifica se o servidor está respondendo corretamente.</p>
+        <button onclick="testHealthcheck()">Testar Healthcheck</button>
+        <div class="result" id="result-health"></div>
+      </div>
+      
+      <div class="test-card">
+        <h2>📝 Registrar Usuário</h2>
+        <p>Cria uma nova conta de teste na aplicação.</p>
+        <button onclick="testRegister()">Registrar</button>
+        <div class="result" id="result-register"></div>
+      </div>
+      
+      <div class="test-card">
+        <h2>🔑 Login</h2>
+        <p>Testa autenticação com usuário existente.</p>
+        <button onclick="testLogin()">Fazer Login</button>
+        <div class="result" id="result-login"></div>
+      </div>
+      
+      <div class="test-card">
+        <h2>🎨 Frontend</h2>
+        <p>Abre a interface React em nova aba.</p>
+        <button onclick="openFrontend()">Abrir App</button>
+        <div class="result" id="result-frontend"></div>
+      </div>
+      
+      <div class="test-card">
+        <h2>📊 API Info</h2>
+        <p>Retorna informações sobre a API.</p>
+        <button onclick="testApiInfo()">Obter Info</button>
+        <div class="result" id="result-info"></div>
+      </div>
+      
+      <div class="test-card">
+        <h2>🔄 Full Test</h2>
+        <p>Executa todos os testes automaticamente.</p>
+        <button onclick="testAll()">Executar Tudo</button>
+        <div class="result" id="result-all"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = 'https://avaliemob-production.up.railway.app';
+    const testEmail = `test-${Date.now()}@example.com`;
+    const testPassword = 'Teste@123456';
+
+    function updateBadge(id, status) {
+      const badge = document.getElementById(id);
+      badge.className = `badge ${status}`;
+      if (status === 'active') badge.textContent = '✅ Online';
+      else if (status === 'inactive') badge.textContent = '❌ Offline';
+      else badge.textContent = '⏳ Testing...';
+    }
+
+    function showResult(id, message, isError = false, isLoading = false) {
+      const el = document.getElementById(id);
+      el.textContent = message;
+      el.className = 'result';
+      if (isError) el.classList.add('error');
+      else if (isLoading) el.classList.add('loading');
+      else el.classList.add('success');
+    }
+
+    async function testHealthcheck() {
+      showResult('result-health', '⏳ Testando...', false, true);
+      updateBadge('badge-health', 'pending');
+      try {
+        const res = await fetch(`${API_URL}/health`);
+        const data = await res.json();
+        updateBadge('badge-health', 'active');
+        showResult('result-health', `✓ Status: ${data.status}\nTimestamp: ${data.timestamp}`);
+      } catch (e) {
+        updateBadge('badge-health', 'inactive');
+        showResult('result-health', `✗ Erro: ${e.message}`, true);
+      }
+    }
+
+    async function testRegister() {
+      showResult('result-register', '⏳ Registrando...', false, true);
+      try {
+        const res = await fetch(`${API_URL}/api/trpc/auth.register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: testEmail, password: testPassword })
+        });
+        const data = await res.json();
+        if (data.result?.data?.user) {
+          showResult('result-register', `✓ Usuário criado!\nEmail: ${testEmail}\nID: ${data.result.data.user.id.substring(0, 8)}...`);
+        } else {
+          showResult('result-register', `Resposta: ${JSON.stringify(data).substring(0, 100)}...`);
+        }
+      } catch (e) {
+        showResult('result-register', `✗ Erro: ${e.message}`, true);
+      }
+    }
+
+    async function testLogin() {
+      showResult('result-login', '⏳ Autenticando...', false, true);
+      try {
+        const res = await fetch(`${API_URL}/api/trpc/auth.login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: testEmail, password: testPassword })
+        });
+        const data = await res.json();
+        if (data.result?.data?.token) {
+          showResult('result-login', `✓ Token recebido!\nToken: ${data.result.data.token.substring(0, 30)}...`);
+        } else {
+          showResult('result-login', `Resposta: ${JSON.stringify(data).substring(0, 100)}...`);
+        }
+      } catch (e) {
+        showResult('result-login', `✗ Erro: ${e.message}`, true);
+      }
+    }
+
+    function openFrontend() {
+      updateBadge('badge-frontend', 'pending');
+      window.open(API_URL, '_blank');
+      showResult('result-frontend', '✓ App aberto em nova aba');
+      updateBadge('badge-frontend', 'active');
+    }
+
+    async function testApiInfo() {
+      showResult('result-info', '⏳ Obtendo info...', false, true);
+      try {
+        const res = await fetch(`${API_URL}/`);
+        const text = await res.text();
+        showResult('result-info', `✓ API respondendo\nStatus: ${res.status}\nType: ${res.headers.get('content-type')}`);
+      } catch (e) {
+        showResult('result-info', `✗ Erro: ${e.message}`, true);
+      }
+    }
+
+    async function testAll() {
+      showResult('result-all', '⏳ Executando todos os testes...', false, true);
+      await testHealthcheck();
+      await new Promise(r => setTimeout(r, 500));
+      await testRegister();
+      await new Promise(r => setTimeout(r, 500));
+      await testLogin();
+      await new Promise(r => setTimeout(r, 500));
+      showResult('result-all', '✓ Testes completos!');
+    }
+
+    // Auto-test on load
+    window.addEventListener('load', () => {
+      testHealthcheck();
+    });
+  </script>
+</body>
+</html>
