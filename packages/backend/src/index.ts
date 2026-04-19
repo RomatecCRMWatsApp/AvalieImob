@@ -82,25 +82,28 @@ if (frontendDist) {
 }
 
 async function start() {
-  // Start server IMMEDIATELY so healthcheck passes
+  // Start server IMMEDIATELY - don't wait for anything
   const server = app.listen(PORT, "0.0.0.0", () => {
     console.log(`✅ Servidor rodando em http://0.0.0.0:${PORT}`);
     console.log(`📡 tRPC: http://0.0.0.0:${PORT}/api/trpc`);
     console.log(`❤️  Healthcheck: http://0.0.0.0:${PORT}/health`);
   });
 
-  // Initialize database asynchronously (doesn't block server startup)
-  try {
-    await initializeDatabase();
-  } catch (error) {
-    console.error("✗ Erro ao conectar database (retrying...):", error);
-    // Retry connection after 5 seconds
-    setTimeout(() => {
-      initializeDatabase().catch((err) => {
-        console.error("✗ Database connection failed after retry:", err);
-      });
-    }, 5000);
-  }
+  // Initialize database in background (non-blocking)
+  setImmediate(async () => {
+    try {
+      await initializeDatabase();
+      console.log("✓ Database conectado com sucesso");
+    } catch (error) {
+      console.error("✗ Database connection failed, retrying...", error);
+      // Retry after 5 seconds
+      setTimeout(() => {
+        initializeDatabase().catch((err) => {
+          console.error("✗ Database retry failed:", err);
+        });
+      }, 5000);
+    }
+  });
 
   // Graceful shutdown
   process.on("SIGTERM", () => {
@@ -112,4 +115,7 @@ async function start() {
   });
 }
 
-start();
+start().catch((error) => {
+  console.error("Fatal error starting server:", error);
+  process.exit(1);
+});
