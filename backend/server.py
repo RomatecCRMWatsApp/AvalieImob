@@ -392,6 +392,14 @@ async def root():
 
 
 app.include_router(api)
+
+# Serve React frontend build as static files (must come after API router)
+import pathlib as _pathlib
+_frontend_build = _pathlib.Path(__file__).parent.parent / "frontend" / "build"
+if _frontend_build.exists():
+    from fastapi.staticfiles import StaticFiles
+    app.mount("/", StaticFiles(directory=str(_frontend_build), html=True), name="frontend")
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
