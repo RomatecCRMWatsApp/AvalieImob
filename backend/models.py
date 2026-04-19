@@ -137,7 +137,9 @@ class Evaluation(EvaluationBase):
 
 
 # ---------- PTAM (Parecer Técnico de Avaliação Mercadológica) ----------
+
 class PtamSample(BaseModel):
+    """Amostra de impacto (legacy — mantido para compatibilidade com PDF)."""
     number: Optional[int] = 0
     neighborhood: Optional[str] = ""
     area_total: Optional[float] = 0
@@ -148,6 +150,7 @@ class PtamSample(BaseModel):
 
 
 class PtamImpactArea(BaseModel):
+    """Área de impacto (legacy — mantido para PTAMs de desapropriação)."""
     name: str = "Área de Impacto 01"
     classification: Optional[str] = "Rural"  # Rural | Urbana | Mista
     area_sqm: float = 0
@@ -158,29 +161,66 @@ class PtamImpactArea(BaseModel):
     notes: Optional[str] = ""
 
 
+class PtamMarketSample(BaseModel):
+    """Amostra de mercado coletada para PTAM mercadológico (Seção 6)."""
+    address: Optional[str] = ""
+    neighborhood: Optional[str] = ""
+    area: Optional[float] = 0
+    value: Optional[float] = 0
+    value_per_sqm: Optional[float] = 0
+    source: Optional[str] = ""
+    collection_date: Optional[str] = ""
+    contact_phone: Optional[str] = ""
+    notes: Optional[str] = ""
+
+
 class PtamBase(BaseModel):
-    # Section 1 - Cover/Identification
-    number: Optional[str] = ""  # PTAM nº
-    property_label: Optional[str] = ""  # short title
-    purpose: Optional[str] = ""  # Finalidade
-    solicitante: Optional[str] = ""
-    # Legal context
+    # ── Seção 1 — Identificação do Solicitante ────────────────────────────────
+    number: Optional[str] = ""
+    solicitante: Optional[str] = ""          # legacy alias
+    solicitante_nome: Optional[str] = ""
+    solicitante_cpf_cnpj: Optional[str] = ""
+    solicitante_endereco: Optional[str] = ""
+    solicitante_telefone: Optional[str] = ""
+    solicitante_email: Optional[str] = ""
+
+    # ── Seção 2 — Objetivo da Avaliação ──────────────────────────────────────
+    purpose: Optional[str] = ""
+    finalidade: Optional[str] = ""   # compra_venda | financiamento | judicial | inventario | locacao | garantia | outros
+    finalidade_outros: Optional[str] = ""
     judicial_process: Optional[str] = ""
     judicial_action: Optional[str] = ""
     forum: Optional[str] = ""
     requerente: Optional[str] = ""
     requerido: Optional[str] = ""
     judge: Optional[str] = ""
-    # Section 2 - Imóvel
+
+    # ── Seção 3 — Identificação do Imóvel ────────────────────────────────────
+    property_label: Optional[str] = ""
+    property_type: Optional[str] = ""   # casa | apartamento | terreno | rural | comercial | industrial
     property_address: Optional[str] = ""
+    property_neighborhood: Optional[str] = ""
     property_city: Optional[str] = ""
+    property_state: Optional[str] = ""
+    property_cep: Optional[str] = ""
     property_matricula: Optional[str] = ""
+    property_cartorio: Optional[str] = ""
+    property_gps_lat: Optional[str] = ""
+    property_gps_lng: Optional[str] = ""
     property_owner: Optional[str] = ""
     property_area_ha: float = 0
     property_area_sqm: float = 0
     property_confrontations: Optional[str] = ""
     property_description: Optional[str] = ""
-    # Section 3 - Vistoria
+
+    # ── Seção 4 — Caracterização da Região ───────────────────────────────────
+    regiao_infraestrutura: Optional[str] = ""
+    regiao_servicos_publicos: Optional[str] = ""
+    regiao_uso_predominante: Optional[str] = ""
+    regiao_padrao_construtivo: Optional[str] = ""
+    regiao_tendencia_mercado: Optional[str] = ""
+    regiao_observacoes: Optional[str] = ""
+    # Legacy vistoria fields (backward compat with PDF)
     vistoria_date: Optional[str] = ""
     vistoria_objective: Optional[str] = ""
     vistoria_methodology: Optional[str] = ""
@@ -191,20 +231,61 @@ class PtamBase(BaseModel):
     urban_context: Optional[str] = ""
     conservation_state: Optional[str] = ""
     vistoria_synthesis: Optional[str] = ""
-    # Section 4 - Market analysis
-    market_analysis: Optional[str] = ""
-    # Section 5 - Methodology
+
+    # ── Seção 5 — Caracterização do Imóvel ───────────────────────────────────
+    imovel_area_terreno: Optional[float] = 0
+    imovel_area_construida: Optional[float] = 0
+    imovel_idade: Optional[int] = 0
+    imovel_estado_conservacao: Optional[str] = ""   # otimo | bom | regular | ruim | pessimo
+    imovel_padrao_acabamento: Optional[str] = ""    # alto | medio | simples | minimo
+    imovel_num_quartos: Optional[int] = 0
+    imovel_num_banheiros: Optional[int] = 0
+    imovel_num_vagas: Optional[int] = 0
+    imovel_piscina: Optional[bool] = False
+    imovel_caracteristicas_adicionais: Optional[str] = ""
+
+    # ── Seção 6 — Amostras de Mercado ────────────────────────────────────────
+    market_samples: List[PtamMarketSample] = Field(default_factory=list)
+    market_analysis: Optional[str] = ""   # texto descritivo opcional
+
+    # ── Seção 7 — Metodologia ─────────────────────────────────────────────────
     methodology: Optional[str] = "Método Comparativo Direto de Dados de Mercado"
     methodology_justification: Optional[str] = ""
-    # Section 6 - Impact areas (array)
+
+    # ── Seção 8 — Cálculos e Tratamento Estatístico ──────────────────────────
+    calc_media: Optional[float] = 0
+    calc_mediana: Optional[float] = 0
+    calc_desvio_padrao: Optional[float] = 0
+    calc_coef_variacao: Optional[float] = 0
+    calc_grau_fundamentacao: Optional[str] = ""   # I | II | III
+    calc_fatores_homogeneizacao: Optional[str] = ""
+    calc_observacoes: Optional[str] = ""
+
+    # ── Seção 9 — Resultado da Avaliação ─────────────────────────────────────
+    resultado_valor_unitario: Optional[float] = 0
+    resultado_valor_total: Optional[float] = 0
+    resultado_intervalo_inf: Optional[float] = 0
+    resultado_intervalo_sup: Optional[float] = 0
+    resultado_data_referencia: Optional[str] = ""
+    resultado_prazo_validade: Optional[str] = ""
+    total_indemnity: float = 0           # legacy alias
+    total_indemnity_words: Optional[str] = ""
+
+    # ── Seção 10 — Considerações Finais ──────────────────────────────────────
+    consideracoes_ressalvas: Optional[str] = ""
+    consideracoes_pressupostos: Optional[str] = ""
+    consideracoes_limitacoes: Optional[str] = ""
+    responsavel_nome: Optional[str] = ""
+    responsavel_creci: Optional[str] = ""
+    responsavel_cnai: Optional[str] = ""
+    conclusion_text: Optional[str] = ""  # legacy
+    conclusion_date: Optional[str] = ""  # legacy
+    conclusion_city: Optional[str] = ""  # legacy
+
+    # ── Legacy — Impact areas (desapropriação/servidão) ───────────────────────
     impact_areas: List[PtamImpactArea] = Field(default_factory=list)
-    # Section 7 - Conclusion
-    total_indemnity: float = 0
-    total_indemnity_words: Optional[str] = ""  # valor por extenso
-    conclusion_text: Optional[str] = ""
-    conclusion_date: Optional[str] = ""
-    conclusion_city: Optional[str] = ""
-    # Meta
+
+    # ── Meta ──────────────────────────────────────────────────────────────────
     status: str = "Rascunho"  # Rascunho | Em revisão | Emitido
 
 
@@ -245,3 +326,23 @@ class Transaction(BaseModel):
 
 class CreatePreferenceRequest(BaseModel):
     plan_id: str  # mensal | trimestral | anual
+
+
+# ---------- Admin ----------
+class CreateTestUserRequest(BaseModel):
+    name: str
+    email: EmailStr
+    password: str
+    plan: str = "mensal"  # mensal | trimestral | anual
+    plan_status: str = "active"  # active | inactive
+
+
+class AdminUserOut(BaseModel):
+    id: str
+    name: str
+    email: str
+    role: str
+    plan: str
+    plan_status: str
+    plan_expires: Optional[datetime] = None
+    created_at: Optional[datetime] = None
