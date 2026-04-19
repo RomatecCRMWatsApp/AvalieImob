@@ -89,14 +89,16 @@ async def login(data: UserLogin):
     if not u or not verify_password(data.password, u.get("password_hash", "")):
         raise HTTPException(status_code=401, detail="Credenciais inválidas")
     token = create_token(u["id"])
-    pub = UserPublic(**{k: u.get(k) for k in UserPublic.model_fields})
+    defaults = {"crea": "", "plan": "mensal", "plan_status": "inactive", "plan_expires": None, "company": "", "bio": ""}
+    pub = UserPublic(**{k: u.get(k) if u.get(k) is not None else defaults.get(k, "") for k in UserPublic.model_fields})
     return AuthResponse(user=pub, token=token)
 
 
 @api.get("/auth/me", response_model=UserPublic)
 async def me(uid: str = Depends(get_current_user_id)):
     u = await _user_doc(uid)
-    fields = {k: u.get(k) for k in UserPublic.model_fields}
+    defaults = {"crea": "", "plan": "mensal", "plan_status": "inactive", "plan_expires": None, "company": "", "bio": ""}
+    fields = {k: u.get(k) if u.get(k) is not None else defaults.get(k, "") for k in UserPublic.model_fields}
     return UserPublic(**fields)
 
 
