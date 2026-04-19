@@ -13,7 +13,7 @@
   "dependencies": {
     "@trpc/server": "^10.45.0",
     "@trpc/client": "^10.45.0",
-    "@avaliemob/db": "workspace:*",
+    "@avaliemob/db": "file:../db",
     "axios": "^1.6.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
