@@ -126,11 +126,22 @@ async function start() {
   }
 }
 
+// Global error handlers
+process.on("uncaughtException", (error) => {
+  console.error("✗ [FATAL] Uncaught Exception:", error);
+  process.exit(1);
+});
+
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("✗ [FATAL] Unhandled Rejection at:", promise, "reason:", reason);
+  process.exit(1);
+});
+
 // Wrap everything in try-catch to catch startup errors
 try {
   console.log("📡 [STARTUP] Configurando tRPC...");
   start().catch((error) => {
-    console.error("✗ [FATAL] Uncaught error:", error);
+    console.error("✗ [FATAL] Uncaught error in start():", error);
     process.exit(1);
   });
 } catch (error) {
