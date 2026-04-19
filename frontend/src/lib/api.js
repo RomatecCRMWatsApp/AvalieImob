@@ -12,6 +12,7 @@ api.interceptors.request.use((config) => {
 });
 
 const PUBLIC_AUTH_ROUTES = ['/auth/login', '/auth/register'];
+const SKIP_401_CLEAR = ['/auth/me'];
 
 api.interceptors.response.use(
   (res) => res,
@@ -21,7 +22,8 @@ api.interceptors.response.use(
 
     if (status === 401) {
       const isPublic = PUBLIC_AUTH_ROUTES.some((route) => url.includes(route));
-      if (!isPublic) {
+      const skipClear = SKIP_401_CLEAR.some((route) => url.includes(route));
+      if (!isPublic && !skipClear) {
         localStorage.removeItem('romatec_token');
         localStorage.removeItem('romatec_user');
       }
@@ -30,11 +32,9 @@ api.interceptors.response.use(
     if (status === 403) {
       const detail = err.response?.data?.detail || '';
       if (detail.toLowerCase().includes('assinatura')) {
-        // Dispatch a custom event so any component can show a toast or redirect
         window.dispatchEvent(
           new CustomEvent('avalieimob:subscription-required', { detail: { message: detail } })
         );
-        // Only redirect if not already on the subscription page
         if (!window.location.pathname.includes('/assinatura') && !window.location.pathname.includes('/subscription')) {
           window.location.href = '/dashboard/assinatura';
         }
