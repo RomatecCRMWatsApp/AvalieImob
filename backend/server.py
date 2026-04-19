@@ -466,7 +466,12 @@ async def create_preference(data: CreatePreferenceRequest, uid: str = Depends(ge
         logger.error("MP create-preference error: %s", response)
         raise HTTPException(status_code=502, detail="Erro ao criar preferência de pagamento")
 
-    init_point = response.get("sandbox_init_point") or response.get("init_point")
+    # Use production URL when using production token, sandbox otherwise
+    mp_token = os.getenv("MERCADOPAGO_ACCESS_TOKEN", "")
+    if mp_token.startswith("TEST-"):
+        init_point = response.get("sandbox_init_point") or response.get("init_point")
+    else:
+        init_point = response.get("init_point") or response.get("sandbox_init_point")
     logger.info("MP preference created: %s for user=%s plan=%s", response.get("id"), uid, data.plan_id)
     return {"init_point": init_point, "preference_id": response.get("id")}
 
