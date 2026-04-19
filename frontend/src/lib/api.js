@@ -36,7 +36,7 @@ api.interceptors.response.use(
         );
         // Only redirect if not already on the subscription page
         if (!window.location.pathname.includes('/assinatura') && !window.location.pathname.includes('/subscription')) {
-          window.location.href = '/assinatura';
+          window.location.href = '/dashboard/assinatura';
         }
       }
     }
