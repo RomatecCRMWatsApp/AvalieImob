@@ -397,12 +397,25 @@ async def root():
 
 app.include_router(api)
 
-# Serve React frontend build as static files (must come after API router)
+# Serve React frontend build (SPA with client-side routing)
 import pathlib as _pathlib
 _frontend_build = _pathlib.Path(__file__).parent.parent / "frontend" / "build"
 if _frontend_build.exists():
     from fastapi.staticfiles import StaticFiles
-    app.mount("/", StaticFiles(directory=str(_frontend_build), html=True), name="frontend")
+    from starlette.responses import FileResponse
+
+    # Serve static assets (js, css, images, etc.)
+    app.mount("/static", StaticFiles(directory=str(_frontend_build / "static")), name="static-assets")
+
+    # SPA catch-all: any non-API route returns index.html for React Router
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        # If the file exists in build dir, serve it (favicon, manifest, etc.)
+        file_path = _frontend_build / full_path
+        if full_path and file_path.is_file():
+            return FileResponse(str(file_path))
+        # Otherwise serve index.html for React Router
+        return FileResponse(str(_frontend_build / "index.html"))
 
 app.add_middleware(
     CORSMiddleware,
