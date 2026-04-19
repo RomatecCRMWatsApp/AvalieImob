@@ -6,10 +6,10 @@ import { useToast } from '../../hooks/use-toast';
 import { aiAPI } from '../../lib/api';
 
 const SUGGESTIONS = [
-  { icon: Wand2, title: 'Aperfeiçoar laudo', prompt: 'Aperfeiçoe este texto técnico de um laudo de avaliação imobiliária pelo método comparativo direto: "O imóvel avaliado possui 85m² em boa localização e apresenta-se em bom estado de conservação."' },
-  { icon: Wand2, title: 'Gerar fundamentação', prompt: 'Gere a fundamentação técnica para um PTAM de apartamento de 85m² em São Luís/MA com 6 amostras pelo Método Comparativo Direto de Dados de Mercado.' },
-  { icon: Wand2, title: 'Análise SWOT rural', prompt: 'Faça uma análise SWOT de uma fazenda de 2500 hectares em Balsas/MA para fins de garantia bancária.' },
-  { icon: Wand2, title: 'Memorial descritivo', prompt: 'Elabore um memorial descritivo completo para laudo de avaliação de safra de soja como garantia de crédito rural.' },
+  { id: 'aperfeicoar', icon: Wand2, title: 'Aperfeiçoar laudo', prompt: 'Aperfeiçoe este texto técnico de um laudo de avaliação imobiliária pelo método comparativo direto: "O imóvel avaliado possui 85m² em boa localização e apresenta-se em bom estado de conservação."' },
+  { id: 'fundamentacao', icon: Wand2, title: 'Gerar fundamentação', prompt: 'Gere a fundamentação técnica para um PTAM de apartamento de 85m² em São Luís/MA com 6 amostras pelo Método Comparativo Direto de Dados de Mercado.' },
+  { id: 'swot', icon: Wand2, title: 'Análise SWOT rural', prompt: 'Faça uma análise SWOT de uma fazenda de 2500 hectares em Balsas/MA para fins de garantia bancária.' },
+  { id: 'memorial', icon: Wand2, title: 'Memorial descritivo', prompt: 'Elabore um memorial descritivo completo para laudo de avaliação de safra de soja como garantia de crédito rural.' },
 ];
 
 // Session id persisted so conversation survives refresh
@@ -80,10 +80,10 @@ const AIAssistant = () => {
 
       {messages.length <= 1 && (
         <div className="grid sm:grid-cols-2 gap-3 mb-6">
-          {SUGGESTIONS.map((s, i) => {
+          {SUGGESTIONS.map((s) => {
             const Icon = s.icon;
             return (
-              <button key={i} onClick={() => send(s.prompt)} className="text-left p-4 bg-white rounded-xl border border-gray-200 hover:border-emerald-900/30 hover:shadow-md transition">
+              <button key={s.id} onClick={() => send(s.prompt)} className="text-left p-4 bg-white rounded-xl border border-gray-200 hover:border-emerald-900/30 hover:shadow-md transition">
                 <div className="flex items-center gap-2 mb-1"><Icon className="w-4 h-4 text-emerald-700" /><div className="font-semibold text-sm text-gray-900">{s.title}</div></div>
                 <div className="text-xs text-gray-500 line-clamp-2">{s.prompt}</div>
               </button>
@@ -95,7 +95,7 @@ const AIAssistant = () => {
       <div className="bg-white rounded-xl border border-gray-200 flex flex-col h-[500px]">
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
           {messages.map((m, i) => (
-            <div key={i} className={`flex gap-3 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
+            <div key={`${m.role}-${i}-${m.content.slice(0, 20)}`} className={`flex gap-3 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
               <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center ${m.role === 'user' ? 'bg-amber-500 text-white' : 'bg-emerald-900 text-white'}`}>
                 {m.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
               </div>

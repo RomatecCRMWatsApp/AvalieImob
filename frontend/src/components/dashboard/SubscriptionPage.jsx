@@ -43,7 +43,7 @@ const SubscriptionPage = () => {
               <div className="text-sm font-semibold text-emerald-700 mb-2">{p.name}</div>
               <div className="flex items-baseline gap-1"><span className="text-lg font-bold text-gray-900">R$</span><span className="font-display text-4xl font-bold text-gray-900">{p.price.toFixed(2).replace('.', ',')}</span></div>
               <div className="text-xs text-gray-500 mb-4">por {p.period}</div>
-              <div className="space-y-2 mb-5 min-h-[160px]">{p.features.slice(0, 5).map((f, i) => (<div key={i} className="flex items-start gap-2 text-xs"><Check className="w-3.5 h-3.5 text-emerald-700 mt-0.5 flex-shrink-0" /><span>{f}</span></div>))}</div>
+              <div className="space-y-2 mb-5 min-h-[160px]">{p.features.slice(0, 5).map((f) => (<div key={f} className="flex items-start gap-2 text-xs"><Check className="w-3.5 h-3.5 text-emerald-700 mt-0.5 flex-shrink-0" /><span>{f}</span></div>))}</div>
               <Button onClick={() => handleSubscribe(p)} className="w-full bg-emerald-900 hover:bg-emerald-800 text-white">Escolher {p.name}</Button>
             </div>
           ))}

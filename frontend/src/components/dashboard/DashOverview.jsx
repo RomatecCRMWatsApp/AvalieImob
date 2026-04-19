@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { FileText, Users, Building2, DollarSign, TrendingUp, Clock, Loader2 } from 'lucide-react';
 import { dashboardAPI, evaluationsAPI, clientsAPI } from '../../lib/api';
 import { useAuth } from '../../contexts/AuthContext';
@@ -21,13 +21,18 @@ const DashOverview = () => {
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    Promise.all([dashboardAPI.stats(), evaluationsAPI.list(), clientsAPI.list()]).then(([s, e, c]) => {
-      setStats(s);
-      setRecent(e.slice(0, 4));
-      setClients(c);
-    }).catch(() => {}).finally(() => setLoading(false));
+  const loadAll = useCallback(() => {
+    Promise.all([dashboardAPI.stats(), evaluationsAPI.list(), clientsAPI.list()])
+      .then(([s, e, c]) => {
+        setStats(s);
+        setRecent(e.slice(0, 4));
+        setClients(c);
+      })
+      .catch((err) => console.warn('Failed to load dashboard', err))
+      .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => { loadAll(); }, [loadAll]);
 
   const getClient = (id) => clients.find(c => c.id === id)?.name || '';
 

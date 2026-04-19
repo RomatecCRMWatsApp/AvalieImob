@@ -272,12 +272,15 @@ async def ai_chat(data: AIMessage, uid: str = Depends(get_current_user_id)):
         "user_id": uid, "session_id": data.session_id,
         "role": "user", "content": data.message, "ts": datetime.utcnow()
     })
+    reply = ""
     try:
         chat = LlmChat(api_key=api_key, session_id=session_id, system_message=SYSTEM_PROMPT).with_model("openai", "gpt-5-mini")
         reply = await chat.send_message(UserMessage(text=data.message))
     except Exception as e:
         logger.exception("AI error")
         raise HTTPException(status_code=500, detail=f"Erro na IA: {str(e)[:200]}")
+    if not reply:
+        raise HTTPException(status_code=500, detail="Resposta vazia da IA")
     await db.ai_messages.insert_one({
         "user_id": uid, "session_id": data.session_id,
         "role": "assistant", "content": reply, "ts": datetime.utcnow()

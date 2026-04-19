@@ -37,8 +37,8 @@ const Pricing = () => {
               <p className={`text-sm mb-6 ${p.highlight ? 'text-emerald-100/90' : 'text-gray-600'}`}>{p.desc}</p>
 
               <div className="space-y-3 mb-8">
-                {p.features.map((f, i) => (
-                  <div key={i} className="flex items-start gap-3 text-sm">
+                {p.features.map((f) => (
+                  <div key={f} className="flex items-start gap-3 text-sm">
                     <Check className={`w-4 h-4 mt-0.5 flex-shrink-0 ${p.highlight ? 'text-amber-300' : 'text-emerald-700'}`} />
                     <span className={p.highlight ? 'text-emerald-50' : 'text-gray-700'}>{f}</span>
                   </div>

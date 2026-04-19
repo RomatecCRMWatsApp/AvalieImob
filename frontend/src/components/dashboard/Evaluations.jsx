@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { FileText, Plus, Download, Eye, Sparkles, Search, Loader2, Trash2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -21,15 +21,15 @@ const Evaluations = () => {
   const [viewer, setViewer] = useState(null);
   const [form, setForm] = useState({ type: 'PTAM', method: 'Comparativo Direto', client_id: '', property_id: '', value: 0 });
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const [e, c, p] = await Promise.all([evaluationsAPI.list(), clientsAPI.list(), propertiesAPI.list()]);
       setItems(e); setClients(c); setProps(p);
-    } catch { toast({ title: 'Erro ao carregar', variant: 'destructive' }); }
+    } catch (err) { console.warn('Failed to load evaluations', err); toast({ title: 'Erro ao carregar', variant: 'destructive' }); }
     finally { setLoading(false); }
-  };
-  useEffect(() => { load(); }, []);
+  }, [toast]);
+  useEffect(() => { load(); }, [load]);
 
   const filtered = items.filter(e => (e.code || '').toLowerCase().includes(query.toLowerCase()));
   const clientName = (id) => clients.find(c => c.id === id)?.name || '—';

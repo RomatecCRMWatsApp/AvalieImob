@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, Search, Edit, Trash2, Building2, Trees, Wheat, Loader2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -10,9 +10,21 @@ import { propertiesAPI, clientsAPI } from '../../lib/api';
 
 const empty = { ref: '', client_id: '', type: 'Urbano', subtype: '', address: '', city: '', area: 0, built_area: 0, value: 0, status: 'Rascunho' };
 
-const typeIcon = (t) => t === 'Urbano' ? Building2 : t === 'Rural' ? Trees : Wheat;
-const typeColor = (t) => t === 'Urbano' ? 'bg-blue-50 text-blue-800' : t === 'Rural' ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800';
-const statusColor = (s) => s === 'Concluído' ? 'bg-emerald-100 text-emerald-800' : s === 'Em andamento' ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-700';
+const typeIcon = (t) => {
+  if (t === 'Urbano') return Building2;
+  if (t === 'Rural') return Trees;
+  return Wheat;
+};
+const typeColor = (t) => {
+  if (t === 'Urbano') return 'bg-blue-50 text-blue-800';
+  if (t === 'Rural') return 'bg-emerald-50 text-emerald-800';
+  return 'bg-amber-50 text-amber-800';
+};
+const statusColor = (s) => {
+  if (s === 'Concluído') return 'bg-emerald-100 text-emerald-800';
+  if (s === 'Em andamento') return 'bg-amber-100 text-amber-800';
+  return 'bg-gray-100 text-gray-700';
+};
 
 const Properties = () => {
   const { toast } = useToast();
@@ -26,15 +38,15 @@ const Properties = () => {
   const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const [p, c] = await Promise.all([propertiesAPI.list(), clientsAPI.list()]);
       setItems(p); setClients(c);
-    } catch { toast({ title: 'Erro ao carregar dados', variant: 'destructive' }); }
+    } catch (err) { console.warn('Failed to load properties', err); toast({ title: 'Erro ao carregar dados', variant: 'destructive' }); }
     finally { setLoading(false); }
-  };
-  useEffect(() => { load(); }, []);
+  }, [toast]);
+  useEffect(() => { load(); }, [load]);
 
   const filtered = items.filter(p =>
     (tab === 'todos' || (p.type || '').toLowerCase() === tab) &&

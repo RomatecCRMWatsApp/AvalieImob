@@ -66,7 +66,7 @@ const About = () => {
           <div className="grid md:grid-cols-3 gap-6">
             {TESTIMONIALS.map(t => (
               <div key={t.id} className="p-6 rounded-xl border border-gray-200 bg-white hover:shadow-lg transition-shadow">
-                <div className="flex gap-1 mb-4">{[...Array(5)].map((_, i) => <span key={i} className="text-amber-500">★</span>)}</div>
+                <div className="flex gap-1 mb-4">{['s1','s2','s3','s4','s5'].map((k) => <span key={k} className="text-amber-500">★</span>)}</div>
                 <p className="text-gray-700 italic mb-6 leading-relaxed">“{t.text}”</p>
                 <div className="flex items-center gap-3 pt-4 border-t border-gray-100">
                   <img src={t.avatar} alt={t.name} className="w-11 h-11 rounded-full object-cover" />

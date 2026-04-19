@@ -1,66 +1,83 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { authAPI } from '../lib/api';
 
 const AuthContext = createContext(null);
+
+// NOTE: Storing JWT in localStorage is acceptable for this MVP.
+// For production with higher security requirements, migrate to httpOnly cookies
+// (requires CSRF protection + backend cookie config).
+const TOKEN_KEY = 'romatec_token';
+const USER_KEY = 'romatec_user';
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('romatec_token');
-    const stored = localStorage.getItem('romatec_user');
+    const token = localStorage.getItem(TOKEN_KEY);
+    const stored = localStorage.getItem(USER_KEY);
     if (token && stored) {
-      try { setUser(JSON.parse(stored)); } catch { /* noop */ }
-      // validate token in background
-      authAPI.me().then((u) => {
-        setUser(u);
-        localStorage.setItem('romatec_user', JSON.stringify(u));
-      }).catch(() => {
-        localStorage.removeItem('romatec_token');
-        localStorage.removeItem('romatec_user');
-        setUser(null);
-      }).finally(() => setLoading(false));
+      try {
+        setUser(JSON.parse(stored));
+      } catch (err) {
+        console.warn('Failed to parse stored user', err);
+      }
+      // Validate token in background
+      authAPI.me()
+        .then((u) => {
+          setUser(u);
+          localStorage.setItem(USER_KEY, JSON.stringify(u));
+        })
+        .catch((err) => {
+          console.warn('Token validation failed, clearing session', err?.response?.status);
+          localStorage.removeItem(TOKEN_KEY);
+          localStorage.removeItem(USER_KEY);
+          setUser(null);
+        })
+        .finally(() => setLoading(false));
     } else {
       setLoading(false);
     }
   }, []);
 
-  const login = async (email, password) => {
+  const login = useCallback(async (email, password) => {
     const res = await authAPI.login({ email, password });
-    localStorage.setItem('romatec_token', res.token);
-    localStorage.setItem('romatec_user', JSON.stringify(res.user));
+    localStorage.setItem(TOKEN_KEY, res.token);
+    localStorage.setItem(USER_KEY, JSON.stringify(res.user));
     setUser(res.user);
     return res.user;
-  };
+  }, []);
 
-  const register = async (data) => {
+  const register = useCallback(async (data) => {
     const res = await authAPI.register(data);
-    localStorage.setItem('romatec_token', res.token);
-    localStorage.setItem('romatec_user', JSON.stringify(res.user));
+    localStorage.setItem(TOKEN_KEY, res.token);
+    localStorage.setItem(USER_KEY, JSON.stringify(res.user));
     setUser(res.user);
     return res.user;
-  };
+  }, []);
 
-  const logout = () => {
-    localStorage.removeItem('romatec_token');
-    localStorage.removeItem('romatec_user');
+  const logout = useCallback(() => {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
     setUser(null);
-  };
+  }, []);
 
-  const refreshUser = async () => {
+  const refreshUser = useCallback(async () => {
     try {
       const u = await authAPI.me();
       setUser(u);
-      localStorage.setItem('romatec_user', JSON.stringify(u));
-    } catch { /* noop */ }
-  };
+      localStorage.setItem(USER_KEY, JSON.stringify(u));
+    } catch (err) {
+      console.warn('Failed to refresh user', err);
+    }
+  }, []);
 
-  return (
-    <AuthContext.Provider value={{ user, login, register, logout, loading, refreshUser }}>
-      {children}
-    </AuthContext.Provider>
+  const value = useMemo(
+    () => ({ user, login, register, logout, loading, refreshUser }),
+    [user, login, register, logout, loading, refreshUser]
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => {

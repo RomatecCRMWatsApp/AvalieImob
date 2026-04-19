@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, Search, Edit, Trash2, Phone, Mail, MapPin, Loader2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -19,16 +19,17 @@ const Clients = () => {
   const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const data = await clientsAPI.list();
       setClients(data);
-    } catch {
+    } catch (err) {
+      console.warn('Failed to load clients', err);
       toast({ title: 'Erro ao carregar clientes', variant: 'destructive' });
     } finally { setLoading(false); }
-  };
-  useEffect(() => { load(); }, []);
+  }, [toast]);
+  useEffect(() => { load(); }, [load]);
 
   const filtered = clients.filter(c =>
     (c.name || '').toLowerCase().includes(query.toLowerCase()) ||

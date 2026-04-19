@@ -37,8 +37,8 @@ const Flow = () => {
                   </div>
                   <h3 className="font-display text-xl font-bold text-gray-900 mb-3">{s.title}</h3>
                   <ul className="space-y-2 text-sm text-gray-600">
-                    {s.items.map((it, j) => (
-                      <li key={j} className="flex gap-2"><span className="w-1 h-1 rounded-full bg-emerald-700 mt-2 flex-shrink-0" />{it}</li>
+                    {s.items.map((it) => (
+                      <li key={it} className="flex gap-2"><span className="w-1 h-1 rounded-full bg-emerald-700 mt-2 flex-shrink-0" />{it}</li>
                     ))}
                   </ul>
                 </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { TrendingUp, Plus, Loader2, Trash2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -15,13 +15,13 @@ const Samples = () => {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(empty);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try { setItems(await samplesAPI.list()); }
-    catch { toast({ title: 'Erro ao carregar', variant: 'destructive' }); }
+    catch (err) { console.warn('Failed to load samples', err); toast({ title: 'Erro ao carregar', variant: 'destructive' }); }
     finally { setLoading(false); }
-  };
-  useEffect(() => { load(); }, []);
+  }, [toast]);
+  useEffect(() => { load(); }, [load]);
 
   const avg = items.length ? items.reduce((a, b) => a + (b.price_per_sqm || 0), 0) / items.length : 0;
   const min = items.length ? Math.min(...items.map(s => s.price_per_sqm || 0)) : 0;
