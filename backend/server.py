@@ -31,8 +31,10 @@ from models import (
     AIMessage, AIMessageResponse,
     PtamBase, Ptam,
     GarantiaBase, Garantia,
+    SemoventeBase, Semovente,
     Transaction, CreatePreferenceRequest,
     CreateTestUserRequest, AdminUserOut,
+    PerfilAvaliadorBase, PerfilAvaliador,
 )
 from ptam_docx import generate_ptam_docx
 from ptam_pdf import generate_ptam_pdf
@@ -623,6 +625,61 @@ async def delete_garantia(gid: str, uid: str = Depends(get_active_subscriber)):
     return {"ok": True}
 
 
+# ===== SEMOVENTES (Penhor Rural Bancário) ============================
+
+@api.get("/semoventes", response_model=List[Semovente])
+async def list_semoventes(tipo: Optional[str] = None, status: Optional[str] = None, uid: str = Depends(get_active_subscriber)):
+    q: dict = {"user_id": uid}
+    if tipo:
+        q["tipo_semovente"] = tipo
+    if status:
+        q["status"] = status
+    items = await db.semoventes.find(q).sort("updated_at", -1).to_list(1000)
+    return [Semovente(**_serialize(i)) for i in items]
+
+
+@api.get("/semoventes/{sid}", response_model=Semovente)
+async def get_semovente(sid: str, uid: str = Depends(get_active_subscriber)):
+    doc = await db.semoventes.find_one({"id": sid, "user_id": uid})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Semovente não encontrado")
+    return Semovente(**_serialize(doc))
+
+
+@api.post("/semoventes", response_model=Semovente)
+async def create_semovente(data: SemoventeBase, uid: str = Depends(get_active_subscriber)):
+    numero_laudo = data.numero_laudo
+    if not numero_laudo:
+        year = datetime.utcnow().year
+        count = await db.semoventes.count_documents({"user_id": uid}) + 1
+        numero_laudo = f"SEM-{year}-{str(count).zfill(4)}"
+    payload = data.model_dump()
+    payload["numero_laudo"] = numero_laudo
+    s = Semovente(user_id=uid, **payload)
+    await db.semoventes.insert_one(s.model_dump())
+    return s
+
+
+@api.put("/semoventes/{sid}", response_model=Semovente)
+async def update_semovente(sid: str, data: SemoventeBase, uid: str = Depends(get_active_subscriber)):
+    doc = await db.semoventes.find_one({"id": sid, "user_id": uid})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Semovente não encontrado")
+    updates = data.model_dump()
+    updates["updated_at"] = datetime.utcnow()
+    await db.semoventes.update_one({"id": sid}, {"$set": updates})
+    new_doc = await db.semoventes.find_one({"id": sid})
+    return Semovente(**_serialize(new_doc))
+
+
+@api.delete("/semoventes/{sid}")
+async def delete_semovente(sid: str, uid: str = Depends(get_active_subscriber)):
+    res = await db.semoventes.delete_one({"id": sid, "user_id": uid})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Semovente não encontrado")
+    return {"ok": True}
+
+
 # ===== PAYMENTS (Mercado Pago) =======================================
 
 PLAN_CONFIG = {
@@ -899,6 +956,43 @@ async def email_send_test(uid: str = Depends(get_current_user_id)):
     name = u.get("name", "Usuario")
     await send_welcome_email(email, name)
     return {"ok": True, "message": f"Email de teste enviado para {email}"}
+
+
+# ===== Perfil Avaliador ==============================================
+@api.get("/perfil-avaliador")
+async def get_perfil_avaliador(uid: str = Depends(get_current_user_id)):
+    doc = await db.perfil_avaliador.find_one({"user_id": uid})
+    if not doc:
+        return PerfilAvaliador(user_id=uid).model_dump(mode="json")
+    doc.pop("_id", None)
+    return doc
+
+
+@api.put("/perfil-avaliador")
+async def update_perfil_avaliador(
+    body: PerfilAvaliadorBase,
+    uid: str = Depends(get_current_user_id),
+):
+    now = datetime.utcnow()
+    data = body.model_dump(mode="json")
+    data["user_id"] = uid
+    data["updated_at"] = now
+
+    existing = await db.perfil_avaliador.find_one({"user_id": uid})
+    if existing:
+        await db.perfil_avaliador.update_one(
+            {"user_id": uid},
+            {"$set": data},
+        )
+        doc = await db.perfil_avaliador.find_one({"user_id": uid})
+    else:
+        data["id"] = str(uuid.uuid4())
+        data["created_at"] = now
+        await db.perfil_avaliador.insert_one(data)
+        doc = await db.perfil_avaliador.find_one({"user_id": uid})
+
+    doc.pop("_id", None)
+    return doc
 
 
 # ===== Root ==========================================================

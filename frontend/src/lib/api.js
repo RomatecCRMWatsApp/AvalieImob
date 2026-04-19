@@ -115,6 +115,15 @@ export const garantiasAPI = {
   remove: (id) => api.delete(`/garantias/${id}`).then(r => r.data),
 };
 
+// ---- Semoventes (Penhor Rural Bancário)
+export const semoventesAPI = {
+  list: (params) => api.get('/semoventes', { params }).then(r => r.data),
+  get: (id) => api.get(`/semoventes/${id}`).then(r => r.data),
+  create: (data) => api.post('/semoventes', data).then(r => r.data),
+  update: (id, data) => api.put(`/semoventes/${id}`, data).then(r => r.data),
+  remove: (id) => api.delete(`/semoventes/${id}`).then(r => r.data),
+};
+
 
 // ---- Subscription
 export const subAPI = {

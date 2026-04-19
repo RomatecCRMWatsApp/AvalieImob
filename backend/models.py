@@ -641,6 +641,82 @@ class Semovente(SemoventeBase):
     updated_at: datetime = Field(default_factory=_now)
 
 
+# ---------- Perfil Avaliador ----------
+class RegistroProfissional(BaseModel):
+    tipo: str  # CRECI, CREA, CAU, CRMV, CZO, CNAI, CFT, INCRA
+    numero: str
+    uf: str = ""
+    validade: Optional[str] = None
+    status: str = "ativo"  # ativo, inativo, suspenso
+
+
+class Formacao(BaseModel):
+    tipo: str  # graduacao, pos_graduacao, mestrado, doutorado, tecnico, curso_livre
+    curso: str
+    instituicao: str
+    ano_conclusao: int
+    carga_horaria: Optional[int] = None
+
+
+class Experiencia(BaseModel):
+    cargo: str
+    empresa: str
+    periodo_inicio: str
+    periodo_fim: Optional[str] = None  # null = atual
+    descricao: str = ""
+
+
+class PerfilAvaliadorBase(BaseModel):
+    # Dados pessoais
+    nome_completo: str = ""
+    foto_perfil: Optional[str] = None
+    cpf: str = ""
+    rg: str = ""
+    rg_orgao: str = ""
+    bio_resumo: str = ""
+
+    # Registros profissionais
+    registros: List[RegistroProfissional] = []
+
+    # Formacao academica
+    formacoes: List[Formacao] = []
+
+    # Experiencia profissional
+    experiencias: List[Experiencia] = []
+
+    # Especializacoes e habilitacoes
+    especializacoes: List[str] = []
+    habilitacoes: List[str] = []
+    tribunais_cadastrado: List[str] = []
+    bancos_habilitado: List[str] = []
+
+    # Contato profissional
+    telefone: str = ""
+    email_profissional: str = ""
+    site: str = ""
+    endereco_escritorio: str = ""
+    cidade: str = ""
+    uf: str = ""
+    cep: str = ""
+
+    # Empresa
+    empresa_nome: str = ""
+    empresa_cnpj: str = ""
+    empresa_razao_social: str = ""
+
+    # Areas e associacoes
+    areas_atuacao: List[str] = []
+    membro_associacoes: List[str] = []
+    numero_laudos_emitidos: int = 0
+
+
+class PerfilAvaliador(PerfilAvaliadorBase):
+    id: str = Field(default_factory=_id)
+    user_id: str = ""
+    created_at: datetime = Field(default_factory=_now)
+    updated_at: datetime = Field(default_factory=_now)
+
+
 # ---------- Admin ----------
 class CreateTestUserRequest(BaseModel):
     name: str
