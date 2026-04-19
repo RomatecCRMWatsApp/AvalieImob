@@ -3,9 +3,13 @@
   "version": "1.0.0",
   "private": true,
   "description": "Romatec Avaliação Imobiliária - PTAM + Laudos com Transcrição de Áudio",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "dev": "turbo run dev --parallel",
     "build": "turbo run build",
+    "start": "node packages/backend/server.js",
     "test": "turbo run test",
     "lint": "turbo run lint",
     "db:push": "cd packages/db && npm run push",
