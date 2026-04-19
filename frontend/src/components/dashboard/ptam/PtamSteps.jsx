@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Textarea } from '../../ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '../../ui/select';
 import { Plus, Trash2, Sparkles } from 'lucide-react';
 import { emptyMarketSample, emptyImpactArea, emptySample, computeStats } from './ptamHelpers';
 import ImageUploader from './ImageUploader';
@@ -75,27 +75,116 @@ export const StepSolicitante = ({ form, setForm }) => (
 );
 
 // ── Step 2: Objetivo da Avaliação ─────────────────────────────────────────────
+
+// Finalidades que exigem campos judiciais adicionais
+const FINALIDADES_JUDICIAIS = new Set([
+  'judicial_partilha', 'judicial_desapropriacao', 'judicial_indenizacao',
+  'judicial_execucao', 'judicial_usucapiao', 'judicial_pericia',
+  'desap_utilidade', 'desap_interesse_social', 'desap_reforma_agraria',
+]);
+
 export const StepObjetivo = ({ form, setForm, onAi, aiLoading }) => {
-  const isJudicial = form.finalidade === 'judicial';
+  const isJudicial = FINALIDADES_JUDICIAIS.has(form.finalidade);
   return (
     <div>
       <SectionHeader
         title="2. Objetivo da Avaliação"
-        subtitle="Descreva a finalidade e o contexto legal da avaliação."
+        subtitle="Descreva a finalidade e o contexto legal da avaliação (NBR 14653, Res. CMN 4.676/2018, MCR BACEN, COFECI)."
       />
       <div className="grid grid-cols-2 gap-4">
-        <Field label="Finalidade principal" full>
+        <Field label="Finalidade da avaliação" full>
           <Select value={form.finalidade} onValueChange={(v) => setForm({ ...form, finalidade: v })}>
             <SelectTrigger><SelectValue placeholder="Selecione a finalidade..." /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="compra_venda">Compra e Venda</SelectItem>
-              <SelectItem value="financiamento">Financiamento / Garantia Bancária</SelectItem>
-              <SelectItem value="judicial">Uso Judicial / Inventário</SelectItem>
-              <SelectItem value="inventario">Inventário / Partilha</SelectItem>
-              <SelectItem value="locacao">Locação</SelectItem>
-              <SelectItem value="garantia">Garantia de Crédito</SelectItem>
-              <SelectItem value="permuta">Permuta</SelectItem>
-              <SelectItem value="outros">Outros</SelectItem>
+            <SelectContent className="max-h-96">
+
+              <SelectGroup>
+                <SelectLabel className="text-xs font-bold text-emerald-800 uppercase tracking-wider px-2 py-1">Compra e Venda</SelectLabel>
+                <SelectItem value="cv_alienacao">Alienação</SelectItem>
+                <SelectItem value="cv_aquisicao">Aquisição</SelectItem>
+                <SelectItem value="cv_oferta">Oferta pública</SelectItem>
+                <SelectItem value="cv_dacao">Dação em pagamento</SelectItem>
+              </SelectGroup>
+
+              <SelectGroup>
+                <SelectLabel className="text-xs font-bold text-emerald-800 uppercase tracking-wider px-2 py-1">Garantia Bancária</SelectLabel>
+                <SelectItem value="gar_sfh">Financiamento SFH</SelectItem>
+                <SelectItem value="gar_sfi">Financiamento SFI</SelectItem>
+                <SelectItem value="gar_credito_rural">Crédito rural (penhor rural)</SelectItem>
+                <SelectItem value="gar_refinanciamento">Refinanciamento</SelectItem>
+                <SelectItem value="gar_lci_cri">LCI / CRI</SelectItem>
+                <SelectItem value="gar_ccb">CCB imobiliária</SelectItem>
+              </SelectGroup>
+
+              <SelectGroup>
+                <SelectLabel className="text-xs font-bold text-emerald-800 uppercase tracking-wider px-2 py-1">Judicial / Pericial</SelectLabel>
+                <SelectItem value="judicial_partilha">Partilha de bens (inventário / divórcio)</SelectItem>
+                <SelectItem value="judicial_desapropriacao">Desapropriação (utilidade pública ou interesse social)</SelectItem>
+                <SelectItem value="judicial_indenizacao">Ação de indenização</SelectItem>
+                <SelectItem value="judicial_execucao">Execução de sentença</SelectItem>
+                <SelectItem value="judicial_usucapiao">Usucapião</SelectItem>
+                <SelectItem value="judicial_pericia">Perícia judicial (CPC art. 156)</SelectItem>
+              </SelectGroup>
+
+              <SelectGroup>
+                <SelectLabel className="text-xs font-bold text-emerald-800 uppercase tracking-wider px-2 py-1">Locação</SelectLabel>
+                <SelectItem value="loc_fixacao">Fixação de aluguel</SelectItem>
+                <SelectItem value="loc_revisao">Revisão de aluguel (Lei 8.245/91)</SelectItem>
+                <SelectItem value="loc_renovatoria">Ação renovatória</SelectItem>
+              </SelectGroup>
+
+              <SelectGroup>
+                <SelectLabel className="text-xs font-bold text-emerald-800 uppercase tracking-wider px-2 py-1">Seguros</SelectLabel>
+                <SelectItem value="seg_reposicao">Determinação do valor de reposição</SelectItem>
+                <SelectItem value="seg_sinistro">Sinistro</SelectItem>
+                <SelectItem value="seg_risco">Valor em risco</SelectItem>
+              </SelectGroup>
+
+              <SelectGroup>
+                <SelectLabel className="text-xs font-bold text-emerald-800 uppercase tracking-wider px-2 py-1">Tributário / Fiscal</SelectLabel>
+                <SelectItem value="trib_itbi">Base de cálculo ITBI</SelectItem>
+                <SelectItem value="trib_itcmd">Base de cálculo ITCMD (herança / doação)</SelectItem>
+                <SelectItem value="trib_ir">Imposto de renda (ganho de capital)</SelectItem>
+                <SelectItem value="trib_iptu_itr">IPTU / ITR progressivo</SelectItem>
+              </SelectGroup>
+
+              <SelectGroup>
+                <SelectLabel className="text-xs font-bold text-emerald-800 uppercase tracking-wider px-2 py-1">Incorporação e Registro</SelectLabel>
+                <SelectItem value="inc_registro">Registro de incorporação imobiliária (Lei 4.591/64)</SelectItem>
+                <SelectItem value="inc_afetacao">Patrimônio de afetação (Lei 13.786/2018)</SelectItem>
+                <SelectItem value="inc_permuta">Permuta</SelectItem>
+              </SelectGroup>
+
+              <SelectGroup>
+                <SelectLabel className="text-xs font-bold text-emerald-800 uppercase tracking-wider px-2 py-1">Execução de Garantia</SelectLabel>
+                <SelectItem value="exec_fid_1">Alienação fiduciária — 1º leilão (Lei 9.514/97 art. 27)</SelectItem>
+                <SelectItem value="exec_fid_2">Alienação fiduciária — 2º leilão</SelectItem>
+                <SelectItem value="exec_hipoteca">Execução hipotecária</SelectItem>
+                <SelectItem value="exec_consolidacao">Consolidação da propriedade</SelectItem>
+              </SelectGroup>
+
+              <SelectGroup>
+                <SelectLabel className="text-xs font-bold text-emerald-800 uppercase tracking-wider px-2 py-1">Desapropriação</SelectLabel>
+                <SelectItem value="desap_utilidade">Desapropriação por utilidade pública (Dec.-Lei 3.365/41)</SelectItem>
+                <SelectItem value="desap_interesse_social">Desapropriação por interesse social (Lei 4.132/62)</SelectItem>
+                <SelectItem value="desap_reforma_agraria">Reforma agrária (LC 76/93)</SelectItem>
+              </SelectGroup>
+
+              <SelectGroup>
+                <SelectLabel className="text-xs font-bold text-emerald-800 uppercase tracking-wider px-2 py-1">Regularização Fundiária</SelectLabel>
+                <SelectItem value="reurb_s_e">REURB-S / REURB-E (Lei 13.465/2017)</SelectItem>
+                <SelectItem value="reurb_demarcacao">Demarcação urbanística</SelectItem>
+              </SelectGroup>
+
+              <SelectGroup>
+                <SelectLabel className="text-xs font-bold text-emerald-800 uppercase tracking-wider px-2 py-1">Outros</SelectLabel>
+                <SelectItem value="outros_contab">Contabilidade / balanço patrimonial (CPC 28 / IFRS 13)</SelectItem>
+                <SelectItem value="outros_fii">Fundo de investimento imobiliário (FII)</SelectItem>
+                <SelectItem value="outros_ma">Fusão e aquisição (M&amp;A)</SelectItem>
+                <SelectItem value="outros_bts">Locação built to suit</SelectItem>
+                <SelectItem value="outros_diligencia">Due diligence imobiliária</SelectItem>
+                <SelectItem value="outros">Outro (especificar)</SelectItem>
+              </SelectGroup>
+
             </SelectContent>
           </Select>
         </Field>
