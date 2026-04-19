@@ -33,6 +33,8 @@ class User(BaseModel):
     role: str = "Profissional"
     crea: str = ""
     plan: str = "mensal"
+    plan_status: str = "inactive"  # active, inactive, expired
+    plan_expires: Optional[datetime] = None
     company: Optional[str] = ""
     bio: Optional[str] = ""
     created_at: datetime = Field(default_factory=_now)
@@ -45,6 +47,8 @@ class UserPublic(BaseModel):
     role: str
     crea: str
     plan: str
+    plan_status: str = "inactive"
+    plan_expires: Optional[datetime] = None
     company: Optional[str] = ""
     bio: Optional[str] = ""
 
@@ -226,3 +230,18 @@ class AIHistoryItem(BaseModel):
     role: str
     content: str
     ts: datetime
+
+
+# ---------- Payments / Transactions ----------
+class Transaction(BaseModel):
+    id: str = Field(default_factory=_id)
+    user_id: str
+    plan_id: str
+    amount: float
+    status: str = "pending"  # pending, approved, rejected
+    mp_payment_id: str = ""
+    created_at: datetime = Field(default_factory=_now)
+
+
+class CreatePreferenceRequest(BaseModel):
+    plan_id: str  # mensal | trimestral | anual

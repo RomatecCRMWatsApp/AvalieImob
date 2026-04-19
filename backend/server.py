@@ -25,8 +25,17 @@ from models import (
     Transaction, CreatePreferenceRequest,
 )
 from ptam_docx import generate_ptam_docx
-from email_service import send_welcome_email, send_payment_email, send_ptam_issued_email
 from ptam_pdf import generate_ptam_pdf
+
+# Optional email service (graceful import)
+try:
+    from email_service import send_welcome_email, send_payment_email, send_ptam_issued_email
+    _email_enabled = True
+except ImportError:
+    _email_enabled = False
+    async def send_welcome_email(*a, **kw): pass
+    async def send_payment_email(*a, **kw): pass
+    async def send_ptam_issued_email(*a, **kw): pass
 
 # MongoDB
 mongo_url = os.environ["MONGO_URL"]
@@ -69,7 +78,6 @@ async def register(data: UserRegister):
     doc["password_hash"] = hash_password(data.password)
     await db.users.insert_one(doc)
     token = create_token(user.id)
-    # Send welcome email in background (non-blocking)
     import asyncio
     asyncio.create_task(send_welcome_email(user.email, user.name))
     return AuthResponse(user=UserPublic(**user.model_dump()), token=token)
@@ -99,7 +107,8 @@ async def update_me(data: UserUpdate, uid: str = Depends(get_current_user_id)):
     if updates:
         await db.users.update_one({"id": uid}, {"$set": updates})
     u = await _user_doc(uid)
-    return UserPublic(**{k: u.get(k, "") for k in UserPublic.model_fields})
+    fields = {k: u.get(k) for k in UserPublic.model_fields}
+    return UserPublic(**fields)
 
 
 # ===== CLIENTS =======================================================
@@ -244,7 +253,6 @@ async def dashboard_stats(uid: str = Depends(get_current_user_id)):
             monthly[months_pt[d.month - 1]] += 1
         except Exception:
             pass
-    # last 6 months order
     now_month = datetime.utcnow().month
     order = [months_pt[(now_month - 6 + i) % 12] for i in range(6)]
     monthly_list = [{"month": m, "count": monthly.get(m, 0)} for m in order]
@@ -252,7 +260,7 @@ async def dashboard_stats(uid: str = Depends(get_current_user_id)):
         "evaluations": len(evals),
         "clients": clients_count,
         "properties": props_count,
-        "revenue": round(total_val * 0.01, 2),  # simulated fee 1%
+        "revenue": round(total_val * 0.01, 2),
         "monthly": monthly_list,
     }
 
@@ -275,12 +283,10 @@ async def ai_chat(data: AIMessage, uid: str = Depends(get_current_user_id)):
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
         raise HTTPException(status_code=500, detail="LLM não configurado")
-    # Persist user message
     await db.ai_messages.insert_one({
         "user_id": uid, "session_id": data.session_id,
         "role": "user", "content": data.message, "ts": datetime.utcnow()
     })
-    # Load conversation history from MongoDB
     history = await db.ai_messages.find({"user_id": uid, "session_id": data.session_id}).sort("ts", 1).to_list(50)
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     for h in history:
@@ -307,7 +313,7 @@ async def ai_history(session_id: str, uid: str = Depends(get_current_user_id)):
     return [{"role": i["role"], "content": i["content"], "ts": i["ts"].isoformat()} for i in items]
 
 
-# ===== PTAM (Parecer Técnico de Avaliação Mercadológica) =============
+# ===== PTAM ==========================================================
 from fastapi.responses import Response
 
 
@@ -327,7 +333,6 @@ async def get_ptam(pid: str, uid: str = Depends(get_current_user_id)):
 
 @api.post("/ptam", response_model=Ptam)
 async def create_ptam(data: PtamBase, uid: str = Depends(get_current_user_id)):
-    # Auto-generate number if not provided
     number = data.number
     if not number:
         year = datetime.utcnow().year
@@ -403,11 +408,166 @@ async def download_ptam_pdf(pid: str, uid: str = Depends(get_current_user_id)):
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
-# ===== Subscription (MOCKED) =========================================
+
+# ===== PAYMENTS (Mercado Pago) =======================================
+
+PLAN_CONFIG = {
+    "mensal":     {"title": "AvalieImob - Plano Mensal",      "unit_price": 89.90,  "days": 30},
+    "trimestral": {"title": "AvalieImob - Plano Trimestral",  "unit_price": 239.90, "days": 90},
+    "anual":      {"title": "AvalieImob - Plano Anual",        "unit_price": 849.90, "days": 365},
+}
+
+APP_URL = "https://avalieimob-production.up.railway.app"
+
+
+def _get_mp_sdk():
+    import mercadopago
+    access_token = os.environ.get("MERCADOPAGO_ACCESS_TOKEN", "")
+    if not access_token:
+        raise HTTPException(status_code=500, detail="Mercado Pago não configurado")
+    return mercadopago.SDK(access_token)
+
+
+@api.post("/payments/create-preference")
+async def create_preference(data: CreatePreferenceRequest, uid: str = Depends(get_current_user_id)):
+    plan = PLAN_CONFIG.get(data.plan_id)
+    if not plan:
+        raise HTTPException(status_code=400, detail="Plano inválido. Use: mensal, trimestral ou anual")
+
+    sdk = _get_mp_sdk()
+    preference_data = {
+        "items": [{
+            "title": plan["title"],
+            "quantity": 1,
+            "unit_price": plan["unit_price"],
+            "currency_id": "BRL",
+        }],
+        "back_urls": {
+            "success": f"{APP_URL}/dashboard?payment=success",
+            "failure": f"{APP_URL}/dashboard?payment=failure",
+            "pending": f"{APP_URL}/dashboard?payment=pending",
+        },
+        "auto_return": "approved",
+        "notification_url": f"{APP_URL}/api/payments/webhook",
+        "external_reference": f"{uid}|{data.plan_id}",
+        "statement_descriptor": "AVALIEIMOB",
+    }
+
+    result = sdk.preference().create(preference_data)
+    response = result["response"]
+
+    if result["status"] not in (200, 201):
+        logger.error("MP create-preference error: %s", response)
+        raise HTTPException(status_code=502, detail="Erro ao criar preferência de pagamento")
+
+    init_point = response.get("sandbox_init_point") or response.get("init_point")
+    logger.info("MP preference created: %s for user=%s plan=%s", response.get("id"), uid, data.plan_id)
+    return {"init_point": init_point, "preference_id": response.get("id")}
+
+
+@api.post("/payments/webhook")
+async def payment_webhook(request: Request):
+    body = await request.json()
+    logger.info("MP webhook received: %s", body)
+
+    topic = body.get("topic") or body.get("type")
+    resource_id = body.get("data", {}).get("id") or body.get("id")
+
+    if not resource_id or topic not in ("payment", "merchant_order"):
+        return {"ok": True}
+
+    if topic != "payment":
+        return {"ok": True}
+
+    try:
+        sdk = _get_mp_sdk()
+        payment_result = sdk.payment().get(resource_id)
+        payment = payment_result.get("response", {})
+    except Exception:
+        logger.exception("MP webhook: failed to fetch payment %s", resource_id)
+        return {"ok": True}
+
+    mp_payment_id = str(payment.get("id", resource_id))
+    payment_status = payment.get("status", "")
+    external_ref = payment.get("external_reference", "")
+    amount = float(payment.get("transaction_amount", 0))
+
+    logger.info("MP payment id=%s status=%s ref=%s", mp_payment_id, payment_status, external_ref)
+
+    # Idempotency: skip if already processed
+    existing = await db.transactions.find_one({"mp_payment_id": mp_payment_id})
+    if existing:
+        logger.info("MP webhook: payment %s already processed, skipping", mp_payment_id)
+        return {"ok": True}
+
+    # Parse external_reference: "{user_id}|{plan_id}"
+    parts = external_ref.split("|", 1)
+    if len(parts) != 2:
+        logger.warning("MP webhook: invalid external_reference: %s", external_ref)
+        return {"ok": True}
+
+    user_id, plan_id = parts
+    plan_cfg = PLAN_CONFIG.get(plan_id, {})
+
+    txn = Transaction(
+        user_id=user_id,
+        plan_id=plan_id,
+        amount=amount,
+        status=payment_status,
+        mp_payment_id=mp_payment_id,
+    )
+    await db.transactions.insert_one(txn.model_dump())
+
+    if payment_status == "approved":
+        from datetime import timedelta
+        days = plan_cfg.get("days", 30)
+        expires = datetime.utcnow() + timedelta(days=days)
+        await db.users.update_one(
+            {"id": user_id},
+            {"$set": {"plan": plan_id, "plan_status": "active", "plan_expires": expires}}
+        )
+        logger.info("MP webhook: activated plan=%s for user=%s until %s", plan_id, user_id, expires)
+
+    return {"ok": True}
+
+
+@api.get("/payments/status")
+async def payment_status(uid: str = Depends(get_current_user_id)):
+    u = await _user_doc(uid)
+    now = datetime.utcnow()
+    plan_expires = u.get("plan_expires")
+    plan_st = u.get("plan_status", "inactive")
+
+    if plan_st == "active" and plan_expires and plan_expires < now:
+        plan_st = "expired"
+        await db.users.update_one({"id": uid}, {"$set": {"plan_status": "expired"}})
+
+    txns = await db.transactions.find({"user_id": uid}).sort("created_at", -1).to_list(50)
+    for t in txns:
+        t.pop("_id", None)
+        if isinstance(t.get("created_at"), datetime):
+            t["created_at"] = t["created_at"].isoformat()
+
+    return {
+        "plan": u.get("plan", "mensal"),
+        "plan_status": plan_st,
+        "plan_expires": plan_expires.isoformat() if plan_expires else None,
+        "transactions": txns,
+    }
+
+
+# ===== Subscription (backwards compat) ===============================
 @api.get("/subscription")
 async def subscription(uid: str = Depends(get_current_user_id)):
     u = await _user_doc(uid)
-    return {"plan": u.get("plan", "mensal"), "next_billing": "2026-05-15", "status": "active"}
+    plan_expires = u.get("plan_expires")
+    return {
+        "plan": u.get("plan", "mensal"),
+        "plan_status": u.get("plan_status", "inactive"),
+        "plan_expires": plan_expires.isoformat() if plan_expires else None,
+        "next_billing": plan_expires.strftime("%d/%m/%Y") if plan_expires else "—",
+        "status": u.get("plan_status", "inactive"),
+    }
 
 
 @api.post("/subscription/change")
@@ -415,19 +575,6 @@ async def change_subscription(payload: dict, uid: str = Depends(get_current_user
     plan_id = payload.get("plan_id", "mensal")
     await db.users.update_one({"id": uid}, {"$set": {"plan": plan_id}})
     return {"ok": True, "plan": plan_id}
-
-
-
-# ===== EMAIL TEST ====================================================
-@api.post("/email/test")
-async def email_test(uid: str = Depends(get_current_user_id)):
-    """Send a test welcome email to the logged-in user."""
-    u = await _user_doc(uid)
-    email = u.get("email", "")
-    name = u.get("name", "Usuario")
-    await send_welcome_email(email, name)
-    return {"ok": True, "message": f"Email de teste enviado para {email}"}
-
 
 
 # ===== EMAIL TEST ====================================================
@@ -456,17 +603,13 @@ if _frontend_build.exists():
     from fastapi.staticfiles import StaticFiles
     from starlette.responses import FileResponse
 
-    # Serve static assets (js, css, images, etc.)
     app.mount("/static", StaticFiles(directory=str(_frontend_build / "static")), name="static-assets")
 
-    # SPA catch-all: any non-API route returns index.html for React Router
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
-        # If the file exists in build dir, serve it (favicon, manifest, etc.)
         file_path = _frontend_build / full_path
         if full_path and file_path.is_file():
             return FileResponse(str(file_path))
-        # Otherwise serve index.html for React Router
         return FileResponse(str(_frontend_build / "index.html"))
 
 app.add_middleware(

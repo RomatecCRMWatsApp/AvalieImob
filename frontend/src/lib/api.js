@@ -95,3 +95,9 @@ export const subAPI = {
   get: () => api.get('/subscription').then(r => r.data),
   change: (plan_id) => api.post('/subscription/change', { plan_id }).then(r => r.data),
 };
+
+// ---- Payments (Mercado Pago)
+export const paymentsAPI = {
+  createPreference: (plan_id) => api.post('/payments/create-preference', { plan_id }).then(r => r.data),
+  status: () => api.get('/payments/status').then(r => r.data),
+};
