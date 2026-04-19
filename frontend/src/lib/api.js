@@ -1,0 +1,79 @@
+import axios from 'axios';
+
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+export const API_BASE = `${BACKEND_URL}/api`;
+
+export const api = axios.create({ baseURL: API_BASE });
+
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('romatec_token');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+api.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    if (err.response?.status === 401) {
+      localStorage.removeItem('romatec_token');
+      localStorage.removeItem('romatec_user');
+    }
+    return Promise.reject(err);
+  }
+);
+
+// ---- Auth
+export const authAPI = {
+  register: (data) => api.post('/auth/register', data).then(r => r.data),
+  login: (data) => api.post('/auth/login', data).then(r => r.data),
+  me: () => api.get('/auth/me').then(r => r.data),
+  updateMe: (data) => api.put('/auth/me', data).then(r => r.data),
+};
+
+// ---- Clients
+export const clientsAPI = {
+  list: () => api.get('/clients').then(r => r.data),
+  create: (data) => api.post('/clients', data).then(r => r.data),
+  update: (id, data) => api.put(`/clients/${id}`, data).then(r => r.data),
+  remove: (id) => api.delete(`/clients/${id}`).then(r => r.data),
+};
+
+// ---- Properties
+export const propertiesAPI = {
+  list: (type) => api.get('/properties', { params: type ? { type } : {} }).then(r => r.data),
+  create: (data) => api.post('/properties', data).then(r => r.data),
+  update: (id, data) => api.put(`/properties/${id}`, data).then(r => r.data),
+  remove: (id) => api.delete(`/properties/${id}`).then(r => r.data),
+};
+
+// ---- Samples
+export const samplesAPI = {
+  list: () => api.get('/samples').then(r => r.data),
+  create: (data) => api.post('/samples', data).then(r => r.data),
+  remove: (id) => api.delete(`/samples/${id}`).then(r => r.data),
+};
+
+// ---- Evaluations
+export const evaluationsAPI = {
+  list: () => api.get('/evaluations').then(r => r.data),
+  create: (data) => api.post('/evaluations', data).then(r => r.data),
+  update: (id, data) => api.put(`/evaluations/${id}`, data).then(r => r.data),
+  remove: (id) => api.delete(`/evaluations/${id}`).then(r => r.data),
+};
+
+// ---- Dashboard
+export const dashboardAPI = {
+  stats: () => api.get('/dashboard/stats').then(r => r.data),
+};
+
+// ---- AI
+export const aiAPI = {
+  chat: (session_id, message) => api.post('/ai/chat', { session_id, message }).then(r => r.data),
+  history: (session_id) => api.get(`/ai/history/${session_id}`).then(r => r.data),
+};
+
+// ---- Subscription
+export const subAPI = {
+  get: () => api.get('/subscription').then(r => r.data),
+  change: (plan_id) => api.post('/subscription/change', { plan_id }).then(r => r.data),
+};

@@ -1,0 +1,84 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+body {
+    margin: 0;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-color: #ffffff;
+    color: #111827;
+}
+
+.font-display { font-family: 'Playfair Display', serif; }
+
+@layer base {
+  :root {
+        --background: 0 0% 100%;
+        --foreground: 160 30% 10%;
+        --card: 0 0% 100%;
+        --card-foreground: 160 30% 10%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 160 30% 10%;
+        --primary: 155 68% 18%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 150 30% 96%;
+        --secondary-foreground: 155 68% 18%;
+        --muted: 150 15% 95%;
+        --muted-foreground: 155 10% 40%;
+        --accent: 43 65% 52%;
+        --accent-foreground: 0 0% 100%;
+        --destructive: 0 72% 50%;
+        --destructive-foreground: 0 0% 100%;
+        --border: 150 15% 88%;
+        --input: 150 15% 88%;
+        --ring: 155 68% 18%;
+        --radius: 0.5rem;
+    }
+}
+
+@layer base {
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground; }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: #f1f5f4; }
+::-webkit-scrollbar-thumb { background: #0d4f3c; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #0a3a2c; }
+
+/* Brand helpers */
+.brand-green { color: #0d4f3c; }
+.bg-brand-green { background-color: #0d4f3c; }
+.bg-brand-green-light { background-color: #1a7f5a; }
+.border-brand-green { border-color: #0d4f3c; }
+
+/* Subtle grain overlay */
+.grain {
+  position: relative;
+}
+.grain::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(13,79,60,0.03) 1px, transparent 1px);
+  background-size: 3px 3px;
+  pointer-events: none;
+}
+
+/* Fade in animation */
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in-up { animation: fade-in-up 0.6s ease-out forwards; }
+
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+.animate-float { animation: float-slow 5s ease-in-out infinite; }
