@@ -51,14 +51,31 @@ app.get("/health", (_req, res) => {
 });
 
 // Serve React frontend (production)
-// __dirname is packages/backend/ when bundled with esbuild --format=cjs
-const frontendDist = join(__dirname, "../frontend/dist");
-if (existsSync(frontendDist)) {
+// Tenta múltiplos caminhos para encontrar o frontend dist
+const possiblePaths = [
+  join(__dirname, "../frontend/dist"),           // Relative to bundled server.js
+  join(__dirname, "packages/frontend/dist"),     // Relative to app root
+  "/app/packages/frontend/dist",                 // Absolute path in container
+  "./packages/frontend/dist",                    // Current working directory
+];
+
+let frontendDist: string | null = null;
+for (const path of possiblePaths) {
+  if (existsSync(path)) {
+    frontendDist = path;
+    console.log(`✓ Frontend dist encontrado em: ${path}`);
+    break;
+  }
+}
+
+if (frontendDist) {
   app.use(express.static(frontendDist));
   app.get("*", (_req, res) => {
-    res.sendFile(join(frontendDist, "index.html"));
+    res.sendFile(join(frontendDist!, "index.html"));
   });
+  console.log(`✓ Servindo React frontend de: ${frontendDist}`);
 } else {
+  console.log("⚠️  Frontend dist não encontrado, servindo apenas API");
   app.get("/", (_req, res) => {
     res.json({ message: "AvalieImob API v1.0.0" });
   });
