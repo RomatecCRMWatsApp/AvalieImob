@@ -99,67 +99,67 @@ export const StepObjetivo = ({ form, setForm, onAi, aiLoading }) => {
 
               <SelectGroup>
                 <SelectLabel className="text-xs font-bold text-emerald-800 uppercase tracking-wider px-2 py-1">Compra e Venda</SelectLabel>
-                <SelectItem value="cv_alienacao">Alienação</SelectItem>
-                <SelectItem value="cv_aquisicao">Aquisição</SelectItem>
-                <SelectItem value="cv_oferta">Oferta pública</SelectItem>
-                <SelectItem value="cv_dacao">Dação em pagamento</SelectItem>
+                <SelectItem value="cv_alienacao">Alienação (NBR 14653-2)</SelectItem>
+                <SelectItem value="cv_aquisicao">Aquisição (NBR 14653-2)</SelectItem>
+                <SelectItem value="cv_oferta">Oferta pública (NBR 14653-2)</SelectItem>
+                <SelectItem value="cv_dacao">Dação em pagamento (CC art. 356)</SelectItem>
               </SelectGroup>
 
               <SelectGroup>
                 <SelectLabel className="text-xs font-bold text-emerald-800 uppercase tracking-wider px-2 py-1">Garantia Bancária</SelectLabel>
-                <SelectItem value="gar_sfh">Financiamento SFH</SelectItem>
-                <SelectItem value="gar_sfi">Financiamento SFI</SelectItem>
-                <SelectItem value="gar_credito_rural">Crédito rural (penhor rural)</SelectItem>
-                <SelectItem value="gar_refinanciamento">Refinanciamento</SelectItem>
-                <SelectItem value="gar_lci_cri">LCI / CRI</SelectItem>
-                <SelectItem value="gar_ccb">CCB imobiliária</SelectItem>
+                <SelectItem value="gar_sfh">Financiamento SFH (Res. CMN 4.676/2018)</SelectItem>
+                <SelectItem value="gar_sfi">Financiamento SFI (Lei 9.514/97)</SelectItem>
+                <SelectItem value="gar_credito_rural">Crédito rural / penhor rural (MCR BACEN)</SelectItem>
+                <SelectItem value="gar_refinanciamento">Refinanciamento (Res. CMN 4.676/2018)</SelectItem>
+                <SelectItem value="gar_lci_cri">LCI / CRI (Lei 10.931/2004)</SelectItem>
+                <SelectItem value="gar_ccb">CCB imobiliária (Lei 10.931/2004)</SelectItem>
               </SelectGroup>
 
               <SelectGroup>
                 <SelectLabel className="text-xs font-bold text-emerald-800 uppercase tracking-wider px-2 py-1">Judicial / Pericial</SelectLabel>
-                <SelectItem value="judicial_partilha">Partilha de bens (inventário / divórcio)</SelectItem>
-                <SelectItem value="judicial_desapropriacao">Desapropriação (utilidade pública ou interesse social)</SelectItem>
-                <SelectItem value="judicial_indenizacao">Ação de indenização</SelectItem>
-                <SelectItem value="judicial_execucao">Execução de sentença</SelectItem>
-                <SelectItem value="judicial_usucapiao">Usucapião</SelectItem>
+                <SelectItem value="judicial_partilha">Partilha de bens — inventário / divórcio (CPC art. 872)</SelectItem>
+                <SelectItem value="judicial_desapropriacao">Desapropriação — utilidade pública (Dec.-Lei 3.365/41)</SelectItem>
+                <SelectItem value="judicial_indenizacao">Ação de indenização (CC art. 944)</SelectItem>
+                <SelectItem value="judicial_execucao">Execução de sentença (CPC art. 509)</SelectItem>
+                <SelectItem value="judicial_usucapiao">Usucapião (CC art. 1.238)</SelectItem>
                 <SelectItem value="judicial_pericia">Perícia judicial (CPC art. 156)</SelectItem>
               </SelectGroup>
 
               <SelectGroup>
                 <SelectLabel className="text-xs font-bold text-emerald-800 uppercase tracking-wider px-2 py-1">Locação</SelectLabel>
-                <SelectItem value="loc_fixacao">Fixação de aluguel</SelectItem>
-                <SelectItem value="loc_revisao">Revisão de aluguel (Lei 8.245/91)</SelectItem>
-                <SelectItem value="loc_renovatoria">Ação renovatória</SelectItem>
+                <SelectItem value="loc_fixacao">Fixação de aluguel (Lei 8.245/91)</SelectItem>
+                <SelectItem value="loc_revisao">Revisão de aluguel (Lei 8.245/91 art. 19)</SelectItem>
+                <SelectItem value="loc_renovatoria">Ação renovatória (Lei 8.245/91 art. 51)</SelectItem>
               </SelectGroup>
 
               <SelectGroup>
                 <SelectLabel className="text-xs font-bold text-emerald-800 uppercase tracking-wider px-2 py-1">Seguros</SelectLabel>
-                <SelectItem value="seg_reposicao">Determinação do valor de reposição</SelectItem>
-                <SelectItem value="seg_sinistro">Sinistro</SelectItem>
-                <SelectItem value="seg_risco">Valor em risco</SelectItem>
+                <SelectItem value="seg_reposicao">Valor de reposição (SUSEP / NBR 14653-2)</SelectItem>
+                <SelectItem value="seg_sinistro">Sinistro (SUSEP / NBR 14653-2)</SelectItem>
+                <SelectItem value="seg_risco">Valor em risco (SUSEP / NBR 14653-2)</SelectItem>
               </SelectGroup>
 
               <SelectGroup>
                 <SelectLabel className="text-xs font-bold text-emerald-800 uppercase tracking-wider px-2 py-1">Tributário / Fiscal</SelectLabel>
-                <SelectItem value="trib_itbi">Base de cálculo ITBI</SelectItem>
-                <SelectItem value="trib_itcmd">Base de cálculo ITCMD (herança / doação)</SelectItem>
-                <SelectItem value="trib_ir">Imposto de renda (ganho de capital)</SelectItem>
-                <SelectItem value="trib_iptu_itr">IPTU / ITR progressivo</SelectItem>
+                <SelectItem value="trib_itbi">Base de cálculo ITBI (CTN art. 38)</SelectItem>
+                <SelectItem value="trib_itcmd">Base de cálculo ITCMD — herança / doação (CTN art. 35)</SelectItem>
+                <SelectItem value="trib_ir">Imposto de renda — ganho de capital (Lei 8.981/95 art. 21)</SelectItem>
+                <SelectItem value="trib_iptu_itr">IPTU / ITR progressivo (CTN art. 32 / CF art. 153)</SelectItem>
               </SelectGroup>
 
               <SelectGroup>
                 <SelectLabel className="text-xs font-bold text-emerald-800 uppercase tracking-wider px-2 py-1">Incorporação e Registro</SelectLabel>
                 <SelectItem value="inc_registro">Registro de incorporação imobiliária (Lei 4.591/64)</SelectItem>
                 <SelectItem value="inc_afetacao">Patrimônio de afetação (Lei 13.786/2018)</SelectItem>
-                <SelectItem value="inc_permuta">Permuta</SelectItem>
+                <SelectItem value="inc_permuta">Permuta (NBR 14653-2)</SelectItem>
               </SelectGroup>
 
               <SelectGroup>
                 <SelectLabel className="text-xs font-bold text-emerald-800 uppercase tracking-wider px-2 py-1">Execução de Garantia</SelectLabel>
                 <SelectItem value="exec_fid_1">Alienação fiduciária — 1º leilão (Lei 9.514/97 art. 27)</SelectItem>
-                <SelectItem value="exec_fid_2">Alienação fiduciária — 2º leilão</SelectItem>
-                <SelectItem value="exec_hipoteca">Execução hipotecária</SelectItem>
-                <SelectItem value="exec_consolidacao">Consolidação da propriedade</SelectItem>
+                <SelectItem value="exec_fid_2">Alienação fiduciária — 2º leilão (Lei 9.514/97 art. 27 §2)</SelectItem>
+                <SelectItem value="exec_hipoteca">Execução hipotecária (Lei 9.514/97)</SelectItem>
+                <SelectItem value="exec_consolidacao">Consolidação da propriedade (Lei 9.514/97 art. 26)</SelectItem>
               </SelectGroup>
 
               <SelectGroup>
@@ -172,16 +172,16 @@ export const StepObjetivo = ({ form, setForm, onAi, aiLoading }) => {
               <SelectGroup>
                 <SelectLabel className="text-xs font-bold text-emerald-800 uppercase tracking-wider px-2 py-1">Regularização Fundiária</SelectLabel>
                 <SelectItem value="reurb_s_e">REURB-S / REURB-E (Lei 13.465/2017)</SelectItem>
-                <SelectItem value="reurb_demarcacao">Demarcação urbanística</SelectItem>
+                <SelectItem value="reurb_demarcacao">Demarcação urbanística (Lei 13.465/2017 art. 19)</SelectItem>
               </SelectGroup>
 
               <SelectGroup>
                 <SelectLabel className="text-xs font-bold text-emerald-800 uppercase tracking-wider px-2 py-1">Outros</SelectLabel>
                 <SelectItem value="outros_contab">Contabilidade / balanço patrimonial (CPC 28 / IFRS 13)</SelectItem>
-                <SelectItem value="outros_fii">Fundo de investimento imobiliário (FII)</SelectItem>
-                <SelectItem value="outros_ma">Fusão e aquisição (M&amp;A)</SelectItem>
-                <SelectItem value="outros_bts">Locação built to suit</SelectItem>
-                <SelectItem value="outros_diligencia">Due diligence imobiliária</SelectItem>
+                <SelectItem value="outros_fii">Fundo de investimento imobiliário — FII (Lei 8.668/93)</SelectItem>
+                <SelectItem value="outros_ma">Fusão e aquisição — M&amp;A (NBR 14653-2)</SelectItem>
+                <SelectItem value="outros_bts">Locação built to suit (Lei 8.245/91 art. 54-A)</SelectItem>
+                <SelectItem value="outros_diligencia">Due diligence imobiliária (NBR 14653-2)</SelectItem>
                 <SelectItem value="outros">Outro (especificar)</SelectItem>
               </SelectGroup>
 
