@@ -30,6 +30,7 @@ from models import (
     AIMessage, AIMessageResponse,
     PtamBase, Ptam,
     Transaction, CreatePreferenceRequest,
+    CreateTestUserRequest, AdminUserOut,
 )
 from ptam_docx import generate_ptam_docx
 from ptam_pdf import generate_ptam_pdf
@@ -594,6 +595,18 @@ async def payment_webhook(request: Request):
         )
         logger.info("MP webhook: activated plan=%s for user=%s until %s", plan_id, user_id, expires)
 
+        # Send payment confirmation email
+        user_doc = await db.users.find_one({"id": user_id})
+        if user_doc:
+            import asyncio
+            plan_label = plan_cfg.get("title", plan_id).replace("AvalieImob - Plano ", "")
+            asyncio.create_task(send_payment_email(
+                to_email=user_doc.get("email", ""),
+                name=user_doc.get("name", "Cliente"),
+                plan=plan_label,
+                amount=amount,
+            ))
+
     return {"ok": True}
 
 
@@ -647,6 +660,16 @@ async def change_subscription(payload: dict, uid: str = Depends(get_current_user
 @api.post("/email/test")
 async def email_test(uid: str = Depends(get_current_user_id)):
     """Send a test welcome email to the logged-in user."""
+    u = await _user_doc(uid)
+    email = u.get("email", "")
+    name = u.get("name", "Usuario")
+    await send_welcome_email(email, name)
+    return {"ok": True, "message": f"Email de teste enviado para {email}"}
+
+
+@api.post("/email/send-test")
+async def email_send_test(uid: str = Depends(get_current_user_id)):
+    """Alias for /email/test — sends a test welcome email to the logged-in user."""
     u = await _user_doc(uid)
     email = u.get("email", "")
     name = u.get("name", "Usuario")

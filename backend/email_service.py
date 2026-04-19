@@ -205,7 +205,7 @@ def _send_via_smtp(to_email: str, subject: str, html: str) -> None:
     port = int(os.environ.get("SMTP_PORT", "587"))
     user = os.environ["SMTP_USER"]
     password = os.environ.get("SMTP_PASS", "")
-    from_addr = os.environ.get("SMTP_FROM", user)
+    from_addr = os.environ.get("FROM_EMAIL") or os.environ.get("SMTP_FROM", user)
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
@@ -227,7 +227,7 @@ def _send_via_sendgrid(to_email: str, subject: str, html: str) -> None:
     from sendgrid.helpers.mail import Mail  # type: ignore
 
     api_key = os.environ["SENDGRID_API_KEY"]
-    from_addr = os.environ.get("SMTP_FROM", "noreply@consultoriaromatec.com.br")
+    from_addr = os.environ.get("FROM_EMAIL") or os.environ.get("SMTP_FROM", "contato@consultoriaromatec.com.br")
 
     message = Mail(
         from_email=from_addr,
