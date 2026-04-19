@@ -1,5 +1,5 @@
 """RomaTec AvalieImob - FastAPI backend with JWT auth, CRUD, Emergent LLM integration."""
-from fastapi import FastAPI, APIRouter, Depends, HTTPException, status
+from fastapi import FastAPI, APIRouter, Depends, HTTPException, status, Request
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -22,8 +22,11 @@ from models import (
     EvaluationBase, Evaluation,
     AIMessage, AIMessageResponse,
     PtamBase, Ptam,
+    Transaction, CreatePreferenceRequest,
 )
 from ptam_docx import generate_ptam_docx
+from email_service import send_welcome_email, send_payment_email, send_ptam_issued_email
+from ptam_pdf import generate_ptam_pdf
 
 # MongoDB
 mongo_url = os.environ["MONGO_URL"]
@@ -66,6 +69,9 @@ async def register(data: UserRegister):
     doc["password_hash"] = hash_password(data.password)
     await db.users.insert_one(doc)
     token = create_token(user.id)
+    # Send welcome email in background (non-blocking)
+    import asyncio
+    asyncio.create_task(send_welcome_email(user.email, user.name))
     return AuthResponse(user=UserPublic(**user.model_dump()), token=token)
 
 
@@ -75,14 +81,15 @@ async def login(data: UserLogin):
     if not u or not verify_password(data.password, u.get("password_hash", "")):
         raise HTTPException(status_code=401, detail="Credenciais inválidas")
     token = create_token(u["id"])
-    pub = UserPublic(**{k: u.get(k, "") for k in UserPublic.model_fields})
+    pub = UserPublic(**{k: u.get(k) for k in UserPublic.model_fields})
     return AuthResponse(user=pub, token=token)
 
 
 @api.get("/auth/me", response_model=UserPublic)
 async def me(uid: str = Depends(get_current_user_id)):
     u = await _user_doc(uid)
-    return UserPublic(**{k: u.get(k, "") for k in UserPublic.model_fields})
+    fields = {k: u.get(k) for k in UserPublic.model_fields}
+    return UserPublic(**fields)
 
 
 @api.put("/auth/me", response_model=UserPublic)
@@ -375,6 +382,27 @@ async def download_ptam_docx(pid: str, uid: str = Depends(get_current_user_id)):
     )
 
 
+@api.get("/ptam/{pid}/pdf")
+async def download_ptam_pdf(pid: str, uid: str = Depends(get_current_user_id)):
+    doc = await db.ptam_documents.find_one({"id": pid, "user_id": uid})
+    if not doc:
+        raise HTTPException(status_code=404, detail="PTAM não encontrado")
+    user = await _user_doc(uid)
+    try:
+        data = generate_ptam_pdf(doc, user)
+    except Exception as e:
+        logger.exception("PDF generation error")
+        raise HTTPException(status_code=500, detail=f"Erro ao gerar PDF: {str(e)[:200]}")
+    if not data:
+        raise HTTPException(status_code=500, detail="Falha ao gerar PDF")
+    date_str = datetime.utcnow().strftime("%Y%m%d")
+    filename = f"PTAM_{doc.get('number', 'sem-numero').replace('/', '-')}_{date_str}.pdf"
+    return Response(
+        content=data,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
 # ===== Subscription (MOCKED) =========================================
 @api.get("/subscription")
 async def subscription(uid: str = Depends(get_current_user_id)):
@@ -387,6 +415,30 @@ async def change_subscription(payload: dict, uid: str = Depends(get_current_user
     plan_id = payload.get("plan_id", "mensal")
     await db.users.update_one({"id": uid}, {"$set": {"plan": plan_id}})
     return {"ok": True, "plan": plan_id}
+
+
+
+# ===== EMAIL TEST ====================================================
+@api.post("/email/test")
+async def email_test(uid: str = Depends(get_current_user_id)):
+    """Send a test welcome email to the logged-in user."""
+    u = await _user_doc(uid)
+    email = u.get("email", "")
+    name = u.get("name", "Usuario")
+    await send_welcome_email(email, name)
+    return {"ok": True, "message": f"Email de teste enviado para {email}"}
+
+
+
+# ===== EMAIL TEST ====================================================
+@api.post("/email/test")
+async def email_test(uid: str = Depends(get_current_user_id)):
+    """Send a test welcome email to the logged-in user."""
+    u = await _user_doc(uid)
+    email = u.get("email", "")
+    name = u.get("name", "Usuario")
+    await send_welcome_email(email, name)
+    return {"ok": True, "message": f"Email de teste enviado para {email}"}
 
 
 # ===== Root ==========================================================

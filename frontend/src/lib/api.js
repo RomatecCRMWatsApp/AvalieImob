@@ -86,6 +86,7 @@ export const ptamAPI = {
   update: (id, data) => api.put(`/ptam/${id}`, data).then(r => r.data),
   remove: (id) => api.delete(`/ptam/${id}`).then(r => r.data),
   downloadDocx: (id) => api.get(`/ptam/${id}/docx`, { responseType: 'blob' }).then(r => r.data),
+  downloadPdf: (id) => api.get(`/ptam/${id}/pdf`, { responseType: 'blob' }).then(r => r.data),
 };
 
 

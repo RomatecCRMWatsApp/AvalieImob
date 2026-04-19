@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, FileText, Download, Trash2, Loader2, Calendar, DollarSign } from 'lucide-react';
+import { Plus, FileText, Download, Trash2, Loader2, Calendar, DollarSign, FileDown } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Badge } from '../../ui/badge';
 import { useToast } from '../../../hooks/use-toast';
@@ -11,6 +11,7 @@ const PtamList = () => {
   const { toast } = useToast();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [pdfLoading, setPdfLoading] = useState({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -35,7 +36,26 @@ const PtamList = () => {
       a.download = `PTAM_${(p.number || 'sem-numero').replace(/\//g, '-')}.docx`;
       a.click();
       window.URL.revokeObjectURL(url);
-    } catch { toast({ title: 'Erro ao baixar', variant: 'destructive' }); }
+    } catch { toast({ title: 'Erro ao baixar DOCX', variant: 'destructive' }); }
+  };
+
+  const downloadPdf = async (p) => {
+    setPdfLoading((prev) => ({ ...prev, [p.id]: true }));
+    try {
+      const blob = await ptamAPI.downloadPdf(p.id);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      a.download = `PTAM_${(p.number || 'sem-numero').replace(/\//g, '-')}_${date}.pdf`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      toast({ title: 'PDF gerado com sucesso' });
+    } catch {
+      toast({ title: 'Erro ao gerar PDF', variant: 'destructive' });
+    } finally {
+      setPdfLoading((prev) => ({ ...prev, [p.id]: false }));
+    }
   };
 
   const statusColor = (s) => {
@@ -49,7 +69,7 @@ const PtamList = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="font-display text-3xl font-bold text-gray-900">PTAM — Pareceres Técnicos</h1>
-          <p className="text-gray-600 mt-1">Crie laudos completos conforme NBR 14.653 com exportação em DOCX.</p>
+          <p className="text-gray-600 mt-1">Crie laudos completos conforme NBR 14.653 com exportação em DOCX e PDF.</p>
         </div>
         <Button onClick={() => nav('/dashboard/ptam/novo')} className="bg-emerald-900 hover:bg-emerald-800 text-white"><Plus className="w-4 h-4 mr-2" />Novo PTAM</Button>
       </div>
@@ -79,7 +99,10 @@ const PtamList = () => {
               </div>
               <div className="flex gap-2 mt-4">
                 <Button size="sm" className="flex-1 bg-emerald-900 hover:bg-emerald-800 text-white" onClick={() => nav(`/dashboard/ptam/${p.id}`)}>Editar</Button>
-                <Button size="sm" variant="outline" onClick={() => download(p)}><Download className="w-3.5 h-3.5" /></Button>
+                <Button size="sm" variant="outline" title="Exportar PDF" onClick={() => downloadPdf(p)} disabled={pdfLoading[p.id]}>
+                  {pdfLoading[p.id] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5" />}
+                </Button>
+                <Button size="sm" variant="outline" title="Exportar DOCX" onClick={() => download(p)}><Download className="w-3.5 h-3.5" /></Button>
                 <Button size="sm" variant="outline" className="text-red-600 hover:bg-red-50" onClick={() => remove(p.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
               </div>
             </div>
