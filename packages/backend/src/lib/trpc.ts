@@ -26,7 +26,10 @@ export async function createContext({
     }
   }
 
-  return { user, req, res };
+  // Get database from Express app locals
+  const db = req.app?.locals?.db || null;
+
+  return { user, req, res, db };
 }
 
 type Context = Awaited<ReturnType<typeof createContext>>;
