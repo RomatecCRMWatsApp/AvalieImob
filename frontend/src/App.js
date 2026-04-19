@@ -46,6 +46,13 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
+const PublicRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="min-h-screen flex items-center justify-center">Carregando...</div>;
+  if (user) return <Navigate to="/dashboard" replace />;
+  return children;
+};
+
 function App() {
   return (
     <div className="App">
@@ -53,9 +60,9 @@ function App() {
         <BrowserRouter>
           <ErrorBoundary>
             <Routes>
-              <Route path="/" element={<LandingPage />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/cadastro" element={<Register />} />
+              <Route path="/" element={<PublicRoute><LandingPage /></PublicRoute>} />
+              <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+              <Route path="/cadastro" element={<PublicRoute><Register /></PublicRoute>} />
               <Route path="/dashboard/*" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
