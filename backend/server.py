@@ -21,7 +21,9 @@ from models import (
     SampleBase, Sample,
     EvaluationBase, Evaluation,
     AIMessage, AIMessageResponse,
+    PtamBase, Ptam,
 )
+from ptam_docx import generate_ptam_docx
 
 # MongoDB
 mongo_url = os.environ["MONGO_URL"]
@@ -292,6 +294,78 @@ async def ai_chat(data: AIMessage, uid: str = Depends(get_current_user_id)):
 async def ai_history(session_id: str, uid: str = Depends(get_current_user_id)):
     items = await db.ai_messages.find({"user_id": uid, "session_id": session_id}).sort("ts", 1).to_list(1000)
     return [{"role": i["role"], "content": i["content"], "ts": i["ts"].isoformat()} for i in items]
+
+
+# ===== PTAM (Parecer Técnico de Avaliação Mercadológica) =============
+from fastapi.responses import Response
+
+
+@api.get("/ptam", response_model=List[Ptam])
+async def list_ptam(uid: str = Depends(get_current_user_id)):
+    items = await db.ptam_documents.find({"user_id": uid}).sort("updated_at", -1).to_list(1000)
+    return [Ptam(**_serialize(i)) for i in items]
+
+
+@api.get("/ptam/{pid}", response_model=Ptam)
+async def get_ptam(pid: str, uid: str = Depends(get_current_user_id)):
+    doc = await db.ptam_documents.find_one({"id": pid, "user_id": uid})
+    if not doc:
+        raise HTTPException(status_code=404, detail="PTAM não encontrado")
+    return Ptam(**_serialize(doc))
+
+
+@api.post("/ptam", response_model=Ptam)
+async def create_ptam(data: PtamBase, uid: str = Depends(get_current_user_id)):
+    # Auto-generate number if not provided
+    number = data.number
+    if not number:
+        year = datetime.utcnow().year
+        count = await db.ptam_documents.count_documents({"user_id": uid}) + 1
+        number = f"{year}-{str(count).zfill(4)}"
+    payload = data.model_dump()
+    payload["number"] = number
+    p = Ptam(user_id=uid, **payload)
+    await db.ptam_documents.insert_one(p.model_dump())
+    return p
+
+
+@api.put("/ptam/{pid}", response_model=Ptam)
+async def update_ptam(pid: str, data: PtamBase, uid: str = Depends(get_current_user_id)):
+    doc = await db.ptam_documents.find_one({"id": pid, "user_id": uid})
+    if not doc:
+        raise HTTPException(status_code=404, detail="PTAM não encontrado")
+    updates = data.model_dump()
+    updates["updated_at"] = datetime.utcnow()
+    await db.ptam_documents.update_one({"id": pid}, {"$set": updates})
+    new_doc = await db.ptam_documents.find_one({"id": pid})
+    return Ptam(**_serialize(new_doc))
+
+
+@api.delete("/ptam/{pid}")
+async def delete_ptam(pid: str, uid: str = Depends(get_current_user_id)):
+    res = await db.ptam_documents.delete_one({"id": pid, "user_id": uid})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="PTAM não encontrado")
+    return {"ok": True}
+
+
+@api.get("/ptam/{pid}/docx")
+async def download_ptam_docx(pid: str, uid: str = Depends(get_current_user_id)):
+    doc = await db.ptam_documents.find_one({"id": pid, "user_id": uid})
+    if not doc:
+        raise HTTPException(status_code=404, detail="PTAM não encontrado")
+    user = await _user_doc(uid)
+    try:
+        data = generate_ptam_docx(doc, user)
+    except Exception as e:
+        logger.exception("DOCX generation error")
+        raise HTTPException(status_code=500, detail=f"Erro ao gerar DOCX: {str(e)[:200]}")
+    filename = f"PTAM_{doc.get('number', 'sem-numero').replace('/', '-')}.docx"
+    return Response(
+        content=data,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 # ===== Subscription (MOCKED) =========================================

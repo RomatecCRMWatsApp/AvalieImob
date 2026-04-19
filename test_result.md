@@ -229,6 +229,24 @@ backend:
           agent: "testing"
           comment: "✅ TESTED: Subscription endpoints working correctly. GET returns plan info, POST changes plan successfully. MOCKED implementation as expected."
 
+  - task: "PTAM (Parecer Técnico de Avaliação Mercadológica) CRUD + DOCX generation"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py, /app/backend/models.py, /app/backend/ptam_docx.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "NEW PTAM endpoints implemented: GET/POST/PUT/DELETE /api/ptam and GET /api/ptam/{id}/docx for DOCX generation. Complex nested data structure with impact_areas and samples. Auto-generated number format YYYY-NNNN."
+        - working: false
+          agent: "testing"
+          comment: "❌ Initial test failed due to Pydantic model validation error - duplicate fields in Ptam class causing 'code' field required error."
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED: All PTAM endpoints working perfectly after model fix. Create/Read/Update/Delete operations work. Auto-generated number format (2026-0001) correct. DOCX generation produces valid 38KB file with proper headers. User isolation verified. Complex nested data structure (impact_areas with samples) handled correctly."
+
 frontend:
   - task: "Landing page + Login/Register + Dashboard (all real API integrated)"
     implemented: true
@@ -255,6 +273,8 @@ test_plan:
     - "AI Chat with Claude Sonnet 4.5 (Emergent LLM, multi-turn)"
   test_all: false
   test_priority: "high_first"
+  completed_tasks:
+    - "PTAM (Parecer Técnico de Avaliação Mercadológica) CRUD + DOCX generation"
 
 agent_communication:
     - agent: "main"
@@ -304,4 +324,26 @@ agent_communication:
         - PUT endpoints require all fields due to Pydantic validation
         
         **RECOMMENDATION:** Fix AI Chat budget issue - this is core functionality that users will encounter.
+    - agent: "testing"
+      message: |
+        ✅ NEW PTAM ENDPOINTS TESTING COMPLETED - All 8/8 tests passed successfully.
+        
+        **PTAM FEATURES TESTED & WORKING:**
+        - ✅ POST /api/ptam - Create PTAM with complex nested data (impact_areas with samples)
+        - ✅ GET /api/ptam - List PTAMs with user scoping
+        - ✅ GET /api/ptam/{id} - Retrieve individual PTAM with full nested structure
+        - ✅ PUT /api/ptam/{id} - Update PTAM (tested status change to "Em revisão")
+        - ✅ DELETE /api/ptam/{id} - Delete PTAM with proper cleanup verification
+        - ✅ GET /api/ptam/{id}/docx - CRITICAL: Generate valid DOCX file (38KB, proper headers)
+        - ✅ User isolation - Second user cannot see first user's PTAMs
+        - ✅ Auto-generated number format: 2026-0001 (YYYY-NNNN pattern)
+        
+        **TECHNICAL DETAILS:**
+        - Fixed Pydantic model validation error (duplicate fields in Ptam class)
+        - DOCX generation produces valid ZIP/Office format with correct MIME type
+        - Content-Disposition header includes proper filename: "PTAM_2026-0001.docx"
+        - Complex nested JSON structure handled correctly (impact_areas → samples)
+        - All endpoints use proper JWT authentication and user scoping
+        
+        **PTAM ENDPOINTS FULLY FUNCTIONAL** - Ready for production use.
 

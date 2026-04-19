@@ -72,6 +72,17 @@ export const aiAPI = {
   history: (session_id) => api.get(`/ai/history/${session_id}`).then(r => r.data),
 };
 
+// ---- PTAM
+export const ptamAPI = {
+  list: () => api.get('/ptam').then(r => r.data),
+  get: (id) => api.get(`/ptam/${id}`).then(r => r.data),
+  create: (data) => api.post('/ptam', data).then(r => r.data),
+  update: (id, data) => api.put(`/ptam/${id}`, data).then(r => r.data),
+  remove: (id) => api.delete(`/ptam/${id}`).then(r => r.data),
+  downloadDocx: (id) => api.get(`/ptam/${id}/docx`, { responseType: 'blob' }).then(r => r.data),
+};
+
+
 // ---- Subscription
 export const subAPI = {
   get: () => api.get('/subscription').then(r => r.data),

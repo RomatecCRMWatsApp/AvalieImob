@@ -130,10 +130,85 @@ class EvaluationBase(BaseModel):
 
 class Evaluation(EvaluationBase):
     id: str = Field(default_factory=_id)
+
+
+# ---------- PTAM (Parecer Técnico de Avaliação Mercadológica) ----------
+class PtamSample(BaseModel):
+    number: Optional[int] = 0
+    neighborhood: Optional[str] = ""
+    area_total: Optional[float] = 0
+    value: Optional[float] = 0
+    value_per_sqm: Optional[float] = 0
+    description: Optional[str] = ""
+    source: Optional[str] = ""
+
+
+class PtamImpactArea(BaseModel):
+    name: str = "Área de Impacto 01"
+    classification: Optional[str] = "Rural"  # Rural | Urbana | Mista
+    area_sqm: float = 0
+    unit_value: float = 0
+    total_value: float = 0
+    majoration_note: Optional[str] = ""
+    samples: List[PtamSample] = Field(default_factory=list)
+    notes: Optional[str] = ""
+
+
+class PtamBase(BaseModel):
+    # Section 1 - Cover/Identification
+    number: Optional[str] = ""  # PTAM nº
+    property_label: Optional[str] = ""  # short title
+    purpose: Optional[str] = ""  # Finalidade
+    solicitante: Optional[str] = ""
+    # Legal context
+    judicial_process: Optional[str] = ""
+    judicial_action: Optional[str] = ""
+    forum: Optional[str] = ""
+    requerente: Optional[str] = ""
+    requerido: Optional[str] = ""
+    judge: Optional[str] = ""
+    # Section 2 - Imóvel
+    property_address: Optional[str] = ""
+    property_city: Optional[str] = ""
+    property_matricula: Optional[str] = ""
+    property_owner: Optional[str] = ""
+    property_area_ha: float = 0
+    property_area_sqm: float = 0
+    property_confrontations: Optional[str] = ""
+    property_description: Optional[str] = ""
+    # Section 3 - Vistoria
+    vistoria_date: Optional[str] = ""
+    vistoria_objective: Optional[str] = ""
+    vistoria_methodology: Optional[str] = ""
+    topography: Optional[str] = ""
+    soil_vegetation: Optional[str] = ""
+    benfeitorias: Optional[str] = ""
+    accessibility: Optional[str] = ""
+    urban_context: Optional[str] = ""
+    conservation_state: Optional[str] = ""
+    vistoria_synthesis: Optional[str] = ""
+    # Section 4 - Market analysis
+    market_analysis: Optional[str] = ""
+    # Section 5 - Methodology
+    methodology: Optional[str] = "Método Comparativo Direto de Dados de Mercado"
+    methodology_justification: Optional[str] = ""
+    # Section 6 - Impact areas (array)
+    impact_areas: List[PtamImpactArea] = Field(default_factory=list)
+    # Section 7 - Conclusion
+    total_indemnity: float = 0
+    total_indemnity_words: Optional[str] = ""  # valor por extenso
+    conclusion_text: Optional[str] = ""
+    conclusion_date: Optional[str] = ""
+    conclusion_city: Optional[str] = ""
+    # Meta
+    status: str = "Rascunho"  # Rascunho | Em revisão | Emitido
+
+
+class Ptam(PtamBase):
+    id: str = Field(default_factory=_id)
     user_id: str
-    code: str
-    date: str = Field(default_factory=lambda: datetime.utcnow().strftime("%Y-%m-%d"))
     created_at: datetime = Field(default_factory=_now)
+    updated_at: datetime = Field(default_factory=_now)
 
 
 # ---------- AI ----------

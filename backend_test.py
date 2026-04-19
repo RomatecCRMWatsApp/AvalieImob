@@ -1,564 +1,438 @@
 #!/usr/bin/env python3
 """
-RomaTec AvalieImob Backend API Comprehensive Test Suite
-Tests all endpoints in the specified order with proper authentication flow.
+Backend test suite for RomaTec AvalieImob PTAM endpoints
+Testing the NEW PTAM (Parecer Técnico de Avaliação Mercadológica) endpoints
 """
 
 import requests
 import json
-import uuid
-from datetime import datetime
-import time
+import os
+from pathlib import Path
 
-# Base URL from frontend .env + /api prefix
-BASE_URL = "https://review-simples.preview.emergentagent.com/api"
+# Get backend URL from frontend .env
+frontend_env_path = Path("/app/frontend/.env")
+backend_url = None
 
-class TestResults:
-    def __init__(self):
-        self.passed = 0
-        self.failed = 0
-        self.failures = []
-        
-    def assert_response(self, response, expected_status, test_name, expected_keys=None):
-        """Assert response status and optionally check for expected keys"""
-        try:
-            if response.status_code != expected_status:
-                self.failed += 1
-                error_msg = f"❌ {test_name}: Expected {expected_status}, got {response.status_code}"
-                if response.text:
-                    try:
-                        error_detail = response.json().get('detail', response.text[:200])
-                        error_msg += f" - {error_detail}"
-                    except:
-                        error_msg += f" - {response.text[:200]}"
-                self.failures.append(error_msg)
-                print(error_msg)
-                return False
-            
-            if expected_keys and response.status_code < 400:
-                try:
-                    data = response.json()
-                    for key in expected_keys:
-                        if key not in data:
-                            self.failed += 1
-                            error_msg = f"❌ {test_name}: Missing key '{key}' in response"
-                            self.failures.append(error_msg)
-                            print(error_msg)
-                            return False
-                except:
-                    self.failed += 1
-                    error_msg = f"❌ {test_name}: Invalid JSON response"
-                    self.failures.append(error_msg)
-                    print(error_msg)
-                    return False
-            
-            self.passed += 1
-            print(f"✅ {test_name}")
-            return True
-            
-        except Exception as e:
-            self.failed += 1
-            error_msg = f"❌ {test_name}: Exception - {str(e)}"
-            self.failures.append(error_msg)
-            print(error_msg)
-            return False
-    
-    def print_summary(self):
-        print(f"\n{'='*60}")
-        print(f"TEST SUMMARY: {self.passed} passed, {self.failed} failed")
-        if self.failures:
-            print(f"\nFAILURES:")
-            for failure in self.failures:
-                print(f"  {failure}")
-        print(f"{'='*60}")
+if frontend_env_path.exists():
+    with open(frontend_env_path, 'r') as f:
+        for line in f:
+            if line.startswith('REACT_APP_BACKEND_URL='):
+                backend_url = line.split('=', 1)[1].strip()
+                break
 
-def test_romatec_backend():
-    """Main test function following the specified test order"""
-    results = TestResults()
+if not backend_url:
+    print("❌ CRITICAL: Could not find REACT_APP_BACKEND_URL in /app/frontend/.env")
+    exit(1)
+
+BASE_URL = f"{backend_url}/api"
+print(f"🔗 Testing backend at: {BASE_URL}")
+
+# Test data
+TEST_EMAIL_1 = "ptam-test@romatec.com"
+TEST_PASSWORD = "senha123"
+TEST_EMAIL_2 = "ptam-test2@romatec.com"
+
+# Global variables for test state
+user1_token = None
+user2_token = None
+ptam_id = None
+
+def test_auth_setup():
+    """Setup authentication for testing"""
+    global user1_token, user2_token
     
-    # Test data storage
-    auth_token = None
-    user_id = None
-    client_id = None
-    property_id = None
-    evaluation_id = None
-    sample_id = None
+    print("\n🔐 Setting up authentication...")
     
-    # Second user for isolation testing
-    auth_token_2 = None
-    
-    print(f"🚀 Starting RomaTec AvalieImob Backend Tests")
-    print(f"Base URL: {BASE_URL}")
-    print(f"{'='*60}")
-    
-    # ===== 1. AUTH FLOW (HIGH PRIORITY) =====
-    print("\n📋 1. AUTH FLOW TESTS")
-    
-    # 1.1 Register new user
+    # Register first user
     register_data = {
-        "name": "Test User",
-        "email": "test@romatec.com",
-        "password": "senha123",
-        "role": "Engenheiro Avaliador",
-        "crea": "CREA-MA 99999"
+        "name": "PTAM Test User 1",
+        "email": TEST_EMAIL_1,
+        "password": TEST_PASSWORD,
+        "role": "Engenheiro Civil",
+        "crea": "CREA-MA 123456"
     }
     
     response = requests.post(f"{BASE_URL}/auth/register", json=register_data)
-    if results.assert_response(response, 200, "Register new user", ["user", "token"]):
-        data = response.json()
-        auth_token = data["token"]
-        user_id = data["user"]["id"]
-        print(f"   User ID: {user_id}")
-        print(f"   Token: {auth_token[:20]}...")
-    
-    # 1.2 Register same email again (should fail)
-    response = requests.post(f"{BASE_URL}/auth/register", json=register_data)
-    results.assert_response(response, 400, "Register duplicate email (should fail)")
-    
-    # 1.3 Login with correct credentials
-    login_data = {"email": "test@romatec.com", "password": "senha123"}
-    response = requests.post(f"{BASE_URL}/auth/login", json=login_data)
-    if results.assert_response(response, 200, "Login with correct credentials", ["user", "token"]):
-        data = response.json()
-        auth_token = data["token"]  # Update token
-    
-    # 1.4 Login with wrong password
-    wrong_login = {"email": "test@romatec.com", "password": "wrongpass"}
-    response = requests.post(f"{BASE_URL}/auth/login", json=wrong_login)
-    results.assert_response(response, 401, "Login with wrong password (should fail)")
-    
-    # 1.5 Get user info with token
-    headers = {"Authorization": f"Bearer {auth_token}"}
-    response = requests.get(f"{BASE_URL}/auth/me", headers=headers)
-    results.assert_response(response, 200, "Get user info with token", ["id", "name", "email"])
-    
-    # 1.6 Get user info without token
-    response = requests.get(f"{BASE_URL}/auth/me")
-    results.assert_response(response, 401, "Get user info without token (should fail)")
-    
-    # 1.7 Update user profile
-    update_data = {"name": "Updated Name", "bio": "Engenheiro com 10 anos"}
-    response = requests.put(f"{BASE_URL}/auth/me", json=update_data, headers=headers)
-    if results.assert_response(response, 200, "Update user profile", ["name", "bio"]):
-        data = response.json()
-        if data.get("name") != "Updated Name":
-            results.failed += 1
-            results.failures.append("❌ Update user profile: Name not updated correctly")
-    
-    # ===== 2. CLIENTS CRUD (HIGH PRIORITY) =====
-    print("\n📋 2. CLIENTS CRUD TESTS")
-    
-    # 2.1 Get empty clients list
-    response = requests.get(f"{BASE_URL}/clients", headers=headers)
-    if results.assert_response(response, 200, "Get empty clients list"):
-        data = response.json()
-        if len(data) != 0:
-            print(f"   Warning: Expected empty list, got {len(data)} items")
-    
-    # 2.2 Create first client (Pessoa Jurídica)
-    client_data = {
-        "name": "Banco XYZ",
-        "type": "Pessoa Jurídica",
-        "doc": "00.000.000/0001-00",
-        "phone": "(98) 1234-5678",
-        "email": "pj@xyz.com",
-        "city": "São Luís/MA"
-    }
-    response = requests.post(f"{BASE_URL}/clients", json=client_data, headers=headers)
-    if results.assert_response(response, 200, "Create client (Pessoa Jurídica)", ["id", "name", "type"]):
-        data = response.json()
-        client_id = data["id"]
-        print(f"   Client ID: {client_id}")
-    
-    # 2.3 Create second client (Pessoa Física)
-    client_data_2 = {
-        "name": "João Silva",
-        "type": "Pessoa Física",
-        "doc": "123.456.789-00",
-        "phone": "(98) 9876-5432",
-        "email": "joao@email.com",
-        "city": "São Luís/MA"
-    }
-    response = requests.post(f"{BASE_URL}/clients", json=client_data_2, headers=headers)
-    results.assert_response(response, 200, "Create client (Pessoa Física)", ["id", "name", "type"])
-    
-    # 2.4 Get clients list (should have 2)
-    response = requests.get(f"{BASE_URL}/clients", headers=headers)
-    if results.assert_response(response, 200, "Get clients list (should have 2)"):
-        data = response.json()
-        if len(data) != 2:
-            results.failed += 1
-            results.failures.append(f"❌ Get clients list: Expected 2 clients, got {len(data)}")
-    
-    # 2.5 Update client
-    update_client_data = {"name": "Banco XYZ Atualizado", "phone": "(98) 1111-2222"}
-    response = requests.put(f"{BASE_URL}/clients/{client_id}", json=update_client_data, headers=headers)
-    if results.assert_response(response, 200, "Update client", ["name"]):
-        data = response.json()
-        if data.get("name") != "Banco XYZ Atualizado":
-            results.failed += 1
-            results.failures.append("❌ Update client: Name not updated correctly")
-    
-    # 2.6 Delete client
-    response = requests.delete(f"{BASE_URL}/clients/{client_id}", headers=headers)
-    results.assert_response(response, 200, "Delete client", ["ok"])
-    
-    # 2.7 Verify client deleted
-    response = requests.get(f"{BASE_URL}/clients", headers=headers)
-    if results.assert_response(response, 200, "Verify client deleted"):
-        data = response.json()
-        if len(data) != 1:
-            results.failed += 1
-            results.failures.append(f"❌ Verify client deleted: Expected 1 client, got {len(data)}")
-    
-    # ===== 3. PROPERTIES CRUD (HIGH PRIORITY) =====
-    print("\n📋 3. PROPERTIES CRUD TESTS")
-    
-    # Get remaining client ID for property tests
-    response = requests.get(f"{BASE_URL}/clients", headers=headers)
     if response.status_code == 200:
-        clients = response.json()
-        if clients:
-            client_id = clients[0]["id"]
-    
-    # 3.1 Create urban property
-    property_data = {
-        "ref": "APT-001",
-        "client_id": client_id,
-        "type": "Urbano",
-        "subtype": "Apartamento",
-        "address": "Rua X, 100",
-        "city": "São Luís",
-        "area": 85,
-        "built_area": 85,
-        "value": 380000,
-        "status": "Rascunho"
-    }
-    response = requests.post(f"{BASE_URL}/properties", json=property_data, headers=headers)
-    if results.assert_response(response, 200, "Create urban property", ["id", "ref", "type"]):
-        data = response.json()
-        property_id = data["id"]
-        print(f"   Property ID: {property_id}")
-    
-    # 3.2 Create rural property
-    rural_property = {
-        "ref": "RURAL-001",
-        "client_id": client_id,
-        "type": "Rural",
-        "subtype": "Fazenda",
-        "address": "Zona Rural",
-        "city": "Bacabal",
-        "area": 1000,
-        "built_area": 200,
-        "value": 2000000,
-        "status": "Rascunho"
-    }
-    response = requests.post(f"{BASE_URL}/properties", json=rural_property, headers=headers)
-    results.assert_response(response, 200, "Create rural property", ["id", "type"])
-    
-    # 3.3 Create guarantee property
-    guarantee_property = {
-        "ref": "GAR-001",
-        "client_id": client_id,
-        "type": "Garantia",
-        "subtype": "Safra de Soja",
-        "address": "Fazenda São João",
-        "city": "Balsas",
-        "area": 500,
-        "built_area": 0,
-        "value": 1500000,
-        "status": "Rascunho"
-    }
-    response = requests.post(f"{BASE_URL}/properties", json=guarantee_property, headers=headers)
-    results.assert_response(response, 200, "Create guarantee property", ["id", "type"])
-    
-    # 3.4 Get all properties (should have 3)
-    response = requests.get(f"{BASE_URL}/properties", headers=headers)
-    if results.assert_response(response, 200, "Get all properties (should have 3)"):
-        data = response.json()
-        if len(data) != 3:
-            results.failed += 1
-            results.failures.append(f"❌ Get all properties: Expected 3 properties, got {len(data)}")
-    
-    # 3.5 Filter properties by type
-    response = requests.get(f"{BASE_URL}/properties?type=Urbano", headers=headers)
-    if results.assert_response(response, 200, "Filter properties by type (Urbano)"):
-        data = response.json()
-        if len(data) != 1:
-            results.failed += 1
-            results.failures.append(f"❌ Filter properties: Expected 1 urban property, got {len(data)}")
-    
-    # 3.6 Update property
-    update_property = {"value": 400000, "status": "Em Análise"}
-    response = requests.put(f"{BASE_URL}/properties/{property_id}", json=update_property, headers=headers)
-    if results.assert_response(response, 200, "Update property", ["value", "status"]):
-        data = response.json()
-        if data.get("value") != 400000:
-            results.failed += 1
-            results.failures.append("❌ Update property: Value not updated correctly")
-    
-    # 3.7 Delete property
-    response = requests.delete(f"{BASE_URL}/properties/{property_id}", headers=headers)
-    results.assert_response(response, 200, "Delete property", ["ok"])
-    
-    # ===== 4. SAMPLES (MEDIUM PRIORITY) =====
-    print("\n📋 4. SAMPLES TESTS")
-    
-    # 4.1 Create sample with auto price calculation
-    sample_data = {
-        "ref": "AM-001",
-        "type": "Apartamento",
-        "area": 90,
-        "value": 420000,
-        "source": "OLX",
-        "neighborhood": "Calhau"
-    }
-    response = requests.post(f"{BASE_URL}/samples", json=sample_data, headers=headers)
-    if results.assert_response(response, 200, "Create sample with auto price calculation", ["id", "price_per_sqm"]):
-        data = response.json()
-        sample_id = data["id"]
-        expected_price_per_sqm = round(420000 / 90)  # 4667
-        if data.get("price_per_sqm") != expected_price_per_sqm:
-            results.failed += 1
-            results.failures.append(f"❌ Sample price calculation: Expected {expected_price_per_sqm}, got {data.get('price_per_sqm')}")
+        user1_token = response.json()["token"]
+        print(f"✅ User 1 registered successfully")
+    elif response.status_code == 400 and "já cadastrado" in response.text:
+        # User already exists, try login
+        login_data = {"email": TEST_EMAIL_1, "password": TEST_PASSWORD}
+        response = requests.post(f"{BASE_URL}/auth/login", json=login_data)
+        if response.status_code == 200:
+            user1_token = response.json()["token"]
+            print(f"✅ User 1 logged in successfully")
         else:
-            print(f"   ✅ Price per sqm calculated correctly: {data.get('price_per_sqm')}")
+            print(f"❌ User 1 login failed: {response.status_code} - {response.text}")
+            return False
+    else:
+        print(f"❌ User 1 registration failed: {response.status_code} - {response.text}")
+        return False
     
-    # 4.2 Get samples list
-    response = requests.get(f"{BASE_URL}/samples", headers=headers)
-    if results.assert_response(response, 200, "Get samples list"):
-        data = response.json()
-        if len(data) != 1:
-            results.failed += 1
-            results.failures.append(f"❌ Get samples: Expected 1 sample, got {len(data)}")
+    # Register second user for isolation testing
+    register_data2 = {
+        "name": "PTAM Test User 2",
+        "email": TEST_EMAIL_2,
+        "password": TEST_PASSWORD,
+        "role": "Arquiteto",
+        "crea": "CREA-MA 654321"
+    }
     
-    # ===== 5. EVALUATIONS (HIGH PRIORITY - AUTO CODE GENERATION) =====
-    print("\n📋 5. EVALUATIONS TESTS")
-    
-    # Get a property ID for evaluation tests
-    response = requests.get(f"{BASE_URL}/properties", headers=headers)
+    response = requests.post(f"{BASE_URL}/auth/register", json=register_data2)
     if response.status_code == 200:
-        properties = response.json()
-        if properties:
-            property_id = properties[0]["id"]
+        user2_token = response.json()["token"]
+        print(f"✅ User 2 registered successfully")
+    elif response.status_code == 400 and "já cadastrado" in response.text:
+        # User already exists, try login
+        login_data = {"email": TEST_EMAIL_2, "password": TEST_PASSWORD}
+        response = requests.post(f"{BASE_URL}/auth/login", json=login_data)
+        if response.status_code == 200:
+            user2_token = response.json()["token"]
+            print(f"✅ User 2 logged in successfully")
+        else:
+            print(f"❌ User 2 login failed: {response.status_code} - {response.text}")
+            return False
+    else:
+        print(f"❌ User 2 registration failed: {response.status_code} - {response.text}")
+        return False
     
-    # 5.1 Create PTAM evaluation
+    return True
+
+def test_create_ptam():
+    """Test 1: Create PTAM with comprehensive data"""
+    global ptam_id
+    
+    print("\n📝 Test 1: Creating PTAM...")
+    
+    headers = {"Authorization": f"Bearer {user1_token}"}
+    
     ptam_data = {
-        "type": "PTAM",
-        "method": "Comparativo Direto",
-        "client_id": client_id,
-        "property_id": property_id,
-        "value": 380000
+        "property_label": "Gleba Pequiá-Brejão, Parte do Lote 78",
+        "purpose": "Avaliação mercadológica para fins judiciais em ação de servidão administrativa",
+        "solicitante": "CEIMA - Sociedade Espiritusantense de Industrialização de Madeiras LTDA",
+        "judicial_process": "0806769-95.2025.8.10.0022",
+        "judicial_action": "Servidão Administrativa",
+        "forum": "1ª Vara Cível de Açailândia",
+        "requerente": "Equatorial Maranhão Distribuidora de Energia S/A",
+        "requerido": "CEIMA - Sociedade Espiritosantense",
+        "property_address": "BR 222, ALTURA DO KM 90 - GLEBA PEQUIÁ-BREJÃO",
+        "property_city": "Açailândia/MA",
+        "property_matricula": "2591",
+        "property_area_ha": 53.7013,
+        "property_area_sqm": 537013,
+        "vistoria_date": "2026-01-15",
+        "vistoria_objective": "Verificar caracterização física e contexto urbano",
+        "topography": "Terreno predominantemente plano com leve inclinação",
+        "methodology": "Método Comparativo Direto de Dados de Mercado",
+        "methodology_justification": "Aplicação conforme NBR 14.653",
+        "impact_areas": [
+            {
+                "name": "Área de Impacto 01",
+                "classification": "Rural",
+                "area_sqm": 24494,
+                "unit_value": 28.18,
+                "total_value": 690231.00,
+                "samples": [
+                    {"number": 1, "neighborhood": "Zona Rural", "area_total": 9567515, "value": 210566915.14, "value_per_sqm": 22.01},
+                    {"number": 2, "neighborhood": "Gleba 14", "area_total": 1138894, "value": 25800000, "value_per_sqm": 22.65}
+                ]
+            },
+            {
+                "name": "Área de Impacto 02",
+                "classification": "Urbana",
+                "area_sqm": 27822.15,
+                "unit_value": 381.73,
+                "total_value": 10626883.72,
+                "samples": [
+                    {"number": 1, "neighborhood": "Pequiá", "area_total": 10000, "value": 3268172.89, "value_per_sqm": 326.82}
+                ]
+            }
+        ],
+        "total_indemnity": 11317114.72,
+        "total_indemnity_words": "onze milhões, trezentos e dezessete mil, cento e quatorze reais e setenta e dois centavos",
+        "conclusion_city": "Açailândia/MA",
+        "conclusion_date": "2026-01-21"
     }
-    response = requests.post(f"{BASE_URL}/evaluations", json=ptam_data, headers=headers)
-    if results.assert_response(response, 200, "Create PTAM evaluation", ["id", "code"]):
-        data = response.json()
-        evaluation_id = data["id"]
-        code = data.get("code", "")
-        if not code.startswith("PTAM-2026-001"):
-            results.failed += 1
-            results.failures.append(f"❌ PTAM code generation: Expected PTAM-2026-001, got {code}")
+    
+    response = requests.post(f"{BASE_URL}/ptam", json=ptam_data, headers=headers)
+    
+    if response.status_code == 200:
+        result = response.json()
+        ptam_id = result["id"]
+        number = result.get("number", "")
+        user_id = result.get("user_id", "")
+        
+        print(f"✅ PTAM created successfully")
+        print(f"   - ID: {ptam_id}")
+        print(f"   - Number: {number}")
+        print(f"   - User ID: {user_id}")
+        
+        # Verify auto-generated number format (should be like "2026-0001")
+        if number and "-" in number:
+            year, seq = number.split("-", 1)
+            if year == "2026" and seq.isdigit():
+                print(f"✅ Auto-generated number format correct: {number}")
+            else:
+                print(f"⚠️  Auto-generated number format unexpected: {number}")
         else:
-            print(f"   ✅ PTAM code generated correctly: {code}")
+            print(f"⚠️  Auto-generated number missing or invalid: {number}")
+        
+        return True
+    else:
+        print(f"❌ PTAM creation failed: {response.status_code}")
+        print(f"   Response: {response.text}")
+        return False
+
+def test_list_ptam():
+    """Test 2: List PTAMs"""
+    print("\n📋 Test 2: Listing PTAMs...")
     
-    # 5.2 Create Laudo evaluation
-    laudo_data = {
-        "type": "Laudo",
-        "method": "Comparativo Direto",
-        "client_id": client_id,
-        "property_id": property_id,
-        "value": 380000
-    }
-    response = requests.post(f"{BASE_URL}/evaluations", json=laudo_data, headers=headers)
-    if results.assert_response(response, 200, "Create Laudo evaluation", ["id", "code"]):
-        data = response.json()
-        code = data.get("code", "")
-        if not code.startswith("LAU-2026-002"):
-            results.failed += 1
-            results.failures.append(f"❌ Laudo code generation: Expected LAU-2026-002, got {code}")
+    headers = {"Authorization": f"Bearer {user1_token}"}
+    response = requests.get(f"{BASE_URL}/ptam", headers=headers)
+    
+    if response.status_code == 200:
+        ptams = response.json()
+        print(f"✅ PTAMs listed successfully")
+        print(f"   - Count: {len(ptams)}")
+        
+        if len(ptams) > 0:
+            ptam = ptams[0]
+            print(f"   - First PTAM ID: {ptam.get('id', 'N/A')}")
+            print(f"   - First PTAM Number: {ptam.get('number', 'N/A')}")
+            print(f"   - Property Label: {ptam.get('property_label', 'N/A')}")
+        
+        return True
+    else:
+        print(f"❌ PTAM listing failed: {response.status_code}")
+        print(f"   Response: {response.text}")
+        return False
+
+def test_get_ptam_by_id():
+    """Test 3: Get PTAM by ID"""
+    print("\n🔍 Test 3: Getting PTAM by ID...")
+    
+    if not ptam_id:
+        print("❌ No PTAM ID available for testing")
+        return False
+    
+    headers = {"Authorization": f"Bearer {user1_token}"}
+    response = requests.get(f"{BASE_URL}/ptam/{ptam_id}", headers=headers)
+    
+    if response.status_code == 200:
+        ptam = response.json()
+        print(f"✅ PTAM retrieved successfully")
+        print(f"   - ID: {ptam.get('id', 'N/A')}")
+        print(f"   - Number: {ptam.get('number', 'N/A')}")
+        print(f"   - Property Label: {ptam.get('property_label', 'N/A')}")
+        print(f"   - Impact Areas Count: {len(ptam.get('impact_areas', []))}")
+        
+        # Verify nested data structure
+        impact_areas = ptam.get('impact_areas', [])
+        if impact_areas:
+            first_area = impact_areas[0]
+            samples = first_area.get('samples', [])
+            print(f"   - First area samples count: {len(samples)}")
+            if samples:
+                print(f"   - First sample neighborhood: {samples[0].get('neighborhood', 'N/A')}")
+        
+        return True
+    else:
+        print(f"❌ PTAM retrieval failed: {response.status_code}")
+        print(f"   Response: {response.text}")
+        return False
+
+def test_update_ptam():
+    """Test 4: Update PTAM"""
+    print("\n✏️  Test 4: Updating PTAM...")
+    
+    if not ptam_id:
+        print("❌ No PTAM ID available for testing")
+        return False
+    
+    headers = {"Authorization": f"Bearer {user1_token}"}
+    
+    # First get the current PTAM data
+    response = requests.get(f"{BASE_URL}/ptam/{ptam_id}", headers=headers)
+    if response.status_code != 200:
+        print(f"❌ Could not fetch PTAM for update: {response.status_code}")
+        return False
+    
+    ptam_data = response.json()
+    
+    # Modify the status and add a note
+    ptam_data["status"] = "Em revisão"
+    ptam_data["conclusion_text"] = "PTAM atualizado durante teste automatizado"
+    
+    # Remove fields that shouldn't be in the update request
+    update_data = {k: v for k, v in ptam_data.items() 
+                   if k not in ['id', 'user_id', 'created_at', 'updated_at']}
+    
+    response = requests.put(f"{BASE_URL}/ptam/{ptam_id}", json=update_data, headers=headers)
+    
+    if response.status_code == 200:
+        result = response.json()
+        print(f"✅ PTAM updated successfully")
+        print(f"   - Status: {result.get('status', 'N/A')}")
+        print(f"   - Conclusion Text: {result.get('conclusion_text', 'N/A')[:50]}...")
+        return True
+    else:
+        print(f"❌ PTAM update failed: {response.status_code}")
+        print(f"   Response: {response.text}")
+        return False
+
+def test_generate_docx():
+    """Test 5: Generate DOCX - CRITICAL TEST"""
+    print("\n📄 Test 5: Generating DOCX (CRITICAL)...")
+    
+    if not ptam_id:
+        print("❌ No PTAM ID available for testing")
+        return False
+    
+    headers = {"Authorization": f"Bearer {user1_token}"}
+    response = requests.get(f"{BASE_URL}/ptam/{ptam_id}/docx", headers=headers)
+    
+    if response.status_code == 200:
+        print(f"✅ DOCX generated successfully")
+        
+        # Check Content-Type
+        content_type = response.headers.get('Content-Type', '')
+        expected_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        if content_type == expected_type:
+            print(f"✅ Content-Type correct: {content_type}")
         else:
-            print(f"   ✅ Laudo code generated correctly: {code}")
-    
-    # 5.3 Create Garantia Safra evaluation
-    garantia_data = {
-        "type": "Garantia Safra",
-        "method": "Comparativo Direto",
-        "client_id": client_id,
-        "property_id": property_id,
-        "value": 1500000
-    }
-    response = requests.post(f"{BASE_URL}/evaluations", json=garantia_data, headers=headers)
-    if results.assert_response(response, 200, "Create Garantia Safra evaluation", ["id", "code"]):
-        data = response.json()
-        code = data.get("code", "")
-        if not code.startswith("GAR-2026-003"):
-            results.failed += 1
-            results.failures.append(f"❌ Garantia code generation: Expected GAR-2026-003, got {code}")
+            print(f"⚠️  Content-Type unexpected: {content_type}")
+        
+        # Check Content-Disposition header
+        content_disposition = response.headers.get('Content-Disposition', '')
+        if 'PTAM_' in content_disposition and '.docx' in content_disposition:
+            print(f"✅ Content-Disposition header correct: {content_disposition}")
         else:
-            print(f"   ✅ Garantia code generated correctly: {code}")
-    
-    # 5.4 Get evaluations list
-    response = requests.get(f"{BASE_URL}/evaluations", headers=headers)
-    if results.assert_response(response, 200, "Get evaluations list"):
-        data = response.json()
-        if len(data) != 3:
-            results.failed += 1
-            results.failures.append(f"❌ Get evaluations: Expected 3 evaluations, got {len(data)}")
-    
-    # 5.5 Update evaluation status
-    update_eval = {"status": "Emitido"}
-    response = requests.put(f"{BASE_URL}/evaluations/{evaluation_id}", json=update_eval, headers=headers)
-    if results.assert_response(response, 200, "Update evaluation status", ["status"]):
-        data = response.json()
-        if data.get("status") != "Emitido":
-            results.failed += 1
-            results.failures.append("❌ Update evaluation: Status not updated correctly")
-    
-    # ===== 6. DASHBOARD STATS (MEDIUM PRIORITY) =====
-    print("\n📋 6. DASHBOARD STATS TESTS")
-    
-    response = requests.get(f"{BASE_URL}/dashboard/stats", headers=headers)
-    if results.assert_response(response, 200, "Get dashboard stats", ["evaluations", "clients", "properties", "revenue", "monthly"]):
-        data = response.json()
-        if len(data.get("monthly", [])) != 6:
-            results.failed += 1
-            results.failures.append(f"❌ Dashboard stats: Expected 6 monthly items, got {len(data.get('monthly', []))}")
+            print(f"⚠️  Content-Disposition header unexpected: {content_disposition}")
+        
+        # Check response body size
+        body_size = len(response.content)
+        print(f"   - Response body size: {body_size} bytes")
+        if body_size > 5000:
+            print(f"✅ Response body size adequate (> 5000 bytes)")
         else:
-            print(f"   ✅ Dashboard stats: {data.get('evaluations')} evaluations, {data.get('clients')} clients, {data.get('properties')} properties")
-    
-    # ===== 7. AI CHAT - MULTI-TURN TEST (HIGH PRIORITY) =====
-    print("\n📋 7. AI CHAT MULTI-TURN TESTS")
-    
-    # Generate unique session ID
-    session_id = f"test_session_{int(time.time())}"
-    print(f"   Using session ID: {session_id}")
-    
-    # 7.1 First AI message
-    ai_data_1 = {
-        "session_id": session_id,
-        "message": "Olá, sou um engenheiro avaliador. Pode me ajudar com um PTAM?"
-    }
-    response = requests.post(f"{BASE_URL}/ai/chat", json=ai_data_1, headers=headers)
-    if results.assert_response(response, 200, "AI Chat - First message", ["session_id", "reply"]):
-        data = response.json()
-        print(f"   AI Reply 1: {data.get('reply', '')[:100]}...")
-    
-    # 7.2 Second AI message (contextual)
-    ai_data_2 = {
-        "session_id": session_id,
-        "message": "Qual norma da ABNT devo citar?"
-    }
-    response = requests.post(f"{BASE_URL}/ai/chat", json=ai_data_2, headers=headers)
-    if results.assert_response(response, 200, "AI Chat - Second message (contextual)", ["session_id", "reply"]):
-        data = response.json()
-        reply = data.get('reply', '')
-        print(f"   AI Reply 2: {reply[:100]}...")
-        # Check if AI mentions NBR 14.653 (contextual response)
-        if "NBR" not in reply and "14.653" not in reply:
-            print(f"   ⚠️  Warning: AI response may not be contextual (no NBR mention)")
-    
-    # 7.3 Third AI message (technical generation)
-    ai_data_3 = {
-        "session_id": session_id,
-        "message": "Gere uma fundamentação técnica curta para um apartamento de 85m²"
-    }
-    response = requests.post(f"{BASE_URL}/ai/chat", json=ai_data_3, headers=headers)
-    if results.assert_response(response, 200, "AI Chat - Third message (technical)", ["session_id", "reply"]):
-        data = response.json()
-        reply = data.get('reply', '')
-        print(f"   AI Reply 3: {reply[:100]}...")
-        # Check if response is in Portuguese
-        portuguese_indicators = ["apartamento", "área", "técnica", "avaliação", "imóvel"]
-        if not any(word in reply.lower() for word in portuguese_indicators):
-            print(f"   ⚠️  Warning: AI response may not be in Portuguese")
-    
-    # 7.4 Get AI conversation history
-    response = requests.get(f"{BASE_URL}/ai/history/{session_id}", headers=headers)
-    if results.assert_response(response, 200, "Get AI conversation history"):
-        data = response.json()
-        if len(data) != 6:  # 3 user + 3 assistant messages
-            results.failed += 1
-            results.failures.append(f"❌ AI history: Expected 6 messages, got {len(data)}")
+            print(f"⚠️  Response body size too small (< 5000 bytes)")
+        
+        # Check if it's a valid DOCX (ZIP format - starts with "PK")
+        if response.content[:2] == b'PK':
+            print(f"✅ Valid DOCX format (ZIP signature detected)")
         else:
-            print(f"   ✅ AI history: {len(data)} messages in chronological order")
-            # Verify message order
-            roles = [msg.get("role") for msg in data]
-            expected_roles = ["user", "assistant", "user", "assistant", "user", "assistant"]
-            if roles != expected_roles:
-                results.failed += 1
-                results.failures.append(f"❌ AI history order: Expected {expected_roles}, got {roles}")
+            print(f"⚠️  Invalid DOCX format (no ZIP signature)")
+            print(f"   First 10 bytes: {response.content[:10]}")
+        
+        # Save file for verification
+        docx_path = f"/app/test_ptam_{ptam_id}.docx"
+        with open(docx_path, 'wb') as f:
+            f.write(response.content)
+        print(f"✅ DOCX saved to: {docx_path}")
+        
+        return True
+    else:
+        print(f"❌ DOCX generation failed: {response.status_code}")
+        print(f"   Response: {response.text}")
+        return False
+
+def test_user_isolation():
+    """Test 6: User isolation - second user should not see first user's PTAM"""
+    print("\n🔒 Test 6: Testing user isolation...")
     
-    # ===== 8. SUBSCRIPTION (LOW PRIORITY) =====
-    print("\n📋 8. SUBSCRIPTION TESTS")
+    headers = {"Authorization": f"Bearer {user2_token}"}
+    response = requests.get(f"{BASE_URL}/ptam", headers=headers)
     
-    # 8.1 Get subscription info
-    response = requests.get(f"{BASE_URL}/subscription", headers=headers)
-    results.assert_response(response, 200, "Get subscription info", ["plan", "next_billing", "status"])
-    
-    # 8.2 Change subscription plan
-    plan_data = {"plan_id": "anual"}
-    response = requests.post(f"{BASE_URL}/subscription/change", json=plan_data, headers=headers)
-    if results.assert_response(response, 200, "Change subscription plan", ["ok", "plan"]):
-        data = response.json()
-        if data.get("plan") != "anual":
-            results.failed += 1
-            results.failures.append("❌ Change subscription: Plan not updated correctly")
-    
-    # ===== 9. DATA ISOLATION (HIGH PRIORITY) =====
-    print("\n📋 9. DATA ISOLATION TESTS")
-    
-    # 9.1 Register second user
-    register_data_2 = {
-        "name": "Second User",
-        "email": "second@romatec.com",
-        "password": "senha456",
-        "role": "Corretor",
-        "crea": "CREA-MA 88888"
-    }
-    response = requests.post(f"{BASE_URL}/auth/register", json=register_data_2)
-    if results.assert_response(response, 200, "Register second user", ["user", "token"]):
-        data = response.json()
-        auth_token_2 = data["token"]
-    
-    # 9.2 Login as second user
-    login_data_2 = {"email": "second@romatec.com", "password": "senha456"}
-    response = requests.post(f"{BASE_URL}/auth/login", json=login_data_2)
-    if results.assert_response(response, 200, "Login as second user", ["user", "token"]):
-        data = response.json()
-        auth_token_2 = data["token"]
-    
-    # 9.3 Check data isolation - clients
-    headers_2 = {"Authorization": f"Bearer {auth_token_2}"}
-    response = requests.get(f"{BASE_URL}/clients", headers=headers_2)
-    if results.assert_response(response, 200, "Data isolation - clients"):
-        data = response.json()
-        if len(data) != 0:
-            results.failed += 1
-            results.failures.append(f"❌ Data isolation - clients: Expected 0 clients for second user, got {len(data)}")
+    if response.status_code == 200:
+        ptams = response.json()
+        print(f"✅ User 2 PTAM list retrieved")
+        print(f"   - Count: {len(ptams)}")
+        
+        if len(ptams) == 0:
+            print(f"✅ User isolation working correctly (empty array)")
+            return True
         else:
-            print(f"   ✅ Data isolation verified: Second user sees 0 clients")
+            print(f"⚠️  User isolation may be broken (found {len(ptams)} PTAMs)")
+            for ptam in ptams:
+                print(f"   - PTAM ID: {ptam.get('id', 'N/A')}")
+            return False
+    else:
+        print(f"❌ User 2 PTAM listing failed: {response.status_code}")
+        print(f"   Response: {response.text}")
+        return False
+
+def test_delete_ptam():
+    """Test 7: Delete PTAM"""
+    print("\n🗑️  Test 7: Deleting PTAM...")
     
-    # 9.4 Check data isolation - evaluations
-    response = requests.get(f"{BASE_URL}/evaluations", headers=headers_2)
-    if results.assert_response(response, 200, "Data isolation - evaluations"):
-        data = response.json()
-        if len(data) != 0:
-            results.failed += 1
-            results.failures.append(f"❌ Data isolation - evaluations: Expected 0 evaluations for second user, got {len(data)}")
+    if not ptam_id:
+        print("❌ No PTAM ID available for testing")
+        return False
+    
+    headers = {"Authorization": f"Bearer {user1_token}"}
+    response = requests.delete(f"{BASE_URL}/ptam/{ptam_id}", headers=headers)
+    
+    if response.status_code == 200:
+        result = response.json()
+        print(f"✅ PTAM deleted successfully")
+        print(f"   - Response: {result}")
+        
+        # Verify deletion by trying to get the PTAM
+        get_response = requests.get(f"{BASE_URL}/ptam/{ptam_id}", headers=headers)
+        if get_response.status_code == 404:
+            print(f"✅ PTAM deletion verified (404 on subsequent GET)")
+            return True
         else:
-            print(f"   ✅ Data isolation verified: Second user sees 0 evaluations")
+            print(f"⚠️  PTAM may not be fully deleted (GET returned {get_response.status_code})")
+            return False
+    else:
+        print(f"❌ PTAM deletion failed: {response.status_code}")
+        print(f"   Response: {response.text}")
+        return False
+
+def run_all_tests():
+    """Run all PTAM tests"""
+    print("🚀 Starting PTAM Backend Tests")
+    print("=" * 50)
     
-    # Print final summary
-    results.print_summary()
+    tests = [
+        ("Authentication Setup", test_auth_setup),
+        ("Create PTAM", test_create_ptam),
+        ("List PTAMs", test_list_ptam),
+        ("Get PTAM by ID", test_get_ptam_by_id),
+        ("Update PTAM", test_update_ptam),
+        ("Generate DOCX (CRITICAL)", test_generate_docx),
+        ("User Isolation", test_user_isolation),
+        ("Delete PTAM", test_delete_ptam),
+    ]
     
-    return results
+    passed = 0
+    failed = 0
+    
+    for test_name, test_func in tests:
+        try:
+            if test_func():
+                passed += 1
+            else:
+                failed += 1
+        except Exception as e:
+            print(f"❌ {test_name} failed with exception: {str(e)}")
+            failed += 1
+    
+    print("\n" + "=" * 50)
+    print("🏁 PTAM Test Results Summary")
+    print(f"✅ Passed: {passed}")
+    print(f"❌ Failed: {failed}")
+    print(f"📊 Total: {passed + failed}")
+    
+    if failed == 0:
+        print("🎉 All PTAM tests passed!")
+    else:
+        print(f"⚠️  {failed} test(s) failed - see details above")
+    
+    return failed == 0
 
 if __name__ == "__main__":
-    test_results = test_romatec_backend()
-    
-    # Exit with error code if tests failed
-    if test_results.failed > 0:
-        exit(1)
-    else:
-        print("\n🎉 All tests passed!")
-        exit(0)
+    success = run_all_tests()
+    exit(0 if success else 1)

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, NavLink, Routes, Route, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, Building2, BarChart3, FileText, Sparkles, CreditCard, Settings, LogOut, Menu, X, Bell } from 'lucide-react';
+import { LayoutDashboard, Users, Building2, BarChart3, FileText, Sparkles, CreditCard, Settings, LogOut, Menu, X, Bell, FileCheck2 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { useAuth } from '../contexts/AuthContext';
 import { BRAND } from '../mock/mock';
@@ -13,13 +13,16 @@ import Samples from '../components/dashboard/Samples';
 import AIAssistant from '../components/dashboard/AIAssistant';
 import SubscriptionPage from '../components/dashboard/SubscriptionPage';
 import SettingsPage from '../components/dashboard/SettingsPage';
+import PtamList from '../components/dashboard/ptam/PtamList';
+import PtamWizard from '../components/dashboard/ptam/PtamWizard';
 
 const NAV = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Visão Geral', end: true },
   { to: '/dashboard/clientes', icon: Users, label: 'Clientes' },
   { to: '/dashboard/imoveis', icon: Building2, label: 'Imóveis e Garantias' },
   { to: '/dashboard/amostras', icon: BarChart3, label: 'Amostras' },
-  { to: '/dashboard/laudos', icon: FileText, label: 'Laudos e PTAM' },
+  { to: '/dashboard/ptam', icon: FileCheck2, label: 'PTAM (Laudos)' },
+  { to: '/dashboard/laudos', icon: FileText, label: 'Avaliações' },
   { to: '/dashboard/ia', icon: Sparkles, label: 'Assistente IA' },
   { to: '/dashboard/assinatura', icon: CreditCard, label: 'Assinatura' },
   { to: '/dashboard/config', icon: Settings, label: 'Configurações' },
@@ -98,6 +101,8 @@ const Dashboard = () => {
             <Route path="clientes" element={<Clients />} />
             <Route path="imoveis" element={<Properties />} />
             <Route path="amostras" element={<Samples />} />
+            <Route path="ptam" element={<PtamList />} />
+            <Route path="ptam/:id" element={<PtamWizard />} />
             <Route path="laudos" element={<Evaluations />} />
             <Route path="ia" element={<AIAssistant />} />
             <Route path="assinatura" element={<SubscriptionPage />} />
