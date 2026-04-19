@@ -15,19 +15,28 @@ const Register = () => {
   const [form, setForm] = useState({ name: '', email: '', password: '', role: 'Engenheiro Avaliador', crea: '' });
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const submit = async (e) => {
     e.preventDefault();
+    setError('');
     if (!form.name || !form.email || !form.password) {
-      toast({ title: 'Preencha os campos obrigatórios', variant: 'destructive' });
+      setError('Preencha os campos obrigatórios.');
       return;
     }
     setLoading(true);
     try {
       await register(form);
-      toast({ title: 'Conta criada!', description: 'Bem-vindo ao RomaTec.' });
-      nav('/dashboard');
-    } finally { setLoading(false); }
+      nav('/dashboard', { replace: true });
+    } catch (err) {
+      const msg =
+        err?.response?.data?.detail ||
+        err?.response?.data?.message ||
+        'Erro ao criar conta. Tente novamente.';
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -89,6 +98,9 @@ const Register = () => {
                 </button>
               </div>
             </div>
+            {error && (
+              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">{error}</p>
+            )}
             <Button type="submit" disabled={loading} className="w-full h-11 bg-emerald-900 hover:bg-emerald-800 text-white font-semibold">
               {loading ? 'Criando conta...' : <>Criar conta <ArrowRight className="ml-2 w-4 h-4" /></>}
             </Button>

@@ -11,12 +11,18 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+const PUBLIC_AUTH_ROUTES = ['/auth/login', '/auth/register'];
+
 api.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response?.status === 401) {
-      localStorage.removeItem('romatec_token');
-      localStorage.removeItem('romatec_user');
+      const url = err.config?.url || '';
+      const isPublic = PUBLIC_AUTH_ROUTES.some((route) => url.includes(route));
+      if (!isPublic) {
+        localStorage.removeItem('romatec_token');
+        localStorage.removeItem('romatec_user');
+      }
     }
     return Promise.reject(err);
   }

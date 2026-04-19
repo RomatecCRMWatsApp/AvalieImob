@@ -15,18 +15,25 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const submit = async (e) => {
     e.preventDefault();
+    setError('');
     if (!email || !password) {
-      toast({ title: 'Preencha email e senha', variant: 'destructive' });
+      setError('Preencha email e senha.');
       return;
     }
     setLoading(true);
     try {
       await login(email, password);
-      toast({ title: 'Bem-vindo de volta!' });
-      nav('/dashboard');
+      nav('/dashboard', { replace: true });
+    } catch (err) {
+      const msg =
+        err?.response?.data?.detail ||
+        err?.response?.data?.message ||
+        'Credenciais inválidas. Verifique email e senha.';
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -86,6 +93,9 @@ const Login = () => {
                 </button>
               </div>
             </div>
+            {error && (
+              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">{error}</p>
+            )}
             <Button type="submit" disabled={loading} className="w-full h-11 bg-emerald-900 hover:bg-emerald-800 text-white font-semibold">
               {loading ? 'Entrando...' : <>Acessar <ArrowRight className="ml-2 w-4 h-4" /></>}
             </Button>
