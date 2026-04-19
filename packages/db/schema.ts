@@ -7,7 +7,6 @@ import {
   decimal,
   datetime,
   boolean,
-  enum as dbEnum,
   index,
   primaryKey,
   unique,
@@ -33,7 +32,7 @@ export const users = mysqlTable(
     cidade: varchar("cidade", { length: 100 }),
     estado: varchar("estado", { length: 2 }),
     cep: varchar("cep", { length: 9 }),
-    role: dbEnum("role", ["admin", "avaliador", "cliente"]).default("cliente"),
+    role: varchar("role", ["admin", "avaliador", "cliente"]).default("cliente"),
     ativo: boolean("ativo").default(true),
     criado_em: datetime("criado_em", { fsp: 3 }).defaultNow(),
     atualizado_em: datetime("atualizado_em", { fsp: 3 })
@@ -59,10 +58,10 @@ export const subscriptions = mysqlTable(
     user_id: varchar("user_id", { length: 36 })
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    plano: dbEnum("plano", ["mensal", "trimestral", "anual"]).notNull(),
+    plano: varchar("plano", ["mensal", "trimestral", "anual"]).notNull(),
     valor_centavos: bigint("valor_centavos").notNull(), // Armazenar em centavos
     mp_subscription_id: varchar("mp_subscription_id", { length: 100 }), // Mercado Pago ID
-    status: dbEnum("status", ["ativa", "cancelada", "pendente"]).default(
+    status: varchar("status", ["ativa", "cancelada", "pendente"]).default(
       "pendente"
     ),
     data_inicio: datetime("data_inicio"),
@@ -134,14 +133,14 @@ export const imoveis = mysqlTable(
     cidade: varchar("cidade", { length: 100 }).notNull(),
     estado: varchar("estado", { length: 2 }).notNull(),
     cep: varchar("cep", { length: 9 }),
-    tipo: dbEnum("tipo", ["urbano", "rural", "misto"]).default("urbano"),
+    tipo: varchar("tipo", ["urbano", "rural", "misto"]).default("urbano"),
     area_total_m2: decimal("area_total_m2", { precision: 12, scale: 2 }),
     area_total_ha: decimal("area_total_ha", { precision: 12, scale: 4 }),
     descricao_fisica: text("descricao_fisica"),
     topografia: varchar("topografia", { length: 100 }),
     acessibilidade: text("acessibilidade"),
     benfeitorias: text("benfeitorias"),
-    estado_conservacao: dbEnum("estado_conservacao", [
+    estado_conservacao: varchar("estado_conservacao", [
       "otimo",
       "bom",
       "regular",
@@ -175,7 +174,7 @@ export const amostras = mysqlTable(
     endereco: text("endereco"),
     cidade: varchar("cidade", { length: 100 }),
     estado: varchar("estado", { length: 2 }),
-    tipo: dbEnum("tipo", ["urbano", "rural"]).default("urbano"),
+    tipo: varchar("tipo", ["urbano", "rural"]).default("urbano"),
     area_m2: decimal("area_m2", { precision: 12, scale: 2 }),
     area_ha: decimal("area_ha", { precision: 12, scale: 4 }),
     valor_total: decimal("valor_total", { precision: 14, scale: 2 }),
@@ -184,7 +183,7 @@ export const amostras = mysqlTable(
     data_oferta: datetime("data_oferta"),
     data_venda: datetime("data_venda"),
     fonte: varchar("fonte", { length: 100 }), // CRECI, Imobiliária, etc
-    situacao: dbEnum("situacao", ["oferta", "vendido", "aluguel"]).default(
+    situacao: varchar("situacao", ["oferta", "vendido", "aluguel"]).default(
       "oferta"
     ),
     obs: text("obs"),
@@ -215,12 +214,12 @@ export const avaliacoes = mysqlTable(
     numero_ptam: varchar("numero_ptam", { length: 50 }).unique(),
     titulo: varchar("titulo", { length: 255 }).notNull(),
     finalidade: text("finalidade"),
-    metodologia: dbEnum("metodologia", [
+    metodologia: varchar("metodologia", [
       "comparativo",
       "evolutivo",
       "misto",
     ]).default("comparativo"),
-    status: dbEnum("status", ["rascunho", "em_andamento", "pronto", "emitido"]).default(
+    status: varchar("status", ["rascunho", "em_andamento", "pronto", "emitido"]).default(
       "rascunho"
     ),
     notas_tecnicas: text("notas_tecnicas"),
@@ -258,7 +257,7 @@ export const audio_transcricoes = mysqlTable(
     transcricao_texto: text("transcricao_texto"),
     confianca: decimal("confianca", { precision: 3, scale: 2 }), // 0-1
     idioma: varchar("idioma", { length: 10 }).default("pt-BR"),
-    tipo: dbEnum("tipo", [
+    tipo: varchar("tipo", [
       "descricao_imovel",
       "condicoes_mercado",
       "observacoes",
@@ -283,7 +282,7 @@ export const calculos = mysqlTable(
     avaliacao_id: varchar("avaliacao_id", { length: 36 })
       .notNull()
       .references(() => avaliacoes.id, { onDelete: "cascade" }),
-    tipo: dbEnum("tipo", ["comparativo", "evolutivo"]).notNull(),
+    tipo: varchar("tipo", ["comparativo", "evolutivo"]).notNull(),
     area_impactada_m2: decimal("area_impactada_m2", { precision: 12, scale: 2 }),
     area_impactada_ha: decimal("area_impactada_ha", { precision: 12, scale: 4 }),
     valor_unitario: decimal("valor_unitario", { precision: 10, scale: 2 }),
@@ -360,7 +359,7 @@ export const laudos = mysqlTable(
     corpo_texto: text("corpo_texto"),
     url_pdf: text("url_pdf"),
     url_docx: text("url_docx"),
-    tipo_laudo: dbEnum("tipo_laudo", [
+    tipo_laudo: varchar("tipo_laudo", [
       "completo",
       "simplificado",
       "pericial",
