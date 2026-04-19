@@ -224,6 +224,7 @@ export const StepImovelId = ({ form, setForm }) => (
         images={form.fotos_documentos || []}
         onImagesChange={(ids) => setForm({ ...form, fotos_documentos: ids })}
         maxImages={10}
+        acceptPdf
       />
     </div>
   </div>

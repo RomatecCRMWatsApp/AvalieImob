@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Upload, X, Loader2, Image as ImageIcon } from 'lucide-react';
+import { Upload, X, Loader2, Image as ImageIcon, FileText } from 'lucide-react';
 import { uploadAPI } from '../../../lib/api';
 import { useToast } from '../../../hooks/use-toast';
 
@@ -19,15 +19,18 @@ const ImageUploader = ({
   onImagesChange,
   maxImages = 20,
   label = 'Fotos',
-  accept = 'image/jpeg,image/jpg,image/png,image/webp',
+  accept = 'image/jpeg,image/jpg,image/png,image/webp,application/pdf',
   single = false,
 }) => {
   const { toast } = useToast();
   const inputRef = useRef(null);
   const [uploading, setUploading] = useState(false);
   const [dragging, setDragging] = useState(false);
+  // Tracks content_type per id so we can render PDF icon vs image thumbnail
+  const [contentTypes, setContentTypes] = useState({});
 
   const canAdd = single ? images.length === 0 : images.length < maxImages;
+  const isPdf = (imageId) => contentTypes[imageId] === 'application/pdf';
 
   const handleFiles = async (files) => {
     if (!files || files.length === 0) return;
@@ -43,6 +46,7 @@ const ImageUploader = ({
 
     setUploading(true);
     const newIds = [];
+    const newTypes = {};
     for (const file of toUpload) {
       if (file.size > 5 * 1024 * 1024) {
         toast({ title: `Arquivo "${file.name}" muito grande (máx 5 MB)`, variant: 'destructive' });
@@ -51,6 +55,7 @@ const ImageUploader = ({
       try {
         const res = await uploadAPI.uploadImage(file);
         newIds.push(res.id);
+        if (res.content_type) newTypes[res.id] = res.content_type;
       } catch (err) {
         const detail = err.response?.data?.detail || 'Erro ao enviar imagem';
         toast({ title: detail, variant: 'destructive' });
@@ -59,6 +64,7 @@ const ImageUploader = ({
     setUploading(false);
 
     if (newIds.length > 0) {
+      setContentTypes((prev) => ({ ...prev, ...newTypes }));
       const updated = single ? newIds : [...images, ...newIds];
       onImagesChange(updated);
     }
@@ -81,6 +87,11 @@ const ImageUploader = ({
     } catch {
       // silent — remove from UI even if API fails
     }
+    setContentTypes((prev) => {
+      const next = { ...prev };
+      delete next[imageId];
+      return next;
+    });
     onImagesChange(images.filter((id) => id !== imageId));
   };
 
@@ -121,7 +132,7 @@ const ImageUploader = ({
               ? 'Clique ou arraste uma foto'
               : `Clique ou arraste${images.length > 0 ? ' mais fotos' : ' fotos'}`}
           </span>
-          <span className="text-xs text-gray-500">JPG, PNG ou WebP — máx 5 MB por arquivo</span>
+          <span className="text-xs text-gray-500">JPG, PNG, WebP ou PDF — máx 5 MB por arquivo</span>
           <input
             ref={inputRef}
             type="file"
@@ -141,18 +152,29 @@ const ImageUploader = ({
               key={imageId}
               className={`relative group rounded-lg overflow-hidden border border-gray-200 bg-gray-50 ${single ? 'h-40' : 'aspect-square'}`}
             >
-              <img
-                src={uploadAPI.getImageUrl(imageId)}
-                alt="uploaded"
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  e.target.style.display = 'none';
-                  e.target.nextSibling.style.display = 'flex';
-                }}
-              />
-              <div className="hidden w-full h-full items-center justify-center">
-                <ImageIcon className="w-6 h-6 text-gray-400" />
-              </div>
+              {isPdf(imageId) ? (
+                /* PDF card */
+                <div className="w-full h-full flex flex-col items-center justify-center gap-1 bg-red-50">
+                  <FileText className="w-8 h-8 text-red-500" />
+                  <span className="text-xs text-red-600 font-medium">PDF</span>
+                </div>
+              ) : (
+                /* Image thumbnail */
+                <>
+                  <img
+                    src={uploadAPI.getImageUrl(imageId)}
+                    alt="uploaded"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'flex';
+                    }}
+                  />
+                  <div className="hidden w-full h-full items-center justify-center">
+                    <ImageIcon className="w-6 h-6 text-gray-400" />
+                  </div>
+                </>
+              )}
               <button
                 type="button"
                 onClick={() => handleRemove(imageId)}

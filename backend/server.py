@@ -470,19 +470,19 @@ async def download_ptam_pdf(pid: str, uid: str = Depends(get_active_subscriber))
 
 # ===== UPLOAD DE IMAGENS =============================================
 
-ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
+ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp", "application/pdf"}
 MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB
 
 
 @api.post("/upload/image")
 async def upload_image(file: UploadFile = File(...), uid: str = Depends(get_active_subscriber)):
-    """Recebe uma imagem multipart, valida e salva em base64 no MongoDB.
-    Retorna o ID da imagem para uso nos campos fotos_imovel, fotos_documentos e foto das amostras."""
+    """Recebe uma imagem ou PDF multipart, valida e salva em base64 no MongoDB.
+    Retorna o ID, URL e content_type do arquivo salvo."""
     content_type = file.content_type or ""
     if content_type not in ALLOWED_IMAGE_TYPES:
         raise HTTPException(
             status_code=400,
-            detail=f"Tipo de arquivo não permitido: {content_type}. Use jpg, jpeg, png ou webp."
+            detail=f"Tipo de arquivo não permitido: {content_type}. Use jpg, jpeg, png, webp ou pdf."
         )
 
     data = await file.read()
@@ -504,7 +504,7 @@ async def upload_image(file: UploadFile = File(...), uid: str = Depends(get_acti
     }
     await db.images.insert_one(doc)
     logger.info("Image uploaded: id=%s user=%s size=%d", image_id, uid, len(data))
-    return {"id": image_id, "url": f"/api/upload/image/{image_id}"}
+    return {"id": image_id, "url": f"/api/upload/image/{image_id}", "content_type": content_type}
 
 
 @api.get("/upload/image/{image_id}")
