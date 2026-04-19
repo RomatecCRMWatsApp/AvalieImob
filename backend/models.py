@@ -381,6 +381,59 @@ class GarantiaBase(BaseModel):
     tipo_garantia: Optional[str] = "imovel_rural"  # imovel_rural | graos_safra | bovinos | equipamentos | veiculos | outros
     finalidade: Optional[str] = "credito_rural"    # financiamento | credito_rural | penhor | alienacao_fiduciaria | outros
 
+    # ── Campos Bancários / CMN 4.676/2018 ─────────────────────────────────────
+    modalidade_financeira: Optional[str] = ""       # sfh_fgts | sfi_bancario | alienacao_fiduciaria | hipoteca | credito_rural
+    instituicao_financeira: Optional[str] = ""      # nome do banco credor
+    valor_financiamento: Optional[float] = 0
+    ltv_maximo: Optional[float] = 80               # default 80% para SFH
+    prazo_financiamento_meses: Optional[int] = 0
+    mutuario_nome: Optional[str] = ""
+    mutuario_cpf_cnpj: Optional[str] = ""
+    finalidade_credito: Optional[str] = ""          # aquisicao | reforma | construcao | refinanciamento
+    area_privativa_nbr12721: Optional[float] = 0
+    padrao_construtivo_ibape: Optional[str] = ""    # baixo | normal | alto | luxo
+    idade_real_anos: Optional[int] = 0
+    idade_aparente_anos: Optional[int] = 0
+    habite_se: Optional[bool] = False
+    onus_reais: Optional[bool] = False
+    onus_descricao: Optional[str] = ""
+    inscricao_iptu: Optional[str] = ""
+    valor_venal: Optional[float] = 0
+    valor_liquidacao_forcada: Optional[float] = 0   # VLF para alienacao fiduciaria
+    fator_desconto_vlf: Optional[float] = 0         # percentual desconto sobre valor mercado
+    valor_1o_leilao: Optional[float] = 0            # Lei 9.514/97 art. 27
+    valor_2o_leilao: Optional[float] = 0            # Lei 9.514/97 art. 27 par. 2
+    art_numero: Optional[str] = ""
+    art_data_registro: Optional[str] = ""
+    grau_precisao: Optional[str] = "II"             # II ou III (NBR 14653-1)
+    validade_laudo_meses: Optional[int] = 12        # 12 para SFH/FGTS
+    declaracao_conflito_interesse: Optional[bool] = False
+    declaracao_impedimentos: Optional[str] = ""
+    # Campos adicionais de documentacao e vistoria bancaria
+    cri_numero: Optional[str] = ""                  # Cartorio de Registro de Imoveis
+    conformidade_plano_diretor: Optional[bool] = False
+    regularidade_construtiva: Optional[bool] = False
+    data_matricula: Optional[str] = ""              # data certidao matricula (max 30 dias)
+    vistoria_horario: Optional[str] = ""
+    vistoria_responsavel_nome: Optional[str] = ""
+    vistoria_condicoes_obs: Optional[str] = ""
+    # Analise metodologica bancaria
+    num_amostras: Optional[int] = 0
+    coeficiente_variacao: Optional[float] = 0
+    fator_homogeneizacao: Optional[str] = ""        # area | padrao | localizacao | conservacao | fator_oferta
+    infraestrutura_entorno: Optional[str] = ""
+    liquidez_mercado: Optional[str] = ""
+    # Resultado bancario
+    valor_mercado: Optional[float] = 0
+    valor_maximo_garantia: Optional[float] = 0
+    campo_arbitrio_min: Optional[float] = 0
+    campo_arbitrio_max: Optional[float] = 0
+    # Responsavel tecnico bancario
+    responsavel_tipo: Optional[str] = ""            # engenheiro | arquiteto
+    responsavel_crea_cau: Optional[str] = ""
+    responsavel_uf: Optional[str] = ""
+    responsavel_empresa_cpf: Optional[str] = ""
+
     # ── Solicitante ───────────────────────────────────────────────────────────
     solicitante: GarantiaSolicitante = Field(default_factory=GarantiaSolicitante)
 
@@ -463,6 +516,125 @@ class GarantiaBase(BaseModel):
 
 
 class Garantia(GarantiaBase):
+    id: str = Field(default_factory=_id)
+    user_id: str
+    created_at: datetime = Field(default_factory=_now)
+    updated_at: datetime = Field(default_factory=_now)
+
+
+# ---------- Semoventes (Penhor Rural Bancário) ----------
+class CategoriaSemovente(BaseModel):
+    categoria: str = ""  # reprodutores, matrizes, novilhas, garrotes_bezerros, bois_engorda
+    quantidade: int = 0
+    raca: str = ""
+    faixa_etaria: str = ""
+    peso_medio_kg: float = 0
+    registro_genealogico: str = ""
+    valor_unitario: float = 0
+    valor_total: float = 0
+    # matrizes
+    taxa_prenhez: Optional[float] = None
+    producao_leite: Optional[float] = None
+    # engorda
+    arrobas_estimadas: Optional[float] = None
+    estagio: Optional[str] = None  # confinamento, semiconfinamento, pastagem
+    # equinos
+    aptidao: Optional[str] = None  # corrida, trabalho, esporte, lazer
+    # aves/suinos
+    fase: Optional[str] = None
+
+
+class SemoventeBase(BaseModel):
+    # Identificacao
+    numero_laudo: Optional[str] = ""
+    tipo_semovente: str = "bovino"  # bovino, equino, suino, ovino_caprino, aves
+    status: str = "rascunho"  # rascunho, em_andamento, concluido
+
+    # Operacao bancaria
+    instituicao_financeira: Optional[str] = ""
+    modalidade_credito: Optional[str] = "credito_rural_livre"
+    valor_credito: Optional[float] = 0
+    devedor_nome: Optional[str] = ""
+    devedor_cpf_cnpj: Optional[str] = ""
+
+    # Propriedade
+    propriedade_nome: Optional[str] = ""
+    propriedade_municipio: Optional[str] = ""
+    propriedade_uf: Optional[str] = ""
+    matricula_imovel: Optional[str] = ""
+    cri_cartorio: Optional[str] = ""
+
+    # Rebanho
+    categorias: List[CategoriaSemovente] = Field(default_factory=list)
+    total_cabecas: Optional[int] = 0
+    total_ua: Optional[float] = 0  # 1 UA = 450 kg
+    lotacao_ua_ha: Optional[float] = 0
+
+    # Rastreabilidade
+    brincos_sisbov: Optional[bool] = False
+    brinco_inicio: Optional[str] = ""
+    brinco_fim: Optional[str] = ""
+    marcacao_ferro: Optional[bool] = False
+    marcacao_descricao: Optional[str] = ""
+    microchip: Optional[bool] = False
+    situacao_esisbov: Optional[str] = ""
+
+    # Situacao sanitaria
+    vacina_aftosa_data: Optional[str] = ""
+    vacina_aftosa_orgao: Optional[str] = ""
+    vacina_brucelose_data: Optional[str] = ""
+    teste_tuberculose: Optional[str] = "nao_realizado"
+    teste_tuberculose_data: Optional[str] = ""
+    vermifugacao_data: Optional[str] = ""
+    vermifugacao_produto: Optional[str] = ""
+    mortalidade_percentual: Optional[float] = 0
+    area_livre_aftosa: Optional[bool] = False
+    gta_em_dia: Optional[bool] = False
+
+    # Infraestrutura
+    capacidade_suporte_ua_ha: Optional[float] = 0
+    disponibilidade_agua: Optional[str] = ""
+    instalacoes: Optional[str] = ""
+    estado_conservacao_instalacoes: Optional[str] = ""
+    capacidade_confinamento: Optional[int] = 0
+
+    # Avaliacao / cotacoes
+    cotacao_arroba_data: Optional[str] = ""
+    cotacao_arroba_valor: Optional[float] = 0
+    cotacao_fonte: Optional[str] = ""
+    cotacao_bezerro: Optional[float] = 0
+    cotacao_vaca: Optional[float] = 0
+    cotacao_touro_po: Optional[float] = 0
+    valor_mercado_total: Optional[float] = 0
+    fator_liquidez: Optional[float] = 0.65
+    valor_garantia_aceito: Optional[float] = 0
+    ltv_recomendado: Optional[float] = 65
+    validade_laudo_meses: Optional[int] = 6
+    seguro_recomendado_valor: Optional[float] = 0
+
+    # Vistoria
+    vistoria_data: Optional[str] = ""
+    vistoria_horario: Optional[str] = ""
+    contagem_fisica_presencial: Optional[bool] = False
+    condicao_corporal_media: Optional[float] = 3.0  # escala 1-5
+    fotos: List[str] = Field(default_factory=list)
+
+    # Responsavel (CRMV obrigatorio para penhor rural)
+    responsavel_nome: Optional[str] = ""
+    crmv_numero: Optional[str] = ""
+    crmv_uf: Optional[str] = ""
+    especialidade: Optional[str] = ""
+    art_crmv_numero: Optional[str] = ""
+    art_data_registro: Optional[str] = ""
+
+    # Declaracoes
+    declaracao_contagem_presencial: Optional[bool] = False
+    declaracao_sem_conflito: Optional[bool] = False
+    declaracao_penhor_registrado: Optional[bool] = False
+    restricoes_ressalvas: Optional[str] = ""
+
+
+class Semovente(SemoventeBase):
     id: str = Field(default_factory=_id)
     user_id: str
     created_at: datetime = Field(default_factory=_now)
