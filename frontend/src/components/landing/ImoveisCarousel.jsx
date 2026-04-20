@@ -22,9 +22,11 @@ const PLACEHOLDER_GRADIENTS = [
  */
 function normalizeImovel(raw) {
   const fotos = raw.photos || raw.fotos || raw.images || [];
-  const primeiraFoto = Array.isArray(fotos) && fotos.length > 0
+  const primeiraFotoArray = Array.isArray(fotos) && fotos.length > 0
     ? (typeof fotos[0] === 'string' ? fotos[0] : fotos[0]?.url || fotos[0]?.src || null)
     : null;
+  // O backend retorna 'imagem' como string direta; usar como fallback principal
+  const primeiraFoto = raw.imagem || raw.image || primeiraFotoArray || null;
 
   return {
     nome: raw.name || raw.nome || raw.title || raw.titulo || 'Imóvel',
@@ -46,17 +48,18 @@ function normalizeImovel(raw) {
 const ImovelCard = ({ imovel, index }) => {
   const isChacara = imovel.tipo === 'Chácara' || imovel.tipo === 'Chacara';
   const gradient = PLACEHOLDER_GRADIENTS[index % PLACEHOLDER_GRADIENTS.length];
+  const [imgError, setImgError] = React.useState(false);
 
   return (
     <div className="flex-none w-72 sm:w-80 bg-white/5 border border-white/10 rounded-2xl overflow-hidden hover:border-amber-400/40 transition-all duration-300 group">
       {/* Imagem / Placeholder */}
       <div className={`relative h-44 bg-gradient-to-br ${gradient} flex items-center justify-center overflow-hidden`}>
-        {imovel.imagem ? (
+        {imovel.imagem && !imgError ? (
           <img
             src={imovel.imagem}
             alt={imovel.nome}
             className="w-full h-full object-cover"
-            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+            onError={() => setImgError(true)}
           />
         ) : (
           <div className="flex flex-col items-center gap-2 opacity-40">
