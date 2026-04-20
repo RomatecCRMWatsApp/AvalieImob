@@ -22,7 +22,7 @@ const WelcomeBanner = () => {
   const firstName = user?.name?.split(' ')[0] || 'Usuário';
 
   return (
-    <div className="bg-gradient-to-r from-emerald-900 to-emerald-800 text-white mt-20">
+    <div className="bg-gradient-to-r from-emerald-900 to-emerald-800 text-white">
       <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
         <div>
           <h2 className="text-lg font-bold">Bem-vindo, {firstName}! 👋</h2>
@@ -38,7 +38,7 @@ const WelcomeBanner = () => {
 
 const LandingPage = () => {
   return (
-    <div className="bg-white">
+    <div className="bg-white pt-28">
       <Navbar />
       <WelcomeBanner />
       <main>
