@@ -131,6 +131,14 @@ export const EMPTY_PTAM = {
   // Número da ART ou RRT
   art_rrt_numero: '',
 
+  // ── Campos Rurais (visíveis apenas quando property_type === 'rural') ────────
+  certificacao_sigef: '',    // SIGEF — Sistema de Gestão Fundiária
+  cadastro_incra: '',         // Número de cadastro no INCRA
+  ccir: '',                   // Certificado de Cadastro de Imóvel Rural
+  nirf_cib: '',               // NIRF / CIB — Receita Federal / Cadastro Imobiliário Brasileiro
+  car: '',                    // Cadastro Ambiental Rural (ex: MA-XXXXXXX)
+  perimetro_m: null,          // Perímetro em metros
+
   // Legacy impact areas (desapropriação)
   impact_areas: [],
 

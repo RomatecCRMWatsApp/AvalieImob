@@ -22,6 +22,8 @@ const EMPTY = {
   matricula: '', cartorio: '', data_vistoria: '',
   // rural
   area_total_ha: 0, area_construida_m2: 0, uso_atual: '', benfeitorias: '', topografia: '', solo_vegetacao: '',
+  // documentação rural específica
+  certificacao_sigef: '', cadastro_incra: '', ccir: '', nirf_cib: '', car: '', perimetro_m: null,
   // graos
   cultura: '', quantidade_toneladas: 0, sacas: 0, produtividade_sc_ha: 0, local_armazenagem: '', safra_referencia: '',
   // bovinos
@@ -1048,8 +1050,8 @@ const StepBem = ({ form, set }) => {
         <div className="space-y-4">
           <SectionTitle>Dados do Imóvel Rural</SectionTitle>
           <div className="grid md:grid-cols-3 gap-4">
-            <Field label="Área Total (ha)"><Input type="number" value={form.area_total_ha} onChange={(e) => set('area_total_ha', parseFloat(e.target.value) || 0)} /></Field>
-            <Field label="Área Construída (m²)"><Input type="number" value={form.area_construida_m2} onChange={(e) => set('area_construida_m2', parseFloat(e.target.value) || 0)} /></Field>
+            <Field label="Área Total (ha — hectares)"><Input type="number" value={form.area_total_ha} onChange={(e) => set('area_total_ha', parseFloat(e.target.value) || 0)} /></Field>
+            <Field label="Área Construída / Benfeitorias (m²)"><Input type="number" value={form.area_construida_m2} onChange={(e) => set('area_construida_m2', parseFloat(e.target.value) || 0)} /></Field>
             <Field label="Uso Atual">
               <Select value={form.uso_atual} onChange={(e) => set('uso_atual', e.target.value)}>
                 <option value="">Selecionar...</option>
@@ -1062,6 +1064,40 @@ const StepBem = ({ form, set }) => {
           <div className="grid md:grid-cols-2 gap-4">
             <Field label="Topografia"><Input value={form.topografia} onChange={(e) => set('topografia', e.target.value)} placeholder="Plana, ondulada, montanhosa..." /></Field>
             <Field label="Solo / Vegetação"><Input value={form.solo_vegetacao} onChange={(e) => set('solo_vegetacao', e.target.value)} placeholder="Latossolo vermelho, cerrado..." /></Field>
+          </div>
+
+          {/* ── Documentação Rural ── */}
+          <div className="rounded-xl border-2 border-emerald-200 bg-emerald-50/50 p-5">
+            <div className="text-sm font-semibold text-emerald-800 mb-4 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-600 inline-block" />
+              Registros Rurais
+              <span className="text-xs font-normal text-emerald-600 ml-1">— documentação específica de imóvel rural</span>
+            </div>
+            <div className="grid md:grid-cols-2 gap-4">
+              <Field label={<><strong>SIGEF</strong> — Sistema de Gestão Fundiária</>}>
+                <Input value={form.certificacao_sigef || ''} onChange={(e) => set('certificacao_sigef', e.target.value)} placeholder="Código SIGEF" />
+              </Field>
+              <Field label={<><strong>INCRA</strong> — Cadastro no INCRA</>}>
+                <Input value={form.cadastro_incra || ''} onChange={(e) => set('cadastro_incra', e.target.value)} placeholder="Número do cadastro INCRA" />
+              </Field>
+              <Field label={<><strong>CCIR</strong> — Certificado de Cadastro de Imóvel Rural</>}>
+                <Input value={form.ccir || ''} onChange={(e) => set('ccir', e.target.value)} placeholder="Número do CCIR" />
+              </Field>
+              <Field label={<><strong>NIRF / CIB</strong> — Receita Federal / Cadastro Imobiliário Brasileiro</>}>
+                <Input value={form.nirf_cib || ''} onChange={(e) => set('nirf_cib', e.target.value)} placeholder="Número do NIRF ou CIB" />
+              </Field>
+              <Field label={<><strong>CAR</strong> — Cadastro Ambiental Rural</>}>
+                <Input value={form.car || ''} onChange={(e) => set('car', e.target.value)} placeholder="Ex: MA-2100055-XXXXXXXXXXXXXXXX" />
+              </Field>
+              <Field label="Perímetro (m)">
+                <Input
+                  type="number"
+                  value={form.perimetro_m ?? ''}
+                  onChange={(e) => set('perimetro_m', e.target.value === '' ? null : parseFloat(e.target.value) || null)}
+                  placeholder="Perímetro total em metros"
+                />
+              </Field>
+            </div>
           </div>
         </div>
       )}

@@ -316,13 +316,87 @@ export const StepObjetivo = ({ form, setForm, onAi, aiLoading }) => {
   );
 };
 
+// ── Helpers rurais ────────────────────────────────────────────────────────────
+
+const RURAL_TYPES = new Set(['rural', 'fazenda', 'sitio', 'chacara', 'terreno_rural']);
+const isRural = (tipo) => RURAL_TYPES.has((tipo || '').toLowerCase());
+
+// Seção de documentação rural com borda diferenciada
+const RuralDocSection = ({ form, setForm }) => {
+  if (!isRural(form.property_type)) return null;
+  return (
+    <div className="col-span-2 mt-2">
+      <div className="rounded-xl border-2 border-emerald-200 bg-emerald-50/50 p-5">
+        <div className="text-sm font-semibold text-emerald-800 mb-4 flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-emerald-600 inline-block" />
+          Registros Rurais
+          <span className="text-xs font-normal text-emerald-600 ml-1">— documentação específica de imóvel rural</span>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label={<><b>SIGEF</b> — Certificação do Sistema de Gestão Fundiária</>}>
+            <Input
+              value={form.certificacao_sigef || ''}
+              onChange={(e) => setForm({ ...form, certificacao_sigef: e.target.value })}
+              placeholder="Código SIGEF (ex: SIGEF-MA-00000)"
+            />
+          </Field>
+          <Field label={<><b>INCRA</b> — Cadastro no INCRA</>}>
+            <Input
+              value={form.cadastro_incra || ''}
+              onChange={(e) => setForm({ ...form, cadastro_incra: e.target.value })}
+              placeholder="Número do cadastro no INCRA"
+            />
+          </Field>
+          <Field label={<><b>CCIR</b> — Certificado de Cadastro de Imóvel Rural</>}>
+            <Input
+              value={form.ccir || ''}
+              onChange={(e) => setForm({ ...form, ccir: e.target.value })}
+              placeholder="Número do CCIR"
+            />
+          </Field>
+          <Field label={<><b>NIRF / CIB</b> — Receita Federal / Cadastro Imobiliário Brasileiro</>}>
+            <Input
+              value={form.nirf_cib || ''}
+              onChange={(e) => setForm({ ...form, nirf_cib: e.target.value })}
+              placeholder="Número do NIRF ou CIB"
+            />
+          </Field>
+          <Field label={<><b>CAR</b> — Cadastro Ambiental Rural</>} full>
+            <Input
+              value={form.car || ''}
+              onChange={(e) => setForm({ ...form, car: e.target.value })}
+              placeholder="Ex: MA-2100055-XXXXXXXXXXXXXXXX"
+            />
+          </Field>
+          <Field label="Perímetro (m)">
+            <Input
+              type="number"
+              step="0.01"
+              value={form.perimetro_m ?? ''}
+              onChange={(e) => setForm({ ...form, perimetro_m: e.target.value === '' ? null : Number(e.target.value) })}
+              placeholder="Perímetro total em metros"
+            />
+          </Field>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ── Step 3: Identificação do Imóvel ──────────────────────────────────────────
-export const StepImovelId = ({ form, setForm }) => (
+export const StepImovelId = ({ form, setForm }) => {
+  const rural = isRural(form.property_type);
+  return (
   <div>
     <SectionHeader
       title="3. Identificação do Imóvel"
       subtitle="Localização, registro e classificação do imóvel avaliando."
     />
+    {rural && (
+      <div className="mb-4 flex items-center gap-2 text-xs bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 text-emerald-800">
+        <span className="font-semibold">Modo Rural ativo</span> — unidades de área em hectares (ha) e campos rurais habilitados
+      </div>
+    )}
     <div className="grid grid-cols-2 gap-4">
       <Field label="Tipo de imóvel" full>
         <Select value={form.property_type} onValueChange={(v) => setForm({ ...form, property_type: v })}>
@@ -332,6 +406,10 @@ export const StepImovelId = ({ form, setForm }) => (
             <SelectItem value="apartamento">Apartamento</SelectItem>
             <SelectItem value="terreno">Terreno Urbano</SelectItem>
             <SelectItem value="rural">Imóvel Rural</SelectItem>
+            <SelectItem value="fazenda">Fazenda</SelectItem>
+            <SelectItem value="sitio">Sítio</SelectItem>
+            <SelectItem value="chacara">Chácara</SelectItem>
+            <SelectItem value="terreno_rural">Terreno Rural / Gleba</SelectItem>
             <SelectItem value="comercial">Sala / Loja Comercial</SelectItem>
             <SelectItem value="industrial">Galpão / Industrial</SelectItem>
             <SelectItem value="outros">Outros</SelectItem>
@@ -339,14 +417,16 @@ export const StepImovelId = ({ form, setForm }) => (
         </Select>
       </Field>
       <Field label="Rótulo / Título do imóvel" full>
-        <Input value={form.property_label} onChange={(e) => setForm({ ...form, property_label: e.target.value })} placeholder="Ex: Apartamento 302, Bloco A, Edifício Alfa" />
+        <Input value={form.property_label} onChange={(e) => setForm({ ...form, property_label: e.target.value })} placeholder={rural ? 'Ex: Fazenda Santa Luzia, Gleba A' : 'Ex: Apartamento 302, Bloco A, Edifício Alfa'} />
       </Field>
-      <Field label="Endereço completo" full>
-        <Input value={form.property_address} onChange={(e) => setForm({ ...form, property_address: e.target.value })} placeholder="Rua, número, complemento" />
+      <Field label={rural ? 'Localidade / Logradouro' : 'Endereço completo'} full>
+        <Input value={form.property_address} onChange={(e) => setForm({ ...form, property_address: e.target.value })} placeholder={rural ? 'Estrada, rodovia, km, zona rural...' : 'Rua, número, complemento'} />
       </Field>
-      <Field label="Bairro">
-        <Input value={form.property_neighborhood} onChange={(e) => setForm({ ...form, property_neighborhood: e.target.value })} />
-      </Field>
+      {!rural && (
+        <Field label="Bairro">
+          <Input value={form.property_neighborhood} onChange={(e) => setForm({ ...form, property_neighborhood: e.target.value })} />
+        </Field>
+      )}
       <Field label="Cidade">
         <Input value={form.property_city} onChange={(e) => setForm({ ...form, property_city: e.target.value })} />
       </Field>
@@ -371,18 +451,35 @@ export const StepImovelId = ({ form, setForm }) => (
       <Field label="Proprietário(s)" full>
         <Input value={form.property_owner} onChange={(e) => setForm({ ...form, property_owner: e.target.value })} />
       </Field>
-      <Field label="Área total (m²)">
-        <Input type="number" step="0.01" value={form.property_area_sqm} onChange={(e) => setForm({ ...form, property_area_sqm: Number(e.target.value) })} />
-      </Field>
-      <Field label="Área (hectares)">
-        <Input type="number" step="0.0001" value={form.property_area_ha} onChange={(e) => setForm({ ...form, property_area_ha: Number(e.target.value) })} />
-      </Field>
+      {/* Área — condicional por tipo */}
+      {rural ? (
+        <>
+          <Field label="Área total (ha — hectares)">
+            <Input type="number" step="0.0001" value={form.property_area_ha} onChange={(e) => setForm({ ...form, property_area_ha: Number(e.target.value) })} placeholder="0,0000" />
+          </Field>
+          <Field label="Área construída / benfeitorias (m²)">
+            <Input type="number" step="0.01" value={form.property_area_sqm} onChange={(e) => setForm({ ...form, property_area_sqm: Number(e.target.value) })} placeholder="Área das construções em m²" />
+          </Field>
+        </>
+      ) : (
+        <>
+          <Field label="Área total (m²)">
+            <Input type="number" step="0.01" value={form.property_area_sqm} onChange={(e) => setForm({ ...form, property_area_sqm: Number(e.target.value) })} />
+          </Field>
+          <Field label="Área (hectares)">
+            <Input type="number" step="0.0001" value={form.property_area_ha} onChange={(e) => setForm({ ...form, property_area_ha: Number(e.target.value) })} />
+          </Field>
+        </>
+      )}
       <Field label="Confrontações / Limites" full>
         <Textarea value={form.property_confrontations} onChange={(e) => setForm({ ...form, property_confrontations: e.target.value })} rows={3} placeholder="Norte: ..., Sul: ..., Leste: ..., Oeste: ..." />
       </Field>
       <Field label="Descrição geral do imóvel" full>
         <Textarea value={form.property_description} onChange={(e) => setForm({ ...form, property_description: e.target.value })} rows={4} />
       </Field>
+
+      {/* Seção de Documentação Rural — aparece apenas para imóvel rural */}
+      <RuralDocSection form={form} setForm={setForm} />
     </div>
 
     {/* ── Fotos e Documentos ─────────────────────────────────────────── */}
@@ -436,7 +533,8 @@ export const StepImovelId = ({ form, setForm }) => (
       </div>
     </div>
   </div>
-);
+  );
+};
 
 // ── Step 4: Caracterização da Região ─────────────────────────────────────────
 export const StepRegiao = ({ form, setForm, onAi, aiLoading }) => {

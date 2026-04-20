@@ -659,9 +659,25 @@ def _build_documentos_analisados(ptam: dict, styles: dict) -> list:
     return story
 
 
+RURAL_PROPERTY_TYPES = {"rural", "fazenda", "sitio", "chacara", "terreno_rural"}
+
+
+def _is_rural(ptam: dict) -> bool:
+    return str(ptam.get("property_type", "")).lower() in RURAL_PROPERTY_TYPES
+
+
+def _fmt_area_ha(v: Any) -> str:
+    try:
+        return f"{float(v):,.4f} ha".replace(",", "X").replace(".", ",").replace("X", ".")
+    except Exception:
+        return "0,0000 ha"
+
+
 def _build_property(ptam: dict, styles: dict) -> list:
     story = []
     story += _section(styles, "3. Identificação do Imóvel")
+    rural = _is_rural(ptam)
+
     for label, key in [
         ("Tipo", "property_type"),
         ("Endereço", "property_address"),
@@ -674,13 +690,40 @@ def _build_property(ptam: dict, styles: dict) -> list:
         ("Confrontações", "property_confrontations"),
     ]:
         story += _lv(styles, label, ptam.get(key))
-    if ptam.get("property_area_ha"):
-        story += _lv(styles, "Área (ha)", ptam["property_area_ha"])
-    if ptam.get("property_area_sqm"):
-        story += _lv(styles, "Área (m²)", _fmt_area(ptam["property_area_sqm"]))
+
+    # Área: rural → ha (prioritário), urbano → m²
+    if rural:
+        if ptam.get("property_area_ha"):
+            story += _lv(styles, "Área total", _fmt_area_ha(ptam["property_area_ha"]))
+        if ptam.get("property_area_sqm"):
+            story += _lv(styles, "Área construída / benfeitorias (m²)", _fmt_area(ptam["property_area_sqm"]))
+        if ptam.get("perimetro_m"):
+            story += _lv(styles, "Perímetro", f"{float(ptam['perimetro_m']):,.2f} m".replace(",", "X").replace(".", ",").replace("X", "."))
+    else:
+        if ptam.get("property_area_sqm"):
+            story += _lv(styles, "Área (m²)", _fmt_area(ptam["property_area_sqm"]))
+        if ptam.get("property_area_ha"):
+            story += _lv(styles, "Área (ha)", _fmt_area_ha(ptam["property_area_ha"]))
+
     if ptam.get("property_gps_lat") and ptam.get("property_gps_lng"):
         story += _lv(styles, "Coordenadas GPS", f"{ptam['property_gps_lat']}, {ptam['property_gps_lng']}")
     story += _body(styles, ptam.get("property_description", ""))
+
+    # Seção de Registros Rurais — apenas para imóvel rural
+    if rural:
+        rural_docs = [
+            ("SIGEF — Sistema de Gestão Fundiária", "certificacao_sigef"),
+            ("INCRA — Cadastro no INCRA", "cadastro_incra"),
+            ("CCIR — Certificado de Cadastro de Imóvel Rural", "ccir"),
+            ("NIRF / CIB — Receita Federal / Cadastro Imobiliário Brasileiro", "nirf_cib"),
+            ("CAR — Cadastro Ambiental Rural", "car"),
+        ]
+        rural_items = [(lbl, ptam.get(key)) for lbl, key in rural_docs if ptam.get(key)]
+        if rural_items:
+            story += _subsection(styles, "Registros Rurais")
+            for lbl, val in rural_items:
+                story += _lv(styles, lbl, val)
+
     return story
 
 

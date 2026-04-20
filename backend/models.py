@@ -312,6 +312,14 @@ class PtamBase(BaseModel):
     # Número da ART ou RRT (opcional)
     art_rrt_numero: Optional[str] = ""
 
+    # ── Campos Rurais (aparecem apenas quando property_type == 'rural') ─────────
+    certificacao_sigef: Optional[str] = None   # Sistema de Gestão Fundiária (SIGEF/INCRA)
+    cadastro_incra: Optional[str] = None        # Número de cadastro no INCRA
+    ccir: Optional[str] = None                  # Certificado de Cadastro de Imóvel Rural
+    nirf_cib: Optional[str] = None              # NIRF / CIB — Receita Federal / Sefaz
+    car: Optional[str] = None                   # Cadastro Ambiental Rural (ex: MA-1234567-XXXXX)
+    perimetro_m: Optional[float] = None         # Perímetro do imóvel em metros
+
     # ── Legacy — Impact areas (desapropriação/servidão) ───────────────────────
     impact_areas: List[PtamImpactArea] = Field(default_factory=list)
 
@@ -458,6 +466,13 @@ class GarantiaBase(BaseModel):
     benfeitorias: Optional[str] = ""
     topografia: Optional[str] = ""
     solo_vegetacao: Optional[str] = ""
+    # Documentação rural específica
+    certificacao_sigef: Optional[str] = None    # SIGEF — Sistema de Gestão Fundiária
+    cadastro_incra: Optional[str] = None         # Número de cadastro no INCRA
+    ccir: Optional[str] = None                   # Certificado de Cadastro de Imóvel Rural
+    nirf_cib: Optional[str] = None               # NIRF / CIB — Receita Federal
+    car: Optional[str] = None                    # Cadastro Ambiental Rural
+    perimetro_m: Optional[float] = None          # Perímetro do imóvel em metros
 
     # ── Campos graos/safra ────────────────────────────────────────────────────
     cultura: Optional[str] = ""                 # soja | milho | cafe | etc.
