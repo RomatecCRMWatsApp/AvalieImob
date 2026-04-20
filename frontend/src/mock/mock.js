@@ -4,7 +4,7 @@ export const BRAND = {
   name: 'RomaTec AvalieImob',
   tagline: 'Avalie com precisão. Decida com confiança.',
   subtitle: 'PTAM · LAUDOS · AVALIAÇÕES IMOBILIÁRIAS E GARANTIAS',
-  logo: '/brand/logo_principal.png',
+  logo: '/brand/logo_principal.jpg',
   banner: '/brand/banner.png',
   faixa: '/brand/faixa.png',
   address: 'Rua São Raimundo, nº 10 - Centro - Açailândia/MA',
