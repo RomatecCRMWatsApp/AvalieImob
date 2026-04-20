@@ -333,39 +333,39 @@ const RuralDocSection = ({ form, setForm }) => {
           <span className="text-xs font-normal text-emerald-600 ml-1">— documentação específica de imóvel rural</span>
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <Field label={<><b>SIGEF</b> — Certificação do Sistema de Gestão Fundiária</>}>
+          <Field label="Certificacao SIGEF (UUID)">
             <Input
               value={form.certificacao_sigef || ''}
               onChange={(e) => setForm({ ...form, certificacao_sigef: e.target.value })}
-              placeholder="Código SIGEF (ex: SIGEF-MA-00000)"
+              placeholder="b533967e-f6b0-4b19-b4a1-fc834e1f9ebb"
             />
           </Field>
-          <Field label={<><b>INCRA</b> — Cadastro no INCRA</>}>
+          <Field label="Codigo do Imovel Rural (INCRA)">
             <Input
               value={form.cadastro_incra || ''}
               onChange={(e) => setForm({ ...form, cadastro_incra: e.target.value })}
-              placeholder="Número do cadastro no INCRA"
+              placeholder="950.203.934.550-0"
             />
           </Field>
-          <Field label={<><b>CCIR</b> — Certificado de Cadastro de Imóvel Rural</>}>
+          <Field label="Numero do CCIR">
             <Input
               value={form.ccir || ''}
               onChange={(e) => setForm({ ...form, ccir: e.target.value })}
-              placeholder="Número do CCIR"
+              placeholder="76280733267"
             />
           </Field>
-          <Field label={<><b>NIRF / CIB</b> — Receita Federal / Cadastro Imobiliário Brasileiro</>}>
+          <Field label="CIB / NIRF">
             <Input
               value={form.nirf_cib || ''}
               onChange={(e) => setForm({ ...form, nirf_cib: e.target.value })}
-              placeholder="Número do NIRF ou CIB"
+              placeholder="5.690.070-8"
             />
           </Field>
-          <Field label={<><b>CAR</b> — Cadastro Ambiental Rural</>} full>
+          <Field label="Registro no CAR" full>
             <Input
               value={form.car || ''}
               onChange={(e) => setForm({ ...form, car: e.target.value })}
-              placeholder="Ex: MA-2100055-XXXXXXXXXXXXXXXX"
+              placeholder="MA-2100055-F942.2E73.176D.42D5.B1C6.6A2F.01F5.B64F"
             />
           </Field>
           <Field label="Perímetro (m)">
