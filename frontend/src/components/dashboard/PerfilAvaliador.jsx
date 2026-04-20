@@ -2,20 +2,14 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   User, Award, BookOpen, Briefcase, Star, Phone, Building2,
   MapPin, Plus, Trash2, Save, ChevronDown, ChevronUp, CheckSquare,
-  Square, Tag, X, Loader2
+  Square, X, Loader2
 } from 'lucide-react';
 import ImageUploader from './ptam/ImageUploader';
 import { useToast } from '../../hooks/use-toast';
-
-const API = import.meta.env.VITE_API_URL || 'http://localhost:8001';
+import { perfilAPI } from '../../lib/api';
 
 const GOLD = '#D4A830';
 const DARK_GREEN = '#1B4D1B';
-
-const authHeaders = () => {
-  const token = localStorage.getItem('token');
-  return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
-};
 
 // ── Sub-components ──────────────────────────────────────────────────────────
 
@@ -208,11 +202,8 @@ const PerfilAvaliador = () => {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`${API}/api/perfil-avaliador`, { headers: authHeaders() });
-        if (res.ok) {
-          const data = await res.json();
-          setForm({ ...EMPTY, ...data });
-        }
+        const data = await perfilAPI.get();
+        if (data) setForm({ ...EMPTY, ...data });
       } catch {
         toast({ title: 'Erro ao carregar perfil', variant: 'destructive' });
       } finally {
@@ -228,12 +219,7 @@ const PerfilAvaliador = () => {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const res = await fetch(`${API}/api/perfil-avaliador`, {
-        method: 'PUT',
-        headers: authHeaders(),
-        body: JSON.stringify(form),
-      });
-      if (!res.ok) throw new Error();
+      await perfilAPI.update(form);
       toast({ title: 'Perfil salvo com sucesso!' });
     } catch {
       toast({ title: 'Erro ao salvar perfil', variant: 'destructive' });

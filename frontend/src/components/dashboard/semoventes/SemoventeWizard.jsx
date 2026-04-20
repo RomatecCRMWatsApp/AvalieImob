@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { useToast } from '../../../hooks/use-toast';
-import { semoventesAPI } from '../../../lib/api';
+import { semoventesAPI, perfilAPI } from '../../../lib/api';
 import ImageUploader from '../ptam/ImageUploader';
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -980,6 +980,24 @@ const SemoventeWizard = () => {
   }, [semoventeId, nav, toast]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Pre-fill veterinarian fields from profile when creating a new Semovente
+  useEffect(() => {
+    if (!isNew) return;
+    perfilAPI.get().then((p) => {
+      if (!p) return;
+      const crmv = (p.registros || []).find(r => r.tipo === 'CRMV' && r.status === 'ativo');
+      setForm(f => ({
+        ...f,
+        responsavel_nome:     p.nome_completo || f.responsavel_nome,
+        crmv_numero:          crmv?.numero    || f.crmv_numero,
+        crmv_uf:              crmv?.uf        || f.crmv_uf,
+        especialidade:        (p.especializacoes || []).join(', ') || f.especialidade,
+        propriedade_municipio: f.propriedade_municipio || p.cidade || '',
+        propriedade_uf:        f.propriedade_uf        || p.uf     || '',
+      }));
+    }).catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const save = useCallback(async (silent = false) => {
     setSaving(true);

@@ -137,6 +137,12 @@ export const paymentsAPI = {
   status: () => api.get('/payments/status').then(r => r.data),
 };
 
+// ---- Perfil Avaliador
+export const perfilAPI = {
+  get: () => api.get('/perfil-avaliador').then(r => r.data),
+  update: (data) => api.put('/perfil-avaliador', data).then(r => r.data),
+};
+
 // ---- Upload de imagens
 export const uploadAPI = {
   uploadImage: (file) => {

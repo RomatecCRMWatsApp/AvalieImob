@@ -4,7 +4,7 @@ import * as LucideIcons from 'lucide-react';
 import { ChevronLeft, ChevronRight, Save, Download, ArrowLeft, Loader2, Check } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { useToast } from '../../../hooks/use-toast';
-import { ptamAPI, aiAPI } from '../../../lib/api';
+import { ptamAPI, aiAPI, perfilAPI } from '../../../lib/api';
 import { EMPTY_PTAM, PTAM_STEPS, computeImpactTotals, sumIndemnity } from './ptamHelpers';
 import {
   StepSolicitante,
@@ -59,6 +59,37 @@ const PtamWizard = () => {
   }, [ptamId, nav, toast]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Pre-fill technician fields from profile when creating a new PTAM
+  useEffect(() => {
+    if (ptamId) return; // only for new ones
+    perfilAPI.get().then((p) => {
+      if (!p) return;
+      // Find the most relevant registro: CRECI first, then CNAI, then others
+      const creci = (p.registros || []).find(r => r.tipo === 'CRECI' && r.status === 'ativo');
+      const cnai  = (p.registros || []).find(r => r.tipo === 'CNAI'  && r.status === 'ativo');
+      const crea  = (p.registros || []).find(r => r.tipo === 'CREA'  && r.status === 'ativo');
+      const cau   = (p.registros || []).find(r => r.tipo === 'CAU'   && r.status === 'ativo');
+      const cft   = (p.registros || []).find(r => r.tipo === 'CFT'   && r.status === 'ativo');
+
+      const registroNum = crea
+        ? `CREA ${crea.uf ? crea.uf + ' ' : ''}${crea.numero}`
+        : cau
+        ? `CAU ${cau.uf ? cau.uf + ' ' : ''}${cau.numero}`
+        : cft
+        ? `CFT ${cft.numero}`
+        : '';
+
+      setForm(f => ({
+        ...f,
+        responsavel_nome:      p.nome_completo  || f.responsavel_nome,
+        responsavel_creci:     creci ? `CRECI${creci.uf ? '/' + creci.uf : ''} ${creci.numero}` : f.responsavel_creci,
+        responsavel_cnai:      cnai  ? `CNAI ${cnai.numero}` : f.responsavel_cnai,
+        registro_profissional: registroNum || f.registro_profissional,
+        conclusion_city:       p.cidade || f.conclusion_city,
+      }));
+    }).catch(() => {/* silencioso - perfil nao obrigatorio */});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const save = useCallback(async (silent = false) => {
     setSaving(true);

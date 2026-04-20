@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { useToast } from '../../../hooks/use-toast';
-import { garantiasAPI } from '../../../lib/api';
+import { garantiasAPI, perfilAPI } from '../../../lib/api';
 import ImageUploader from '../ptam/ImageUploader';
 
 // ── Default empty form ──────────────────────────────────────────────────────
@@ -1284,6 +1284,44 @@ const GarantiaWizard = () => {
   }, [garantiaId, nav, toast]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Pre-fill technician fields from profile when creating a new Garantia
+  useEffect(() => {
+    if (!isNew) return;
+    perfilAPI.get().then((p) => {
+      if (!p) return;
+      const creci = (p.registros || []).find(r => r.tipo === 'CRECI' && r.status === 'ativo');
+      const cnai  = (p.registros || []).find(r => r.tipo === 'CNAI'  && r.status === 'ativo');
+      const crea  = (p.registros || []).find(r => r.tipo === 'CREA'  && r.status === 'ativo');
+      const cau   = (p.registros || []).find(r => r.tipo === 'CAU'   && r.status === 'ativo');
+
+      const registroCreaOuCau = crea
+        ? `${crea.numero}`
+        : cau ? `${cau.numero}` : '';
+      const ufRegistro = crea?.uf || cau?.uf || '';
+      const tipoProf = crea ? 'engenheiro' : cau ? 'arquiteto' : '';
+
+      setForm(f => ({
+        ...f,
+        // Campos nested (rural e bancario compartilham responsavel.nome)
+        responsavel: {
+          ...f.responsavel,
+          nome:     p.nome_completo || f.responsavel?.nome || '',
+          creci:    creci ? `CRECI${creci.uf ? '/' + creci.uf : ''} ${creci.numero}` : f.responsavel?.creci || '',
+          cnai:     cnai  ? `CNAI ${cnai.numero}` : f.responsavel?.cnai || '',
+          registro: registroCreaOuCau || f.responsavel?.registro || '',
+        },
+        // Campos flat (bancario)
+        responsavel_crea_cau:     registroCreaOuCau || f.responsavel_crea_cau,
+        responsavel_uf:           ufRegistro        || f.responsavel_uf,
+        responsavel_tipo:         tipoProf           || f.responsavel_tipo,
+        responsavel_empresa_cpf:  p.empresa_cnpj || p.empresa_nome || f.responsavel_empresa_cpf,
+        vistoria_responsavel_nome: p.nome_completo || f.vistoria_responsavel_nome,
+        municipio: f.municipio || p.cidade || '',
+        uf:        f.uf        || p.uf     || '',
+      }));
+    }).catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const save = useCallback(async (silent = false) => {
     setSaving(true);
