@@ -221,9 +221,9 @@ const Dashboard = () => {
         style={{ background: DARK_GREEN }}
       >
         {/* Logo */}
-        <div className="px-5 py-5 flex items-center justify-between border-b" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
-          <Link to="/dashboard" className="flex items-center" onClick={() => setMobileOpen(false)}>
-            <img src={BRAND.logo} alt="AvalieImob" className="h-16 w-auto object-contain max-w-[200px]" />
+        <div className="px-3 py-4 flex items-center justify-between border-b" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
+          <Link to="/dashboard" className="flex items-center flex-1" onClick={() => setMobileOpen(false)}>
+            <img src={BRAND.logo} alt="AvalieImob" className="h-28 w-full object-contain object-left" />
           </Link>
           <button
             className="lg:hidden w-7 h-7 rounded-lg flex items-center justify-center hover:bg-white/10 transition-colors"

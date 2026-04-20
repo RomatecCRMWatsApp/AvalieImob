@@ -27,9 +27,9 @@ const Navbar = () => {
 
   return (
     <header className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white/95 backdrop-blur shadow-sm border-b border-emerald-900/10' : 'bg-white/80 backdrop-blur-sm'}`}>
-      <div className="max-w-7xl mx-auto px-6 h-24 flex items-center justify-between">
+      <div className="max-w-7xl mx-auto px-6 h-28 flex items-center justify-between">
         <Link to="/" className="flex items-center">
-          <img src={BRAND.logo} alt="Romatec" className="h-16 w-auto object-contain max-w-[200px]" />
+          <img src={BRAND.logo} alt="Romatec" className="h-24 w-auto object-contain" />
         </Link>
 
         <nav className="hidden lg:flex items-center gap-8">
