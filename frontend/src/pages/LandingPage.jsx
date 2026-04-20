@@ -9,6 +9,7 @@ import Flow from '../components/landing/Flow';
 import Pricing from '../components/landing/Pricing';
 import About from '../components/landing/About';
 import CeoSection from '../components/landing/CeoSection';
+import ImoveisCarousel from '../components/landing/ImoveisCarousel';
 import Footer from '../components/landing/Footer';
 import WhatsAppButton from '../components/landing/WhatsAppButton';
 
@@ -49,6 +50,7 @@ const LandingPage = () => {
         <Pricing />
         <About />
         <CeoSection />
+        <ImoveisCarousel />
       </main>
       <Footer />
       <WhatsAppButton />

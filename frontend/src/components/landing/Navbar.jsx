@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, Home } from 'lucide-react';
 import { Button } from '../ui/button';
 import { BRAND } from '../../mock/mock';
 
@@ -22,6 +22,7 @@ const Navbar = () => {
     { href: '#planos', label: 'Planos' },
     { href: '#sobre', label: 'Sobre' },
     { href: '#ceo', label: 'CEO' },
+    { href: '#imoveis', label: 'Imóveis', icon: <Home className="w-3.5 h-3.5" /> },
     { href: '#contato', label: 'Contato' },
   ];
 
@@ -34,7 +35,14 @@ const Navbar = () => {
 
         <nav className="hidden lg:flex items-center gap-8">
           {links.map(l => (
-            <a key={l.href} href={l.href} className="text-sm font-medium text-gray-700 hover:text-emerald-900 transition-colors">{l.label}</a>
+            <a
+              key={l.href}
+              href={l.href}
+              className={`flex items-center gap-1.5 text-sm font-medium transition-colors ${l.icon ? 'text-amber-700 hover:text-amber-900 font-semibold' : 'text-gray-700 hover:text-emerald-900'}`}
+            >
+              {l.icon && l.icon}
+              {l.label}
+            </a>
           ))}
         </nav>
 
@@ -58,7 +66,15 @@ const Navbar = () => {
         <div className="lg:hidden bg-white border-t border-emerald-900/10">
           <div className="px-6 py-4 flex flex-col gap-4">
             {links.map(l => (
-              <a key={l.href} href={l.href} onClick={() => setOpen(false)} className="text-sm font-medium text-gray-700 hover:text-emerald-900">{l.label}</a>
+              <a
+                key={l.href}
+                href={l.href}
+                onClick={() => setOpen(false)}
+                className={`flex items-center gap-1.5 text-sm font-medium ${l.icon ? 'text-amber-700 hover:text-amber-900 font-semibold' : 'text-gray-700 hover:text-emerald-900'}`}
+              >
+                {l.icon && l.icon}
+                {l.label}
+              </a>
             ))}
             <div className="flex gap-3 pt-4 border-t border-gray-100">
               {isLoggedIn ? (
