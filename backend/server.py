@@ -1135,9 +1135,6 @@ async def download_locacao_pdf(
 
 # ===== CRM Romatec - Proxy público com cache 5 min ===================
 
-from datetime import timedelta
-import time as _time
-
 _crm_cache: dict = {"data": None, "ts": 0.0}
 _CRM_CACHE_TTL = 300  # 5 minutos em segundos
 _CRM_TRPC_URL = "https://romateccrm.com/api/trpc/properties.list"
