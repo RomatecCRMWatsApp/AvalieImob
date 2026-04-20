@@ -965,18 +965,49 @@ export const StepCalculos = ({ form, setForm, onAi, aiLoading }) => {
       )}
 
       <div className="grid grid-cols-2 gap-4">
-        <div>
+        <div className="col-span-2">
           <label className="block text-sm font-medium text-gray-700 mb-1.5">Grau de Fundamentação (NBR 14.653-2)</label>
-          <Select value={form.calc_grau_fundamentacao} onValueChange={(v) => setForm({ ...form, calc_grau_fundamentacao: v })}>
-            <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="I">Grau I</SelectItem>
-              <SelectItem value="II">Grau II</SelectItem>
-              <SelectItem value="III">Grau III</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex gap-4 items-start">
+            <div className="w-56 shrink-0">
+              <Select value={form.calc_grau_fundamentacao} onValueChange={(v) => setForm({ ...form, calc_grau_fundamentacao: v })}>
+                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="I">Grau I</SelectItem>
+                  <SelectItem value="II">Grau II</SelectItem>
+                  <SelectItem value="III">Grau III</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {form.calc_grau_fundamentacao && (() => {
+              const fundamentacaoTexts = {
+                I: {
+                  title: 'Grau I — Fundamentação Mínima',
+                  text: 'Exige no mínimo 3 dados de mercado, com identificação dos fatores relevantes. Permite tratamento por fatores ou inferência estatística simplificada. Aplicável quando há limitação de dados disponíveis na região.',
+                },
+                II: {
+                  title: 'Grau II — Fundamentação Intermediária',
+                  text: 'Exige no mínimo 6 dados de mercado verificados, com apresentação de estatísticas descritivas. Requer tratamento por fatores com justificativa ou modelo de regressão com significância mínima de 80%. Indicado para avaliações de maior responsabilidade.',
+                },
+                III: {
+                  title: 'Grau III — Fundamentação Máxima',
+                  text: 'Exige no mínimo 10 dados de mercado verificados e visitados. Requer modelo de regressão com nível de significância de 90% ou superior, com análise de micronumerosidade. Obrigatório para desapropriações, perícias judiciais e financiamentos de grande porte.',
+                },
+              };
+              const info = fundamentacaoTexts[form.calc_grau_fundamentacao];
+              return info ? (
+                <div className="flex-1 flex gap-2.5 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                  <svg className="w-4 h-4 mt-0.5 text-amber-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                  <div>
+                    <p className="text-xs font-semibold text-amber-800 mb-0.5">{info.title}</p>
+                    <p className="text-xs text-amber-700 leading-relaxed">{info.text}</p>
+                  </div>
+                </div>
+              ) : null;
+            })()}
+          </div>
         </div>
-        <div />
         <div className="col-span-2">
           <label className="block text-sm font-medium text-gray-700 mb-1.5">Fatores de Homogeneização aplicados</label>
           <Textarea
@@ -1071,18 +1102,50 @@ export const StepResultado = ({ form, setForm }) => {
         </div>
 
         {/* Grau de Precisão — NBR 14653-1 item 9 */}
-        <div>
+        <div className="col-span-2">
           <label className="block text-sm font-medium text-gray-700 mb-1.5">
             Grau de Precisão <span className="text-xs text-gray-400">— NBR 14653-1 item 9</span>
           </label>
-          <Select value={form.grau_precisao || 'I'} onValueChange={(v) => setForm({ ...form, grau_precisao: v })}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="I">Grau I — Amplitude ≤ 30%</SelectItem>
-              <SelectItem value="II">Grau II — Amplitude ≤ 20%</SelectItem>
-              <SelectItem value="III">Grau III — Amplitude ≤ 10%</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex gap-4 items-start">
+            <div className="w-56 shrink-0">
+              <Select value={form.grau_precisao || 'I'} onValueChange={(v) => setForm({ ...form, grau_precisao: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="I">Grau I — Amplitude ≤ 30%</SelectItem>
+                  <SelectItem value="II">Grau II — Amplitude ≤ 20%</SelectItem>
+                  <SelectItem value="III">Grau III — Amplitude ≤ 10%</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {(() => {
+              const precisaoTexts = {
+                I: {
+                  title: 'Grau I — Precisão Mínima',
+                  text: 'Amplitude do intervalo de confiança de até 30% em torno do valor central. Aceitável para avaliações expeditas e opinativas.',
+                },
+                II: {
+                  title: 'Grau II — Precisão Intermediária',
+                  text: 'Amplitude do intervalo de confiança de até 20%. Adequado para a maioria das avaliações de mercado e financiamentos.',
+                },
+                III: {
+                  title: 'Grau III — Precisão Máxima',
+                  text: 'Amplitude do intervalo de confiança de até 10%. Exigido em perícias judiciais e avaliações de alta complexidade.',
+                },
+              };
+              const info = precisaoTexts[form.grau_precisao || 'I'];
+              return info ? (
+                <div className="flex-1 flex gap-2.5 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
+                  <svg className="w-4 h-4 mt-0.5 text-emerald-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                  <div>
+                    <p className="text-xs font-semibold text-emerald-800 mb-0.5">{info.title}</p>
+                    <p className="text-xs text-emerald-700 leading-relaxed">{info.text}</p>
+                  </div>
+                </div>
+              ) : null;
+            })()}
+          </div>
         </div>
 
         {/* Campo de Arbítrio — NBR 14653-1 item 9.2.4 */}
