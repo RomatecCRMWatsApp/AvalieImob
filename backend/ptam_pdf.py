@@ -1016,6 +1016,163 @@ def _build_ponderancia(ptam: dict, styles: dict) -> list:
     return story
 
 
+def _fmt_brl(value) -> str:
+    """Formata valor em reais no padrão pt-BR: R$ 1.234,56"""
+    try:
+        v = float(value or 0)
+    except (TypeError, ValueError):
+        v = 0.0
+    int_part = int(v)
+    dec_part = round((v - int_part) * 100)
+    formatted = f"{int_part:,}".replace(",", ".")
+    return f"R$ {formatted},{dec_part:02d}"
+
+
+_METODO_LABELS = {
+    "ross_heidecke":   "Método Ross-Heidecke (Depreciação)",
+    "linha_reta":      "Método da Linha Reta (Depreciação)",
+    "fatores_terreno": "Método dos Fatores de Terreno Urbano",
+    "nbr_rural":       "Método NBR 14653-3 — Rural / VTN / INCRA",
+    "renda":           "Método da Renda (Capitalização)",
+}
+
+
+def _build_metodo_avaliacao(ptam: dict, styles: dict) -> list:
+    """Seção 8c: Método de Avaliação — Depreciação e Valorização."""
+    metodo = ptam.get("metodo_avaliacao")
+    valor_total = ptam.get("valor_total_metodo")
+
+    if not metodo or valor_total is None:
+        return []
+
+    story = []
+    story += _section(styles, "8c. Método de Avaliação — Depreciação e Valorização")
+    label = _METODO_LABELS.get(metodo, metodo)
+    story.append(Paragraph(f"<b>Método utilizado:</b> {label}", styles["body"]))
+    story.append(_spacer(0.2))
+
+    params = ptam.get("metodo_params") or {}
+
+    # ── Parâmetros por método ──────────────────────────────────────────────────
+    if metodo == "ross_heidecke":
+        dep_pct  = ptam.get("depreciacao_percentual") or 0
+        val_dep  = ptam.get("valor_depreciacao") or 0
+        val_novo = params.get("valor_novo") or 0
+        estado   = params.get("estado", "—")
+        vida_util = params.get("vida_util", 60)
+        idade    = params.get("idade_atual", 0)
+        rows = [
+            ["Parâmetro", "Valor"],
+            ["Valor de Novo", _fmt_brl(val_novo)],
+            ["Idade Atual", f"{idade} anos"],
+            ["Vida Útil", f"{vida_util} anos"],
+            ["Estado de Conservação", estado],
+            ["Coeficiente de Depreciação (Kd)", f"{dep_pct:.2f}%"],
+            ["Valor da Depreciação", _fmt_brl(val_dep)],
+        ]
+    elif metodo == "linha_reta":
+        dep_pct  = ptam.get("depreciacao_percentual") or 0
+        val_dep  = ptam.get("valor_depreciacao") or 0
+        val_novo = params.get("valor_novo") or 0
+        rows = [
+            ["Parâmetro", "Valor"],
+            ["Valor de Novo", _fmt_brl(val_novo)],
+            ["Valor Residual (%)", f"{params.get('residual_pct', 20):.1f}%"],
+            ["Vida Útil", f"{params.get('vida_util', 40)} anos"],
+            ["Idade Atual", f"{params.get('idade_atual', 0)} anos"],
+            ["Depreciação Acumulada", _fmt_brl(val_dep)],
+        ]
+    elif metodo == "fatores_terreno":
+        rows = [
+            ["Parâmetro", "Valor"],
+            ["Valor Unitário de Referência (R$/m²)", _fmt_brl(params.get("valor_unitario", 0))],
+            ["Área do Terreno (m²)", f"{params.get('area_terreno', 0):,.2f} m²".replace(",", ".")],
+            ["Fator Localização", str(params.get("f_loc", "1.00"))],
+            ["Fator Topografia", str(params.get("f_topo", "1.00"))],
+            ["Testada (m)", f"{params.get('testada_m', 0)} m"],
+            ["Fator Infraestrutura", str(params.get("f_infra", "1.00"))],
+        ]
+    elif metodo == "nbr_rural":
+        val_terra = ptam.get("valor_terreno_calc") or 0
+        rows = [
+            ["Parâmetro", "Valor"],
+            ["Área Total (ha)", f"{params.get('area_ha', 0):,.4f} ha".replace(",", ".")],
+            ["VTN — Valor por Hectare", _fmt_brl(params.get("vtn_hectare", 0))],
+            ["Classe de Uso / CUF", str(params.get("classe_uso", "1.00"))],
+            ["Valor da Terra Nua", _fmt_brl(val_terra)],
+            ["Benfeitorias Rurais", _fmt_brl(params.get("benfeitorias_rurais", 0))],
+            ["Cultura Permanente", _fmt_brl(params.get("cultura_permanente", 0))],
+            ["Cultura Temporária", _fmt_brl(params.get("cultura_temporaria", 0))],
+        ]
+    elif metodo == "renda":
+        rows = [
+            ["Parâmetro", "Valor"],
+            ["Renda Mensal", _fmt_brl(params.get("renda_mensal", 0))],
+            ["Renda Anual", _fmt_brl(float(params.get("renda_mensal", 0)) * 12)],
+            ["Taxa de Capitalização", f"{params.get('taxa_cap', 8):.2f}% a.a."],
+            ["Tipo de Cálculo", "Perpetuidade" if params.get("tipo", "perpetuidade") == "perpetuidade" else f"Prazo de {params.get('prazo_anos', 0)} anos"],
+        ]
+    else:
+        rows = [["Parâmetro", "Valor"]]
+
+    if len(rows) > 1:
+        story += _subsection(styles, "Parâmetros Utilizados")
+        tbl = Table(rows, colWidths=[220, 220])
+        tbl.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1B4332")),
+            ("TEXTCOLOR",  (0, 0), (-1, 0), colors.white),
+            ("FONTNAME",   (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE",   (0, 0), (-1, -1), 9),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F0FAF4")]),
+            ("GRID",       (0, 0), (-1, -1), 0.4, colors.HexColor("#C8E6C9")),
+            ("ALIGN",      (1, 1), (-1, -1), "RIGHT"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 6),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+            ("TOPPADDING",  (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ]))
+        story.append(tbl)
+        story.append(_spacer(0.3))
+
+    # ── Resultado consolidado ──────────────────────────────────────────────────
+    story += _subsection(styles, "Resultado Consolidado")
+    result_rows = [["Componente", "Valor"]]
+    val_terreno = ptam.get("valor_terreno_calc")
+    val_benf    = ptam.get("valor_benfeitoria")
+    dep_pct_v   = ptam.get("depreciacao_percentual")
+    val_dep_v   = ptam.get("valor_depreciacao")
+
+    if val_terreno:
+        result_rows.append(["Valor do Terreno / Terra Nua", _fmt_brl(val_terreno)])
+    if val_benf:
+        result_rows.append(["Benfeitorias (depreciado)", _fmt_brl(val_benf)])
+    if dep_pct_v:
+        result_rows.append([f"Depreciação ({dep_pct_v:.2f}%)", _fmt_brl(val_dep_v)])
+    result_rows.append(["VALOR TOTAL (Terreno + Benfeitorias)", _fmt_brl(valor_total)])
+
+    tbl2 = Table(result_rows, colWidths=[280, 160])
+    tbl2.setStyle(TableStyle([
+        ("BACKGROUND",  (0, 0), (-1, 0),  colors.HexColor("#1B4332")),
+        ("TEXTCOLOR",   (0, 0), (-1, 0),  colors.white),
+        ("FONTNAME",    (0, 0), (-1, 0),  "Helvetica-Bold"),
+        ("FONTSIZE",    (0, 0), (-1, -1), 9),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -2), [colors.white, colors.HexColor("#F0FAF4")]),
+        ("BACKGROUND",  (0, -1), (-1, -1), colors.HexColor("#FFF9C4")),
+        ("FONTNAME",    (0, -1), (-1, -1), "Helvetica-Bold"),
+        ("TEXTCOLOR",   (0, -1), (-1, -1), colors.HexColor("#7B4F00")),
+        ("FONTSIZE",    (0, -1), (-1, -1), 10),
+        ("GRID",        (0, 0),  (-1, -1), 0.4, colors.HexColor("#C8E6C9")),
+        ("ALIGN",       (1, 1),  (-1, -1), "RIGHT"),
+        ("LEFTPADDING", (0, 0),  (-1, -1), 6),
+        ("RIGHTPADDING",(0, 0),  (-1, -1), 6),
+        ("TOPPADDING",  (0, 0),  (-1, -1), 4),
+        ("BOTTOMPADDING",(0, 0), (-1, -1), 4),
+    ]))
+    story.append(tbl2)
+
+    return story
+
+
 def _build_methodology(ptam: dict, styles: dict) -> list:
     story = []
     story += _section(styles, "7. Metodologia")
@@ -1279,6 +1436,12 @@ def generate_ptam_pdf(ptam: dict, user: dict) -> bytes:
     ponderancia = _build_ponderancia(ptam, styles)
     if ponderancia:
         story += ponderancia
+        story.append(_spacer(0.5))
+
+    # ── Seção 8c: Método de Avaliação — Depreciação e Valorização ─────────
+    metodo_aval = _build_metodo_avaliacao(ptam, styles)
+    if metodo_aval:
+        story += metodo_aval
         story.append(_spacer(0.5))
 
     # ── Seção 8: Áreas de Impacto (legacy) ───────────────────────────────

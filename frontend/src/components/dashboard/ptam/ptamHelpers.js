@@ -170,17 +170,18 @@ export const EMPTY_PTAM = {
 };
 
 export const PTAM_STEPS = [
-  { id: 'solicitante',   label: 'Solicitante',    icon: 'User' },
-  { id: 'objetivo',      label: 'Objetivo',        icon: 'Target' },
-  { id: 'imovel_id',     label: 'Imóvel',          icon: 'Building2' },
-  { id: 'regiao',        label: 'Região',           icon: 'Map' },
-  { id: 'caracterizacao',label: 'Caracterização',  icon: 'ClipboardList' },
-  { id: 'amostras',      label: 'Amostras',         icon: 'BarChart2' },
-  { id: 'metodologia',   label: 'Metodologia',      icon: 'BookOpen' },
-  { id: 'calculos',      label: 'Cálculos',         icon: 'Calculator' },
-  { id: 'ponderancia',   label: 'Ponderância',      icon: 'Filter' },
-  { id: 'resultado',     label: 'Resultado',        icon: 'TrendingUp' },
-  { id: 'conclusao',     label: 'Conclusão',        icon: 'CheckCircle2' },
+  { id: 'solicitante',        label: 'Solicitante',       icon: 'User' },
+  { id: 'objetivo',           label: 'Objetivo',           icon: 'Target' },
+  { id: 'imovel_id',          label: 'Imóvel',             icon: 'Building2' },
+  { id: 'regiao',             label: 'Região',              icon: 'Map' },
+  { id: 'caracterizacao',     label: 'Caracterização',     icon: 'ClipboardList' },
+  { id: 'amostras',           label: 'Amostras',            icon: 'BarChart2' },
+  { id: 'metodologia',        label: 'Metodologia',         icon: 'BookOpen' },
+  { id: 'calculos',           label: 'Cálculos',            icon: 'Calculator' },
+  { id: 'ponderancia',        label: 'Ponderância',         icon: 'Filter' },
+  { id: 'metodo_avaliacao',   label: 'Dep./Valoriz.',       icon: 'TrendingDown' },
+  { id: 'resultado',          label: 'Resultado',           icon: 'TrendingUp' },
+  { id: 'conclusao',          label: 'Conclusão',           icon: 'CheckCircle2' },
 ];
 
 // ── Factory helpers ────────────────────────────────────────────────────────────
