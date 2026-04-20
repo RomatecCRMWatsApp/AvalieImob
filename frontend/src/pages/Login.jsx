@@ -46,7 +46,7 @@ const Login = () => {
         <div className="absolute inset-0 bg-gradient-to-br from-emerald-950/95 via-emerald-900/80 to-emerald-900/60" />
         <div className="relative h-full flex flex-col justify-between p-12 text-white">
           <Link to="/" className="flex items-center gap-3">
-            <img src={BRAND.logo} alt="" className="h-12 w-12 bg-white/10 rounded-lg p-1" />
+            <img src={BRAND.logo} alt="" className="h-12 w-auto object-contain max-w-[160px]" />
             <div>
               <div className="font-display text-xl font-bold">RomaTec</div>
               <div className="text-[10px] tracking-[0.2em] text-emerald-200">AVALIEIMOB</div>
@@ -66,7 +66,7 @@ const Login = () => {
       <div className="flex items-center justify-center p-6 md:p-12 bg-white">
         <div className="w-full max-w-md">
           <div className="lg:hidden mb-8 flex items-center gap-3">
-            <img src={BRAND.logo} alt="" className="h-10 w-10" />
+            <img src={BRAND.logo} alt="" className="h-10 w-auto object-contain max-w-[140px]" />
             <div className="font-display text-xl font-bold brand-green">RomaTec AvalieImob</div>
           </div>
           <h2 className="font-display text-3xl md:text-4xl font-bold text-gray-900 mb-2">Acesse sua conta</h2>
