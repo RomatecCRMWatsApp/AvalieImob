@@ -320,6 +320,13 @@ class PtamBase(BaseModel):
     car: Optional[str] = None                   # Cadastro Ambiental Rural (ex: MA-1234567-XXXXX)
     perimetro_m: Optional[float] = None         # Perímetro do imóvel em metros
 
+    # ── Documentos rurais (uploads) ───────────────────────────────────────────
+    doc_mapa_sigef: Optional[List[str]] = []         # Mapa Georreferenciado / Certificado SIGEF
+    doc_memorial_descritivo: Optional[List[str]] = [] # Memorial Descritivo Topográfico / SIGEF
+    doc_ccir: Optional[List[str]] = []               # CCIR — Certificado de Cadastro de Imóvel Rural
+    doc_itr: Optional[List[str]] = []                # ITR — últimos 5 exercícios (até 5 arquivos)
+    doc_car: Optional[List[str]] = []                # CAR — Cadastro Ambiental Rural
+
     # ── Legacy — Impact areas (desapropriação/servidão) ───────────────────────
     impact_areas: List[PtamImpactArea] = Field(default_factory=list)
 
@@ -473,6 +480,12 @@ class GarantiaBase(BaseModel):
     nirf_cib: Optional[str] = None               # NIRF / CIB — Receita Federal
     car: Optional[str] = None                    # Cadastro Ambiental Rural
     perimetro_m: Optional[float] = None          # Perímetro do imóvel em metros
+    # Documentos rurais (uploads)
+    doc_mapa_sigef: Optional[List[str]] = []         # Mapa Georreferenciado / Certificado SIGEF
+    doc_memorial_descritivo: Optional[List[str]] = [] # Memorial Descritivo Topográfico / SIGEF
+    doc_ccir: Optional[List[str]] = []               # CCIR — Certificado de Cadastro de Imóvel Rural
+    doc_itr: Optional[List[str]] = []                # ITR — últimos 5 exercícios (até 5 arquivos)
+    doc_car: Optional[List[str]] = []                # CAR — Cadastro Ambiental Rural
 
     # ── Campos graos/safra ────────────────────────────────────────────────────
     cultura: Optional[str] = ""                 # soja | milho | cafe | etc.

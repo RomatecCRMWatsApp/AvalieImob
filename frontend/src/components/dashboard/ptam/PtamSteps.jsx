@@ -378,6 +378,49 @@ const RuralDocSection = ({ form, setForm }) => {
             />
           </Field>
         </div>
+
+        {/* ── Documentos Rurais (uploads) ── */}
+        <div className="mt-5 space-y-5">
+          <div className="text-xs font-semibold text-emerald-700 uppercase tracking-wider mb-1">Documentos Rurais — Upload</div>
+
+          <ImageUploader
+            label="Mapa Georreferenciado / Certificado SIGEF"
+            images={form.doc_mapa_sigef || []}
+            onImagesChange={(ids) => setForm({ ...form, doc_mapa_sigef: ids })}
+            maxImages={3}
+          />
+
+          <ImageUploader
+            label="Memorial Descritivo Topográfico / SIGEF"
+            images={form.doc_memorial_descritivo || []}
+            onImagesChange={(ids) => setForm({ ...form, doc_memorial_descritivo: ids })}
+            maxImages={3}
+          />
+
+          <ImageUploader
+            label="CCIR — Certificado de Cadastro de Imóvel Rural"
+            images={form.doc_ccir || []}
+            onImagesChange={(ids) => setForm({ ...form, doc_ccir: ids })}
+            maxImages={3}
+          />
+
+          <div>
+            <ImageUploader
+              label="ITR — Imposto Territorial Rural"
+              images={form.doc_itr || []}
+              onImagesChange={(ids) => setForm({ ...form, doc_itr: ids })}
+              maxImages={5}
+            />
+            <p className="text-xs text-emerald-700 mt-1">Envie os últimos 5 exercícios (máx. 5 arquivos)</p>
+          </div>
+
+          <ImageUploader
+            label="CAR — Cadastro Ambiental Rural"
+            images={form.doc_car || []}
+            onImagesChange={(ids) => setForm({ ...form, doc_car: ids })}
+            maxImages={3}
+          />
+        </div>
       </div>
     </div>
   );

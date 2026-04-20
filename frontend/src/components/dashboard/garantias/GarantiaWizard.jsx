@@ -24,6 +24,8 @@ const EMPTY = {
   area_total_ha: 0, area_construida_m2: 0, uso_atual: '', benfeitorias: '', topografia: '', solo_vegetacao: '',
   // documentação rural específica
   certificacao_sigef: '', cadastro_incra: '', ccir: '', nirf_cib: '', car: '', perimetro_m: null,
+  // documentos rurais (uploads)
+  doc_mapa_sigef: [], doc_memorial_descritivo: [], doc_ccir: [], doc_itr: [], doc_car: [],
   // graos
   cultura: '', quantidade_toneladas: 0, sacas: 0, produtividade_sc_ha: 0, local_armazenagem: '', safra_referencia: '',
   // bovinos
@@ -1097,6 +1099,49 @@ const StepBem = ({ form, set }) => {
                   placeholder="Perímetro total em metros"
                 />
               </Field>
+            </div>
+
+            {/* ── Documentos Rurais (uploads) ── */}
+            <div className="mt-5 space-y-5">
+              <div className="text-xs font-semibold text-emerald-700 uppercase tracking-wider mb-1">Documentos Rurais — Upload</div>
+
+              <ImageUploader
+                label="Mapa Georreferenciado / Certificado SIGEF"
+                images={form.doc_mapa_sigef || []}
+                onImagesChange={(ids) => set('doc_mapa_sigef', ids)}
+                maxImages={3}
+              />
+
+              <ImageUploader
+                label="Memorial Descritivo Topográfico / SIGEF"
+                images={form.doc_memorial_descritivo || []}
+                onImagesChange={(ids) => set('doc_memorial_descritivo', ids)}
+                maxImages={3}
+              />
+
+              <ImageUploader
+                label="CCIR — Certificado de Cadastro de Imóvel Rural"
+                images={form.doc_ccir || []}
+                onImagesChange={(ids) => set('doc_ccir', ids)}
+                maxImages={3}
+              />
+
+              <div>
+                <ImageUploader
+                  label="ITR — Imposto Territorial Rural"
+                  images={form.doc_itr || []}
+                  onImagesChange={(ids) => set('doc_itr', ids)}
+                  maxImages={5}
+                />
+                <p className="text-xs text-emerald-700 mt-1">Envie os últimos 5 exercícios (máx. 5 arquivos)</p>
+              </div>
+
+              <ImageUploader
+                label="CAR — Cadastro Ambiental Rural"
+                images={form.doc_car || []}
+                onImagesChange={(ids) => set('doc_car', ids)}
+                maxImages={3}
+              />
             </div>
           </div>
         </div>

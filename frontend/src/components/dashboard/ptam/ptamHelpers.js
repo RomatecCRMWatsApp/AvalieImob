@@ -138,6 +138,12 @@ export const EMPTY_PTAM = {
   nirf_cib: '',               // NIRF / CIB — Receita Federal / Cadastro Imobiliário Brasileiro
   car: '',                    // Cadastro Ambiental Rural (ex: MA-XXXXXXX)
   perimetro_m: null,          // Perímetro em metros
+  // Documentos rurais (uploads)
+  doc_mapa_sigef: [],          // Mapa Georreferenciado / Certificado SIGEF
+  doc_memorial_descritivo: [], // Memorial Descritivo Topográfico / SIGEF
+  doc_ccir: [],                // CCIR — Certificado de Cadastro de Imóvel Rural
+  doc_itr: [],                 // ITR — últimos 5 exercícios (até 5 arquivos)
+  doc_car: [],                 // CAR — Cadastro Ambiental Rural
 
   // Legacy impact areas (desapropriação)
   impact_areas: [],
