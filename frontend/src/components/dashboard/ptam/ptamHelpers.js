@@ -150,18 +150,6 @@ export const EMPTY_PTAM = {
   // Legacy impact areas (desapropriação)
   impact_areas: [],
 
-  // ── Tipo de Avaliação — Venda ou Locação ─────────────────────────────────
-  tipo_avaliacao: 'venda',              // 'venda' | 'locacao'
-  tipo_locacao: '',                      // residencial | comercial | temporada
-  prazo_locacao: '',                     // ex: '30 meses'
-  garantia_locacao: '',                  // caucao | fiador | seguro_fianca | titulo_capitalizacao | nenhuma
-  fator_locacao: null,                   // percentual sobre valor de venda (ex: 0.5 = 0,5%)
-  valor_locacao_estimado: null,          // valor mensal de aluguel estimado
-  valor_locacao_minimo: null,            // faixa mínima
-  valor_locacao_maximo: null,            // faixa máxima
-  valor_locacao_por_extenso: '',         // ex: 'dois mil reais'
-  base_legal_locacao: 'Lei 8.245/1991 (Lei do Inquilinato) - Art. 565 a 578 do Código Civil',
-
   status: 'Rascunho',
 };
 

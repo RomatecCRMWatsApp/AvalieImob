@@ -332,19 +332,6 @@ class PtamBase(BaseModel):
     # ── Legacy — Impact areas (desapropriação/servidão) ───────────────────────
     impact_areas: List[PtamImpactArea] = Field(default_factory=list)
 
-    # ── Tipo de Avaliação — Venda ou Locação ──────────────────────────────────
-    tipo_avaliacao: Optional[str] = 'venda'           # 'venda' | 'locacao'
-    # Campos de locação (usados apenas quando tipo_avaliacao == 'locacao')
-    tipo_locacao: Optional[str] = None                # residencial | comercial | temporada
-    prazo_locacao: Optional[str] = None               # ex: '30 meses'
-    garantia_locacao: Optional[str] = None            # caucao | fiador | seguro_fianca | titulo_capitalizacao | nenhuma
-    fator_locacao: Optional[float] = None             # percentual sobre valor de venda (ex: 0.5 = 0,5%)
-    valor_locacao_estimado: Optional[float] = None    # valor mensal de aluguel estimado
-    valor_locacao_minimo: Optional[float] = None      # faixa mínima
-    valor_locacao_maximo: Optional[float] = None      # faixa máxima
-    valor_locacao_por_extenso: Optional[str] = None   # ex: 'dois mil reais'
-    base_legal_locacao: Optional[str] = None          # Lei 8.245/91 etc.
-
     # ── Meta ──────────────────────────────────────────────────────────────────
     status: str = "Rascunho"  # Rascunho | Em revisão | Emitido
 
