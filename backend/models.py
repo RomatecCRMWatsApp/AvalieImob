@@ -176,6 +176,7 @@ class PtamMarketSample(BaseModel):
     contact_phone: Optional[str] = ""
     notes: Optional[str] = ""
     foto: Optional[str] = None  # ID da imagem da amostra
+    tipo_amostra: Optional[str] = "oferta"  # 'consolidada' ou 'oferta'
 
 
 class PtamBase(BaseModel):
@@ -335,6 +336,15 @@ class PtamBase(BaseModel):
     ponderancia_limite_sup: Optional[float] = None
     ponderancia_eliminadas: Optional[List[int]] = []  # índices das amostras eliminadas
     ponderancia_valor_final: Optional[float] = None
+
+    # ── Seção Método de Avaliação / Depreciação e Valorização ────────────────
+    metodo_avaliacao: Optional[str] = None         # ross_heidecke | linha_reta | fatores_terreno | nbr_rural | renda
+    metodo_params: Optional[dict] = {}             # parâmetros do método selecionado
+    depreciacao_percentual: Optional[float] = None
+    valor_depreciacao: Optional[float] = None
+    valor_benfeitoria: Optional[float] = None
+    valor_terreno_calc: Optional[float] = None
+    valor_total_metodo: Optional[float] = None
 
     # ── Legacy — Impact areas (desapropriação/servidão) ───────────────────────
     impact_areas: List[PtamImpactArea] = Field(default_factory=list)
@@ -768,6 +778,7 @@ class LocacaoAmostra(BaseModel):
     contact_phone: Optional[str] = ""
     notes: Optional[str] = ""
     foto: Optional[str] = None
+    tipo_amostra: Optional[str] = "oferta"  # 'consolidada' ou 'oferta'
 
 
 class LocacaoBase(BaseModel):

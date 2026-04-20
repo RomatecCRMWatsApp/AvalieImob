@@ -587,7 +587,7 @@ def _rental_samples_table(samples: list) -> list:
     """Table of rental market comparatives."""
     if not samples:
         return []
-    headers = ["Nº", "Endereço / Bairro", "Área (m²)", "Aluguel (R$)", "R$/m²", "Fonte", "Data"]
+    headers = ["Nº", "Endereço / Bairro", "Área (m²)", "Aluguel (R$)", "R$/m²", "Tipo", "Fonte", "Data"]
     data = [headers]
     for idx, s in enumerate(samples, start=1):
         area = float(s.get("area") or 0)
@@ -596,16 +596,19 @@ def _rental_samples_table(samples: list) -> list:
         if not vpm and area > 0 and valor > 0:
             vpm = valor / area
         addr_bairro = f"{s.get('address', '')} / {s.get('neighborhood', '')}".strip(" /")
+        tipo_raw = s.get("tipo_amostra") or "oferta"
+        tipo_label = "Consolidada" if tipo_raw == "consolidada" else "Oferta"
         data.append([
             str(idx),
             addr_bairro,
             f"{area:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."),
             f"{valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."),
             f"{vpm:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."),
+            tipo_label,
             s.get("source", "") or "",
             s.get("collection_date", "") or "",
         ])
-    col_widths = [0.8 * cm, 5.0 * cm, 2.2 * cm, 2.5 * cm, 2.0 * cm, 2.5 * cm, 1.7 * cm]
+    col_widths = [0.8 * cm, 4.5 * cm, 2.0 * cm, 2.3 * cm, 1.8 * cm, 2.0 * cm, 2.2 * cm, 1.6 * cm]
     tbl = Table(data, colWidths=col_widths, repeatRows=1)
     tbl.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), GREEN),
@@ -621,7 +624,7 @@ def _rental_samples_table(samples: list) -> list:
         ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
         ("TOPPADDING", (0, 0), (-1, -1), 3),
         ("ALIGN", (1, 1), (1, -1), "LEFT"),
-        ("ALIGN", (5, 1), (5, -1), "LEFT"),
+        ("ALIGN", (6, 1), (6, -1), "LEFT"),
     ]))
     return [tbl, _spacer(0.3)]
 

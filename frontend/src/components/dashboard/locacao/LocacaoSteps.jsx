@@ -246,7 +246,8 @@ export const StepPesquisaMercado = ({ form, setForm }) => {
       ...f,
       market_samples: [...(f.market_samples || []), {
         address: '', neighborhood: '', area: 0, valor_aluguel: 0,
-        valor_por_m2: 0, source: '', collection_date: '', contact_phone: '', notes: ''
+        valor_por_m2: 0, source: '', collection_date: '', contact_phone: '', notes: '',
+        tipo_amostra: 'oferta'
       }]
     }));
   };
@@ -316,9 +317,34 @@ export const StepPesquisaMercado = ({ form, setForm }) => {
             <Field label="Observações" className="md:col-span-2">
               <Textarea rows={2} value={s.notes} onChange={e => updateSample(idx, 'notes', e.target.value)} />
             </Field>
+            <Field label="Tipo da Amostra" className="md:col-span-2">
+              <div className="space-y-1">
+                <select
+                  value={s.tipo_amostra || 'oferta'}
+                  onChange={e => updateSample(idx, 'tipo_amostra', e.target.value)}
+                  className="w-full text-sm rounded-md border border-gray-200 px-2 py-1.5 focus:outline-none focus:border-emerald-400"
+                >
+                  <option value="oferta">Oferta de Mercado</option>
+                  <option value="consolidada">Consolidada / Comercializada</option>
+                </select>
+                {s.tipo_amostra === 'consolidada' ? (
+                  <span className="inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded border bg-emerald-100 text-emerald-800 border-emerald-300">
+                    Consolidada
+                  </span>
+                ) : (
+                  <span className="inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded border bg-amber-100 text-amber-800 border-amber-300">
+                    Oferta
+                  </span>
+                )}
+              </div>
+            </Field>
           </Grid>
         </div>
       ))}
+
+      <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 mt-1">
+        Amostras consolidadas (locacao efetivada) tem maior peso na avaliacao conforme NBR 14653.
+      </p>
 
       <Field label="Análise do Mercado">
         <Textarea rows={5} value={form.market_analysis} onChange={e => set('market_analysis', e.target.value)} placeholder="Descreva o comportamento do mercado, oferta e demanda, sazonalidade..." />

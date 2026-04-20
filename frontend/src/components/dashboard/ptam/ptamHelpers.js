@@ -150,6 +150,15 @@ export const EMPTY_PTAM = {
   // Legacy impact areas (desapropriação)
   impact_areas: [],
 
+  // Seção Método de Avaliação / Depreciação e Valorização
+  metodo_avaliacao: null,          // ross_heidecke | linha_reta | fatores_terreno | nbr_rural | renda
+  metodo_params: {},               // parâmetros do método selecionado
+  depreciacao_percentual: null,
+  valor_depreciacao: null,
+  valor_benfeitoria: null,
+  valor_terreno_calc: null,
+  valor_total_metodo: null,
+
   // Seção Ponderância — Cálculo de Ponderância (filtragem 50%/150%)
   ponderancia_media: null,
   ponderancia_limite_inf: null,
@@ -188,6 +197,7 @@ export const emptyMarketSample = () => ({
   contact_phone: '',
   notes: '',
   foto: null,
+  tipo_amostra: 'oferta',
 });
 
 /** Legacy — impact area factory kept for backward compat */

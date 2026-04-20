@@ -164,3 +164,16 @@ export const fmtCurrency = (v) => {
   if (v == null || isNaN(v)) return '—';
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 };
+
+export const emptyLocacaoSample = () => ({
+  address: '',
+  neighborhood: '',
+  area: 0,
+  valor_aluguel: 0,
+  valor_por_m2: 0,
+  source: '',
+  collection_date: '',
+  contact_phone: '',
+  notes: '',
+  tipo_amostra: 'oferta',
+});
