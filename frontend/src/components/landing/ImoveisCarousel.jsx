@@ -1,86 +1,12 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Home, Bed, Bath, Maximize2, MapPin, ExternalLink, Building2 } from 'lucide-react';
+import { imoveisAPI } from '../../lib/api';
 
-const IMOVEIS_CRM = [
-  {
-    nome: 'ALACIDE',
-    tipo: 'Casa',
-    preco: 380000,
-    endereco: 'AV-Tocantins, Quadra 38 Lote 01, Açailândia',
-    quartos: 3,
-    banheiros: 2,
-    vagas: 1,
-    area: 127.52,
-    terreno: 300,
-    fotos: 16,
-    imagem: null,
-    link: 'https://romateccrm.com/properties',
-    status: 'Disponível',
-  },
-  {
-    nome: 'Mod_Vaz-01',
-    tipo: 'Casa',
-    preco: 300000,
-    endereco: 'Rua João Mariquinha, Quadra 15 Lote 12, Açailândia',
-    quartos: 3,
-    banheiros: 2,
-    vagas: 1,
-    area: 75.79,
-    terreno: 140.55,
-    fotos: 9,
-    imagem: null,
-    link: 'https://romateccrm.com/properties',
-    status: 'Disponível',
-  },
-  {
-    nome: 'Mod_Vaz-03',
-    tipo: 'Casa',
-    preco: 210000,
-    endereco: 'Rua Salomão Awad, Quadra 11 Lote 10E, Açailândia',
-    quartos: 2,
-    banheiros: 2,
-    vagas: 1,
-    area: 63.85,
-    terreno: 150,
-    fotos: 7,
-    imagem: null,
-    link: 'https://romateccrm.com/properties',
-    status: 'Disponível',
-  },
-  {
-    nome: 'Condomínio de Chácaras Giuliano',
-    tipo: 'Chácara',
-    preco: 160000,
-    endereco: 'Açailândia',
-    quartos: null,
-    banheiros: null,
-    vagas: null,
-    area: 1000,
-    terreno: 1000,
-    fotos: 0,
-    imagem: null,
-    link: 'https://romateccrm.com/properties',
-    status: 'Disponível',
-  },
-  {
-    nome: 'Mod_Vaz-02',
-    tipo: 'Casa',
-    preco: 250000,
-    endereco: 'Rua Amaro Pedroza, Açailândia',
-    quartos: 3,
-    banheiros: 2,
-    vagas: null,
-    area: 65.42,
-    terreno: null,
-    fotos: 0,
-    imagem: null,
-    link: 'https://romateccrm.com/properties',
-    status: 'Disponível',
-  },
-];
-
-const formatPreco = (valor) =>
-  valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0 });
+const formatPreco = (valor) => {
+  const num = typeof valor === 'string' ? parseFloat(valor) : valor;
+  if (!num || isNaN(num)) return 'Consulte';
+  return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0 });
+};
 
 const PLACEHOLDER_GRADIENTS = [
   'from-emerald-800 to-emerald-950',
@@ -90,8 +16,35 @@ const PLACEHOLDER_GRADIENTS = [
   'from-emerald-700 to-teal-900',
 ];
 
+/**
+ * Normaliza um imóvel vindo do tRPC para o formato do carrossel.
+ * O CRM pode retornar campos em snake_case ou camelCase.
+ */
+function normalizeImovel(raw) {
+  const fotos = raw.photos || raw.fotos || raw.images || [];
+  const primeiraFoto = Array.isArray(fotos) && fotos.length > 0
+    ? (typeof fotos[0] === 'string' ? fotos[0] : fotos[0]?.url || fotos[0]?.src || null)
+    : null;
+
+  return {
+    nome: raw.name || raw.nome || raw.title || raw.titulo || 'Imóvel',
+    tipo: raw.type || raw.tipo || raw.category || 'Imóvel',
+    preco: raw.price || raw.preco || raw.valor || raw.salePrice || 0,
+    endereco: raw.address || raw.endereco || raw.location || '',
+    quartos: raw.bedrooms ?? raw.quartos ?? raw.rooms ?? null,
+    banheiros: raw.bathrooms ?? raw.banheiros ?? null,
+    vagas: raw.parkingSpots ?? raw.vagas ?? raw.parking ?? null,
+    area: raw.area ?? raw.buildingArea ?? raw.builtArea ?? null,
+    terreno: raw.landArea ?? raw.terreno ?? null,
+    imagem: primeiraFoto,
+    fotos: Array.isArray(fotos) ? fotos.length : 0,
+    link: raw.url || raw.link || 'https://romateccrm.com/properties',
+    status: raw.status || 'Disponível',
+  };
+}
+
 const ImovelCard = ({ imovel, index }) => {
-  const isChacara = imovel.tipo === 'Chácara';
+  const isChacara = imovel.tipo === 'Chácara' || imovel.tipo === 'Chacara';
   const gradient = PLACEHOLDER_GRADIENTS[index % PLACEHOLDER_GRADIENTS.length];
 
   return (
@@ -185,14 +138,38 @@ const ImoveisCarousel = () => {
   const [paused, setPaused] = useState(false);
   const animationRef = useRef(null);
   const positionRef = useRef(0);
+  const [imoveis, setImoveis] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Busca imóveis da API do CRM
+  // O backend retorna { imoveis: [...], cached: bool } com campos já normalizados
+  useEffect(() => {
+    let cancelled = false;
+    imoveisAPI.list()
+      .then((data) => {
+        if (cancelled) return;
+        // Suporte a { imoveis: [...] } (backend atual) e array direto (fallback)
+        const raw = Array.isArray(data) ? data : (data?.imoveis ?? []);
+        const lista = raw.map(normalizeImovel);
+        setImoveis(lista);
+      })
+      .catch(() => {
+        // fallback silencioso: mantém lista vazia
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   // Duplicar lista para loop infinito suave
-  const items = [...IMOVEIS_CRM, ...IMOVEIS_CRM];
+  const items = imoveis.length > 0 ? [...imoveis, ...imoveis] : [];
 
   useEffect(() => {
     const track = trackRef.current;
-    if (!track) return;
+    if (!track || items.length === 0) return;
 
+    positionRef.current = 0;
     const SPEED = 0.5; // px por frame
     const totalWidth = track.scrollWidth / 2;
 
@@ -209,7 +186,10 @@ const ImoveisCarousel = () => {
 
     animationRef.current = requestAnimationFrame(step);
     return () => cancelAnimationFrame(animationRef.current);
-  }, [paused]);
+  }, [paused, items.length]);
+
+  // Oculta a seção se carregou mas não há imóveis
+  if (!loading && imoveis.length === 0) return null;
 
   return (
     <section id="imoveis" className="py-20 bg-gray-900 overflow-hidden">
@@ -236,30 +216,36 @@ const ImoveisCarousel = () => {
       </div>
 
       {/* Carrossel */}
-      <div
-        className="relative w-full"
-        onMouseEnter={() => setPaused(true)}
-        onMouseLeave={() => setPaused(false)}
-      >
-        {/* Gradientes laterais */}
-        <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-24 z-10 bg-gradient-to-r from-gray-900 to-transparent" />
-        <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-24 z-10 bg-gradient-to-l from-gray-900 to-transparent" />
+      {loading ? (
+        <div className="text-center py-12">
+          <span className="text-gray-400 text-sm animate-pulse">Carregando imóveis...</span>
+        </div>
+      ) : (
+        <div
+          className="relative w-full"
+          onMouseEnter={() => setPaused(true)}
+          onMouseLeave={() => setPaused(false)}
+        >
+          {/* Gradientes laterais */}
+          <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-24 z-10 bg-gradient-to-r from-gray-900 to-transparent" />
+          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-24 z-10 bg-gradient-to-l from-gray-900 to-transparent" />
 
-        <div className="overflow-hidden px-6">
-          <div
-            ref={trackRef}
-            className="flex gap-5 will-change-transform"
-            style={{ width: 'max-content' }}
-          >
-            {items.map((imovel, i) => (
-              <ImovelCard key={`${imovel.nome}-${i}`} imovel={imovel} index={i % IMOVEIS_CRM.length} />
-            ))}
+          <div className="overflow-hidden px-6">
+            <div
+              ref={trackRef}
+              className="flex gap-5 will-change-transform"
+              style={{ width: 'max-content' }}
+            >
+              {items.map((imovel, i) => (
+                <ImovelCard key={`${imovel.nome}-${i}`} imovel={imovel} index={i % imoveis.length} />
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Indicador de pausa */}
-      {paused && (
+      {paused && !loading && (
         <div className="text-center mt-6">
           <span className="text-gray-500 text-xs italic">Carrossel pausado — mova o mouse para fora para continuar</span>
         </div>

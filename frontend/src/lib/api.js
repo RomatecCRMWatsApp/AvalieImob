@@ -164,3 +164,8 @@ export const uploadAPI = {
   getImageUrl: (imageId) => `${API_BASE}/upload/image/${imageId}`,
   deleteImage: (imageId) => api.delete(`/upload/image/${imageId}`).then(r => r.data),
 };
+
+// ---- Imóveis CRM Romatec (público, sem auth)
+export const imoveisAPI = {
+  list: () => api.get('/imoveis-crm').then(r => r.data),
+};
