@@ -1,6 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { MessageCircle, X } from 'lucide-react';
-import { BRAND } from '../../mock/mock';
+import { MessageCircle, X, Phone } from 'lucide-react';
+
+const SPECIALISTS = [
+  {
+    id: 'jr',
+    name: 'Jose Romario P. Bezerra',
+    role: 'Diretor Comercial / CEO',
+    phone: '(99) 9 9181-1246',
+    initials: 'JR',
+    avatarColor: 'bg-emerald-600',
+    whatsappHref: 'https://wa.me/5599991811246?text=Ol%C3%A1!%20Gostaria%20de%20saber%20mais%20sobre%20o%20AvalieImob',
+    telHref: 'tel:+5599991811246',
+  },
+  {
+    id: 'dc',
+    name: 'Daniele Cavalcante Vieira',
+    role: 'Especialista em Imóveis',
+    phone: '(99) 9 9206-2871',
+    initials: 'DC',
+    avatarColor: 'bg-amber-500',
+    whatsappHref: 'https://wa.me/5599992062871?text=Ol%C3%A1!%20Gostaria%20de%20saber%20mais%20sobre%20o%20AvalieImob',
+    telHref: 'tel:+5599992062871',
+  },
+];
 
 const WhatsAppButton = () => {
   const [visible, setVisible] = useState(false);
@@ -11,39 +33,63 @@ const WhatsAppButton = () => {
     return () => clearTimeout(t);
   }, []);
 
-  const phone = (BRAND.whatsapp || '').replace(/\D/g, '');
-  const fullNumber = phone.startsWith('55') ? phone : `55${phone}`;
-  const defaultMessage = encodeURIComponent('Olá! Vim pelo site do RomaTec AvalieImob e gostaria de saber mais sobre a plataforma.');
-  const href = `https://wa.me/${fullNumber}?text=${defaultMessage}`;
-
   if (!visible) return null;
 
   return (
     <div className="fixed bottom-6 left-6 z-50 flex flex-col items-start gap-3">
       {expanded && (
-        <div className="bg-white rounded-2xl shadow-2xl border border-emerald-900/10 p-5 max-w-xs animate-fade-in-up">
-          <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="bg-gray-900 rounded-2xl shadow-2xl border border-emerald-800/40 p-5 w-72 animate-fade-in-up">
+          <div className="flex items-start justify-between gap-3 mb-4">
             <div>
-              <div className="font-semibold text-gray-900 text-sm">Fale com a gente</div>
-              <div className="text-xs text-gray-500 mt-0.5">Resposta rápida no WhatsApp</div>
+              <div className="font-semibold text-white text-sm">Fale com um Especialista</div>
+              <div className="text-xs text-emerald-400 mt-0.5">Selecione e entre em contato</div>
             </div>
-            <button onClick={() => setExpanded(false)} className="text-gray-400 hover:text-gray-600" aria-label="Fechar">
+            <button
+              onClick={() => setExpanded(false)}
+              className="text-gray-400 hover:text-white transition-colors"
+              aria-label="Fechar"
+            >
               <X className="w-4 h-4" />
             </button>
           </div>
-          <p className="text-sm text-gray-600 leading-relaxed mb-4">
-            Olá! 👋 Nossa equipe está pronta para tirar suas dúvidas sobre planos, funcionalidades e personalizações.
-          </p>
-          <a
-            href={href}
-            target="_blank"
-            rel="noreferrer"
-            className="block w-full text-center bg-[#25D366] hover:bg-[#1fb857] text-white font-semibold py-2.5 rounded-lg text-sm transition-colors"
-          >
-            Iniciar conversa
-          </a>
-          <div className="text-[11px] text-gray-400 text-center mt-2">
-            {BRAND.whatsapp}
+
+          <div className="space-y-3">
+            {SPECIALISTS.map((s) => (
+              <div
+                key={s.id}
+                className="bg-white/5 border border-white/10 rounded-xl p-3 hover:border-emerald-500/40 hover:bg-white/10 transition-all"
+              >
+                <div className="flex items-center gap-3 mb-3">
+                  <div
+                    className={`w-10 h-10 rounded-full ${s.avatarColor} flex items-center justify-center text-white font-bold text-sm flex-shrink-0`}
+                  >
+                    {s.initials}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-semibold text-white text-xs leading-tight truncate">{s.name}</div>
+                    <div className="text-emerald-400 text-[11px] leading-tight">{s.role}</div>
+                    <div className="text-gray-400 text-[11px]">{s.phone}</div>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <a
+                    href={s.whatsappHref}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex-1 text-center bg-[#25D366] hover:bg-[#1fb857] text-white font-semibold py-1.5 rounded-lg text-xs transition-colors"
+                  >
+                    WhatsApp
+                  </a>
+                  <a
+                    href={s.telHref}
+                    className="flex-1 text-center bg-white/10 hover:bg-white/20 text-white font-semibold py-1.5 rounded-lg text-xs transition-colors flex items-center justify-center gap-1"
+                  >
+                    <Phone className="w-3 h-3" />
+                    Ligar
+                  </a>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
