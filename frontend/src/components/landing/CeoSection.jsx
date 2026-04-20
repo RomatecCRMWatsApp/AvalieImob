@@ -136,45 +136,51 @@ const CeoSection = () => {
             ))}
           </div>
         </div>
-        {/* Família Romatec — dois logos lado a lado */}
-        <div className="mt-12 bg-gradient-to-r from-emerald-900 via-emerald-800 to-emerald-900 rounded-2xl p-8 text-white text-center">
-          <div className="text-xs font-semibold tracking-[0.2em] text-amber-300 mb-3">FAMÍLIA ROMATEC</div>
-          <h3 className="font-display text-2xl md:text-3xl font-bold mb-8">
-            Conheça o nosso <span className="italic text-amber-300">ecossistema</span>
-          </h3>
+        {/* Família Romatec — faixa verde 3 colunas */}
+        <div className="mt-12 bg-gradient-to-r from-emerald-900 to-emerald-800 rounded-2xl p-8 md:p-10">
+          <div className="grid grid-cols-1 md:grid-cols-[200px_1fr_200px] gap-8 items-center">
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-3xl mx-auto">
-            {/* Romatec Engenharia e Agrimensura */}
-            <div className="bg-white/10 hover:bg-white/20 transition-colors rounded-xl p-6 flex flex-col items-center gap-4">
+            {/* Coluna esquerda — Romatec logo + botão */}
+            <div className="flex flex-col items-center gap-4">
               <a
                 href="https://www.consultoriaromatec.com.br"
                 target="_blank"
                 rel="noreferrer"
                 aria-label="Visitar consultoriaromatec.com.br"
               >
-                <img
-                  src="/brand/romatec_ea.jpg"
-                  alt="Romatec Consultoria Total — Engenharia e Agrimensura"
-                  className="h-24 w-auto object-contain rounded-lg"
-                />
+                <div className="bg-white rounded-xl p-3 inline-block">
+                  <img
+                    src="/brand/romatec_ea.jpg"
+                    alt="Romatec"
+                    className="max-w-[180px] w-full object-contain"
+                  />
+                </div>
               </a>
-              <div>
-                <div className="font-semibold text-white text-sm mb-1">Romatec Consultoria Total</div>
-                <div className="text-xs text-emerald-200 mb-4">Engenharia &amp; Agrimensura</div>
-                <a
-                  href="https://www.consultoriaromatec.com.br"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-emerald-950 font-semibold px-5 py-2 rounded-lg transition-colors text-sm"
-                >
-                  Visitar consultoriaromatec.com.br
-                  <span aria-hidden>→</span>
-                </a>
-              </div>
+              <a
+                href="https://www.consultoriaromatec.com.br"
+                target="_blank"
+                rel="noreferrer"
+                className="bg-amber-500 hover:bg-amber-600 text-black rounded-full px-6 py-2 font-semibold text-sm text-center transition-colors"
+              >
+                Visitar consultoriaromatec.com.br →
+              </a>
             </div>
 
-            {/* Romanutri */}
-            <div className="bg-white/10 hover:bg-white/20 transition-colors rounded-xl p-6 flex flex-col items-center gap-4">
+            {/* Coluna central — texto */}
+            <div className="flex flex-col items-center gap-4 text-center">
+              <p className="text-amber-400 tracking-widest uppercase text-sm font-bold">
+                FAMÍLIA ROMATEC
+              </p>
+              <h3 className="text-white text-2xl font-serif leading-snug">
+                Conheça também a <em className="text-amber-300 not-italic italic">RomaTec Consultoria Total</em>
+              </h3>
+              <p className="text-gray-300 text-sm leading-relaxed max-w-sm">
+                Projetos, engenharia, agrimensura, georreferenciamento e regularização fundiária. Uma década de excelência técnica a serviço de empresas, construtoras e escritórios de engenharia.
+              </p>
+            </div>
+
+            {/* Coluna direita — Romanutri */}
+            <div className="flex flex-col items-center gap-4">
               <a
                 href="https://www.instagram.com/espaco_romanutri_rn"
                 target="_blank"
@@ -183,26 +189,12 @@ const CeoSection = () => {
               >
                 <img
                   src="/brand/romanutri.jpg"
-                  alt="Romanutri — Espaço de Nutrição"
-                  className="h-24 w-auto object-contain rounded-lg"
+                  alt="Romanutri"
+                  className="w-[120px] h-[120px] rounded-full object-cover mx-auto"
                 />
               </a>
-              <div>
-                <div className="font-semibold text-white text-sm mb-1">Romanutri</div>
-                <div className="text-xs text-emerald-200 mb-4">Nutrição &amp; Saúde</div>
-                <a
-                  href="https://www.instagram.com/espaco_romanutri_rn"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-2 bg-pink-500 hover:bg-pink-400 text-white font-semibold px-5 py-2 rounded-lg transition-colors text-sm"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/>
-                  </svg>
-                  @espaco_romanutri_rn
-                </a>
-              </div>
             </div>
+
           </div>
         </div>
       </div>
