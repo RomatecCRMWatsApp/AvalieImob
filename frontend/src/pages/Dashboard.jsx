@@ -3,7 +3,7 @@ import { Link, NavLink, Routes, Route, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Building2, BarChart3, FileText, Sparkles,
   CreditCard, Settings, LogOut, Menu, X, Bell, FileCheck2, Globe,
-  Search, ChevronDown, User, Shield, Beef, Award
+  Search, ChevronDown, User, Shield, Beef, Award, Home
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { BRAND } from '../mock/mock';
@@ -23,6 +23,8 @@ import GarantiasList from '../components/dashboard/garantias/GarantiasList';
 import GarantiaWizard from '../components/dashboard/garantias/GarantiaWizard';
 import SemoventesList from '../components/dashboard/semoventes/SemoventesList';
 import SemoventeWizard from '../components/dashboard/semoventes/SemoventeWizard';
+import LocacaoList from '../components/dashboard/locacao/LocacaoList';
+import LocacaoWizard from '../components/dashboard/locacao/LocacaoWizard';
 
 /* ─── Brand ─────────────────────────────────────────────── */
 const GOLD       = '#D4A830';
@@ -50,6 +52,7 @@ const NAV_GROUPS = [
       { to: '/dashboard/ptam',       icon: FileCheck2, label: 'PTAM (Laudos)' },
       { to: '/dashboard/garantias',  icon: Shield,     label: 'Aval. de Garantias' },
       { to: '/dashboard/semoventes', icon: Beef,       label: 'Semoventes' },
+      { to: '/dashboard/locacao',    icon: Home,       label: 'Aval. Locacao' },
       { to: '/dashboard/laudos',     icon: FileText,   label: 'Avaliações' },
     ],
   },
@@ -348,6 +351,9 @@ const Dashboard = () => {
             <Route path="semoventes"        element={<SemoventesList />} />
             <Route path="semoventes/nova"   element={<SemoventeWizard />} />
             <Route path="semoventes/:id"    element={<SemoventeWizard />} />
+            <Route path="locacao"           element={<LocacaoList />} />
+            <Route path="locacao/nova"      element={<LocacaoWizard />} />
+            <Route path="locacao/:id"       element={<LocacaoWizard />} />
             <Route path="laudos"      element={<Evaluations />} />
             <Route path="ia"          element={<AIAssistant />} />
             <Route path="curriculo"   element={<PerfilAvaliador />} />

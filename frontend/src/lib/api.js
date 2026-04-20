@@ -115,6 +115,15 @@ export const garantiasAPI = {
   remove: (id) => api.delete(`/garantias/${id}`).then(r => r.data),
 };
 
+// ---- Locacao (Avaliação de Locação — Lei 8.245/91)
+export const locacaoAPI = {
+  list: (params) => api.get('/locacao', { params }).then(r => r.data),
+  get: (id) => api.get(`/locacao/${id}`).then(r => r.data),
+  create: (data) => api.post('/locacao', data).then(r => r.data),
+  update: (id, data) => api.put(`/locacao/${id}`, data).then(r => r.data),
+  remove: (id) => api.delete(`/locacao/${id}`).then(r => r.data),
+};
+
 // ---- Semoventes (Penhor Rural Bancário)
 export const semoventesAPI = {
   list: (params) => api.get('/semoventes', { params }).then(r => r.data),
