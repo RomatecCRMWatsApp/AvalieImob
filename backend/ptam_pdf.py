@@ -293,7 +293,7 @@ class _RomaTecDoc(BaseDocTemplate):
         canvas.drawCentredString(
             page_w / 2,
             (footer_h - 0.3 * cm),
-            "RomaTec Consultoria Total  —  ABNT NBR 14653-1/-2/-3  |  Res. COFECI 957/2006  |  Lei 5.194/66  |  Lei 6.530/78  |  Res. CONFEA 345/90  |  Lei 13.786/2018  |  CPC art. 156",
+            "RomaTec Consultoria Total  —  ABNT NBR 14653-1/-2/-3  |  Res. COFECI 957/2006  |  Lei 5.194/66  |  Lei 6.530/78  |  Res. CONFEA 345/90  |  Lei 13.786/2018  |  Lei 8.245/1991  |  CPC art. 156",
         )
 
         # page number (right)
@@ -443,9 +443,17 @@ def _build_cover(ptam: dict, logo_bytes: bytes | None, styles: dict) -> list:
         except Exception:
             pass
 
+    # Título varia conforme tipo_avaliacao
+    is_locacao = str(ptam.get("tipo_avaliacao", "venda")).lower() == "locacao"
+    cover_title_text = (
+        "PARECER TÉCNICO DE AVALIAÇÃO MERCADOLÓGICA — LOCAÇÃO"
+        if is_locacao
+        else "PARECER TÉCNICO DE AVALIAÇÃO MERCADOLÓGICA"
+    )
+
     # green banner with title
     title_data = [[
-        Paragraph("PARECER TÉCNICO DE AVALIAÇÃO MERCADOLÓGICA", styles["cover_title"]),
+        Paragraph(cover_title_text, styles["cover_title"]),
     ]]
     banner = Table(title_data, colWidths=[16.5 * cm])
     banner.setStyle(TableStyle([
@@ -508,18 +516,20 @@ def _build_cover(ptam: dict, logo_bytes: bytes | None, styles: dict) -> list:
     story.append(rule)
     story.append(_spacer(0.4))
 
+    norm_suffix = "  |  Lei 8.245/1991" if is_locacao else ""
     story.append(Paragraph(
-        "RomaTec Consultoria Total  —  NBR 14.653",
+        f"RomaTec Consultoria Total  —  NBR 14.653{norm_suffix}",
         ParagraphStyle("ctr_nbr", fontName="Helvetica-Bold", fontSize=10, alignment=TA_CENTER,
                        textColor=GOLD),
     ))
 
     # normative reference block
     story.append(_spacer(0.3))
+    norm_locacao = " | Lei 8.245/1991 (Lei do Inquilinato)" if is_locacao else ""
     norm_text = (
         "<b>Base normativa:</b> ABNT NBR 14653-1 (Procedimentos Gerais) | NBR 14653-2 (Imóveis Urbanos) | "
         "NBR 14653-3 (Imóveis Rurais) | Res. COFECI 957/2006 | Lei 5.194/1966 | Lei 6.530/1978 | "
-        "Res. CONFEA 345/90 | Lei 13.786/2018 | CPC art. 156"
+        f"Res. CONFEA 345/90 | Lei 13.786/2018 | CPC art. 156{norm_locacao}"
     )
     story.append(Paragraph(norm_text, ParagraphStyle(
         "norm_ref", fontName="Helvetica", fontSize=8, alignment=TA_CENTER,
@@ -994,6 +1004,65 @@ def _build_conclusion(ptam: dict, user: dict, styles: dict) -> list:
     # ── Data de referência ─────────────────────────────────────────────────────
     if ptam.get("resultado_data_referencia"):
         story += _lv(styles, "Data de Referência da Avaliação", ptam["resultado_data_referencia"])
+
+    # ── Valor Estimado de Locação — apenas quando tipo_avaliacao == 'locacao' ─
+    is_locacao = str(ptam.get("tipo_avaliacao", "venda")).lower() == "locacao"
+    if is_locacao:
+        story += _section(styles, "9.1 Valor Estimado de Locação")
+
+        tipo_locacao_map = {
+            "residencial": "Residencial",
+            "comercial": "Comercial",
+            "temporada": "Temporada",
+        }
+        garantia_map = {
+            "caucao": "Caução",
+            "fiador": "Fiador",
+            "seguro_fianca": "Seguro Fiança",
+            "titulo_capitalizacao": "Título de Capitalização",
+            "nenhuma": "Nenhuma",
+        }
+
+        valor_loc = ptam.get("valor_locacao_estimado") or 0
+        valor_loc_min = ptam.get("valor_locacao_minimo") or 0
+        valor_loc_max = ptam.get("valor_locacao_maximo") or 0
+        fator_loc = ptam.get("fator_locacao")
+
+        if valor_loc:
+            story.append(_spacer(0.3))
+            story.append(Paragraph(
+                f"Valor Mensal de Locação Estimado: {_fmt_currency(valor_loc)}/mês",
+                styles["conclusion_value"],
+            ))
+            if ptam.get("valor_locacao_por_extenso"):
+                story.append(Paragraph(
+                    f"({ptam['valor_locacao_por_extenso']})",
+                    styles["conclusion_words"],
+                ))
+
+        if valor_loc_min and valor_loc_max:
+            story += _lv(
+                styles, "Intervalo de Locação",
+                f"{_fmt_currency(valor_loc_min)}/mês a {_fmt_currency(valor_loc_max)}/mês"
+            )
+
+        if fator_loc is not None:
+            story += _lv(styles, "Fator de Locação Aplicado", f"{float(fator_loc):.2f}%")
+
+        tipo_loc_str = tipo_locacao_map.get(ptam.get("tipo_locacao", ""), ptam.get("tipo_locacao", ""))
+        if tipo_loc_str:
+            story += _lv(styles, "Tipo de Locação", tipo_loc_str)
+
+        garantia_str = garantia_map.get(ptam.get("garantia_locacao", ""), ptam.get("garantia_locacao", ""))
+        if garantia_str:
+            story += _lv(styles, "Garantia Sugerida", garantia_str)
+
+        if ptam.get("prazo_locacao"):
+            story += _lv(styles, "Prazo Sugerido", ptam["prazo_locacao"])
+
+        base_legal = ptam.get("base_legal_locacao") or "Lei 8.245/1991 (Lei do Inquilinato) — Art. 565 a 578 do Código Civil"
+        story += _subsection(styles, "Base Legal")
+        story += _body(styles, base_legal)
 
     # ── Prazo de Validade ─────────────────────────────────────────────────────
     story += _section(styles, "10. Prazo de Validade do Laudo")

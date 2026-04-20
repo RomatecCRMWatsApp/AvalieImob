@@ -276,6 +276,15 @@ export const StepObjetivo = ({ form, setForm, onAi, aiLoading }) => {
         subtitle="Descreva a finalidade e o contexto legal da avaliação (NBR 14653, Res. CMN 4.676/2018, MCR BACEN, COFECI)."
       />
       <div className="grid grid-cols-2 gap-4">
+        <Field label="Tipo de Avaliação" full>
+          <Select value={form.tipo_avaliacao || 'venda'} onValueChange={(v) => setForm({ ...form, tipo_avaliacao: v })}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="venda">Valor de Venda</SelectItem>
+              <SelectItem value="locacao">Valor de Locação (Aluguel Mensal)</SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
         <Field label="Finalidade da avaliação" full>
           <FinalidadeSelect value={form.finalidade} onChange={(v) => setForm({ ...form, finalidade: v })} />
         </Field>
@@ -1142,6 +1151,20 @@ export const StepResultado = ({ form, setForm }) => {
 
   const fmtBrl = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
+  const isLocacao = (form.tipo_avaliacao || 'venda') === 'locacao';
+
+  // Auto-calc valor_locacao_estimado when fator or valor_total changes
+  const handleFatorLocacao = (rawFator) => {
+    const fator = rawFator === '' ? null : Number(rawFator);
+    const valorBase = Number(form.resultado_valor_total || total || 0);
+    const estimado = fator != null && valorBase > 0 ? Math.round(valorBase * fator / 100 * 100) / 100 : form.valor_locacao_estimado;
+    setForm({ ...form, fator_locacao: fator, valor_locacao_estimado: estimado });
+  };
+
+  const handleValorLocacaoEstimado = (raw) => {
+    setForm({ ...form, valor_locacao_estimado: raw === '' ? null : Number(raw) });
+  };
+
   return (
     <div>
       <SectionHeader
@@ -1287,6 +1310,128 @@ export const StepResultado = ({ form, setForm }) => {
           <Input type="date" value={form.conclusion_date || ''} onChange={(e) => setForm({ ...form, conclusion_date: e.target.value })} />
         </div>
       </div>
+
+      {/* ── Seção de Locação — aparece apenas quando tipo_avaliacao === 'locacao' ── */}
+      {isLocacao && (
+        <div className="mt-8 border-t border-blue-100 pt-6">
+          <div className="rounded-2xl border-2 border-blue-200 bg-blue-50/40 p-6">
+            <div className="flex items-center gap-2 mb-5">
+              <span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block" />
+              <h3 className="text-base font-bold text-blue-900">Avaliação de Locação</h3>
+              <span className="text-xs text-blue-600 font-normal ml-1">— valor mensal de aluguel estimado</span>
+            </div>
+
+            {/* Card explicativo */}
+            <div className="mb-5 flex gap-3 bg-white border border-blue-200 rounded-xl px-4 py-3">
+              <svg className="w-4 h-4 mt-0.5 text-blue-400 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+              <p className="text-xs text-blue-700 leading-relaxed">
+                O valor de locação é estimado com base no valor venal do imóvel, aplicando-se o fator de locação adequado ao tipo e localização do imóvel, conforme práticas de mercado e NBR 14653-2.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Tipo de Locação</label>
+                <Select value={form.tipo_locacao || ''} onValueChange={(v) => setForm({ ...form, tipo_locacao: v })}>
+                  <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="residencial">Residencial</SelectItem>
+                    <SelectItem value="comercial">Comercial</SelectItem>
+                    <SelectItem value="temporada">Temporada</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Prazo sugerido</label>
+                <Input
+                  value={form.prazo_locacao || ''}
+                  onChange={(e) => setForm({ ...form, prazo_locacao: e.target.value })}
+                  placeholder="Ex: 30 meses"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Garantia sugerida</label>
+                <Select value={form.garantia_locacao || ''} onValueChange={(v) => setForm({ ...form, garantia_locacao: v })}>
+                  <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="caucao">Caução</SelectItem>
+                    <SelectItem value="fiador">Fiador</SelectItem>
+                    <SelectItem value="seguro_fianca">Seguro Fiança</SelectItem>
+                    <SelectItem value="titulo_capitalizacao">Título de Capitalização</SelectItem>
+                    <SelectItem value="nenhuma">Nenhuma</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Fator de Locação (%)
+                  <span className="text-xs text-gray-400 ml-1 font-normal">
+                    Residencial: 0,3% a 1,0% | Comercial: 0,5% a 1,5%
+                  </span>
+                </label>
+                <Input
+                  type="number" step="0.01" min="0" max="5"
+                  value={form.fator_locacao ?? ''}
+                  onChange={(e) => handleFatorLocacao(e.target.value)}
+                  placeholder="Ex: 0.5"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Valor de Locação Estimado (R$/mês)</label>
+                <Input
+                  type="number" step="0.01"
+                  value={form.valor_locacao_estimado ?? ''}
+                  onChange={(e) => handleValorLocacaoEstimado(e.target.value)}
+                  placeholder="Calculado automaticamente ou informe manualmente"
+                  className="bg-blue-50 border-blue-200"
+                />
+                {form.fator_locacao && (form.resultado_valor_total || total) > 0 && (
+                  <p className="text-xs text-blue-600 mt-1">
+                    Calculado: {fmtBrl((form.resultado_valor_total || total) * Number(form.fator_locacao) / 100)}/mês
+                  </p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Valor mínimo (R$/mês)</label>
+                <Input
+                  type="number" step="0.01"
+                  value={form.valor_locacao_minimo ?? ''}
+                  onChange={(e) => setForm({ ...form, valor_locacao_minimo: e.target.value === '' ? null : Number(e.target.value) })}
+                  placeholder="R$"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Valor máximo (R$/mês)</label>
+                <Input
+                  type="number" step="0.01"
+                  value={form.valor_locacao_maximo ?? ''}
+                  onChange={(e) => setForm({ ...form, valor_locacao_maximo: e.target.value === '' ? null : Number(e.target.value) })}
+                  placeholder="R$"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Valor por extenso</label>
+                <Input
+                  value={form.valor_locacao_por_extenso || ''}
+                  onChange={(e) => setForm({ ...form, valor_locacao_por_extenso: e.target.value })}
+                  placeholder="Ex: dois mil e quinhentos reais"
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Base Legal</label>
+                <Textarea
+                  value={form.base_legal_locacao || ''}
+                  onChange={(e) => setForm({ ...form, base_legal_locacao: e.target.value })}
+                  rows={2}
+                  placeholder="Lei 8.245/1991 (Lei do Inquilinato) - Art. 565 a 578 do Código Civil"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
