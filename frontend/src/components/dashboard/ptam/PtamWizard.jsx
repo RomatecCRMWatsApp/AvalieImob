@@ -15,6 +15,7 @@ import {
   StepAmostras,
   StepMetodologia,
   StepCalculos,
+  StepPonderancia,
   StepResultado,
   StepConclusao,
 } from './PtamSteps';
@@ -177,8 +178,9 @@ const PtamWizard = () => {
       case 5: return <StepAmostras {...stepProps} />;
       case 6: return <StepMetodologia {...stepProps} />;
       case 7: return <StepCalculos {...stepProps} />;
-      case 8: return <StepResultado {...stepProps} />;
-      case 9: return <StepConclusao {...stepProps} />;
+      case 8: return <StepPonderancia {...stepProps} />;
+      case 9: return <StepResultado {...stepProps} />;
+      case 10: return <StepConclusao {...stepProps} />;
       default: return null;
     }
   };

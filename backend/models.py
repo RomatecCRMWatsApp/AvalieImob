@@ -329,6 +329,13 @@ class PtamBase(BaseModel):
     doc_itr: Optional[List[str]] = []                # ITR — últimos 5 exercícios (até 5 arquivos)
     doc_car: Optional[List[str]] = []                # CAR — Cadastro Ambiental Rural
 
+    # ── Seção Ponderância — Cálculo de Ponderância (filtragem 50%/150%) ──────────
+    ponderancia_media: Optional[float] = None
+    ponderancia_limite_inf: Optional[float] = None
+    ponderancia_limite_sup: Optional[float] = None
+    ponderancia_eliminadas: Optional[List[int]] = []  # índices das amostras eliminadas
+    ponderancia_valor_final: Optional[float] = None
+
     # ── Legacy — Impact areas (desapropriação/servidão) ───────────────────────
     impact_areas: List[PtamImpactArea] = Field(default_factory=list)
 

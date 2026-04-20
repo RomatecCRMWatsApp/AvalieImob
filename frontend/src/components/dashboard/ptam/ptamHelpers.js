@@ -150,6 +150,13 @@ export const EMPTY_PTAM = {
   // Legacy impact areas (desapropriação)
   impact_areas: [],
 
+  // Seção Ponderância — Cálculo de Ponderância (filtragem 50%/150%)
+  ponderancia_media: null,
+  ponderancia_limite_inf: null,
+  ponderancia_limite_sup: null,
+  ponderancia_eliminadas: [],
+  ponderancia_valor_final: null,
+
   status: 'Rascunho',
 };
 
@@ -162,6 +169,7 @@ export const PTAM_STEPS = [
   { id: 'amostras',      label: 'Amostras',         icon: 'BarChart2' },
   { id: 'metodologia',   label: 'Metodologia',      icon: 'BookOpen' },
   { id: 'calculos',      label: 'Cálculos',         icon: 'Calculator' },
+  { id: 'ponderancia',   label: 'Ponderância',      icon: 'Filter' },
   { id: 'resultado',     label: 'Resultado',        icon: 'TrendingUp' },
   { id: 'conclusao',     label: 'Conclusão',        icon: 'CheckCircle2' },
 ];

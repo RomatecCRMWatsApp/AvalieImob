@@ -898,6 +898,121 @@ def _build_market_analysis(ptam: dict, styles: dict) -> list:
     return story
 
 
+def _build_ponderancia(ptam: dict, styles: dict) -> list:
+    """Seção 8b: Cálculo de Ponderância — filtragem 50%/150% da média."""
+    media = ptam.get("ponderancia_media")
+    lim_inf = ptam.get("ponderancia_limite_inf")
+    lim_sup = ptam.get("ponderancia_limite_sup")
+    eliminadas = ptam.get("ponderancia_eliminadas") or []
+    valor_final = ptam.get("ponderancia_valor_final")
+    market_samples = ptam.get("market_samples") or []
+
+    # Only render if there was a calculation or samples exist
+    if not media and not market_samples:
+        return []
+
+    story = []
+    story += _section(styles, "8b. Cálculo de Ponderância")
+    story.append(Paragraph(
+        "Método comparativo com filtragem de amostras fora da faixa de 50% a 150% da média simples (Norma ABNT NBR 14653-2).",
+        styles["body"],
+    ))
+    story.append(_spacer(0.2))
+
+    # Amostras table with status
+    valid_samples = [s for s in market_samples if float(s.get("area") or 0) > 0 and float(s.get("value") or 0) > 0]
+    if valid_samples:
+        story += _subsection(styles, "Quadro de Amostras com Classificação")
+        headers = ["Nº", "Bairro / Local", "Área (m²)", "Valor (R$)", "R$/m²", "Situação"]
+        data = [headers]
+        RED_LIGHT = colors.HexColor("#FFEBEE")
+        GREEN_LIGHT = colors.HexColor("#E8F5E9")
+        row_styles = []
+        for idx, s in enumerate(valid_samples, start=0):
+            vpm = float(s.get("value_per_sqm") or 0)
+            if vpm == 0 and float(s.get("area") or 0) > 0:
+                vpm = float(s.get("value") or 0) / float(s.get("area") or 1)
+            eliminada = idx in eliminadas
+            situacao = "ELIMINADA" if eliminada else "OK"
+            row_color = RED_LIGHT if eliminada else (GREEN_LIGHT if media else WHITE)
+            row_styles.append(("BACKGROUND", (0, idx + 1), (-1, idx + 1), row_color))
+            if eliminada:
+                row_styles.append(("TEXTCOLOR", (0, idx + 1), (-1, idx + 1), colors.HexColor("#C62828")))
+            data.append([
+                str(idx + 1),
+                f"{s.get('address', '')} / {s.get('neighborhood', '')}".strip(" /") or "—",
+                f"{float(s.get('area') or 0):,.2f}".replace(",", "X").replace(".", ",").replace("X", "."),
+                _fmt_currency(s.get("value", 0)).replace("R$ ", ""),
+                f"{vpm:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."),
+                situacao,
+            ])
+
+        col_widths = [0.8 * cm, 5.0 * cm, 2.2 * cm, 2.5 * cm, 2.0 * cm, 2.2 * cm]
+        tbl = Table(data, colWidths=col_widths, repeatRows=1)
+        base_styles = [
+            ("BACKGROUND", (0, 0), (-1, 0), GREEN),
+            ("TEXTCOLOR", (0, 0), (-1, 0), WHITE),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, 0), 8),
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+            ("FONTSIZE", (0, 1), (-1, -1), 8),
+            ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#C0C0C0")),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ("TOPPADDING", (0, 0), (-1, -1), 3),
+            ("ALIGN", (1, 1), (1, -1), "LEFT"),
+        ]
+        tbl.setStyle(TableStyle(base_styles + row_styles))
+        story.append(tbl)
+        story.append(_spacer(0.3))
+
+    # Results summary
+    if media:
+        story += _subsection(styles, "Resultado do Cálculo de Ponderância")
+        restantes = len(valid_samples) - len(eliminadas)
+        rows = []
+        if lim_inf is not None:
+            rows.append(["Limite Inferior (50% da média):", _fmt_currency(lim_inf) + "/m²"])
+        if lim_sup is not None:
+            rows.append(["Limite Superior (150% da média):", _fmt_currency(lim_sup) + "/m²"])
+        rows.append(["Amostras eliminadas:", str(len(eliminadas))])
+        rows.append(["Amostras restantes (válidas):", str(restantes)])
+        rows.append(["Fórmula:", f"Σ R$/m² das amostras restantes / {restantes}"])
+        summary_tbl = Table(rows, colWidths=[8.0 * cm, 7.7 * cm])
+        summary_tbl.setStyle(TableStyle([
+            ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+            ("FONTNAME", (1, 0), (1, -1), "Helvetica"),
+            ("FONTSIZE", (0, 0), (-1, -1), 9),
+            ("TEXTCOLOR", (0, 0), (-1, -1), DARK),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ("TOPPADDING", (0, 0), (-1, -1), 3),
+            ("ROWBACKGROUNDS", (0, 0), (-1, -1), [WHITE, LIGHT_GREEN]),
+            ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#DDDDDD")),
+        ]))
+        story.append(summary_tbl)
+        story.append(_spacer(0.3))
+
+        # Média ponderada final em destaque
+        story.append(Paragraph(
+            f"Média Ponderada Final: <b>{_fmt_currency(media)}/m²</b>",
+            ParagraphStyle("pond_media", fontName="Helvetica-Bold", fontSize=12,
+                           alignment=TA_CENTER, textColor=GREEN, spaceBefore=6, spaceAfter=4),
+        ))
+
+    # Valor final do imóvel
+    if valor_final:
+        story.append(_spacer(0.2))
+        story.append(Paragraph(
+            f"Valor do Imóvel Avaliando: <b>{_fmt_currency(valor_final)}</b>",
+            ParagraphStyle("pond_valor", fontName="Helvetica-Bold", fontSize=13,
+                           alignment=TA_CENTER, textColor=GOLD, spaceBefore=4, spaceAfter=6),
+        ))
+
+    return story
+
+
 def _build_methodology(ptam: dict, styles: dict) -> list:
     story = []
     story += _section(styles, "7. Metodologia")
@@ -1156,6 +1271,12 @@ def generate_ptam_pdf(ptam: dict, user: dict) -> bytes:
     # ── Seção 7: Metodologia ──────────────────────────────────────────────
     story += _build_methodology(ptam, styles)
     story.append(_spacer(0.5))
+
+    # ── Seção 8b: Cálculo de Ponderância ─────────────────────────────────
+    ponderancia = _build_ponderancia(ptam, styles)
+    if ponderancia:
+        story += ponderancia
+        story.append(_spacer(0.5))
 
     # ── Seção 8: Áreas de Impacto (legacy) ───────────────────────────────
     story += _build_impact_areas(ptam, styles)
