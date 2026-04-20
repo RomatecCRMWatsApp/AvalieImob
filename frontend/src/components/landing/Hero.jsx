@@ -1,8 +1,29 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, CheckCircle2, Sparkles } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Sparkles, CheckCircle } from 'lucide-react';
 import { Button } from '../ui/button';
 import { BRAND } from '../../mock/mock';
+
+const NORMAS = [
+  'NBR 14.653-1:2019 — Avaliação de Bens (Procedimentos Gerais)',
+  'NBR 14.653-2:2011 — Imóveis Urbanos',
+  'NBR 14.653-3:2019 — Imóveis Rurais',
+  'NBR 14.653-4:2002 — Empreendimentos',
+  'COFECI — Resolução 1.066/2007 (PTAM por Corretor)',
+  'CRECI — Registro profissional de Corretor de Imóveis',
+  'CREA/CAU — Engenheiros e Arquitetos Avaliadores',
+  'CNAI — Cadastro Nacional de Avaliadores Imobiliários',
+  'Lei 6.530/1978 — Regulamenta profissão de Corretor',
+  'Lei 8.245/1991 — Lei do Inquilinato (Locação)',
+  'Código Civil — Art. 565 a 578 (Locação)',
+  'Código Civil — Art. 1.225 (Direitos Reais)',
+  'Lei 4.591/1964 — Incorporações Imobiliárias',
+  'Dec.-Lei 3.365/1941 — Desapropriações',
+  'LGPD — Lei 13.709/2018 (Proteção de Dados)',
+  'SUSEP — Seguros e Garantias',
+  'INCRA — Cadastro Rural (SIGEF/CCIR/CAR)',
+  'SFH/SFI — Sistema Financeiro Habitacional e Imobiliário',
+];
 
 const Hero = () => {
   return (
@@ -39,13 +60,29 @@ const Hero = () => {
             </a>
           </div>
 
-          <div className="flex flex-wrap gap-x-6 gap-y-3 text-sm text-gray-600">
-            {['ABNT NBR 14.653', 'LGPD compliant', 'IA para textos', 'Suporte técnico'].map(item => (
-              <div key={item} className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-700" />
-                {item}
-              </div>
-            ))}
+          <div className="w-full">
+            <p className="text-xs font-semibold text-emerald-800 uppercase tracking-widest mb-3">
+              Conformidade Legal e Normativa
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              {NORMAS.map(norma => {
+                const [sigla, ...resto] = norma.split(' — ');
+                return (
+                  <div
+                    key={norma}
+                    className="flex items-start gap-2 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2.5 hover:bg-emerald-100/60 transition-colors"
+                  >
+                    <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
+                    <span className="text-xs text-gray-700 leading-snug">
+                      <span className="font-semibold text-emerald-900">{sigla}</span>
+                      {resto.length > 0 && (
+                        <span className="text-gray-500"> — {resto.join(' — ')}</span>
+                      )}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
 
