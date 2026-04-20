@@ -180,6 +180,7 @@ class PtamMarketSample(BaseModel):
 
 class PtamBase(BaseModel):
     # ── Seção 1 — Identificação do Solicitante ────────────────────────────────
+    numero_ptam: Optional[str] = None   # gerado automaticamente pelo backend (ex: 0001/2026)
     number: Optional[str] = ""
     solicitante: Optional[str] = ""          # legacy alias
     solicitante_nome: Optional[str] = ""

@@ -459,8 +459,9 @@ def _build_cover(ptam: dict, logo_bytes: bytes | None, styles: dict) -> list:
     story.append(_spacer(0.8))
 
     # PTAM number
+    ptam_display_num = ptam.get("numero_ptam") or ptam.get("number") or "—"
     story.append(Paragraph(
-        f"<b>PTAM nº {ptam.get('number', '—')}</b>",
+        f"<b>PTAM nº {ptam_display_num}</b>",
         ParagraphStyle("ctr_bold", fontName="Helvetica-Bold", fontSize=16, alignment=TA_CENTER,
                        textColor=GREEN, spaceAfter=4),
     ))
@@ -534,6 +535,11 @@ def _build_cover(ptam: dict, logo_bytes: bytes | None, styles: dict) -> list:
 def _build_identification(ptam: dict, styles: dict) -> list:
     story = []
     story += _section(styles, "1. Identificação e Objetivo")
+
+    # Número do PTAM
+    num_ptam = ptam.get("numero_ptam") or ptam.get("number") or ""
+    if num_ptam:
+        story += _lv(styles, "Número do PTAM", num_ptam)
 
     # Tipo de avaliação / finalidade
     finalidade_map = {
@@ -1074,7 +1080,7 @@ def generate_ptam_pdf(ptam: dict, user: dict) -> bytes:
 
     doc = _RomaTecDoc(buf, company_logo_bytes=company_logo_bytes)
     doc._logo_bytes = system_logo_bytes
-    doc._ptam_number = ptam.get("number", "")
+    doc._ptam_number = ptam.get("numero_ptam") or ptam.get("number", "")
     doc._company_name = user.get("company", "") or ""
 
     styles = _make_styles()

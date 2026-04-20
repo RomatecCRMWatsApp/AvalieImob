@@ -53,7 +53,13 @@ export const StepSolicitante = ({ form, setForm }) => (
     />
     <div className="grid grid-cols-2 gap-4">
       <Field label="Número do PTAM">
-        <Input value={form.number} onChange={(e) => setForm({ ...form, number: e.target.value })} placeholder="7010/2025" />
+        <Input
+          value={form.numero_ptam || ''}
+          readOnly
+          disabled
+          placeholder="Será gerado ao salvar"
+          className="bg-gray-100 text-gray-500 cursor-not-allowed"
+        />
       </Field>
       <Field label="Nome do Solicitante">
         <Input value={form.solicitante_nome} onChange={(e) => setForm({ ...form, solicitante_nome: e.target.value })} placeholder="Nome completo ou razão social" />

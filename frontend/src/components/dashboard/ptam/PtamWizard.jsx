@@ -105,7 +105,7 @@ const PtamWizard = () => {
       } else {
         const created = await ptamAPI.create(payload);
         setPtamId(created.id);
-        setForm((f) => ({ ...f, number: created.number }));
+        setForm((f) => ({ ...f, number: created.number, numero_ptam: created.numero_ptam || '' }));
         nav(`/dashboard/ptam/${created.id}`, { replace: true });
       }
       setLastSaved(new Date());

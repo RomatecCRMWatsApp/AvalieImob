@@ -1,6 +1,7 @@
 // Empty PTAM state matching the backend model (all 10 sections)
 export const EMPTY_PTAM = {
   // Seção 1 — Identificação do Solicitante
+  numero_ptam: '',  // gerado automaticamente pelo backend — readonly
   number: '',
   solicitante: '',
   solicitante_nome: '',

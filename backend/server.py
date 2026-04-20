@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo import ReturnDocument
 import os
 import logging
 import uuid
@@ -427,14 +428,29 @@ async def get_ptam(pid: str, uid: str = Depends(get_active_subscriber)):
     return Ptam(**_serialize(doc))
 
 
+async def _next_ptam_numero() -> str:
+    """Gera o próximo número global de PTAM no formato XXXX/AAAA usando contador atômico."""
+    ano = datetime.utcnow().year
+    result = await db.counters.find_one_and_update(
+        {"_id": "ptam_numero"},
+        {"$inc": {"seq": 1}},
+        upsert=True,
+        return_document=ReturnDocument.AFTER,  # retorna o documento APÓS a atualização
+    )
+    seq = result["seq"]
+    return f"{seq:04d}/{ano}"
+
+
 @api.post("/ptam", response_model=Ptam)
 async def create_ptam(data: PtamBase, uid: str = Depends(get_active_subscriber)):
-    number = data.number
-    if not number:
-        year = datetime.utcnow().year
-        count = await db.ptam_documents.count_documents({"user_id": uid}) + 1
-        number = f"{year}-{str(count).zfill(4)}"
+    # Gerar numero_ptam automaticamente (contador global atômico)
+    numero_ptam = await _next_ptam_numero()
+
+    # Manter campo legado 'number' compatível
+    number = data.number or numero_ptam
+
     payload = data.model_dump()
+    payload["numero_ptam"] = numero_ptam
     payload["number"] = number
     p = Ptam(user_id=uid, **payload)
     await db.ptam_documents.insert_one(p.model_dump())
