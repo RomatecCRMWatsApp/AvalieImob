@@ -3,7 +3,7 @@ import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Textarea } from '../../ui/textarea';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '../../ui/select';
-import { Plus, Trash2, Sparkles, ChevronDown, Check } from 'lucide-react';
+import { Plus, Trash2, Sparkles, ChevronDown, Check, X } from 'lucide-react';
 import { emptyMarketSample, emptyImpactArea, emptySample, computeStats } from './ptamHelpers';
 import ImageUploader from './ImageUploader';
 
@@ -322,6 +322,100 @@ export const StepObjetivo = ({ form, setForm, onAi, aiLoading }) => {
   );
 };
 
+// ── Proprietários do Imóvel ───────────────────────────────────────────────────
+
+const emptyProprietario = () => ({ nome: '', cpf_cnpj: '', percentual: '' });
+
+const ProprietariosSection = ({ form, setForm }) => {
+  const proprietarios = form.proprietarios && form.proprietarios.length > 0
+    ? form.proprietarios
+    : [emptyProprietario()];
+
+  const update = (idx, field, value) => {
+    const next = proprietarios.map((p, i) => i === idx ? { ...p, [field]: value } : p);
+    setForm({ ...form, proprietarios: next });
+  };
+
+  const add = () => setForm({ ...form, proprietarios: [...proprietarios, emptyProprietario()] });
+
+  const remove = (idx) => {
+    if (proprietarios.length <= 1) return;
+    setForm({ ...form, proprietarios: proprietarios.filter((_, i) => i !== idx) });
+  };
+
+  return (
+    <div className="col-span-2 mt-2">
+      <div className="rounded-xl border-2 border-amber-200 bg-amber-50/40 p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <div className="text-sm font-semibold text-amber-900 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
+              Proprietário(s) do Imóvel
+            </div>
+            <p className="text-xs text-amber-700 mt-0.5">
+              Para inventários e partilhas, adicione todos os proprietários.
+            </p>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            onClick={add}
+            className="bg-amber-700 hover:bg-amber-800 text-white text-xs"
+          >
+            <Plus className="w-3.5 h-3.5 mr-1" /> Adicionar Proprietário
+          </Button>
+        </div>
+
+        <div className="space-y-3">
+          {proprietarios.map((p, idx) => (
+            <div key={idx} className="flex items-start gap-3 bg-white rounded-lg border border-amber-200 p-3">
+              <div className="flex-1 grid grid-cols-3 gap-3">
+                <div className="col-span-3 sm:col-span-1">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Nome completo / Razão social</label>
+                  <Input
+                    value={p.nome}
+                    onChange={(e) => update(idx, 'nome', e.target.value)}
+                    placeholder="Nome do proprietário"
+                    className="text-sm h-8"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">CPF / CNPJ</label>
+                  <Input
+                    value={p.cpf_cnpj}
+                    onChange={(e) => update(idx, 'cpf_cnpj', e.target.value)}
+                    placeholder="000.000.000-00"
+                    className="text-sm h-8"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Fração / Percentual</label>
+                  <Input
+                    value={p.percentual}
+                    onChange={(e) => update(idx, 'percentual', e.target.value)}
+                    placeholder="50% ou 1/2"
+                    className="text-sm h-8"
+                  />
+                </div>
+              </div>
+              {proprietarios.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => remove(idx)}
+                  className="mt-5 p-1.5 text-red-400 hover:bg-red-50 rounded flex-shrink-0"
+                  title="Remover proprietário"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ── Helpers rurais ────────────────────────────────────────────────────────────
 
 const RURAL_TYPES = new Set(['rural', 'fazenda', 'sitio', 'chacara', 'terreno_rural']);
@@ -497,9 +591,7 @@ export const StepImovelId = ({ form, setForm }) => {
       <Field label="Longitude (GPS)">
         <Input value={form.property_gps_lng} onChange={(e) => setForm({ ...form, property_gps_lng: e.target.value })} placeholder="-47.4009" />
       </Field>
-      <Field label="Proprietário(s)" full>
-        <Input value={form.property_owner} onChange={(e) => setForm({ ...form, property_owner: e.target.value })} />
-      </Field>
+      <ProprietariosSection form={form} setForm={setForm} />
       {/* Área — condicional por tipo */}
       {rural ? (
         <>

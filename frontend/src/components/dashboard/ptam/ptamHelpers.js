@@ -34,6 +34,7 @@ export const EMPTY_PTAM = {
   property_gps_lat: '',
   property_gps_lng: '',
   property_owner: '',
+  proprietarios: [{ nome: '', cpf_cnpj: '', percentual: '' }],
   property_area_ha: 0,
   property_area_sqm: 0,
   property_confrontations: '',

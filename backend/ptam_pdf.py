@@ -697,6 +697,40 @@ def _build_property(ptam: dict, styles: dict) -> list:
     ]:
         story += _lv(styles, label, ptam.get(key))
 
+    # Proprietários detalhados (lista dinâmica)
+    proprietarios = ptam.get("proprietarios") or []
+    proprietarios_validos = [p for p in proprietarios if isinstance(p, dict) and p.get("nome")]
+    if proprietarios_validos:
+        story += _subsection(styles, "Proprietário(s) do Imóvel")
+        prop_headers = ["Nome / Razão Social", "CPF / CNPJ", "Fração / Percentual"]
+        prop_data = [prop_headers] + [
+            [
+                p.get("nome", ""),
+                p.get("cpf_cnpj", ""),
+                p.get("percentual", ""),
+            ]
+            for p in proprietarios_validos
+        ]
+        prop_col_widths = [7.0 * cm, 5.0 * cm, 4.5 * cm]
+        prop_tbl = Table(prop_data, colWidths=prop_col_widths, repeatRows=1)
+        prop_tbl.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), GREEN),
+            ("TEXTCOLOR", (0, 0), (-1, 0), WHITE),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, 0), 9),
+            ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+            ("FONTSIZE", (0, 1), (-1, -1), 9),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [WHITE, LIGHT_GREEN]),
+            ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#C0C0C0")),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ]))
+        story.append(prop_tbl)
+        story.append(_spacer(0.3))
+
     # Área: rural → ha (prioritário), urbano → m²
     if rural:
         if ptam.get("property_area_ha"):

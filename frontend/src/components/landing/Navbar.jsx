@@ -28,12 +28,8 @@ const Navbar = () => {
   return (
     <header className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white/95 backdrop-blur shadow-sm border-b border-emerald-900/10' : 'bg-white/80 backdrop-blur-sm'}`}>
       <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-3">
-          <img src={BRAND.logo} alt="Romatec" className="h-12 w-12 object-contain" />
-          <div className="hidden sm:block">
-            <div className="font-display text-xl font-bold brand-green leading-none">RomaTec</div>
-            <div className="text-[11px] tracking-[0.2em] text-emerald-800/70 mt-0.5">AVALIEIMOB</div>
-          </div>
+        <Link to="/" className="flex items-center">
+          <img src={BRAND.logo} alt="Romatec" className="h-14 w-auto object-contain" style={{ background: 'transparent' }} />
         </Link>
 
         <nav className="hidden lg:flex items-center gap-8">

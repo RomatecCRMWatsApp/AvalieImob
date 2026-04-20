@@ -213,6 +213,7 @@ class PtamBase(BaseModel):
     property_gps_lat: Optional[str] = ""
     property_gps_lng: Optional[str] = ""
     property_owner: Optional[str] = ""
+    proprietarios: Optional[List[dict]] = []  # lista de proprietarios: [{nome, cpf_cnpj, percentual}]
     property_area_ha: float = 0
     property_area_sqm: float = 0
     property_confrontations: Optional[str] = ""
