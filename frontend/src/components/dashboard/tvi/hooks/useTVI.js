@@ -8,7 +8,17 @@ export function useModels() {
 
   useEffect(() => {
     tviAPI.listModels()
-      .then(data => setModels(Array.isArray(data) ? data : data.models || []))
+      .then(data => {
+        if (Array.isArray(data)) {
+          setModels(data);
+        } else if (data.categorias) {
+          // Backend returns { categorias: { Cat1: [...], Cat2: [...] }, total: N }
+          const flat = Object.values(data.categorias).flat();
+          setModels(flat);
+        } else {
+          setModels(data.models || []);
+        }
+      })
       .catch(e => setError(e?.message || 'Erro ao carregar modelos'))
       .finally(() => setLoading(false));
   }, []);
