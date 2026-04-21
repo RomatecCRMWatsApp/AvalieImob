@@ -72,7 +72,7 @@ async def assetlinks():
         "target": {
             "namespace": "android_app",
             "package_name": "br.com.romatec.avalieimob",
-            "sha256_cert_fingerprints": ["PLACEHOLDER_FINGERPRINT_SUBSTITUIR_APOS_GERAR_KEYSTORE"]
+            "sha256_cert_fingerprints": ["0A:A2:42:55:DD:80:C5:11:3C:65:36:76:73:96:7F:05:D3:D5:94:A5:32:42:E9:2B:7B:5C:67:FE:6A:A6:49:01"]
         }
     }])
 
