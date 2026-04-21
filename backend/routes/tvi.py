@@ -15,7 +15,7 @@ from models.tvi import (
     PhotoUploadRequest, SignatureRequest, VistoriaShareBase,
 )
 from pdf.tvi_pdf import generate_tvi_pdf
-from docx.tvi_docx import generate_tvi_docx
+from docx_gen.tvi_docx import generate_tvi_docx
 from services.tvi_share import enviar_tvi_email, gerar_link_whatsapp
 
 

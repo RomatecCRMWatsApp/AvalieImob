@@ -1,25 +1,27 @@
 {
-  "short_name": "RomaTec AvalieImob",
-  "name": "RomaTec AvalieImob — Sistema de Avaliação Imobiliária e PTAM",
-  "description": "Plataforma completa para PTAM, laudos técnicos e avaliações imobiliárias urbanas, rurais e garantias.",
-  "icons": [
-    {
-      "src": "https://customer-assets.emergentagent.com/job_review-simples/artifacts/0n08eo2p_02_icone_512.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "https://customer-assets.emergentagent.com/job_review-simples/artifacts/0n08eo2p_02_icone_512.png",
-      "sizes": "512x512",
-      "type": "image/png"
-    }
-  ],
+  "name": "Romatec AvalieImob",
+  "short_name": "AvalieImob",
+  "description": "Vistorias e Avaliações Imobiliárias",
   "start_url": "/",
   "display": "standalone",
+  "background_color": "#060e0a",
+  "theme_color": "#1B4D1B",
   "orientation": "portrait-primary",
-  "theme_color": "#0d4f3c",
-  "background_color": "#ffffff",
   "lang": "pt-BR",
   "scope": "/",
-  "categories": ["business", "productivity", "finance"]
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/brand/icone.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/brand/icone.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
 }
