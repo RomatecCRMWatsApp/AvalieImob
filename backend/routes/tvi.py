@@ -3,6 +3,8 @@ import logging
 from datetime import datetime
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
+from pydantic import BaseModel
 from pymongo import ReturnDocument
 
 from db import get_db
@@ -12,6 +14,20 @@ from models.tvi import (
     VistoriaPhoto, VistoriaSignature, VistoriaShare,
     PhotoUploadRequest, SignatureRequest, VistoriaShareBase,
 )
+from pdf.tvi_pdf import generate_tvi_pdf
+from docx.tvi_docx import generate_tvi_docx
+from services.tvi_share import enviar_tvi_email, gerar_link_whatsapp
+
+
+class ShareEmailRequest(BaseModel):
+    destinatario: str          # email do destinatário
+    nome_dest: Optional[str] = ""
+    download_url: Optional[str] = ""
+
+
+class ShareWhatsAppRequest(BaseModel):
+    telefone: Optional[str] = ""   # com DDD+DDI, ex: "5598999990000"
+    download_url: Optional[str] = ""
 
 router = APIRouter(tags=["tvi"])
 logger = logging.getLogger("romatec")
@@ -229,3 +245,135 @@ async def share_vistoria(
     await db.vistoria_shares.insert_one(share.model_dump())
     logger.info("TVI %s compartilhada via %s para %s", vid, data.canal, data.destinatario)
     return share
+
+
+# ── Helpers internos ────────────────────────────────────────────────────────
+async def _load_vistoria_full(vid: str, uid: str, db):
+    """Carrega vistoria + fotos + assinaturas + user + model_nome."""
+    doc = await db.vistorias.find_one({"id": vid, "user_id": uid})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Vistoria não encontrada")
+    vistoria = serialize_doc(doc)
+
+    photos_cursor = db.vistoria_photos.find({"vistoria_id": vid})
+    photos = [serialize_doc(p) for p in await photos_cursor.to_list(500)]
+
+    sigs_cursor = db.vistoria_signatures.find({"vistoria_id": vid})
+    signatures = [serialize_doc(s) for s in await sigs_cursor.to_list(50)]
+
+    user_doc = await db.users.find_one({"id": uid})
+    user = serialize_doc(user_doc) if user_doc else {"name": "", "company": ""}
+
+    model_nome = ""
+    if vistoria.get("model_id"):
+        mdl = await db.vistoria_models.find_one({"id": vistoria["model_id"]})
+        if mdl:
+            model_nome = mdl.get("nome", "")
+
+    return vistoria, user, photos, signatures, model_nome
+
+
+# ── Export PDF ──────────────────────────────────────────────────────────────
+@router.post("/tvi/vistoria/{vid}/export/pdf")
+async def export_pdf(
+    vid: str,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db),
+):
+    """Gera e retorna o TVI em PDF (application/pdf)."""
+    vistoria, user, photos, signatures, model_nome = await _load_vistoria_full(vid, uid, db)
+    pdf_bytes = generate_tvi_pdf(vistoria, user, photos, signatures, model_nome)
+    numero = vistoria.get("numero_tvi") or vid
+    filename = f"TVI_{numero.replace('/', '_').replace('-', '_')}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+# ── Export DOCX ─────────────────────────────────────────────────────────────
+@router.post("/tvi/vistoria/{vid}/export/docx")
+async def export_docx(
+    vid: str,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db),
+):
+    """Gera e retorna o TVI em DOCX (Word)."""
+    vistoria, user, photos, signatures, model_nome = await _load_vistoria_full(vid, uid, db)
+    docx_bytes = generate_tvi_docx(vistoria, user, photos, signatures, model_nome)
+    numero = vistoria.get("numero_tvi") or vid
+    filename = f"TVI_{numero.replace('/', '_').replace('-', '_')}.docx"
+    return Response(
+        content=docx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+# ── Share Email ─────────────────────────────────────────────────────────────
+@router.post("/tvi/vistoria/{vid}/share/email")
+async def share_email(
+    vid: str,
+    data: ShareEmailRequest,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db),
+):
+    """Gera o TVI em PDF e envia por e-mail ao destinatário informado."""
+    vistoria, user, photos, signatures, model_nome = await _load_vistoria_full(vid, uid, db)
+    pdf_bytes = generate_tvi_pdf(vistoria, user, photos, signatures, model_nome)
+    numero = vistoria.get("numero_tvi") or vid
+    endereco = vistoria.get("imovel_endereco") or ""
+
+    await enviar_tvi_email(
+        to_email=data.destinatario,
+        numero=numero,
+        endereco=endereco,
+        pdf_bytes=pdf_bytes,
+        nome_dest=data.nome_dest or "",
+        download_url=data.download_url or "",
+    )
+
+    share = VistoriaShare(
+        vistoria_id=vid,
+        canal="email",
+        destinatario=data.destinatario,
+        mensagem=f"PDF TVI {numero} enviado por e-mail",
+    )
+    await db.vistoria_shares.insert_one(share.model_dump())
+    logger.info("TVI %s enviada por email para %s", numero, data.destinatario)
+    return {"ok": True, "mensagem": f"E-mail enviado para {data.destinatario}"}
+
+
+# ── Share WhatsApp ──────────────────────────────────────────────────────────
+@router.post("/tvi/vistoria/{vid}/share/whatsapp")
+async def share_whatsapp(
+    vid: str,
+    data: ShareWhatsAppRequest,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db),
+):
+    """Retorna link WhatsApp (wa.me) com mensagem pré-formatada do TVI."""
+    doc = await db.vistorias.find_one({"id": vid, "user_id": uid})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Vistoria não encontrada")
+    vistoria = serialize_doc(doc)
+    numero = vistoria.get("numero_tvi") or vid
+    endereco = vistoria.get("imovel_endereco") or ""
+
+    link = gerar_link_whatsapp(
+        numero=numero,
+        endereco=endereco,
+        download_url=data.download_url or "",
+        telefone=data.telefone or "",
+    )
+
+    share = VistoriaShare(
+        vistoria_id=vid,
+        canal="whatsapp",
+        destinatario=data.telefone or "link_generico",
+        mensagem=link,
+    )
+    await db.vistoria_shares.insert_one(share.model_dump())
+    logger.info("TVI %s link WhatsApp gerado", numero)
+    return {"ok": True, "link": link, "numero": numero, "endereco": endereco}
