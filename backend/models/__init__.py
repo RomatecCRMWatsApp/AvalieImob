@@ -17,6 +17,12 @@ from models.garantias import (
 )
 from models.semoventes import CategoriaSemovente, SemoventeBase, Semovente
 from models.clients import ClientBase, Client, PropertyBase, Property, SampleBase, Sample, EvaluationBase, Evaluation
+from models.tvi import (
+    VistoriaModelBase, VistoriaModel,
+    VistoriaBase, Vistoria,
+    VistoriaPhoto, VistoriaSignature, VistoriaShare,
+    PhotoUploadRequest, SignatureRequest,
+)
 
 __all__ = [
     "_id", "_now",
@@ -32,4 +38,8 @@ __all__ = [
     "CategoriaSemovente", "SemoventeBase", "Semovente",
     "ClientBase", "Client", "PropertyBase", "Property", "SampleBase", "Sample",
     "EvaluationBase", "Evaluation",
+    "VistoriaModelBase", "VistoriaModel",
+    "VistoriaBase", "Vistoria",
+    "VistoriaPhoto", "VistoriaSignature", "VistoriaShare",
+    "PhotoUploadRequest", "SignatureRequest",
 ]
