@@ -4,7 +4,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from bson import ObjectId
 
-from dependencies import get_current_user
+from dependencies import get_active_subscriber
 from db import get_db
 
 router = APIRouter(prefix="/maps", tags=["maps"])
@@ -39,7 +39,7 @@ async def geocode(endereco: str = Query(..., min_length=3)):
 @router.get("/comparativos/{ptam_id}")
 async def comparativos(
     ptam_id: str,
-    current_user=Depends(get_current_user),
+    current_user=Depends(get_active_subscriber),
 ):
     """Retorna amostras do PTAM com coordenadas geocodificadas."""
     db = get_db()
