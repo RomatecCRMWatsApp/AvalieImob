@@ -3,6 +3,7 @@ import './App.css';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Toaster } from './components/ui/toaster';
+import InstallPrompt from './components/common/InstallPrompt';
 
 import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
@@ -68,6 +69,7 @@ function App() {
             </Routes>
           </ErrorBoundary>
           <Toaster />
+          <InstallPrompt />
         </BrowserRouter>
       </AuthProvider>
     </div>
