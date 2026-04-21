@@ -183,6 +183,25 @@ app.add_middleware(
 async def startup():
     init_db()
     logger.info("MongoDB conectado")
+    # Auto-seed TVI models if collection is empty
+    try:
+        from db import get_db
+        db = get_db()
+        col = db.vistoria_models
+        count = await col.count_documents({})
+        if count == 0:
+            logger.info("Seeding TVI models...")
+            from seed_tvi_models import ALL_MODELOS
+            import uuid
+            from datetime import datetime
+            for modelo in ALL_MODELOS:
+                doc = {**modelo, "id": str(uuid.uuid4()), "ativo": True, "created_at": datetime.utcnow()}
+                await col.insert_one(doc)
+            logger.info(f"TVI: {len(ALL_MODELOS)} modelos inseridos")
+        else:
+            logger.info(f"TVI: {count} modelos já existem, skip seed")
+    except Exception as e:
+        logger.error(f"Erro no auto-seed TVI: {e}")
 
 
 @app.on_event("shutdown")
