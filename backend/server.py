@@ -10,6 +10,7 @@ import logging
 import os
 
 from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -58,6 +59,97 @@ async def root():
     return {"app": "RomaTec AvalieImob API", "version": "1.0.0"}
 
 app.include_router(api)
+
+# ── Play Store TWA: assetlinks.json ──────────────────────────────────
+from fastapi.responses import JSONResponse
+import json
+
+@app.get("/.well-known/assetlinks.json")
+async def assetlinks():
+    """Digital Asset Links para Trusted Web Activity (TWA)."""
+    return JSONResponse(content=[{
+        "relation": ["delegate_permission/common.handle_all_urls"],
+        "target": {
+            "namespace": "android_app",
+            "package_name": "br.com.romatec.avalieimob",
+            "sha256_cert_fingerprints": ["PLACEHOLDER_FINGERPRINT_SUBSTITUIR_APOS_GERAR_KEYSTORE"]
+        }
+    }])
+
+# ── Página de Privacidade (LGPD) ─────────────────────────────────────
+@app.get("/privacidade", response_class=HTMLResponse)
+async def privacidade():
+    """Política de Privacidade exigida pela Play Store."""
+    return """<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Política de Privacidade — Romatec AvaliImob</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 800px; margin: 0 auto; padding: 2rem; line-height: 1.6; color: #333; }
+        h1 { color: #1B4D1B; }
+        h2 { color: #2d6a2d; margin-top: 2rem; }
+        .date { color: #666; font-size: 0.9rem; }
+        .contact { background: #f5f5f5; padding: 1rem; border-radius: 8px; margin-top: 2rem; }
+    </style>
+</head>
+<body>
+    <h1>Política de Privacidade</h1>
+    <p class="date">Última atualização: 21 de abril de 2026</p>
+    
+    <p>O <strong>Romatec AvaliImob</strong> é operado por <strong>J R P Bezerra Ltda</strong> (Romatec Consultoria Imobiliária), CNPJ 12.091.853/0001-69, com sede em Açailândia, MA.</p>
+    
+    <h2>1. Dados Coletados</h2>
+    <ul>
+        <li><strong>Dados de cadastro:</strong> nome, e-mail, telefone, CREA/CAU/CFTMA</li>
+        <li><strong>Dados de clientes:</strong> CPF/CNPJ das partes envolvidas em laudos</li>
+        <li><strong>Dados de imóveis:</strong> endereço, coordenadas GPS, fotos</li>
+        <li><strong>Dados técnicos:</strong> informações para elaboração de PTAM e TVI</li>
+    </ul>
+    
+    <h2>2. Finalidade do Uso</h2>
+    <p>Os dados são utilizados exclusivamente para:</p>
+    <ul>
+        <li>Elaboração de laudos técnicos de avaliação imobiliária</li>
+        <li>Emissão de certidões negativas de débito (CND)</li>
+        <li>Geração de documentos PDF/DOCX para partes interessadas</li>
+        <li>Comunicação com clientes sobre serviços contratados</li>
+    </ul>
+    
+    <h2>3. Armazenamento e Segurança</h2>
+    <p>Seus dados são armazenados em servidores seguros na Railway (cloud computing), com criptografia em trânsito (HTTPS/TLS) e acesso restrito apenas aos profissionais credenciados da Romatec.</p>
+    
+    <h2>4. Compartilhamento</h2>
+    <p>Não vendemos nem compartilhamos dados pessoais com terceiros, exceto:</p>
+    <ul>
+        <li>Quando exigido por lei ou ordem judicial</li>
+        <li>Para cumprimento de obrigações regulatórias (INCRA, CFTMA)</li>
+        <li>Com consentimento expresso do titular</li>
+    </ul>
+    
+    <h2>5. Direitos do Titular (LGPD)</h2>
+    <p>Você tem direito a:</p>
+    <ul>
+        <li>Acessar seus dados pessoais</li>
+        <li>Corrigir dados incompletos ou desatualizados</li>
+        <li>Solicitar exclusão (direito ao esquecimento)</li>
+        <li>Revogar consentimento</li>
+        <li>Portabilidade dos dados</li>
+    </ul>
+    
+    <h2>6. Exclusão de Dados</h2>
+    <p>Para solicitar exclusão de dados pessoais, entre em contato pelo e-mail abaixo. A exclusão será processada em até 30 dias, conforme prazo legal.</p>
+    
+    <div class="contact">
+        <h2>Contato</h2>
+        <p><strong>Responsável:</strong> José Romário P. Bezerra</p>
+        <p><strong>E-mail:</strong> contato@consultoriaromatec.com.br</p>
+        <p><strong>Telefone:</strong> (99) 9 9181-1246</p>
+        <p><strong>Endereço:</strong> Açailândia, MA — CEP 65940-000</p>
+    </div>
+</body>
+</html>"""
 
 # ── React SPA static files ───────────────────────────────────────────
 import pathlib as _pathlib
