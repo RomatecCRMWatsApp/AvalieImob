@@ -17,6 +17,7 @@ from routes.clients import router as clients_router
 from routes.properties import router as properties_router
 from routes.evaluations import router as evaluations_router
 from routes.tvi import router as tvi_router
+from routes.maps import router as maps_router
 
 all_routers = [
     auth_router, users_router, ptam_router, locacao_router,
@@ -24,5 +25,5 @@ all_routers = [
     uploads_router, admin_router, dashboard_router, ai_router,
     imoveis_crm_router, email_router, perfil_avaliador_router,
     clients_router, properties_router, evaluations_router,
-    tvi_router,
+    tvi_router, maps_router,
 ]

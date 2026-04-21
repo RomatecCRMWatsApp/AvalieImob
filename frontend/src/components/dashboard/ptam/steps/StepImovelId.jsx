@@ -1,5 +1,5 @@
 // @module ptam/steps/StepImovelId — Step 3: Identificação do Imóvel (localização, registros, área, fotos)
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Input } from '../../../ui/input';
 import { Textarea } from '../../../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
@@ -7,9 +7,24 @@ import { Field, SectionHeader } from '../shared/primitives';
 import ProprietariosSection from '../shared/ProprietariosSection';
 import RuralDocSection, { isRural } from '../shared/RuralDocSection';
 import ImageUploader from '../ImageUploader';
+import ImovelMap from '../../../maps/ImovelMap';
+import StreetView from '../../../maps/StreetView';
 
 export const StepImovelId = ({ form, setForm }) => {
   const rural = isRural(form.property_type);
+
+  const [enderecoGeocode, setEnderecoGeocode] = useState('');
+  useEffect(() => {
+    const parts = [
+      form.property_address,
+      form.property_neighborhood,
+      form.property_city,
+      form.property_state,
+    ].filter(Boolean).join(', ');
+    const timer = setTimeout(() => setEnderecoGeocode(parts), 800);
+    return () => clearTimeout(timer);
+  }, [form.property_address, form.property_neighborhood, form.property_city, form.property_state]);
+
   return (
   <div>
     <SectionHeader
@@ -72,6 +87,23 @@ export const StepImovelId = ({ form, setForm }) => {
       <Field label="Longitude (GPS)">
         <Input value={form.property_gps_lng} onChange={(e) => setForm({ ...form, property_gps_lng: e.target.value })} placeholder="-47.4009" />
       </Field>
+
+      <div className="col-span-2 space-y-3 mt-2">
+        <div className="text-sm font-semibold text-gray-900">Localização</div>
+        <ImovelMap
+          endereco={enderecoGeocode}
+          lat={form.property_gps_lat}
+          lng={form.property_gps_lng}
+          height={280}
+        />
+        <StreetView
+          lat={form.property_gps_lat || null}
+          lng={form.property_gps_lng || null}
+          endereco={enderecoGeocode}
+          height={240}
+        />
+      </div>
+
       <ProprietariosSection form={form} setForm={setForm} />
       {rural ? (
         <>
