@@ -6,20 +6,18 @@ import { Button } from '../../ui/button';
 import { useToast } from '../../../hooks/use-toast';
 import { ptamAPI, aiAPI, perfilAPI } from '../../../lib/api';
 import { EMPTY_PTAM, PTAM_STEPS, computeImpactTotals, sumIndemnity } from './ptamHelpers';
-import {
-  StepSolicitante,
-  StepObjetivo,
-  StepImovelId,
-  StepRegiao,
-  StepCaracterizacao,
-  StepAmostras,
-  StepMetodologia,
-  StepCalculos,
-  StepPonderancia,
-  StepMetodoAvaliacao,
-  StepResultado,
-  StepConclusao,
-} from './PtamSteps';
+import { StepSolicitante } from './steps/StepSolicitante';
+import { StepObjetivo } from './steps/StepObjetivo';
+import { StepImovelId } from './steps/StepImovelId';
+import { StepRegiao } from './steps/StepRegiao';
+import { StepCaracterizacao } from './steps/StepCaracterizacao';
+import { StepAmostras } from './steps/StepAmostras';
+import { StepMetodologia } from './steps/StepMetodologia';
+import { StepCalculos } from './steps/StepCalculos';
+import { StepPonderancia } from './steps/StepPonderancia';
+import { StepMetodoAvaliacao } from './steps/StepMetodoAvaliacao';
+import { StepResultado } from './steps/StepResultado';
+import { StepConclusao } from './steps/StepConclusao';
 
 const getStepClasses = (active, done) => {
   if (active) return 'bg-emerald-900 text-white';
