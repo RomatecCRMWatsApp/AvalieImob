@@ -3,7 +3,7 @@
 import React from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { SectionTitle, Field, Inp, CheckRow } from './shared.js';
-import ImageUploader from '../../../ptam/ImageUploader';
+import ImageUploader from '../../ptam/ImageUploader';
 
 const Step7Vistoria = ({ form, set }) => (
   <div className="space-y-6">
