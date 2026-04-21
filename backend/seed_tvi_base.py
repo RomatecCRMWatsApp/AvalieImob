@@ -1,0 +1,30 @@
+# @module seed_tvi — Campos base obrigatórios presentes em todos os modelos TVI
+"""Campos JSON Schema obrigatórios em todos os 45 modelos TVI."""
+
+CAMPOS_BASE = [
+    {"key": "cliente_nome",       "label": "Nome do Cliente/Solicitante", "type": "text",     "required": True},
+    {"key": "cliente_cpf_cnpj",   "label": "CPF/CNPJ do Cliente",         "type": "text",     "required": True},
+    {"key": "cliente_telefone",   "label": "Telefone do Cliente",          "type": "text",     "required": False},
+    {"key": "cliente_email",      "label": "E-mail do Cliente",            "type": "email",    "required": False},
+    {"key": "imovel_endereco",    "label": "Endereço do Imóvel",           "type": "text",     "required": True},
+    {"key": "imovel_bairro",      "label": "Bairro",                       "type": "text",     "required": False},
+    {"key": "imovel_cidade",      "label": "Cidade",                       "type": "text",     "required": True},
+    {"key": "imovel_uf",          "label": "UF",                           "type": "text",     "required": True},
+    {"key": "imovel_cep",         "label": "CEP",                          "type": "text",     "required": False},
+    {"key": "imovel_matricula",   "label": "Matrícula do Imóvel",          "type": "text",     "required": False},
+    {"key": "imovel_tipo",        "label": "Tipo de Imóvel",               "type": "text",     "required": False},
+    {"key": "responsavel_nome",   "label": "Responsável Técnico",          "type": "text",     "required": True},
+    {"key": "responsavel_crea",   "label": "CREA",                         "type": "text",     "required": False},
+    {"key": "responsavel_cau",    "label": "CAU",                          "type": "text",     "required": False},
+    {"key": "responsavel_cftma",  "label": "CFTMA",                        "type": "text",     "required": False},
+    {"key": "art_trt_numero",     "label": "Número ART/TRT",               "type": "text",     "required": False},
+    {"key": "objetivo",           "label": "Objetivo da Vistoria",         "type": "textarea", "required": True},
+    {"key": "metodologia",        "label": "Metodologia Aplicada",         "type": "textarea", "required": True},
+    {"key": "data_vistoria",      "label": "Data da Vistoria",             "type": "date",     "required": True},
+    {"key": "hora_vistoria",      "label": "Hora da Vistoria",             "type": "time",     "required": False},
+    {"key": "condicoes_climaticas","label": "Condições Climáticas",        "type": "text",     "required": False},
+    {"key": "ambientes",          "label": "Descrição por Ambiente",       "type": "ambientes","required": True},
+    {"key": "fotos",              "label": "Registro Fotográfico",         "type": "fotos",    "required": False},
+    {"key": "conclusao_tecnica",  "label": "Conclusão Técnica",            "type": "textarea", "required": True},
+    {"key": "assinatura",         "label": "Assinatura Digital",           "type": "signature","required": False},
+]
