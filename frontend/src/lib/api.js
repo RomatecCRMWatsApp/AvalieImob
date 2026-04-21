@@ -169,3 +169,18 @@ export const uploadAPI = {
 export const imoveisAPI = {
   list: () => api.get('/imoveis-crm').then(r => r.data),
 };
+
+// ---- TVI (Termo de Vistoria de Imóvel)
+export const tviAPI = {
+  listModels: () => api.get('/tvi/models').then(r => r.data),
+  getModel: (id) => api.get(`/tvi/models/${id}`).then(r => r.data),
+  list: (params) => api.get('/tvi/vistorias', { params }).then(r => r.data),
+  get: (id) => api.get(`/tvi/vistoria/${id}`).then(r => r.data),
+  create: (data) => api.post('/tvi/vistoria', data).then(r => r.data),
+  update: (id, data) => api.put(`/tvi/vistoria/${id}`, data).then(r => r.data),
+  remove: (id) => api.delete(`/tvi/vistoria/${id}`).then(r => r.data),
+  uploadPhotos: (id, formData) => api.post(`/tvi/vistoria/${id}/photos`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }).then(r => r.data),
+  saveSignature: (id, signatureBase64) => api.post(`/tvi/vistoria/${id}/signature`, { signature: signatureBase64 }).then(r => r.data),
+};
