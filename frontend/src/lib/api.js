@@ -104,6 +104,7 @@ export const ptamAPI = {
   remove: (id) => api.delete(`/ptam/${id}`).then(r => r.data),
   downloadDocx: (id) => api.get(`/ptam/${id}/docx`, { responseType: 'blob' }).then(r => r.data),
   downloadPdf: (id) => api.get(`/ptam/${id}/pdf`, { responseType: 'blob' }).then(r => r.data),
+  sendEmail: (id, data) => api.post(`/ptam/${id}/email`, data).then(r => r.data),
 };
 
 // ---- Garantias (NBR 14.653 partes 3 e 5)

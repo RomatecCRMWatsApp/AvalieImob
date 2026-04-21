@@ -1,11 +1,126 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, FileText, Download, Trash2, Loader2, Calendar, DollarSign, FileDown } from 'lucide-react';
+import { Plus, FileText, Download, Trash2, Loader2, Calendar, DollarSign, FileDown, Mail, X, Send } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Badge } from '../../ui/badge';
 import { useToast } from '../../../hooks/use-toast';
 import { ptamAPI } from '../../../lib/api';
 
+// ── Modal de envio por email ──────────────────────────────────────────────────
+const EmailModal = ({ ptam, onClose, onSent }) => {
+  const { toast } = useToast();
+  const [form, setForm] = useState({ destinatario: '', nome_cliente: '', mensagem_extra: '' });
+  const [sending, setSending] = useState(false);
+
+  const handleSend = async (e) => {
+    e.preventDefault();
+    if (!form.destinatario.trim()) return;
+    setSending(true);
+    try {
+      await ptamAPI.sendEmail(ptam.id, {
+        destinatario: form.destinatario.trim(),
+        nome_cliente: form.nome_cliente.trim(),
+        mensagem_extra: form.mensagem_extra.trim(),
+      });
+      toast({ title: 'E-mail enviado com sucesso!' });
+      onSent();
+      onClose();
+    } catch (err) {
+      const detail = err?.response?.data?.detail || 'Erro ao enviar e-mail.';
+      toast({ title: detail, variant: 'destructive' });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 relative">
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition"
+          aria-label="Fechar"
+        >
+          <X className="w-5 h-5" />
+        </button>
+
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-10 h-10 rounded-xl bg-emerald-900/10 flex items-center justify-center">
+            <Mail className="w-5 h-5 text-emerald-900" />
+          </div>
+          <div>
+            <h2 className="font-semibold text-gray-900 text-base">Enviar PTAM por E-mail</h2>
+            <p className="text-xs text-gray-500">PTAM {ptam.number} — PDF em anexo</p>
+          </div>
+        </div>
+
+        <form onSubmit={handleSend} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              E-mail do destinatário <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="email"
+              required
+              placeholder="cliente@exemplo.com"
+              value={form.destinatario}
+              onChange={e => setForm(f => ({ ...f, destinatario: e.target.value }))}
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm
+                         focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Nome do cliente
+            </label>
+            <input
+              type="text"
+              placeholder="Ex.: João da Silva"
+              value={form.nome_cliente}
+              onChange={e => setForm(f => ({ ...f, nome_cliente: e.target.value }))}
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm
+                         focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Mensagem adicional (opcional)
+            </label>
+            <textarea
+              rows={3}
+              placeholder="Ex.: Qualquer dúvida estou à disposição."
+              value={form.mensagem_extra}
+              onChange={e => setForm(f => ({ ...f, mensagem_extra: e.target.value }))}
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm resize-none
+                         focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200"
+            />
+          </div>
+
+          <div className="flex gap-2 pt-1">
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1">
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              disabled={sending || !form.destinatario.trim()}
+              className="flex-1 bg-emerald-900 hover:bg-emerald-800 text-white"
+            >
+              {sending ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Enviando...</>
+              ) : (
+                <><Send className="w-4 h-4 mr-2" />Enviar</>
+              )}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// ── Lista de PTAMs ─────────────────────────────────────────────────────────────
 const PtamList = () => {
   const nav = useNavigate();
   const { toast } = useToast();
@@ -13,6 +128,7 @@ const PtamList = () => {
   const [loading, setLoading] = useState(true);
   const [pdfLoading, setPdfLoading] = useState({});
   const [docxLoading, setDocxLoading] = useState({});
+  const [emailModal, setEmailModal] = useState(null); // ptam object or null
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -70,6 +186,14 @@ const PtamList = () => {
 
   return (
     <div className="space-y-6">
+      {emailModal && (
+        <EmailModal
+          ptam={emailModal}
+          onClose={() => setEmailModal(null)}
+          onSent={load}
+        />
+      )}
+
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="font-display text-3xl font-bold text-gray-900">PTAM — Pareceres Técnicos</h1>
@@ -105,6 +229,10 @@ const PtamList = () => {
               </div>
               <div className="flex gap-2 mt-4">
                 <Button size="sm" className="flex-1 bg-emerald-900 hover:bg-emerald-800 text-white" onClick={() => nav(`/dashboard/ptam/${p.id}`)}>Editar</Button>
+                <Button size="sm" variant="outline" title="Enviar por E-mail" onClick={() => setEmailModal(p)}
+                  className="text-emerald-700 hover:bg-emerald-50 border-emerald-200">
+                  <Mail className="w-3.5 h-3.5" />
+                </Button>
                 <Button size="sm" variant="outline" title="Exportar PDF" onClick={() => downloadPdf(p)} disabled={pdfLoading[p.id]}>
                   {pdfLoading[p.id] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5" />}
                 </Button>
