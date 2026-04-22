@@ -102,11 +102,24 @@ async def download_locacao_pdf(locacao_id: str, uid: str = Depends(get_current_u
     if not doc:
         raise HTTPException(status_code=404, detail="Avaliação de locação não encontrada")
     doc.pop("_id", None)
-    pdf_bytes = generate_locacao_pdf(doc)
+    user = await db.users.find_one({"id": uid})
+    if user:
+        user.pop("_id", None)
+    try:
+        pdf_bytes = generate_locacao_pdf(doc, user)
+    except Exception as e:
+        logger.exception("Erro ao gerar PDF de locação")
+        raise HTTPException(status_code=500, detail=f"Erro ao gerar PDF: {str(e)[:200]}")
+    if not pdf_bytes or len(pdf_bytes) < 100:
+        raise HTTPException(status_code=500, detail="PDF gerado vazio")
     numero = doc.get("numero_locacao") or locacao_id
     filename = f"avaliacao_locacao_{numero.replace('/', '-')}.pdf"
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Length": str(len(pdf_bytes)),
+            "Cache-Control": "no-store",
+        },
     )
