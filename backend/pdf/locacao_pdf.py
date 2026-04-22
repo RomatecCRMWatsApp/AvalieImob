@@ -957,12 +957,81 @@ def _build_fotos(loc: dict, styles: dict, user: dict) -> list:
     # Documentos digitalizados
     if docs:
         story.append(Paragraph("Documentos Digitalizados:", styles["h3"]))
-        for i, doc in enumerate(docs[:6]):
-            if isinstance(doc, dict):
-                doc_name = doc.get("name") or doc.get("nome") or f"Documento {i+1}"
+        for i, doc_item in enumerate(docs[:6]):
+            if isinstance(doc_item, dict):
+                doc_name = doc_item.get("name") or doc_item.get("nome") or f"Documento {i+1}"
+                doc_bytes = doc_item.get("_doc_bytes")
             else:
                 doc_name = f"Documento {i+1}"
+                doc_bytes = None
+            
             story.append(Paragraph(f"  • {doc_name}", styles["body"]))
+            
+            # Se for imagem, mostrar no PDF; se for PDF, apenas referenciar
+            if doc_bytes:
+                try:
+                    # Tentar inserir como imagem
+                    img = Image(io.BytesIO(doc_bytes), width=15*cm, height=10*cm)
+                    img.hAlign = 'CENTER'
+                    story.append(_spacer(0.2))
+                    story.append(img)
+                    story.append(_spacer(0.2))
+                except Exception:
+                    # Se não for imagem, apenas indicar que existe
+                    story.append(Paragraph(f"    [Documento anexado: {doc_name}]", styles["caption"]))
+    
+    return story
+
+
+# ── Section 9b: Certidões e Documentos Anexos ───────────────────────────────
+
+def _build_certidoes(loc: dict, styles: dict) -> list:
+    """Build section for attached certificates/documents (PDFs, images)."""
+    docs = loc.get("fotos_documentos") or []
+    if not docs:
+        return []
+    
+    story = []
+    story += _section(styles, "9.1 Certidões e Documentos do Imóvel")
+    story.append(Paragraph("Documentos digitalizados anexos à avaliação:", styles["body"]))
+    story.append(_spacer(0.3))
+    
+    for i, doc_item in enumerate(docs[:10]):  # Max 10 documentos
+        if isinstance(doc_item, dict):
+            doc_name = doc_item.get("name") or doc_item.get("nome") or f"Documento {i+1}"
+            doc_bytes = doc_item.get("_doc_bytes")
+            content_type = doc_item.get("content_type", "")
+        else:
+            doc_name = f"Documento {i+1}"
+            doc_bytes = None
+            content_type = ""
+        
+        # Tipo do documento
+        tipo_doc = "Imagem"
+        if "pdf" in content_type.lower():
+            tipo_doc = "PDF"
+        elif "jpeg" in content_type.lower() or "jpg" in content_type.lower():
+            tipo_doc = "JPEG"
+        elif "png" in content_type.lower():
+            tipo_doc = "PNG"
+        
+        story.append(Paragraph(f"{i+1}. {doc_name} ({tipo_doc})", styles["value"]))
+        
+        # Se tiver bytes e for imagem, inserir no PDF
+        if doc_bytes and ("image" in content_type or tipo_doc in ["JPEG", "PNG"]):
+            try:
+                img = Image(io.BytesIO(doc_bytes), width=16*cm, height=11*cm)
+                img.hAlign = 'CENTER'
+                story.append(_spacer(0.2))
+                story.append(img)
+                story.append(_spacer(0.3))
+            except Exception as e:
+                story.append(Paragraph(f"    [Erro ao carregar documento: {str(e)}]", styles["caption"]))
+        elif doc_bytes and "pdf" in content_type.lower():
+            # Para PDFs, apenas indicar que está anexado
+            story.append(Paragraph(f"    [Documento PDF anexado - {len(doc_bytes)} bytes]", styles["caption"]))
+        
+        story.append(_spacer(0.2))
     
     return story
 
@@ -1128,6 +1197,12 @@ def generate_locacao_pdf(loc: dict, user: dict | None = None) -> bytes:
     fotos = _build_fotos(loc, styles, user)
     if fotos:
         story += fotos
+        story.append(_spacer(0.5))
+
+    # ── Seção 9.1: Certidões e Documentos do Imóvel ───────────────────────
+    certidoes = _build_certidoes(loc, styles)
+    if certidoes:
+        story += certidoes
         story.append(_spacer(0.5))
 
     # ── Seção 10: Responsável Técnico ─────────────────────────────────────

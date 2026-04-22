@@ -134,6 +134,34 @@ async def download_locacao_pdf(locacao_id: str, uid: str = Depends(get_current_u
                         "caption": f"Foto {i+1}"
                     }
         
+        # Buscar documentos digitalizados (certidões)
+        docs = doc.get("fotos_documentos") or []
+        for i, doc_item in enumerate(docs):
+            # Extrair doc_id da URL ou do objeto
+            if isinstance(doc_item, str):
+                url = doc_item
+            elif isinstance(doc_item, dict):
+                url = doc_item.get("url") or doc_item.get("doc_id") or doc_item.get("image_id", "")
+            else:
+                continue
+            
+            parts = str(url).replace('/api/upload/image/', '').split('/')
+            doc_id = parts[-1] if parts else str(url)
+            
+            # Validar se parece um UUID
+            if len(doc_id) > 30 and '-' in doc_id:
+                doc_doc = await db.images.find_one({"id": doc_id})
+                if doc_doc and doc_doc.get("data_b64"):
+                    import base64
+                    # Substituir por dict com dados do documento
+                    docs[i] = {
+                        "doc_id": doc_id,
+                        "url": url,
+                        "_doc_bytes": base64.b64decode(doc_doc["data_b64"]),
+                        "name": doc_doc.get("filename") or f"Documento {i+1}",
+                        "content_type": doc_doc.get("content_type", "application/pdf")
+                    }
+        
         pdf_bytes = generate_locacao_pdf(doc, user)
     except Exception as e:
         logger.exception("Erro ao gerar PDF de locação")
