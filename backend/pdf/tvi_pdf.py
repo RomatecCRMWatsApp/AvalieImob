@@ -15,6 +15,7 @@ Uses reportlab to produce a professional, print-ready PDF with:
 from __future__ import annotations
 
 import base64
+import html as _html
 import io
 import urllib.request
 from datetime import datetime
@@ -211,10 +212,26 @@ class _TVIDoc(BaseDocTemplate):
 
 # ── builder helpers ───────────────────────────────────────────────────────────
 
+def _safe_text(val: Any) -> str:
+    """Converte valor de campo em texto seguro para ReportLab (escapa HTML)."""
+    if val is None:
+        return ""
+    if isinstance(val, bool):
+        return "Sim" if val else "Não"
+    if isinstance(val, list):
+        items = [str(i) for i in val if i is not None and str(i).strip()]
+        return _html.escape(", ".join(items))
+    if isinstance(val, dict):
+        parts = [f"{k}: {v}" for k, v in val.items() if v is not None and str(v).strip()]
+        return _html.escape(" | ".join(parts))
+    return _html.escape(str(val))
+
+
 def _lv(styles: dict, label: str, value: Any) -> list:
-    if value is None or str(value).strip() in ("", "0", "0.0"):
+    safe = _safe_text(value)
+    if not safe or safe.strip() in ("", "0", "0.0"):
         return []
-    return [Paragraph(f"<b>{label}:</b> {value}", styles["value"])]
+    return [Paragraph(f"<b>{_html.escape(label)}:</b> {safe}", styles["value"])]
 
 
 def _section(styles: dict, text: str) -> list:
@@ -372,15 +389,41 @@ def _build_ambientes(v: dict, styles: dict) -> list:
     return story
 
 
-def _build_campos_extras(v: dict, styles: dict) -> list:
+def _build_campos_extras(v: dict, styles: dict, campos_especificos: list | None = None) -> list:
     extras = v.get("campos_extras") or {}
     if not extras:
         return []
-    story = _section(styles, "5. Informações Complementares")
+
+    # Monta mapa id→{label, secao} a partir dos campos_especificos do modelo
+    campo_meta: dict[str, dict] = {}
+    if campos_especificos:
+        for c in campos_especificos:
+            cid = c.get("id") or c.get("key") or ""
+            if cid:
+                campo_meta[cid] = {
+                    "label": c.get("label") or cid.replace("_", " ").title(),
+                    "secao": c.get("secao") or "Informações Complementares",
+                }
+
+    # Agrupa por seção
+    secoes: dict[str, list] = {}
     for key, val in extras.items():
-        if val is not None and str(val).strip():
-            label = key.replace("_", " ").title()
-            story += _lv(styles, label, val)
+        safe = _safe_text(val)
+        if not safe or safe.strip() in ("", "0", "0.0"):
+            continue
+        meta = campo_meta.get(key, {})
+        label = meta.get("label") or key.replace("_", " ").title()
+        secao = meta.get("secao") or "Informações Complementares"
+        secoes.setdefault(secao, []).append((label, safe))
+
+    if not secoes:
+        return []
+
+    story = _section(styles, "5. Campos Específicos do Modelo")
+    for secao, itens in secoes.items():
+        story.append(Paragraph(f"<b>{_html.escape(secao)}</b>", styles.get("subsection", styles["value"])))
+        for label, safe in itens:
+            story += _lv(styles, label, safe)
     return story
 
 
@@ -521,6 +564,7 @@ def generate_tvi_pdf(
     photos: list | None = None,
     signatures: list | None = None,
     model_nome: str = "",
+    campos_especificos: list | None = None,
 ) -> bytes:
     """Generate TVI PDF. Returns bytes.
 
@@ -551,7 +595,7 @@ def generate_tvi_pdf(
     story.append(_spacer(0.4))
     story += _build_ambientes(vistoria, styles)
     story.append(_spacer(0.4))
-    story += _build_campos_extras(vistoria, styles)
+    story += _build_campos_extras(vistoria, styles, campos_especificos or [])
     story.append(_spacer(0.4))
     story += _build_fotos(photos or [], styles)
     story.append(_spacer(0.4))

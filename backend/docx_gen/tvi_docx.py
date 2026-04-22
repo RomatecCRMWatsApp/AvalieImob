@@ -61,15 +61,31 @@ def _add_section_title(doc: Document, text: str) -> None:
     rule.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
 
+def _fmt_val(val: Any) -> str:
+    """Formata valor de campo para exibição em texto plano."""
+    if val is None:
+        return ""
+    if isinstance(val, bool):
+        return "Sim" if val else "Não"
+    if isinstance(val, list):
+        items = [str(i) for i in val if i is not None and str(i).strip()]
+        return ", ".join(items)
+    if isinstance(val, dict):
+        parts = [f"{k}: {v}" for k, v in val.items() if v is not None and str(v).strip()]
+        return " | ".join(parts)
+    return str(val)
+
+
 def _add_label_value(doc: Document, label: str, value: Any) -> None:
-    if not value or not str(value).strip():
+    text = _fmt_val(value)
+    if not text or not text.strip():
         return
     p = doc.add_paragraph()
     r1 = p.add_run(f"{label}: ")
     r1.bold = True
     r1.font.size = Pt(11)
     r1.font.name = "Calibri"
-    r2 = p.add_run(str(value))
+    r2 = p.add_run(text)
     r2.font.size = Pt(11)
     r2.font.name = "Calibri"
 
@@ -149,15 +165,42 @@ def _render_ambientes(doc: Document, v: dict) -> None:
         doc.add_paragraph()
 
 
-def _render_campos_extras(doc: Document, v: dict) -> None:
+def _render_campos_extras(doc: Document, v: dict, campos_especificos: list | None = None) -> None:
     extras = v.get("campos_extras") or {}
     if not extras:
         return
-    _add_section_title(doc, "5. Informações Complementares")
+
+    # Mapa id→{label, secao} do modelo
+    campo_meta: dict[str, dict] = {}
+    if campos_especificos:
+        for c in campos_especificos:
+            cid = c.get("id") or c.get("key") or ""
+            if cid:
+                campo_meta[cid] = {
+                    "label": c.get("label") or cid.replace("_", " ").title(),
+                    "secao": c.get("secao") or "Informações Complementares",
+                }
+
+    # Agrupa por seção
+    secoes: dict[str, list] = {}
     for key, val in extras.items():
-        if val is not None and str(val).strip():
-            label = key.replace("_", " ").title()
-            _add_label_value(doc, label, val)
+        text = _fmt_val(val)
+        if not text or not text.strip():
+            continue
+        meta = campo_meta.get(key, {})
+        label = meta.get("label") or key.replace("_", " ").title()
+        secao = meta.get("secao") or "Informações Complementares"
+        secoes.setdefault(secao, []).append((label, text))
+
+    if not secoes:
+        return
+
+    _add_section_title(doc, "5. Campos Específicos do Modelo")
+    for secao, itens in secoes.items():
+        p = doc.add_paragraph(secao)
+        p.runs[0].bold = True
+        for label, text in itens:
+            _add_label_value(doc, label, text)
 
 
 def _render_fotos(doc: Document, photos: list) -> None:
@@ -293,6 +336,7 @@ def generate_tvi_docx(
     photos: list | None = None,
     signatures: list | None = None,
     model_nome: str = "",
+    campos_especificos: list | None = None,
 ) -> bytes:
     """Generate TVI DOCX. Returns bytes.
 
@@ -322,7 +366,7 @@ def generate_tvi_docx(
     _render_ambientes(doc, vistoria)
     doc.add_paragraph()
 
-    _render_campos_extras(doc, vistoria)
+    _render_campos_extras(doc, vistoria, campos_especificos or [])
     doc.add_paragraph()
 
     _render_fotos(doc, photos or [])

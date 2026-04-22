@@ -288,12 +288,14 @@ async def _load_vistoria_full(vid: str, uid: str, db):
     user = serialize_doc(user_doc) if user_doc else {"name": "", "company": ""}
 
     model_nome = ""
+    campos_especificos: list = []
     if vistoria.get("model_id"):
         mdl = await db.vistoria_models.find_one({"id": vistoria["model_id"]})
         if mdl:
             model_nome = mdl.get("nome", "")
+            campos_especificos = mdl.get("campos_especificos") or []
 
-    return vistoria, user, photos, signatures, model_nome
+    return vistoria, user, photos, signatures, model_nome, campos_especificos
 
 
 # ── Export PDF ──────────────────────────────────────────────────────────────
@@ -304,8 +306,8 @@ async def export_pdf(
     db=Depends(get_db),
 ):
     """Gera e retorna o TVI em PDF (application/pdf)."""
-    vistoria, user, photos, signatures, model_nome = await _load_vistoria_full(vid, uid, db)
-    pdf_bytes = generate_tvi_pdf(vistoria, user, photos, signatures, model_nome)
+    vistoria, user, photos, signatures, model_nome, campos_esp = await _load_vistoria_full(vid, uid, db)
+    pdf_bytes = generate_tvi_pdf(vistoria, user, photos, signatures, model_nome, campos_esp)
     numero = vistoria.get("numero_tvi") or vid
     filename = f"TVI_{numero.replace('/', '_').replace('-', '_')}.pdf"
     return Response(
@@ -323,8 +325,8 @@ async def export_docx(
     db=Depends(get_db),
 ):
     """Gera e retorna o TVI em DOCX (Word)."""
-    vistoria, user, photos, signatures, model_nome = await _load_vistoria_full(vid, uid, db)
-    docx_bytes = generate_tvi_docx(vistoria, user, photos, signatures, model_nome)
+    vistoria, user, photos, signatures, model_nome, campos_esp = await _load_vistoria_full(vid, uid, db)
+    docx_bytes = generate_tvi_docx(vistoria, user, photos, signatures, model_nome, campos_esp)
     numero = vistoria.get("numero_tvi") or vid
     filename = f"TVI_{numero.replace('/', '_').replace('-', '_')}.docx"
     return Response(
@@ -343,8 +345,8 @@ async def share_email(
     db=Depends(get_db),
 ):
     """Gera o TVI em PDF e envia por e-mail ao destinatário informado."""
-    vistoria, user, photos, signatures, model_nome = await _load_vistoria_full(vid, uid, db)
-    pdf_bytes = generate_tvi_pdf(vistoria, user, photos, signatures, model_nome)
+    vistoria, user, photos, signatures, model_nome, campos_esp = await _load_vistoria_full(vid, uid, db)
+    pdf_bytes = generate_tvi_pdf(vistoria, user, photos, signatures, model_nome, campos_esp)
     numero = vistoria.get("numero_tvi") or vid
     endereco = vistoria.get("imovel_endereco") or ""
 
