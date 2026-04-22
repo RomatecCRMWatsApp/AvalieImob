@@ -14,7 +14,7 @@ from services.auth_service import get_current_user_id
 from services.ptam_share import enviar_ptam_email
 from models import PtamBase, Ptam
 from ptam_docx import generate_ptam_docx
-from ptam_pdf import generate_ptam_pdf
+from pdf.ptam_pdf import generate_ptam_pdf
 
 router = APIRouter(tags=["ptam"])
 logger = logging.getLogger("romatec")
@@ -121,6 +121,73 @@ async def download_ptam_pdf(pid: str, uid: str = Depends(get_active_subscriber),
             import base64 as _b64
             user["_company_logo_bytes"] = _b64.b64decode(logo_doc["data_b64"])
     try:
+        # ── Buscar fotos do imóvel ─────────────────────────────────────────
+        fotos_imovel = doc.get("fotos_imovel") or []
+        for i, foto in enumerate(fotos_imovel):
+            if isinstance(foto, str):
+                url = foto
+            elif isinstance(foto, dict):
+                url = foto.get("url") or foto.get("image_id", "")
+            else:
+                continue
+            parts = str(url).replace('/api/upload/image/', '').split('/')
+            image_id = parts[-1] if parts else str(url)
+            if len(image_id) > 30 and '-' in image_id:
+                img_doc = await db.images.find_one({"id": image_id})
+                if img_doc and img_doc.get("data_b64"):
+                    fotos_imovel[i] = {
+                        "image_id": image_id,
+                        "url": url,
+                        "_image_bytes": base64.b64decode(img_doc["data_b64"]),
+                        "description": (foto.get("description") or foto.get("descricao") or f"Foto {i+1}") if isinstance(foto, dict) else f"Foto {i+1}",
+                    }
+        doc["fotos_imovel"] = fotos_imovel
+
+        # ── Buscar documentos digitalizados ───────────────────────────────
+        docs_list = doc.get("fotos_documentos") or []
+        docs_processados = []
+        for i, doc_item in enumerate(docs_list):
+            if isinstance(doc_item, str):
+                url = doc_item
+            elif isinstance(doc_item, dict):
+                url = doc_item.get("url") or doc_item.get("doc_id") or doc_item.get("image_id", "")
+            else:
+                continue
+            parts = str(url).replace('/api/upload/image/', '').split('/')
+            doc_id = parts[-1] if parts else str(url)
+            if len(doc_id) > 30 and '-' in doc_id:
+                doc_db = await db.images.find_one({"id": doc_id})
+                if doc_db and doc_db.get("data_b64"):
+                    docs_processados.append({
+                        "doc_id": doc_id,
+                        "url": url,
+                        "_doc_bytes": base64.b64decode(doc_db["data_b64"]),
+                        "name": doc_db.get("filename") or (doc_item.get("name") if isinstance(doc_item, dict) else None) or f"Documento {i+1}",
+                        "content_type": doc_db.get("content_type", "application/pdf"),
+                    })
+                else:
+                    docs_processados.append(doc_item if isinstance(doc_item, dict) else {"url": doc_item, "name": f"Documento {i+1}"})
+            else:
+                docs_processados.append(doc_item if isinstance(doc_item, dict) else {"url": doc_item, "name": f"Documento {i+1}"})
+        doc["fotos_documentos"] = docs_processados
+
+        # ── Buscar imagens das amostras de mercado ────────────────────────
+        market_samples = doc.get("market_samples") or []
+        for j, sample in enumerate(market_samples):
+            foto_url = sample.get("foto_url") or ""
+            if not foto_url:
+                continue
+            parts = str(foto_url).replace('/api/upload/image/', '').split('/')
+            sample_image_id = parts[-1] if parts else str(foto_url)
+            if len(sample_image_id) > 30 and '-' in sample_image_id:
+                sample_img_doc = await db.images.find_one({"id": sample_image_id})
+                if sample_img_doc and sample_img_doc.get("data_b64"):
+                    market_samples[j] = {
+                        **sample,
+                        "_image_bytes": base64.b64decode(sample_img_doc["data_b64"]),
+                    }
+        doc["market_samples"] = market_samples
+
         # Busca consultas CND vinculadas ao PTAM para incluir no PDF
         cnd_consultas = []
         raw_consultas = await db.cnd_consultas.find({"ptam_id": pid, "user_id": uid}).to_list(20)
@@ -175,6 +242,73 @@ async def send_ptam_email(
             user["_company_logo_bytes"] = _b64.b64decode(logo_doc["data_b64"])
 
     try:
+        # ── Buscar fotos do imóvel ─────────────────────────────────────────
+        fotos_imovel_e = doc.get("fotos_imovel") or []
+        for i, foto in enumerate(fotos_imovel_e):
+            if isinstance(foto, str):
+                url = foto
+            elif isinstance(foto, dict):
+                url = foto.get("url") or foto.get("image_id", "")
+            else:
+                continue
+            parts = str(url).replace('/api/upload/image/', '').split('/')
+            image_id = parts[-1] if parts else str(url)
+            if len(image_id) > 30 and '-' in image_id:
+                img_doc = await db.images.find_one({"id": image_id})
+                if img_doc and img_doc.get("data_b64"):
+                    fotos_imovel_e[i] = {
+                        "image_id": image_id,
+                        "url": url,
+                        "_image_bytes": base64.b64decode(img_doc["data_b64"]),
+                        "description": (foto.get("description") or foto.get("descricao") or f"Foto {i+1}") if isinstance(foto, dict) else f"Foto {i+1}",
+                    }
+        doc["fotos_imovel"] = fotos_imovel_e
+
+        # ── Buscar documentos digitalizados ───────────────────────────────
+        docs_list_e = doc.get("fotos_documentos") or []
+        docs_proc_e = []
+        for i, doc_item in enumerate(docs_list_e):
+            if isinstance(doc_item, str):
+                url = doc_item
+            elif isinstance(doc_item, dict):
+                url = doc_item.get("url") or doc_item.get("doc_id") or doc_item.get("image_id", "")
+            else:
+                continue
+            parts = str(url).replace('/api/upload/image/', '').split('/')
+            doc_id = parts[-1] if parts else str(url)
+            if len(doc_id) > 30 and '-' in doc_id:
+                doc_db = await db.images.find_one({"id": doc_id})
+                if doc_db and doc_db.get("data_b64"):
+                    docs_proc_e.append({
+                        "doc_id": doc_id,
+                        "url": url,
+                        "_doc_bytes": base64.b64decode(doc_db["data_b64"]),
+                        "name": doc_db.get("filename") or (doc_item.get("name") if isinstance(doc_item, dict) else None) or f"Documento {i+1}",
+                        "content_type": doc_db.get("content_type", "application/pdf"),
+                    })
+                else:
+                    docs_proc_e.append(doc_item if isinstance(doc_item, dict) else {"url": doc_item, "name": f"Documento {i+1}"})
+            else:
+                docs_proc_e.append(doc_item if isinstance(doc_item, dict) else {"url": doc_item, "name": f"Documento {i+1}"})
+        doc["fotos_documentos"] = docs_proc_e
+
+        # ── Buscar imagens das amostras de mercado ────────────────────────
+        market_samples_e = doc.get("market_samples") or []
+        for j, sample in enumerate(market_samples_e):
+            foto_url = sample.get("foto_url") or ""
+            if not foto_url:
+                continue
+            parts = str(foto_url).replace('/api/upload/image/', '').split('/')
+            sample_image_id = parts[-1] if parts else str(foto_url)
+            if len(sample_image_id) > 30 and '-' in sample_image_id:
+                sample_img_doc = await db.images.find_one({"id": sample_image_id})
+                if sample_img_doc and sample_img_doc.get("data_b64"):
+                    market_samples_e[j] = {
+                        **sample,
+                        "_image_bytes": base64.b64decode(sample_img_doc["data_b64"]),
+                    }
+        doc["market_samples"] = market_samples_e
+
         # Busca consultas CND vinculadas para incluir no PDF enviado por email
         cnd_consultas_email = []
         raw_c = await db.cnd_consultas.find({"ptam_id": pid, "user_id": uid}).to_list(20)

@@ -185,6 +185,14 @@ def _make_styles():
             textColor=DARK,
             alignment=TA_CENTER,
         ),
+        "caption": ParagraphStyle(
+            "caption",
+            fontName="Helvetica",
+            fontSize=8,
+            leading=11,
+            textColor=DARK,
+            alignment=TA_CENTER,
+        ),
     }
 
 
@@ -900,6 +908,26 @@ def _build_market_analysis(ptam: dict, styles: dict) -> list:
                 f"Desvio Padrão: R$ {std:,.2f} | CV: {cv:.2f}%"
             ).replace(",", "X").replace(".", ",").replace("X", ".")
             story.append(Paragraph(stats_text, styles["value"]))
+
+        # Detalhes e fotos das amostras (se houver _image_bytes)
+        amostras_com_foto = [s for s in market_samples if s.get("_image_bytes")]
+        if amostras_com_foto:
+            story += _subsection(styles, "Fotografias das Amostras")
+            for idx, s in enumerate(market_samples, start=1):
+                img_bytes = s.get("_image_bytes")
+                if not img_bytes:
+                    continue
+                endereco = f"{s.get('address', '')} / {s.get('neighborhood', '')}".strip(" /") or f"Amostra {idx}"
+                story.append(Paragraph(f"<b>Amostra {idx}</b> — {endereco}", styles["value"]))
+                story.append(_spacer(0.1))
+                try:
+                    img = Image(io.BytesIO(img_bytes), width=12 * cm, height=8 * cm)
+                    img.hAlign = "CENTER"
+                    story.append(img)
+                except Exception:
+                    story.append(Paragraph(f"[Foto — erro ao carregar]", styles["body"]))
+                story.append(_spacer(0.4))
+
     return story
 
 
@@ -1371,8 +1399,115 @@ def _build_conclusion(ptam: dict, user: dict, styles: dict) -> list:
     return story
 
 
-# ── CND: Certidões das Partes ─────────────────────────────────────────────────
+# ── Fotos e Documentos ───────────────────────────────────────────────────────
 
+def _build_fotos_e_documentos(ptam: dict, styles: dict) -> list:
+    """Seção de Registro Fotográfico e Documentos Anexos.
+
+    Layout: fotos do imóvel (uma por linha, centralizada) + documentos digitalizados.
+    Imagens são incorporadas se _image_bytes estiver disponível.
+    """
+    fotos = ptam.get("fotos_imovel") or []
+    docs = ptam.get("fotos_documentos") or []
+
+    if not fotos and not docs:
+        return []
+
+    story = []
+    story += _section(styles, "Registro Fotográfico e Documentos")
+
+    # ── Fotos do Imóvel ────────────────────────────────────────────────────
+    if fotos:
+        story.append(Paragraph("<b>Fotografias do Imóvel</b>", styles["subsection_title"]))
+        story.append(Paragraph("Imagens obtidas na data da vistoria:", styles["body"]))
+        story.append(_spacer(0.3))
+
+        for i, foto in enumerate(fotos[:12]):  # Max 12 fotos
+            if isinstance(foto, dict):
+                caption = (
+                    foto.get("description") or foto.get("descricao")
+                    or foto.get("caption") or foto.get("legenda")
+                    or f"Foto {i + 1}"
+                )
+                img_bytes = foto.get("_image_bytes")
+            else:
+                caption = f"Foto {i + 1}"
+                img_bytes = None
+
+            story.append(Paragraph(f"<b>{caption}</b>", styles["caption"]))
+            story.append(_spacer(0.1))
+
+            if img_bytes:
+                try:
+                    img = Image(io.BytesIO(img_bytes), width=14 * cm, height=9 * cm)
+                    img.hAlign = "CENTER"
+                    story.append(img)
+                except Exception:
+                    story.append(Paragraph(f"[Foto {i + 1} — erro ao carregar]", styles["body"]))
+            else:
+                story.append(Paragraph(f"[Foto {i + 1} — indisponível]", styles["body"]))
+
+            story.append(_spacer(0.5))
+
+            # Quebra de página a cada 3 fotos
+            if (i + 1) % 3 == 0 and i < len(fotos) - 1:
+                story.append(PageBreak())
+
+    # ── Documentos Anexos ───────────────────────────────────────────────────
+    if docs:
+        if fotos:
+            story.append(_spacer(0.3))
+        story.append(Paragraph("<b>Documentos Anexos</b>", styles["subsection_title"]))
+        story.append(Paragraph("Certidões, escrituras e demais documentos digitalizados:", styles["body"]))
+        story.append(_spacer(0.3))
+
+        for i, doc_item in enumerate(docs[:10]):  # Max 10 documentos
+            if isinstance(doc_item, dict):
+                doc_name = (
+                    doc_item.get("name") or doc_item.get("nome")
+                    or doc_item.get("filename") or f"Documento {i + 1}"
+                )
+                doc_bytes = doc_item.get("_doc_bytes")
+                content_type = doc_item.get("content_type", "")
+            else:
+                doc_name = f"Documento {i + 1}"
+                doc_bytes = None
+                content_type = ""
+
+            is_pdf = "pdf" in content_type.lower() or doc_name.lower().endswith(".pdf")
+            is_image = (
+                any(ext in content_type.lower() for ext in ["jpeg", "jpg", "png", "image"])
+                or any(doc_name.lower().endswith(ext) for ext in [".jpg", ".jpeg", ".png"])
+            )
+
+            tipo_indicador = "[PDF]" if is_pdf else ("[IMG]" if is_image else "[DOC]")
+            tipo_desc = "Documento PDF" if is_pdf else ("Imagem digitalizada" if is_image else "Documento")
+
+            story.append(Paragraph(f"<b>{i + 1}. {doc_name}</b> {tipo_indicador}", styles["value"]))
+            story.append(Paragraph(f"   <i>{tipo_desc}</i>", styles["caption"]))
+
+            if doc_bytes and is_image:
+                try:
+                    img = Image(io.BytesIO(doc_bytes), width=16 * cm, height=11 * cm)
+                    img.hAlign = "CENTER"
+                    story.append(_spacer(0.2))
+                    story.append(img)
+                    story.append(_spacer(0.3))
+                except Exception as exc:
+                    story.append(Paragraph(f"   [Erro ao exibir: {exc}]", styles["caption"]))
+            elif doc_bytes and is_pdf:
+                tamanho_kb = len(doc_bytes) / 1024
+                story.append(Paragraph(
+                    f"   <i>Arquivo anexado ({tamanho_kb:.1f} KB) — disponível nos arquivos digitais</i>",
+                    styles["caption"],
+                ))
+
+            story.append(_spacer(0.2))
+
+    return story
+
+
+# ── CND: Certidões das Partes ─────────────────────────────────────────────────
 _PROVIDER_LABELS = {
     "receita":      "Receita Federal",
     "pgfn":         "PGFN - Dívida Ativa",
@@ -1565,6 +1700,12 @@ def generate_ptam_pdf(ptam: dict, user: dict, cnd_consultas: list | None = None)
 
     # ── Seções 9-11: Resultado, Prazo, Responsabilidade Técnica ──────────
     story += _safe_build(_build_conclusion, ptam, user, styles, section_name="9-11-conclusao")
+
+    # ── Registro Fotográfico e Documentos ────────────────────────────────
+    fotos_docs_section = _safe_build(_build_fotos_e_documentos, ptam, styles, section_name="fotos-docs")
+    if fotos_docs_section:
+        story.append(PageBreak())
+        story += fotos_docs_section
 
     # ── Seção CND: Certidões das Partes (opcional) ────────────────────────
     certidoes_section = _safe_build(
