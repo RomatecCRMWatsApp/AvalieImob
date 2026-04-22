@@ -608,7 +608,7 @@ def _rental_samples_table(samples: list) -> list:
             s.get("source", "") or "",
             s.get("collection_date", "") or "",
         ])
-    col_widths = [0.8 * cm, 4.5 * cm, 2.0 * cm, 2.3 * cm, 1.8 * cm, 2.0 * cm, 2.2 * cm, 1.6 * cm]
+    col_widths = [0.8 * cm, 4.0 * cm, 1.8 * cm, 2.0 * cm, 1.6 * cm, 1.8 * cm, 2.8 * cm, 2.2 * cm]
     tbl = Table(data, colWidths=col_widths, repeatRows=1)
     tbl.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), GREEN),
@@ -621,10 +621,13 @@ def _rental_samples_table(samples: list) -> list:
         ("FONTSIZE", (0, 1), (-1, -1), 8),
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), [WHITE, LIGHT_GREEN]),
         ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#C0C0C0")),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("LEFTPADDING", (0, 0), (-1, -1), 4),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
         ("ALIGN", (1, 1), (1, -1), "LEFT"),
         ("ALIGN", (6, 1), (6, -1), "LEFT"),
+        ("ALIGN", (7, 1), (7, -1), "CENTER"),
     ]))
     return [tbl, _spacer(0.3)]
 
@@ -691,20 +694,38 @@ def _build_calculos(loc: dict, styles: dict) -> list:
 
     if loc.get("calc_grau_fundamentacao"):
         grau_desc = {
-            "I": "Grau I",
-            "II": "Grau II",
-            "III": "Grau III",
+            "I": "Grau I — Mínimo (amostras insuficientes ou dados não verificados)",
+            "II": "Grau II — Intermediário (amostras verificadas, dados consistentes)",
+            "III": "Grau III — Máximo (amostras verificadas em campo, dados robustos)",
         }
         story += _lv(styles, "Grau de Fundamentação (NBR 14653-2)", grau_desc.get(loc["calc_grau_fundamentacao"], loc["calc_grau_fundamentacao"]))
+        # Adicionar explicação do significado
+        significado_fund = {
+            "I": "Indica que a avaliação possui fundamentação mínima, com amostras não verificadas ou dados limitados.",
+            "II": "Indica fundamentação intermediária, com amostras verificadas e dados consistentes.",
+            "III": "Indica fundamentação máxima, com amostras verificadas em campo e dados robustos.",
+        }
+        if loc["calc_grau_fundamentacao"] in significado_fund:
+            story += _body(styles, significado_fund[loc["calc_grau_fundamentacao"]])
+            story.append(_spacer(0.2))
 
     grau_precisao = loc.get("grau_precisao") or ""
     if grau_precisao:
         grau_prec_desc = {
-            "I": "Grau I — Amplitude ≤ 30%",
-            "II": "Grau II — Amplitude ≤ 20%",
-            "III": "Grau III — Amplitude ≤ 10%",
+            "I": "Grau I — Amplitude ≤ 30% (precisão aceitável para laudos técnicos)",
+            "II": "Grau II — Amplitude ≤ 20% (boa precisão)",
+            "III": "Grau III — Amplitude ≤ 10% (excelente precisão)",
         }
         story += _lv(styles, "Grau de Precisão (NBR 14653-1 item 9)", grau_prec_desc.get(grau_precisao, grau_precisao))
+        # Adicionar explicação do significado
+        significado_prec = {
+            "I": "O intervalo de confiança é amplo (até 30%), indicando precisão aceitável para fins de locação.",
+            "II": "O intervalo de confiança é moderado (até 20%), indicando boa precisão.",
+            "III": "O intervalo de confiança é estreito (até 10%), indicando excelente precisão.",
+        }
+        if grau_precisao in significado_prec:
+            story += _body(styles, significado_prec[grau_precisao])
+            story.append(_spacer(0.2))
 
     if loc.get("calc_fatores_homogeneizacao"):
         story += _subsection(styles, "Fatores de Homogeneização Aplicados")
@@ -1087,11 +1108,11 @@ def generate_locacao_pdf(loc: dict, user: dict | None = None) -> bytes:
 
     # ── Seção 5: Cálculos ─────────────────────────────────────────────────
     story += _build_calculos(loc, styles)
-    story.append(_spacer(0.5))
+    story.append(_spacer(0.8))
 
     # ── Seção 6: Resultado ────────────────────────────────────────────────
     story += _build_resultado(loc, styles)
-    story.append(_spacer(0.5))
+    story.append(_spacer(0.8))
 
     # ── Seção 7: Garantia e Condições ─────────────────────────────────────
     garantia = _build_garantia(loc, styles)
