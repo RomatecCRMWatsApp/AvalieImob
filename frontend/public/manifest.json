@@ -10,6 +10,7 @@
   "lang": "pt-BR",
   "scope": "/",
   "categories": ["business", "productivity"],
+  "permissions": ["camera", "geolocation"],
   "icons": [
     {
       "src": "/brand/icone.png",
