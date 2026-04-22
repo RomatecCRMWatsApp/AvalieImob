@@ -97,6 +97,15 @@ const TVIForm = () => {
 
   const modelFields = model?.campos || [];
   const specificFields = model?.campos_especificos || [];
+  const isV2 = !!model?.ramo; // v2 models have 'ramo' field
+
+  // Group specific fields by secao
+  const secoes = {};
+  specificFields.forEach(f => {
+    const sec = f.secao || 'Campos Específicos';
+    if (!secoes[sec]) secoes[sec] = [];
+    secoes[sec].push(f);
+  });
 
   return (
     <div className="max-w-4xl mx-auto pb-20 space-y-6">
@@ -121,11 +130,14 @@ const TVIForm = () => {
           <div className="w-10 h-10 rounded-lg bg-emerald-900/10 flex items-center justify-center">
             <ClipboardCheck className="w-5 h-5 text-emerald-900" />
           </div>
-          <div>
-            <div className="font-semibold text-gray-900">{vistoria?.modelo_nome || 'TVI'}</div>
-            <div className="text-sm text-gray-500">{vistoria?.categoria || ''}</div>
+          <div className="flex-1">
+            <div className="font-semibold text-gray-900">{model?.nome || vistoria?.modelo_nome || 'TVI'}</div>
+            <div className="text-sm text-gray-500">{model?.ramo || vistoria?.categoria || ''}</div>
           </div>
+          {model?.requer_art && <span className="text-[10px] px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full font-semibold">ART Obrigatória</span>}
         </div>
+        {model?.aplicacao && <p className="text-xs text-gray-400 mt-2">{model.aplicacao}</p>}
+        {model?.normas?.length > 0 && <p className="text-[10px] text-gray-400 mt-1">Normas: {model.normas.join(', ')}</p>}
       </div>
 
       {/* Tabs */}
@@ -146,7 +158,7 @@ const TVIForm = () => {
       {/* Tab content */}
       <div className="bg-white rounded-xl border border-gray-200 p-6">
         {activeTab === 'dados' && (
-          <div className="space-y-4">
+          <div className="space-y-6">
             <div className="space-y-1">
               <label className="text-xs font-medium text-gray-600">Título / Endereço</label>
               <input
@@ -158,41 +170,54 @@ const TVIForm = () => {
               />
             </div>
 
-            {modelFields.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {modelFields.map(f => (
-                  <FieldRenderer
-                    key={f.key}
-                    field={f}
-                    value={fields[f.key]}
-                    onChange={(key, val) => setFields(prev => ({ ...prev, [key]: val }))}
-                  />
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-gray-400 text-center py-8">
-                Nenhum campo dinâmico para este modelo.
-              </p>
-            )}
-
-            {specificFields.length > 0 && (
-              <>
-                <div className="border-t border-gray-200 pt-4 mt-4">
-                  <h3 className="text-sm font-semibold text-emerald-800 mb-3">
-                    Campos Específicos — {model?.nome || 'Modelo'}
-                  </h3>
+            {/* For v2 models: show ONLY specific fields grouped by secao */}
+            {isV2 && Object.entries(secoes).map(([secao, camposSec]) => (
+              <div key={secao} className="space-y-3">
+                <div className="border-t border-gray-200 pt-4">
+                  <h3 className="text-sm font-semibold text-emerald-800">{secao}</h3>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {specificFields.map(f => (
+                  {camposSec.map(f => (
                     <FieldRenderer
-                      key={f.key}
+                      key={f.id || f.key}
                       field={f}
-                      value={fields[f.key]}
+                      value={fields[f.id || f.key]}
                       onChange={(key, val) => setFields(prev => ({ ...prev, [key]: val }))}
                     />
                   ))}
                 </div>
+              </div>
+            ))}
+
+            {/* For v1 (legacy) models: show base campos + specific campos */}
+            {!isV2 && (
+              <>
+                {modelFields.length > 0 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {modelFields.map(f => (
+                      <FieldRenderer key={f.key} field={f} value={fields[f.key]}
+                        onChange={(key, val) => setFields(prev => ({ ...prev, [key]: val }))} />
+                    ))}
+                  </div>
+                )}
+                {specificFields.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="border-t border-gray-200 pt-4">
+                      <h3 className="text-sm font-semibold text-emerald-800">Campos Específicos — {model?.nome || 'Modelo'}</h3>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {specificFields.map(f => (
+                        <FieldRenderer key={f.key || f.id} field={f} value={fields[f.key || f.id]}
+                          onChange={(key, val) => setFields(prev => ({ ...prev, [key]: val }))} />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </>
+            )}
+
+            {!isV2 && modelFields.length === 0 && specificFields.length === 0 && (
+              <p className="text-sm text-gray-400 text-center py-8">Nenhum campo dinâmico para este modelo.</p>
             )}
           </div>
         )}
