@@ -19,8 +19,6 @@ import { StepMetodoAvaliacao } from './steps/StepMetodoAvaliacao';
 import { StepResultado } from './steps/StepResultado';
 import { StepConclusao } from './steps/StepConclusao';
 import { StepCertidoes } from './steps/StepCertidoes';
-import StepVistoria from './steps/StepVistoria';
-import StepAvaliacaoAreas from './steps/StepAvaliacaoAreas';
 
 const getStepClasses = (active, done) => {
   if (active) return 'bg-emerald-900 text-white';
@@ -194,16 +192,14 @@ const PtamWizard = () => {
       case 2:  return <StepImovelId {...stepProps} />;
       case 3:  return <StepRegiao {...stepProps} />;
       case 4:  return <StepCaracterizacao {...stepProps} />;
-      case 5:  return <StepVistoria data={form} onChange={setForm} />;
-      case 6:  return <StepAmostras {...stepProps} />;
-      case 7:  return <StepMetodologia {...stepProps} />;
-      case 8:  return <StepCalculos {...stepProps} />;
-      case 9:  return <StepPonderancia {...stepProps} />;
-      case 10: return <StepMetodoAvaliacao {...stepProps} />;
-      case 11: return <StepAvaliacaoAreas data={form} onChange={setForm} />;
-      case 12: return <StepResultado {...stepProps} />;
-      case 13: return <StepConclusao {...stepProps} />;
-      case 14: return <StepCertidoes form={{ ...form, id: ptamId }} />;
+      case 5:  return <StepAmostras {...stepProps} />;
+      case 6:  return <StepMetodologia {...stepProps} />;
+      case 7:  return <StepCalculos {...stepProps} />;
+      case 8:  return <StepPonderancia {...stepProps} />;
+      case 9:  return <StepMetodoAvaliacao {...stepProps} />;
+      case 10: return <StepResultado {...stepProps} />;
+      case 11: return <StepConclusao {...stepProps} />;
+      case 12: return <StepCertidoes form={{ ...form, id: ptamId }} />;
       default: return null;
     }
   };

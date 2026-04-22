@@ -442,22 +442,19 @@ def _consolidation_table(impact_areas: list) -> tuple[list, float]:
 # ── cover page ────────────────────────────────────────────────────────────────
 
 def _build_toc(styles: dict) -> list:
-    """Sumário do PTAM — 12 seções + anexos."""
+    """Sumário do PTAM — seções + anexos."""
     story = []
     story += _section(styles, "SUMÁRIO")
     toc_items = [
         ("1",    "Identificação e Objetivo"),
         ("2",    "Documentação Analisada"),
         ("3",    "Identificação do Imóvel"),
-        ("4",    "Vistoria Técnica"),
-        ("5",    "Contexto Urbano / Análise da Região"),
-        ("6",    "Análise Mercadológica e Amostras"),
-        ("7",    "Metodologia"),
-        ("8",    "Avaliação — Área 01"),
-        ("9",    "Avaliação — Área 02"),
-        ("10",   "Consolidação"),
-        ("11",   "Conclusão Técnica"),
-        ("12",   "Conclusão e Responsabilidade Técnica"),
+        ("4",    "Contexto Urbano / Análise da Região"),
+        ("5",    "Análise Mercadológica e Amostras"),
+        ("6",    "Metodologia"),
+        ("7",    "Cálculos e Tratamento Estatístico"),
+        ("8",    "Resultado da Avaliação"),
+        ("9",    "Conclusão e Responsabilidade Técnica"),
         ("A.1",  "Anexo I — Ficha do Imóvel, Fotos e Documentos"),
         ("A.2",  "Anexo II — Amostras Comparativas"),
         ("A.3",  "Anexo III — Base Legal e Normativa"),
@@ -1918,15 +1915,11 @@ def generate_ptam_pdf(ptam: dict, user: dict, cnd_consultas: list | None = None)
     story += _safe_build(_build_property, ptam, styles, section_name="3-imovel")
     story.append(_spacer(0.5))
 
-    # ── Seção 4: Vistoria Técnica ─────────────────────────────────────────
-    story += _safe_build(_build_vistoria, ptam, styles, section_name="4-vistoria")
-    story.append(PageBreak())
-
-    # ── Seção 5: Análise da Região ────────────────────────────────────────
+    # ── Seção 4: Análise da Região ────────────────────────────────────────
     try:
         regiao = _build_regiao(ptam, styles)
     except Exception as _exc:
-        _pdf_logger.exception("ptam_pdf: erro na seção '5-regiao': %s", _exc)
+        _pdf_logger.exception("ptam_pdf: erro na seção '4-regiao': %s", _exc)
         regiao = []
     if regiao:
         story += regiao
@@ -1941,31 +1934,25 @@ def generate_ptam_pdf(ptam: dict, user: dict, cnd_consultas: list | None = None)
     story += _safe_build(_build_methodology, ptam, styles, section_name="7-metodologia")
     story.append(_spacer(0.5))
 
-    # ── Seção 8b: Cálculo de Ponderância ─────────────────────────────────
-    ponderancia = _safe_build(_build_ponderancia, ptam, styles, section_name="8b-ponderancia")
+    # ── Seção 5: Cálculo de Ponderância ─────────────────────────────────
+    ponderancia = _safe_build(_build_ponderancia, ptam, styles, section_name="5-ponderancia")
     if ponderancia:
         story += ponderancia
         story.append(_spacer(0.5))
 
-    # ── Seção 8c: Método de Avaliação — Depreciação e Valorização ─────────
-    metodo_aval = _safe_build(_build_metodo_avaliacao, ptam, styles, section_name="8c-metodo")
+    # ── Seção 6: Método de Avaliação — Depreciação e Valorização ─────────
+    metodo_aval = _safe_build(_build_metodo_avaliacao, ptam, styles, section_name="6-metodo")
     if metodo_aval:
         story += metodo_aval
         story.append(_spacer(0.5))
 
-    # ── Seções 8/9: Avaliação Área 01 e Área 02 (PTAM nº 7010) ───────────
-    avaliacoes_areas = _safe_build(_build_avaliacoes_areas, ptam, styles, section_name="8-9-areas")
-    if avaliacoes_areas:
-        story += avaliacoes_areas
-        story.append(_spacer(0.5))
-
-    # ── Seção 8: Áreas de Impacto (legacy) ───────────────────────────────
-    story += _safe_build(_build_impact_areas, ptam, styles, section_name="8-impacto")
+    # ── Seção 7: Áreas de Impacto (legacy) ───────────────────────────────
+    story += _safe_build(_build_impact_areas, ptam, styles, section_name="7-impacto")
     if ptam.get("impact_areas"):
         story.append(_spacer(0.5))
 
-    # ── Seções 9-11: Resultado, Prazo, Responsabilidade Técnica ──────────
-    story += _safe_build(_build_conclusion, ptam, user, styles, section_name="9-11-conclusao")
+    # ── Seções 8-10: Resultado, Prazo, Responsabilidade Técnica ──────────
+    story += _safe_build(_build_conclusion, ptam, user, styles, section_name="8-10-conclusao")
 
     # ── Anexo I: Registro Fotográfico e Documentos ────────────────────────
     fotos_docs_section = _safe_build(_build_fotos_e_documentos, ptam, styles, section_name="fotos-docs")

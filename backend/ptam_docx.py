@@ -289,25 +289,25 @@ def _render_cover(doc: Document, ptam: dict, user: dict) -> None:
 
 
 def _render_sumario(doc: Document) -> None:
-    """Sumário do PTAM — 12 seções + 4 anexos (PTAM nº 7010)."""
+    """Sumário do PTAM — seções + anexos."""
     _add_section_heading(doc, "SUMÁRIO")
     toc_items = [
         ("1",    "Identificação e Objetivo"),
         ("2",    "Documentação Analisada"),
         ("3",    "Identificação do Imóvel"),
         ("4",    "Caracterização do Imóvel"),
-        ("5",    "Vistoria Técnica"),
-        ("6",    "Análise da Região"),
-        ("7",    "Homogeneização e Amostras de Mercado"),
-        ("8",    "Metodologia"),
-        ("9",    "Avaliação — Área 01"),
-        ("10",   "Avaliação — Área 02"),
-        ("11",   "Consolidação"),
-        ("12",   "Conclusão Técnica e Responsabilidade"),
-        ("A.I",  "Anexo I — Ficha do Imóvel, Fotos e Documentos"),
-        ("A.II", "Anexo II — Amostras Comparativas"),
-        ("A.III","Anexo III — Base Legal e Normativa"),
-        ("A.IV", "Anexo IV — Currículo do Avaliador / Certidões"),
+        ("5",    "Análise da Região"),
+        ("6",    "Homogeneização e Amostras de Mercado"),
+        ("7",    "Metodologia"),
+        ("8",    "Cálculo de Ponderância"),
+        ("9",    "Método de Avaliação / Depreciação"),
+        ("10",   "Valor de Avaliação e Resultado"),
+        ("11",   "Ressalvas, Pressupostos e Limitações"),
+        ("12",   "Base Legal e Normativa"),
+        ("13",   "Declaração de Responsabilidade Técnica"),
+        ("14",   "Registro Fotográfico"),
+        ("15",   "Documentos Anexos"),
+        ("A.IV", "Anexo IV — Certidões das Partes (CND)"),
     ]
     table = doc.add_table(rows=1, cols=2)
     table.style = "Table Grid"
@@ -960,8 +960,8 @@ def _render_consolidacao_table(doc, impact_areas: list) -> float:
 
 
 def _render_resultado(doc: Document, ptam: dict, impact_areas: list) -> None:
-    """Seção — Valor de Avaliação e Resultado."""
-    _add_section_heading(doc, "11. VALOR DE AVALIAÇÃO E RESULTADO")
+    """Seção 10 — Valor de Avaliação e Resultado."""
+    _add_section_heading(doc, "10. VALOR DE AVALIAÇÃO E RESULTADO")
 
     if ptam.get("conclusion_text"):
         _add_styled_paragraph(doc, ptam["conclusion_text"], alignment=WD_ALIGN_PARAGRAPH.JUSTIFY)
@@ -1075,11 +1075,11 @@ def _render_resultado(doc: Document, ptam: dict, impact_areas: list) -> None:
 
 
 def _render_consideracoes(doc: Document, ptam: dict) -> None:
-    """Seção 12 — Ressalvas, Pressupostos e Limitações."""
+    """Seção 11 — Ressalvas, Pressupostos e Limitações."""
     has = any(ptam.get(k) for k in ["consideracoes_ressalvas", "consideracoes_pressupostos", "consideracoes_limitacoes"])
     if not has:
         return
-    _add_section_heading(doc, "12. RESSALVAS, PRESSUPOSTOS E LIMITAÇÕES")
+    _add_section_heading(doc, "11. RESSALVAS, PRESSUPOSTOS E LIMITAÇÕES")
     for label, key in [
         ("Ressalvas e Limitações", "consideracoes_ressalvas"),
         ("Pressupostos Adotados", "consideracoes_pressupostos"),
@@ -1091,8 +1091,8 @@ def _render_consideracoes(doc: Document, ptam: dict) -> None:
 
 
 def _render_base_legal(doc: Document) -> None:
-    """Seção 13 — Base Legal e Normativa."""
-    _add_section_heading(doc, "13. BASE LEGAL E NORMATIVA")
+    """Seção 12 — Base Legal e Normativa."""
+    _add_section_heading(doc, "12. BASE LEGAL E NORMATIVA")
     normas = [
         "ABNT NBR 14653-1: Procedimentos gerais de avaliação de bens.",
         "ABNT NBR 14653-2: Avaliação de imóveis urbanos — Método Comparativo Direto.",
@@ -1110,8 +1110,8 @@ def _render_base_legal(doc: Document) -> None:
 
 
 def _render_responsavel(doc: Document, ptam: dict, user: dict) -> None:
-    """Seção 14 — Declaração de Responsabilidade Técnica + Assinatura."""
-    _add_section_heading(doc, "14. DECLARAÇÃO DE RESPONSABILIDADE TÉCNICA")
+    """Seção 13 — Declaração de Responsabilidade Técnica + Assinatura."""
+    _add_section_heading(doc, "13. DECLARAÇÃO DE RESPONSABILIDADE TÉCNICA")
 
     tipo_prof = ptam.get("tipo_profissional") or user.get("role", "")
     tipo_map = {
@@ -1179,11 +1179,11 @@ def _render_responsavel(doc: Document, ptam: dict, user: dict) -> None:
 
 
 def _render_fotos(doc: Document, fotos: list) -> None:
-    """Seção 15 — Registro Fotográfico (fotos grandes, 2 por página)."""
+    """Seção 14 — Registro Fotográfico (fotos grandes, 2 por página)."""
     if not fotos:
         return
 
-    _add_section_heading(doc, "15. REGISTRO FOTOGRÁFICO")
+    _add_section_heading(doc, "14. REGISTRO FOTOGRÁFICO")
     _add_styled_paragraph(doc, "Fotografias do imóvel avaliado, obtidas na data da vistoria:")
     _add_styled_paragraph(doc, f"Total de {len(fotos)} foto(s) anexada(s) ao processo.")
     doc.add_paragraph()
@@ -1239,11 +1239,11 @@ def _render_fotos(doc: Document, fotos: list) -> None:
 
 
 def _render_documentos(doc: Document, docs: list) -> None:
-    """Seção 16 — Documentos Anexos."""
+    """Seção 15 — Documentos Anexos."""
     if not docs:
         return
 
-    _add_section_heading(doc, "16. DOCUMENTOS ANEXOS")
+    _add_section_heading(doc, "15. DOCUMENTOS ANEXOS")
     _add_styled_paragraph(doc, "Certidões, escrituras e demais documentos digitalizados anexados a este laudo:")
     doc.add_paragraph()
 
@@ -1500,39 +1500,32 @@ def generate_ptam_docx(ptam: dict, user: dict, cnd_consultas: list | None = None
     _render_caracterizacao(doc, ptam)
     doc.add_paragraph()
 
-    # ── Seção 5: Vistoria Técnica ─────────────────────────────────────────────
-    _render_vistoria(doc, ptam)
-    doc.add_paragraph()
-
-    # ── Seção 6: Análise da Região ────────────────────────────────────────────
+    # ── Seção 5: Análise da Região ────────────────────────────────────────────
     _render_regiao(doc, ptam)
     doc.add_paragraph()
 
-    # ── Seção 7: Amostras de Mercado ──────────────────────────────────────────
+    # ── Seção 6: Amostras de Mercado ──────────────────────────────────────────
     _render_mercado(doc, ptam)
     doc.add_paragraph()
 
-    # ── Seção 8: Metodologia ──────────────────────────────────────────────────
+    # ── Seção 7: Metodologia ──────────────────────────────────────────────────
     _render_metodologia(doc, ptam)
     doc.add_paragraph()
 
-    # ── Seção 9: Ponderância ──────────────────────────────────────────────────
+    # ── Seção 8: Ponderância ──────────────────────────────────────────────────
     _render_ponderancia(doc, ptam)
     doc.add_paragraph()
 
-    # ── Seção 10: Método de Avaliação / Depreciação ────────────────────────────
+    # ── Seção 9: Método de Avaliação / Depreciação ────────────────────────────
     _render_metodo_avaliacao(doc, ptam)
     doc.add_paragraph()
-
-    # ── Seções 9/10/11: Avaliação Área 01, Área 02, Consolidação ─────────────
-    _render_avaliacoes_areas(doc, ptam)
 
     # ── Legacy: Áreas de Impacto ───────────────────────────────────────────────
     _render_areas_impacto(doc, impact_areas)
     if impact_areas:
         doc.add_paragraph()
 
-    # ── Seção 12: Resultado da Avaliação ──────────────────────────────────────
+    # ── Seção 10: Resultado da Avaliação ──────────────────────────────────────
     doc.add_page_break()
     _render_resultado(doc, ptam, impact_areas)
     doc.add_paragraph()
