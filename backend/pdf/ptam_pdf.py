@@ -1365,9 +1365,100 @@ def _build_conclusion(ptam: dict, user: dict, styles: dict) -> list:
     return story
 
 
+# ── CND: Certidões das Partes ─────────────────────────────────────────────────
+
+_PROVIDER_LABELS = {
+    "receita":      "Receita Federal",
+    "pgfn":         "PGFN - Dívida Ativa",
+    "tst":          "TST - Certidão Trabalhista",
+    "trf1":         "TRF1 - Justiça Federal",
+    "tjma":         "TJMA - Justiça Estadual",
+    "cnib":         "CNIB - Indisponibilidade",
+    "rfb_cadastro": "Situação Cadastral CPF/CNPJ",
+}
+
+_RESULTADO_LABELS = {
+    "negativa":     "Negativa",
+    "positiva":     "Positiva",
+    "indisponivel": "Indisponível",
+    "erro":         "Erro",
+}
+
+
+def _build_certidoes_partes(styles: dict, consultas_data: list) -> list:
+    """Seção 'CERTIDÕES DAS PARTES' — apenas se houver consultas vinculadas."""
+    if not consultas_data:
+        return []
+
+    story = []
+    story += _section(styles, "Certidões das Partes")
+    story.append(Paragraph(
+        "Certidões Negativas de Débito (CND) consultadas junto aos órgãos oficiais para as partes envolvidas nesta avaliação.",
+        styles["body"],
+    ))
+    story.append(_spacer(0.3))
+
+    for item in consultas_data:
+        consulta = item.get("consulta", {})
+        certidoes = item.get("certidoes", [])
+
+        nome = consulta.get("nome_parte", "—")
+        cpf_cnpj = consulta.get("cpf_cnpj", "—")
+        tipo = consulta.get("tipo_parte", "")
+        data_consulta = ""
+        if consulta.get("created_at"):
+            try:
+                from datetime import datetime as _dt
+                d = consulta["created_at"]
+                if isinstance(d, str):
+                    d = _dt.fromisoformat(d.replace("Z", "+00:00"))
+                data_consulta = d.strftime("%d/%m/%Y")
+            except Exception:
+                pass
+
+        story += _subsection(styles, f"{nome} — {tipo}" if tipo else nome)
+        story += _lv(styles, "CPF/CNPJ", cpf_cnpj)
+        if data_consulta:
+            story += _lv(styles, "Data da Consulta", data_consulta)
+
+        if certidoes:
+            headers = ["Órgão / Certidão", "Resultado"]
+            data = [headers]
+            for c in certidoes:
+                provider_label = _PROVIDER_LABELS.get(c.get("provider", ""), c.get("provider", "—"))
+                resultado_raw = c.get("resultado") or c.get("status", "indisponivel")
+                resultado_label = _RESULTADO_LABELS.get(resultado_raw, resultado_raw.capitalize())
+                data.append([provider_label, resultado_label])
+
+            col_widths = [11.0 * cm, 5.7 * cm]
+            tbl = Table(data, colWidths=col_widths, repeatRows=1)
+            tbl.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, 0), GREEN),
+                ("TEXTCOLOR", (0, 0), (-1, 0), WHITE),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, 0), 9),
+                ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+                ("FONTSIZE", (0, 1), (-1, -1), 9),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [WHITE, LIGHT_GREEN]),
+                ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#C0C0C0")),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("LEFTPADDING", (0, 0), (-1, -1), 6),
+            ]))
+            story.append(tbl)
+            story.append(_spacer(0.3))
+        else:
+            story.append(Paragraph("Nenhuma certidão retornada para esta parte.", styles["body"]))
+            story.append(_spacer(0.2))
+
+    return story
+
+
 # ── main entry point ──────────────────────────────────────────────────────────
 
-def generate_ptam_pdf(ptam: dict, user: dict) -> bytes:
+def generate_ptam_pdf(ptam: dict, user: dict, cnd_consultas: list | None = None) -> bytes:
     """Generate a PDF from PTAM data. Returns bytes.
 
     Sections (ABNT NBR 14653):
@@ -1382,6 +1473,7 @@ def generate_ptam_pdf(ptam: dict, user: dict) -> bytes:
       9. Valor de Avaliação e Resultado
      10. Prazo de Validade / Ressalvas / Pressupostos
      11. Declaração de Responsabilidade Técnica + Assinatura
+     12. Certidões das Partes (CND) — somente se cnd_consultas fornecido
     """
     buf = io.BytesIO()
     system_logo_bytes = _fetch_logo()
@@ -1451,6 +1543,12 @@ def generate_ptam_pdf(ptam: dict, user: dict) -> bytes:
 
     # ── Seções 9-11: Resultado, Prazo, Responsabilidade Técnica ──────────
     story += _build_conclusion(ptam, user, styles)
+
+    # ── Seção CND: Certidões das Partes (opcional) ────────────────────────
+    certidoes_section = _build_certidoes_partes(styles, cnd_consultas or [])
+    if certidoes_section:
+        story.append(PageBreak())
+        story += certidoes_section
 
     doc.build(story)
     return buf.getvalue()

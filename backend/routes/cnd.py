@@ -144,6 +144,24 @@ async def historico(
     return [serialize_doc(d) for d in docs]
 
 
+@router.post("/cnd/consulta/{consulta_id}/anexar")
+async def anexar_ptam(
+    consulta_id: str,
+    body: dict,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db),
+):
+    """Vincula um ptam_id à consulta CND."""
+    consulta = await db.cnd_consultas.find_one({"id": consulta_id, "user_id": uid})
+    if not consulta:
+        raise HTTPException(status_code=404, detail="Consulta não encontrada")
+    ptam_id = body.get("ptam_id")
+    if not ptam_id:
+        raise HTTPException(status_code=422, detail="ptam_id é obrigatório")
+    await db.cnd_consultas.update_one({"id": consulta_id}, {"$set": {"ptam_id": ptam_id}})
+    return {"ok": True}
+
+
 @router.delete("/cnd/consulta/{consulta_id}")
 async def deletar_consulta(
     consulta_id: str,

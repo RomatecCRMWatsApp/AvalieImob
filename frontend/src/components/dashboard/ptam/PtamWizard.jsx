@@ -18,6 +18,7 @@ import { StepPonderancia } from './steps/StepPonderancia';
 import { StepMetodoAvaliacao } from './steps/StepMetodoAvaliacao';
 import { StepResultado } from './steps/StepResultado';
 import { StepConclusao } from './steps/StepConclusao';
+import { StepCertidoes } from './steps/StepCertidoes';
 
 const getStepClasses = (active, done) => {
   if (active) return 'bg-emerald-900 text-white';
@@ -181,6 +182,7 @@ const PtamWizard = () => {
       case 9: return <StepMetodoAvaliacao {...stepProps} />;
       case 10: return <StepResultado {...stepProps} />;
       case 11: return <StepConclusao {...stepProps} />;
+      case 12: return <StepCertidoes form={{ ...form, id: ptamId }} />;
       default: return null;
     }
   };

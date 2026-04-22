@@ -121,7 +121,13 @@ async def download_ptam_pdf(pid: str, uid: str = Depends(get_active_subscriber),
             import base64 as _b64
             user["_company_logo_bytes"] = _b64.b64decode(logo_doc["data_b64"])
     try:
-        data = generate_ptam_pdf(doc, user)
+        # Busca consultas CND vinculadas ao PTAM para incluir no PDF
+        cnd_consultas = []
+        raw_consultas = await db.cnd_consultas.find({"ptam_id": pid, "user_id": uid}).to_list(20)
+        for c in raw_consultas:
+            certs = await db.cnd_certidoes.find({"consulta_id": c.get("id", "")}).to_list(10)
+            cnd_consultas.append({"consulta": c, "certidoes": certs})
+        data = generate_ptam_pdf(doc, user, cnd_consultas=cnd_consultas)
     except Exception as e:
         logger.exception("PDF generation error")
         raise HTTPException(status_code=500, detail=f"Erro ao gerar PDF: {str(e)[:200]}")
@@ -161,7 +167,13 @@ async def send_ptam_email(
             user["_company_logo_bytes"] = _b64.b64decode(logo_doc["data_b64"])
 
     try:
-        pdf_bytes = generate_ptam_pdf(doc, user)
+        # Busca consultas CND vinculadas para incluir no PDF enviado por email
+        cnd_consultas_email = []
+        raw_c = await db.cnd_consultas.find({"ptam_id": pid, "user_id": uid}).to_list(20)
+        for c in raw_c:
+            certs = await db.cnd_certidoes.find({"consulta_id": c.get("id", "")}).to_list(10)
+            cnd_consultas_email.append({"consulta": c, "certidoes": certs})
+        pdf_bytes = generate_ptam_pdf(doc, user, cnd_consultas=cnd_consultas_email)
     except Exception as e:
         logger.exception("Erro ao gerar PDF para envio por email")
         raise HTTPException(status_code=500, detail=f"Erro ao gerar PDF: {str(e)[:200]}")

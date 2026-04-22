@@ -178,6 +178,8 @@ export const cndAPI = {
   getHistorico: () => api.get('/cnd/historico').then(r => r.data),
   deleteConsulta: (id) => api.delete(`/cnd/consulta/${id}`).then(r => r.data),
   downloadCertidao: (id, provider) => api.get(`/cnd/consulta/${id}/download/${provider}`).then(r => r.data),
+  anexarPtam: (consultaId, ptamId) => api.post(`/cnd/consulta/${consultaId}/anexar`, { ptam_id: ptamId }).then(r => r.data),
+  getConsultasPtam: (ptamId) => api.get('/cnd/historico').then(r => r.data.filter(c => c.ptam_id === ptamId)),
 };
 
 // ---- TVI (Termo de Vistoria de Imóvel)
