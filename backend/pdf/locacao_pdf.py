@@ -850,9 +850,12 @@ def _build_base_legal(loc: dict, styles: dict) -> list:
 
 # ── Section 9: Registro Fotográfico ──────────────────────────────────────────
 
-def _build_fotos(loc: dict, styles: dict, user: dict, db_images_fetch=None) -> list:
+def _build_fotos(loc: dict, styles: dict, user: dict) -> list:
+    """Build photo section with images (bytes already loaded in foto['_image_bytes'])."""
     fotos = loc.get("fotos_imovel") or []
-    if not fotos:
+    docs = loc.get("fotos_documentos") or []
+    
+    if not fotos and not docs:
         return []
 
     story = []
@@ -860,12 +863,86 @@ def _build_fotos(loc: dict, styles: dict, user: dict, db_images_fetch=None) -> l
     story.append(Paragraph("Fotografias do imóvel avaliado, obtidas na data da vistoria:", styles["body"]))
     story.append(_spacer(0.3))
 
-    # We can only include photos if raw bytes are passed; otherwise show caption list
-    story.append(Paragraph(
-        f"Total de {len(fotos)} foto(s) anexada(s) ao processo de avaliação.",
-        styles["value"],
-    ))
-
+    # Processar fotos do imóvel (bytes já carregados pelo endpoint)
+    image_rows = []
+    current_row = []
+    
+    for i, foto in enumerate(fotos[:12]):  # Max 12 fotos
+        if isinstance(foto, dict):
+            caption = foto.get("caption") or foto.get("legenda") or f"Foto {i+1}"
+            img_bytes = foto.get("_image_bytes")
+        else:
+            caption = f"Foto {i+1}"
+            img_bytes = None
+        
+        if img_bytes:
+            try:
+                img = Image(io.BytesIO(img_bytes), width=6*cm, height=4.5*cm)
+                img.hAlign = 'CENTER'
+                current_row.append([
+                    img,
+                    Paragraph(caption, styles["caption"])
+                ])
+            except Exception:
+                # Se imagem falhar, mostra texto
+                current_row.append([
+                    Paragraph(f"[Foto {i+1}]", styles["body"]),
+                    Paragraph(caption, styles["caption"])
+                ])
+        else:
+            current_row.append([
+                Paragraph(f"[Foto {i+1}]", styles["body"]),
+                Paragraph(caption, styles["caption"])
+            ])
+        
+        # 3 fotos por linha
+        if len(current_row) >= 3:
+            image_rows.append(current_row)
+            current_row = []
+    
+    if current_row:
+        # Preenche linha incompleta
+        while len(current_row) < 3:
+            current_row.append(['', ''])
+        image_rows.append(current_row)
+    
+    # Criar tabela de fotos
+    if image_rows:
+        for row in image_rows:
+            # Extrair apenas as células de imagem (col 0 de cada par)
+            img_cells = [cell[0] for cell in row]
+            caption_cells = [cell[1] for cell in row]
+            
+            # Tabela de imagens
+            img_table = Table([img_cells], colWidths=[6*cm, 6*cm, 6*cm])
+            img_table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('PADDING', (0, 0), (-1, -1), 6),
+            ]))
+            story.append(img_table)
+            
+            # Tabela de legendas
+            cap_table = Table([caption_cells], colWidths=[6*cm, 6*cm, 6*cm])
+            cap_table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
+                ('TEXTCOLOR', (0, 0), (-1, -1), DARK),
+                ('PADDING', (0, 0), (-1, -1), 3),
+            ]))
+            story.append(cap_table)
+            story.append(_spacer(0.3))
+    
+    # Documentos digitalizados
+    if docs:
+        story.append(Paragraph("Documentos Digitalizados:", styles["h3"]))
+        for i, doc in enumerate(docs[:6]):
+            if isinstance(doc, dict):
+                doc_name = doc.get("name") or doc.get("nome") or f"Documento {i+1}"
+            else:
+                doc_name = f"Documento {i+1}"
+            story.append(Paragraph(f"  • {doc_name}", styles["body"]))
+    
     return story
 
 
@@ -966,7 +1043,7 @@ def generate_locacao_pdf(loc: dict, user: dict | None = None) -> bytes:
       6. Resultado — DESTAQUE (valor mensal estimado, intervalo, fator)
       7. Garantia e Condições (tipo, prazo)
       8. Base Legal (Lei 8.245/1991, Código Civil, NBR 14653)
-      9. Registro Fotográfico
+      9. Registro Fotográfico (com imagens do banco)
      10. Responsável Técnico (nome, registro, assinatura)
     """
     if user is None:

@@ -107,6 +107,15 @@ async def download_locacao_pdf(locacao_id: str, uid: str = Depends(get_current_u
     if user:
         user.pop("_id", None)
     try:
+        # Buscar imagens do banco antes de gerar PDF
+        fotos_imovel = doc.get("fotos_imovel") or []
+        for foto in fotos_imovel:
+            if isinstance(foto, dict) and foto.get("image_id"):
+                img_doc = await db.images.find_one({"id": foto["image_id"]})
+                if img_doc and img_doc.get("data_b64"):
+                    import base64
+                    foto["_image_bytes"] = base64.b64decode(img_doc["data_b64"])
+        
         pdf_bytes = generate_locacao_pdf(doc, user)
     except Exception as e:
         logger.exception("Erro ao gerar PDF de locação")
