@@ -34,7 +34,6 @@ from reportlab.platypus import (
     BaseDocTemplate,
     Frame,
     Image,
-    KeepTogether,
     PageBreak,
     PageTemplate,
     Paragraph,
@@ -969,49 +968,44 @@ def _build_fotos_e_documentos(loc: dict, styles: dict, user: dict) -> list:
         story.append(Paragraph("Imagens obtidas na data da vistoria:", styles["body"]))
         story.append(_spacer(0.3))
 
-        # Pré-montar cada container de foto independentemente
-        def _make_photo_cell(foto, num: int):
+        # Layout: 2 fotos por linha, usando tabela simples com Paragraphs e Images
+        for i, foto in enumerate(fotos[:12]):  # Max 12 fotos
             if isinstance(foto, dict):
                 caption = (
                     foto.get("description") or foto.get("descricao")
                     or foto.get("caption") or foto.get("legenda")
-                    or f"Foto {num}"
+                    or f"Foto {i+1}"
                 )
                 img_bytes = foto.get("_image_bytes")
             else:
-                caption = f"Foto {num}"
+                caption = f"Foto {i+1}"
                 img_bytes = None
 
+            # Criar elementos da foto
             desc_para = Paragraph(f"<b>{caption}</b>", styles["caption"])
+            
             if img_bytes:
                 try:
                     img = Image(io.BytesIO(img_bytes), width=7.5 * cm, height=5.5 * cm)
                     img.hAlign = "CENTER"
-                    # Retornar KeepTogether para manter descrição + imagem juntas
-                    return KeepTogether([desc_para, _spacer(0.15), img])
                 except Exception:
-                    pass
-            return KeepTogether([desc_para, _spacer(0.15), Paragraph(f"[Foto {num} — imagem não disponível]", styles["body"])])
-
-        cells = [_make_photo_cell(f, i + 1) for i, f in enumerate(fotos[:12])]
-
-        # Agrupar em pares e emitir uma tabela por par
-        for pair_start in range(0, len(cells), 2):
-            left = cells[pair_start]
-            right = cells[pair_start + 1] if pair_start + 1 < len(cells) else ""
-            row_tbl = Table(
-                [[left, right]],
-                colWidths=[8 * cm, 8 * cm],
-                style=TableStyle([
-                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                    ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                ]),
-            )
-            story.append(row_tbl)
-            story.append(_spacer(0.4))
-
-            # Quebra de página a cada 2 pares (4 fotos) para não sobrecarregar página
-            if (pair_start // 2 + 1) % 2 == 0 and (pair_start + 2) < len(cells):
+                    img = Paragraph(f"[Foto {i+1} — erro]", styles["body"])
+            else:
+                img = Paragraph(f"[Foto {i+1} — indisponível]", styles["body"])
+            
+            # Adicionar descrição e imagem
+            story.append(desc_para)
+            story.append(_spacer(0.1))
+            story.append(img)
+            
+            # A cada 2 fotos, adicionar espaço maior
+            if (i + 1) % 2 == 0:
+                story.append(_spacer(0.5))
+            else:
+                story.append(_spacer(0.3))
+            
+            # Quebra de página a cada 4 fotos
+            if (i + 1) % 4 == 0 and i < len(fotos) - 1:
                 story.append(PageBreak())
     
     # ── Documentos Anexos ───────────────────────────────────────────────────
