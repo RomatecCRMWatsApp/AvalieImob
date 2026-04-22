@@ -3,7 +3,7 @@ import { Link, NavLink, Routes, Route, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Building2, BarChart3, FileText, Sparkles,
   CreditCard, Settings, LogOut, Menu, X, Bell, FileCheck2, Globe,
-  Search, ChevronDown, User, Shield, Beef, Award, Home, ClipboardCheck
+  Search, ChevronDown, User, Shield, Beef, Award, Home, ClipboardCheck, FileSearch
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { BRAND } from '../mock/mock';
@@ -28,6 +28,8 @@ import LocacaoWizard from '../components/dashboard/locacao/LocacaoWizard';
 import TVIList from '../components/dashboard/tvi/TVIList';
 import TVINew from '../components/dashboard/tvi/TVINew';
 import TVIForm from '../components/dashboard/tvi/TVIForm';
+import CNDConsulta from '../components/dashboard/cnd/CNDConsulta';
+import CNDHistorico from '../components/dashboard/cnd/CNDHistorico';
 
 /* ─── Brand ─────────────────────────────────────────────── */
 const GOLD       = '#D4A830';
@@ -63,7 +65,8 @@ const NAV_GROUPS = [
   {
     label: 'Ferramentas',
     items: [
-      { to: '/dashboard/ia',        icon: Sparkles,        label: 'Assistente IA' },
+      { to: '/dashboard/ia',        icon: Sparkles,    label: 'Assistente IA' },
+      { to: '/dashboard/cnd',       icon: FileSearch,  label: 'Certidões CND' },
     ],
   },
   {
@@ -361,6 +364,8 @@ const Dashboard = () => {
             <Route path="tvi"              element={<TVIList />} />
             <Route path="tvi/nova"         element={<TVINew />} />
             <Route path="tvi/:id"          element={<TVIForm />} />
+            <Route path="cnd"              element={<CNDConsulta />} />
+            <Route path="cnd/historico"    element={<CNDHistorico />} />
             <Route path="laudos"      element={<Evaluations />} />
             <Route path="ia"          element={<AIAssistant />} />
             <Route path="curriculo"   element={<PerfilAvaliador />} />

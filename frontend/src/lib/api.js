@@ -171,6 +171,15 @@ export const imoveisAPI = {
   list: () => api.get('/imoveis-crm').then(r => r.data),
 };
 
+// ---- CND (Certidões Negativas de Débito)
+export const cndAPI = {
+  consultar: (body) => api.post('/cnd/consultar', body).then(r => r.data),
+  getConsulta: (id) => api.get(`/cnd/consulta/${id}`).then(r => r.data),
+  getHistorico: () => api.get('/cnd/historico').then(r => r.data),
+  deleteConsulta: (id) => api.delete(`/cnd/consulta/${id}`).then(r => r.data),
+  downloadCertidao: (id, provider) => api.get(`/cnd/consulta/${id}/download/${provider}`).then(r => r.data),
+};
+
 // ---- TVI (Termo de Vistoria de Imóvel)
 export const tviAPI = {
   listModels: () => api.get('/tvi/models').then(r => r.data),
