@@ -101,6 +101,10 @@ def _build_tvi_email_html(numero: str, endereco: str, nome_dest: str, download_u
 
 # ── low-level send helpers ────────────────────────────────────────────────────
 
+def _is_resend_configured() -> bool:
+    return bool(os.environ.get("RESEND_API_KEY"))
+
+
 def _is_smtp_configured() -> bool:
     return bool(os.environ.get("SMTP_HOST") and os.environ.get("SMTP_USER"))
 
@@ -174,18 +178,42 @@ def _send_sendgrid_with_attachment(
         raise RuntimeError(f"SendGrid error {response.status_code}: {response.body}")
 
 
+def _send_resend_with_attachment(
+    to_email: str, subject: str, html: str,
+    pdf_bytes: bytes, filename: str,
+) -> None:
+    import resend  # type: ignore
+
+    resend.api_key = os.environ["RESEND_API_KEY"]
+    from_addr = os.environ.get("FROM_EMAIL") or "AvalieImob <onboarding@resend.dev>"
+
+    resend.Emails.send({
+        "from": from_addr,
+        "to": [to_email],
+        "subject": subject,
+        "html": html,
+        "attachments": [{
+            "filename": filename,
+            "content": list(pdf_bytes),
+        }],
+    })
+
+
 def _send_email_sync(
     to_email: str, subject: str, html: str,
     pdf_bytes: bytes, filename: str,
 ) -> None:
-    if _is_sendgrid_configured():
+    if _is_resend_configured():
+        logger.info("TVI email via Resend → %s | %s", to_email, subject)
+        _send_resend_with_attachment(to_email, subject, html, pdf_bytes, filename)
+    elif _is_sendgrid_configured():
         logger.info("TVI email via SendGrid → %s | %s", to_email, subject)
         _send_sendgrid_with_attachment(to_email, subject, html, pdf_bytes, filename)
     elif _is_smtp_configured():
         logger.info("TVI email via SMTP → %s | %s", to_email, subject)
         _send_smtp_with_attachment(to_email, subject, html, pdf_bytes, filename)
     else:
-        logger.info("[EMAIL LOG ONLY] TVI '%s' → %s (sem SMTP/SendGrid configurado)", subject, to_email)
+        logger.info("[EMAIL LOG ONLY] TVI '%s' → %s (sem Resend/SMTP/SendGrid configurado)", subject, to_email)
 
 
 # ── async public API ──────────────────────────────────────────────────────────
