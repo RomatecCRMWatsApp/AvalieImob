@@ -21,19 +21,26 @@ from seed_tvi_cat1 import MODELOS_GERAL           # TVI-01 a TVI-08
 from seed_tvi_cat2 import MODELOS_LOCACAO, MODELOS_RURAL  # TVI-09 a TVI-18
 from seed_tvi_cat3 import MODELOS_REGULARIZACAO, MODELOS_OBRAS  # TVI-19 a TVI-29
 
-# ── Ramos 6-10 (TVI-30 a TVI-45) — a serem gerados em outra tarefa ─────────
-# from seed_tvi_cat4 import MODELOS_RAMO6, MODELOS_RAMO7, MODELOS_RAMO8, MODELOS_RAMO9, MODELOS_RAMO10
+# ── Ramos 6-10 (TVI-30 a TVI-45) ────────────────────────────────────────────
+from seed_tvi_ramo6  import MODELOS_RAMO6   # TVI-30 a TVI-33 — Judicial/Pericial
+from seed_tvi_ramo7  import MODELOS_RAMO7   # TVI-34 a TVI-36 — Segurança/Sinistros
+from seed_tvi_ramo8  import MODELOS_RAMO8   # TVI-37 a TVI-39 — Comercial/Empresarial
+from seed_tvi_ramo9  import MODELOS_RAMO9   # TVI-40 a TVI-43 — Instalações
+from seed_tvi_ramo10 import MODELOS_RAMO10  # TVI-44 a TVI-45 — Complementares
 
-# Modelos v2 — schema profissional com id, ramo, aplicacao, normas, requer_art
-# Ramos 1-5: TVI-01 a TVI-29
+# Todos os 45 modelos TVI
 ALL_MODELOS = (
-    MODELOS_GERAL          # TVI-01 a TVI-08
-    + MODELOS_LOCACAO      # TVI-09 a TVI-12
-    + MODELOS_RURAL        # TVI-13 a TVI-18
-    + MODELOS_REGULARIZACAO  # TVI-19 a TVI-24
-    + MODELOS_OBRAS        # TVI-25 a TVI-29
+    MODELOS_GERAL           # TVI-01 a TVI-08
+    + MODELOS_LOCACAO       # TVI-09 a TVI-12
+    + MODELOS_RURAL         # TVI-13 a TVI-18
+    + MODELOS_REGULARIZACAO # TVI-19 a TVI-24
+    + MODELOS_OBRAS         # TVI-25 a TVI-29
+    + MODELOS_RAMO6         # TVI-30 a TVI-33
+    + MODELOS_RAMO7         # TVI-34 a TVI-36
+    + MODELOS_RAMO8         # TVI-37 a TVI-39
+    + MODELOS_RAMO9         # TVI-40 a TVI-43
+    + MODELOS_RAMO10        # TVI-44 a TVI-45
 )
-# Ramos 6-10 serao adicionados aqui quando gerados (outra tarefa)
 
 
 async def seed():
