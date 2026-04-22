@@ -174,6 +174,24 @@ async def download_locacao_pdf(locacao_id: str, uid: str = Depends(get_current_u
         # Atualizar o doc com os documentos processados
         doc["fotos_documentos"] = docs_processados
         
+        # Buscar imagens das amostras de mercado (se existirem)
+        market_samples = doc.get("market_samples") or []
+        for j, sample in enumerate(market_samples):
+            foto_url = sample.get("foto_url") or ""
+            if not foto_url:
+                continue
+            parts = str(foto_url).replace('/api/upload/image/', '').split('/')
+            sample_image_id = parts[-1] if parts else str(foto_url)
+            if len(sample_image_id) > 30 and '-' in sample_image_id:
+                import base64 as _b64
+                sample_img_doc = await db.images.find_one({"id": sample_image_id})
+                if sample_img_doc and sample_img_doc.get("data_b64"):
+                    market_samples[j] = {
+                        **sample,
+                        "_image_bytes": _b64.b64decode(sample_img_doc["data_b64"]),
+                    }
+        doc["market_samples"] = market_samples
+        
         pdf_bytes = generate_locacao_pdf(doc, user)
     except Exception as e:
         logger.exception("Erro ao gerar PDF de locação")

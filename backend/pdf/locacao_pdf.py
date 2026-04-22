@@ -592,7 +592,7 @@ def _build_mercado(loc: dict, styles: dict) -> list:
 
 
 def _rental_samples_text(samples: list, styles: dict) -> list:
-    """Apresentação textual das amostras de mercado."""
+    """Apresentação textual das amostras de mercado, com imagem se disponível."""
     if not samples:
         return []
     
@@ -640,6 +640,18 @@ def _rental_samples_text(samples: list, styles: dict) -> list:
         # Adicionar todos os dados em parágrafos
         for dado in dados:
             story.append(Paragraph(f"  {dado}", styles["body"]))
+        
+        # Mostrar imagem da amostra, se disponível
+        img_bytes = s.get("_image_bytes")
+        if img_bytes:
+            try:
+                img = Image(io.BytesIO(img_bytes), width=8 * cm, height=6 * cm)
+                img.hAlign = "LEFT"
+                story.append(_spacer(0.2))
+                story.append(img)
+                story.append(Paragraph(f"  Foto — Amostra {idx}", styles["caption"]))
+            except Exception:
+                pass
         
         story.append(_spacer(0.4))
     
@@ -937,108 +949,68 @@ def _build_base_legal(loc: dict, styles: dict) -> list:
 
 def _build_fotos_e_documentos(loc: dict, styles: dict, user: dict) -> list:
     """Build unified photo and document section.
-    
-    Layout: Máximo 2 fotos por página, grandes, com descrição.
+
+    Layout: 2 fotos por linha. Quando número ímpar, última foto ocupa coluna
+    esquerda com célula direita vazia — nenhuma foto é cortada ou omitida.
     """
     fotos = loc.get("fotos_imovel") or []
     docs = loc.get("fotos_documentos") or []
-    
+
     if not fotos and not docs:
         return []
 
     story = []
     story += _section(styles, "9. Registro Fotográfico e Documentos")
-    
+
     # ── Fotos do Imóvel ────────────────────────────────────────────────────
     if fotos:
         story.append(Paragraph("<b>Fotografias do Imóvel</b>", styles["subsection_title"]))
         story.append(Paragraph("Imagens obtidas na data da vistoria:", styles["body"]))
         story.append(_spacer(0.3))
-        
-        # Layout: máximo 2 fotos por página, grandes (lado a lado ou uma por linha)
-        for i, foto in enumerate(fotos[:12]):  # Max 12 fotos
+
+        # Pré-montar cada container de foto independentemente
+        def _make_photo_cell(foto, num: int) -> list:
             if isinstance(foto, dict):
-                caption = foto.get("description") or foto.get("descricao") or foto.get("caption") or foto.get("legenda") or f"Foto {i+1}"
+                caption = (
+                    foto.get("description") or foto.get("descricao")
+                    or foto.get("caption") or foto.get("legenda")
+                    or f"Foto {num}"
+                )
                 img_bytes = foto.get("_image_bytes")
             else:
-                caption = f"Foto {i+1}"
+                caption = f"Foto {num}"
                 img_bytes = None
-            
-            # Criar parágrafo da descrição primeiro (acima da imagem)
+
             desc_para = Paragraph(f"<b>{caption}</b>", styles["caption"])
-            
             if img_bytes:
                 try:
-                    # Fotos grandes: 7.5cm x 5.5cm (2 cabem lado a lado com espaço)
-                    img = Image(io.BytesIO(img_bytes), width=7.5*cm, height=5.5*cm)
-                    img.hAlign = 'CENTER'
-                    
-                    # Container com descrição em cima + imagem
-                    img_container = [
-                        desc_para,
-                        _spacer(0.15),
-                        img
-                    ]
+                    img = Image(io.BytesIO(img_bytes), width=7.5 * cm, height=5.5 * cm)
+                    img.hAlign = "CENTER"
+                    return [desc_para, _spacer(0.15), img]
                 except Exception:
-                    img_container = [
-                        desc_para,
-                        _spacer(0.15),
-                        Paragraph(f"[Foto {i+1} - erro ao carregar]", styles["body"])
-                    ]
-            else:
-                img_container = [
-                    desc_para,
-                    _spacer(0.15),
-                    Paragraph(f"[Foto {i+1} - imagem não disponível]", styles["body"])
-                ]
-            
-            # Layout: 2 fotos por linha (lado a lado)
-            if i % 2 == 0:
-                # Primeira foto da linha
-                story.append(Table([[img_container, '']], colWidths=[8*cm, 8*cm], 
-                                  style=TableStyle([
-                                      ('VALIGN', (0,0), (-1,-1), 'TOP'),
-                                      ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-                                  ])))
-            else:
-                # Segunda foto - substituir a linha anterior
-                story.pop()
-                
-                # Recriar container da foto anterior
-                if isinstance(fotos[i-1], dict):
-                    caption_prev = fotos[i-1].get("description") or fotos[i-1].get("descricao") or fotos[i-1].get("caption") or fotos[i-1].get("legenda") or f"Foto {i}"
-                    img_bytes_prev = fotos[i-1].get("_image_bytes")
-                else:
-                    caption_prev = f"Foto {i}"
-                    img_bytes_prev = None
-                
-                desc_para_prev = Paragraph(f"<b>{caption_prev}</b>", styles["caption"])
-                
-                if img_bytes_prev:
-                    try:
-                        img_prev = Image(io.BytesIO(img_bytes_prev), width=7.5*cm, height=5.5*cm)
-                        img_prev.hAlign = 'CENTER'
-                        img_container_prev = [desc_para_prev, _spacer(0.15), img_prev]
-                    except Exception:
-                        img_container_prev = [desc_para_prev, _spacer(0.15), Paragraph(f"[Foto {i}]", styles["body"])]
-                else:
-                    img_container_prev = [desc_para_prev, _spacer(0.15), Paragraph(f"[Foto {i}]", styles["body"])]
-                
-                # Linha com 2 fotos lado a lado
-                story.append(Table([[img_container_prev, img_container]], colWidths=[8*cm, 8*cm],
-                                  style=TableStyle([
-                                      ('VALIGN', (0,0), (-1,-1), 'TOP'),
-                                      ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-                                  ])))
-                story.append(_spacer(0.4))
-                
-                # Quebra de página a cada 2 fotos (para garantir no máximo 2 por página)
-                if (i + 1) % 4 == 0 and i < len(fotos) - 1:
-                    story.append(PageBreak())
-        
-        # Se número ímpar de fotos, a última ficou sozinha na linha
-        if len(fotos) % 2 == 1:
+                    pass
+            return [desc_para, _spacer(0.15), Paragraph(f"[Foto {num} — imagem não disponível]", styles["body"])]
+
+        cells = [_make_photo_cell(f, i + 1) for i, f in enumerate(fotos[:12])]
+
+        # Agrupar em pares e emitir uma tabela por par
+        for pair_start in range(0, len(cells), 2):
+            left = cells[pair_start]
+            right = cells[pair_start + 1] if pair_start + 1 < len(cells) else [""]
+            row_tbl = Table(
+                [[left, right]],
+                colWidths=[8 * cm, 8 * cm],
+                style=TableStyle([
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                ]),
+            )
+            story.append(row_tbl)
             story.append(_spacer(0.4))
+
+            # Quebra de página a cada 2 pares (4 fotos) para não sobrecarregar página
+            if (pair_start // 2 + 1) % 2 == 0 and (pair_start + 2) < len(cells):
+                story.append(PageBreak())
     
     # ── Documentos Anexos ───────────────────────────────────────────────────
     if docs:

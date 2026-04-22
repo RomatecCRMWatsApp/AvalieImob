@@ -1,8 +1,15 @@
 // @module locacao/steps/StepPesquisaMercado — Step 5: Pesquisa de Mercado (amostras de locação)
-import React from 'react';
+import React, { useState } from 'react';
 import { Field, Input, Textarea, Grid } from '../shared/primitives';
+import SmartPhotoInput from '../../../shared/SmartPhotoInput';
+import { uploadAPI } from '../../../../lib/api';
+import { useToast } from '../../../../hooks/use-toast';
+import { X } from 'lucide-react';
 
 export const StepPesquisaMercado = ({ form, setForm }) => {
+  const { toast } = useToast();
+  const [uploadingIdx, setUploadingIdx] = useState(null);
+
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const samples = form.market_samples || [];
 
@@ -12,7 +19,7 @@ export const StepPesquisaMercado = ({ form, setForm }) => {
       market_samples: [...(f.market_samples || []), {
         address: '', neighborhood: '', area: 0, valor_aluguel: 0,
         valor_por_m2: 0, source: '', collection_date: '', contact_phone: '', notes: '',
-        tipo_amostra: 'oferta'
+        tipo_amostra: 'oferta', foto_url: ''
       }]
     }));
   };
@@ -32,6 +39,24 @@ export const StepPesquisaMercado = ({ form, setForm }) => {
       }
       return { ...f, market_samples: arr };
     });
+  };
+
+  const handlePhotoUpload = async (file, idx) => {
+    if (!file) return;
+    setUploadingIdx(idx);
+    try {
+      const result = await uploadAPI.uploadImage(file);
+      const url = result.url || result.image_url || result.id;
+      updateSample(idx, 'foto_url', url);
+    } catch {
+      toast({ title: 'Erro ao fazer upload da foto', variant: 'destructive' });
+    } finally {
+      setUploadingIdx(null);
+    }
+  };
+
+  const removePhoto = (idx) => {
+    updateSample(idx, 'foto_url', '');
   };
 
   return (
@@ -98,6 +123,48 @@ export const StepPesquisaMercado = ({ form, setForm }) => {
                   <span className="inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded border bg-amber-100 text-amber-800 border-amber-300">Oferta</span>
                 )}
               </div>
+            </Field>
+            <Field label="Foto da Amostra" className="md:col-span-2">
+              {s.foto_url ? (
+                <div className="flex items-start gap-3">
+                  <div className="relative w-24 h-24 rounded-xl overflow-hidden border border-gray-200 flex-shrink-0">
+                    <img
+                      src={s.foto_url.startsWith('http') ? s.foto_url : uploadAPI.getImageUrl(s.foto_url)}
+                      alt={`Amostra ${idx + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removePhoto(idx)}
+                      className="absolute top-0 right-0 bg-red-500 text-white text-xs w-5 h-5 flex items-center justify-center rounded-bl-xl hover:bg-red-600 transition"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Foto adicionada. Clique no × para remover.</p>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {uploadingIdx === idx ? (
+                    <p className="text-xs text-emerald-700 animate-pulse">Enviando foto...</p>
+                  ) : (
+                    <label className="flex items-center gap-2 text-sm text-gray-600 border border-dashed border-gray-300 rounded-lg px-3 py-2 cursor-pointer hover:border-emerald-400 hover:text-emerald-700 transition w-fit">
+                      <span>+ Adicionar foto</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={e => {
+                          const file = e.target.files?.[0];
+                          if (file) handlePhotoUpload(file, idx);
+                          e.target.value = '';
+                        }}
+                      />
+                    </label>
+                  )}
+                  <p className="text-xs text-gray-400">Opcional — foto do anúncio ou do imóvel comparativo</p>
+                </div>
+              )}
             </Field>
           </Grid>
         </div>
