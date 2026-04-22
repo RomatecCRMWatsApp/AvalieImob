@@ -4,35 +4,65 @@ import logging
 from datetime import datetime, timedelta
 from typing import Optional
 
-from services.cnd import receita_federal, pgfn, tst, trf1, tjma, cnib, rfb_cadastro
+from services.cnd import receitaws, brasilapi, datajud, tst, pgfn, cnib
 from models.cnd import CNDConsulta, CNDCertidao, CNDLog
 
 logger = logging.getLogger("romatec")
 
-PROVIDERS = [
-    receita_federal.consultar,
-    pgfn.consultar,
+# Providers para CPF físico (11 dígitos):
+#   TST (scraping — funciona), DataJud (processos judiciais), cpfdev (situação cadastral)
+PROVIDERS_CPF = [
     tst.consultar,
-    trf1.consultar,
-    tjma.consultar,
-    cnib.consultar,
-    rfb_cadastro.consultar,
+    datajud.consultar,
 ]
+
+# Providers para CNPJ (14 dígitos):
+#   ReceitaWS (situação cadastral), BrasilAPI (fallback), DataJud (processos), TST (trabalhista)
+PROVIDERS_CNPJ = [
+    receitaws.consultar,
+    brasilapi.consultar,
+    datajud.consultar,
+    tst.consultar,
+]
+
+# Providers universais mantidos mas com retorno gracioso quando bloqueados
+PROVIDERS_EXTRAS = [
+    pgfn.consultar,
+    cnib.consultar,
+]
+
+
+def _get_providers(cpf_cnpj: str) -> list:
+    doc = cpf_cnpj.strip().replace(".", "").replace("-", "").replace("/", "")
+    base = PROVIDERS_CNPJ if len(doc) == 14 else PROVIDERS_CPF
+    return base + PROVIDERS_EXTRAS
 
 
 async def _run_provider(fn, cpf_cnpj: str) -> dict:
     """Executa um provider com proteção total contra exceções."""
     try:
-        return await asyncio.wait_for(fn(cpf_cnpj), timeout=20)
+        return await asyncio.wait_for(fn(cpf_cnpj), timeout=15)
     except asyncio.TimeoutError:
         provider = fn.__module__.split(".")[-1]
-        return {"provider": provider, "resultado": "indisponivel", "pdf_base64": None,
-                "validade": None, "observacao": "Timeout de 20s excedido", "tempo_ms": 20000}
+        return {
+            "provider": provider,
+            "resultado": "indisponivel",
+            "pdf_base64": None,
+            "validade": None,
+            "observacao": "Timeout de 15s excedido",
+            "tempo_ms": 15000,
+        }
     except Exception as exc:
         provider = fn.__module__.split(".")[-1]
         logger.warning("Provider %s falhou: %s", provider, exc)
-        return {"provider": provider, "resultado": "indisponivel", "pdf_base64": None,
-                "validade": None, "observacao": f"Erro inesperado: {exc}", "tempo_ms": 0}
+        return {
+            "provider": provider,
+            "resultado": "indisponivel",
+            "pdf_base64": None,
+            "validade": None,
+            "observacao": f"Erro inesperado: {exc}",
+            "tempo_ms": 0,
+        }
 
 
 async def consultar_cnd(
@@ -51,7 +81,7 @@ async def consultar_cnd(
     log = CNDLog(user_id=user_id, cpf_cnpj=cpf_cnpj, finalidade=finalidade, ip=ip)
     await db.cnd_logs.insert_one(log.model_dump())
 
-    # 2. Verifica cache (mesma parte nas últimas 24h)
+    # 2. Cache 24h
     cache_limite = datetime.utcnow() - timedelta(hours=24)
     consulta_cache = await db.cnd_consultas.find_one({
         "user_id": user_id,
@@ -63,7 +93,7 @@ async def consultar_cnd(
         logger.info("CND cache hit para %s user=%s", cpf_cnpj, user_id)
         return consulta_cache["id"]
 
-    # 3. Cria documento de consulta (status: processando)
+    # 3. Cria documento (status: processando)
     consulta = CNDConsulta(
         user_id=user_id,
         cpf_cnpj=cpf_cnpj,
@@ -74,14 +104,15 @@ async def consultar_cnd(
     )
     await db.cnd_consultas.insert_one(consulta.model_dump())
 
-    # 4. Dispara todos os providers em paralelo
-    tasks = [_run_provider(fn, cpf_cnpj) for fn in PROVIDERS]
+    # 4. Dispara providers em paralelo (selecionados por tipo CPF/CNPJ)
+    providers = _get_providers(cpf_cnpj)
+    tasks = [_run_provider(fn, cpf_cnpj) for fn in providers]
     resultados = await asyncio.gather(*tasks, return_exceptions=True)
 
     # 5. Persiste cada certidão
     for res in resultados:
         if isinstance(res, Exception):
-            logger.error("Provider retornou exceção não capturada: %s", res)
+            logger.error("Provider exceção não capturada: %s", res)
             continue
         cert = CNDCertidao(
             consulta_id=consulta.id,
@@ -94,7 +125,7 @@ async def consultar_cnd(
         )
         await db.cnd_certidoes.insert_one(cert.model_dump())
 
-    # 6. Atualiza status da consulta
+    # 6. Conclui consulta
     await db.cnd_consultas.update_one(
         {"id": consulta.id},
         {"$set": {"status": "concluido"}},
