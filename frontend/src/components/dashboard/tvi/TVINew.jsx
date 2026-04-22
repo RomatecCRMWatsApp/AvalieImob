@@ -39,7 +39,7 @@ const TVINew = () => {
   const handleSelect = async (model) => {
     setCreating(true);
     try {
-      const vistoria = await tviAPI.create({ modelo_id: model.id, modelo_nome: model.nome, categoria: model.categoria });
+      const vistoria = await tviAPI.create({ model_id: model.id });
       nav(`/dashboard/tvi/${vistoria.id}`);
     } catch (e) {
       toast({ title: 'Erro ao criar vistoria', description: e?.response?.data?.detail, variant: 'destructive' });

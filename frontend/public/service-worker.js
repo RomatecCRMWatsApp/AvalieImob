@@ -1,8 +1,8 @@
 // @module service-worker — App Shell + API Cache + Background Sync
 /* eslint-disable no-restricted-globals */
 
-const CACHE_NAME = 'avalieimob-v1';
-const API_CACHE = 'avalieimob-api-v1';
+const CACHE_NAME = 'avalieimob-v2';
+const API_CACHE = 'avalieimob-api-v2';
 const SYNC_TAG = 'avalieimob-sync-tvi';
 
 const APP_SHELL = [
