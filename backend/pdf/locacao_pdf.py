@@ -608,26 +608,27 @@ def _rental_samples_table(samples: list) -> list:
             s.get("source", "") or "",
             s.get("collection_date", "") or "",
         ])
-    col_widths = [0.8 * cm, 4.0 * cm, 1.8 * cm, 2.0 * cm, 1.6 * cm, 1.8 * cm, 2.8 * cm, 2.2 * cm]
+    col_widths = [0.7 * cm, 3.8 * cm, 1.6 * cm, 1.8 * cm, 1.4 * cm, 1.6 * cm, 3.0 * cm, 2.4 * cm]
     tbl = Table(data, colWidths=col_widths, repeatRows=1)
     tbl.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), GREEN),
         ("TEXTCOLOR", (0, 0), (-1, 0), WHITE),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTSIZE", (0, 0), (-1, 0), 8),
+        ("FONTSIZE", (0, 0), (-1, 0), 9),
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
-        ("FONTSIZE", (0, 1), (-1, -1), 8),
+        ("FONTSIZE", (0, 1), (-1, -1), 9),
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), [WHITE, LIGHT_GREEN]),
-        ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#C0C0C0")),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-        ("TOPPADDING", (0, 0), (-1, -1), 5),
-        ("LEFTPADDING", (0, 0), (-1, -1), 4),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#1B4D1B")),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("LEFTPADDING", (0, 0), (-1, -1), 5),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
         ("ALIGN", (1, 1), (1, -1), "LEFT"),
         ("ALIGN", (6, 1), (6, -1), "LEFT"),
         ("ALIGN", (7, 1), (7, -1), "CENTER"),
+        ("WORDWRAP", (0, 0), (-1, -1), True),
     ]))
     return [tbl, _spacer(0.3)]
 
