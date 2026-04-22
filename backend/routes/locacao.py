@@ -150,45 +150,35 @@ async def download_locacao_docx(locacao_id: str, uid: str = Depends(get_current_
         fotos_imovel = doc.get("fotos_imovel") or []
         logger.info(f"DOCX Locação {locacao_id}: {len(fotos_imovel)} fotos encontradas")
         for i, foto in enumerate(fotos_imovel):
-            image_id = None
-            
-            # Novo formato: objeto com image_id
-            if isinstance(foto, dict) and foto.get("image_id"):
-                image_id = foto["image_id"]
-                logger.info(f"  Foto {i}: formato novo — image_id={image_id}")
-            # Formato legado: string URL
-            elif isinstance(foto, str):
-                # Extrair image_id da URL (ex: /api/upload/image/abc-123 ou abc-123)
-                parts = foto.replace('/api/upload/image/', '').split('/')
-                potential_id = parts[-1] if parts else foto
-                # Validar se parece um UUID
-                if len(potential_id) > 30 and '-' in potential_id:
-                    image_id = potential_id
-                    logger.info(f"  Foto {i}: formato legado (string) — extraído image_id={image_id}")
-                else:
-                    logger.warning(f"  Foto {i}: formato legado sem UUID válido: {foto}")
+            # Extrair image_id da URL (formato: /api/upload/image/abc-123 ou abc-123)
+            if isinstance(foto, str):
+                url = foto
+            elif isinstance(foto, dict):
+                url = foto.get("url") or foto.get("image_id", "")
             else:
-                logger.warning(f"  Foto {i}: formato inválido: {type(foto)}")
                 continue
             
-            if image_id:
+            parts = str(url).replace('/api/upload/image/', '').split('/')
+            image_id = parts[-1] if parts else str(url)
+            
+            # Validar se parece um UUID
+            if len(image_id) > 30 and '-' in image_id:
+                logger.info(f"  Buscando imagem {i}: {image_id}")
                 img_doc = await db.images.find_one({"id": image_id})
                 if img_doc and img_doc.get("data_b64"):
                     import base64
-                    # Se for dict, adicionar _image_bytes; se for string, converter para dict
-                    if isinstance(foto, dict):
-                        foto["_image_bytes"] = base64.b64decode(img_doc["data_b64"])
-                    else:
-                        # Substituir string por dict com todos os dados
-                        fotos_imovel[i] = {
-                            "image_id": image_id,
-                            "url": foto if isinstance(foto, str) else None,
-                            "_image_bytes": base64.b64decode(img_doc["data_b64"]),
-                            "caption": f"Foto {i+1}"
-                        }
-                    logger.info(f"  Imagem {i}: {len(base64.b64decode(img_doc['data_b64']))} bytes carregados")
+                    # Substituir URL por dict com dados da imagem
+                    fotos_imovel[i] = {
+                        "image_id": image_id,
+                        "url": url,
+                        "_image_bytes": base64.b64decode(img_doc["data_b64"]),
+                        "caption": f"Foto {i+1}"
+                    }
+                    logger.info(f"  Imagem {i}: {len(fotos_imovel[i]['_image_bytes'])} bytes carregados")
                 else:
                     logger.warning(f"  Imagem {i}: não encontrada no banco para id={image_id}")
+            else:
+                logger.warning(f"  Foto {i}: ID inválido: {image_id}")
         
         docx_bytes = generate_locacao_docx(doc, user)
         logger.info(f"DOCX Locação {locacao_id}: gerado com sucesso — {len(docx_bytes)} bytes")
