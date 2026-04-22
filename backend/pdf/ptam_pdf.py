@@ -314,9 +314,11 @@ class _RomaTecDoc(BaseDocTemplate):
 
 # ── builder helpers ───────────────────────────────────────────────────────────
 
-def _lv(styles, label: str, value: Any) -> list:
+def _lv(styles, label: str, value: Any, skip_zero: bool = True) -> list:
     """Return a label+value pair as a list of Paragraphs."""
-    if value is None or str(value).strip() in ("", "0", "0.0", "0.00"):
+    if value is None or str(value).strip() == "":
+        return []
+    if skip_zero and str(value).strip() in ("0", "0.0", "0.00", "0.0000"):
         return []
     return [
         Paragraph(f"<b>{label}:</b> {value}", styles["value"]),
@@ -698,7 +700,6 @@ def _build_property(ptam: dict, styles: dict) -> list:
         ("Tipo", "property_type"),
         ("Endereço", "property_address"),
         ("Bairro", "property_neighborhood"),
-        ("Cidade/UF", "property_city"),
         ("CEP", "property_cep"),
         ("Matrícula", "property_matricula"),
         ("Cartório", "property_cartorio"),
@@ -706,6 +707,16 @@ def _build_property(ptam: dict, styles: dict) -> list:
         ("Confrontações", "property_confrontations"),
     ]:
         story += _lv(styles, label, ptam.get(key))
+
+    # Cidade e Estado separados ou combinados
+    cidade = (ptam.get("property_city") or "").strip()
+    estado = (ptam.get("property_state") or "").strip()
+    if cidade and estado:
+        story += _lv(styles, "Cidade/UF", f"{cidade} — {estado}")
+    elif cidade:
+        story += _lv(styles, "Cidade", cidade)
+    elif estado:
+        story += _lv(styles, "Estado", estado)
 
     # Proprietários detalhados (lista dinâmica)
     proprietarios = ptam.get("proprietarios") or []
@@ -758,6 +769,40 @@ def _build_property(ptam: dict, styles: dict) -> list:
     if ptam.get("property_gps_lat") and ptam.get("property_gps_lng"):
         story += _lv(styles, "Coordenadas GPS", f"{ptam['property_gps_lat']}, {ptam['property_gps_lng']}")
     story += _body(styles, ptam.get("property_description", ""))
+
+    # ── Caracterização Física do Imóvel (Seção 5 do modelo) ──────────────────
+    _has_carac = any(ptam.get(k) for k in [
+        "imovel_area_terreno", "imovel_area_construida", "imovel_idade",
+        "imovel_estado_conservacao", "imovel_padrao_acabamento",
+        "imovel_num_quartos", "imovel_num_banheiros", "imovel_num_vagas",
+        "imovel_piscina", "imovel_caracteristicas_adicionais",
+    ])
+    if _has_carac:
+        story += _subsection(styles, "Caracterização do Imóvel")
+        if ptam.get("imovel_area_terreno"):
+            story += _lv(styles, "Área do Terreno", _fmt_area(ptam["imovel_area_terreno"]))
+        if ptam.get("imovel_area_construida"):
+            story += _lv(styles, "Área Construída", _fmt_area(ptam["imovel_area_construida"]))
+        if ptam.get("imovel_idade"):
+            story += _lv(styles, "Idade Aproximada", f"{ptam['imovel_idade']} anos")
+        if ptam.get("imovel_estado_conservacao"):
+            story += _lv(styles, "Estado de Conservação", ptam["imovel_estado_conservacao"])
+        if ptam.get("imovel_padrao_acabamento"):
+            story += _lv(styles, "Padrão de Acabamento", ptam["imovel_padrao_acabamento"])
+        # Cômodos
+        comodos = []
+        if ptam.get("imovel_num_quartos"):
+            comodos.append(f"{ptam['imovel_num_quartos']} quarto(s)")
+        if ptam.get("imovel_num_banheiros"):
+            comodos.append(f"{ptam['imovel_num_banheiros']} banheiro(s)")
+        if ptam.get("imovel_num_vagas"):
+            comodos.append(f"{ptam['imovel_num_vagas']} vaga(s) de garagem")
+        if comodos:
+            story += _lv(styles, "Cômodos / Dependências", " | ".join(comodos))
+        if ptam.get("imovel_piscina"):
+            story.append(Paragraph("<b>Piscina:</b> Sim", styles["value"]))
+        if ptam.get("imovel_caracteristicas_adicionais"):
+            story += _lv(styles, "Características Adicionais", ptam["imovel_caracteristicas_adicionais"])
 
     # Seção de Registros Rurais — apenas para imóvel rural
     if rural:
