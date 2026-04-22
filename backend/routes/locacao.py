@@ -109,12 +109,30 @@ async def download_locacao_pdf(locacao_id: str, uid: str = Depends(get_current_u
     try:
         # Buscar imagens do banco antes de gerar PDF
         fotos_imovel = doc.get("fotos_imovel") or []
-        for foto in fotos_imovel:
-            if isinstance(foto, dict) and foto.get("image_id"):
-                img_doc = await db.images.find_one({"id": foto["image_id"]})
+        for i, foto in enumerate(fotos_imovel):
+            # Extrair image_id da URL (formato: /api/upload/image/abc-123 ou abc-123)
+            if isinstance(foto, str):
+                url = foto
+            elif isinstance(foto, dict):
+                url = foto.get("url") or foto.get("image_id", "")
+            else:
+                continue
+            
+            parts = str(url).replace('/api/upload/image/', '').split('/')
+            image_id = parts[-1] if parts else str(url)
+            
+            # Validar se parece um UUID
+            if len(image_id) > 30 and '-' in image_id:
+                img_doc = await db.images.find_one({"id": image_id})
                 if img_doc and img_doc.get("data_b64"):
                     import base64
-                    foto["_image_bytes"] = base64.b64decode(img_doc["data_b64"])
+                    # Substituir URL por dict com dados da imagem
+                    fotos_imovel[i] = {
+                        "image_id": image_id,
+                        "url": url,
+                        "_image_bytes": base64.b64decode(img_doc["data_b64"]),
+                        "caption": f"Foto {i+1}"
+                    }
         
         pdf_bytes = generate_locacao_pdf(doc, user)
     except Exception as e:
