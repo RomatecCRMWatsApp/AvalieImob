@@ -16,10 +16,18 @@ export const StepFotos = ({ form, setForm }) => {
     if (!files?.length) return;
     setUploading(true);
     try {
-      const urls = await Promise.all(
-        files.map((f) => uploadAPI.uploadImage(f).then((r) => r.url || r.image_url || r.id))
+      const results = await Promise.all(
+        files.map(async (f) => {
+          const r = await uploadAPI.uploadImage(f);
+          // Salvar objeto com id e url para o backend poder buscar a imagem
+          return {
+            image_id: r.id || r.image_id,
+            url: r.url || r.image_url,
+            caption: f.name || 'Foto'
+          };
+        })
       );
-      setForm((prev) => ({ ...prev, [field]: [...(prev[field] || []), ...urls] }));
+      setForm((prev) => ({ ...prev, [field]: [...(prev[field] || []), ...results] }));
     } catch {
       toast({ title: 'Erro ao fazer upload', variant: 'destructive' });
     } finally {
@@ -34,13 +42,17 @@ export const StepFotos = ({ form, setForm }) => {
   const PhotoGrid = ({ field, label }) => (
     <Field label={label}>
       <div className="flex flex-wrap gap-2 mb-2">
-        {(form[field] || []).map((url, i) => (
-          <div key={i} className="relative w-20 h-20 rounded-xl overflow-hidden border border-gray-200">
-            <img src={url.startsWith('http') ? url : uploadAPI.getImageUrl(url)} alt="" className="w-full h-full object-cover" />
-            <button onClick={() => removePhoto(field, i)}
-              className="absolute top-0 right-0 bg-red-500 text-white text-xs w-5 h-5 flex items-center justify-center rounded-bl-xl">×</button>
-          </div>
-        ))}
+        {(form[field] || []).map((item, i) => {
+          // Suporta tanto objeto {image_id, url} quanto string (legado)
+          const url = typeof item === 'string' ? item : (item?.url || item?.image_id);
+          return (
+            <div key={i} className="relative w-20 h-20 rounded-xl overflow-hidden border border-gray-200">
+              <img src={typeof url === 'string' && url.startsWith('http') ? url : uploadAPI.getImageUrl(url)} alt="" className="w-full h-full object-cover" />
+              <button onClick={() => removePhoto(field, i)}
+                className="absolute top-0 right-0 bg-red-500 text-white text-xs w-5 h-5 flex items-center justify-center rounded-bl-xl">×</button>
+            </div>
+          );
+        })}
         {!isMobile && (
           <label className="w-20 h-20 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-emerald-400 transition text-gray-400 text-xs text-center">
             <span className="text-2xl leading-none">+</span>

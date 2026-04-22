@@ -148,16 +148,24 @@ async def download_locacao_docx(locacao_id: str, uid: str = Depends(get_current_
     try:
         # Buscar imagens do banco antes de gerar DOCX
         fotos_imovel = doc.get("fotos_imovel") or []
-        for foto in fotos_imovel:
+        logger.info(f"DOCX Locação {locacao_id}: {len(fotos_imovel)} fotos encontradas")
+        for i, foto in enumerate(fotos_imovel):
             if isinstance(foto, dict) and foto.get("image_id"):
+                logger.info(f"  Buscando imagem {i}: {foto['image_id']}")
                 img_doc = await db.images.find_one({"id": foto["image_id"]})
                 if img_doc and img_doc.get("data_b64"):
                     import base64
                     foto["_image_bytes"] = base64.b64decode(img_doc["data_b64"])
+                    logger.info(f"  Imagem {i}: {len(foto['_image_bytes'])} bytes carregados")
+                else:
+                    logger.warning(f"  Imagem {i}: não encontrada no banco")
+            else:
+                logger.warning(f"  Foto {i}: formato inválido ou sem image_id: {type(foto)}")
         
         docx_bytes = generate_locacao_docx(doc, user)
+        logger.info(f"DOCX Locação {locacao_id}: gerado com sucesso — {len(docx_bytes)} bytes")
     except Exception as e:
-        logger.exception("Erro ao gerar DOCX de locação")
+        logger.exception(f"Erro ao gerar DOCX de locação {locacao_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Erro ao gerar DOCX: {str(e)[:200]}")
     if not docx_bytes or len(docx_bytes) < 100:
         raise HTTPException(status_code=500, detail="DOCX gerado vazio")
