@@ -12,26 +12,24 @@ import { existsSync } from "fs";
 dotenv.config();
 
 const PORT = process.env.PORT || 3001;
+console.log(`Starting on PORT=${PORT}`);
+
 const app = express();
 
 app.use(cors({ origin: "*" }));
 app.use(express.json({ limit: "50mb" }));
 
-// tRPC
 app.use("/api/trpc", createExpressMiddleware({ router: appRouter, createContext }));
 
-// Health check
 app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
 });
 
-// Frontend
 const frontendDist = "/app/packages/frontend/dist";
 if (existsSync(frontendDist)) {
   app.use(express.static(frontendDist));
 }
 
-// Fallback
 app.get("*", (_req, res) => {
   const indexPath = join(frontendDist, "index.html");
   if (existsSync(indexPath)) {
@@ -41,12 +39,10 @@ app.get("*", (_req, res) => {
   }
 });
 
-// START NOW
-const server = app.listen(PORT, "0.0.0.0", () => {
-  console.log(`✅ Server: ${PORT}`);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`✅ Server listening on ${PORT}`);
 });
 
-// DB background
 setImmediate(async () => {
   try {
     const pool = await mysql.createPool({
@@ -60,18 +56,16 @@ setImmediate(async () => {
       queueLimit: 0,
     });
     app.locals.db = drizzle(pool);
-    console.log("✓ DB");
+    console.log("✓ DB connected");
   } catch (error) {
-    console.error("✗ DB:", error);
+    console.error("✗ DB error (server still running):", error);
   }
 });
 
 process.on("uncaughtException", (error) => {
-  console.error("Fatal:", error);
-  process.exit(1);
+  console.error("Uncaught exception:", error);
 });
 
 process.on("unhandledRejection", (reason) => {
-  console.error("Error:", reason);
-  process.exit(1);
+  console.error("Unhandled rejection:", reason);
 });
