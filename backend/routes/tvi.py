@@ -1,8 +1,10 @@
 # @module routes.tvi — CRUD do Kit TVI (Termo de Vistoria de Imóvel)
+import base64
 import logging
+import uuid
 from datetime import datetime
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel
 from pymongo import ReturnDocument
@@ -12,7 +14,7 @@ from dependencies import get_active_subscriber, serialize_doc
 from models.tvi import (
     VistoriaBase, Vistoria,
     VistoriaPhoto, VistoriaSignature, VistoriaShare,
-    PhotoUploadRequest, SignatureRequest, VistoriaShareBase,
+    PhotoUploadRequest, SignatureRequest, VistoriaShareBase, GpsCoord,
 )
 from pdf.tvi_pdf import generate_tvi_pdf
 from docx_gen.tvi_docx import generate_tvi_docx
@@ -189,19 +191,49 @@ async def delete_vistoria(
 
 
 # ── Fotos ───────────────────────────────────────────────────────────────────
-@router.post("/tvi/vistoria/{vid}/photos", response_model=VistoriaPhoto, status_code=201)
-async def add_photo(
+ALLOWED_IMG = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
+
+@router.post("/tvi/vistoria/{vid}/photos", status_code=201)
+async def add_photos(
     vid: str,
-    data: PhotoUploadRequest,
+    files: List[UploadFile] = File(...),
+    ambiente: str = Form("Geral"),
+    legenda: str = Form(""),
+    gps_lat: Optional[float] = Form(None),
+    gps_lng: Optional[float] = Form(None),
+    timestamp: Optional[str] = Form(None),
     uid: str = Depends(get_active_subscriber),
     db=Depends(get_db),
 ):
     doc = await db.vistorias.find_one({"id": vid, "user_id": uid})
     if not doc:
         raise HTTPException(status_code=404, detail="Vistoria não encontrada")
-    photo = VistoriaPhoto(vistoria_id=vid, url=data.url, ambiente=data.ambiente, legenda=data.legenda)
-    await db.vistoria_photos.insert_one(photo.model_dump())
-    return photo
+
+    gps = GpsCoord(lat=gps_lat, lng=gps_lng) if gps_lat is not None and gps_lng is not None else None
+    saved = []
+
+    for f in files:
+        ct = f.content_type or "image/jpeg"
+        if ct not in ALLOWED_IMG:
+            continue
+        data = await f.read()
+        img_id = str(uuid.uuid4())
+        img_doc = {
+            "id": img_id, "user_id": uid, "filename": f.filename or "foto",
+            "content_type": ct, "data_b64": base64.b64encode(data).decode(),
+            "size_bytes": len(data), "created_at": datetime.utcnow(),
+        }
+        await db.images.insert_one(img_doc)
+        url = f"/api/upload/image/{img_id}"
+        photo = VistoriaPhoto(
+            vistoria_id=vid, url=url, ambiente=ambiente,
+            legenda=legenda, gps=gps,
+            timestamp=timestamp or datetime.utcnow().isoformat(),
+        )
+        await db.vistoria_photos.insert_one(photo.model_dump())
+        saved.append({"url": url, "ambiente": ambiente, "legenda": legenda, "id": photo.id})
+
+    return {"photos": saved}
 
 
 @router.get("/tvi/vistoria/{vid}/photos", response_model=List[VistoriaPhoto])

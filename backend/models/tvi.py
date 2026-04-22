@@ -94,11 +94,18 @@ class Vistoria(VistoriaBase):
 
 
 # ── vistoria_photos ────────────────────────────────────────────────────────
+class GpsCoord(BaseModel):
+    lat: float
+    lng: float
+
+
 class VistoriaPhotoBase(BaseModel):
     vistoria_id: str
     url: str
     ambiente: Optional[str] = ""
     legenda: Optional[str] = ""
+    gps: Optional[GpsCoord] = None
+    timestamp: Optional[str] = None
 
 
 class VistoriaPhoto(VistoriaPhotoBase):
@@ -137,6 +144,9 @@ class PhotoUploadRequest(BaseModel):
     url: str
     ambiente: Optional[str] = ""
     legenda: Optional[str] = ""
+    gps_lat: Optional[float] = None
+    gps_lng: Optional[float] = None
+    timestamp: Optional[str] = None
 
 
 class SignatureRequest(BaseModel):
