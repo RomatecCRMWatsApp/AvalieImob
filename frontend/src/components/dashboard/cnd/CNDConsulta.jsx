@@ -46,7 +46,11 @@ export default function CNDConsulta() {
   const { consulta } = useConsulta(consultaId);
   const isCPF = form.cpf_cnpj.replace(/\D/g, '').length <= 11;
 
-  useEffect(() => { if (consulta && consulta.status !== 'processando') setStep(3); }, [consulta]);
+  useEffect(() => {
+    if (!consulta) return;
+    const status = consulta.consulta?.status || consulta.status;
+    if (status !== 'processando' && status !== 'pendente') setStep(3);
+  }, [consulta]);
 
   const set = (e) => { const { name, value } = e.target; setForm(p => ({ ...p, [name]: name === 'cpf_cnpj' ? maskDoc(value) : value })); };
 
@@ -74,6 +78,7 @@ export default function CNDConsulta() {
   };
 
   const certs = consulta?.certidoes || [];
+  const consultaInfo = consulta?.consulta || consulta || {};
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -122,7 +127,7 @@ export default function CNDConsulta() {
       {step === 3 && consulta && (
         <div className="space-y-4">
           <div className="bg-white rounded-xl border border-gray-200 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="space-y-2"><p className="font-semibold text-gray-800">{consulta.nome_parte}</p><Resumo certs={certs} /></div>
+            <div className="space-y-2"><p className="font-semibold text-gray-800">{consultaInfo.nome_parte}</p><Resumo certs={certs} /></div>
             <div className="flex gap-2 flex-wrap">
               <button onClick={baixarTodas} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-900 text-white text-sm font-medium hover:bg-emerald-800"><Download className="w-4 h-4" />Baixar Todas</button>
               <button onClick={reset} className="flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-700 hover:bg-gray-50"><RotateCcw className="w-4 h-4" />Reconsultar</button>

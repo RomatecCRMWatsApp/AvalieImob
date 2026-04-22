@@ -12,7 +12,8 @@ export function useConsulta(id) {
     try {
       const data = await cndAPI.getConsulta(id);
       setConsulta(data);
-      if (data.status !== 'processando') {
+      const status = data.consulta?.status || data.status;
+      if (status !== 'processando' && status !== 'pendente') {
         clearInterval(intervalRef.current);
       }
     } catch (err) {
