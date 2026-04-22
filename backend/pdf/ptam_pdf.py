@@ -1782,6 +1782,180 @@ def _build_fotos_e_documentos(ptam: dict, styles: dict) -> list:
     return story
 
 
+# ── Currículo do Avaliador ───────────────────────────────────────────────────
+
+def _build_curriculo_avaliador(perfil: dict | None, user: dict, styles: dict) -> list:
+    """Seção 'Currículo do Avaliador' — dados completos do profissional."""
+    if not perfil:
+        return []
+
+    story = []
+    story += _section(styles, "Anexo IV — Currículo do Avaliador")
+
+    # ── Cabeçalho com nome e registros ───────────────────────────────────────
+    nome = perfil.get("nome_completo") or user.get("name", "")
+    if nome:
+        story.append(Paragraph(f"<b>{nome}</b>", ParagraphStyle(
+            "curriculo_nome", fontName="Helvetica-Bold", fontSize=16,
+            alignment=TA_CENTER, textColor=GREEN, spaceAfter=6,
+        )))
+
+    # Registros profissionais (CRECI, CNAI, etc.)
+    registros = perfil.get("registros") or []
+    if registros:
+        reg_texts = []
+        for r in registros:
+            tipo = r.get("tipo", "")
+            num = r.get("numero", "")
+            uf = r.get("uf", "")
+            if tipo and num:
+                reg_texts.append(f"{tipo} {num}" + (f"/{uf}" if uf else ""))
+        if reg_texts:
+            story.append(Paragraph(
+                " | ".join(reg_texts),
+                ParagraphStyle("curriculo_regs", fontName="Helvetica", fontSize=10,
+                               alignment=TA_CENTER, textColor=DARK, spaceAfter=12),
+            ))
+
+    # Bio/Resumo
+    bio = perfil.get("bio_resumo", "")
+    if bio:
+        story.append(_spacer(0.3))
+        story.append(Paragraph(bio.replace("\n", "<br/>"), styles["body"]))
+        story.append(_spacer(0.3))
+
+    # ── Formação Acadêmica ──────────────────────────────────────────────────
+    formacoes = perfil.get("formacoes") or []
+    if formacoes:
+        story += _subsection(styles, "Formação Acadêmica")
+        for f in formacoes:
+            tipo = f.get("tipo", "")
+            curso = f.get("curso", "")
+            inst = f.get("instituicao", "")
+            ano = f.get("ano_conclusao", "")
+            carga = f.get("carga_horaria", "")
+            parts = [p for p in [tipo, curso] if p]
+            linha1 = " ".join(parts)
+            linha2_parts = [p for p in [inst, f"Ano: {ano}" if ano else "", f"{carga}h" if carga else ""] if p]
+            linha2 = " — ".join(linha2_parts)
+            if linha1:
+                story.append(Paragraph(f"• <b>{linha1}</b>", styles["value"]))
+            if linha2:
+                story.append(Paragraph(f"  <i>{linha2}</i>", ParagraphStyle(
+                    "formacao_det", fontName="Helvetica-Oblique", fontSize=9,
+                    textColor=colors.HexColor("#555555"), spaceAfter=4,
+                )))
+        story.append(_spacer(0.2))
+
+    # ── Experiência Profissional ─────────────────────────────────────────────
+    experiencias = perfil.get("experiencias") or []
+    if experiencias:
+        story += _subsection(styles, "Experiência Profissional")
+        for exp in experiencias:
+            cargo = exp.get("cargo", "")
+            empresa = exp.get("empresa", "")
+            inicio = exp.get("periodo_inicio", "")
+            fim = exp.get("periodo_fim", "")
+            desc = exp.get("descricao", "")
+            periodo = f"{inicio}" + (f" até {fim}" if fim else " — atual")
+            if cargo and empresa:
+                story.append(Paragraph(f"• <b>{cargo}</b> — {empresa}", styles["value"]))
+                story.append(Paragraph(f"  <i>{periodo}</i>", ParagraphStyle(
+                    "exp_periodo", fontName="Helvetica-Oblique", fontSize=9,
+                    textColor=colors.HexColor("#555555"), spaceAfter=2,
+                )))
+            if desc:
+                story.append(Paragraph(f"  {desc}", ParagraphStyle(
+                    "exp_desc", fontName="Helvetica", fontSize=9,
+                    textColor=DARK, spaceAfter=4,
+                )))
+        story.append(_spacer(0.2))
+
+    # ── Especializações e Habilitações ───────────────────────────────────────
+    especializacoes = perfil.get("especializacoes") or []
+    habilitacoes = perfil.get("habilitacoes") or []
+    if especializacoes or habilitacoes:
+        story += _subsection(styles, "Especializações e Habilitações")
+        if especializacoes:
+            story.append(Paragraph("<b>Especializações:</b> " + "; ".join(especializacoes), styles["value"]))
+        if habilitacoes:
+            story.append(Paragraph("<b>Habilitações:</b> " + "; ".join(habilitacoes), styles["value"]))
+        story.append(_spacer(0.2))
+
+    # ── Associações Profissionais ────────────────────────────────────────────
+    associacoes = perfil.get("membro_associacoes") or []
+    if associacoes:
+        story += _subsection(styles, "Associações Profissionais")
+        for assoc in associacoes:
+            story.append(Paragraph(f"• {assoc}", styles["value"]))
+        story.append(_spacer(0.2))
+
+    # ── Áreas de Atuação ─────────────────────────────────────────────────────
+    areas = perfil.get("areas_atuacao") or []
+    if areas:
+        story += _subsection(styles, "Áreas de Atuação")
+        story.append(Paragraph("; ".join(areas), styles["value"]))
+        story.append(_spacer(0.2))
+
+    # ── Tribunais e Bancos Habilitados ───────────────────────────────────────
+    tribunais = perfil.get("tribunais_cadastrado") or []
+    bancos = perfil.get("bancos_habilitado") or []
+    if tribunais or bancos:
+        story += _subsection(styles, "Cadastros e Habilitações")
+        if tribunais:
+            story.append(Paragraph(f"<b>Tribunais cadastrado:</b> {', '.join(tribunais)}", styles["value"]))
+        if bancos:
+            story.append(Paragraph(f"<b>Bancos habilitado:</b> {', '.join(bancos)}", styles["value"]))
+        story.append(_spacer(0.2))
+
+    # ── Contato ──────────────────────────────────────────────────────────────
+    story += _subsection(styles, "Contato")
+    contato_items = []
+    email_prof = perfil.get("email_profissional") or user.get("email", "")
+    telefone = perfil.get("telefone", "")
+    site = perfil.get("site", "")
+    if email_prof:
+        contato_items.append(f"E-mail: {email_prof}")
+    if telefone:
+        contato_items.append(f"Telefone: {telefone}")
+    if site:
+        contato_items.append(f"Site: {site}")
+    for item in contato_items:
+        story.append(Paragraph(f"• {item}", styles["value"]))
+
+    # ── Endereço do Escritório ───────────────────────────────────────────────
+    endereco = perfil.get("endereco_escritorio", "")
+    cidade = perfil.get("cidade", "")
+    uf = perfil.get("uf", "")
+    cep = perfil.get("cep", "")
+    if any([endereco, cidade, uf]):
+        story.append(_spacer(0.2))
+        story += _subsection(styles, "Endereço Profissional")
+        end_parts = [p for p in [endereco, f"{cidade}/{uf}" if cidade or uf else "", f"CEP: {cep}" if cep else ""] if p]
+        if end_parts:
+            story.append(Paragraph(" — ".join(end_parts), styles["value"]))
+
+    # ── Empresa ──────────────────────────────────────────────────────────────
+    empresa_nome = perfil.get("empresa_nome", "")
+    empresa_cnpj = perfil.get("empresa_cnpj", "")
+    if empresa_nome:
+        story.append(_spacer(0.2))
+        story += _subsection(styles, "Empresa")
+        story.append(Paragraph(f"<b>{empresa_nome}</b>" + (f" — CNPJ: {empresa_cnpj}" if empresa_cnpj else ""), styles["value"]))
+
+    # ── Estatísticas ─────────────────────────────────────────────────────────
+    num_laudos = perfil.get("numero_laudos_emitidos", 0)
+    if num_laudos:
+        story.append(_spacer(0.3))
+        story.append(Paragraph(
+            f"<i>Total de laudos emitidos: {num_laudos}</i>",
+            ParagraphStyle("laudos_count", fontName="Helvetica-Oblique", fontSize=9,
+                           alignment=TA_CENTER, textColor=colors.HexColor("#666666")),
+        ))
+
+    return story
+
+
 # ── CND: Certidões das Partes ─────────────────────────────────────────────────
 _PROVIDER_LABELS = {
     "receita":      "Receita Federal",
@@ -1887,7 +2061,7 @@ def _safe_build(fn, *args, section_name: str = "") -> list:
         return []
 
 
-def generate_ptam_pdf(ptam: dict, user: dict, cnd_consultas: list | None = None) -> bytes:
+def generate_ptam_pdf(ptam: dict, user: dict, cnd_consultas: list | None = None, perfil_avaliador: dict | None = None) -> bytes:
     """Generate a PDF from PTAM data. Returns bytes.
 
     Sections (ABNT NBR 14653):
@@ -1990,6 +2164,14 @@ def generate_ptam_pdf(ptam: dict, user: dict, cnd_consultas: list | None = None)
         story.append(PageBreak())
         story += _section(styles, "Anexo IV — Certidões das Partes (CND)")
         story += certidoes_section
+
+    # ── Anexo IV: Currículo do Avaliador ───────────────────────────────────
+    curriculo_section = _safe_build(
+        _build_curriculo_avaliador, perfil_avaliador, user, styles, section_name="curriculo-avaliador"
+    )
+    if curriculo_section:
+        story.append(PageBreak())
+        story += curriculo_section
 
     doc.build(story)
     return buf.getvalue()

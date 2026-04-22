@@ -175,7 +175,12 @@ async def download_ptam_docx(pid: str, uid: str = Depends(get_active_subscriber)
             certs = await db.cnd_certidoes.find({"consulta_id": c.get("id", "")}).to_list(10)
             cnd_consultas.append({"consulta": c, "certidoes": certs})
 
-        data = generate_ptam_docx(doc, user, cnd_consultas=cnd_consultas)
+        # ── Buscar perfil do avaliador (currículo) ─────────────────────────
+        perfil_avaliador = await db.perfil_avaliador.find_one({"user_id": uid})
+        if perfil_avaliador:
+            perfil_avaliador.pop("_id", None)
+
+        data = generate_ptam_docx(doc, user, cnd_consultas=cnd_consultas, perfil_avaliador=perfil_avaliador)
     except Exception as e:
         logger.exception("DOCX generation error")
         raise HTTPException(status_code=500, detail=f"Erro ao gerar DOCX: {str(e)[:200]}")
@@ -277,7 +282,13 @@ async def download_ptam_pdf(pid: str, uid: str = Depends(get_active_subscriber),
         for c in raw_consultas:
             certs = await db.cnd_certidoes.find({"consulta_id": c.get("id", "")}).to_list(10)
             cnd_consultas.append({"consulta": c, "certidoes": certs})
-        data = generate_ptam_pdf(doc, user, cnd_consultas=cnd_consultas)
+
+        # ── Buscar perfil do avaliador (currículo) ─────────────────────────
+        perfil_avaliador = await db.perfil_avaliador.find_one({"user_id": uid})
+        if perfil_avaliador:
+            perfil_avaliador.pop("_id", None)
+
+        data = generate_ptam_pdf(doc, user, cnd_consultas=cnd_consultas, perfil_avaliador=perfil_avaliador)
     except Exception as e:
         logger.exception("PDF generation error")
         raise HTTPException(status_code=500, detail=f"Erro ao gerar PDF: {str(e)[:200]}")
@@ -398,7 +409,13 @@ async def send_ptam_email(
         for c in raw_c:
             certs = await db.cnd_certidoes.find({"consulta_id": c.get("id", "")}).to_list(10)
             cnd_consultas_email.append({"consulta": c, "certidoes": certs})
-        pdf_bytes = generate_ptam_pdf(doc, user, cnd_consultas=cnd_consultas_email)
+
+        # ── Buscar perfil do avaliador (currículo) ─────────────────────────
+        perfil_avaliador_email = await db.perfil_avaliador.find_one({"user_id": uid})
+        if perfil_avaliador_email:
+            perfil_avaliador_email.pop("_id", None)
+
+        pdf_bytes = generate_ptam_pdf(doc, user, cnd_consultas=cnd_consultas_email, perfil_avaliador=perfil_avaliador_email)
     except Exception as e:
         logger.exception("Erro ao gerar PDF para envio por email")
         raise HTTPException(status_code=500, detail=f"Erro ao gerar PDF: {str(e)[:200]}")

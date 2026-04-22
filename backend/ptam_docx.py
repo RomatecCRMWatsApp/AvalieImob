@@ -308,6 +308,7 @@ def _render_sumario(doc: Document) -> None:
         ("14",   "Registro Fotográfico"),
         ("15",   "Documentos Anexos"),
         ("A.IV", "Anexo IV — Certidões das Partes (CND)"),
+        ("A.V",  "Anexo V — Currículo do Avaliador"),
     ]
     table = doc.add_table(rows=1, cols=2)
     table.style = "Table Grid"
@@ -1458,9 +1459,217 @@ def _render_certidoes(doc: Document, cnd_consultas: list) -> None:
         doc.add_paragraph()
 
 
+def _render_curriculo(doc: Document, perfil: dict | None, user: dict) -> None:
+    """Seção 'Currículo do Avaliador' — dados completos do profissional."""
+    if not perfil:
+        return
+
+    _add_section_heading(doc, "ANEXO IV — CURRÍCULO DO AVALIADOR")
+
+    # ── Cabeçalho com nome e registros ───────────────────────────────────────
+    nome = perfil.get("nome_completo") or user.get("name", "")
+    if nome:
+        p = doc.add_paragraph()
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run = p.add_run(nome)
+        run.font.bold = True
+        run.font.size = Pt(16)
+        run.font.color.rgb = GREEN
+
+    # Registros profissionais (CRECI, CNAI, etc.)
+    registros = perfil.get("registros") or []
+    if registros:
+        reg_texts = []
+        for r in registros:
+            tipo = r.get("tipo", "")
+            num = r.get("numero", "")
+            uf = r.get("uf", "")
+            if tipo and num:
+                reg_texts.append(f"{tipo} {num}" + (f"/{uf}" if uf else ""))
+        if reg_texts:
+            p = doc.add_paragraph()
+            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            run = p.add_run(" | ".join(reg_texts))
+            run.font.size = Pt(10)
+            run.font.color.rgb = DARK
+
+    # Bio/Resumo
+    bio = perfil.get("bio_resumo", "")
+    if bio:
+        doc.add_paragraph()
+        _add_styled_paragraph(doc, bio, alignment=WD_ALIGN_PARAGRAPH.JUSTIFY)
+        doc.add_paragraph()
+
+    # ── Formação Acadêmica ──────────────────────────────────────────────────
+    formacoes = perfil.get("formacoes") or []
+    if formacoes:
+        _add_subsection_heading(doc, "Formação Acadêmica")
+        for f in formacoes:
+            tipo = f.get("tipo", "")
+            curso = f.get("curso", "")
+            inst = f.get("instituicao", "")
+            ano = f.get("ano_conclusao", "")
+            carga = f.get("carga_horaria", "")
+            parts = [p for p in [tipo, curso] if p]
+            linha1 = " ".join(parts)
+            linha2_parts = [p for p in [inst, f"Ano: {ano}" if ano else "", f"{carga}h" if carga else ""] if p]
+            linha2 = " — ".join(linha2_parts)
+            if linha1:
+                p = doc.add_paragraph()
+                p.add_run("• ").font.size = Pt(11)
+                r = p.add_run(linha1)
+                r.font.bold = True
+                r.font.size = Pt(11)
+            if linha2:
+                p2 = doc.add_paragraph()
+                p2.paragraph_format.left_indent = Cm(0.5)
+                r2 = p2.add_run(linha2)
+                r2.font.italic = True
+                r2.font.size = Pt(9)
+                r2.font.color.rgb = RGBColor(85, 85, 85)
+        doc.add_paragraph()
+
+    # ── Experiência Profissional ─────────────────────────────────────────────
+    experiencias = perfil.get("experiencias") or []
+    if experiencias:
+        _add_subsection_heading(doc, "Experiência Profissional")
+        for exp in experiencias:
+            cargo = exp.get("cargo", "")
+            empresa = exp.get("empresa", "")
+            inicio = exp.get("periodo_inicio", "")
+            fim = exp.get("periodo_fim", "")
+            desc = exp.get("descricao", "")
+            periodo = f"{inicio}" + (f" até {fim}" if fim else " — atual")
+            if cargo and empresa:
+                p = doc.add_paragraph()
+                p.add_run("• ").font.size = Pt(11)
+                r = p.add_run(f"{cargo} — {empresa}")
+                r.font.bold = True
+                r.font.size = Pt(11)
+                p2 = doc.add_paragraph()
+                p2.paragraph_format.left_indent = Cm(0.5)
+                r2 = p2.add_run(periodo)
+                r2.font.italic = True
+                r2.font.size = Pt(9)
+                r2.font.color.rgb = RGBColor(85, 85, 85)
+            if desc:
+                p3 = doc.add_paragraph()
+                p3.paragraph_format.left_indent = Cm(0.5)
+                p3.add_run(desc).font.size = Pt(9)
+        doc.add_paragraph()
+
+    # ── Especializações e Habilitações ───────────────────────────────────────
+    especializacoes = perfil.get("especializacoes") or []
+    habilitacoes = perfil.get("habilitacoes") or []
+    if especializacoes or habilitacoes:
+        _add_subsection_heading(doc, "Especializações e Habilitações")
+        if especializacoes:
+            p = doc.add_paragraph()
+            r1 = p.add_run("Especializações: ")
+            r1.font.bold = True
+            r1.font.size = Pt(11)
+            p.add_run("; ".join(especializacoes)).font.size = Pt(11)
+        if habilitacoes:
+            p = doc.add_paragraph()
+            r1 = p.add_run("Habilitações: ")
+            r1.font.bold = True
+            r1.font.size = Pt(11)
+            p.add_run("; ".join(habilitacoes)).font.size = Pt(11)
+        doc.add_paragraph()
+
+    # ── Associações Profissionais ────────────────────────────────────────────
+    associacoes = perfil.get("membro_associacoes") or []
+    if associacoes:
+        _add_subsection_heading(doc, "Associações Profissionais")
+        for assoc in associacoes:
+            p = doc.add_paragraph()
+            p.add_run("• ").font.size = Pt(11)
+            p.add_run(assoc).font.size = Pt(11)
+        doc.add_paragraph()
+
+    # ── Áreas de Atuação ─────────────────────────────────────────────────────
+    areas = perfil.get("areas_atuacao") or []
+    if areas:
+        _add_subsection_heading(doc, "Áreas de Atuação")
+        _add_styled_paragraph(doc, "; ".join(areas))
+        doc.add_paragraph()
+
+    # ── Tribunais e Bancos Habilitados ───────────────────────────────────────
+    tribunais = perfil.get("tribunais_cadastrado") or []
+    bancos = perfil.get("bancos_habilitado") or []
+    if tribunais or bancos:
+        _add_subsection_heading(doc, "Cadastros e Habilitações")
+        if tribunais:
+            p = doc.add_paragraph()
+            r1 = p.add_run("Tribunais cadastrado: ")
+            r1.font.bold = True
+            r1.font.size = Pt(11)
+            p.add_run(", ".join(tribunais)).font.size = Pt(11)
+        if bancos:
+            p = doc.add_paragraph()
+            r1 = p.add_run("Bancos habilitado: ")
+            r1.font.bold = True
+            r1.font.size = Pt(11)
+            p.add_run(", ".join(bancos)).font.size = Pt(11)
+        doc.add_paragraph()
+
+    # ── Contato ──────────────────────────────────────────────────────────────
+    _add_subsection_heading(doc, "Contato")
+    contato_items = []
+    email_prof = perfil.get("email_profissional") or user.get("email", "")
+    telefone = perfil.get("telefone", "")
+    site = perfil.get("site", "")
+    if email_prof:
+        contato_items.append(f"E-mail: {email_prof}")
+    if telefone:
+        contato_items.append(f"Telefone: {telefone}")
+    if site:
+        contato_items.append(f"Site: {site}")
+    for item in contato_items:
+        p = doc.add_paragraph()
+        p.add_run("• ").font.size = Pt(11)
+        p.add_run(item).font.size = Pt(11)
+
+    # ── Endereço do Escritório ───────────────────────────────────────────────
+    endereco = perfil.get("endereco_escritorio", "")
+    cidade = perfil.get("cidade", "")
+    uf = perfil.get("uf", "")
+    cep = perfil.get("cep", "")
+    if any([endereco, cidade, uf]):
+        doc.add_paragraph()
+        _add_subsection_heading(doc, "Endereço Profissional")
+        end_parts = [p for p in [endereco, f"{cidade}/{uf}" if cidade or uf else "", f"CEP: {cep}" if cep else ""] if p]
+        if end_parts:
+            _add_styled_paragraph(doc, " — ".join(end_parts))
+
+    # ── Empresa ──────────────────────────────────────────────────────────────
+    empresa_nome = perfil.get("empresa_nome", "")
+    empresa_cnpj = perfil.get("empresa_cnpj", "")
+    if empresa_nome:
+        doc.add_paragraph()
+        _add_subsection_heading(doc, "Empresa")
+        p = doc.add_paragraph()
+        r = p.add_run(empresa_nome)
+        r.font.bold = True
+        r.font.size = Pt(11)
+        if empresa_cnpj:
+            p.add_run(f" — CNPJ: {empresa_cnpj}").font.size = Pt(11)
+
+    # ── Estatísticas ─────────────────────────────────────────────────────────
+    num_laudos = perfil.get("numero_laudos_emitidos", 0)
+    if num_laudos:
+        doc.add_paragraph()
+        p = doc.add_paragraph()
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        r = p.add_run(f"Total de laudos emitidos: {num_laudos}")
+        r.font.italic = True
+        r.font.size = Pt(9)
+        r.font.color.rgb = RGBColor(102, 102, 102)
+
+
 # ── entry point ───────────────────────────────────────────────────────────────
 
-def generate_ptam_docx(ptam: dict, user: dict, cnd_consultas: list | None = None) -> bytes:
+def generate_ptam_docx(ptam: dict, user: dict, cnd_consultas: list | None = None, perfil_avaliador: dict | None = None) -> bytes:
     """Gera DOCX completo do PTAM com paridade total ao PDF. Retorna bytes."""
     if user is None:
         user = {}
@@ -1560,6 +1769,11 @@ def generate_ptam_docx(ptam: dict, user: dict, cnd_consultas: list | None = None
     if cnd_consultas:
         doc.add_page_break()
         _render_certidoes(doc, cnd_consultas)
+
+    # ── Anexo V: Currículo do Avaliador ───────────────────────────────────────
+    if perfil_avaliador:
+        doc.add_page_break()
+        _render_curriculo(doc, perfil_avaliador, user)
 
     buf = BytesIO()
     doc.save(buf)
