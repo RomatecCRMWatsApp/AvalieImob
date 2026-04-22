@@ -154,7 +154,7 @@ async def download_ptam_docx(pid: str, uid: str = Depends(get_active_subscriber)
         # ── Buscar imagens das amostras de mercado ────────────────────────
         market_samples = doc.get("market_samples") or []
         for j, sample in enumerate(market_samples):
-            foto_url = sample.get("foto_url") or ""
+            foto_url = sample.get("foto") or sample.get("foto_url") or ""
             if not foto_url:
                 continue
             parts = str(foto_url).replace('/api/upload/image/', '').split('/')
@@ -257,7 +257,7 @@ async def download_ptam_pdf(pid: str, uid: str = Depends(get_active_subscriber),
         # ── Buscar imagens das amostras de mercado ────────────────────────
         market_samples = doc.get("market_samples") or []
         for j, sample in enumerate(market_samples):
-            foto_url = sample.get("foto_url") or ""
+            foto_url = sample.get("foto") or sample.get("foto_url") or ""
             if not foto_url:
                 continue
             parts = str(foto_url).replace('/api/upload/image/', '').split('/')
@@ -378,7 +378,7 @@ async def send_ptam_email(
         # ── Buscar imagens das amostras de mercado ────────────────────────
         market_samples_e = doc.get("market_samples") or []
         for j, sample in enumerate(market_samples_e):
-            foto_url = sample.get("foto_url") or ""
+            foto_url = sample.get("foto") or sample.get("foto_url") or ""
             if not foto_url:
                 continue
             parts = str(foto_url).replace('/api/upload/image/', '').split('/')
