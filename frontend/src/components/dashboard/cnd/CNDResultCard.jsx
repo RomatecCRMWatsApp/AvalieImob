@@ -25,10 +25,10 @@ export default function CNDResultCard({ certidao, consultaId }) {
   const [downloading, setDownloading] = useState(false);
   const meta = PROVIDER_META[certidao.provider] || { label: certidao.provider, Icon: Shield, link: '#' };
   const Icon = meta.Icon;
-  const borderColor = BORDER_COLOR[certidao.status] || 'border-l-gray-300';
+  const borderColor = BORDER_COLOR[certidao.resultado] || 'border-l-gray-300';
 
   const handleDownload = async () => {
-    if (certidao.status === 'indisponivel') return;
+    if (certidao.resultado === 'indisponivel') return;
     setDownloading(true);
     try {
       const res = await cndAPI.downloadCertidao(consultaId, certidao.provider);
@@ -54,19 +54,19 @@ export default function CNDResultCard({ certidao, consultaId }) {
           </div>
           <span className="text-sm font-semibold text-gray-800 leading-tight">{meta.label}</span>
         </div>
-        <CNDStatusBadge status={certidao.status} small />
+        <CNDStatusBadge status={certidao.resultado} small />
       </div>
 
       {certidao.observacao && (
         <p className="text-xs text-gray-500 leading-relaxed">{certidao.observacao}</p>
       )}
 
-      {certidao.tempo_consulta_ms && (
-        <p className="text-[10px] text-gray-400">{(certidao.tempo_consulta_ms / 1000).toFixed(1)}s de consulta</p>
+      {certidao.tempo_ms && (
+        <p className="text-[10px] text-gray-400">{(certidao.tempo_ms / 1000).toFixed(1)}s de consulta</p>
       )}
 
       <div className="flex gap-2 flex-wrap mt-auto pt-1">
-        {certidao.status !== 'indisponivel' && certidao.status !== 'processando' && (
+        {certidao.resultado !== 'indisponivel' && certidao.resultado !== 'erro' && (
           <button
             onClick={handleDownload}
             disabled={downloading}

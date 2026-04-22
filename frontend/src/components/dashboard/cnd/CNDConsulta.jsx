@@ -14,9 +14,9 @@ function maskDoc(v) {
 }
 
 function Resumo({ certs }) {
-  const n = certs.filter(c => c.status === 'negativa').length;
-  const p = certs.filter(c => c.status === 'positiva').length;
-  const i = certs.filter(c => c.status === 'indisponivel').length;
+  const n = certs.filter(c => c.resultado === 'negativa').length;
+  const p = certs.filter(c => c.resultado === 'positiva').length;
+  const i = certs.filter(c => c.resultado === 'indisponivel' || c.resultado === 'erro').length;
   return (
     <div className="flex flex-wrap gap-2">
       <span className="px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-700 font-semibold">{n} Negativa{n !== 1 ? 's' : ''}</span>
@@ -68,7 +68,7 @@ export default function CNDConsulta() {
 
   const baixarTodas = async () => {
     if (!consulta?.certidoes) return;
-    for (const c of consulta.certidoes.filter(c => c.status !== 'indisponivel' && c.status !== 'processando')) {
+    for (const c of consulta.certidoes.filter(c => c.resultado !== 'indisponivel' && c.resultado !== 'erro')) {
       try { const r = await cndAPI.downloadCertidao(consultaId, c.provider); if (r.pdf_base64) { const a = document.createElement('a'); a.href = `data:application/pdf;base64,${r.pdf_base64}`; a.download = r.filename || `certidao_${c.provider}.pdf`; a.click(); await new Promise(r => setTimeout(r, 300)); } } catch { /**/ }
     }
   };
