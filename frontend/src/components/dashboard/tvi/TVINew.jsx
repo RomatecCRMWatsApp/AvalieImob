@@ -22,7 +22,10 @@ const TVINew = () => {
 
   const filtered = useMemo(() => {
     let list = models;
-    if (activeTab !== 'Todos') list = list.filter(m => m.categoria === activeTab);
+    if (activeTab !== 'Todos') {
+      const tab = activeTab.toLowerCase();
+      list = list.filter(m => (m.categoria || '').toLowerCase().startsWith(tab));
+    }
     if (search) {
       const q = search.toLowerCase();
       list = list.filter(m =>
