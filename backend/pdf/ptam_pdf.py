@@ -404,6 +404,8 @@ def _consolidation_table(impact_areas: list) -> tuple[list, float]:
     col_widths = [4.5 * cm, 2.5 * cm, 3.0 * cm, 3.0 * cm, 3.7 * cm]
     tbl = Table(data, colWidths=col_widths, repeatRows=1)
     last = len(data) - 1
+    # body_end: last row before the totals row (clamped to at least 1 so range is valid)
+    body_end = max(1, last - 1)
     tbl.setStyle(
         TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), GREEN),
@@ -412,9 +414,9 @@ def _consolidation_table(impact_areas: list) -> tuple[list, float]:
             ("FONTSIZE", (0, 0), (-1, 0), 9),
             ("ALIGN", (0, 0), (-1, -1), "CENTER"),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("FONTNAME", (0, 1), (-1, last - 1), "Helvetica"),
+            ("FONTNAME", (0, 1), (-1, body_end), "Helvetica"),
             ("FONTSIZE", (0, 1), (-1, -1), 9),
-            ("ROWBACKGROUNDS", (0, 1), (-1, last - 1), [WHITE, LIGHT_GREEN]),
+            ("ROWBACKGROUNDS", (0, 1), (-1, body_end), [WHITE, LIGHT_GREEN]),
             ("BACKGROUND", (0, last), (-1, last), LIGHT_GREEN),
             ("FONTNAME", (0, last), (-1, last), "Helvetica-Bold"),
             ("SPAN", (0, last), (3, last)),
@@ -1147,7 +1149,11 @@ def _build_metodo_avaliacao(ptam: dict, styles: dict) -> list:
     if val_benf:
         result_rows.append(["Benfeitorias (depreciado)", _fmt_brl(val_benf)])
     if dep_pct_v:
-        result_rows.append([f"Depreciação ({dep_pct_v:.2f}%)", _fmt_brl(val_dep_v)])
+        try:
+            dep_pct_fmt = f"{float(dep_pct_v):.2f}"
+        except (TypeError, ValueError):
+            dep_pct_fmt = str(dep_pct_v)
+        result_rows.append([f"Depreciação ({dep_pct_fmt}%)", _fmt_brl(val_dep_v)])
     result_rows.append(["VALOR TOTAL (Terreno + Benfeitorias)", _fmt_brl(valor_total)])
 
     tbl2 = Table(result_rows, colWidths=[280, 160])
@@ -1458,6 +1464,19 @@ def _build_certidoes_partes(styles: dict, consultas_data: list) -> list:
 
 # ── main entry point ──────────────────────────────────────────────────────────
 
+import logging as _logging
+_pdf_logger = _logging.getLogger(__name__)
+
+
+def _safe_build(fn, *args, section_name: str = "") -> list:
+    """Call a _build_* function and return its result; on error log and return empty list."""
+    try:
+        return fn(*args) or []
+    except Exception as _exc:
+        _pdf_logger.exception("ptam_pdf: erro na seção '%s': %s", section_name, _exc)
+        return []
+
+
 def generate_ptam_pdf(ptam: dict, user: dict, cnd_consultas: list | None = None) -> bytes:
     """Generate a PDF from PTAM data. Returns bytes.
 
@@ -1489,63 +1508,68 @@ def generate_ptam_pdf(ptam: dict, user: dict, cnd_consultas: list | None = None)
     story: list = []
 
     # ── cover ────────────────────────────────────────────────────────────
-    # For cover page: prefer company logo, else system logo
     cover_logo_bytes = company_logo_bytes or system_logo_bytes
-    story += _build_cover(ptam, cover_logo_bytes, styles)
+    story += _safe_build(_build_cover, ptam, cover_logo_bytes, styles, section_name="cover")
 
     # ── Seção 1: Identificação e Objetivo ────────────────────────────────
-    story += _build_identification(ptam, styles)
+    story += _safe_build(_build_identification, ptam, styles, section_name="1-identificacao")
     story.append(_spacer(0.5))
 
     # ── Seção 2: Documentação Analisada ──────────────────────────────────
-    story += _build_documentos_analisados(ptam, styles)
+    story += _safe_build(_build_documentos_analisados, ptam, styles, section_name="2-documentos")
     story.append(_spacer(0.5))
 
     # ── Seção 3: Identificação do Imóvel ─────────────────────────────────
-    story += _build_property(ptam, styles)
+    story += _safe_build(_build_property, ptam, styles, section_name="3-imovel")
     story.append(_spacer(0.5))
 
     # ── Seção 4: Vistoria Técnica ─────────────────────────────────────────
-    story += _build_vistoria(ptam, styles)
+    story += _safe_build(_build_vistoria, ptam, styles, section_name="4-vistoria")
     story.append(PageBreak())
 
     # ── Seção 5: Análise da Região ────────────────────────────────────────
-    regiao = _build_regiao(ptam, styles)
+    try:
+        regiao = _build_regiao(ptam, styles)
+    except Exception as _exc:
+        _pdf_logger.exception("ptam_pdf: erro na seção '5-regiao': %s", _exc)
+        regiao = []
     if regiao:
         story += regiao
         story.append(_spacer(0.5))
 
     # ── Seção 6: Amostras de Mercado / Homogeneização ────────────────────
-    story += _build_market_analysis(ptam, styles)
+    story += _safe_build(_build_market_analysis, ptam, styles, section_name="6-mercado")
     if ptam.get("market_analysis") or ptam.get("market_samples"):
         story.append(_spacer(0.5))
 
     # ── Seção 7: Metodologia ──────────────────────────────────────────────
-    story += _build_methodology(ptam, styles)
+    story += _safe_build(_build_methodology, ptam, styles, section_name="7-metodologia")
     story.append(_spacer(0.5))
 
     # ── Seção 8b: Cálculo de Ponderância ─────────────────────────────────
-    ponderancia = _build_ponderancia(ptam, styles)
+    ponderancia = _safe_build(_build_ponderancia, ptam, styles, section_name="8b-ponderancia")
     if ponderancia:
         story += ponderancia
         story.append(_spacer(0.5))
 
     # ── Seção 8c: Método de Avaliação — Depreciação e Valorização ─────────
-    metodo_aval = _build_metodo_avaliacao(ptam, styles)
+    metodo_aval = _safe_build(_build_metodo_avaliacao, ptam, styles, section_name="8c-metodo")
     if metodo_aval:
         story += metodo_aval
         story.append(_spacer(0.5))
 
     # ── Seção 8: Áreas de Impacto (legacy) ───────────────────────────────
-    story += _build_impact_areas(ptam, styles)
+    story += _safe_build(_build_impact_areas, ptam, styles, section_name="8-impacto")
     if ptam.get("impact_areas"):
         story.append(_spacer(0.5))
 
     # ── Seções 9-11: Resultado, Prazo, Responsabilidade Técnica ──────────
-    story += _build_conclusion(ptam, user, styles)
+    story += _safe_build(_build_conclusion, ptam, user, styles, section_name="9-11-conclusao")
 
     # ── Seção CND: Certidões das Partes (opcional) ────────────────────────
-    certidoes_section = _build_certidoes_partes(styles, cnd_consultas or [])
+    certidoes_section = _safe_build(
+        _build_certidoes_partes, styles, cnd_consultas or [], section_name="cnd-certidoes"
+    )
     if certidoes_section:
         story.append(PageBreak())
         story += certidoes_section
