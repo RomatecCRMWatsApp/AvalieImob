@@ -993,52 +993,73 @@ def _market_samples_table(samples: list) -> list:
     return [tbl, _spacer(0.3)]
 
 
-def _build_market_analysis(ptam: dict, styles: dict) -> list:
+def _build_amostras_detalhadas(ptam: dict, styles: dict) -> list:
+    """Seção de Amostras — cada amostra em página separada com dados completos e foto."""
     market_samples = ptam.get("market_samples") or []
-    market_analysis = ptam.get("market_analysis", "") or ""
-    if not market_samples and not market_analysis:
+    if not market_samples:
         return []
+    
     story = []
-    story += _section(styles, "6. Homogeneização e Amostras de Mercado")
-    story += _body(styles, market_analysis)
-    if market_samples:
-        story += _subsection(styles, "Elementos de Comparação Coletados (NBR 14653-2 item 8.2)")
-        story += _market_samples_table(market_samples)
-        # Stats summary
-        values = [float(s.get("value_per_sqm") or 0) for s in market_samples if s.get("value_per_sqm")]
-        if values:
-            n = len(values)
-            avg = sum(values) / n
-            sorted_v = sorted(values)
-            median = (sorted_v[n // 2 - 1] + sorted_v[n // 2]) / 2 if n % 2 == 0 else sorted_v[n // 2]
-            variance = sum((v - avg) ** 2 for v in values) / n
-            std = variance ** 0.5
-            cv = (std / avg * 100) if avg > 0 else 0
-            stats_text = (
-                f"<b>Estatísticas:</b> n={n} | Média: R$ {avg:,.2f}/m² | Mediana: R$ {median:,.2f}/m² | "
-                f"Desvio Padrão: R$ {std:,.2f} | CV: {cv:.2f}%"
-            ).replace(",", "X").replace(".", ",").replace("X", ".")
-            story.append(Paragraph(stats_text, styles["value"]))
-
-        # Detalhes e fotos das amostras (se houver _image_bytes)
-        amostras_com_foto = [s for s in market_samples if s.get("_image_bytes")]
-        if amostras_com_foto:
-            story += _subsection(styles, "Fotografias das Amostras")
-            for idx, s in enumerate(market_samples, start=1):
-                img_bytes = s.get("_image_bytes")
-                if not img_bytes:
-                    continue
-                endereco = f"{s.get('address', '')} / {s.get('neighborhood', '')}".strip(" /") or f"Amostra {idx}"
-                story.append(Paragraph(f"<b>Amostra {idx}</b> — {endereco}", styles["value"]))
-                story.append(_spacer(0.1))
-                try:
-                    img = Image(io.BytesIO(img_bytes), width=12 * cm, height=8 * cm)
-                    img.hAlign = "CENTER"
-                    story.append(img)
-                except Exception:
-                    story.append(Paragraph(f"[Foto — erro ao carregar]", styles["body"]))
-                story.append(_spacer(0.4))
-
+    story += _section(styles, "6. Amostras de Mercado")
+    
+    for idx, amostra in enumerate(market_samples, start=1):
+        # Quebra de página para cada amostra (exceto a primeira)
+        if idx > 1:
+            story.append(PageBreak())
+        
+        # Cabeçalho da amostra
+        endereco = f"{amostra.get('address', '')}, {amostra.get('neighborhood', '')}".strip(", ")
+        story.append(Paragraph(f"<b>Amostra {idx}</b>", styles["subsection_title"]))
+        story.append(Paragraph(f"<i>{endereco or 'Endereço não informado'}</i>", styles["caption"]))
+        story.append(_spacer(0.3))
+        
+        # Seção 1 - Identificação e caracterização
+        story.append(Paragraph("<b>1. Identificação e Caracterização</b>", styles["value"]))
+        
+        dados_ident = [
+            ["Tipo:", amostra.get('tipo', 'Não informado')],
+            ["Área:", f"{float(amostra.get('area') or 0):,.2f} m²".replace(",", "X").replace(".", ",").replace("X", ".")],
+            ["Valor:", _fmt_currency(amostra.get('value', 0))],
+            ["R$/m²:", f"R$ {float(amostra.get('value_per_sqm') or 0):,.2f}/m²".replace(",", "X").replace(".", ",").replace("X", ".")],
+            ["Fonte:", amostra.get('source', 'Não informada')],
+            ["Data:", amostra.get('collection_date', 'Não informada')],
+        ]
+        
+        if amostra.get('contact_phone'):
+            dados_ident.append(["Telefone:", amostra.get('contact_phone')])
+        
+        tbl_ident = Table(dados_ident, colWidths=[4*cm, 11*cm])
+        tbl_ident.setStyle(TableStyle([
+            ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+            ("FONTNAME", (1, 0), (1, -1), "Helvetica"),
+            ("FONTSIZE", (0, 0), (-1, -1), 9),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ]))
+        story.append(tbl_ident)
+        story.append(_spacer(0.3))
+        
+        # Observações
+        if amostra.get('notes'):
+            story.append(Paragraph("<b>Observações:</b>", styles["value"]))
+            story.append(Paragraph(amostra.get('notes'), styles["body"]))
+            story.append(_spacer(0.3))
+        
+        # Foto da amostra
+        img_bytes = amostra.get("_image_bytes")
+        if img_bytes:
+            story.append(Paragraph("<b>Fotografia</b>", styles["value"]))
+            story.append(_spacer(0.1))
+            try:
+                img = Image(io.BytesIO(img_bytes), width=14*cm, height=10*cm)
+                img.hAlign = "CENTER"
+                story.append(img)
+            except Exception:
+                story.append(Paragraph("[Erro ao carregar foto]", styles["body"]))
+        
+        story.append(_spacer(0.5))
+    
     return story
 
 
@@ -1925,8 +1946,8 @@ def generate_ptam_pdf(ptam: dict, user: dict, cnd_consultas: list | None = None)
         story += regiao
         story.append(_spacer(0.5))
 
-    # ── Seção 6: Amostras de Mercado / Homogeneização ────────────────────
-    story += _safe_build(_build_market_analysis, ptam, styles, section_name="6-mercado")
+    # ── Seção 6: Amostras de Mercado (cada uma em página separada) ─────────
+    story += _safe_build(_build_amostras_detalhadas, ptam, styles, section_name="6-amostras")
     if ptam.get("market_analysis") or ptam.get("market_samples"):
         story.append(_spacer(0.5))
 
