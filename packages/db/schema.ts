@@ -479,3 +479,62 @@ export const ptamRelations = relations(ptam_emitidos, ({ one, many }) => ({
   avaliacao: one(avaliacoes),
   laudos: many(laudos),
 }));
+
+// ============================================================================
+// TVI — TERMO DE VISTORIA DE IMÓVEL
+// ============================================================================
+
+export const vistorias = mysqlTable(
+  "vistorias",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    user_id: varchar("user_id", { length: 36 }).notNull(),
+    model_id: varchar("model_id", { length: 10 }).notNull(),
+    numero_tvi: varchar("numero_tvi", { length: 30 }),
+    modelo_nome: varchar("modelo_nome", { length: 255 }),
+    status: dbEnum("status_tvi", ["rascunho", "em_revisao", "emitido"]).default("rascunho"),
+
+    // Cliente
+    cliente_nome: varchar("cliente_nome", { length: 255 }),
+    cliente_cpf_cnpj: varchar("cliente_cpf_cnpj", { length: 20 }),
+    cliente_telefone: varchar("cliente_telefone", { length: 20 }),
+    cliente_email: varchar("cliente_email", { length: 255 }),
+
+    // Imóvel
+    imovel_endereco: text("imovel_endereco"),
+    imovel_bairro: varchar("imovel_bairro", { length: 100 }),
+    imovel_cidade: varchar("imovel_cidade", { length: 100 }),
+    imovel_uf: varchar("imovel_uf", { length: 2 }),
+    imovel_cep: varchar("imovel_cep", { length: 9 }),
+    imovel_matricula: varchar("imovel_matricula", { length: 50 }),
+    imovel_tipo: varchar("imovel_tipo", { length: 50 }),
+
+    // Responsável técnico
+    responsavel_nome: varchar("responsavel_nome", { length: 255 }),
+    responsavel_crea: varchar("responsavel_crea", { length: 30 }),
+    responsavel_art_numero: varchar("responsavel_art_numero", { length: 50 }),
+
+    // Vistoria
+    data_vistoria: varchar("data_vistoria", { length: 10 }),
+    hora_vistoria: varchar("hora_vistoria", { length: 5 }),
+    condicoes_climaticas: varchar("condicoes_climaticas", { length: 100 }),
+    objetivo: text("objetivo"),
+    conclusao: text("conclusao"),
+
+    // Dados dinâmicos do modelo
+    campos_extras: text("campos_extras"), // JSON stringify de Record<string, any>
+    ambientes: text("ambientes"),         // JSON stringify de AmbienteItem[]
+
+    criado_em: datetime("criado_em", { fsp: 3 }).defaultNow(),
+    atualizado_em: datetime("atualizado_em", { fsp: 3 }).defaultNow().onUpdateNow(),
+  },
+  (table) => ({
+    userIdx: index("idx_vistorias_user").on(table.user_id),
+    modelIdx: index("idx_vistorias_model").on(table.model_id),
+    statusIdx: index("idx_vistorias_status").on(table.status),
+  })
+);
+
+export const vistoriasRelations = relations(vistorias, ({ one }) => ({
+  user: one(users, { fields: [vistorias.user_id], references: [users.id] }),
+}));
