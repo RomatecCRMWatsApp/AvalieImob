@@ -39,6 +39,8 @@ class VistoriaModel(VistoriaModelBase):
 class VistoriaBase(BaseModel):
     # Identificação
     model_id: str
+    modelo_nome: Optional[str] = ""
+    categoria: Optional[str] = ""
     numero_tvi: Optional[str] = None
 
     # Cliente / Solicitante

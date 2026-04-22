@@ -91,6 +91,11 @@ async def create_vistoria(
     numero = await _next_tvi_numero(db)
     payload = data.model_dump()
     payload["numero_tvi"] = numero
+    # Enrich with model info
+    modelo = await db.vistoria_models.find_one({"id": data.model_id})
+    if modelo:
+        payload["modelo_nome"] = modelo.get("nome", "")
+        payload["categoria"] = modelo.get("categoria", "")
     v = Vistoria(user_id=uid, **payload)
     await db.vistorias.insert_one(v.model_dump())
     return v

@@ -96,6 +96,7 @@ const TVIForm = () => {
   );
 
   const modelFields = model?.campos || [];
+  const specificFields = model?.campos_especificos || [];
 
   return (
     <div className="max-w-4xl mx-auto pb-20 space-y-6">
@@ -172,6 +173,26 @@ const TVIForm = () => {
               <p className="text-sm text-gray-400 text-center py-8">
                 Nenhum campo dinâmico para este modelo.
               </p>
+            )}
+
+            {specificFields.length > 0 && (
+              <>
+                <div className="border-t border-gray-200 pt-4 mt-4">
+                  <h3 className="text-sm font-semibold text-emerald-800 mb-3">
+                    Campos Específicos — {model?.nome || 'Modelo'}
+                  </h3>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {specificFields.map(f => (
+                    <FieldRenderer
+                      key={f.key}
+                      field={f}
+                      value={fields[f.key]}
+                      onChange={(key, val) => setFields(prev => ({ ...prev, [key]: val }))}
+                    />
+                  ))}
+                </div>
+              </>
             )}
           </div>
         )}
