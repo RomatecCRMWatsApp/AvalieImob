@@ -329,6 +329,47 @@ def _spacer(h: float = 0.4) -> Spacer:
 
 # ── cover page ────────────────────────────────────────────────────────────────
 
+def _build_toc(styles: dict) -> list:
+    """Sumário do Laudo de Locação."""
+    story = []
+    story += _section(styles, "SUMÁRIO")
+    toc_items = [
+        ("1",   "Identificação do Solicitante e Objetivo"),
+        ("2",   "Imóvel Avaliado — Caracterização"),
+        ("3",   "Análise da Região e Entorno"),
+        ("4",   "Pesquisa de Mercado — Amostragem Comparativa"),
+        ("5",   "Cálculos — Homogeneização e Estatísticas"),
+        ("6",   "Resultado da Avaliação"),
+        ("7",   "Garantia e Condições Locatícias"),
+        ("8",   "Base Legal e Normativa"),
+        ("A.I", "Anexo I — Registro Fotográfico"),
+        ("A.II","Anexo II — Responsável Técnico e Assinatura"),
+    ]
+    rows = [["Seção", "Título"]]
+    for num, title in toc_items:
+        rows.append([num, title])
+    tbl = Table(rows, colWidths=[2.5 * cm, 14.2 * cm], repeatRows=1)
+    tbl.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), GREEN),
+        ("TEXTCOLOR", (0, 0), (-1, 0), WHITE),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, 0), 9),
+        ("ALIGN", (0, 0), (0, -1), "CENTER"),
+        ("ALIGN", (1, 0), (1, -1), "LEFT"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+        ("FONTSIZE", (0, 1), (-1, -1), 9),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [WHITE, LIGHT_GREEN]),
+        ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#CCCCCC")),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+    ]))
+    story.append(tbl)
+    story.append(PageBreak())
+    return story
+
+
 def _build_cover(loc: dict, logo_bytes: bytes | None, styles: dict) -> list:
     story = []
 
@@ -826,82 +867,61 @@ def _build_resultado(loc: dict, styles: dict) -> list:
     valor_max = loc.get("valor_locacao_maximo") or 0
     por_extenso = loc.get("valor_locacao_por_extenso") or ""
 
-    # ── Detalhamento do cálculo pelas áreas ──────────────────────────────
-    considera_terreno = loc.get("considerar_area_terreno") or False
-    considera_construida = loc.get("considerar_area_construida")
-    if considera_construida is None:
-        considera_construida = True  # default
-
-    area_terreno = float(loc.get("imovel_area_terreno") or 0)
+    # ── Detalhamento do cálculo ───────────────────────────────────────────────
+    area_terreno   = float(loc.get("imovel_area_terreno") or 0)
     area_construida = float(loc.get("imovel_area_construida") or 0)
-    m2_terreno = float(loc.get("valor_m2_terreno") or 0)
-    m2_construcao = float(loc.get("valor_m2_construcao") or 0)
+    area_considerar = float(loc.get("imovel_area_a_considerar") or 0)
+    vm2            = float(loc.get("valor_m2") or 0)
+    valor_calculado = area_considerar * vm2 if area_considerar > 0 and vm2 > 0 else 0
 
-    # Determina qual área foi considerada para exibição
-    areas_usadas = []
-    if considera_terreno:
-        areas_usadas.append("terreno")
-    if considera_construida:
-        areas_usadas.append("construída")
+    if area_terreno or area_construida or area_considerar:
+        story += _subsection(styles, "Áreas do Imóvel")
+        if area_terreno:
+            story += _lv(styles, "Área do Terreno", _fmt_area(area_terreno))
+        if area_construida:
+            story += _lv(styles, "Área Construída", _fmt_area(area_construida))
+        if area_considerar:
+            story += _lv(styles, "Área Considerada no Cálculo (*)", _fmt_area(area_considerar))
+            story.append(Paragraph(
+                "<i>* Área efetiva utilizada para o cálculo do valor de locação.</i>",
+                ParagraphStyle("nota_area", fontName="Helvetica-Oblique", fontSize=8,
+                               textColor=colors.HexColor("#555555"), spaceBefore=0, spaceAfter=4),
+            ))
 
-    if areas_usadas:
-        area_desc_map = {
-            ("terreno",): "Somente Área do Terreno",
-            ("construída",): "Somente Área Construída",
-            ("terreno", "construída"): "Área do Terreno + Área Construída",
-        }
-        area_label = area_desc_map.get(tuple(areas_usadas), " + ".join(areas_usadas))
-        story += _lv(styles, "Área(s) Considerada(s) no Cálculo", area_label)
-
-    # Exibe o detalhamento quando valores m² estão presentes
-    tem_calculo_terreno = considera_terreno and m2_terreno > 0 and area_terreno > 0
-    tem_calculo_construcao = considera_construida and m2_construcao > 0 and area_construida > 0
-
-    if tem_calculo_terreno or tem_calculo_construcao:
+    if vm2 > 0 or valor_calculado > 0:
         story += _subsection(styles, "Detalhamento do Cálculo")
-
         calc_rows = []
-        if tem_calculo_terreno:
-            vt = m2_terreno * area_terreno
-            calc_rows.append(["Terreno", _fmt_area(area_terreno), _fmt_currency(m2_terreno), _fmt_currency(vt)])
-        if tem_calculo_construcao:
-            vc = m2_construcao * area_construida
-            calc_rows.append(["Construção", _fmt_area(area_construida), _fmt_currency(m2_construcao), _fmt_currency(vc)])
-
-        if len(calc_rows) > 1:
-            total_calc = (
-                (m2_terreno * area_terreno if tem_calculo_terreno else 0) +
-                (m2_construcao * area_construida if tem_calculo_construcao else 0)
-            )
-            calc_rows.append(["TOTAL", "", "", _fmt_currency(total_calc)])
-
-        header_row = [
-            Paragraph("<b>Componente</b>", styles["value"]),
-            Paragraph("<b>Área</b>", styles["value"]),
-            Paragraph("<b>Valor R$/m²</b>", styles["value"]),
-            Paragraph("<b>Subtotal</b>", styles["value"]),
-        ]
-        tbl_data = [header_row]
-        for row in calc_rows:
-            tbl_data.append([Paragraph(str(c), styles["body"]) for c in row])
-
-        calc_tbl = Table(tbl_data, colWidths=[4.5 * cm, 3.5 * cm, 4.5 * cm, 4 * cm])
-        calc_tbl.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), GREEN),
-            ("TEXTCOLOR", (0, 0), (-1, 0), WHITE),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("FONTSIZE", (0, 0), (-1, -1), 9),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#1B4D1B")),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-            ("TOPPADDING", (0, 0), (-1, -1), 6),
-            ("LEFTPADDING", (0, 0), (-1, -1), 5),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 5),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -2), [WHITE, LIGHT_GREEN]),
-            ("BACKGROUND", (0, -1), (-1, -1), HIGHLIGHT_BG),
-            ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
-        ]))
-        story.append(calc_tbl)
-        story.append(_spacer(0.4))
+        if area_considerar > 0 and vm2 > 0:
+            calc_rows.append([
+                "Área considerada",
+                _fmt_area(area_considerar),
+                _fmt_currency(vm2),
+                _fmt_currency(valor_calculado),
+            ])
+        if calc_rows:
+            header_row = [
+                Paragraph("<b>Componente</b>", styles["value"]),
+                Paragraph("<b>Área</b>", styles["value"]),
+                Paragraph("<b>Valor R$/m²</b>", styles["value"]),
+                Paragraph("<b>Total</b>", styles["value"]),
+            ]
+            tbl_data = [header_row]
+            for row in calc_rows:
+                tbl_data.append([Paragraph(str(c), styles["body"]) for c in row])
+            calc_tbl = Table(tbl_data, colWidths=[4.5 * cm, 3.5 * cm, 4.5 * cm, 4.0 * cm])
+            calc_tbl.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, 0), GREEN),
+                ("TEXTCOLOR", (0, 0), (-1, 0), WHITE),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 9),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#1B4D1B")),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                ("TOPPADDING", (0, 0), (-1, -1), 6),
+                ("LEFTPADDING", (0, 0), (-1, -1), 5),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+            ]))
+            story.append(calc_tbl)
+            story.append(_spacer(0.3))
 
     if valor_estimado:
         story.append(_spacer(0.4))
@@ -1251,6 +1271,9 @@ def generate_locacao_pdf(loc: dict, user: dict | None = None) -> bytes:
     # ── Capa ─────────────────────────────────────────────────────────────
     cover_logo = company_logo_bytes or system_logo_bytes
     story += _build_cover(loc, cover_logo, styles)
+
+    # ── Sumário (TOC) ─────────────────────────────────────────────────────
+    story += _build_toc(styles)
 
     # ── Seção 1: Identificação ────────────────────────────────────────────
     story += _build_identificacao(loc, styles)

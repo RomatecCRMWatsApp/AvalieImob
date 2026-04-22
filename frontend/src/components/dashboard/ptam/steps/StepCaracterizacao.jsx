@@ -18,6 +18,21 @@ export const StepCaracterizacao = ({ form, setForm, onAi, aiLoading }) => (
       <Field label="Área construída (m²)">
         <Input type="number" step="0.01" value={form.imovel_area_construida} onChange={(e) => setForm({ ...form, imovel_area_construida: Number(e.target.value) })} />
       </Field>
+      <Field label="Área a ser considerada no cálculo (m²) *" full>
+        <Input
+          type="number"
+          step="0.01"
+          required
+          value={form.imovel_area_a_considerar ?? ''}
+          onChange={(e) => setForm({ ...form, imovel_area_a_considerar: e.target.value === '' ? null : Number(e.target.value) })}
+          placeholder="Ex: 150 — informe a área que será usada para calcular o valor total"
+          className="border-emerald-400 focus:ring-emerald-600"
+        />
+        <p className="mt-1 text-xs text-gray-500">
+          Esta é a área que o sistema usará para calcular o valor final (Valor Total = Valor R$/m² × Área considerada).
+          Pode ser igual à área do terreno, à área construída ou outro valor definido pelo avaliador.
+        </p>
+      </Field>
       <Field label="Idade do imóvel (anos)">
         <Input type="number" min="0" value={form.imovel_idade} onChange={(e) => setForm({ ...form, imovel_idade: Number(e.target.value) })} />
       </Field>

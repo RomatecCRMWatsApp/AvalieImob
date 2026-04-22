@@ -185,7 +185,39 @@ def generate_locacao_docx(loc: dict, user: dict | None = None) -> bytes:
     
     # Quebra de página após capa
     doc.add_page_break()
-    
+
+    # ── SUMÁRIO ────────────────────────────────────────────────────────────────
+    _add_section_heading(doc, "SUMÁRIO")
+    toc_items_loc = [
+        ("1",    "Identificação do Solicitante e Objetivo"),
+        ("2",    "Imóvel Avaliado — Caracterização"),
+        ("3",    "Região e Entorno"),
+        ("4",    "Pesquisa de Mercado — Amostragem Comparativa"),
+        ("5",    "Cálculos — Homogeneização e Estatísticas"),
+        ("6",    "Resultado da Avaliação"),
+        ("7",    "Garantia e Condições Locatícias"),
+        ("8",    "Base Legal e Normativa"),
+        ("A.I",  "Anexo I — Registro Fotográfico"),
+        ("A.II", "Anexo II — Responsável Técnico e Assinatura"),
+    ]
+    tbl_toc = doc.add_table(rows=1, cols=2)
+    tbl_toc.style = "Table Grid"
+    hdr_toc = tbl_toc.rows[0].cells
+    for i, h in enumerate(["Seção", "Título"]):
+        hdr_toc[i].text = h
+        _set_cell_shading(hdr_toc[i], "1B4D1B")
+        hdr_toc[i].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+        for run in hdr_toc[i].paragraphs[0].runs:
+            run.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
+            run.font.bold = True
+            run.font.size = Pt(10)
+    for num, title in toc_items_loc:
+        r = tbl_toc.add_row().cells
+        r[0].text = num
+        r[1].text = title
+        r[0].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+    doc.add_page_break()
+
     # ── SEÇÃO 1: IDENTIFICAÇÃO ─────────────────────────────────────────────
     _add_section_heading(doc, "1. IDENTIFICAÇÃO")
     
@@ -222,6 +254,30 @@ def generate_locacao_docx(loc: dict, user: dict | None = None) -> bytes:
         _add_styled_paragraph(doc, f"Dormitórios: {caracteristicas.get('dormitorios', 'N/A')}")
         _add_styled_paragraph(doc, f"Banheiros: {caracteristicas.get('banheiros', 'N/A')}")
         _add_styled_paragraph(doc, f"Vagas de Garagem: {caracteristicas.get('vagas', 'N/A')}")
+    else:
+        # Flat model fields (new wizard format)
+        at = loc.get("imovel_area_terreno") or 0
+        ac = loc.get("imovel_area_construida") or 0
+        acons = loc.get("imovel_area_a_considerar")
+        vm2 = loc.get("valor_m2")
+        if at:
+            _add_styled_paragraph(doc, f"Área do Terreno: {at} m²")
+        if ac:
+            _add_styled_paragraph(doc, f"Área Construída: {ac} m²")
+        if acons is not None:
+            _add_styled_paragraph(doc, f"Área Considerada no Cálculo (*): {acons} m²")
+            _add_styled_paragraph(doc, "* Área efetiva usada no cálculo do valor de locação.", italic=True, color=RGBColor(85, 85, 85))
+        if vm2:
+            _add_styled_paragraph(doc, f"Valor Unitário Adotado: R$ {vm2:,.2f}/m²")
+        if acons and vm2:
+            total = acons * vm2
+            _add_styled_paragraph(doc, f"Valor de Locação Calculado: R$ {total:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."), bold=True)
+        if loc.get("imovel_idade"):
+            _add_styled_paragraph(doc, f"Idade Aparente: {loc['imovel_idade']} anos")
+        if loc.get("imovel_estado_conservacao"):
+            _add_styled_paragraph(doc, f"Estado de Conservação: {loc['imovel_estado_conservacao']}")
+        if loc.get("imovel_padrao_acabamento"):
+            _add_styled_paragraph(doc, f"Padrão de Acabamento: {loc['imovel_padrao_acabamento']}")
     
     # ── SEÇÃO 3: REGIÃO E ENTORNO ──────────────────────────────────────────
     _add_section_heading(doc, "3. REGIÃO E ENTORNO")

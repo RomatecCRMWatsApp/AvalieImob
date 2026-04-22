@@ -288,6 +288,49 @@ def _render_cover(doc: Document, ptam: dict, user: dict) -> None:
     doc.add_page_break()
 
 
+def _render_sumario(doc: Document) -> None:
+    """Sumário do PTAM — 12 seções + 4 anexos (PTAM nº 7010)."""
+    _add_section_heading(doc, "SUMÁRIO")
+    toc_items = [
+        ("1",    "Identificação e Objetivo"),
+        ("2",    "Documentação Analisada"),
+        ("3",    "Identificação do Imóvel"),
+        ("4",    "Caracterização do Imóvel"),
+        ("5",    "Vistoria Técnica"),
+        ("6",    "Análise da Região"),
+        ("7",    "Homogeneização e Amostras de Mercado"),
+        ("8",    "Metodologia"),
+        ("9",    "Avaliação — Área 01"),
+        ("10",   "Avaliação — Área 02"),
+        ("11",   "Consolidação"),
+        ("12",   "Conclusão Técnica e Responsabilidade"),
+        ("A.I",  "Anexo I — Ficha do Imóvel, Fotos e Documentos"),
+        ("A.II", "Anexo II — Amostras Comparativas"),
+        ("A.III","Anexo III — Base Legal e Normativa"),
+        ("A.IV", "Anexo IV — Currículo do Avaliador / Certidões"),
+    ]
+    table = doc.add_table(rows=1, cols=2)
+    table.style = "Table Grid"
+    hdr = table.rows[0].cells
+    for i, h in enumerate(["Seção", "Título"]):
+        hdr[i].text = h
+        _set_cell_shading(hdr[i], "1B4D1B")
+        hdr[i].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+        for run in hdr[i].paragraphs[0].runs:
+            run.font.color.rgb = WHITE
+            run.font.bold = True
+            run.font.size = Pt(10)
+    for num, title in toc_items:
+        row = table.add_row().cells
+        row[0].text = num
+        row[1].text = title
+        row[0].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+        for cell in row:
+            for run in cell.paragraphs[0].runs:
+                run.font.size = Pt(10)
+    doc.add_page_break()
+
+
 def _render_identificacao(doc: Document, ptam: dict) -> None:
     """Seção 1 — Identificação e Objetivo."""
     _add_section_heading(doc, "1. IDENTIFICAÇÃO E OBJETIVO")
@@ -455,8 +498,8 @@ def _render_imovel(doc: Document, ptam: dict) -> None:
 
 def _render_caracterizacao(doc: Document, ptam: dict) -> None:
     """Seção 4 — Caracterização do Imóvel (campos físicos/construtivos)."""
-    keys = ["imovel_area_terreno", "imovel_area_construida", "imovel_idade",
-            "imovel_estado_conservacao", "imovel_padrao_acabamento",
+    keys = ["imovel_area_terreno", "imovel_area_construida", "imovel_area_a_considerar",
+            "imovel_idade", "imovel_estado_conservacao", "imovel_padrao_acabamento",
             "imovel_num_quartos", "imovel_num_banheiros", "imovel_num_vagas",
             "imovel_piscina", "imovel_caracteristicas_adicionais"]
     if not any(ptam.get(k) for k in keys):
@@ -468,6 +511,14 @@ def _render_caracterizacao(doc: Document, ptam: dict) -> None:
         _add_label_value(doc, "Área do Terreno", _format_area(ptam["imovel_area_terreno"]))
     if ptam.get("imovel_area_construida"):
         _add_label_value(doc, "Área Construída", _format_area(ptam["imovel_area_construida"]))
+    if ptam.get("imovel_area_a_considerar") is not None:
+        _add_label_value(doc, "Área Considerada no Cálculo (*)", _format_area(ptam["imovel_area_a_considerar"]))
+        _add_styled_paragraph(
+            doc,
+            "* Área efetiva utilizada para o cálculo do valor total de avaliação.",
+            italic=True,
+            color=RGBColor(85, 85, 85),
+        )
     if ptam.get("imovel_idade"):
         _add_label_value(doc, "Idade Aproximada", f"{ptam['imovel_idade']} anos")
 
@@ -500,7 +551,7 @@ def _render_caracterizacao(doc: Document, ptam: dict) -> None:
 
 
 def _render_vistoria(doc: Document, ptam: dict) -> None:
-    """Seção 5 — Vistoria Técnica."""
+    """Seção 5 — Vistoria Técnica (15 sub-seções PTAM nº 7010)."""
     _add_section_heading(doc, "5. VISTORIA TÉCNICA")
 
     _add_label_value(doc, "Data da Vistoria", ptam.get("vistoria_date"))
@@ -512,17 +563,26 @@ def _render_vistoria(doc: Document, ptam: dict) -> None:
         ("Metodologia Adotada", "vistoria_methodology"),
         ("Topografia", "topography"),
         ("Solo e Cobertura Vegetal", "soil_vegetation"),
+        ("3.1 Uso Atual", "uso_atual"),
+        ("3.2 Cobertura Vegetal", "cobertura_vegetal"),
+        ("3.3 Hidrografia", "hidrografia"),
         ("Benfeitorias Existentes", "benfeitorias"),
+        ("5. Infraestrutura Interna", "infraestrutura_interna"),
         ("Acessibilidade e Infraestrutura", "accessibility"),
         ("Contexto Urbano e Mercadológico", "urban_context"),
         ("Estado Geral de Conservação", "conservation_state"),
+        ("9. Situação Fundiária", "situacao_fundiaria"),
+        ("10. Passivo Ambiental", "passivo_ambiental"),
+        ("11. Potencial Exploratório", "potencial_exploratorio"),
+        ("12. Aspectos Legais e Restrições", "aspectos_legais"),
+        ("13. Restrições de Uso", "restricoes_uso"),
     ]:
         if ptam.get(key):
             _add_subsection_heading(doc, label)
             _add_styled_paragraph(doc, ptam[key], alignment=WD_ALIGN_PARAGRAPH.JUSTIFY)
 
     if ptam.get("vistoria_synthesis"):
-        _add_subsection_heading(doc, "Síntese Conclusiva da Vistoria")
+        _add_subsection_heading(doc, "14. Síntese Conclusiva da Vistoria")
         _add_styled_paragraph(doc, ptam["vistoria_synthesis"], alignment=WD_ALIGN_PARAGRAPH.JUSTIFY)
 
 
@@ -913,8 +973,51 @@ def _render_resultado(doc: Document, ptam: dict, impact_areas: list) -> None:
         total_calc = _render_consolidacao_table(doc, impact_areas)
 
     # Valor principal
-    valor_total = ptam.get("resultado_valor_total") or ptam.get("total_indemnity") or total_calc or 0
+    valor_total    = ptam.get("resultado_valor_total") or ptam.get("total_indemnity") or total_calc or 0
     valor_unitario = ptam.get("resultado_valor_unitario") or 0
+    area_calc      = (
+        ptam.get("imovel_area_a_considerar")
+        or ptam.get("imovel_area_construida")
+        or ptam.get("imovel_area_terreno")
+        or 0
+    )
+
+    # ── Tabela de cálculo: média × área = total ────────────────────────────────
+    if valor_unitario and area_calc:
+        _add_subsection_heading(doc, "Cálculo do Valor Final")
+
+        headers = ["Componente", "Valor"]
+        calc_rows = [
+            ["Média Ponderada Final",
+             f"{_format_currency(valor_unitario)}/m²"],
+            ["Área do Imóvel Avaliando",
+             _format_area(area_calc)],
+            [f"Valor Final = {_format_currency(valor_unitario)}/m² × {_format_area(area_calc)}",
+             _format_currency(valor_total or valor_unitario * area_calc)],
+        ]
+        tbl = doc.add_table(rows=1, cols=2)
+        tbl.style = "Table Grid"
+        hdr_cells = tbl.rows[0].cells
+        for i, h in enumerate(headers):
+            hdr_cells[i].text = h
+            _set_cell_shading(hdr_cells[i], "1B4D1B")
+            hdr_cells[i].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+            for run in hdr_cells[i].paragraphs[0].runs:
+                run.font.color.rgb = WHITE
+                run.font.bold = True
+                run.font.size = Pt(10)
+        for ridx, (c0, c1) in enumerate(calc_rows):
+            row_cells = tbl.add_row().cells
+            row_cells[0].text = c0
+            row_cells[1].text = c1
+            row_cells[1].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
+            is_total = ridx == len(calc_rows) - 1
+            for cell in row_cells:
+                _set_cell_shading(cell, "E8F5E9" if is_total else "FFFFFF")
+                for r in cell.paragraphs[0].runs:
+                    r.font.bold = is_total
+                    r.font.size = Pt(11 if is_total else 10)
+        doc.add_paragraph()
 
     if valor_total:
         doc.add_paragraph()
@@ -1184,12 +1287,105 @@ def _render_documentos(doc: Document, docs: list) -> None:
         doc.add_paragraph()
 
 
-def _render_certidoes(doc: Document, cnd_consultas: list) -> None:
-    """Seção 17 — Certidões das Partes (CND)."""
-    if not cnd_consultas:
+def _render_avaliacoes_areas(doc: Document, ptam: dict) -> None:
+    """Seções 9/10 — Avaliação Área 01 e Área 02 (PTAM nº 7010)."""
+    area_01_tipo = ptam.get("area_01_tipo") or ""
+    area_01_dados = ptam.get("area_01_dados") or ""
+    area_01_valor = ptam.get("area_01_valor")
+    area_02_tipo = ptam.get("area_02_tipo") or ""
+    area_02_dados = ptam.get("area_02_dados") or ""
+    area_02_valor = ptam.get("area_02_valor")
+
+    has_01 = area_01_tipo or area_01_dados or area_01_valor
+    has_02 = area_02_tipo or area_02_dados or area_02_valor
+
+    if not has_01 and not has_02:
         return
 
-    _add_section_heading(doc, "17. CERTIDÕES DAS PARTES (CND)")
+    if has_01:
+        _add_section_heading(doc, "9. AVALIAÇÃO — ÁREA 01")
+        if area_01_tipo:
+            _add_label_value(doc, "Tipo de Área", area_01_tipo)
+        if area_01_dados:
+            _add_styled_paragraph(doc, area_01_dados, alignment=WD_ALIGN_PARAGRAPH.JUSTIFY)
+        if area_01_valor is not None:
+            p = doc.add_paragraph()
+            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            run = p.add_run(f"Valor da Área 01: {_format_currency(area_01_valor)}")
+            run.font.bold = True
+            run.font.size = Pt(13)
+            run.font.color.rgb = GREEN
+        doc.add_paragraph()
+
+    if has_02:
+        _add_section_heading(doc, "10. AVALIAÇÃO — ÁREA 02")
+        if area_02_tipo:
+            _add_label_value(doc, "Tipo de Área", area_02_tipo)
+        if area_02_dados:
+            _add_styled_paragraph(doc, area_02_dados, alignment=WD_ALIGN_PARAGRAPH.JUSTIFY)
+        if area_02_valor is not None:
+            p = doc.add_paragraph()
+            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            run = p.add_run(f"Valor da Área 02: {_format_currency(area_02_valor)}")
+            run.font.bold = True
+            run.font.size = Pt(13)
+            run.font.color.rgb = GREEN
+        doc.add_paragraph()
+
+    # Consolidated table
+    if has_01 and has_02:
+        _add_section_heading(doc, "11. CONSOLIDAÇÃO DAS ÁREAS")
+        headers = ["Área", "Tipo", "Valor (R$)"]
+        table = doc.add_table(rows=1, cols=3)
+        table.style = "Table Grid"
+        hdr = table.rows[0].cells
+        for i, h in enumerate(headers):
+            hdr[i].text = h
+            _set_cell_shading(hdr[i], "1B4D1B")
+            hdr[i].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+            for run in hdr[i].paragraphs[0].runs:
+                run.font.color.rgb = WHITE
+                run.font.bold = True
+                run.font.size = Pt(10)
+        total = 0.0
+        for label, tipo, valor in [
+            ("Área 01", area_01_tipo, area_01_valor),
+            ("Área 02", area_02_tipo, area_02_valor),
+        ]:
+            v = float(valor or 0)
+            total += v
+            row = table.add_row().cells
+            row[0].text = label
+            row[1].text = tipo or "—"
+            row[2].text = _format_currency(v)
+            for cell in row:
+                cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+        # totals row
+        tr = table.add_row().cells
+        tr[0].text = "TOTAL GERAL"
+        tr[1].text = ""
+        tr[2].text = _format_currency(total)
+        for cell in tr:
+            _set_cell_shading(cell, "E8F5E9")
+            cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+            for run in cell.paragraphs[0].runs:
+                run.font.bold = True
+        doc.add_paragraph()
+
+        p = doc.add_paragraph()
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run = p.add_run(f"Valor Total das Áreas: {_format_currency(total)}")
+        run.font.bold = True
+        run.font.size = Pt(14)
+        run.font.color.rgb = GOLD
+        doc.add_paragraph()
+
+
+def _render_certidoes(doc: Document, cnd_consultas: list) -> None:
+    """Seção Certidões das Partes (CND)."""
+    if not cnd_consultas:
+        return
+    _add_section_heading(doc, "ANEXO IV — CERTIDÕES DAS PARTES (CND)")
     _add_styled_paragraph(
         doc,
         "Certidões Negativas de Débito consultadas junto aos órgãos oficiais para as partes envolvidas nesta avaliação.",
@@ -1285,6 +1481,9 @@ def generate_ptam_docx(ptam: dict, user: dict, cnd_consultas: list | None = None
     # ── Capa ──────────────────────────────────────────────────────────────────
     _render_cover(doc, ptam, user)
 
+    # ── Sumário ───────────────────────────────────────────────────────────────
+    _render_sumario(doc)
+
     # ── Seção 1: Identificação e Objetivo ────────────────────────────────────
     _render_identificacao(doc, ptam)
     doc.add_paragraph()
@@ -1325,41 +1524,46 @@ def generate_ptam_docx(ptam: dict, user: dict, cnd_consultas: list | None = None
     _render_metodo_avaliacao(doc, ptam)
     doc.add_paragraph()
 
+    # ── Seções 9/10/11: Avaliação Área 01, Área 02, Consolidação ─────────────
+    _render_avaliacoes_areas(doc, ptam)
+
     # ── Legacy: Áreas de Impacto ───────────────────────────────────────────────
     _render_areas_impacto(doc, impact_areas)
     if impact_areas:
         doc.add_paragraph()
 
-    # ── Seção 11: Resultado da Avaliação ──────────────────────────────────────
+    # ── Seção 12: Resultado da Avaliação ──────────────────────────────────────
     doc.add_page_break()
     _render_resultado(doc, ptam, impact_areas)
     doc.add_paragraph()
 
-    # ── Seção 12: Considerações, Ressalvas e Pressupostos ─────────────────────
+    # ── Seção: Considerações, Ressalvas e Pressupostos ────────────────────────
     _render_consideracoes(doc, ptam)
     doc.add_paragraph()
 
-    # ── Seção 13: Base Legal ───────────────────────────────────────────────────
+    # ── Anexo III: Base Legal ─────────────────────────────────────────────────
+    _add_section_heading(doc, "ANEXO III — BASE LEGAL E NORMATIVA")
     _render_base_legal(doc)
     doc.add_paragraph()
 
-    # ── Seção 14: Responsável Técnico + Assinatura ────────────────────────────
+    # ── Responsável Técnico + Assinatura ──────────────────────────────────────
     doc.add_page_break()
     _render_responsavel(doc, ptam, user)
 
-    # ── Seção 15: Registro Fotográfico ────────────────────────────────────────
+    # ── Anexo I: Registro Fotográfico ─────────────────────────────────────────
     fotos = ptam.get("fotos_imovel") or ptam.get("photos") or []
     if fotos:
         doc.add_page_break()
+        _add_section_heading(doc, "ANEXO I — FICHA DO IMÓVEL, FOTOS E DOCUMENTOS")
         _render_fotos(doc, fotos)
 
-    # ── Seção 16: Documentos Anexos ───────────────────────────────────────────
+    # ── Documentos Anexos ─────────────────────────────────────────────────────
     docs_list = ptam.get("fotos_documentos") or []
     if docs_list:
         doc.add_page_break()
         _render_documentos(doc, docs_list)
 
-    # ── Seção 17: Certidões das Partes (CND) ──────────────────────────────────
+    # ── Anexo IV: Certidões das Partes (CND) ──────────────────────────────────
     if cnd_consultas:
         doc.add_page_break()
         _render_certidoes(doc, cnd_consultas)

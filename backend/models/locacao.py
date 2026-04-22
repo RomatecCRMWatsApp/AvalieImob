@@ -45,11 +45,8 @@ class LocacaoBase(BaseModel):
     imovel_tipo: Optional[str] = ""
     imovel_area_terreno: Optional[float] = 0
     imovel_area_construida: Optional[float] = 0
-    # Opções de área para o cálculo do valor final
-    considerar_area_terreno: Optional[bool] = False
-    considerar_area_construida: Optional[bool] = True
-    valor_m2_terreno: Optional[float] = None
-    valor_m2_construcao: Optional[float] = None
+    imovel_area_a_considerar: Optional[float] = None  # Área usada no cálculo: valor_final = valor_m2 × area_a_considerar
+    valor_m2: Optional[float] = None                  # Valor unitário R$/m² adotado
     imovel_idade: Optional[int] = 0
     imovel_estado_conservacao: Optional[str] = ""
     imovel_padrao_acabamento: Optional[str] = ""

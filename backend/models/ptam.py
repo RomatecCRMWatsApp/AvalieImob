@@ -88,20 +88,35 @@ class PtamBase(BaseModel):
     regiao_padrao_construtivo: Optional[str] = ""
     regiao_tendencia_mercado: Optional[str] = ""
     regiao_observacoes: Optional[str] = ""
+
+    # Seção 3 — Vistoria Técnica (15 sub-seções PTAM nº 7010)
     vistoria_date: Optional[str] = ""
+    vistoria_responsavel: Optional[str] = ""
+    vistoria_condicoes: Optional[str] = ""
     vistoria_objective: Optional[str] = ""
     vistoria_methodology: Optional[str] = ""
+    # Sub-seções de caracterização física
     topography: Optional[str] = ""
     soil_vegetation: Optional[str] = ""
+    uso_atual: Optional[str] = ""           # 3.1 Uso Atual
+    cobertura_vegetal: Optional[str] = ""   # 3.2 Cobertura Vegetal
+    hidrografia: Optional[str] = ""        # 3.3 Hidrografia
     benfeitorias: Optional[str] = ""
+    infraestrutura_interna: Optional[str] = "" # 3.5 Infra-estrutura interna
     accessibility: Optional[str] = ""
     urban_context: Optional[str] = ""
     conservation_state: Optional[str] = ""
+    situacao_fundiaria: Optional[str] = ""  # 3.8 Situação Fundiária
+    passivo_ambiental: Optional[str] = ""   # 3.9 Passivo Ambiental
+    potencial_exploratorio: Optional[str] = "" # 3.10 Potencial Exploratório
+    aspectos_legais: Optional[str] = ""    # 3.11 Aspectos Legais/Restrições
+    restricoes_uso: Optional[str] = ""     # 3.12 Restrições de Uso
     vistoria_synthesis: Optional[str] = ""
 
     # Seção 5 — Caracterização do Imóvel
     imovel_area_terreno: Optional[float] = 0
     imovel_area_construida: Optional[float] = 0
+    imovel_area_a_considerar: Optional[float] = None  # Área efetiva usada no cálculo do valor final
     imovel_idade: Optional[int] = 0
     imovel_estado_conservacao: Optional[str] = ""
     imovel_padrao_acabamento: Optional[str] = ""
@@ -197,6 +212,14 @@ class PtamBase(BaseModel):
 
     # Legacy — Impact areas
     impact_areas: List[PtamImpactArea] = Field(default_factory=list)
+
+    # Seção 8/9 — Avaliação por Áreas (Área 01 e Área 02 — PTAM nº 7010)
+    area_01_tipo: Optional[str] = ""        # ex: "Terra Nua", "Pastagem", "Cultura"
+    area_01_dados: Optional[str] = ""       # Descrição detalhada e cálculo
+    area_01_valor: Optional[float] = None   # Valor total calculado (R$)
+    area_02_tipo: Optional[str] = ""
+    area_02_dados: Optional[str] = ""
+    area_02_valor: Optional[float] = None
 
     # Meta
     status: str = "Rascunho"

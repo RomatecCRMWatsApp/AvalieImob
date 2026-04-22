@@ -10,7 +10,13 @@ export const StepResultado = ({ form, setForm }) => {
   const val = Number(form.resultado_valor_total || 0);
   const inf = val * 0.85;
   const sup = val * 1.15;
-  const area = Number(form.imovel_area_construida || form.imovel_area_terreno || form.property_area_sqm || 0);
+  // Usa area_a_considerar como prioridade; cai em construida → terreno → property_area_sqm
+  const area = Number(
+    form.imovel_area_a_considerar ||
+    form.imovel_area_construida ||
+    form.imovel_area_terreno ||
+    form.property_area_sqm || 0
+  );
   const vuCalc = area > 0 ? val / area : 0;
 
   return (
@@ -24,7 +30,7 @@ export const StepResultado = ({ form, setForm }) => {
         <div className="grid grid-cols-3 gap-4 mb-6">
           <StatBox label="Valor Unitário (R$/m²)" value={fmtBRL(form.resultado_valor_unitario || vuCalc)} />
           <StatBox label="Valor Total" value={fmtBRL(val)} />
-          <StatBox label="Área de Referência (m²)" value={area || '—'} unit="m²" />
+          <StatBox label="Área Considerada (m²)" value={area || '—'} unit="m²" />
         </div>
       )}
 

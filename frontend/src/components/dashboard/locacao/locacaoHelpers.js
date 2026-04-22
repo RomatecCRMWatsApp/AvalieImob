@@ -27,11 +27,9 @@ export const EMPTY_LOCACAO = {
   imovel_tipo: '',
   imovel_area_terreno: 0,
   imovel_area_construida: 0,
-  // Opções de área para o cálculo do valor final
-  considerar_area_terreno: false,
-  considerar_area_construida: true,
-  valor_m2_terreno: null,
-  valor_m2_construcao: null,
+  // Área e valor unitário para o cálculo do valor final
+  imovel_area_a_considerar: null,  // obrigatório — usado em: valor_final = valor_m2 × area_a_considerar
+  valor_m2: null,                  // valor unitário R$/m² adotado
   imovel_idade: 0,
   imovel_estado_conservacao: '',
   imovel_padrao_acabamento: '',

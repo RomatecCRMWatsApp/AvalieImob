@@ -3,23 +3,17 @@ import React from 'react';
 import { Field, Input, Textarea, Select, Grid } from '../shared/primitives';
 import { IMOVEL_TIPO_OPTIONS, CONSERVACAO_OPTIONS, PADRAO_OPTIONS } from '../locacaoHelpers';
 
+const fmt = (v) =>
+  v > 0
+    ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v)
+    : '';
+
 export const StepImovel = ({ form, setForm }) => {
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  const consideraTerreno = !!form.considerar_area_terreno;
-  const consideraConstruida = form.considerar_area_construida !== false; // default true
-
-  const handleAreaTerreno = (checked) => {
-    // Pelo menos uma deve estar marcada
-    if (!checked && !consideraConstruida) return;
-    set('considerar_area_terreno', checked);
-  };
-
-  const handleAreaConstruida = (checked) => {
-    // Pelo menos uma deve estar marcada
-    if (!checked && !consideraTerreno) return;
-    set('considerar_area_construida', checked);
-  };
+  const area   = parseFloat(form.imovel_area_a_considerar) || 0;
+  const vm2    = parseFloat(form.valor_m2) || 0;
+  const total  = area > 0 && vm2 > 0 ? area * vm2 : 0;
 
   return (
     <div className="space-y-6">
@@ -54,87 +48,59 @@ export const StepImovel = ({ form, setForm }) => {
             placeholder="Selecione..."
           />
         </Field>
-        <Field label="Área do Terreno (m²)">
-          <Input type="number" value={form.imovel_area_terreno} onChange={e => set('imovel_area_terreno', parseFloat(e.target.value) || 0)} />
+        <Field label="Área do Terreno (m²) — referência">
+          <Input type="number" step="0.01" value={form.imovel_area_terreno} onChange={e => set('imovel_area_terreno', parseFloat(e.target.value) || 0)} />
         </Field>
-        <Field label="Área Construída (m²)">
-          <Input type="number" value={form.imovel_area_construida} onChange={e => set('imovel_area_construida', parseFloat(e.target.value) || 0)} />
+        <Field label="Área Construída (m²) — referência">
+          <Input type="number" step="0.01" value={form.imovel_area_construida} onChange={e => set('imovel_area_construida', parseFloat(e.target.value) || 0)} />
         </Field>
       </Grid>
 
-      {/* Seção: Áreas consideradas no cálculo */}
-      <div className="border border-emerald-200 rounded-xl p-4 bg-emerald-50 space-y-4">
-        <p className="text-sm font-semibold text-emerald-900">Áreas consideradas no cálculo do valor final</p>
-        <p className="text-xs text-emerald-700">Selecione qual(is) área(s) deve(m) ser usadas para calcular o valor de locação. Pelo menos uma deve estar marcada.</p>
+      {/* ── Seção de cálculo simplificada ─────────────────────────────── */}
+      <div className="border border-emerald-300 rounded-xl p-5 bg-emerald-50 space-y-4">
+        <p className="text-sm font-semibold text-emerald-900">Cálculo do Valor de Locação</p>
+        <p className="text-xs text-emerald-700">
+          Informe a área a ser considerada no cálculo e o valor unitário (R$/m²).
+          O valor final será: <strong>Área considerada × R$/m²</strong>.
+        </p>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Área do Terreno */}
-          <div className="space-y-2">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={consideraTerreno}
-                onChange={e => handleAreaTerreno(e.target.checked)}
-                className="w-4 h-4 accent-emerald-700"
-              />
-              <span className="text-sm font-medium text-gray-800">Considerar área do terreno</span>
-            </label>
-            {consideraTerreno && (
-              <Field label="Valor do m² do Terreno (R$)">
-                <Input
-                  type="number"
-                  value={form.valor_m2_terreno ?? ''}
-                  onChange={e => set('valor_m2_terreno', e.target.value ? parseFloat(e.target.value) : null)}
-                  placeholder="Ex: 500,00"
-                />
-              </Field>
-            )}
-          </div>
+        <Grid cols={2}>
+          <Field label="Área a ser considerada no cálculo (m²) *" full>
+            <Input
+              type="number"
+              step="0.01"
+              required
+              value={form.imovel_area_a_considerar ?? ''}
+              onChange={e => set('imovel_area_a_considerar', e.target.value === '' ? null : parseFloat(e.target.value))}
+              placeholder="Ex: 150 — pode ser igual ao terreno, construída ou outro valor"
+              className="border-emerald-400 focus:ring-emerald-600"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Pode ser igual à área do terreno ({form.imovel_area_terreno || 0} m²), à área construída ({form.imovel_area_construida || 0} m²) ou outro valor definido pelo avaliador.
+            </p>
+          </Field>
+          <Field label="Valor unitário R$/m² adotado *">
+            <Input
+              type="number"
+              step="0.01"
+              required
+              value={form.valor_m2 ?? ''}
+              onChange={e => set('valor_m2', e.target.value === '' ? null : parseFloat(e.target.value))}
+              placeholder="Ex: 855,77"
+              className="border-emerald-400 focus:ring-emerald-600"
+            />
+          </Field>
+        </Grid>
 
-          {/* Área Construída */}
-          <div className="space-y-2">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={consideraConstruida}
-                onChange={e => handleAreaConstruida(e.target.checked)}
-                className="w-4 h-4 accent-emerald-700"
-              />
-              <span className="text-sm font-medium text-gray-800">Considerar área construída</span>
-            </label>
-            {consideraConstruida && (
-              <Field label="Valor do m² da Construção (R$)">
-                <Input
-                  type="number"
-                  value={form.valor_m2_construcao ?? ''}
-                  onChange={e => set('valor_m2_construcao', e.target.value ? parseFloat(e.target.value) : null)}
-                  placeholder="Ex: 855,77"
-                />
-              </Field>
-            )}
-          </div>
-        </div>
-
-        {/* Preview do cálculo */}
-        {(consideraTerreno || consideraConstruida) && (
-          <div className="mt-2 p-3 bg-white rounded-lg border border-emerald-100 text-xs text-gray-700 space-y-1">
-            <p className="font-semibold text-emerald-800 mb-1">Pré-visualização do cálculo:</p>
-            {consideraTerreno && form.valor_m2_terreno > 0 && form.imovel_area_terreno > 0 && (
-              <p>Terreno: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(form.valor_m2_terreno)} × {form.imovel_area_terreno} m² = <strong>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(form.valor_m2_terreno * form.imovel_area_terreno)}</strong></p>
-            )}
-            {consideraConstruida && form.valor_m2_construcao > 0 && form.imovel_area_construida > 0 && (
-              <p>Construção: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(form.valor_m2_construcao)} × {form.imovel_area_construida} m² = <strong>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(form.valor_m2_construcao * form.imovel_area_construida)}</strong></p>
-            )}
-            {(() => {
-              const vtotal =
-                (consideraTerreno && form.valor_m2_terreno > 0 ? form.valor_m2_terreno * (form.imovel_area_terreno || 0) : 0) +
-                (consideraConstruida && form.valor_m2_construcao > 0 ? form.valor_m2_construcao * (form.imovel_area_construida || 0) : 0);
-              return vtotal > 0 ? (
-                <p className="font-semibold text-emerald-700 border-t border-emerald-100 pt-1 mt-1">
-                  Valor Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(vtotal)}
-                </p>
-              ) : null;
-            })()}
+        {/* Pré-visualização do cálculo */}
+        {total > 0 && (
+          <div className="mt-2 p-3 bg-white rounded-lg border border-emerald-200 text-xs text-gray-700 space-y-1">
+            <p className="font-semibold text-emerald-800 mb-1">Pré-visualização:</p>
+            <p>
+              {fmt(vm2)}/m² × {area} m²
+              {' = '}
+              <strong className="text-emerald-700">{fmt(total)}</strong>
+            </p>
           </div>
         )}
       </div>

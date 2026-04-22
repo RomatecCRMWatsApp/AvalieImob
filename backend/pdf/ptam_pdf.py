@@ -441,6 +441,53 @@ def _consolidation_table(impact_areas: list) -> tuple[list, float]:
 
 # ── cover page ────────────────────────────────────────────────────────────────
 
+def _build_toc(styles: dict) -> list:
+    """Sumário do PTAM — 12 seções + anexos."""
+    story = []
+    story += _section(styles, "SUMÁRIO")
+    toc_items = [
+        ("1",    "Identificação e Objetivo"),
+        ("2",    "Documentação Analisada"),
+        ("3",    "Identificação do Imóvel"),
+        ("4",    "Vistoria Técnica"),
+        ("5",    "Contexto Urbano / Análise da Região"),
+        ("6",    "Análise Mercadológica e Amostras"),
+        ("7",    "Metodologia"),
+        ("8",    "Avaliação — Área 01"),
+        ("9",    "Avaliação — Área 02"),
+        ("10",   "Consolidação"),
+        ("11",   "Conclusão Técnica"),
+        ("12",   "Conclusão e Responsabilidade Técnica"),
+        ("A.1",  "Anexo I — Ficha do Imóvel, Fotos e Documentos"),
+        ("A.2",  "Anexo II — Amostras Comparativas"),
+        ("A.3",  "Anexo III — Base Legal e Normativa"),
+        ("A.4",  "Anexo IV — Currículo do Avaliador / Certidões"),
+    ]
+    rows = [["Seção", "Título"]]
+    for num, title in toc_items:
+        rows.append([num, title])
+    tbl = Table(rows, colWidths=[2.5 * cm, 14.2 * cm], repeatRows=1)
+    tbl.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), GREEN),
+        ("TEXTCOLOR", (0, 0), (-1, 0), WHITE),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, 0), 9),
+        ("ALIGN", (0, 0), (0, -1), "CENTER"),
+        ("ALIGN", (1, 0), (1, -1), "LEFT"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+        ("FONTSIZE", (0, 1), (-1, -1), 9),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [WHITE, LIGHT_GREEN]),
+        ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#CCCCCC")),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+    ]))
+    story.append(tbl)
+    story.append(PageBreak())
+    return story
+
+
 def _build_cover(ptam: dict, logo_bytes: bytes | None, styles: dict) -> list:
     story = []
 
@@ -772,8 +819,8 @@ def _build_property(ptam: dict, styles: dict) -> list:
 
     # ── Caracterização Física do Imóvel (Seção 5 do modelo) ──────────────────
     _has_carac = any(ptam.get(k) for k in [
-        "imovel_area_terreno", "imovel_area_construida", "imovel_idade",
-        "imovel_estado_conservacao", "imovel_padrao_acabamento",
+        "imovel_area_terreno", "imovel_area_construida", "imovel_area_a_considerar",
+        "imovel_idade", "imovel_estado_conservacao", "imovel_padrao_acabamento",
         "imovel_num_quartos", "imovel_num_banheiros", "imovel_num_vagas",
         "imovel_piscina", "imovel_caracteristicas_adicionais",
     ])
@@ -783,6 +830,17 @@ def _build_property(ptam: dict, styles: dict) -> list:
             story += _lv(styles, "Área do Terreno", _fmt_area(ptam["imovel_area_terreno"]))
         if ptam.get("imovel_area_construida"):
             story += _lv(styles, "Área Construída", _fmt_area(ptam["imovel_area_construida"]))
+        if ptam.get("imovel_area_a_considerar") is not None:
+            story += _lv(
+                styles,
+                "Área Considerada no Cálculo",
+                _fmt_area(ptam["imovel_area_a_considerar"]),
+            )
+            story.append(Paragraph(
+                "<i>* Área efetiva utilizada para o cálculo do valor total de avaliação.</i>",
+                ParagraphStyle("area_note", fontName="Helvetica-Oblique", fontSize=8,
+                               textColor=colors.HexColor("#555555"), spaceBefore=0, spaceAfter=4),
+            ))
         if ptam.get("imovel_idade"):
             story += _lv(styles, "Idade Aproximada", f"{ptam['imovel_idade']} anos")
         if ptam.get("imovel_estado_conservacao"):
@@ -843,14 +901,25 @@ def _build_vistoria(ptam: dict, styles: dict) -> list:
     story += _lv(styles, "3.2 Solo e Cobertura Vegetal", ptam.get("soil_vegetation"))
 
     for sub_title, key in [
+        ("3.1 Uso Atual", "uso_atual"),
+        ("3.2 Cobertura Vegetal", "cobertura_vegetal"),
+        ("3.3 Hidrografia", "hidrografia"),
         ("4. Benfeitorias Existentes", "benfeitorias"),
-        ("5. Acessibilidade e Infraestrutura", "accessibility"),
-        ("6. Contexto Urbano e Mercadológico", "urban_context"),
-        ("7. Estado Geral de Conservação", "conservation_state"),
-        ("8. Síntese Conclusiva da Vistoria", "vistoria_synthesis"),
+        ("5. Infraestrutura Interna", "infraestrutura_interna"),
+        ("6. Acessibilidade e Infraestrutura", "accessibility"),
+        ("7. Contexto Urbano e Mercadológico", "urban_context"),
+        ("8. Estado Geral de Conservação", "conservation_state"),
+        ("9. Situação Fundiária", "situacao_fundiaria"),
+        ("10. Passivo Ambiental", "passivo_ambiental"),
+        ("11. Potencial Exploratório", "potencial_exploratorio"),
+        ("12. Aspectos Legais e Restrições de Uso", "aspectos_legais"),
+        ("13. Restrições de Uso", "restricoes_uso"),
+        ("14. Síntese Conclusiva da Vistoria", "vistoria_synthesis"),
     ]:
-        story += _subsection(styles, sub_title)
-        story += _body(styles, ptam.get(key, ""))
+        val = ptam.get(key, "")
+        if val and val.strip():
+            story += _subsection(styles, sub_title)
+            story += _body(styles, val)
 
     return story
 
@@ -1302,16 +1371,159 @@ def _build_impact_areas(ptam: dict, styles: dict) -> list:
     return story
 
 
+def _build_avaliacoes_areas(ptam: dict, styles: dict) -> list:
+    """Seções 8 e 9 — Avaliação Área 01 e Área 02 (PTAM nº 7010)."""
+    area_01_tipo = ptam.get("area_01_tipo") or ""
+    area_01_dados = ptam.get("area_01_dados") or ""
+    area_01_valor = ptam.get("area_01_valor")
+    area_02_tipo = ptam.get("area_02_tipo") or ""
+    area_02_dados = ptam.get("area_02_dados") or ""
+    area_02_valor = ptam.get("area_02_valor")
+
+    has_01 = area_01_tipo or area_01_dados or area_01_valor
+    has_02 = area_02_tipo or area_02_dados or area_02_valor
+
+    if not has_01 and not has_02:
+        return []
+
+    story = []
+
+    if has_01:
+        story += _section(styles, "8. Avaliação — Área 01")
+        if area_01_tipo:
+            story += _lv(styles, "Tipo de Área", area_01_tipo)
+        story += _body(styles, area_01_dados)
+        if area_01_valor is not None:
+            story.append(_spacer(0.3))
+            story.append(Paragraph(
+                f"Valor da Área 01: <b>{_fmt_currency(area_01_valor)}</b>",
+                ParagraphStyle("area01_val", fontName="Helvetica-Bold", fontSize=12,
+                               alignment=TA_CENTER, textColor=GREEN, spaceBefore=4, spaceAfter=6),
+            ))
+
+    if has_02:
+        story += _section(styles, "9. Avaliação — Área 02")
+        if area_02_tipo:
+            story += _lv(styles, "Tipo de Área", area_02_tipo)
+        story += _body(styles, area_02_dados)
+        if area_02_valor is not None:
+            story.append(_spacer(0.3))
+            story.append(Paragraph(
+                f"Valor da Área 02: <b>{_fmt_currency(area_02_valor)}</b>",
+                ParagraphStyle("area02_val", fontName="Helvetica-Bold", fontSize=12,
+                               alignment=TA_CENTER, textColor=GREEN, spaceBefore=4, spaceAfter=6),
+            ))
+
+    # Consolidated dual-area table
+    if has_01 and has_02:
+        story += _section(styles, "10. Consolidação das Áreas")
+        rows = [["Área", "Tipo", "Valor (R$)"]]
+        total = 0.0
+        for label, tipo, valor in [
+            ("Área 01", area_01_tipo, area_01_valor),
+            ("Área 02", area_02_tipo, area_02_valor),
+        ]:
+            v = float(valor or 0)
+            total += v
+            rows.append([label, tipo or "—", _fmt_currency(v)])
+        rows.append(["TOTAL GERAL", "", _fmt_currency(total)])
+
+        last = len(rows) - 1
+        tbl = Table(rows, colWidths=[3.5 * cm, 8.0 * cm, 5.2 * cm], repeatRows=1)
+        tbl.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), GREEN),
+            ("TEXTCOLOR", (0, 0), (-1, 0), WHITE),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, 0), 9),
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("FONTNAME", (0, 1), (-1, last - 1), "Helvetica"),
+            ("FONTSIZE", (0, 1), (-1, -1), 9),
+            ("ROWBACKGROUNDS", (0, 1), (-1, last - 1), [WHITE, LIGHT_GREEN]),
+            ("BACKGROUND", (0, last), (-1, last), LIGHT_GREEN),
+            ("FONTNAME", (0, last), (-1, last), "Helvetica-Bold"),
+            ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#C0C0C0")),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ]))
+        story.append(tbl)
+        story.append(_spacer(0.3))
+
+        # Grand total highlight
+        story.append(Paragraph(
+            f"Valor Total das Áreas: <b>{_fmt_currency(total)}</b>",
+            ParagraphStyle("areas_total", fontName="Helvetica-Bold", fontSize=13,
+                           alignment=TA_CENTER, textColor=GOLD, spaceBefore=4, spaceAfter=8),
+        ))
+
+    return story
+
+
 def _build_conclusion(ptam: dict, user: dict, styles: dict) -> list:
     story = []
     story += _section(styles, "9. Valor de Avaliação e Resultado")
     story += _body(styles, ptam.get("conclusion_text", ""))
 
     # ── Valor principal ────────────────────────────────────────────────────────
-    valor_total = ptam.get("resultado_valor_total") or ptam.get("total_indemnity") or 0
+    valor_total    = ptam.get("resultado_valor_total") or ptam.get("total_indemnity") or 0
     valor_unitario = ptam.get("resultado_valor_unitario") or 0
-    if valor_total:
+    area_calc      = (
+        ptam.get("imovel_area_a_considerar")
+        or ptam.get("imovel_area_construida")
+        or ptam.get("imovel_area_terreno")
+        or 0
+    )
+
+    # ── Calc breakdown table ───────────────────────────────────────────────────
+    if valor_unitario and area_calc:
+        story.append(_spacer(0.3))
+        story += _subsection(styles, "Cálculo do Valor Final")
+
+        # Three-row breakdown: média, área, resultado
+        calc_table_data = [
+            [
+                Paragraph("<b>Componente</b>", styles["value"]),
+                Paragraph("<b>Valor</b>", styles["value"]),
+            ],
+            [
+                Paragraph("Média Ponderada Final", styles["body"]),
+                Paragraph(f"<b>{_fmt_currency(valor_unitario)}/m²</b>", styles["value"]),
+            ],
+            [
+                Paragraph("Área do Imóvel Avaliando", styles["body"]),
+                Paragraph(f"<b>{_fmt_area(area_calc)}</b>", styles["value"]),
+            ],
+            [
+                Paragraph(
+                    f"<b>Valor Final</b> = {_fmt_currency(valor_unitario)}/m² × {_fmt_area(area_calc)}",
+                    styles["value"],
+                ),
+                Paragraph(f"<b>{_fmt_currency(valor_total or valor_unitario * area_calc)}</b>",
+                          ParagraphStyle("calc_total", fontName="Helvetica-Bold", fontSize=11,
+                                         alignment=TA_RIGHT, textColor=GREEN)),
+            ],
+        ]
+        calc_tbl = Table(calc_table_data, colWidths=[11.5 * cm, 5.5 * cm])
+        calc_tbl.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), GREEN),
+            ("TEXTCOLOR", (0, 0), (-1, 0), WHITE),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 10),
+            ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -2), [WHITE, LIGHT_GREEN]),
+            ("BACKGROUND", (0, -1), (-1, -1), LIGHT_GREEN),
+            ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+            ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#C8E6C9")),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+            ("TOPPADDING", (0, 0), (-1, -1), 8),
+            ("LEFTPADDING", (0, 0), (-1, -1), 10),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+        ]))
+        story.append(calc_tbl)
         story.append(_spacer(0.4))
+
+    if valor_total:
         story.append(Paragraph(
             f"Valor de Mercado Avaliado: {_fmt_currency(valor_total)}",
             styles["conclusion_value"],
@@ -1691,6 +1903,9 @@ def generate_ptam_pdf(ptam: dict, user: dict, cnd_consultas: list | None = None)
     cover_logo_bytes = company_logo_bytes or system_logo_bytes
     story += _safe_build(_build_cover, ptam, cover_logo_bytes, styles, section_name="cover")
 
+    # ── Sumário (TOC) ─────────────────────────────────────────────────────
+    story += _safe_build(_build_toc, styles, section_name="toc")
+
     # ── Seção 1: Identificação e Objetivo ────────────────────────────────
     story += _safe_build(_build_identification, ptam, styles, section_name="1-identificacao")
     story.append(_spacer(0.5))
@@ -1738,6 +1953,12 @@ def generate_ptam_pdf(ptam: dict, user: dict, cnd_consultas: list | None = None)
         story += metodo_aval
         story.append(_spacer(0.5))
 
+    # ── Seções 8/9: Avaliação Área 01 e Área 02 (PTAM nº 7010) ───────────
+    avaliacoes_areas = _safe_build(_build_avaliacoes_areas, ptam, styles, section_name="8-9-areas")
+    if avaliacoes_areas:
+        story += avaliacoes_areas
+        story.append(_spacer(0.5))
+
     # ── Seção 8: Áreas de Impacto (legacy) ───────────────────────────────
     story += _safe_build(_build_impact_areas, ptam, styles, section_name="8-impacto")
     if ptam.get("impact_areas"):
@@ -1746,18 +1967,20 @@ def generate_ptam_pdf(ptam: dict, user: dict, cnd_consultas: list | None = None)
     # ── Seções 9-11: Resultado, Prazo, Responsabilidade Técnica ──────────
     story += _safe_build(_build_conclusion, ptam, user, styles, section_name="9-11-conclusao")
 
-    # ── Registro Fotográfico e Documentos ────────────────────────────────
+    # ── Anexo I: Registro Fotográfico e Documentos ────────────────────────
     fotos_docs_section = _safe_build(_build_fotos_e_documentos, ptam, styles, section_name="fotos-docs")
     if fotos_docs_section:
         story.append(PageBreak())
+        story += _section(styles, "Anexo I — Ficha do Imóvel, Fotos e Documentos")
         story += fotos_docs_section
 
-    # ── Seção CND: Certidões das Partes (opcional) ────────────────────────
+    # ── Anexo IV: Certidões das Partes (CND) ──────────────────────────────
     certidoes_section = _safe_build(
         _build_certidoes_partes, styles, cnd_consultas or [], section_name="cnd-certidoes"
     )
     if certidoes_section:
         story.append(PageBreak())
+        story += _section(styles, "Anexo IV — Certidões das Partes (CND)")
         story += certidoes_section
 
     doc.build(story)

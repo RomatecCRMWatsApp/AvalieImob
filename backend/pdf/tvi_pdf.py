@@ -256,6 +256,45 @@ def _divider() -> Table:
 
 # ── cover ─────────────────────────────────────────────────────────────────────
 
+def _build_toc(styles: dict) -> list:
+    """Sumário da TVI — Termo de Vistoria do Imóvel."""
+    story = []
+    story += _section(styles, "SUMÁRIO")
+    toc_items = [
+        ("1",    "Identificação — Solicitante e Objetivo"),
+        ("2",    "Identificação do Imóvel"),
+        ("3",    "Dados da Vistoria"),
+        ("4",    "Ambientes Vistoriados"),
+        ("5",    "Campos Específicos / Itens Adicionais"),
+        ("6",    "Conclusão e Observações"),
+        ("A.I",  "Anexo I — Registro Fotográfico"),
+        ("A.II", "Anexo II — Assinatura das Partes"),
+    ]
+    rows = [["Seção", "Título"]]
+    for num, title in toc_items:
+        rows.append([num, title])
+    tbl = Table(rows, colWidths=[2.5 * cm, 14.2 * cm], repeatRows=1)
+    tbl.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), GREEN),
+        ("TEXTCOLOR", (0, 0), (-1, 0), WHITE),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, 0), 9),
+        ("ALIGN", (0, 0), (0, -1), "CENTER"),
+        ("ALIGN", (1, 0), (1, -1), "LEFT"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+        ("FONTSIZE", (0, 1), (-1, -1), 9),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [WHITE, LIGHT_GREEN]),
+        ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#CCCCCC")),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+    ]))
+    story.append(tbl)
+    story.append(PageBreak())
+    return story
+
+
 def _build_cover(v: dict, model_nome: str, logo_bytes: bytes | None, styles: dict) -> list:
     story = []
 
@@ -587,6 +626,7 @@ def generate_tvi_pdf(
     story: list = []
 
     story += _build_cover(vistoria, model_nome, logo, styles)
+    story += _build_toc(styles)
     story += _build_identificacao(vistoria, styles)
     story.append(_spacer(0.4))
     story += _build_imovel(vistoria, styles)

@@ -513,6 +513,36 @@ def generate_tvi_docx(
     # ── Capa ──────────────────────────────────────────────────────────────────
     _render_cover(doc, vistoria, user, model_nome)
 
+    # ── Sumário ───────────────────────────────────────────────────────────────
+    _add_section_heading(doc, "SUMÁRIO")
+    _toc_items = [
+        ("1",    "Identificação — Solicitante e Objetivo"),
+        ("2",    "Identificação do Imóvel"),
+        ("3",    "Dados da Vistoria"),
+        ("4",    "Ambientes Vistoriados"),
+        ("5",    "Campos Específicos / Itens Adicionais"),
+        ("6",    "Conclusão e Observações"),
+        ("A.I",  "Anexo I — Registro Fotográfico"),
+        ("A.II", "Anexo II — Assinatura das Partes"),
+    ]
+    _tbl_toc = doc.add_table(rows=1, cols=2)
+    _tbl_toc.style = "Table Grid"
+    _hdr = _tbl_toc.rows[0].cells
+    for _i, _h in enumerate(["Seção", "Título"]):
+        _hdr[_i].text = _h
+        _set_cell_shading(_hdr[_i], "1B4D1B")
+        _hdr[_i].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+        for _run in _hdr[_i].paragraphs[0].runs:
+            _run.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
+            _run.font.bold = True
+            _run.font.size = Pt(10)
+    for _num, _title in _toc_items:
+        _row = _tbl_toc.add_row().cells
+        _row[0].text = _num
+        _row[1].text = _title
+        _row[0].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+    doc.add_page_break()
+
     # ── Seção 1: Identificação ─────────────────────────────────────────────
     _render_identificacao(doc, vistoria)
     doc.add_paragraph()
