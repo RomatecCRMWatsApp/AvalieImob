@@ -190,6 +190,14 @@ def _make_styles() -> dict:
             textColor=DARK,
             alignment=TA_CENTER,
         ),
+        "caption": ParagraphStyle(
+            "caption",
+            fontName="Helvetica",
+            fontSize=8,
+            leading=11,
+            textColor=DARK,
+            alignment=TA_CENTER,
+        ),
     }
 
 
@@ -589,7 +597,7 @@ def _rental_samples_text(samples: list, styles: dict) -> list:
         return []
     
     story = []
-    story.append(Paragraph("Elementos Comparativos — Mercado de Locação", styles["h3"]))
+    story.append(Paragraph("Elementos Comparativos — Mercado de Locação", styles["subsection_title"]))
     story.append(_spacer(0.3))
     
     for idx, s in enumerate(samples, start=1):
