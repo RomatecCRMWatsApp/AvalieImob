@@ -136,6 +136,7 @@ async def download_locacao_pdf(locacao_id: str, uid: str = Depends(get_current_u
         
         # Buscar documentos digitalizados (certidões)
         docs = doc.get("fotos_documentos") or []
+        docs_processados = []
         for i, doc_item in enumerate(docs):
             # Extrair doc_id da URL ou do objeto
             if isinstance(doc_item, str):
@@ -153,14 +154,22 @@ async def download_locacao_pdf(locacao_id: str, uid: str = Depends(get_current_u
                 doc_doc = await db.images.find_one({"id": doc_id})
                 if doc_doc and doc_doc.get("data_b64"):
                     import base64
-                    # Substituir por dict com dados do documento
-                    docs[i] = {
+                    # Criar dict com dados do documento
+                    docs_processados.append({
                         "doc_id": doc_id,
                         "url": url,
                         "_doc_bytes": base64.b64decode(doc_doc["data_b64"]),
                         "name": doc_doc.get("filename") or f"Documento {i+1}",
                         "content_type": doc_doc.get("content_type", "application/pdf")
-                    }
+                    })
+                else:
+                    # Manter original se não encontrar no banco
+                    docs_processados.append(doc_item if isinstance(doc_item, dict) else {"url": doc_item, "name": f"Documento {i+1}"})
+            else:
+                docs_processados.append(doc_item if isinstance(doc_item, dict) else {"url": doc_item, "name": f"Documento {i+1}"})
+        
+        # Atualizar o doc com os documentos processados
+        doc["fotos_documentos"] = docs_processados
         
         pdf_bytes = generate_locacao_pdf(doc, user)
     except Exception as e:
