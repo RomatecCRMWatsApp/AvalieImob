@@ -34,6 +34,7 @@ from reportlab.platypus import (
     BaseDocTemplate,
     Frame,
     Image,
+    KeepTogether,
     PageBreak,
     PageTemplate,
     Paragraph,
@@ -969,7 +970,7 @@ def _build_fotos_e_documentos(loc: dict, styles: dict, user: dict) -> list:
         story.append(_spacer(0.3))
 
         # Pré-montar cada container de foto independentemente
-        def _make_photo_cell(foto, num: int) -> list:
+        def _make_photo_cell(foto, num: int):
             if isinstance(foto, dict):
                 caption = (
                     foto.get("description") or foto.get("descricao")
@@ -986,17 +987,18 @@ def _build_fotos_e_documentos(loc: dict, styles: dict, user: dict) -> list:
                 try:
                     img = Image(io.BytesIO(img_bytes), width=7.5 * cm, height=5.5 * cm)
                     img.hAlign = "CENTER"
-                    return [desc_para, _spacer(0.15), img]
+                    # Retornar KeepTogether para manter descrição + imagem juntas
+                    return KeepTogether([desc_para, _spacer(0.15), img])
                 except Exception:
                     pass
-            return [desc_para, _spacer(0.15), Paragraph(f"[Foto {num} — imagem não disponível]", styles["body"])]
+            return KeepTogether([desc_para, _spacer(0.15), Paragraph(f"[Foto {num} — imagem não disponível]", styles["body"])])
 
         cells = [_make_photo_cell(f, i + 1) for i, f in enumerate(fotos[:12])]
 
         # Agrupar em pares e emitir uma tabela por par
         for pair_start in range(0, len(cells), 2):
             left = cells[pair_start]
-            right = cells[pair_start + 1] if pair_start + 1 < len(cells) else [""]
+            right = cells[pair_start + 1] if pair_start + 1 < len(cells) else ""
             row_tbl = Table(
                 [[left, right]],
                 colWidths=[8 * cm, 8 * cm],
