@@ -1020,7 +1020,7 @@ def _build_fotos(loc: dict, styles: dict, user: dict) -> list:
     
     # Documentos digitalizados
     if docs:
-        story.append(Paragraph("Documentos Digitalizados:", styles["h3"]))
+        story.append(Paragraph("Documentos Digitalizados:", styles["subsection_title"]))
         for i, doc_item in enumerate(docs[:6]):
             if isinstance(doc_item, dict):
                 doc_name = doc_item.get("name") or doc_item.get("nome") or f"Documento {i+1}"
