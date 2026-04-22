@@ -52,7 +52,7 @@ def _set_cell_border(cell, **kwargs):
 
 def _add_styled_paragraph(doc, text: str, bold: bool = False, size: int = 11, 
                           color=RGBColor(51, 51, 51), alignment=WD_ALIGN_PARAGRAPH.LEFT,
-                          space_after=Pt(6)):
+                          space_after=Pt(6), italic: bool = False):
     """Adiciona parágrafo formatado."""
     p = doc.add_paragraph()
     p.alignment = alignment
@@ -60,6 +60,7 @@ def _add_styled_paragraph(doc, text: str, bold: bool = False, size: int = 11,
     run = p.add_run(text)
     run.font.size = Pt(size)
     run.font.bold = bold
+    run.font.italic = italic
     run.font.color.rgb = color
     return p
 
