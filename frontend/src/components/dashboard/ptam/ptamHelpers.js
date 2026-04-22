@@ -202,7 +202,6 @@ export const PTAM_STEPS = [
   { id: 'metodo_avaliacao',   label: 'Dep./Valoriz.',       icon: 'TrendingDown' },
   { id: 'resultado',          label: 'Resultado',           icon: 'TrendingUp' },
   { id: 'conclusao',          label: 'Conclusão',           icon: 'CheckCircle2' },
-  { id: 'certidoes',          label: 'Certidões',            icon: 'ShieldCheck' },
 ];
 
 // ── Factory helpers ────────────────────────────────────────────────────────────
