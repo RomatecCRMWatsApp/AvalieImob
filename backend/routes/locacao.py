@@ -134,6 +134,9 @@ async def download_locacao_pdf(locacao_id: str, uid: str = Depends(get_current_u
                         "caption": f"Foto {i+1}"
                     }
         
+        # Atualizar o doc com as fotos processadas (IMPORTANTE!)
+        doc["fotos_imovel"] = fotos_imovel
+        
         # Buscar documentos digitalizados (certidões)
         docs = doc.get("fotos_documentos") or []
         docs_processados = []
