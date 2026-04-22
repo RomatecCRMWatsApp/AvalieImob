@@ -160,6 +160,23 @@ const PtamWizard = () => {
     }
   };
 
+  const handleDownloadPdf = async () => {
+    if (!ptamId) { toast({ title: 'Salve o PTAM primeiro', variant: 'destructive' }); return; }
+    try {
+      const blob = await ptamAPI.downloadPdf(ptamId);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `PTAM_${(form.number || 'sem-numero').replace(/\//g, '-')}.pdf`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      toast({ title: 'Download PDF iniciado' });
+    } catch (err) {
+      toast({ title: 'Erro ao baixar PDF', description: err.response?.data?.detail || 'Tente novamente', variant: 'destructive' });
+      console.warn(err);
+    }
+  };
+
   if (loading) return (
     <div className="py-20 flex justify-center">
       <Loader2 className="w-8 h-8 animate-spin text-emerald-800" />
@@ -202,6 +219,9 @@ const PtamWizard = () => {
           )}
           <Button variant="outline" onClick={() => save(false)} disabled={saving}>
             <Save className="w-4 h-4 mr-1" />{saving ? 'Salvando...' : 'Salvar rascunho'}
+          </Button>
+          <Button variant="outline" className="border-red-300 text-red-700 hover:bg-red-50" onClick={handleDownloadPdf}>
+            <Download className="w-4 h-4 mr-1" />Baixar PDF
           </Button>
           <Button className="bg-emerald-900 hover:bg-emerald-800 text-white" onClick={handleDownload}>
             <Download className="w-4 h-4 mr-1" />Baixar DOCX
@@ -271,12 +291,21 @@ const PtamWizard = () => {
               Próximo<ChevronRight className="w-4 h-4 ml-1" />
             </Button>
           ) : (
-            <Button
-              className="bg-amber-500 hover:bg-amber-400 text-emerald-950 font-semibold"
-              onClick={handleDownload}
-            >
-              <Download className="w-4 h-4 mr-1" />Baixar DOCX Final
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                className="border-red-300 text-red-700 hover:bg-red-50"
+                onClick={handleDownloadPdf}
+              >
+                <Download className="w-4 h-4 mr-1" />Baixar PDF Final
+              </Button>
+              <Button
+                className="bg-amber-500 hover:bg-amber-400 text-emerald-950 font-semibold"
+                onClick={handleDownload}
+              >
+                <Download className="w-4 h-4 mr-1" />Baixar DOCX Final
+              </Button>
+            </div>
           )}
         </div>
       </div>
