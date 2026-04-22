@@ -217,6 +217,12 @@ def _send_resend_with_attachment(
 
     resend.api_key = os.environ["RESEND_API_KEY"]
     from_addr = os.environ.get("FROM_EMAIL") or "AvalieImob <onboarding@resend.dev>"
+    
+    # Forçar envio apenas para email de teste do Resend enquanto domínio não está verificado
+    allowed_test_email = "romateccrm@gmail.com"
+    if to_email != allowed_test_email:
+        print(f"[EMAIL] Redirecionando email de {to_email} para {allowed_test_email} (modo teste)")
+        to_email = allowed_test_email
 
     resend.Emails.send({
         "from": from_addr,
