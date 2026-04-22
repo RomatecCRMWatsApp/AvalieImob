@@ -39,11 +39,11 @@ const TVIForm = () => {
     try {
       const data = await tviAPI.get(id);
       setVistoria(data);
-      setFields(data.campos || {});
+      setFields(data.campos_extras || data.campos || {});
       setAmbientes(data.ambientes || []);
       setSignature(data.assinatura || null);
-      if (data.modelo_id) {
-        const m = await tviAPI.getModel(data.modelo_id);
+      if (data.model_id || data.modelo_id) {
+        const m = await tviAPI.getModel(data.model_id || data.modelo_id);
         setModel(m);
       }
     } catch {
@@ -60,7 +60,7 @@ const TVIForm = () => {
     if (!id) return;
     setSaving(true);
     try {
-      await tviAPI.update(id, { campos: fields, ambientes, assinatura: signature });
+      await tviAPI.update(id, { campos_extras: fields, ambientes, assinatura: signature });
       setLastSaved(new Date());
       if (!silent) toast({ title: 'Vistoria salva' });
     } catch {

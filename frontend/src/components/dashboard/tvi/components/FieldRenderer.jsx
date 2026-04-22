@@ -4,10 +4,11 @@ const base = 'w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gr
              'focus:outline-none focus:border-emerald-400 transition-colors bg-white';
 
 const FieldRenderer = ({ field, value, onChange }) => {
-  const { key, label, tipo, opcoes, required, placeholder } = field;
+  const { key, label, opcoes, required, placeholder } = field;
+  const tipo = field.tipo || field.type || 'text';
 
   const handleChange = (e) => {
-    const val = field.tipo === 'checkbox' ? e.target.checked : e.target.value;
+    const val = tipo === 'checkbox' ? e.target.checked : e.target.value;
     onChange(key, val);
   };
 
