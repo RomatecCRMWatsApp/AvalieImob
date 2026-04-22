@@ -1,21 +1,29 @@
-import React, { useRef, useState } from 'react';
-import { Upload, X, Image } from 'lucide-react';
+// @module PhotoUploader — TVI: upload de fotos por ambiente; mobile usa câmera nativa
+import React, { useState } from 'react';
+import { X, Image, Loader2 } from 'lucide-react';
 import { tviAPI } from '../../../../lib/api';
 import { useToast } from '../../../../hooks/use-toast';
+import { useIsMobile } from '../../../../hooks/useIsMobile';
+import SmartPhotoInput from '../../../shared/SmartPhotoInput';
 
 const PhotoUploader = ({ vistoriaId, ambiente = 'Geral', photos = [], onUploaded }) => {
   const { toast } = useToast();
-  const inputRef = useRef(null);
+  const isMobile = useIsMobile();
   const [uploading, setUploading] = useState(false);
   const [previews, setPreviews] = useState(photos);
 
-  const handleFiles = async (files) => {
+  const uploadFiles = async (files) => {
     if (!files?.length || !vistoriaId) return;
     setUploading(true);
     try {
       const fd = new FormData();
-      Array.from(files).forEach(f => fd.append('files', f));
+      files.forEach((f) => fd.append('files', f));
       fd.append('ambiente', ambiente);
+      // Inclui GPS e timestamp se disponíveis nos arquivos enriquecidos
+      const gps = files[0]?._gps;
+      const ts = files[0]?._ts;
+      if (gps) { fd.append('gps_lat', String(gps.lat)); fd.append('gps_lng', String(gps.lng)); }
+      if (ts) fd.append('timestamp', ts);
       const result = await tviAPI.uploadPhotos(vistoriaId, fd);
       const newPreviews = [...previews, ...(result.photos || [])];
       setPreviews(newPreviews);
@@ -36,26 +44,27 @@ const PhotoUploader = ({ vistoriaId, ambiente = 'Geral', photos = [], onUploaded
 
   return (
     <div className="space-y-3">
-      <button
-        type="button"
-        onClick={() => inputRef.current?.click()}
-        disabled={uploading}
-        className="w-full border-2 border-dashed border-gray-200 rounded-xl p-6
-                   flex flex-col items-center gap-2 hover:border-emerald-400 transition-colors
-                   text-gray-400 hover:text-emerald-700 disabled:opacity-50"
-      >
-        <Upload className="w-6 h-6" />
-        <span className="text-sm">{uploading ? 'Enviando...' : `Adicionar fotos — ${ambiente}`}</span>
-        <span className="text-xs">JPG, PNG, WEBP</span>
-      </button>
-      <input
-        ref={inputRef}
-        type="file"
-        multiple
-        accept="image/*"
-        className="hidden"
-        onChange={e => handleFiles(e.target.files)}
-      />
+      {uploading && (
+        <div className="flex items-center gap-2 text-sm text-[#00ff88]">
+          <Loader2 className="w-4 h-4 animate-spin" /> Enviando {ambiente}...
+        </div>
+      )}
+
+      {isMobile ? (
+        <SmartPhotoInput
+          label={`Fotos — ${ambiente}`}
+          multiple
+          preview={false}
+          onPhotos={(files) => uploadFiles(files)}
+        />
+      ) : (
+        <label className="w-full border-2 border-dashed border-gray-200 rounded-xl p-6 flex flex-col items-center gap-2 hover:border-emerald-400 transition-colors text-gray-400 hover:text-emerald-700 cursor-pointer">
+          <span className="text-sm">{`Adicionar fotos — ${ambiente}`}</span>
+          <span className="text-xs">JPG, PNG, WEBP</span>
+          <input type="file" multiple accept="image/*" className="hidden"
+            onChange={(e) => { uploadFiles(Array.from(e.target.files || [])); e.target.value = ''; }} />
+        </label>
+      )}
 
       {previews.length > 0 && (
         <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
@@ -68,12 +77,8 @@ const PhotoUploader = ({ vistoriaId, ambiente = 'Geral', photos = [], onUploaded
                   <Image className="w-6 h-6 text-gray-300" />
                 </div>
               )}
-              <button
-                type="button"
-                onClick={() => removePreview(i)}
-                className="absolute top-1 right-1 w-5 h-5 rounded-full bg-red-500 text-white
-                           flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-              >
+              <button type="button" onClick={() => removePreview(i)}
+                className="absolute top-1 right-1 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                 <X className="w-3 h-3" />
               </button>
               {p.legenda && (
