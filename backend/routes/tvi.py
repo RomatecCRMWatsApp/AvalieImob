@@ -32,6 +32,15 @@ class ShareWhatsAppRequest(BaseModel):
 router = APIRouter(tags=["tvi"])
 logger = logging.getLogger("romatec")
 
+# Mapeamento ramo (seed v2) → categoria (frontend)
+RAMO_MAP = {
+    "GERAL": "Geral", "LOCACAO": "Locação", "RURAL": "Rural",
+    "REGULARIZACAO": "Regularização", "OBRAS": "Obras",
+    "JUDICIAL/PERICIAL": "Judicial", "SEGURANÇA/SINISTROS": "Segurança",
+    "COMERCIAL/INDUSTRIAL": "Comercial", "INSTALAÇÕES": "Instalações",
+    "COMPLEMENTARES": "Complementares",
+}
+
 
 # ── Numeração automática TVI-XXXX/AAAA ─────────────────────────────────────
 async def _next_tvi_numero(db) -> str:
@@ -55,14 +64,22 @@ async def list_tvi_models(
     """Lista todos os modelos TVI, agrupados por categoria."""
     query: dict = {"ativo": True}
     if categoria:
-        query["categoria"] = categoria
+        # Busca tanto por categoria quanto por ramo (match reverso)
+        ramo_keys = [k for k, v in RAMO_MAP.items() if v.lower().startswith(categoria.lower())]
+        or_conds = [{"categoria": {"$regex": f"^{categoria}", "$options": "i"}}]
+        for rk in ramo_keys:
+            or_conds.append({"ramo": rk})
+        query["$or"] = or_conds
     docs = await db.vistoria_models.find(query).sort("categoria", 1).to_list(200)
     for d in docs:
         d.pop("_id", None)
+        # Normaliza: v2 usa 'ramo', frontend espera 'categoria'
+        if not d.get("categoria") and d.get("ramo"):
+            d["categoria"] = RAMO_MAP.get(d["ramo"], d["ramo"])
     # Agrupa por categoria
     grouped: dict = {}
     for d in docs:
-        cat = d.get("categoria", "OUTROS")
+        cat = d.get("categoria") or d.get("ramo", "OUTROS")
         grouped.setdefault(cat, []).append(d)
     return {"categorias": grouped, "total": len(docs)}
 
@@ -95,7 +112,8 @@ async def create_vistoria(
     modelo = await db.vistoria_models.find_one({"id": data.model_id})
     if modelo:
         payload["modelo_nome"] = modelo.get("nome", "")
-        payload["categoria"] = modelo.get("categoria", "")
+        ramo = modelo.get("ramo", "")
+        payload["categoria"] = modelo.get("categoria") or RAMO_MAP.get(ramo, ramo)
     v = Vistoria(user_id=uid, **payload)
     await db.vistorias.insert_one(v.model_dump())
     return v
