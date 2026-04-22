@@ -19,7 +19,7 @@ const FINALIDADE_GRUPOS = [
       { value: 'cv_aquisicao',    nome: 'Aquisição',             lei: 'NBR 14653-2' },
       { value: 'cv_oferta',       nome: 'Oferta pública',        lei: 'NBR 14653-2' },
       { value: 'cv_dacao',        nome: 'Dação em pagamento',    lei: 'CC art. 356' },
-      { value: 'cv_especulacao',  nome: 'Especulação de Mercado Imobiliário — Oferta e Venda Direta', lei: 'Res. COFECI 957/1066, Lei 6.530 art. 3º, NBR 14653' },
+      { value: 'cv_especulacao',  nome: 'Especulação de Mercado Imobiliário 2026 — Oferta e Venda Direta', lei: 'Res. COFECI 957/1066, Lei 6.530 art. 3º, NBR 14653' },
     ],
   },
   {
