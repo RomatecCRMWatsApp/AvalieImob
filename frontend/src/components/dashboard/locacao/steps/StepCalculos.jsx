@@ -1,6 +1,7 @@
 // @module locacao/steps/StepCalculos — Step 6: Cálculos e Metodologia da Locação
 import React from 'react';
 import { Field, Input, Textarea, Select, Grid } from '../shared/primitives';
+import { fmtCurrency } from '../locacaoHelpers';
 
 export const StepCalculos = ({ form, setForm }) => {
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -24,6 +25,30 @@ export const StepCalculos = ({ form, setForm }) => {
     }));
   };
 
+  // Cálculo do valor final baseado nas áreas selecionadas
+  const calcularValorFinal = () => {
+    const consideraTerreno = !!form.considerar_area_terreno;
+    const consideraConstruida = form.considerar_area_construida !== false;
+    const areaTerreno = parseFloat(form.imovel_area_terreno) || 0;
+    const areaConstruida = parseFloat(form.imovel_area_construida) || 0;
+    const m2Terreno = parseFloat(form.valor_m2_terreno) || 0;
+    const m2Construcao = parseFloat(form.valor_m2_construcao) || 0;
+
+    let valorFinal = 0;
+    if (consideraTerreno && m2Terreno > 0) valorFinal += m2Terreno * areaTerreno;
+    if (consideraConstruida && m2Construcao > 0) valorFinal += m2Construcao * areaConstruida;
+
+    if (valorFinal > 0) {
+      set('valor_locacao_estimado', parseFloat(valorFinal.toFixed(2)));
+    }
+  };
+
+  const consideraTerreno = !!form.considerar_area_terreno;
+  const consideraConstruida = form.considerar_area_construida !== false;
+  const temConfiguracao =
+    (consideraTerreno && form.valor_m2_terreno > 0 && form.imovel_area_terreno > 0) ||
+    (consideraConstruida && form.valor_m2_construcao > 0 && form.imovel_area_construida > 0);
+
   return (
     <div className="space-y-6">
       <h3 className="text-base font-semibold text-gray-900 border-b border-gray-100 pb-2 mb-4">6. Cálculos e Metodologia</h3>
@@ -34,14 +59,63 @@ export const StepCalculos = ({ form, setForm }) => {
         <Textarea value={form.methodology_justification} onChange={e => set('methodology_justification', e.target.value)} rows={3} />
       </Field>
 
-      <div className="flex justify-end">
+      <div className="flex flex-wrap justify-end gap-3">
         <button
           onClick={calcularEstatisticas}
           className="text-sm bg-emerald-900 text-white px-4 py-2 rounded-xl hover:bg-emerald-800 transition"
         >
           Calcular Estatísticas das Amostras
         </button>
+        {temConfiguracao && (
+          <button
+            onClick={calcularValorFinal}
+            className="text-sm bg-amber-700 text-white px-4 py-2 rounded-xl hover:bg-amber-600 transition"
+          >
+            Calcular Valor Final pelas Áreas
+          </button>
+        )}
       </div>
+
+      {/* Resumo das áreas selecionadas */}
+      {(consideraTerreno || consideraConstruida) && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm space-y-2">
+          <p className="font-semibold text-amber-900">Áreas configuradas para o cálculo:</p>
+          {consideraTerreno && (
+            <div className="flex flex-wrap gap-2 items-center">
+              <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full text-xs font-medium">Terreno</span>
+              <span className="text-gray-700 text-xs">
+                {form.imovel_area_terreno > 0 ? `${form.imovel_area_terreno} m²` : 'área não informada'}
+                {form.valor_m2_terreno > 0 ? ` × ${fmtCurrency(form.valor_m2_terreno)}/m²` : ' · valor m² não informado'}
+                {form.imovel_area_terreno > 0 && form.valor_m2_terreno > 0
+                  ? ` = ${fmtCurrency(form.imovel_area_terreno * form.valor_m2_terreno)}`
+                  : ''}
+              </span>
+            </div>
+          )}
+          {consideraConstruida && (
+            <div className="flex flex-wrap gap-2 items-center">
+              <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full text-xs font-medium">Construída</span>
+              <span className="text-gray-700 text-xs">
+                {form.imovel_area_construida > 0 ? `${form.imovel_area_construida} m²` : 'área não informada'}
+                {form.valor_m2_construcao > 0 ? ` × ${fmtCurrency(form.valor_m2_construcao)}/m²` : ' · valor m² não informado'}
+                {form.imovel_area_construida > 0 && form.valor_m2_construcao > 0
+                  ? ` = ${fmtCurrency(form.imovel_area_construida * form.valor_m2_construcao)}`
+                  : ''}
+              </span>
+            </div>
+          )}
+          {temConfiguracao && (() => {
+            let total = 0;
+            if (consideraTerreno && form.valor_m2_terreno > 0) total += form.valor_m2_terreno * (form.imovel_area_terreno || 0);
+            if (consideraConstruida && form.valor_m2_construcao > 0) total += form.valor_m2_construcao * (form.imovel_area_construida || 0);
+            return total > 0 ? (
+              <p className="font-semibold text-amber-800 border-t border-amber-200 pt-2 mt-1">
+                Total calculado: {fmtCurrency(total)}
+              </p>
+            ) : null;
+          })()}
+        </div>
+      )}
 
       <Grid cols={2}>
         <Field label="Média R$/m²">

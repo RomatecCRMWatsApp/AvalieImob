@@ -826,6 +826,83 @@ def _build_resultado(loc: dict, styles: dict) -> list:
     valor_max = loc.get("valor_locacao_maximo") or 0
     por_extenso = loc.get("valor_locacao_por_extenso") or ""
 
+    # ── Detalhamento do cálculo pelas áreas ──────────────────────────────
+    considera_terreno = loc.get("considerar_area_terreno") or False
+    considera_construida = loc.get("considerar_area_construida")
+    if considera_construida is None:
+        considera_construida = True  # default
+
+    area_terreno = float(loc.get("imovel_area_terreno") or 0)
+    area_construida = float(loc.get("imovel_area_construida") or 0)
+    m2_terreno = float(loc.get("valor_m2_terreno") or 0)
+    m2_construcao = float(loc.get("valor_m2_construcao") or 0)
+
+    # Determina qual área foi considerada para exibição
+    areas_usadas = []
+    if considera_terreno:
+        areas_usadas.append("terreno")
+    if considera_construida:
+        areas_usadas.append("construída")
+
+    if areas_usadas:
+        area_desc_map = {
+            ("terreno",): "Somente Área do Terreno",
+            ("construída",): "Somente Área Construída",
+            ("terreno", "construída"): "Área do Terreno + Área Construída",
+        }
+        area_label = area_desc_map.get(tuple(areas_usadas), " + ".join(areas_usadas))
+        story += _lv(styles, "Área(s) Considerada(s) no Cálculo", area_label)
+
+    # Exibe o detalhamento quando valores m² estão presentes
+    tem_calculo_terreno = considera_terreno and m2_terreno > 0 and area_terreno > 0
+    tem_calculo_construcao = considera_construida and m2_construcao > 0 and area_construida > 0
+
+    if tem_calculo_terreno or tem_calculo_construcao:
+        story += _subsection(styles, "Detalhamento do Cálculo")
+
+        calc_rows = []
+        if tem_calculo_terreno:
+            vt = m2_terreno * area_terreno
+            calc_rows.append(["Terreno", _fmt_area(area_terreno), _fmt_currency(m2_terreno), _fmt_currency(vt)])
+        if tem_calculo_construcao:
+            vc = m2_construcao * area_construida
+            calc_rows.append(["Construção", _fmt_area(area_construida), _fmt_currency(m2_construcao), _fmt_currency(vc)])
+
+        if len(calc_rows) > 1:
+            total_calc = (
+                (m2_terreno * area_terreno if tem_calculo_terreno else 0) +
+                (m2_construcao * area_construida if tem_calculo_construcao else 0)
+            )
+            calc_rows.append(["TOTAL", "", "", _fmt_currency(total_calc)])
+
+        header_row = [
+            Paragraph("<b>Componente</b>", styles["value"]),
+            Paragraph("<b>Área</b>", styles["value"]),
+            Paragraph("<b>Valor R$/m²</b>", styles["value"]),
+            Paragraph("<b>Subtotal</b>", styles["value"]),
+        ]
+        tbl_data = [header_row]
+        for row in calc_rows:
+            tbl_data.append([Paragraph(str(c), styles["body"]) for c in row])
+
+        calc_tbl = Table(tbl_data, colWidths=[4.5 * cm, 3.5 * cm, 4.5 * cm, 4 * cm])
+        calc_tbl.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), GREEN),
+            ("TEXTCOLOR", (0, 0), (-1, 0), WHITE),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 9),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#1B4D1B")),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+            ("LEFTPADDING", (0, 0), (-1, -1), 5),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -2), [WHITE, LIGHT_GREEN]),
+            ("BACKGROUND", (0, -1), (-1, -1), HIGHLIGHT_BG),
+            ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+        ]))
+        story.append(calc_tbl)
+        story.append(_spacer(0.4))
+
     if valor_estimado:
         story.append(_spacer(0.4))
 

@@ -27,6 +27,11 @@ export const EMPTY_LOCACAO = {
   imovel_tipo: '',
   imovel_area_terreno: 0,
   imovel_area_construida: 0,
+  // Opções de área para o cálculo do valor final
+  considerar_area_terreno: false,
+  considerar_area_construida: true,
+  valor_m2_terreno: null,
+  valor_m2_construcao: null,
   imovel_idade: 0,
   imovel_estado_conservacao: '',
   imovel_padrao_acabamento: '',
