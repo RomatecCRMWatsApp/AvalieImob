@@ -1,5 +1,5 @@
 # @module models.tvi — Modelos Pydantic para o Kit TVI (Termo de Vistoria de Imóvel)
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional, List, Any, Dict
 from datetime import datetime
 from models.common import _id, _now
@@ -37,6 +37,8 @@ class VistoriaModel(VistoriaModelBase):
 
 # ── vistorias — Vistorias preenchidas ──────────────────────────────────────
 class VistoriaBase(BaseModel):
+    model_config = ConfigDict(extra="allow")  # aceita campos dinâmicos do TVI
+
     # Identificação
     model_id: str
     modelo_nome: Optional[str] = ""
