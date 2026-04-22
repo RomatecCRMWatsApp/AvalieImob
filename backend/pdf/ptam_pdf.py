@@ -1439,7 +1439,7 @@ def _build_fotos_e_documentos(ptam: dict, styles: dict) -> list:
 
             if img_bytes:
                 try:
-                    img = Image(io.BytesIO(img_bytes), width=14 * cm, height=9 * cm)
+                    img = Image(io.BytesIO(img_bytes), width=16 * cm, height=10 * cm)
                     img.hAlign = "CENTER"
                     story.append(img)
                 except Exception:
@@ -1449,8 +1449,8 @@ def _build_fotos_e_documentos(ptam: dict, styles: dict) -> list:
 
             story.append(_spacer(0.5))
 
-            # Quebra de página a cada 3 fotos
-            if (i + 1) % 3 == 0 and i < len(fotos) - 1:
+            # Quebra de página a cada 2 fotos (max 2 fotos por página)
+            if (i + 1) % 2 == 0 and i < len(fotos) - 1:
                 story.append(PageBreak())
 
     # ── Documentos Anexos ───────────────────────────────────────────────────
