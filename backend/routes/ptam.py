@@ -131,14 +131,22 @@ async def download_ptam_pdf(pid: str, uid: str = Depends(get_active_subscriber),
     except Exception as e:
         logger.exception("PDF generation error")
         raise HTTPException(status_code=500, detail=f"Erro ao gerar PDF: {str(e)[:200]}")
-    if not data:
-        raise HTTPException(status_code=500, detail="Falha ao gerar PDF")
+    if not data or len(data) < 100:
+        raise HTTPException(status_code=500, detail="PDF gerado vazio ou corrompido")
+    if not data.startswith(b'%PDF-'):
+        raise HTTPException(status_code=500, detail="PDF inválido — não começa com %PDF-")
     date_str = datetime.utcnow().strftime("%Y%m%d")
     filename = f"PTAM_{doc.get('number', 'sem-numero').replace('/', '-')}_{date_str}.pdf"
+    logger.info(f"PTAM {pid}: PDF gerado — {len(data)} bytes")
     return Response(
         content=data,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Length": str(len(data)),
+            "Content-Transfer-Encoding": "binary",
+            "Cache-Control": "no-store",
+        },
     )
 
 
