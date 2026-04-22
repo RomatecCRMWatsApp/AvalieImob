@@ -1484,7 +1484,7 @@ def _build_fotos_e_documentos(ptam: dict, styles: dict) -> list:
 
             if img_bytes:
                 try:
-                    img = Image(io.BytesIO(img_bytes), width=16 * cm, height=10 * cm)
+                    img = Image(io.BytesIO(img_bytes), width=17 * cm, height=12 * cm)
                     img.hAlign = "CENTER"
                     story.append(img)
                 except Exception:
