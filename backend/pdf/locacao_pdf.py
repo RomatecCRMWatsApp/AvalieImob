@@ -933,159 +933,137 @@ def _build_base_legal(loc: dict, styles: dict) -> list:
     return story
 
 
-# ── Section 9: Registro Fotográfico ──────────────────────────────────────────
+# ── Section 9: Registro Fotográfico e Documentos (unificado) ───────────────
 
-def _build_fotos(loc: dict, styles: dict, user: dict) -> list:
-    """Build photo section with images (bytes already loaded in foto['_image_bytes']).
+def _build_fotos_e_documentos(loc: dict, styles: dict, user: dict) -> list:
+    """Build unified photo and document section.
     
-    Layout: 2 fotos por linha, maiores, com descrição personalizada.
+    Layout: Fotos primeiro (2 por linha, maiores), depois documentos listados.
     """
     fotos = loc.get("fotos_imovel") or []
+    docs = loc.get("fotos_documentos") or []
     
-    if not fotos:
+    if not fotos and not docs:
         return []
 
     story = []
-    story += _section(styles, "9. Registro Fotográfico")
-    story.append(Paragraph("Fotografias do imóvel avaliado, obtidas na data da vistoria:", styles["body"]))
-    story.append(_spacer(0.3))
-
-    # Processar fotos do imóvel (bytes já carregados pelo endpoint)
-    # Layout: 2 fotos por linha, maiores
-    for i, foto in enumerate(fotos[:12]):  # Max 12 fotos
-        if isinstance(foto, dict):
-            # Buscar descrição personalizada ou usar padrão
-            caption = foto.get("description") or foto.get("descricao") or foto.get("caption") or foto.get("legenda") or f"Foto {i+1}"
-            img_bytes = foto.get("_image_bytes")
-        else:
-            caption = f"Foto {i+1}"
-            img_bytes = None
+    story += _section(styles, "9. Registro Fotográfico e Documentos")
+    
+    # ── Fotos do Imóvel ────────────────────────────────────────────────────
+    if fotos:
+        story.append(Paragraph("<b>Fotografias do Imóvel</b>", styles["subsection_title"]))
+        story.append(Paragraph("Imagens obtidas na data da vistoria:", styles["body"]))
+        story.append(_spacer(0.3))
         
-        if img_bytes:
-            try:
-                # 2 fotos por linha = imagens maiores (8cm x 6cm)
-                img = Image(io.BytesIO(img_bytes), width=8*cm, height=6*cm)
-                img.hAlign = 'CENTER'
-                
-                # Criar célula com imagem + descrição
-                img_cell = [
-                    img,
-                    _spacer(0.2),
-                    Paragraph(f"<b>{caption}</b>", styles["caption"])
-                ]
-            except Exception:
-                # Se imagem falhar, mostra texto
+        # Layout: 2 fotos por linha, maiores
+        for i, foto in enumerate(fotos[:12]):  # Max 12 fotos
+            if isinstance(foto, dict):
+                caption = foto.get("description") or foto.get("descricao") or foto.get("caption") or foto.get("legenda") or f"Foto {i+1}"
+                img_bytes = foto.get("_image_bytes")
+            else:
+                caption = f"Foto {i+1}"
+                img_bytes = None
+            
+            if img_bytes:
+                try:
+                    img = Image(io.BytesIO(img_bytes), width=8*cm, height=6*cm)
+                    img.hAlign = 'CENTER'
+                    img_cell = [
+                        img,
+                        _spacer(0.2),
+                        Paragraph(f"<b>{caption}</b>", styles["caption"])
+                    ]
+                except Exception:
+                    img_cell = [
+                        Paragraph(f"[Foto {i+1}]", styles["body"]),
+                        Paragraph(caption, styles["caption"])
+                    ]
+            else:
                 img_cell = [
                     Paragraph(f"[Foto {i+1}]", styles["body"]),
                     Paragraph(caption, styles["caption"])
                 ]
-        else:
-            img_cell = [
-                Paragraph(f"[Foto {i+1}]", styles["body"]),
-                Paragraph(caption, styles["caption"])
-            ]
-        
-        # Adicionar à story (2 fotos por linha)
-        if i % 2 == 0:
-            # Primeira foto da linha
-            story.append(Table([[img_cell, '']], colWidths=[8.5*cm, 8.5*cm], 
-                              style=TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP')])))
-        else:
-            # Segunda foto da linha - substituir última tabela
-            story.pop()  # Remove a tabela anterior com célula vazia
-            # Criar linha com ambas as fotos
-            if isinstance(foto, dict):
-                caption_prev = fotos[i-1].get("description") or fotos[i-1].get("descricao") or fotos[i-1].get("caption") or fotos[i-1].get("legenda") or f"Foto {i}"
-                img_bytes_prev = fotos[i-1].get("_image_bytes")
-            else:
-                caption_prev = f"Foto {i}"
-                img_bytes_prev = None
             
-            if img_bytes_prev:
-                try:
-                    img_prev = Image(io.BytesIO(img_bytes_prev), width=8*cm, height=6*cm)
-                    img_prev.hAlign = 'CENTER'
-                    img_cell_prev = [
-                        img_prev,
-                        _spacer(0.2),
-                        Paragraph(f"<b>{caption_prev}</b>", styles["caption"])
-                    ]
-                except Exception:
+            # 2 fotos por linha
+            if i % 2 == 0:
+                story.append(Table([[img_cell, '']], colWidths=[8.5*cm, 8.5*cm], 
+                                  style=TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP')])))
+            else:
+                story.pop()
+                if isinstance(foto, dict):
+                    caption_prev = fotos[i-1].get("description") or fotos[i-1].get("descricao") or fotos[i-1].get("caption") or fotos[i-1].get("legenda") or f"Foto {i}"
+                    img_bytes_prev = fotos[i-1].get("_image_bytes")
+                else:
+                    caption_prev = f"Foto {i}"
+                    img_bytes_prev = None
+                
+                if img_bytes_prev:
+                    try:
+                        img_prev = Image(io.BytesIO(img_bytes_prev), width=8*cm, height=6*cm)
+                        img_prev.hAlign = 'CENTER'
+                        img_cell_prev = [img_prev, _spacer(0.2), Paragraph(f"<b>{caption_prev}</b>", styles["caption"])]
+                    except Exception:
+                        img_cell_prev = [Paragraph(f"[Foto {i}]", styles["body"]), Paragraph(caption_prev, styles["caption"])]
+                else:
                     img_cell_prev = [Paragraph(f"[Foto {i}]", styles["body"]), Paragraph(caption_prev, styles["caption"])]
-            else:
-                img_cell_prev = [Paragraph(f"[Foto {i}]", styles["body"]), Paragraph(caption_prev, styles["caption"])]
-            
-            story.append(Table([[img_cell_prev, img_cell]], colWidths=[8.5*cm, 8.5*cm],
-                              style=TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP')])))
+                
+                story.append(Table([[img_cell_prev, img_cell]], colWidths=[8.5*cm, 8.5*cm],
+                                  style=TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP')])))
+                story.append(_spacer(0.5))
+        
+        if len(fotos) % 2 == 1:
             story.append(_spacer(0.5))
     
-    # Se número ímpar de fotos, adiciona espaço no final
-    if len(fotos) % 2 == 1:
-        story.append(_spacer(0.5))
-    
-    return story
-
-
-# ── Section 9b: Certidões e Documentos Anexos ───────────────────────────────
-
-def _build_certidoes(loc: dict, styles: dict) -> list:
-    """Build section for attached certificates/documents with clear PDF/Image indication."""
-    docs = loc.get("fotos_documentos") or []
-    if not docs:
-        return []
-    
-    story = []
-    story += _section(styles, "9.1 Certidões e Documentos do Imóvel")
-    story.append(Paragraph("Documentos digitalizados anexos à avaliação:", styles["body"]))
-    story.append(_spacer(0.3))
-    
-    for i, doc_item in enumerate(docs[:10]):  # Max 10 documentos
-        if isinstance(doc_item, dict):
-            doc_name = doc_item.get("name") or doc_item.get("nome") or doc_item.get("filename") or f"Documento {i+1}"
-            doc_bytes = doc_item.get("_doc_bytes")
-            content_type = doc_item.get("content_type", "")
-        else:
-            doc_name = f"Documento {i+1}"
-            doc_bytes = None
-            content_type = ""
+    # ── Documentos Anexos ───────────────────────────────────────────────────
+    if docs:
+        if fotos:
+            story.append(_spacer(0.3))
         
-        # Determinar tipo do documento
-        is_pdf = "pdf" in content_type.lower() or doc_name.lower().endswith('.pdf')
-        is_image = any(ext in content_type.lower() for ext in ["jpeg", "jpg", "png", "image"]) or \
-                   any(doc_name.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png'])
-        
-        # Título do documento com indicador visual
-        if is_pdf:
-            tipo_indicador = "📄 PDF"
-            tipo_desc = "Documento PDF (requer visualização digital)"
-        elif is_image:
-            tipo_indicador = "🖼️ IMAGEM"
-            tipo_desc = "Imagem digitalizada"
-        else:
-            tipo_indicador = "📎 DOC"
-            tipo_desc = "Documento anexo"
-        
-        story.append(Paragraph(f"<b>{i+1}. {doc_name}</b>", styles["value"]))
-        story.append(Paragraph(f"   <i>{tipo_indicador} — {tipo_desc}</i>", styles["caption"]))
-        
-        # Se for imagem, mostrar visualização
-        if doc_bytes and is_image:
-            try:
-                img = Image(io.BytesIO(doc_bytes), width=16*cm, height=11*cm)
-                img.hAlign = 'CENTER'
-                story.append(_spacer(0.2))
-                story.append(img)
-                story.append(_spacer(0.3))
-            except Exception as e:
-                story.append(Paragraph(f"   [Erro ao exibir imagem: {str(e)}]", styles["caption"]))
-        elif doc_bytes and is_pdf:
-            # Para PDFs, mostrar informação clara do arquivo
-            tamanho_kb = len(doc_bytes) / 1024
-            story.append(Paragraph(f"   <i>📁 Arquivo PDF anexado ({tamanho_kb:.1f} KB)</i>", styles["caption"]))
-            story.append(Paragraph(f"   <i>💡 Este documento está disponível nos arquivos digitais do processo.</i>", styles["caption"]))
-            story.append(_spacer(0.2))
-        
+        story.append(Paragraph("<b>Documentos Anexos</b>", styles["subsection_title"]))
+        story.append(Paragraph("Certidões, escrituras e demais documentos digitalizados:", styles["body"]))
         story.append(_spacer(0.3))
+        
+        for i, doc_item in enumerate(docs[:10]):
+            if isinstance(doc_item, dict):
+                doc_name = doc_item.get("name") or doc_item.get("nome") or doc_item.get("filename") or f"Documento {i+1}"
+                doc_bytes = doc_item.get("_doc_bytes")
+                content_type = doc_item.get("content_type", "")
+            else:
+                doc_name = f"Documento {i+1}"
+                doc_bytes = None
+                content_type = ""
+            
+            is_pdf = "pdf" in content_type.lower() or doc_name.lower().endswith('.pdf')
+            is_image = any(ext in content_type.lower() for ext in ["jpeg", "jpg", "png", "image"]) or \
+                       any(doc_name.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png'])
+            
+            if is_pdf:
+                tipo_indicador = "[PDF]"
+                tipo_desc = "Documento PDF"
+            elif is_image:
+                tipo_indicador = "[IMG]"
+                tipo_desc = "Imagem digitalizada"
+            else:
+                tipo_indicador = "[DOC]"
+                tipo_desc = "Documento"
+            
+            story.append(Paragraph(f"<b>{i+1}. {doc_name}</b> {tipo_indicador}", styles["value"]))
+            story.append(Paragraph(f"   <i>{tipo_desc}</i>", styles["caption"]))
+            
+            if doc_bytes and is_image:
+                try:
+                    img = Image(io.BytesIO(doc_bytes), width=16*cm, height=11*cm)
+                    img.hAlign = 'CENTER'
+                    story.append(_spacer(0.2))
+                    story.append(img)
+                    story.append(_spacer(0.3))
+                except Exception as e:
+                    story.append(Paragraph(f"   [Erro ao exibir: {str(e)}]", styles["caption"]))
+            elif doc_bytes and is_pdf:
+                tamanho_kb = len(doc_bytes) / 1024
+                story.append(Paragraph(f"   <i>Arquivo anexado ({tamanho_kb:.1f} KB) — disponível nos arquivos digitais</i>", styles["caption"]))
+            
+            story.append(_spacer(0.2))
     
     return story
 
@@ -1247,16 +1225,10 @@ def generate_locacao_pdf(loc: dict, user: dict | None = None) -> bytes:
     story += _build_base_legal(loc, styles)
     story.append(_spacer(0.5))
 
-    # ── Seção 9: Registro Fotográfico ─────────────────────────────────────
-    fotos = _build_fotos(loc, styles, user)
-    if fotos:
-        story += fotos
-        story.append(_spacer(0.5))
-
-    # ── Seção 9.1: Certidões e Documentos do Imóvel ───────────────────────
-    certidoes = _build_certidoes(loc, styles)
-    if certidoes:
-        story += certidoes
+    # ── Seção 9: Registro Fotográfico e Documentos (unificado) ────────────
+    fotos_docs = _build_fotos_e_documentos(loc, styles, user)
+    if fotos_docs:
+        story += fotos_docs
         story.append(_spacer(0.5))
 
     # ── Seção 10: Responsável Técnico ─────────────────────────────────────
