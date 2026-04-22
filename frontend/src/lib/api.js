@@ -123,6 +123,7 @@ export const locacaoAPI = {
   create: (data) => api.post('/locacao', data).then(r => r.data),
   update: (id, data) => api.put(`/locacao/${id}`, data).then(r => r.data),
   remove: (id) => api.delete(`/locacao/${id}`).then(r => r.data),
+  downloadPdf: (id) => api.get(`/locacao/${id}/pdf`, { responseType: 'blob' }).then(r => r.data),
 };
 
 // ---- Semoventes (Penhor Rural Bancário)
