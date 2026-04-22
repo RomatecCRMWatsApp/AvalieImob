@@ -337,15 +337,28 @@ async def export_pdf(
     uid: str = Depends(get_active_subscriber),
     db=Depends(get_db),
 ):
-    """Gera e retorna o TVI em PDF (application/pdf)."""
+    """Gera e retorna o TVI em PDF (application/pdf) — binário puro, sem JSON."""
     vistoria, user, photos, signatures, model_nome, campos_esp = await _load_vistoria_full(vid, uid, db)
     pdf_bytes = generate_tvi_pdf(vistoria, user, photos, signatures, model_nome, campos_esp)
+
+    # Validação de integridade
+    if not pdf_bytes or len(pdf_bytes) < 100 or not pdf_bytes.startswith(b"%PDF-"):
+        logger.error("TVI %s: PDF gerado inválido — tamanho=%d bytes, header=%r", vid, len(pdf_bytes) if pdf_bytes else 0, pdf_bytes[:8] if pdf_bytes else b"")
+        raise HTTPException(status_code=500, detail="Falha ao gerar PDF: arquivo inválido")
+
     numero = vistoria.get("numero_tvi") or vid
     filename = f"TVI_{numero.replace('/', '_').replace('-', '_')}.pdf"
+    logger.info("TVI %s: PDF gerado com sucesso — %d bytes — arquivo: %s", vid, len(pdf_bytes), filename)
+
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Length": str(len(pdf_bytes)),
+            "Content-Transfer-Encoding": "binary",
+            "Cache-Control": "no-store",
+        },
     )
 
 
@@ -356,15 +369,28 @@ async def export_docx(
     uid: str = Depends(get_active_subscriber),
     db=Depends(get_db),
 ):
-    """Gera e retorna o TVI em DOCX (Word)."""
+    """Gera e retorna o TVI em DOCX (Word) — binário puro, sem JSON."""
     vistoria, user, photos, signatures, model_nome, campos_esp = await _load_vistoria_full(vid, uid, db)
     docx_bytes = generate_tvi_docx(vistoria, user, photos, signatures, model_nome, campos_esp)
+
+    # Validação de integridade
+    if not docx_bytes or len(docx_bytes) == 0:
+        logger.error("TVI %s: DOCX gerado inválido — tamanho=%d bytes", vid, len(docx_bytes) if docx_bytes else 0)
+        raise HTTPException(status_code=500, detail="Falha ao gerar DOCX: arquivo inválido")
+
     numero = vistoria.get("numero_tvi") or vid
     filename = f"TVI_{numero.replace('/', '_').replace('-', '_')}.docx"
+    logger.info("TVI %s: DOCX gerado com sucesso — %d bytes — arquivo: %s", vid, len(docx_bytes), filename)
+
     return Response(
         content=docx_bytes,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Length": str(len(docx_bytes)),
+            "Content-Transfer-Encoding": "binary",
+            "Cache-Control": "no-store",
+        },
     )
 
 

@@ -9,17 +9,18 @@ export function useExport() {
   const exportPdf = useCallback(async (id, filename) => {
     setL(id, 'pdf', true);
     try {
-      // endpoint futuro: GET /api/tvi/vistoria/{id}/pdf
-      const res = await tviAPI.get(`${id}/pdf`);
-      const blob = new Blob([res], { type: 'application/pdf' });
+      const blobData = await tviAPI.exportPdf(id);
+      const blob = new Blob([blobData], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = filename || `TVI_${id}.pdf`;
+      document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    } catch {
-      alert('Exportação PDF ainda não disponível.');
+    } catch (err) {
+      alert('Erro ao exportar PDF. Tente novamente.');
     } finally {
       setL(id, 'pdf', false);
     }
@@ -28,7 +29,20 @@ export function useExport() {
   const exportDocx = useCallback(async (id, filename) => {
     setL(id, 'docx', true);
     try {
-      alert('Exportação DOCX em breve.');
+      const blobData = await tviAPI.exportDocx(id);
+      const blob = new Blob([blobData], {
+        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename || `TVI_${id}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert('Erro ao exportar DOCX. Tente novamente.');
     } finally {
       setL(id, 'docx', false);
     }
