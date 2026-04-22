@@ -1,0 +1,10 @@
+Keep this file and signing.keystore in a safe place. You'll need these files if you want to upload future versions of your PWA to the Google Play Store.
+
+Key store file: signing.keystore
+Key store password: romatec2026
+Key alias: avalieimob
+Key password: romatec2026
+Signer's full name: 
+Signer's organization: 
+Signer's organizational unit: 
+Signer's country code: 

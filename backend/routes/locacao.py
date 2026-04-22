@@ -10,7 +10,7 @@ from fastapi.responses import StreamingResponse
 from db import get_db
 from services.auth_service import get_current_user_id
 from models import LocacaoBase
-from locacao_pdf import generate_locacao_pdf
+from pdf.locacao_pdf import generate_locacao_pdf
 from locacao_docx import generate_locacao_docx
 
 router = APIRouter(tags=["locacao"])
