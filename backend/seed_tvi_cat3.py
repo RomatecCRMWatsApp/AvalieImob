@@ -1,4 +1,4 @@
-# @module seed_tvi — Modelos TVI: OBRAS/ENGENHARIA (5) + JUDICIAL/PERICIAL (4)
+# @module seed_tvi — Modelos TVI: OBRAS/ENGENHARIA (5) + JUDICIAL/PERICIAL (4) + Ramo 6 v2 (TVI-30 a TVI-33)
 """Definições dos modelos TVI das categorias OBRAS/ENGENHARIA e JUDICIAL."""
 from seed_tvi_base import CAMPOS_BASE
 
@@ -138,3 +138,7 @@ MODELOS_JUDICIAL = [
         ],
     },
 ]
+
+# ─── Ramo 6 — Schema v2 (TVI-30 a TVI-33) ──────────────────────────────────
+# v2 campos profissionais — schema novo com id, ramo, aplicacao, normas, requer_art
+from seed_tvi_ramo6 import MODELOS_RAMO6

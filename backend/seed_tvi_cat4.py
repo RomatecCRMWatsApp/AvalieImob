@@ -1,5 +1,5 @@
-# @module seed_tvi — Modelos TVI: SEGURANÇA/SINISTROS (3) + COMERCIAL (3) + INSTALAÇÕES (4) + COMPLEMENTARES (5)
-"""Definições dos modelos TVI das categorias finais."""
+# @module seed_tvi — Modelos TVI: SEGURANÇA (3) + COMERCIAL (3) + INSTALAÇÕES (4) + COMPLEMENTARES (5) + Ramos 7-10 v2
+"""Definições dos modelos TVI das categorias finais + novos modelos v2 TVI-34 a TVI-45."""
 from seed_tvi_base import CAMPOS_BASE
 
 MODELOS_SEGURANCA = [
@@ -219,3 +219,10 @@ MODELOS_COMPLEMENTARES = [
         ],
     },
 ]
+
+# ─── Ramos 7-10 — Schema v2 (TVI-34 a TVI-45) ────────────────────────────────
+# v2 campos profissionais — schema novo com id, ramo, aplicacao, normas, requer_art
+from seed_tvi_ramo7 import MODELOS_RAMO7
+from seed_tvi_ramo8 import MODELOS_RAMO8
+from seed_tvi_ramo9 import MODELOS_RAMO9
+from seed_tvi_ramo10 import MODELOS_RAMO10
