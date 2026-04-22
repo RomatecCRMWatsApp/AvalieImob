@@ -15,46 +15,25 @@ ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
 
 from motor.motor_asyncio import AsyncIOMotorClient
-from seed_tvi_cat1 import MODELOS_GERAL, MODELOS_LOCACAO
-from seed_tvi_cat2 import MODELOS_RURAL, MODELOS_REGULARIZACAO
-from seed_tvi_cat3 import MODELOS_OBRAS, MODELOS_JUDICIAL, MODELOS_RAMO6
-from seed_tvi_cat4 import (
-    MODELOS_SEGURANCA,
-    MODELOS_COMERCIAL,
-    MODELOS_INSTALACOES,
-    MODELOS_COMPLEMENTARES,
-    MODELOS_RAMO7,
-    MODELOS_RAMO8,
-    MODELOS_RAMO9,
-    MODELOS_RAMO10,
-)
 
-# Modelos legados (schema v1 — campos_especificos como lista de {key, label, type})
-ALL_MODELOS_LEGADO = (
-    MODELOS_GERAL
-    + MODELOS_LOCACAO
-    + MODELOS_RURAL
-    + MODELOS_REGULARIZACAO
-    + MODELOS_OBRAS
-    + MODELOS_JUDICIAL
-    + MODELOS_SEGURANCA
-    + MODELOS_COMERCIAL
-    + MODELOS_INSTALACOES
-    + MODELOS_COMPLEMENTARES
-)
+# ── Ramos 1-5 (schema v2 profissional — TVI-01 a TVI-29) ──────────────────
+from seed_tvi_cat1 import MODELOS_GERAL           # TVI-01 a TVI-08
+from seed_tvi_cat2 import MODELOS_LOCACAO, MODELOS_RURAL  # TVI-09 a TVI-18
+from seed_tvi_cat3 import MODELOS_REGULARIZACAO, MODELOS_OBRAS  # TVI-19 a TVI-29
+
+# ── Ramos 6-10 (TVI-30 a TVI-45) — a serem gerados em outra tarefa ─────────
+# from seed_tvi_cat4 import MODELOS_RAMO6, MODELOS_RAMO7, MODELOS_RAMO8, MODELOS_RAMO9, MODELOS_RAMO10
 
 # Modelos v2 — schema profissional com id, ramo, aplicacao, normas, requer_art
-# Ramos 6-10: TVI-30 a TVI-45
-ALL_MODELOS_V2 = (
-    MODELOS_RAMO6
-    + MODELOS_RAMO7
-    + MODELOS_RAMO8
-    + MODELOS_RAMO9
-    + MODELOS_RAMO10
+# Ramos 1-5: TVI-01 a TVI-29
+ALL_MODELOS = (
+    MODELOS_GERAL          # TVI-01 a TVI-08
+    + MODELOS_LOCACAO      # TVI-09 a TVI-12
+    + MODELOS_RURAL        # TVI-13 a TVI-18
+    + MODELOS_REGULARIZACAO  # TVI-19 a TVI-24
+    + MODELOS_OBRAS        # TVI-25 a TVI-29
 )
-
-# Lista unificada para seed
-ALL_MODELOS = ALL_MODELOS_LEGADO + ALL_MODELOS_V2
+# Ramos 6-10 serao adicionados aqui quando gerados (outra tarefa)
 
 
 async def seed():
