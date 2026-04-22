@@ -5,6 +5,7 @@ import { uploadAPI } from '../../../../lib/api';
 import { useToast } from '../../../../hooks/use-toast';
 import { useIsMobile } from '../../../../hooks/useIsMobile';
 import SmartPhotoInput from '../../../shared/SmartPhotoInput';
+import SmartFileInput from '../../../shared/SmartFileInput';
 
 export const StepFotos = ({ form, setForm }) => {
   const { toast } = useToast();
@@ -59,12 +60,40 @@ export const StepFotos = ({ form, setForm }) => {
     </Field>
   );
 
+  const DocGrid = ({ field, label }) => (
+    <Field label={label}>
+      <div className="flex flex-wrap gap-2 mb-2">
+        {(form[field] || []).map((url, i) => {
+          const isPdf = url.toLowerCase().endsWith('.pdf');
+          const isDoc = /\.(docx?)$/i.test(url);
+          return (
+            <div key={i} className="relative w-24 h-24 rounded-xl overflow-hidden border border-gray-200 bg-gray-50 flex flex-col items-center justify-center">
+              <span className="text-3xl">{isPdf ? '📄' : isDoc ? '📝' : '🖼️'}</span>
+              <span className="text-[9px] text-gray-600 text-center px-1 truncate w-full">
+                {url.split('/').pop()?.substring(0, 15) || 'Arquivo'}
+              </span>
+              <button onClick={() => removePhoto(field, i)}
+                className="absolute top-0 right-0 bg-red-500 text-white text-xs w-5 h-5 flex items-center justify-center rounded-bl-xl">×</button>
+            </div>
+          );
+        })}
+      </div>
+      <SmartFileInput
+        label=""
+        multiple
+        preview={false}
+        accept=".pdf,.docx,.doc,.jpg,.jpeg,.png"
+        onFiles={(files) => handleUpload(files, field)}
+      />
+    </Field>
+  );
+
   return (
     <div className="space-y-6">
       <h3 className="text-base font-semibold text-gray-900 border-b border-gray-100 pb-2 mb-4">9. Documentação Fotográfica</h3>
-      {uploading && <p className="text-sm text-emerald-700 animate-pulse">Enviando imagens...</p>}
+      {uploading && <p className="text-sm text-emerald-700 animate-pulse">Enviando arquivos...</p>}
       <PhotoGrid field="fotos_imovel" label="Fotos do Imóvel" />
-      <PhotoGrid field="fotos_documentos" label="Documentos Digitalizados" />
+      <DocGrid field="fotos_documentos" label="Documentos Digitalizados" />
       <Field label="Documentos Analisados">
         <Textarea
           rows={3}
