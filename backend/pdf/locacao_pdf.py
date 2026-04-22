@@ -1045,7 +1045,7 @@ def _build_fotos_e_documentos(loc: dict, styles: dict, user: dict) -> list:
         story.append(Paragraph("Imagens obtidas na data da vistoria:", styles["body"]))
         story.append(_spacer(0.3))
 
-        # Layout: 2 fotos por linha, usando tabela simples com Paragraphs e Images
+        # Layout: 2 fotos por página, grandes, uma abaixo da outra
         for i, foto in enumerate(fotos[:12]):  # Max 12 fotos
             if isinstance(foto, dict):
                 caption = (
@@ -1058,31 +1058,25 @@ def _build_fotos_e_documentos(loc: dict, styles: dict, user: dict) -> list:
                 caption = f"Foto {i+1}"
                 img_bytes = None
 
-            # Criar elementos da foto
-            desc_para = Paragraph(f"<b>{caption}</b>", styles["caption"])
+            # Descrição da foto
+            story.append(Paragraph(f"<b>{caption}</b>", styles["caption"]))
+            story.append(_spacer(0.15))
             
+            # Imagem grande (largura quase total da página)
             if img_bytes:
                 try:
-                    img = Image(io.BytesIO(img_bytes), width=7.5 * cm, height=5.5 * cm)
+                    img = Image(io.BytesIO(img_bytes), width=16*cm, height=10*cm)
                     img.hAlign = "CENTER"
+                    story.append(img)
                 except Exception:
-                    img = Paragraph(f"[Foto {i+1} — erro]", styles["body"])
+                    story.append(Paragraph(f"[Foto {i+1} — erro ao carregar]", styles["body"]))
             else:
-                img = Paragraph(f"[Foto {i+1} — indisponível]", styles["body"])
+                story.append(Paragraph(f"[Foto {i+1} — imagem não disponível]", styles["body"]))
             
-            # Adicionar descrição e imagem
-            story.append(desc_para)
-            story.append(_spacer(0.1))
-            story.append(img)
+            story.append(_spacer(0.4))
             
-            # A cada 2 fotos, adicionar espaço maior
-            if (i + 1) % 2 == 0:
-                story.append(_spacer(0.5))
-            else:
-                story.append(_spacer(0.3))
-            
-            # Quebra de página a cada 4 fotos
-            if (i + 1) % 4 == 0 and i < len(fotos) - 1:
+            # Quebra de página a cada 2 fotos (para ter no máximo 2 fotos por página)
+            if (i + 1) % 2 == 0 and i < len(fotos) - 1:
                 story.append(PageBreak())
     
     # ── Documentos Anexos ───────────────────────────────────────────────────
