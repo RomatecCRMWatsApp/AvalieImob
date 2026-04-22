@@ -66,6 +66,21 @@ const LocacaoList = () => {
     }
   };
 
+  const handleDownloadDocx = async (id, numero, e) => {
+    e.stopPropagation();
+    try {
+      const blob = await locacaoAPI.downloadDocx(id);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `avaliacao_locacao_${(numero || id).replace('/', '-')}.docx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast({ title: 'Erro ao gerar DOCX', variant: 'destructive' });
+    }
+  };
+
   const filtered = items.filter(p => {
     const q = search.toLowerCase();
     return !q || (p.solicitante_nome || '').toLowerCase().includes(q)
@@ -169,6 +184,13 @@ const LocacaoList = () => {
                     className="w-7 h-7 rounded-lg hover:bg-emerald-50 flex items-center justify-center text-emerald-700 transition"
                   >
                     <FileDown className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    title="Baixar DOCX"
+                    onClick={e => handleDownloadDocx(p.id, p.numero_locacao, e)}
+                    className="w-7 h-7 rounded-lg hover:bg-blue-50 flex items-center justify-center text-blue-600 transition"
+                  >
+                    <span className="text-[10px] font-bold">DOCX</span>
                   </button>
                   <button
                     title="Excluir"

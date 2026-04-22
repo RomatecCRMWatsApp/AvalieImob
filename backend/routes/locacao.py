@@ -11,6 +11,7 @@ from db import get_db
 from services.auth_service import get_current_user_id
 from models import LocacaoBase
 from locacao_pdf import generate_locacao_pdf
+from locacao_docx import generate_locacao_docx
 
 router = APIRouter(tags=["locacao"])
 logger = logging.getLogger("romatec")
@@ -120,6 +121,36 @@ async def download_locacao_pdf(locacao_id: str, uid: str = Depends(get_current_u
         headers={
             "Content-Disposition": f'attachment; filename="{filename}"',
             "Content-Length": str(len(pdf_bytes)),
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+@router.get("/locacao/{locacao_id}/docx")
+async def download_locacao_docx(locacao_id: str, uid: str = Depends(get_current_user_id), db=Depends(get_db)):
+    """Gera e retorna a Avaliação de Locação em DOCX (Word)."""
+    doc = await db.locacoes.find_one({"id": locacao_id, "user_id": uid})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Avaliação de locação não encontrada")
+    doc.pop("_id", None)
+    user = await db.users.find_one({"id": uid})
+    if user:
+        user.pop("_id", None)
+    try:
+        docx_bytes = generate_locacao_docx(doc, user)
+    except Exception as e:
+        logger.exception("Erro ao gerar DOCX de locação")
+        raise HTTPException(status_code=500, detail=f"Erro ao gerar DOCX: {str(e)[:200]}")
+    if not docx_bytes or len(docx_bytes) < 100:
+        raise HTTPException(status_code=500, detail="DOCX gerado vazio")
+    numero = doc.get("numero_locacao") or locacao_id
+    filename = f"avaliacao_locacao_{numero.replace('/', '-')}.docx"
+    return StreamingResponse(
+        io.BytesIO(docx_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Length": str(len(docx_bytes)),
             "Cache-Control": "no-store",
         },
     )
