@@ -577,14 +577,69 @@ def _build_mercado(loc: dict, styles: dict) -> list:
     story += _body(styles, market_analysis)
 
     if samples:
-        story += _subsection(styles, "Elementos Comparativos — Mercado de Locação")
-        story += _rental_samples_table(samples)
+        # Usar formato textual ao invés de tabela
+        story += _rental_samples_text(samples, styles)
 
     return story
 
 
+def _rental_samples_text(samples: list, styles: dict) -> list:
+    """Apresentação textual das amostras de mercado."""
+    if not samples:
+        return []
+    
+    story = []
+    story.append(Paragraph("Elementos Comparativos — Mercado de Locação", styles["h3"]))
+    story.append(_spacer(0.3))
+    
+    for idx, s in enumerate(samples, start=1):
+        area = float(s.get("area") or 0)
+        valor = float(s.get("valor_aluguel") or 0)
+        vpm = float(s.get("valor_por_m2") or 0)
+        if not vpm and area > 0 and valor > 0:
+            vpm = valor / area
+        
+        # Título da amostra
+        story.append(Paragraph(f"<b>Amostra {idx}</b>", styles["value"]))
+        
+        # Dados em formato textual
+        dados = []
+        if s.get('address') or s.get('neighborhood'):
+            endereco = f"{s.get('address', '')}"
+            if s.get('neighborhood'):
+                endereco += f", {s.get('neighborhood')}"
+            dados.append(f"<b>Endereço:</b> {endereco}")
+        
+        if area > 0:
+            dados.append(f"<b>Área:</b> {area:,.2f} m²".replace(",", "X").replace(".", ",").replace("X", "."))
+        
+        if valor > 0:
+            dados.append(f"<b>Valor do Aluguel:</b> R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+        
+        if vpm > 0:
+            dados.append(f"<b>Valor por m²:</b> R$ {vpm:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+        
+        tipo_raw = s.get("tipo_amostra") or "oferta"
+        tipo_label = "Consolidada" if tipo_raw == "consolidada" else "Oferta"
+        dados.append(f"<b>Tipo:</b> {tipo_label}")
+        
+        if s.get("source"):
+            dados.append(f"<b>Fonte:</b> {s.get('source')}")
+        
+        if s.get("collection_date"):
+            dados.append(f"<b>Data:</b> {s.get('collection_date')}")
+        
+        # Adicionar todos os dados em parágrafos
+        for dado in dados:
+            story.append(Paragraph(f"  {dado}", styles["body"]))
+        
+        story.append(_spacer(0.4))
+    
+    return story
+
+
 def _rental_samples_table(samples: list) -> list:
-    """Table of rental market comparatives."""
+    """Table of rental market comparatives (mantida como alternativa)."""
     if not samples:
         return []
     headers = ["Nº", "Endereço / Bairro", "Área (m²)", "Aluguel (R$)", "R$/m²", "Tipo", "Fonte", "Data"]
