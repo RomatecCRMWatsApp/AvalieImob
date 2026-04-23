@@ -18,6 +18,12 @@ RUN yarn build
 # ---- Stage 2: Python backend + serve frontend ----
 FROM python:3.11-slim
 
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/* \
+    && update-ca-certificates
+
 WORKDIR /app
 
 # Install Python dependencies
