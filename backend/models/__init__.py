@@ -6,6 +6,7 @@ from models.user import (
 )
 from models.ptam import (
     PtamSample, PtamImpactArea, PtamMarketSample, PtamBase, Ptam,
+    PtamVersion, PtamVersionDiff,
     AIMessage, AIMessageResponse, AIHistoryItem,
     Transaction, CreatePreferenceRequest,
     PerfilAvaliadorBase, PerfilAvaliador,
@@ -29,6 +30,7 @@ __all__ = [
     "UserRegister", "UserLogin", "User", "UserPublic", "AuthResponse", "UserUpdate",
     "CreateTestUserRequest", "AdminUserOut",
     "PtamSample", "PtamImpactArea", "PtamMarketSample", "PtamBase", "Ptam",
+    "PtamVersion", "PtamVersionDiff",
     "AIMessage", "AIMessageResponse", "AIHistoryItem",
     "Transaction", "CreatePreferenceRequest",
     "PerfilAvaliadorBase", "PerfilAvaliador",
