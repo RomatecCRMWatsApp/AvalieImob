@@ -9,8 +9,20 @@ _db = None
 def init_db():
     global _client, _db
     mongo_url = os.environ["MONGO_URL"]
-    _client = AsyncIOMotorClient(mongo_url)
-    _db = _client[os.environ["DB_NAME"]]
+    is_atlas = "mongodb+srv" in mongo_url or "mongodb.net" in mongo_url
+    if is_atlas:
+        _client = AsyncIOMotorClient(
+            mongo_url,
+            tls=True,
+            tlsAllowInvalidCertificates=False,
+            serverSelectionTimeoutMS=30000,
+            connectTimeoutMS=30000,
+            socketTimeoutMS=30000,
+        )
+    else:
+        _client = AsyncIOMotorClient(mongo_url)
+    db_name = os.environ.get("DB_NAME", "railway")
+    _db = _client[db_name]
 
 
 async def setup_indexes():
