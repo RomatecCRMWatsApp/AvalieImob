@@ -4,7 +4,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../../ui/sheet';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Badge } from '../../ui/badge';
-import { ptamAPI } from '../../../services/api';
+import { ptamAPI } from '../../../lib/api';
 import { useToast } from '../../../hooks/use-toast';
 import { QRCodeSVG } from 'qrcode.react';
 import {
