@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, FileText, Download, Trash2, Loader2, Calendar, DollarSign, FileDown, Mail, X, Send } from 'lucide-react';
+import { Plus, FileText, Download, Trash2, Loader2, Calendar, DollarSign, FileDown, Mail, X, Send, Lock } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Badge } from '../../ui/badge';
 import { useToast } from '../../../hooks/use-toast';
@@ -218,6 +218,11 @@ const PtamList = () => {
                 <div className="w-10 h-10 rounded-lg bg-emerald-900/10 flex items-center justify-center"><FileText className="w-5 h-5 text-emerald-900" /></div>
                 <div className="flex gap-1.5 flex-wrap justify-end">
                   <Badge className={statusColor(p.status)}>{p.status}</Badge>
+                  {p.lacrado && (
+                    <Badge className="bg-blue-100 text-blue-800 border border-blue-200" title={p.versao_lacrada || 'Versão lacrada'}>
+                      <Lock className="w-3 h-3 mr-1 inline" />Lacrado
+                    </Badge>
+                  )}
                 </div>
               </div>
               <div className="text-xs font-semibold text-emerald-700 tracking-wider">PTAM {p.number}</div>

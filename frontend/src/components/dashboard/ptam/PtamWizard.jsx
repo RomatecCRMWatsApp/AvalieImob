@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import * as LucideIcons from 'lucide-react';
-import { ChevronLeft, ChevronRight, Save, Download, ArrowLeft, Loader2, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Save, Download, ArrowLeft, Loader2, Check, History } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { useToast } from '../../../hooks/use-toast';
 import { ptamAPI, aiAPI, perfilAPI } from '../../../lib/api';
@@ -18,6 +18,7 @@ import { StepPonderancia } from './steps/StepPonderancia';
 import { StepMetodoAvaliacao } from './steps/StepMetodoAvaliacao';
 import { StepResultado } from './steps/StepResultado';
 import { StepConclusao } from './steps/StepConclusao';
+import { HistoricoVersoes } from './HistoricoVersoes';
 
 const getStepClasses = (active, done) => {
   if (active) return 'bg-emerald-900 text-white';
@@ -41,6 +42,8 @@ const PtamWizard = () => {
   const [saving, setSaving] = useState(false);
   const [aiLoading, setAiLoading] = useState(null);
   const [lastSaved, setLastSaved] = useState(null);
+  const [showHistorico, setShowHistorico] = useState(false);
+  const [versaoAtual, setVersaoAtual] = useState(0);
   const debounceRef = useRef(null);
 
   const load = useCallback(async () => {
@@ -109,6 +112,17 @@ const PtamWizard = () => {
         nav(`/dashboard/ptam/${created.id}`, { replace: true });
       }
       setLastSaved(new Date());
+      // Atualizar versão atual após save
+      if (ptamId) {
+        try {
+          const versoes = await ptamAPI.listVersoes(ptamId);
+          if (versoes.length > 0) {
+            setVersaoAtual(versoes[0].numero_versao);
+          }
+        } catch (e) {
+          // silencioso
+        }
+      }
       if (!silent) toast({ title: 'Rascunho salvo' });
     } catch (err) {
       console.warn(err);
@@ -215,6 +229,21 @@ const PtamWizard = () => {
           {lastSaved && (
             <span className="text-xs text-gray-500">Salvo {lastSaved.toLocaleTimeString('pt-BR')}</span>
           )}
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => setShowHistorico(true)} 
+            className="gap-1.5 text-gray-500"
+            disabled={!ptamId}
+          >
+            <History className="w-4 h-4" />
+            Histórico
+            {versaoAtual > 0 && (
+              <span className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full">
+                v{versaoAtual}
+              </span>
+            )}
+          </Button>
           <Button variant="outline" onClick={() => save(false)} disabled={saving}>
             <Save className="w-4 h-4 mr-1" />{saving ? 'Salvando...' : 'Salvar rascunho'}
           </Button>
@@ -307,6 +336,13 @@ const PtamWizard = () => {
           )}
         </div>
       </div>
+      <HistoricoVersoes
+        ptamId={ptamId}
+        numeroPtam={form.numero_ptam || form.number}
+        open={showHistorico}
+        onClose={() => setShowHistorico(false)}
+        versaoAtual={versaoAtual}
+      />
     </div>
   );
 };

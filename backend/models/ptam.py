@@ -1,8 +1,30 @@
 # @module models.ptam — Modelos Pydantic para PTAM, IA, pagamentos e perfil avaliador
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Any
 from datetime import datetime
 from models.common import _id, _now
+
+
+class PtamVersionDiff(BaseModel):
+    campo: str
+    valor_anterior: Optional[Any] = None
+    valor_novo: Optional[Any] = None
+
+
+class PtamVersion(BaseModel):
+    id: str = Field(default_factory=_id)
+    ptam_id: str
+    user_id: str
+    numero_versao: int
+    tipo: str  # "auto" | "lacrado"
+    hash_sha256: str
+    diffs: List[PtamVersionDiff] = Field(default_factory=list)
+    snapshot: Optional[dict] = None
+    ip: Optional[str] = None
+    user_agent: Optional[str] = None
+    numero_lacre: Optional[str] = None
+    observacao: Optional[str] = None
+    created_at: datetime = Field(default_factory=_now)
 
 
 class PtamSample(BaseModel):
@@ -230,6 +252,12 @@ class PtamBase(BaseModel):
     area_02_tipo: Optional[str] = ""
     area_02_dados: Optional[str] = ""
     area_02_valor: Optional[float] = None
+
+    # Versionamento e Lacre
+    lacrado: Optional[bool] = False
+    versao_lacrada: Optional[str] = None
+    hash_lacrado: Optional[str] = None
+    link_publico: Optional[bool] = False
 
     # Meta
     status: str = "Rascunho"

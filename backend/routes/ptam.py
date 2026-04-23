@@ -1,9 +1,11 @@
-# @module routes.ptam — CRUD PTAM e download de PDF/DOCX; envio por e-mail
+# @module routes.ptam — CRUD PTAM, versionamento com diff/lacre/SHA-256, download PDF/DOCX; envio por e-mail
 import base64
+import hashlib
+import json
 import logging
 from datetime import datetime
-from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException
+from typing import List, Optional, Any
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import BaseModel
 from pymongo import ReturnDocument
@@ -12,9 +14,7 @@ from db import get_db
 from dependencies import get_active_subscriber, serialize_doc
 from services.auth_service import get_current_user_id
 from services.ptam_share import enviar_ptam_email
-from models import PtamBase, Ptam
-from ptam_docx import generate_ptam_docx
-from pdf.ptam_pdf import generate_ptam_pdf
+from models import PtamBase, Ptam, PtamVersion, PtamVersionDiff
 
 router = APIRouter(tags=["ptam"])
 logger = logging.getLogger("romatec")
@@ -24,6 +24,114 @@ class PtamEmailRequest(BaseModel):
     destinatario: str
     nome_cliente: Optional[str] = ""
     mensagem_extra: Optional[str] = ""
+
+
+class LacrarVersaoRequest(BaseModel):
+    observacao: Optional[str] = ""
+
+
+# Campos ignorados no diff (metadados)
+IGNORED_DIFF_FIELDS = {"id", "_id", "user_id", "created_at", "updated_at", "numero_ptam"}
+
+
+def _calculate_hash(data: dict) -> str:
+    """Calcula SHA-256 do JSON do PTAM."""
+    conteudo = json.dumps(data, sort_keys=True, default=str)
+    return hashlib.sha256(conteudo.encode()).hexdigest()
+
+
+def _deep_diff(old: Any, new: Any, path: str = "") -> List[PtamVersionDiff]:
+    """Compara dois objetos profundamente e retorna lista de diffs."""
+    diffs = []
+    
+    if isinstance(old, dict) and isinstance(new, dict):
+        all_keys = set(old.keys()) | set(new.keys())
+        for key in all_keys:
+            if key in IGNORED_DIFF_FIELDS:
+                continue
+            full_path = f"{path}.{key}" if path else key
+            old_val = old.get(key)
+            new_val = new.get(key)
+            diffs.extend(_deep_diff(old_val, new_val, full_path))
+    elif isinstance(old, list) and isinstance(new, list):
+        # Para listas, comparar por índice
+        max_len = max(len(old), len(new))
+        for i in range(max_len):
+            full_path = f"{path}[{i}]"
+            old_val = old[i] if i < len(old) else None
+            new_val = new[i] if i < len(new) else None
+            diffs.extend(_deep_diff(old_val, new_val, full_path))
+    else:
+        # Valores primitivos
+        if old != new:
+            # Simplificar valores grandes (fotos, base64)
+            old_display = old
+            new_display = new
+            if isinstance(old, str) and len(old) > 100:
+                old_display = "[alterado]"
+            if isinstance(new, str) and len(new) > 100:
+                new_display = "[alterado]"
+            diffs.append(PtamVersionDiff(
+                campo=path,
+                valor_anterior=old_display if old != "" and old is not None else None,
+                valor_novo=new_display if new != "" and new is not None else None
+            ))
+    
+    return diffs
+
+
+async def _create_version(
+    db,
+    ptam_id: str,
+    user_id: str,
+    old_doc: dict,
+    new_data: dict,
+    tipo: str = "auto",
+    ip: str = None,
+    user_agent: str = None,
+    numero_lacre: str = None,
+    observacao: str = None,
+    snapshot: dict = None
+) -> Optional[PtamVersion]:
+    """Cria uma nova versão se houver mudanças."""
+    
+    # Calcular diffs
+    diffs = _deep_diff(old_doc, new_data)
+    
+    # Se não há diffs e não é lacre, não criar versão
+    if not diffs and tipo == "auto":
+        return None
+    
+    # Buscar última versão para número
+    last_version = await db.ptam_versions.find_one(
+        {"ptam_id": ptam_id},
+        sort=[("numero_versao", -1)]
+    )
+    numero_versao = (last_version["numero_versao"] + 1) if last_version else 1
+    
+    # Calcular hash
+    hash_sha256 = _calculate_hash(new_data)
+    
+    # Verificar se hash é igual à última versão (evitar duplicatas)
+    if last_version and last_version.get("hash_sha256") == hash_sha256:
+        return None
+    
+    version = PtamVersion(
+        ptam_id=ptam_id,
+        user_id=user_id,
+        numero_versao=numero_versao,
+        tipo=tipo,
+        hash_sha256=hash_sha256,
+        diffs=diffs,
+        snapshot=snapshot,
+        ip=ip,
+        user_agent=user_agent,
+        numero_lacre=numero_lacre,
+        observacao=observacao
+    )
+    
+    await db.ptam_versions.insert_one(version.model_dump())
+    return version
 
 
 async def _next_ptam_numero(db) -> str:
@@ -64,12 +172,37 @@ async def create_ptam(data: PtamBase, uid: str = Depends(get_active_subscriber),
 
 
 @router.put("/ptam/{pid}", response_model=Ptam)
-async def update_ptam(pid: str, data: PtamBase, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+async def update_ptam(
+    pid: str,
+    data: PtamBase,
+    request: Request,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db)
+):
     doc = await db.ptam_documents.find_one({"id": pid, "user_id": uid})
     if not doc:
         raise HTTPException(status_code=404, detail="PTAM não encontrado")
+    
+    # Preparar novos dados
     updates = data.model_dump()
     updates["updated_at"] = datetime.utcnow()
+    
+    # Criar versão automática
+    ip = request.headers.get("x-forwarded-for", request.client.host if request.client else None)
+    user_agent = request.headers.get("user-agent")
+    
+    await _create_version(
+        db=db,
+        ptam_id=pid,
+        user_id=uid,
+        old_doc=doc,
+        new_data={**doc, **updates},
+        tipo="auto",
+        ip=ip,
+        user_agent=user_agent
+    )
+    
+    # Atualizar documento
     await db.ptam_documents.update_one({"id": pid}, {"$set": updates})
     new_doc = await db.ptam_documents.find_one({"id": pid})
     return Ptam(**serialize_doc(new_doc))
@@ -80,8 +213,168 @@ async def delete_ptam(pid: str, uid: str = Depends(get_active_subscriber), db=De
     res = await db.ptam_documents.delete_one({"id": pid, "user_id": uid})
     if res.deleted_count == 0:
         raise HTTPException(status_code=404, detail="PTAM não encontrado")
+    # Também deletar versões
+    await db.ptam_versions.delete_many({"ptam_id": pid})
     return {"ok": True}
 
+
+# ============ ENDPOINTS DE VERSIONAMENTO ============
+
+@router.get("/ptam/{pid}/versoes")
+async def list_versoes(
+    pid: str,
+    limit: int = 100,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db)
+):
+    """Lista histórico de versões de um PTAM (sem snapshots)."""
+    # Verificar se PTAM existe e pertence ao usuário
+    ptam = await db.ptam_documents.find_one({"id": pid, "user_id": uid})
+    if not ptam:
+        raise HTTPException(status_code=404, detail="PTAM não encontrado")
+    
+    versoes = await db.ptam_versions.find(
+        {"ptam_id": pid},
+        {"snapshot": 0}  # Excluir snapshot para economizar banda
+    ).sort("numero_versao", -1).limit(limit).to_list(limit)
+    
+    return [serialize_doc(v) for v in versoes]
+
+
+@router.post("/ptam/{pid}/lacrar")
+async def lacrar_versao(
+    pid: str,
+    body: LacrarVersaoRequest,
+    request: Request,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db)
+):
+    """Lacra uma versão do PTAM (torna imutável com snapshot completo)."""
+    ptam = await db.ptam_documents.find_one({"id": pid, "user_id": uid})
+    if not ptam:
+        raise HTTPException(status_code=404, detail="PTAM não encontrado")
+    
+    # Buscar última versão
+    last_version = await db.ptam_versions.find_one(
+        {"ptam_id": pid},
+        sort=[("numero_versao", -1)]
+    )
+    numero_versao = (last_version["numero_versao"] + 1) if last_version else 1
+    
+    # Gerar número de lacre
+    ano = datetime.utcnow().year
+    numero_ptam = ptam.get("numero_ptam", "0000")
+    numero_lacre = f"PTAM-{ano}-{numero_ptam}-v{numero_versao}"
+    
+    # Criar snapshot completo (cópia do PTAM)
+    snapshot = {k: v for k, v in ptam.items() if not k.startswith("_")}
+    
+    # Calcular hash do snapshot
+    hash_sha256 = _calculate_hash(snapshot)
+    
+    # Calcular diffs vs versão anterior
+    diffs = []
+    if last_version:
+        old_snapshot = last_version.get("snapshot") or {}
+        diffs = _deep_diff(old_snapshot, snapshot)
+    
+    ip = request.headers.get("x-forwarded-for", request.client.host if request.client else None)
+    user_agent = request.headers.get("user-agent")
+    
+    version = PtamVersion(
+        ptam_id=pid,
+        user_id=uid,
+        numero_versao=numero_versao,
+        tipo="lacrado",
+        hash_sha256=hash_sha256,
+        diffs=diffs,
+        snapshot=snapshot,
+        ip=ip,
+        user_agent=user_agent,
+        numero_lacre=numero_lacre,
+        observacao=body.observacao
+    )
+    
+    await db.ptam_versions.insert_one(version.model_dump())
+    
+    # Atualizar PTAM com info do lacre
+    await db.ptam_documents.update_one(
+        {"id": pid},
+        {
+            "$set": {
+                "lacrado": True,
+                "versao_lacrada": numero_lacre,
+                "hash_lacrado": hash_sha256,
+                "updated_at": datetime.utcnow()
+            }
+        }
+    )
+    
+    return {
+        "ok": True,
+        "versao": serialize_doc(version.model_dump()),
+        "numero_lacre": numero_lacre,
+        "hash_sha256": hash_sha256
+    }
+
+
+@router.get("/ptam/{pid}/versoes/{vid}")
+async def get_versao(
+    pid: str,
+    vid: str,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db)
+):
+    """Busca uma versão específica (incluindo snapshot se lacrada)."""
+    # Verificar se PTAM existe e pertence ao usuário
+    ptam = await db.ptam_documents.find_one({"id": pid, "user_id": uid})
+    if not ptam:
+        raise HTTPException(status_code=404, detail="PTAM não encontrado")
+    
+    versao = await db.ptam_versions.find_one({"id": vid, "ptam_id": pid})
+    if not versao:
+        raise HTTPException(status_code=404, detail="Versão não encontrada")
+    
+    return serialize_doc(versao)
+
+
+@router.get("/ptam/{pid}/verificar/{vid}")
+async def verificar_integridade(
+    pid: str,
+    vid: str,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db)
+):
+    """Verifica integridade de uma versão lacrada recalculando o hash."""
+    # Verificar se PTAM existe e pertence ao usuário
+    ptam = await db.ptam_documents.find_one({"id": pid, "user_id": uid})
+    if not ptam:
+        raise HTTPException(status_code=404, detail="PTAM não encontrado")
+    
+    versao = await db.ptam_versions.find_one({"id": vid, "ptam_id": pid})
+    if not versao:
+        raise HTTPException(status_code=404, detail="Versão não encontrada")
+    
+    if versao.get("tipo") != "lacrado":
+        raise HTTPException(status_code=400, detail="Apenas versões lacradas podem ser verificadas")
+    
+    snapshot = versao.get("snapshot")
+    if not snapshot:
+        raise HTTPException(status_code=400, detail="Versão lacrada sem snapshot")
+    
+    hash_armazenado = versao.get("hash_sha256", "")
+    hash_calculado = _calculate_hash(snapshot)
+    
+    return {
+        "integro": hash_armazenado == hash_calculado,
+        "hash_armazenado": hash_armazenado,
+        "hash_calculado": hash_calculado,
+        "numero_lacre": versao.get("numero_lacre"),
+        "numero_versao": versao.get("numero_versao")
+    }
+
+
+# ============ DOWNLOAD DOCX/PDF ============
 
 @router.get("/ptam/{pid}/docx")
 async def download_ptam_docx(pid: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):

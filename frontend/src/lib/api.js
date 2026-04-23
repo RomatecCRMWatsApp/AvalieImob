@@ -105,6 +105,11 @@ export const ptamAPI = {
   downloadDocx: (id) => api.get(`/ptam/${id}/docx`, { responseType: 'blob' }).then(r => r.data),
   downloadPdf: (id) => api.get(`/ptam/${id}/pdf`, { responseType: 'blob' }).then(r => r.data),
   sendEmail: (id, data) => api.post(`/ptam/${id}/email`, data).then(r => r.data),
+  // Versionamento
+  listVersoes: (id) => api.get(`/ptam/${id}/versoes`).then(r => r.data),
+  lacrarVersao: (id, observacao) => api.post(`/ptam/${id}/lacrar`, { observacao }).then(r => r.data),
+  getVersao: (id, vid) => api.get(`/ptam/${id}/versoes/${vid}`).then(r => r.data),
+  verificarIntegridade: (id, vid) => api.get(`/ptam/${id}/verificar/${vid}`).then(r => r.data),
 };
 
 // ---- Garantias (NBR 14.653 partes 3 e 5)
