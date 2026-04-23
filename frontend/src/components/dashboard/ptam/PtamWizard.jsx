@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import * as LucideIcons from 'lucide-react';
-import { ChevronLeft, ChevronRight, Save, Download, ArrowLeft, Loader2, Check, History } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Save, Download, ArrowLeft, Loader2, Check, History, Share2, X, Copy, ExternalLink, Send } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { useToast } from '../../../hooks/use-toast';
 import { ptamAPI, aiAPI, perfilAPI } from '../../../lib/api';
@@ -44,6 +44,9 @@ const PtamWizard = () => {
   const [lastSaved, setLastSaved] = useState(null);
   const [showHistorico, setShowHistorico] = useState(false);
   const [versaoAtual, setVersaoAtual] = useState(0);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareData, setShareData] = useState(null);
+  const [shareLoading, setShareLoading] = useState(false);
   const debounceRef = useRef(null);
 
   const load = useCallback(async () => {
@@ -173,6 +176,44 @@ const PtamWizard = () => {
     }
   };
 
+  const handleCompartilhar = async () => {
+    if (!ptamId) { toast({ title: 'Salve o PTAM primeiro', variant: 'destructive' }); return; }
+    
+    setShareLoading(true);
+    try {
+      if (form.link_publico_ativo && form.link_publico_token) {
+        // Já tem link ativo
+        const url = `${window.location.origin}/laudo/${form.link_publico_token}`;
+        setShareData({ url, token: form.link_publico_token, ativo: true });
+        setShowShareModal(true);
+      } else {
+        // Gerar novo link
+        const res = await ptamAPI.compartilhar(ptamId);
+        setShareData({ url: res.url, token: res.token, ativo: true });
+        setForm(f => ({ ...f, link_publico_ativo: true, link_publico_token: res.token }));
+        setShowShareModal(true);
+        toast({ title: 'Link gerado!', description: 'URL copiada para a área de transferência' });
+        navigator.clipboard.writeText(res.url);
+      }
+    } catch (err) {
+      toast({ title: 'Erro ao compartilhar', description: err.response?.data?.detail, variant: 'destructive' });
+    } finally {
+      setShareLoading(false);
+    }
+  };
+
+  const handleDesativarLink = async () => {
+    if (!ptamId) return;
+    try {
+      await ptamAPI.desativarCompartilhamento(ptamId);
+      setForm(f => ({ ...f, link_publico_ativo: false }));
+      setShowShareModal(false);
+      toast({ title: 'Compartilhamento desativado' });
+    } catch (err) {
+      toast({ title: 'Erro ao desativar', variant: 'destructive' });
+    }
+  };
+
   const handleDownloadPdf = async () => {
     if (!ptamId) { toast({ title: 'Salve o PTAM primeiro', variant: 'destructive' }); return; }
     try {
@@ -243,6 +284,16 @@ const PtamWizard = () => {
                 v{versaoAtual}
               </span>
             )}
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={handleCompartilhar}
+            disabled={!ptamId || shareLoading}
+            className={form.link_publico_ativo ? 'border-blue-300 text-blue-700 hover:bg-blue-50' : ''}
+          >
+            <Share2 className="w-4 h-4 mr-1.5" />
+            {shareLoading ? 'Gerando...' : form.link_publico_ativo ? 'Link ativo' : 'Compartilhar'}
           </Button>
           <Button variant="outline" onClick={() => save(false)} disabled={saving}>
             <Save className="w-4 h-4 mr-1" />{saving ? 'Salvando...' : 'Salvar rascunho'}
@@ -343,6 +394,72 @@ const PtamWizard = () => {
         onClose={() => setShowHistorico(false)}
         versaoAtual={versaoAtual}
       />
+
+      {/* Modal de Compartilhamento */}
+      {showShareModal && shareData && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-900">Link de Compartilhamento</h3>
+              <button onClick={() => setShowShareModal(false)} className="p-1 hover:bg-gray-100 rounded-full">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mb-4">
+              <p className="text-xs text-emerald-700 mb-1">URL do Portal do Cliente</p>
+              <div className="flex gap-2">
+                <input 
+                  type="text" 
+                  value={shareData.url} 
+                  readOnly 
+                  className="flex-1 bg-white border rounded px-3 py-2 text-sm font-mono text-gray-600"
+                />
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    navigator.clipboard.writeText(shareData.url);
+                    toast({ title: 'Link copiado!' });
+                  }}
+                >
+                  <Copy className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Button 
+                className="w-full bg-green-600 hover:bg-green-700 text-white"
+                onClick={() => {
+                  const text = `Segue o laudo de avaliação do imóvel: ${shareData.url}`;
+                  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+                }}
+              >
+                <Send className="w-4 h-4 mr-2" />
+                Enviar por WhatsApp
+              </Button>
+
+              <Button 
+                variant="outline"
+                className="w-full"
+                onClick={() => window.open(shareData.url, '_blank')}
+              >
+                <ExternalLink className="w-4 h-4 mr-2" />
+                Abrir Portal do Cliente
+              </Button>
+
+              <Button 
+                variant="outline"
+                className="w-full text-red-600 border-red-200 hover:bg-red-50"
+                onClick={handleDesativarLink}
+              >
+                Desativar Link
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
