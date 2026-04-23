@@ -700,22 +700,89 @@ def _render_mercado(doc: Document, ptam: dict) -> None:
         _add_subsection_heading(doc, "Elementos de Comparação Coletados (NBR 14653-2 item 8.2)")
         _render_market_samples_table(doc, market_samples)
 
-        # Estatísticas
-        values = [float(s.get("value_per_sqm") or 0) for s in market_samples if s.get("value_per_sqm")]
-        if values:
-            n = len(values)
-            avg = sum(values) / n
-            sorted_v = sorted(values)
-            median = (sorted_v[n // 2 - 1] + sorted_v[n // 2]) / 2 if n % 2 == 0 else sorted_v[n // 2]
-            variance = sum((v - avg) ** 2 for v in values) / n
-            std = variance ** 0.5
-            cv = (std / avg * 100) if avg > 0 else 0
-            stats = (
-                f"Estatísticas: n={n} | Média: {_format_currency(avg)}/m² | "
-                f"Mediana: {_format_currency(median)}/m² | "
-                f"Desvio Padrão: {_format_currency(std)} | CV: {cv:.2f}%"
-            )
-            _add_styled_paragraph(doc, stats, alignment=WD_ALIGN_PARAGRAPH.LEFT, size=10)
+        # Estatísticas completas NBR 14653-2
+        _add_subsection_heading(doc, "Tratamento Estatístico das Amostras (NBR 14653-2)")
+        
+        # Usar estatísticas salvas ou calcular
+        n_total = len(market_samples)
+        n_validas = ptam.get("calc_n_validas") or n_total
+        media_inicial = ptam.get("calc_media_inicial") or 0
+        media_final = ptam.get("calc_media") or 0
+        mediana = ptam.get("calc_mediana") or 0
+        desvio_padrao = ptam.get("calc_desvio_padrao") or 0
+        coef_variacao = ptam.get("calc_coef_variacao") or 0
+        limite_inf_saneamento = ptam.get("calc_limite_inf_saneamento") or 0
+        limite_sup_saneamento = ptam.get("calc_limite_sup_saneamento") or 0
+        limite_inf_ptam = ptam.get("calc_limite_inf_ptam") or ptam.get("resultado_intervalo_inf") or 0
+        limite_sup_ptam = ptam.get("calc_limite_sup_ptam") or ptam.get("resultado_intervalo_sup") or 0
+        grau_fundamentacao = ptam.get("fundamentacao_grau") or ptam.get("calc_grau_fundamentacao") or ""
+        grau_precisao = ptam.get("precisao_grau") or ptam.get("grau_precisao") or ""
+
+        # Tabela de estatísticas
+        headers = ["Estatística", "Valor"]
+        table = doc.add_table(rows=1, cols=2)
+        table.style = "Table Grid"
+        hdr = table.rows[0].cells
+        for i, h in enumerate(headers):
+            hdr[i].text = h
+            _set_cell_shading(hdr[i], "1B4D1B")
+            hdr[i].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+            for run in hdr[i].paragraphs[0].runs:
+                run.font.color.rgb = WHITE
+                run.font.bold = True
+                run.font.size = Pt(10)
+
+        # Linhas da tabela
+        stats_rows = [
+            ("Número total de amostras", str(n_total)),
+            ("Amostras válidas (pós-saneamento)", str(n_validas)),
+            ("Média inicial (R$/m²)", _format_currency(media_inicial)),
+            ("Limite inferior de saneamento (-10%)", _format_currency(limite_inf_saneamento)),
+            ("Limite superior de saneamento (+10%)", _format_currency(limite_sup_saneamento)),
+            ("Média final adotada (R$/m²)", _format_currency(media_final)),
+            ("Mediana (R$/m²)", _format_currency(mediana)),
+            ("Desvio padrão amostral", _format_currency(desvio_padrao)),
+            ("Coeficiente de variação", f"{coef_variacao:.2f}%"),
+            ("Limite inferior PTAM (-5%)", _format_currency(limite_inf_ptam)),
+            ("Limite superior PTAM (+5%)", _format_currency(limite_sup_ptam)),
+            ("Grau de Fundamentação", f"Grau {grau_fundamentacao.upper()}" if grau_fundamentacao else "Não calculado"),
+            ("Grau de Precisão", f"Grau {grau_precisao.upper()}" if grau_precisao and grau_precisao != "fora" else "Fora dos limites" if grau_precisao == "fora" else "Não calculado"),
+        ]
+
+        for label, value in stats_rows:
+            row = table.add_row().cells
+            row[0].text = label
+            row[1].text = value
+            row[0].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.LEFT
+            row[1].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
+            for run in row[0].paragraphs[0].runs:
+                run.font.size = Pt(10)
+            for run in row[1].paragraphs[0].runs:
+                run.font.size = Pt(10)
+                run.font.bold = True
+
+        doc.add_paragraph()
+
+        # Descrição dos graus
+        if grau_fundamentacao:
+            fund_texts = {
+                "III": "Grau III — Fundamentação Máxima: mínimo 10 dados de mercado verificados e visitados.",
+                "II": "Grau II — Fundamentação Intermediária: mínimo 6 dados de mercado verificados.",
+                "I": "Grau I — Fundamentação Mínima: mínimo 3 dados de mercado.",
+            }
+            if grau_fundamentacao.upper() in fund_texts:
+                _add_styled_paragraph(doc, fund_texts[grau_fundamentacao.upper()], size=10)
+
+        if grau_precisao:
+            prec_texts = {
+                "III": "Grau III — Precisão Máxima: coeficiente de variação ≤ 10%.",
+                "II": "Grau II — Precisão Intermediária: coeficiente de variação ≤ 20%.",
+                "I": "Grau I — Precisão Mínima: coeficiente de variação ≤ 30%.",
+            }
+            if grau_precisao.lower() != "fora" and grau_precisao.upper() in prec_texts:
+                _add_styled_paragraph(doc, prec_texts[grau_precisao.upper()], size=10)
+            elif grau_precisao.lower() == "fora":
+                _add_styled_paragraph(doc, "Atenção: Coeficiente de variação > 30% — fora dos limites da NBR 14653-2.", size=10, color=RGBColor(220, 38, 38))
 
         # Fotos das amostras
         amostras_com_foto = [s for s in market_samples if s.get("_image_bytes")]

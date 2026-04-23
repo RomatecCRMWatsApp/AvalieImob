@@ -147,6 +147,16 @@ class PtamBase(BaseModel):
     calc_fatores_homogeneizacao: Optional[str] = ""
     calc_observacoes: Optional[str] = ""
 
+    # Estatísticas NBR 14653-2 (novos campos)
+    calc_n_validas: Optional[int] = 0
+    calc_media_inicial: Optional[float] = 0
+    calc_limite_inf_saneamento: Optional[float] = 0
+    calc_limite_sup_saneamento: Optional[float] = 0
+    calc_limite_inf_ptam: Optional[float] = 0
+    calc_limite_sup_ptam: Optional[float] = 0
+    fundamentacao_grau: Optional[str] = ""
+    precisao_grau: Optional[str] = ""
+
     # Seção 9 — Resultado da Avaliação
     resultado_valor_unitario: Optional[float] = 0
     resultado_valor_total: Optional[float] = 0

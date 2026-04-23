@@ -1,15 +1,15 @@
 // @module ptam/steps/StepAmostras — Step 6: Amostras de Mercado (tabela de pesquisa, análise)
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Input } from '../../../ui/input';
 import { Textarea } from '../../../ui/textarea';
 import { Button } from '../../../ui/button';
-import { Plus, Trash2, Search } from 'lucide-react';
+import { Plus, Trash2, Search, AlertTriangle } from 'lucide-react';
 import { SectionHeader, AiButton } from '../shared/primitives';
-import { emptyMarketSample } from '../ptamHelpers';
+import { emptyMarketSample, computeStatsNBR } from '../ptamHelpers';
 import ImageUploader from '../ImageUploader';
 import { BuscaAmostras } from '../BuscaAmostras';
 
-const MarketSampleRow = ({ s, onChange, onRemove, idx }) => {
+const MarketSampleRow = ({ s, onChange, onRemove, idx, isSaneada }) => {
   const handleValue = (field, raw) => {
     const v = Number(raw);
     const area = field === 'area' ? v : Number(s.area || 0);
@@ -23,14 +23,29 @@ const MarketSampleRow = ({ s, onChange, onRemove, idx }) => {
     ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
     : 'bg-amber-100 text-amber-800 border-amber-300';
 
+  // Estilos para amostras saneadas (eliminadas)
+  const rowClass = isSaneada
+    ? 'bg-red-50 border-t border-red-100 text-sm'
+    : 'border-t border-gray-100 text-sm';
+
   return (
-    <tr className="border-t border-gray-100 text-sm">
-      <td className="px-2 py-1.5 text-center text-gray-400 font-mono">{idx + 1}</td>
+    <tr className={rowClass}>
+      <td className="px-2 py-1.5 text-center">
+        <span className={`font-mono ${isSaneada ? 'text-red-500' : 'text-gray-400'}`}>{idx + 1}</span>
+        {isSaneada && (
+          <div className="group relative inline-block ml-1">
+            <AlertTriangle className="w-3.5 h-3.5 text-red-500 inline" />
+            <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block w-64 p-2 bg-gray-800 text-white text-xs rounded shadow-lg z-10">
+              Eliminada por estar fora do intervalo de saneamento (±10% da média inicial)
+            </span>
+          </div>
+        )}
+      </td>
       <td className="px-2 py-1.5"><Input value={s.address || ''} onChange={(e) => onChange({ ...s, address: e.target.value })} placeholder="Endereço" className="text-xs h-8" /></td>
       <td className="px-2 py-1.5"><Input value={s.neighborhood || ''} onChange={(e) => onChange({ ...s, neighborhood: e.target.value })} placeholder="Bairro" className="text-xs h-8" /></td>
       <td className="px-2 py-1.5 w-24"><Input type="number" value={s.area || ''} onChange={(e) => handleValue('area', e.target.value)} placeholder="m²" className="text-xs h-8" /></td>
       <td className="px-2 py-1.5 w-28"><Input type="number" value={s.value || ''} onChange={(e) => handleValue('value', e.target.value)} placeholder="R$" className="text-xs h-8" /></td>
-      <td className="px-2 py-1.5 w-24 text-center font-semibold text-emerald-800">
+      <td className={`px-2 py-1.5 w-24 text-center font-semibold ${isSaneada ? 'text-red-600 line-through' : 'text-emerald-800'}`}>
         {s.value_per_sqm > 0 ? `R$ ${Number(s.value_per_sqm).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}` : '—'}
       </td>
       <td className="px-2 py-1.5 w-36">
@@ -76,6 +91,9 @@ export const StepAmostras = ({ form, setForm, onAi, aiLoading }) => {
   const update = (i, ns) => setForm({ ...form, market_samples: samples.map((s, idx) => idx === i ? ns : s) });
   const remove = (i) => setForm({ ...form, market_samples: samples.filter((_, idx) => idx !== i) });
 
+  // Calcular estatísticas NBR para destacar amostras saneadas
+  const stats = useMemo(() => computeStatsNBR(samples), [samples]);
+
   const handleImport = (novasAmostras) => {
     const amostrasFormatadas = novasAmostras.map(a => ({
       ...emptyMarketSample(),
@@ -96,6 +114,7 @@ export const StepAmostras = ({ form, setForm, onAi, aiLoading }) => {
   };
 
   const validCount = samples.filter((s) => (s.value_per_sqm || 0) > 0).length;
+  const saneadasCount = stats.indices_saneadas.length;
 
   return (
     <div>
@@ -132,6 +151,41 @@ export const StepAmostras = ({ form, setForm, onAi, aiLoading }) => {
           </Button>
         </div>
       </div>
+
+      {/* Resumo de Saneamento */}
+      {stats.n_total > 0 && (
+        <div className={`mb-4 p-3 rounded-lg border ${
+          stats.n_validas < 3 
+            ? 'bg-red-50 border-red-200' 
+            : saneadasCount > 0 
+              ? 'bg-amber-50 border-amber-200' 
+              : 'bg-emerald-50 border-emerald-200'
+        }`}>
+          <div className="flex items-center gap-2">
+            {stats.n_validas < 3 ? (
+              <AlertTriangle className="w-4 h-4 text-red-500" />
+            ) : saneadasCount > 0 ? (
+              <AlertTriangle className="w-4 h-4 text-amber-500" />
+            ) : null}
+            <span className={`text-sm font-medium ${
+              stats.n_validas < 3 ? 'text-red-700' : saneadasCount > 0 ? 'text-amber-700' : 'text-emerald-700'
+            }`}>
+              {stats.n_validas} amostra(s) válida(s) de {stats.n_total} inserida(s)
+              {saneadasCount > 0 && ` — ${saneadasCount} eliminada(s) pelo saneamento`}
+            </span>
+          </div>
+          {stats.n_validas < 3 && (
+            <p className="text-xs text-red-600 mt-1">
+              Mínimo 3 amostras válidas necessárias para PTAM conforme NBR 14653-2
+            </p>
+          )}
+          {saneadasCount > 0 && (
+            <p className="text-xs text-amber-600 mt-1">
+              Amostras eliminadas por estarem fora do intervalo de saneamento (±10% da média inicial)
+            </p>
+          )}
+        </div>
+      )}
 
       <BuscaAmostras
         open={showBusca}
@@ -172,6 +226,7 @@ export const StepAmostras = ({ form, setForm, onAi, aiLoading }) => {
                   idx={i}
                   onChange={(ns) => update(i, ns)}
                   onRemove={() => remove(i)}
+                  isSaneada={stats.indices_saneadas.includes(i)}
                 />
               ))}
             </tbody>

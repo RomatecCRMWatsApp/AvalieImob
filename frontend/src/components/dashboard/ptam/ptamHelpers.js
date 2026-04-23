@@ -251,32 +251,177 @@ export const emptySample = () => ({
 /**
  * Compute descriptive statistics from the market_samples array.
  * Returns { media, mediana, desvio_padrao, coef_variacao }.
+ * @deprecated Use computeStatsNBR for complete NBR 14653-2 compliance
  */
 export const computeStats = (samples) => {
-  const values = (samples || [])
-    .map((s) => Number(s.value_per_sqm || 0))
-    .filter((v) => v > 0);
-
-  if (values.length === 0) return { media: 0, mediana: 0, desvio_padrao: 0, coef_variacao: 0 };
-
-  const n = values.length;
-  const media = values.reduce((a, b) => a + b, 0) / n;
-
-  const sorted = [...values].sort((a, b) => a - b);
-  const mediana =
-    n % 2 === 0
-      ? (sorted[n / 2 - 1] + sorted[n / 2]) / 2
-      : sorted[Math.floor(n / 2)];
-
-  const variance = values.reduce((acc, v) => acc + Math.pow(v - media, 2), 0) / n;
-  const desvio_padrao = Math.sqrt(variance);
-  const coef_variacao = media > 0 ? (desvio_padrao / media) * 100 : 0;
-
+  const result = computeStatsNBR(samples);
   return {
-    media: Math.round(media * 100) / 100,
+    media: result.media_final,
+    mediana: result.mediana,
+    desvio_padrao: result.desvio_padrao,
+    coef_variacao: result.coef_variacao,
+  };
+};
+
+/**
+ * Compute complete statistical analysis according to NBR 14653-2.
+ * Includes outlier filtering (sanitation), precision grade, and foundation grade.
+ * @param {Array} samples - Array of market samples with value_per_sqm
+ * @returns {Object} Complete statistical analysis
+ */
+export const computeStatsNBR = (samples) => {
+  // 1. Filtrar amostras com value_per_sqm > 0
+  const validSamples = (samples || [])
+    .map((s, idx) => ({ ...s, _originalIndex: idx }))
+    .filter((s) => Number(s.value_per_sqm || 0) > 0);
+
+  const n_total = validSamples.length;
+
+  if (n_total === 0) {
+    return {
+      n_total: 0,
+      n_validas: 0,
+      indices_saneadas: [],
+      media_inicial: 0,
+      media_final: 0,
+      mediana: 0,
+      desvio_padrao: 0,
+      coef_variacao: 0,
+      limite_inf_saneamento: 0,
+      limite_sup_saneamento: 0,
+      limite_inf_ptam: 0,
+      limite_sup_ptam: 0,
+      grau_precisao: 'fora',
+      grau_fundamentacao: 'insuficiente',
+      texto_grau_precisao: 'Amostras insuficientes',
+      texto_grau_fundamentacao: 'Mínimo 3 amostras necessárias',
+    };
+  }
+
+  // 2. Calcular média inicial
+  const somaInicial = validSamples.reduce((acc, s) => acc + Number(s.value_per_sqm), 0);
+  const media_inicial = somaInicial / n_total;
+
+  // Limites de saneamento (±10% da média inicial)
+  const limite_inf_saneamento = media_inicial * 0.90;
+  const limite_sup_saneamento = media_inicial * 1.10;
+
+  // 3. SANEAMENTO: eliminar amostras fora do intervalo [90%, 110%]
+  const amostrasSaneadas = [];
+  const amostrasValidas = [];
+
+  validSamples.forEach((s) => {
+    const vpm = Number(s.value_per_sqm);
+    if (vpm >= limite_inf_saneamento && vpm <= limite_sup_saneamento) {
+      amostrasValidas.push(s);
+    } else {
+      amostrasSaneadas.push(s._originalIndex);
+    }
+  });
+
+  const n_validas = amostrasValidas.length;
+  const indices_saneadas = amostrasSaneadas;
+
+  // Se não houver amostras válidas após saneamento
+  if (n_validas === 0) {
+    return {
+      n_total,
+      n_validas: 0,
+      indices_saneadas,
+      media_inicial: Math.round(media_inicial * 100) / 100,
+      media_final: 0,
+      mediana: 0,
+      desvio_padrao: 0,
+      coef_variacao: 0,
+      limite_inf_saneamento: Math.round(limite_inf_saneamento * 100) / 100,
+      limite_sup_saneamento: Math.round(limite_sup_saneamento * 100) / 100,
+      limite_inf_ptam: 0,
+      limite_sup_ptam: 0,
+      grau_precisao: 'fora',
+      grau_fundamentacao: 'insuficiente',
+      texto_grau_precisao: 'Todas as amostras foram eliminadas no saneamento',
+      texto_grau_fundamentacao: 'Nenhuma amostra válida após saneamento',
+    };
+  }
+
+  // 4. Estatísticas finais (pós-saneamento)
+  const valoresFinais = amostrasValidas.map((s) => Number(s.value_per_sqm));
+  const somaFinal = valoresFinais.reduce((acc, v) => acc + v, 0);
+  const media_final = somaFinal / n_validas;
+
+  // 5. MEDIANA final (pós-saneamento)
+  const sorted = [...valoresFinais].sort((a, b) => a - b);
+  const mediana =
+    n_validas % 2 === 0
+      ? (sorted[n_validas / 2 - 1] + sorted[n_validas / 2]) / 2
+      : sorted[Math.floor(n_validas / 2)];
+
+  // 6. DESVIO PADRÃO amostral (divisor n-1, não n)
+  const variance =
+    n_validas > 1
+      ? valoresFinais.reduce((acc, v) => acc + Math.pow(v - media_final, 2), 0) / (n_validas - 1)
+      : 0;
+  const desvio_padrao = Math.sqrt(variance);
+
+  // 7. COEFICIENTE DE VARIAÇÃO: (desvio_padrao / media_final) * 100
+  const coef_variacao = media_final > 0 ? (desvio_padrao / media_final) * 100 : 0;
+
+  // 8. LIMITES PTAM (±5% da média final)
+  const limite_inf_ptam = media_final * 0.95;
+  const limite_sup_ptam = media_final * 1.05;
+
+  // 9. GRAU DE PRECISÃO (NBR 14.653-2 tabela 2)
+  let grau_precisao;
+  let texto_grau_precisao;
+  if (coef_variacao <= 10) {
+    grau_precisao = 'III';
+    texto_grau_precisao = 'Grau III — Coeficiente de variação ≤ 10% (precisão máxima)';
+  } else if (coef_variacao <= 20) {
+    grau_precisao = 'II';
+    texto_grau_precisao = 'Grau II — Coeficiente de variação ≤ 20%';
+  } else if (coef_variacao <= 30) {
+    grau_precisao = 'I';
+    texto_grau_precisao = 'Grau I — Coeficiente de variação ≤ 30%';
+  } else {
+    grau_precisao = 'fora';
+    texto_grau_precisao = 'Fora dos limites — CV > 30% (laudo sem validade técnica)';
+  }
+
+  // 10. GRAU DE FUNDAMENTAÇÃO (NBR 14.653-2 tabela 1)
+  let grau_fundamentacao;
+  let texto_grau_fundamentacao;
+  if (n_validas >= 10) {
+    grau_fundamentacao = 'III';
+    texto_grau_fundamentacao = 'Grau III — Mínimo 10 dados de mercado verificados e visitados';
+  } else if (n_validas >= 6) {
+    grau_fundamentacao = 'II';
+    texto_grau_fundamentacao = 'Grau II — Mínimo 6 dados de mercado verificados';
+  } else if (n_validas >= 3) {
+    grau_fundamentacao = 'I';
+    texto_grau_fundamentacao = 'Grau I — Mínimo 3 dados de mercado';
+  } else {
+    grau_fundamentacao = 'insuficiente';
+    texto_grau_fundamentacao = 'Insuficiente — Mínimo 3 amostras válidas necessárias para PTAM';
+  }
+
+  // 11. Retornar objeto completo
+  return {
+    n_total,
+    n_validas,
+    indices_saneadas,
+    media_inicial: Math.round(media_inicial * 100) / 100,
+    media_final: Math.round(media_final * 100) / 100,
     mediana: Math.round(mediana * 100) / 100,
     desvio_padrao: Math.round(desvio_padrao * 100) / 100,
     coef_variacao: Math.round(coef_variacao * 100) / 100,
+    limite_inf_saneamento: Math.round(limite_inf_saneamento * 100) / 100,
+    limite_sup_saneamento: Math.round(limite_sup_saneamento * 100) / 100,
+    limite_inf_ptam: Math.round(limite_inf_ptam * 100) / 100,
+    limite_sup_ptam: Math.round(limite_sup_ptam * 100) / 100,
+    grau_precisao,
+    grau_fundamentacao,
+    texto_grau_precisao,
+    texto_grau_fundamentacao,
   };
 };
 
