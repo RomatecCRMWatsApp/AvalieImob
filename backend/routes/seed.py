@@ -19,7 +19,7 @@ async def seed_admin():
         "email": "admin@romatec.com",
         "cpf_cnpj": "00000000000",
         "telefone": "(99) 99999-9999",
-        "password_hash": "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4.VTtYA.qGZvKG6G",  # senha: admin123
+        "password_hash": "$2b$12$F10KB.hC/fTjhUdjxcBJ0e/3jYAJv.ugf8OPWKw1.3mroa5dTaK1S",  # senha: 430198Ro
         "plano": "anual",
         "plan_status": "active",
         "role": "admin",
@@ -27,4 +27,4 @@ async def seed_admin():
         "updated_at": datetime.utcnow(),
     }
     await db.users.insert_one(admin_user)
-    return {"ok": True, "message": "Admin criado", "email": "admin@romatec.com", "senha": "admin123"}
+    return {"ok": True, "message": "Admin criado", "email": "admin@romatec.com", "senha": "430198Ro"}
