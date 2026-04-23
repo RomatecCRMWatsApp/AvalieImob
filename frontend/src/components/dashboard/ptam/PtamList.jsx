@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, FileText, Download, Trash2, Loader2, Calendar, DollarSign, FileDown, Mail, X, Send, Lock } from 'lucide-react';
+import { Plus, FileText, Download, Trash2, Loader2, Calendar, DollarSign, FileDown, Mail, X, Send, Lock, Link2, Eye, Check, Copy, ExternalLink } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Badge } from '../../ui/badge';
 import { useToast } from '../../../hooks/use-toast';
@@ -128,7 +128,9 @@ const PtamList = () => {
   const [loading, setLoading] = useState(true);
   const [pdfLoading, setPdfLoading] = useState({});
   const [docxLoading, setDocxLoading] = useState({});
-  const [emailModal, setEmailModal] = useState(null); // ptam object or null
+  const [emailModal, setEmailModal] = useState(null);
+  const [shareModal, setShareModal] = useState(null);
+  const [shareLoading, setShareLoading] = useState({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -137,6 +139,38 @@ const PtamList = () => {
     finally { setLoading(false); }
   }, [toast]);
   useEffect(() => { load(); }, [load]);
+
+  const handleCompartilhar = async (ptam) => {
+    setShareLoading(prev => ({ ...prev, [ptam.id]: true }));
+    try {
+      if (ptam.link_publico_ativo) {
+        // Já tem link ativo, apenas copiar
+        const url = `${window.location.origin}/laudo/${ptam.link_publico_token}`;
+        navigator.clipboard.writeText(url);
+        toast({ title: 'Link copiado!', description: 'URL copiada para a área de transferência' });
+      } else {
+        // Gerar novo link
+        const res = await ptamAPI.compartilhar(ptam.id);
+        navigator.clipboard.writeText(res.url);
+        toast({ title: 'Link gerado!', description: 'URL copiada para a área de transferência' });
+        load(); // Recarregar lista
+      }
+    } catch (err) {
+      toast({ title: 'Erro ao compartilhar', description: err.response?.data?.detail, variant: 'destructive' });
+    } finally {
+      setShareLoading(prev => ({ ...prev, [ptam.id]: false }));
+    }
+  };
+
+  const handleDesativarCompartilhamento = async (ptam) => {
+    try {
+      await ptamAPI.desativarCompartilhamento(ptam.id);
+      toast({ title: 'Compartilhamento desativado' });
+      load();
+    } catch (err) {
+      toast({ title: 'Erro ao desativar', variant: 'destructive' });
+    }
+  };
 
   const remove = async (id) => {
     if (!window.confirm('Remover este PTAM? Esta ação não pode ser desfeita.')) return;
@@ -184,6 +218,84 @@ const PtamList = () => {
     return 'bg-gray-100 text-gray-700';
   };
 
+  // Modal de compartilhamento
+  const ShareModal = ({ ptam, onClose }) => {
+    const url = `${window.location.origin}/laudo/${ptam.link_publico_token}`;
+    const [copied, setCopied] = useState(false);
+
+    const copyLink = () => {
+      navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    };
+
+    const shareWhatsApp = () => {
+      const text = `Segue o laudo de avaliação do imóvel: ${url}`;
+      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    };
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+        <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 relative">
+          <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+            <X className="w-5 h-5" />
+          </button>
+
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-10 h-10 rounded-xl bg-emerald-900/10 flex items-center justify-center">
+              <Link2 className="w-5 h-5 text-emerald-900" />
+            </div>
+            <div>
+              <h2 className="font-semibold text-gray-900 text-base">Link de Compartilhamento</h2>
+              <p className="text-xs text-gray-500">PTAM {ptam.number}</p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="bg-gray-50 rounded-lg p-3">
+              <p className="text-xs text-gray-500 mb-1">URL do laudo</p>
+              <div className="flex gap-2">
+                <input 
+                  type="text" 
+                  value={url} 
+                  readOnly 
+                  className="flex-1 bg-white border rounded px-3 py-2 text-sm font-mono text-gray-600"
+                />
+                <Button variant="outline" size="sm" onClick={copyLink}>
+                  {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <Eye className="w-4 h-4" />
+              <span>{ptam.visualizacoes || 0} visualizações</span>
+            </div>
+
+            <div className="flex gap-2">
+              <Button className="flex-1 bg-green-600 hover:bg-green-700 text-white" onClick={shareWhatsApp}>
+                <Send className="w-4 h-4 mr-2" />
+                WhatsApp
+              </Button>
+              <Button variant="outline" className="flex-1" onClick={() => window.open(url, '_blank')}>
+                <ExternalLink className="w-4 h-4 mr-2" />
+                Abrir
+              </Button>
+            </div>
+
+            <Button 
+              variant="outline" 
+              className="w-full text-red-600 border-red-200 hover:bg-red-50"
+              onClick={() => { handleDesativarCompartilhamento(ptam); onClose(); }}
+            >
+              Desativar link
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       {emailModal && (
@@ -191,6 +303,13 @@ const PtamList = () => {
           ptam={emailModal}
           onClose={() => setEmailModal(null)}
           onSent={load}
+        />
+      )}
+
+      {shareModal && (
+        <ShareModal
+          ptam={shareModal}
+          onClose={() => setShareModal(null)}
         />
       )}
 
@@ -237,6 +356,22 @@ const PtamList = () => {
                 <Button size="sm" variant="outline" title="Enviar por E-mail" onClick={() => setEmailModal(p)}
                   className="text-emerald-700 hover:bg-emerald-50 border-emerald-200">
                   <Mail className="w-3.5 h-3.5" />
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  title={p.link_publico_ativo ? "Link ativo" : "Compartilhar"}
+                  onClick={() => p.link_publico_ativo ? setShareModal(p) : handleCompartilhar(p)}
+                  disabled={shareLoading[p.id]}
+                  className={p.link_publico_ativo ? "text-blue-600 border-blue-200 hover:bg-blue-50" : ""}
+                >
+                  {shareLoading[p.id] ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : p.link_publico_ativo ? (
+                    <Link2 className="w-3.5 h-3.5" />
+                  ) : (
+                    <Link2 className="w-3.5 h-3.5" />
+                  )}
                 </Button>
                 <Button size="sm" variant="outline" title="Exportar PDF" onClick={() => downloadPdf(p)} disabled={pdfLoading[p.id]}>
                   {pdfLoading[p.id] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5" />}

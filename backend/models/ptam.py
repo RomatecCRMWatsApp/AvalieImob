@@ -258,6 +258,12 @@ class PtamBase(BaseModel):
     versao_lacrada: Optional[str] = None
     hash_lacrado: Optional[str] = None
     link_publico: Optional[bool] = False
+    
+    # Link público de compartilhamento
+    link_publico_token: Optional[str] = None
+    link_publico_ativo: Optional[bool] = False
+    link_publico_criado_em: Optional[datetime] = None
+    visualizacoes: Optional[int] = 0
 
     # Meta
     status: str = "Rascunho"

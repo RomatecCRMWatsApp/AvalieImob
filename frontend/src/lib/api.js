@@ -110,6 +110,9 @@ export const ptamAPI = {
   lacrarVersao: (id, observacao) => api.post(`/ptam/${id}/lacrar`, { observacao }).then(r => r.data),
   getVersao: (id, vid) => api.get(`/ptam/${id}/versoes/${vid}`).then(r => r.data),
   verificarIntegridade: (id, vid) => api.get(`/ptam/${id}/verificar/${vid}`).then(r => r.data),
+  // Compartilhamento público
+  compartilhar: (id) => api.post(`/ptam/${id}/compartilhar`).then(r => r.data),
+  desativarCompartilhamento: (id) => api.delete(`/ptam/${id}/compartilhar`).then(r => r.data),
 };
 
 // ---- Garantias (NBR 14.653 partes 3 e 5)

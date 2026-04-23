@@ -3,10 +3,11 @@ import base64
 import hashlib
 import json
 import logging
+import uuid
 from datetime import datetime
 from typing import List, Optional, Any
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import Response
+from fastapi.responses import Response, FileResponse
 from pydantic import BaseModel
 from pymongo import ReturnDocument
 
@@ -15,6 +16,7 @@ from dependencies import get_active_subscriber, serialize_doc
 from services.auth_service import get_current_user_id
 from services.ptam_share import enviar_ptam_email
 from models import PtamBase, Ptam, PtamVersion, PtamVersionDiff
+from pdf.ptam_pdf import generate_ptam_pdf
 
 router = APIRouter(tags=["ptam"])
 logger = logging.getLogger("romatec")
@@ -752,3 +754,269 @@ async def send_ptam_email(
 
     logger.info("PTAM %s enviado por email para %s", numero, body.destinatario)
     return {"ok": True, "mensagem": f"E-mail enviado para {body.destinatario}"}
+
+
+# ============ PORTAL PÚBLICO DO CLIENTE ============
+
+@router.post("/ptam/{pid}/compartilhar")
+async def compartilhar_ptam(
+    pid: str,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db)
+):
+    """Gera token de compartilhamento público para um PTAM."""
+    ptam = await db.ptam_documents.find_one({"id": pid, "user_id": uid})
+    if not ptam:
+        raise HTTPException(status_code=404, detail="PTAM não encontrado")
+    
+    # Gerar token único
+    token = str(uuid.uuid4()).replace('-', '')
+    
+    await db.ptam_documents.update_one(
+        {"id": pid},
+        {
+            "$set": {
+                "link_publico_token": token,
+                "link_publico_ativo": True,
+                "link_publico_criado_em": datetime.utcnow(),
+                "updated_at": datetime.utcnow()
+            }
+        }
+    )
+    
+    platform_url = "https://avalieimob-production.up.railway.app"  # Ajustar conforme variável de ambiente
+    return {
+        "ok": True,
+        "token": token,
+        "url": f"{platform_url}/laudo/{token}",
+        "message": "Link de compartilhamento gerado com sucesso"
+    }
+
+
+@router.delete("/ptam/{pid}/compartilhar")
+async def desativar_compartilhamento(
+    pid: str,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db)
+):
+    """Desativa o link de compartilhamento público."""
+    ptam = await db.ptam_documents.find_one({"id": pid, "user_id": uid})
+    if not ptam:
+        raise HTTPException(status_code=404, detail="PTAM não encontrado")
+    
+    await db.ptam_documents.update_one(
+        {"id": pid},
+        {
+            "$set": {
+                "link_publico_ativo": False,
+                "updated_at": datetime.utcnow()
+            }
+        }
+    )
+    
+    return {"ok": True, "message": "Link de compartilhamento desativado"}
+
+
+@router.get("/ptam/public/{token}")
+async def get_ptam_publico(token: str, db=Depends(get_db)):
+    """Retorna dados públicos de um PTAM para o portal do cliente (SEM autenticação)."""
+    ptam = await db.ptam_documents.find_one({
+        "link_publico_token": token,
+        "link_publico_ativo": True
+    })
+    
+    if not ptam:
+        raise HTTPException(status_code=404, detail="Laudo não encontrado ou link inativo")
+    
+    # Incrementar contador de visualizações
+    await db.ptam_documents.update_one(
+        {"id": ptam["id"]},
+        {"$inc": {"visualizacoes": 1}}
+    )
+    
+    # Buscar perfil do avaliador
+    perfil_avaliador = await db.perfil_avaliador.find_one({"user_id": ptam.get("user_id")})
+    if perfil_avaliador:
+        perfil_avaliador.pop("_id", None)
+        perfil_avaliador.pop("user_id", None)
+    
+    # Dados públicos (NUNCA expor campos sensíveis)
+    public_data = {
+        "numero_ptam": ptam.get("numero_ptam"),
+        "number": ptam.get("number"),
+        "solicitante_nome": ptam.get("solicitante_nome"),
+        "solicitante": ptam.get("solicitante"),
+        "property_address": ptam.get("property_address"),
+        "property_neighborhood": ptam.get("property_neighborhood"),
+        "property_city": ptam.get("property_city"),
+        "property_state": ptam.get("property_state"),
+        "property_cep": ptam.get("property_cep"),
+        "property_type": ptam.get("property_type"),
+        "property_label": ptam.get("property_label"),
+        "property_matricula": ptam.get("property_matricula"),
+        "property_cartorio": ptam.get("property_cartorio"),
+        "property_area_sqm": ptam.get("property_area_sqm"),
+        "property_area_ha": ptam.get("property_area_ha"),
+        "property_area_terreno": ptam.get("property_area_terreno"),
+        "property_area_construida": ptam.get("property_area_construida"),
+        "resultado_valor_total": ptam.get("resultado_valor_total"),
+        "resultado_valor_unitario": ptam.get("resultado_valor_unitario"),
+        "resultado_intervalo_inf": ptam.get("resultado_intervalo_inf"),
+        "resultado_intervalo_sup": ptam.get("resultado_intervalo_sup"),
+        "resultado_data_referencia": ptam.get("resultado_data_referencia"),
+        "fundamentacao_grau": ptam.get("fundamentacao_grau"),
+        "precisao_grau": ptam.get("precisao_grau"),
+        "methodology": ptam.get("methodology"),
+        "responsavel_nome": ptam.get("responsavel_nome"),
+        "responsavel_creci": ptam.get("responsavel_creci"),
+        "responsavel_cnai": ptam.get("responsavel_cnai"),
+        "registro_profissional": ptam.get("registro_profissional"),
+        "market_samples": ptam.get("market_samples", []),
+        "calc_media_final": ptam.get("calc_media"),
+        "calc_coef_variacao": ptam.get("calc_coef_variacao"),
+        "calc_n_validas": ptam.get("calc_n_validas"),
+        "created_at": ptam.get("created_at"),
+        "updated_at": ptam.get("updated_at"),
+        "lacrado": ptam.get("lacrado", False),
+        "versao_lacrada": ptam.get("versao_lacrada"),
+        "hash_lacrado": ptam.get("hash_lacrado"),
+        "visualizacoes": (ptam.get("visualizacoes") or 0) + 1,
+        "perfil_avaliador": perfil_avaliador,
+        "conclusion_date": ptam.get("conclusion_date"),
+        "conclusion_city": ptam.get("conclusion_city"),
+        "total_indemnity": ptam.get("total_indemnity"),
+        "total_indemnity_words": ptam.get("total_indemnity_words"),
+    }
+    
+    return public_data
+
+
+@router.get("/ptam/public/{token}/pdf")
+async def download_ptam_publico_pdf(token: str, db=Depends(get_db)):
+    """Gera e retorna PDF de um PTAM público (SEM autenticação)."""
+    ptam = await db.ptam_documents.find_one({
+        "link_publico_token": token,
+        "link_publico_ativo": True
+    })
+    
+    if not ptam:
+        raise HTTPException(status_code=404, detail="Laudo não encontrado ou link inativo")
+    
+    user = await db.users.find_one({"id": ptam.get("user_id")})
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    
+    # Logo da empresa
+    company_logo_id = user.get("company_logo")
+    if company_logo_id:
+        logo_doc = await db.images.find_one({"id": company_logo_id, "user_id": ptam.get("user_id")})
+        if logo_doc:
+            import base64 as _b64
+            user["_company_logo_bytes"] = _b64.b64decode(logo_doc["data_b64"])
+    
+    try:
+        # Buscar fotos do imóvel
+        fotos_imovel = ptam.get("fotos_imovel") or []
+        for i, foto in enumerate(fotos_imovel):
+            if isinstance(foto, str):
+                url = foto
+            elif isinstance(foto, dict):
+                url = foto.get("url") or foto.get("image_id", "")
+            else:
+                continue
+            parts = str(url).replace('/api/upload/image/', '').split('/')
+            image_id = parts[-1] if parts else str(url)
+            if len(image_id) > 30 and '-' in image_id:
+                img_doc = await db.images.find_one({"id": image_id})
+                if img_doc and img_doc.get("data_b64"):
+                    fotos_imovel[i] = {
+                        "image_id": image_id,
+                        "url": url,
+                        "_image_bytes": base64.b64decode(img_doc["data_b64"]),
+                        "description": (foto.get("description") or foto.get("descricao") or f"Foto {i+1}") if isinstance(foto, dict) else f"Foto {i+1}",
+                    }
+        ptam["fotos_imovel"] = fotos_imovel
+        
+        # Buscar imagens das amostras
+        market_samples = ptam.get("market_samples") or []
+        for j, sample in enumerate(market_samples):
+            foto_url = sample.get("foto") or sample.get("foto_url") or ""
+            if not foto_url:
+                continue
+            parts = str(foto_url).replace('/api/upload/image/', '').split('/')
+            sample_image_id = parts[-1] if parts else str(foto_url)
+            if len(sample_image_id) > 30 and '-' in sample_image_id:
+                sample_img_doc = await db.images.find_one({"id": sample_image_id})
+                if sample_img_doc and sample_img_doc.get("data_b64"):
+                    market_samples[j] = {
+                        **sample,
+                        "_image_bytes": base64.b64decode(sample_img_doc["data_b64"]),
+                    }
+        ptam["market_samples"] = market_samples
+        
+        # Buscar consultas CND
+        cnd_consultas = []
+        raw_consultas = await db.cnd_consultas.find({"ptam_id": ptam["id"]}).to_list(20)
+        for c in raw_consultas:
+            certs = await db.cnd_certidoes.find({"consulta_id": c.get("id", "")}).to_list(10)
+            cnd_consultas.append({"consulta": c, "certidoes": certs})
+        
+        # Buscar perfil do avaliador
+        perfil_avaliador = await db.perfil_avaliador.find_one({"user_id": ptam.get("user_id")})
+        if perfil_avaliador:
+            perfil_avaliador.pop("_id", None)
+        
+        pdf_bytes = generate_ptam_pdf(ptam, user, cnd_consultas=cnd_consultas, perfil_avaliador=perfil_avaliador)
+    except Exception as e:
+        logger.exception("PDF generation error (public)")
+        raise HTTPException(status_code=500, detail=f"Erro ao gerar PDF: {str(e)[:200]}")
+    
+    if not pdf_bytes or len(pdf_bytes) < 100:
+        raise HTTPException(status_code=500, detail="PDF gerado vazio ou corrompido")
+    
+    filename = f"PTAM_{ptam.get('number', 'sem-numero').replace('/', '-')}.pdf"
+    
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Length": str(len(pdf_bytes)),
+        },
+    )
+
+
+@router.get("/ptam/public/{token}/verificar")
+async def verificar_integridade_publico(token: str, db=Depends(get_db)):
+    """Verifica integridade de um laudo lacrado via token público."""
+    ptam = await db.ptam_documents.find_one({
+        "link_publico_token": token,
+        "link_publico_ativo": True
+    })
+    
+    if not ptam:
+        raise HTTPException(status_code=404, detail="Laudo não encontrado ou link inativo")
+    
+    if not ptam.get("lacrado"):
+        raise HTTPException(status_code=400, detail="Este laudo não possui versão lacrada")
+    
+    # Buscar versão lacrada mais recente
+    versao_lacrada = await db.ptam_versions.find_one(
+        {"ptam_id": ptam["id"], "tipo": "lacrado"},
+        sort=[("numero_versao", -1)]
+    )
+    
+    if not versao_lacrada or not versao_lacrada.get("snapshot"):
+        raise HTTPException(status_code=400, detail="Versão lacrada não encontrada")
+    
+    hash_armazenado = versao_lacrada.get("hash_sha256", "")
+    hash_calculado = _calculate_hash(versao_lacrada["snapshot"])
+    
+    return {
+        "integro": hash_armazenado == hash_calculado,
+        "hash_armazenado": hash_armazenado,
+        "hash_calculado": hash_calculado,
+        "numero_lacre": versao_lacrada.get("numero_lacre"),
+        "data_lacre": versao_lacrada.get("created_at"),
+        "versao_lacrada": ptam.get("versao_lacrada")
+    }
