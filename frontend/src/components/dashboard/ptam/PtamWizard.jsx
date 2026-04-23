@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import * as LucideIcons from 'lucide-react';
-import { ChevronLeft, ChevronRight, Save, Download, ArrowLeft, Loader2, Check, History, Share2, X, Copy, ExternalLink, Send } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Save, Download, ArrowLeft, Loader2, Check, History, Share2, X, Copy, ExternalLink, Send, PenLine } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { useToast } from '../../../hooks/use-toast';
 import { ptamAPI, aiAPI, perfilAPI } from '../../../lib/api';
@@ -19,6 +19,7 @@ import { StepMetodoAvaliacao } from './steps/StepMetodoAvaliacao';
 import { StepResultado } from './steps/StepResultado';
 import { StepConclusao } from './steps/StepConclusao';
 import { HistoricoVersoes } from './HistoricoVersoes';
+import AssinaturaDigital from './AssinaturaDigital';
 
 const getStepClasses = (active, done) => {
   if (active) return 'bg-emerald-900 text-white';
@@ -47,6 +48,7 @@ const PtamWizard = () => {
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareData, setShareData] = useState(null);
   const [shareLoading, setShareLoading] = useState(false);
+  const [showAssinatura, setShowAssinatura] = useState(false);
   const debounceRef = useRef(null);
 
   const load = useCallback(async () => {
@@ -237,7 +239,7 @@ const PtamWizard = () => {
     </div>
   );
 
-  const stepProps = { form, setForm, onAi: handleAi, aiLoading };
+  const stepProps = { form, setForm, onAi: handleAi, aiLoading, onSolicitarAssinatura: () => setShowAssinatura(true) };
 
   const renderStep = () => {
     switch (step) {
@@ -294,6 +296,24 @@ const PtamWizard = () => {
           >
             <Share2 className="w-4 h-4 mr-1.5" />
             {shareLoading ? 'Gerando...' : form.link_publico_ativo ? 'Link ativo' : 'Compartilhar'}
+          </Button>
+          <Button
+            variant={form.d4sign_status === 'assinado' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setShowAssinatura(true)}
+            disabled={!ptamId}
+            className={
+              form.d4sign_status === 'assinado'
+                ? 'bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5'
+                : 'gap-1.5 border-emerald-300 text-emerald-700 hover:bg-emerald-50'
+            }
+          >
+            <PenLine className="w-4 h-4" />
+            {form.d4sign_status === 'assinado'
+              ? 'Assinado'
+              : form.d4sign_status === 'aguardando'
+              ? 'Aguardando'
+              : 'Assinar'}
           </Button>
           <Button variant="outline" onClick={() => save(false)} disabled={saving}>
             <Save className="w-4 h-4 mr-1" />{saving ? 'Salvando...' : 'Salvar rascunho'}
@@ -394,6 +414,16 @@ const PtamWizard = () => {
         onClose={() => setShowHistorico(false)}
         versaoAtual={versaoAtual}
       />
+
+      {showAssinatura && ptamId && (
+        <AssinaturaDigital
+          tipo="ptam"
+          docId={ptamId}
+          docData={form}
+          onClose={() => setShowAssinatura(false)}
+          onUpdate={(updates) => setForm(f => ({ ...f, ...updates }))}
+        />
+      )}
 
       {/* Modal de Compartilhamento */}
       {showShareModal && shareData && (

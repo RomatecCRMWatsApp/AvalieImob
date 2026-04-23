@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard/
+Disallow: /login
+Disallow: /cadastro
+Disallow: /api/
+
+Sitemap: https://www.romatecavalieimob.com.br/sitemap.xml

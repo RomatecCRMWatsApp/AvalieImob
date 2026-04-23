@@ -151,6 +151,39 @@ async def privacidade():
 </body>
 </html>"""
 
+# ── SEO: sitemap.xml e robots.txt ────────────────────────────────────
+from fastapi.responses import Response as _Response
+from datetime import datetime as _datetime
+
+@app.get("/sitemap.xml")
+async def sitemap():
+    """Sitemap dinâmico para indexação pelo Google."""
+    hoje = _datetime.utcnow().strftime("%Y-%m-%d")
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"'
+        ' xmlns:xhtml="http://www.w3.org/1999/xhtml">\n'
+        f'  <url><loc>https://www.romatecavalieimob.com.br/</loc><lastmod>{hoje}</lastmod><changefreq>weekly</changefreq><priority>1.0</priority>'
+        '<xhtml:link rel="alternate" hreflang="pt-BR" href="https://www.romatecavalieimob.com.br/"/></url>\n'
+        f'  <url><loc>https://www.romatecavalieimob.com.br/login</loc><lastmod>{hoje}</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>\n'
+        f'  <url><loc>https://www.romatecavalieimob.com.br/cadastro</loc><lastmod>{hoje}</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>\n'
+        f'  <url><loc>https://www.romatecavalieimob.com.br/privacidade</loc><lastmod>{hoje}</lastmod><changefreq>yearly</changefreq><priority>0.3</priority></url>\n'
+        '</urlset>'
+    )
+    return _Response(content=xml, media_type="application/xml")
+
+@app.get("/robots.txt")
+async def robots():
+    """robots.txt via backend (sobrescreve o estático se servido pelo FastAPI)."""
+    content = (
+        "User-agent: *\n"
+        "Allow: /\n"
+        "Disallow: /dashboard/\n"
+        "Disallow: /api/\n\n"
+        "Sitemap: https://www.romatecavalieimob.com.br/sitemap.xml\n"
+    )
+    return _Response(content=content, media_type="text/plain")
+
 # ── React SPA static files ───────────────────────────────────────────
 import pathlib as _pathlib
 _frontend_build = _pathlib.Path(__file__).parent.parent / "frontend" / "build"

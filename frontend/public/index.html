@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="pt-BR">
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -8,90 +8,117 @@
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="description" content="RomaTec AvalieImob — Plataforma completa de avaliação imobiliária, PTAM, laudos técnicos e avaliação de garantias (imóveis urbanos, rurais, safra, bovinos). Avalie com precisão, decida com confiança." />
-        <meta name="keywords" content="PTAM, laudo de avaliação, avaliação imobiliária, NBR 14.653, perícia, avaliador, Açailândia, Maranhão, RomaTec, consultoria imobiliária, safra, rebanho, garantia rural" />
+        <meta name="description" content="Sistema online de avaliacao imobiliaria para emitir PTAM, Laudos Tecnicos, TVI e Avaliacao de Garantias. Conforme NBR 14.653 e Resolucao COFECI 1.066/2007. Gratis para testar." />
+        <meta name="keywords" content="software PTAM online, sistema avaliacao imobiliaria, emitir PTAM online, laudo avaliacao imovel, NBR 14653, avaliacao de garantias bancarias, kit TVI vistoria, software corretor de imoveis, PTAM gratis, avaliacao imovel rural, semoventes penhor rural, avaliacao locacao imovel" />
         <meta name="author" content="RomaTec Consultoria Total — José Romário Pinto Bezerra" />
         <meta name="robots" content="index, follow" />
 
         <!-- Open Graph / Facebook / WhatsApp -->
         <meta property="og:type" content="website" />
-        <meta property="og:site_name" content="RomaTec AvalieImob" />
-        <meta property="og:title" content="RomaTec AvalieImob — Sistema de Avaliação Imobiliária" />
-        <meta property="og:description" content="Plataforma completa para PTAM, laudos e avaliações imobiliárias, com IA integrada e exportação em DOCX. NBR 14.653 compliant." />
-        <meta property="og:image" content="https://customer-assets.emergentagent.com/job_review-simples/artifacts/36d07ysm_03_banner_1280x480.png" />
-        <meta property="og:url" content="https://romatecavalieimob.com.br" />
+        <meta property="og:site_name" content="AvalieImob" />
+        <meta property="og:title" content="AvalieImob — Software de PTAM Online" />
+        <meta property="og:description" content="Emita PTAMs, Laudos e Avaliacoes de Garantias em minutos. IA integrada. Exporta DOCX e PDF. App Android." />
+        <meta property="og:image" content="/brand/banner.png" />
+        <meta property="og:url" content="https://www.romatecavalieimob.com.br" />
         <meta property="og:locale" content="pt_BR" />
 
         <!-- Twitter -->
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="RomaTec AvalieImob" />
-        <meta name="twitter:description" content="Avalie com precisão. Decida com confiança." />
-        <meta name="twitter:image" content="https://customer-assets.emergentagent.com/job_review-simples/artifacts/36d07ysm_03_banner_1280x480.png" />
+        <meta name="twitter:title" content="AvalieImob — Software de PTAM Online" />
+        <meta name="twitter:description" content="Emita PTAMs, Laudos e Avaliacoes de Garantias em minutos. IA integrada. Exporta DOCX e PDF. App Android." />
+        <meta name="twitter:image" content="/brand/banner.png" />
 
         <!-- Favicon and PWA icons -->
-        <link rel="icon" type="image/png" href="https://customer-assets.emergentagent.com/job_review-simples/artifacts/0n08eo2p_02_icone_512.png" />
-        <link rel="apple-touch-icon" href="https://customer-assets.emergentagent.com/job_review-simples/artifacts/0n08eo2p_02_icone_512.png" />
+        <link rel="icon" type="image/png" href="/brand/icone.png" />
+        <link rel="apple-touch-icon" href="/brand/icone.png" />
         <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
 
         <!-- Canonical -->
-        <link rel="canonical" href="https://romatecavalieimob.com.br" />
+        <link rel="canonical" href="https://www.romatecavalieimob.com.br/" />
 
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@600&display=swap" rel="stylesheet" />
 
-        <title>RomaTec AvalieImob — Sistema de Avaliação Imobiliária e PTAM</title>
+        <title>AvalieImob — Software de PTAM e Avaliacao Imobiliaria Online | NBR 14.653</title>
 
-        <!-- Google Analytics (adicione seu GA_MEASUREMENT_ID) -->
-        <!-- Para ativar, substitua G-XXXXXXXXXX pelo seu ID real do Google Analytics 4
-        <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+        <!-- Google Analytics 4 (ativo somente quando REACT_APP_GA_MEASUREMENT_ID estiver definido) -->
         <script>
-          window.dataLayer = window.dataLayer || [];
-          function gtag(){dataLayer.push(arguments);}
-          gtag('js', new Date());
-          gtag('config', 'G-XXXXXXXXXX');
+          var GA_ID = '%REACT_APP_GA_MEASUREMENT_ID%';
+          if (GA_ID && GA_ID !== '%REACT_APP_GA_MEASUREMENT_ID%') {
+            var s = document.createElement('script');
+            s.async = true;
+            s.src = 'https://www.googletagmanager.com/gtag/js?id=' + GA_ID;
+            document.head.appendChild(s);
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', GA_ID);
+          }
         </script>
-        -->
 
         <!-- Schema.org JSON-LD -->
         <script type="application/ld+json">
-        {
-          "@context": "https://schema.org",
-          "@type": "ProfessionalService",
-          "name": "RomaTec AvalieImob",
-          "description": "Sistema completo de avaliação imobiliária, PTAM, laudos técnicos e avaliação de garantias.",
-          "url": "https://romatecavalieimob.com.br",
-          "telephone": "+55-99-99181-1246",
-          "email": "contato@romatecavalieimob.com.br",
-          "address": {
-            "@type": "PostalAddress",
-            "streetAddress": "Rua São Raimundo, nº 10, Centro",
-            "addressLocality": "Açailândia",
-            "addressRegion": "MA",
-            "addressCountry": "BR"
+        [
+          {
+            "@context": "https://schema.org",
+            "@type": "SoftwareApplication",
+            "name": "AvalieImob",
+            "applicationCategory": "BusinessApplication",
+            "operatingSystem": "Web, Android",
+            "offers": {
+              "@type": "Offer",
+              "price": "49.00",
+              "priceCurrency": "BRL",
+              "description": "Plano mensal — PTAM, TVI, Laudos e Avaliacao de Garantias"
+            },
+            "description": "Software online para emissao de PTAM, Laudos Tecnicos de Avaliacao Imobiliaria, Kit TVI e Avaliacao de Garantias Bancarias conforme NBR 14.653.",
+            "url": "https://www.romatecavalieimob.com.br",
+            "screenshot": "https://www.romatecavalieimob.com.br/brand/banner.png",
+            "featureList": [
+              "Emissao de PTAM conforme NBR 14.653",
+              "Kit TVI — Termo de Vistoria de Imovel",
+              "Avaliacao de Garantias Bancarias",
+              "Avaliacao de Semoventes — Penhor Rural",
+              "Avaliacao de Locacao",
+              "Assistente IA especializado em avaliacao imobiliaria",
+              "Consulta de Certidoes CND automatica",
+              "Exportacao DOCX e PDF",
+              "App Android"
+            ]
           },
-          "founder": {
-            "@type": "Person",
-            "name": "José Romário Pinto Bezerra",
-            "jobTitle": "CEO & Fundador"
+          {
+            "@context": "https://schema.org",
+            "@type": "ProfessionalService",
+            "name": "RomaTec Consultoria Imobiliaria",
+            "description": "Consultoria em avaliacao imobiliaria, agrimensura, regularizacao fundiaria e software para avaliadores.",
+            "url": "https://www.romatecavalieimob.com.br",
+            "telephone": "+55-99-99181-1246",
+            "email": "contato@romatecavalieimob.com.br",
+            "priceRange": "R$ 49 – R$ 199/mes",
+            "address": {
+              "@type": "PostalAddress",
+              "streetAddress": "Rua Sao Raimundo, no 10, Centro",
+              "addressLocality": "Acailandia",
+              "addressRegion": "MA",
+              "postalCode": "65930-000",
+              "addressCountry": "BR"
+            },
+            "geo": { "@type": "GeoCoordinates", "latitude": "-4.9442", "longitude": "-47.5003" },
+            "founder": {
+              "@type": "Person",
+              "name": "Jose Romario Pinto Bezerra",
+              "jobTitle": "CEO & Fundador — Tecnico em Agrimensura CFTMA 12-091-853-69"
+            },
+            "areaServed": { "@type": "Country", "name": "Brasil" },
+            "sameAs": ["https://www.romatecavalieimob.com.br"]
           }
-        }
+        ]
         </script>
 
     </head>
     <body>
-        <noscript>You need to enable JavaScript to run this app.</noscript>
+        <noscript>Você precisa habilitar o JavaScript para usar este sistema.</noscript>
         <div id="root"></div>
-        <!--
-      This HTML file is a template.
-      If you open it directly in the browser, you will see an empty page.
-
-      You can add webfonts, meta tags, or analytics to this file.
-      The build step will place the bundled scripts into the <body> tag.
-
-      To begin the development, run `npm start` or `yarn start`.
-      To create a production bundle, use `npm run build` or `yarn build`.
-    -->
-        
     </body>
 </html>

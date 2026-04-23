@@ -37,10 +37,14 @@ const Hero = () => {
             Nova versão 2026 com IA integrada
           </div>
 
-          <h1 className="font-display text-5xl md:text-6xl lg:text-7xl font-bold leading-[1.05] text-gray-900 mb-6">
-            Avalie com <span className="brand-green">precisão.</span><br />
-            Decida com <span className="brand-green italic">confiança.</span>
+          <h1 className="font-display text-5xl md:text-6xl lg:text-7xl font-bold leading-[1.05] text-gray-900 mb-3">
+            Software de <span className="brand-green">PTAM</span> e<br />
+            Avaliação <span className="brand-green italic">Imobiliária</span>
           </h1>
+
+          <h2 className="text-sm font-medium text-emerald-700 mb-6 tracking-wide uppercase">
+            Sistema Online · NBR 14.653 · PTAM · TVI · Garantias · Semoventes · Locação
+          </h2>
 
           <p className="text-lg text-gray-600 mb-8 max-w-xl leading-relaxed">
             A plataforma completa para emitir <strong>PTAM, Laudos e Avaliações</strong> de imóveis urbanos, rurais e outras garantias — grãos, safra, bovinos e equipamentos.

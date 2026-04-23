@@ -192,6 +192,14 @@ export const cndAPI = {
   getConsultasPtam: (ptamId) => api.get('/cnd/historico').then(r => r.data.filter(c => c.ptam_id === ptamId)),
 };
 
+// ---- Assinatura Digital D4Sign
+export const assinaturaAPI = {
+  iniciar: (tipo, id, payload) => api.post(`/assinatura/${tipo}/${id}/iniciar`, payload),
+  status: (tipo, id) => api.get(`/assinatura/${tipo}/${id}/status`),
+  download: (tipo, id) => api.get(`/assinatura/${tipo}/${id}/download`, { responseType: 'blob' }),
+  cancelar: (tipo, id) => api.delete(`/assinatura/${tipo}/${id}/cancelar`),
+};
+
 // ---- TVI (Termo de Vistoria de Imóvel)
 export const tviAPI = {
   listModels: () => api.get('/tvi/models').then(r => r.data),

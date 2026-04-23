@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, FileText, Download, Trash2, Loader2, Calendar, DollarSign, FileDown, Mail, X, Send, Lock, Link2, Eye, Check, Copy, ExternalLink } from 'lucide-react';
+import { Plus, FileText, Download, Trash2, Loader2, Calendar, DollarSign, FileDown, Mail, X, Send, Lock, Link2, Eye, Check, Copy, ExternalLink, PenLine } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Badge } from '../../ui/badge';
 import { useToast } from '../../../hooks/use-toast';
-import { ptamAPI } from '../../../lib/api';
+import { ptamAPI, assinaturaAPI } from '../../../lib/api';
+import AssinaturaDigital from './AssinaturaDigital';
 
 // ── Modal de envio por email ──────────────────────────────────────────────────
 const EmailModal = ({ ptam, onClose, onSent }) => {
@@ -131,6 +132,7 @@ const PtamList = () => {
   const [emailModal, setEmailModal] = useState(null);
   const [shareModal, setShareModal] = useState(null);
   const [shareLoading, setShareLoading] = useState({});
+  const [assinaturaModal, setAssinaturaModal] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -313,6 +315,18 @@ const PtamList = () => {
         />
       )}
 
+      {assinaturaModal && (
+        <AssinaturaDigital
+          tipo="ptam"
+          docId={assinaturaModal.id}
+          docData={assinaturaModal}
+          onClose={() => setAssinaturaModal(null)}
+          onUpdate={(updates) => {
+            setItems(prev => prev.map(p => p.id === assinaturaModal.id ? { ...p, ...updates } : p));
+          }}
+        />
+      )}
+
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="font-display text-3xl font-bold text-gray-900">PTAM — Pareceres Técnicos</h1>
@@ -342,6 +356,16 @@ const PtamList = () => {
                       <Lock className="w-3 h-3 mr-1 inline" />Lacrado
                     </Badge>
                   )}
+                  {p.d4sign_status === 'assinado' && (
+                    <Badge className="bg-indigo-900 text-white border border-indigo-800">
+                      Assinado
+                    </Badge>
+                  )}
+                  {p.d4sign_status === 'aguardando' && (
+                    <Badge className="bg-amber-100 text-amber-800 border border-amber-200">
+                      Aguardando
+                    </Badge>
+                  )}
                 </div>
               </div>
               <div className="text-xs font-semibold text-emerald-700 tracking-wider">PTAM {p.number}</div>
@@ -353,6 +377,37 @@ const PtamList = () => {
               </div>
               <div className="flex gap-2 mt-4">
                 <Button size="sm" className="flex-1 bg-emerald-900 hover:bg-emerald-800 text-white" onClick={() => nav(`/dashboard/ptam/${p.id}`)}>Editar</Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  title={p.d4sign_status === 'assinado' ? 'Assinado' : p.d4sign_status === 'aguardando' ? 'Aguardando assinaturas' : 'Assinar digitalmente'}
+                  onClick={() => setAssinaturaModal(p)}
+                  className={
+                    p.d4sign_status === 'assinado'
+                      ? 'text-indigo-700 border-indigo-200 hover:bg-indigo-50'
+                      : p.d4sign_status === 'aguardando'
+                      ? 'text-amber-700 border-amber-200 hover:bg-amber-50'
+                      : 'text-emerald-700 border-emerald-200 hover:bg-emerald-50'
+                  }
+                >
+                  <PenLine className="w-3.5 h-3.5" />
+                </Button>
+                {p.d4sign_status === 'assinado' && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    title="Baixar PDF Assinado"
+                    onClick={() => {
+                      const a = document.createElement('a');
+                      a.href = `/api/assinatura/ptam/${p.id}/download`;
+                      a.download = `PTAM_${(p.number || 'sem-numero').replace(/\//g, '-')}_ASSINADO.pdf`;
+                      a.click();
+                    }}
+                    className="text-indigo-700 border-indigo-200 hover:bg-indigo-50"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                  </Button>
+                )}
                 <Button size="sm" variant="outline" title="Enviar por E-mail" onClick={() => setEmailModal(p)}
                   className="text-emerald-700 hover:bg-emerald-50 border-emerald-200">
                   <Mail className="w-3.5 h-3.5" />
