@@ -1,12 +1,13 @@
 // @module ptam/steps/StepAmostras — Step 6: Amostras de Mercado (tabela de pesquisa, análise)
-import React from 'react';
+import React, { useState } from 'react';
 import { Input } from '../../../ui/input';
 import { Textarea } from '../../../ui/textarea';
 import { Button } from '../../../ui/button';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Search } from 'lucide-react';
 import { SectionHeader, AiButton } from '../shared/primitives';
 import { emptyMarketSample } from '../ptamHelpers';
 import ImageUploader from '../ImageUploader';
+import { BuscaAmostras } from '../BuscaAmostras';
 
 const MarketSampleRow = ({ s, onChange, onRemove, idx }) => {
   const handleValue = (field, raw) => {
@@ -70,9 +71,29 @@ const MarketSampleRow = ({ s, onChange, onRemove, idx }) => {
 
 export const StepAmostras = ({ form, setForm, onAi, aiLoading }) => {
   const samples = form.market_samples || [];
+  const [showBusca, setShowBusca] = useState(false);
   const add = () => setForm({ ...form, market_samples: [...samples, emptyMarketSample()] });
   const update = (i, ns) => setForm({ ...form, market_samples: samples.map((s, idx) => idx === i ? ns : s) });
   const remove = (i) => setForm({ ...form, market_samples: samples.filter((_, idx) => idx !== i) });
+
+  const handleImport = (novasAmostras) => {
+    const amostrasFormatadas = novasAmostras.map(a => ({
+      ...emptyMarketSample(),
+      address: a.address,
+      neighborhood: a.neighborhood,
+      area: a.area,
+      value: a.value,
+      value_per_sqm: a.value_per_sqm,
+      source: a.source,
+      collection_date: a.collection_date,
+      contact_phone: a.contact_phone,
+      notes: a.notes,
+      tipo_amostra: a.tipo_amostra,
+      foto: a.thumbnail,
+    }));
+    setForm({ ...form, market_samples: [...samples, ...amostrasFormatadas] });
+    setShowBusca(false);
+  };
 
   const validCount = samples.filter((s) => (s.value_per_sqm || 0) > 0).length;
 
@@ -97,10 +118,28 @@ export const StepAmostras = ({ form, setForm, onAi, aiLoading }) => {
             </span>
           )}
         </div>
-        <Button type="button" onClick={add} className="bg-emerald-900 hover:bg-emerald-800 text-white text-sm">
-          <Plus className="w-4 h-4 mr-1" /> Nova amostra
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            type="button" 
+            variant="outline"
+            onClick={() => setShowBusca(true)} 
+            className="border-emerald-300 text-emerald-700 hover:bg-emerald-50 text-sm"
+          >
+            <Search className="w-4 h-4 mr-1" /> Buscar no ZAP / VivaReal
+          </Button>
+          <Button type="button" onClick={add} className="bg-emerald-900 hover:bg-emerald-800 text-white text-sm">
+            <Plus className="w-4 h-4 mr-1" /> Nova amostra
+          </Button>
+        </div>
       </div>
+
+      <BuscaAmostras
+        open={showBusca}
+        onClose={() => setShowBusca(false)}
+        onImport={handleImport}
+        cidadeDefault={form.property_city || ''}
+        estadoDefault={form.property_state || ''}
+      />
 
       {samples.length === 0 ? (
         <div className="text-center py-12 bg-emerald-50/40 rounded-xl border-2 border-dashed border-emerald-200 text-gray-500">
