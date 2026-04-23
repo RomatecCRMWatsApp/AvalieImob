@@ -4,7 +4,7 @@ import { Plus, FileText, Download, Trash2, Loader2, Calendar, DollarSign, FileDo
 import { Button } from '../../ui/button';
 import { Badge } from '../../ui/badge';
 import { useToast } from '../../../hooks/use-toast';
-import { ptamAPI, assinaturaAPI } from '../../../lib/api';
+import { ptamAPI } from '../../../lib/api';
 import AssinaturaDigital from './AssinaturaDigital';
 
 // ── Modal de envio por email ──────────────────────────────────────────────────
