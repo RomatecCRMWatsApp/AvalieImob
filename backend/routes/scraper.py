@@ -15,7 +15,7 @@ from bs4 import BeautifulSoup
 from fastapi import APIRouter, Depends, HTTPException, status
 from fake_useragent import UserAgent
 
-from services.auth_service import get_active_subscriber
+from services.auth_service import get_current_user_id
 
 router = APIRouter(prefix="/api/scraper", tags=["scraper"])
 
@@ -400,7 +400,7 @@ async def _scrape_olx(
 @router.post("/amostras")
 async def buscar_amostras(
     payload: Dict[str, Any],
-    uid: str = Depends(get_active_subscriber),
+    uid: str = Depends(get_current_user_id),
 ) -> Dict[str, Any]:
     """
     Busca amostras de mercado em portais imobiliários.
