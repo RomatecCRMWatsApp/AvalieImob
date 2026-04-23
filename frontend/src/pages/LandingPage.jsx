@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
+import { HelmetProvider, Helmet } from 'react-helmet-async';
 import Navbar from '../components/landing/Navbar';
 import Hero from '../components/landing/Hero';
 import Features from '../components/landing/Features';
@@ -39,22 +40,31 @@ const WelcomeBanner = () => {
 
 const LandingPage = () => {
   return (
-    <div className="bg-white pt-28">
-      <Navbar />
-      <WelcomeBanner />
-      <main>
-        <Hero />
-        <Features />
-        <Services />
-        <Flow />
-        <Pricing />
-        <About />
-        <CeoSection />
-        <ImoveisCarousel />
-      </main>
-      <Footer />
-      <WhatsAppButton />
-    </div>
+    <HelmetProvider>
+      <Helmet>
+        <title>AvalieImob — Software de PTAM e Avaliacao Imobiliaria Online | NBR 14.653</title>
+        <meta name="description" content="Sistema online para emitir PTAM, Laudos Tecnicos, TVI e Avaliacao de Garantias. Conforme NBR 14.653 e Resolucao COFECI 1.066/2007. Teste gratis." />
+        <meta property="og:title" content="AvalieImob — Software de PTAM Online" />
+        <meta property="og:description" content="Emita PTAMs, Laudos e Avaliacoes de Garantias em minutos. IA integrada. Exporta DOCX e PDF. App Android." />
+        <link rel="canonical" href="https://www.romatecavalieimob.com.br/" />
+      </Helmet>
+      <div className="bg-white pt-28">
+        <Navbar />
+        <WelcomeBanner />
+        <main>
+          <Hero />
+          <Features />
+          <Services />
+          <Flow />
+          <Pricing />
+          <About />
+          <CeoSection />
+          <ImoveisCarousel />
+        </main>
+        <Footer />
+        <WhatsAppButton />
+      </div>
+    </HelmetProvider>
   );
 };
 

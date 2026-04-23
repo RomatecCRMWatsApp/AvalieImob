@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { Helmet } from 'react-helmet-async';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { useAuth } from '../contexts/AuthContext';
@@ -41,6 +42,11 @@ const Login = () => {
 
   return (
     <div className="min-h-screen grid lg:grid-cols-2">
+      <Helmet>
+        <title>Login — AvalieImob | Sistema de Avaliacao Imobiliaria</title>
+        <meta name="description" content="Acesse sua conta no AvalieImob para emitir PTAMs e laudos tecnicos." />
+        <meta name="robots" content="noindex" />
+      </Helmet>
       <div className="hidden lg:block relative bg-emerald-950 overflow-hidden">
         <img src="https://images.pexels.com/photos/14465329/pexels-photo-14465329.jpeg" alt="São Paulo" className="absolute inset-0 w-full h-full object-cover opacity-30" />
         <div className="absolute inset-0 bg-gradient-to-br from-emerald-950/95 via-emerald-900/80 to-emerald-900/60" />
