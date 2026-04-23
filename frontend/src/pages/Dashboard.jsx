@@ -30,6 +30,7 @@ import TVINew from '../components/dashboard/tvi/TVINew';
 import TVIForm from '../components/dashboard/tvi/TVIForm';
 import CNDConsulta from '../components/dashboard/cnd/CNDConsulta';
 import CNDHistorico from '../components/dashboard/cnd/CNDHistorico';
+import GlobalSearch from '../components/common/GlobalSearch';
 
 /* ─── Brand ─────────────────────────────────────────────── */
 const GOLD       = '#D4A830';
@@ -324,17 +325,7 @@ const Dashboard = () => {
           </button>
 
           {/* Search bar */}
-          <div className="flex-1 max-w-md">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-              <input
-                type="text"
-                placeholder="Buscar laudos, clientes..."
-                className="w-full pl-9 pr-4 py-2 rounded-xl text-sm bg-gray-100 border border-transparent
-                           focus:outline-none focus:border-emerald-300 focus:bg-white transition-all placeholder-gray-400"
-              />
-            </div>
-          </div>
+          <GlobalSearch />
 
           <div className="flex items-center gap-1 ml-auto">
             <NotifButton />

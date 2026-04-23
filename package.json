@@ -4,7 +4,7 @@
   "private": true,
   "description": "Romatec Avaliação Imobiliária - PTAM + Laudos com Transcrição de Áudio",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
     "dev": "node server.js"
   },
   "dependencies": {

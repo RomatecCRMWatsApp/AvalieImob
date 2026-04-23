@@ -20,6 +20,8 @@ from routes.tvi import router as tvi_router
 from routes.maps import router as maps_router
 from routes.cnd import router as cnd_router
 from routes.scraper import router as scraper_router
+from routes.search import router as search_router
+from routes.assinatura import router as assinatura_router
 
 all_routers = [
     auth_router, users_router, ptam_router, locacao_router,
@@ -28,4 +30,5 @@ all_routers = [
     imoveis_crm_router, email_router, perfil_avaliador_router,
     clients_router, properties_router, evaluations_router,
     tvi_router, maps_router, cnd_router, scraper_router,
+    search_router, assinatura_router,
 ]

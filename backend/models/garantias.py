@@ -163,6 +163,14 @@ class GarantiaBase(BaseModel):
     fotos: List[str] = Field(default_factory=list)
     observacoes: Optional[str] = ""
 
+    # D4Sign — Assinatura Digital com Validade Juridica (Lei 14.063/2020 + MP 2.200-2/2001)
+    d4sign_document_uuid: Optional[str] = None
+    d4sign_status: Optional[str] = None   # pendente|aguardando|assinado|cancelado
+    d4sign_enviado_em: Optional[datetime] = None
+    d4sign_assinado_em: Optional[datetime] = None
+    d4sign_signatarios: Optional[List[dict]] = []
+    d4sign_pdf_assinado_url: Optional[str] = None
+
     # Meta
     status: str = "rascunho"
 
