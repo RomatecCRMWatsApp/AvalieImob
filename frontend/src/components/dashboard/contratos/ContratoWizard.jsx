@@ -62,7 +62,7 @@ const TIPOS = [
     items: [
       { value: 'arras',                label: 'Arras / Sinal',       desc: 'Recibo de arras confirmatórias ou penitenciais.' },
       { value: 'intermediacao',        label: 'Intermediação',       desc: 'Contrato de corretagem imobiliária — art. 725 CC.' },
-      { value: 'exclusividade',        label: 'Exclusividade',       desc: 'Contrato de exclusividade de venda ou locação — art. 725 CC, § 2º.' },
+      { value: 'exclusividade',        label: 'Exclusividade',       desc: 'Contrato de exclusividade de venda — apenas o corretor indicado pode vender o imóvel por prazo definido, garantindo comissão independentemente de quem trouxer o comprador (art. 725 CC, § 2º + Súmula 335 STJ).' },
       { value: 'usufruto',             label: 'Usufruto',            desc: 'Direito real de uso e gozo de bem alheio.' },
       { value: 'compra_venda_veiculo', label: 'C&V Veículo',         desc: 'Compra e venda de veículo automotor.' },
       { value: 'distrato',             label: 'Distrato',            desc: 'Desfazimento de contrato anterior entre as partes.' },

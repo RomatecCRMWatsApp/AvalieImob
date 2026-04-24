@@ -342,6 +342,85 @@ async def gerar_clausulas_corretor(corretor: Dict[str, Any], tipo_contrato: str)
     return clausulas
 
 
+# ── FUNCAO 2B: Gerar clausulas de exclusividade ───────────────────────────────
+
+async def gerar_clausulas_exclusividade(dados: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Gera clausulas especificas para contrato de exclusividade de venda.
+    
+    Args:
+        dados: Dados do contrato de exclusividade (corretor, prazo, imovel, etc.)
+        
+    Returns:
+        Lista de dicts com clausulas de exclusividade
+    """
+    corretor_nome = dados.get("corretor_nome", "")
+    corretor_creci = dados.get("corretor_creci", "")
+    prazo_dias = dados.get("prazo_dias", 90)
+    data_inicio = dados.get("data_inicio", "")
+    data_fim = dados.get("data_fim", "")
+    comissao_pct = dados.get("comissao_percentual", 6)
+    imovel_endereco = dados.get("imovel_endereco", "")
+    proprietario_nome = dados.get("proprietario_nome", "")
+    
+    prompt = (
+        f"Gere as clausulas completas para um CONTRATO DE EXCLUSIVIDADE DE VENDA imobiliaria.\n\n"
+        f"DADOS DO CONTRATO:\n"
+        f"- Corretor exclusivo: {corretor_nome} (CRECI: {corretor_creci})\n"
+        f"- Proprietario: {proprietario_nome}\n"
+        f"- Imovel: {imovel_endereco}\n"
+        f"- Prazo de exclusividade: {prazo_dias} dias\n"
+        f"- Periodo: {data_inicio} a {data_fim}\n"
+        f"- Comissao: {comissao_pct}%\n\n"
+        f"CLÁUSULAS OBRIGATÓRIAS (gerar no minimo 8 clausulas):\n"
+        f"1. DO OBJETO - exclusividade de venda do imovel descrito\n"
+        f"2. DA EXCLUSIVIDADE - apenas o corretor indicado pode vender; proibicao ao proprietario de vender diretamente ou por outro corretor\n"
+        f"3. DO PRAZO - vigencia da exclusividade com data de inicio e termino\n"
+        f"4. DA COMISSAO - percentual e valor; pagamento independentemente de quem trouxer o comprador (direito a comissao integral)\n"
+        f"5. DAS OBRIGACOES DO CORRETOR - promocao, anuncios, visitas, negociacao\n"
+        f"6. DAS OBRIGACOES DO PROPRIETARIO - nao vender diretamente, manter documentacao em dia, liberar acesso\n"
+        f"7. DA PROTECAO AO CORRETOR - direito a comissao mesmo se venda direta pelo proprietario (Súmula 335 STJ); multa por venda direta\n"
+        f"8. DA RESCISAO - condicoes de rescisao antecipada e penalidades\n"
+        f"9. DA RENOVACAO - condicoes para renovacao automatica ou nao\n\n"
+        f"BASE LEGAL PRINCIPAL:\n"
+        f"- art. 725 CC (corretagem)\n"
+        f"- Súmula 335 STJ (direito a comissao integral na exclusividade)\n"
+        f"- Resolucao COFECI 957/2006\n"
+        f"- Lei 6.530/78 (CRECI)\n\n"
+        f"INSTRUCOES:\n"
+        f"1. Retorne APENAS array JSON valido\n"
+        f"2. Formato: [{{'numero_romano': 'I', 'titulo': '...', 'conteudo': '...', 'base_legal': '...'}}]\n"
+        f"3. Linguagem juridica formal e precisa\n"
+        f"4. Sem texto antes ou depois do JSON"
+    )
+    
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT_CONTRATOS},
+        {"role": "user", "content": prompt},
+    ]
+    
+    reply = await _roma_ia_cascata(messages, max_tokens=2500)
+    parsed = _parse_json_safe(reply)
+    
+    if not isinstance(parsed, list):
+        logger.warning("gerar_clausulas_exclusividade: resposta nao e lista JSON valida")
+        return []
+    
+    clausulas = []
+    for idx, item in enumerate(parsed, start=1):
+        if not isinstance(item, dict):
+            continue
+        clausulas.append({
+            "numero": idx,
+            "titulo": item.get("titulo") or f"CLÁUSULA {_to_roman(idx)}",
+            "conteudo": item.get("conteudo") or "",
+            "tipo": "especial",
+            "base_legal": item.get("base_legal") or "art. 725 CC; Súmula 335 STJ",
+            "_numero_romano": item.get("numero_romano") or _to_roman(idx),
+        })
+    
+    return clausulas
+
+
 # ── FUNCAO 3: Validar alertas juridicos ──────────────────────────────────────
 
 async def validar_alertas_juridicos(contrato: Dict[str, Any]) -> List[Dict[str, Any]]:
