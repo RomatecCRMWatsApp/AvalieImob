@@ -63,17 +63,7 @@
   "scripts": {
     "start": "craco start",
     "build": "craco build",
-    "postbuild": "react-snap",
     "test": "craco test"
-  },
-  "reactSnap": {
-    "puppeteerArgs": ["--no-sandbox", "--disable-setuid-sandbox"],
-    "inlineCss": false,
-    "minifyHtml": { "collapseWhitespace": true },
-    "include": ["/", "/login", "/cadastro"],
-    "skipThirdPartyRequests": true,
-    "headless": true,
-    "puppeteerExecutablePath": ""
   },
   "browserslist": {
     "production": [

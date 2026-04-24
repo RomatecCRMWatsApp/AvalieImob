@@ -196,6 +196,9 @@ if _frontend_build.exists():
 
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
+        # Nunca servir arquivos internos do react-snap como rotas
+        if full_path in ("200.html", "404.html") or full_path.startswith("_"):
+            return FileResponse(str(_frontend_build / "index.html"))
         file_path = _frontend_build / full_path
         if full_path and file_path.is_file():
             return FileResponse(str(file_path))

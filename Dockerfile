@@ -3,10 +3,6 @@ FROM node:20-slim AS frontend-build
 
 WORKDIR /app/frontend
 
-# Chromium para react-snap (prerender)
-RUN apt-get update && apt-get install -y chromium --no-install-recommends && rm -rf /var/lib/apt/lists/*
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
-
 # Install dependencies
 COPY frontend/package.json frontend/yarn.lock* ./
 RUN yarn install --network-timeout 300000
