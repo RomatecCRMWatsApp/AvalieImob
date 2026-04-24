@@ -22,6 +22,11 @@ const STATUS_CONFIG = {
     className: 'bg-gray-100 text-gray-500 border border-gray-200',
     Icon: MinusCircle,
   },
+  nao_aplicavel: {
+    label: 'Não aplicável',
+    className: 'bg-gray-100 text-gray-500 border border-gray-200',
+    Icon: MinusCircle,
+  },
   processando: {
     label: 'Processando',
     className: 'bg-blue-50 text-blue-600 border border-blue-200',

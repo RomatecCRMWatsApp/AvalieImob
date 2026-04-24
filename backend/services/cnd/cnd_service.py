@@ -4,32 +4,34 @@ import logging
 from datetime import datetime, timedelta
 from typing import Optional
 
-from services.cnd import receitaws, brasilapi, datajud, tst, pgfn, cnib
+from services.cnd import cnpjws, cpfdev, brasilapi, datajud, tst, pgfn, cnib, tjma, trf1
 from models.cnd import CNDConsulta, CNDCertidao, CNDLog
 
 logger = logging.getLogger("romatec")
 
 # Providers para CPF físico (11 dígitos):
 #   TST (scraping — funciona), DataJud (processos judiciais), cpfdev (situação cadastral)
-PROVIDERS_CPF = [
-    tst.consultar,
-    datajud.consultar,
-]
+PROVIDERS_CPF = [datajud.consultar, cpfdev.consultar, pgfn.consultar, tst.consultar, tjma.consultar, trf1.consultar]
 
 # Providers para CNPJ (14 dígitos):
 #   ReceitaWS (situação cadastral), BrasilAPI (fallback), DataJud (processos), TST (trabalhista)
-PROVIDERS_CNPJ = [
-    receitaws.consultar,
-    brasilapi.consultar,
-    datajud.consultar,
-    tst.consultar,
-]
+PROVIDERS_CNPJ = [cnpjws.consultar, brasilapi.consultar, datajud.consultar, pgfn.consultar, tst.consultar, tjma.consultar, trf1.consultar]
 
 # Providers universais mantidos mas com retorno gracioso quando bloqueados
-PROVIDERS_EXTRAS = [
-    pgfn.consultar,
-    cnib.consultar,
-]
+PROVIDERS_EXTRAS = [cnib.consultar]
+
+
+PROVIDER_MANUAL_LINKS = {
+    "cnpjws": "https://servicos.receita.fazenda.gov.br/Servicos/cnpjreva/Cnpjreva_Solicitacao.asp",
+    "brasilapi": "https://servicos.receita.fazenda.gov.br/Servicos/cnpjreva/Cnpjreva_Solicitacao.asp",
+    "cpfdev": "https://servicos.receita.fazenda.gov.br/Servicos/CPF/ConsultaSituacao/ConsultaPublica.asp",
+    "datajud": "https://painel-api.cnj.jus.br/docs",
+    "pgfn": "https://solucoes.receita.fazenda.gov.br/Servicos/certidaointernet/PF/Emitir",
+    "tst": "https://cndt-certidao.tst.jus.br/inicio.faces",
+    "tjma": "https://jurisconsult.tjma.jus.br/",
+    "trf1": "https://pje.trf1.jus.br/pje/ConsultaPublica/listView.seam",
+    "cnib": "https://www.cnib.com.br",
+}
 
 
 def _get_providers(cpf_cnpj: str) -> list:
@@ -44,12 +46,14 @@ async def _run_provider(fn, cpf_cnpj: str) -> dict:
         return await asyncio.wait_for(fn(cpf_cnpj), timeout=15)
     except asyncio.TimeoutError:
         provider = fn.__module__.split(".")[-1]
+        provider = fn.__module__.split(".")[-1]
         return {
             "provider": provider,
             "resultado": "indisponivel",
             "pdf_base64": None,
             "validade": None,
             "observacao": "Timeout de 15s excedido",
+            "link_manual": PROVIDER_MANUAL_LINKS.get(provider),
             "tempo_ms": 15000,
         }
     except Exception as exc:
@@ -61,6 +65,7 @@ async def _run_provider(fn, cpf_cnpj: str) -> dict:
             "pdf_base64": None,
             "validade": None,
             "observacao": f"Erro inesperado: {exc}",
+            "link_manual": PROVIDER_MANUAL_LINKS.get(provider),
             "tempo_ms": 0,
         }
 
@@ -121,6 +126,7 @@ async def consultar_cnd(
             pdf_base64=res.get("pdf_base64"),
             validade=res.get("validade"),
             observacao=res.get("observacao"),
+            link_manual=res.get("link_manual") or PROVIDER_MANUAL_LINKS.get(res.get("provider", "")),
             tempo_ms=res.get("tempo_ms", 0),
         )
         await db.cnd_certidoes.insert_one(cert.model_dump())

@@ -14,5 +14,6 @@ async def consultar(cpf_cnpj: str) -> dict:
         "pdf_base64": None,
         "validade": None,
         "observacao": f"CNIB requer acesso credenciado — consultar manualmente em {LINK}",
+        "link_manual": LINK,
         "tempo_ms": tempo_ms,
     }

@@ -6,6 +6,7 @@ import httpx
 
 URL = "https://api.cpf.dev/v1/{cpf}"
 TIMEOUT = 15.0
+MANUAL_LINK = "https://servicos.receita.fazenda.gov.br/Servicos/CPF/ConsultaSituacao/ConsultaPublica.asp"
 
 
 async def consultar(cpf_cnpj: str) -> dict:
@@ -20,6 +21,7 @@ async def consultar(cpf_cnpj: str) -> dict:
             "pdf_base64": None,
             "validade": None,
             "observacao": "cpf.dev: somente para CPF físico",
+            "link_manual": MANUAL_LINK,
             "tempo_ms": 0,
         }
 
@@ -31,6 +33,7 @@ async def consultar(cpf_cnpj: str) -> dict:
             "pdf_base64": None,
             "validade": None,
             "observacao": "Configure CPF_DEV_API_KEY no Railway para consulta de CPF",
+            "link_manual": MANUAL_LINK,
             "tempo_ms": 0,
         }
 
@@ -67,5 +70,6 @@ async def consultar(cpf_cnpj: str) -> dict:
         "pdf_base64": None,
         "validade": None,
         "observacao": obs if resultado != "negativa" else None,
+        "link_manual": MANUAL_LINK,
         "tempo_ms": tempo_ms,
     }

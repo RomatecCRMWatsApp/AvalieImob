@@ -4,6 +4,10 @@ import CNDStatusBadge from './CNDStatusBadge';
 import { cndAPI } from '../../../lib/api';
 
 const PROVIDER_META = {
+  cnpjws:        { label: 'Receita Federal CNPJ (cnpj.ws)', Icon: Shield,    link: 'https://servicos.receita.fazenda.gov.br/Servicos/cnpjreva/Cnpjreva_Solicitacao.asp' },
+  brasilapi:     { label: 'Receita Federal CNPJ (BrasilAPI)', Icon: Shield,  link: 'https://servicos.receita.fazenda.gov.br/Servicos/cnpjreva/Cnpjreva_Solicitacao.asp' },
+  cpfdev:        { label: 'Receita Federal CPF (cpf.dev)',  Icon: UserCheck, link: 'https://servicos.receita.fazenda.gov.br/Servicos/CPF/ConsultaSituacao/ConsultaPublica.asp' },
+  datajud:       { label: 'CNJ DataJud (TJMA/TRF1/TST)',    Icon: Scale,     link: 'https://painel-api.cnj.jus.br/docs' },
   receita:       { label: 'Receita Federal',              Icon: Shield,    link: 'https://solucoes.receita.fazenda.gov.br/Servicos/certidaointernet/PF/Emitir' },
   pgfn:          { label: 'PGFN - Dívida Ativa',          Icon: Landmark,  link: 'https://solucoes.receita.fazenda.gov.br/Servicos/certidaointernet/PF/Emitir' },
   tst:           { label: 'TST - Certidão Trabalhista',   Icon: Scale,     link: 'https://consulta-certidao.tst.jus.br/' },
@@ -26,6 +30,7 @@ export default function CNDResultCard({ certidao, consultaId }) {
   const meta = PROVIDER_META[certidao.provider] || { label: certidao.provider, Icon: Shield, link: '#' };
   const Icon = meta.Icon;
   const borderColor = BORDER_COLOR[certidao.resultado] || 'border-l-gray-300';
+  const manualLink = certidao.link_manual || meta.link;
 
   const handleDownload = async () => {
     if (certidao.resultado === 'indisponivel') return;
@@ -78,13 +83,13 @@ export default function CNDResultCard({ certidao, consultaId }) {
           </button>
         )}
         <a
-          href={meta.link}
+          href={manualLink}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-gray-200
-                     text-gray-600 hover:bg-gray-50 transition-colors"
+          className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-emerald-200
+                     bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
         >
-          <ExternalLink className="w-3 h-3" /> Consulta manual
+          <ExternalLink className="w-3 h-3" /> Abrir site oficial
         </a>
       </div>
     </div>

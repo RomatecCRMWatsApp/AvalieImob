@@ -24,6 +24,7 @@ class CNDCertidao(BaseModel):
     pdf_base64: Optional[str] = None
     validade: Optional[str] = None
     observacao: Optional[str] = None
+    link_manual: Optional[str] = None
     consultado_em: datetime = Field(default_factory=_now)
     tempo_ms: int = 0
 

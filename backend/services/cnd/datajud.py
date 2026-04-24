@@ -21,6 +21,12 @@ TRIBUNAIS = {
 }
 
 TIMEOUT = 15.0
+MANUAL_LINKS = {
+    "TJMA": "https://jurisconsult.tjma.jus.br/",
+    "TRF1": "https://pje.trf1.jus.br/pje/ConsultaPublica/listView.seam",
+    "TST": "https://cndt-certidao.tst.jus.br/inicio.faces",
+    "TRT16": "https://www.trt16.jus.br/",
+}
 
 
 def _build_query(doc: str) -> dict:
@@ -111,5 +117,6 @@ async def consultar(cpf_cnpj: str) -> dict:
         "pdf_base64": None,
         "validade": None,
         "observacao": obs,
+        "link_manual": MANUAL_LINKS["TJMA"],
         "tempo_ms": tempo_ms,
     }
