@@ -1473,29 +1473,35 @@ const Step11Exportar = ({ form, setForm, contratoId, user }) => {
               type="checkbox"
               checked={config.incluir_logo}
               onChange={(e) => updConfig('incluir_logo', e.target.checked)}
-              disabled={!hasLogo}
               className="rounded"
             />
             <div className="flex-1">
-              <div className={`text-sm font-medium ${hasLogo ? 'text-gray-700' : 'text-gray-400'}`}>
-                Incluir logo do escritório
+              <div className="text-sm font-medium text-gray-700">
+                Incluir logo no documento
               </div>
-              {!hasLogo && (
-                <div className="text-xs text-gray-400">
-                  Você ainda não cadastrou um logo. <a href="/dashboard/config" className="text-emerald-600 hover:underline">Cadastrar logo</a>
-                </div>
-              )}
+              <div className="text-xs text-gray-500">
+                {hasLogo 
+                  ? 'Será usado o logo do seu escritório cadastrado'
+                  : 'Será usado o logo padrão do sistema Romatec'
+                }
+              </div>
             </div>
           </label>
           
-          {hasLogo && config.incluir_logo && (
+          {config.incluir_logo && (
             <div className="ml-6 p-3 bg-white rounded-lg border border-gray-200 inline-block">
               <img 
-                src={logoUrl} 
-                alt="Logo do escritório" 
+                src={hasLogo ? logoUrl : '/brand/logo_principal.png'} 
+                alt="Logo" 
                 className="h-16 object-contain"
-                onError={(e) => { e.target.style.display = 'none'; }}
+                onError={(e) => { e.target.src = '/brand/logo_principal.png'; }}
               />
+            </div>
+          )}
+          
+          {!hasLogo && (
+            <div className="ml-6 text-xs text-gray-400">
+              <a href="/dashboard/config" className="text-emerald-600 hover:underline">Cadastrar meu logo</a> (opcional)
             </div>
           )}
         </div>
