@@ -9,7 +9,7 @@ from typing import Optional
 import re
 from datetime import datetime
 
-from dependencies import get_current_user
+from dependencies import get_active_subscriber
 from db import get_db
 from services.sigef_service import (
     consulta_completa_rural,
@@ -55,7 +55,7 @@ class VincularPtamRequest(BaseModel):
 @router.post("/consultar")
 async def consultar_sigef(
     body: ConsultaSIGEFRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(get_active_subscriber),
 ):
     """Consulta dados do imovel rural no SIGEF/INCRA.
     
@@ -141,7 +141,7 @@ async def consultar_sigef(
 @router.get("/validar-ccir/{ccir}")
 async def validar_ccir(
     ccir: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(get_active_subscriber),
 ):
     """Valida formato do CCIR (deve ter 15 digitos numericos)."""
     digits = re.sub(r"\D", "", ccir or "")
@@ -159,7 +159,7 @@ async def validar_ccir(
 async def vincular_ptam(
     ptam_id: str,
     body: VincularPtamRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(get_active_subscriber),
 ):
     """Atualiza campos rurais de um PTAM com dados do SIGEF/INCRA."""
     db = await get_db()
@@ -217,7 +217,7 @@ async def vincular_ptam(
 async def importar_arquivo_sigef(
     file: UploadFile = File(...),
     ptam_id: Optional[str] = Query(None),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(get_active_subscriber),
 ):
     """Faz parse de arquivo KML/XML/GML/JSON exportado pelo SIGEF.
     
@@ -285,7 +285,7 @@ async def get_modulo_fiscal(
     municipio: str = Query(..., description="Nome do municipio"),
     uf: str = Query("MA", description="Sigla do estado (UF)"),
     area_ha: Optional[float] = Query(None, description="Area em ha para calcular n de modulos"),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(get_active_subscriber),
 ):
     """Retorna modulo fiscal e classificacao fundiaria para um municipio/UF."""
     if area_ha is not None and area_ha > 0:
