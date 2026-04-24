@@ -184,7 +184,20 @@ export const imoveisAPI = {
 // ---- SIGEF / INCRA (Consulta automatica para laudos rurais)
 export const sigefAPI = {
   consultar: (body) => api.post('/sigef/consultar', body).then(r => r.data),
+  importarArquivo: (file, ptamId) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const params = ptamId ? `?ptam_id=${encodeURIComponent(ptamId)}` : '';
+    return api.post(`/sigef/importar-arquivo${params}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then(r => r.data);
+  },
+  vincular: (ptamId, body) => api.post(`/sigef/vincular-ptam/${ptamId}`, body).then(r => r.data),
   validarCcir: (ccir) => api.get(`/sigef/validar-ccir/${encodeURIComponent(ccir)}`).then(r => r.data),
+  moduloFiscal: (municipio, uf, areaHa) => api.get('/sigef/modulo-fiscal', {
+    params: { municipio, uf, ...(areaHa != null ? { area_ha: areaHa } : {}) },
+  }).then(r => r.data),
+  // legacy alias
   vincularPtam: (ptamId, body) => api.post(`/sigef/vincular-ptam/${ptamId}`, body).then(r => r.data),
 };
 

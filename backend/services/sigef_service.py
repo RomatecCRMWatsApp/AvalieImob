@@ -435,6 +435,381 @@ def buscar_modulo_fiscal(municipio: str, uf: str = "MA") -> float:
     return 65.0  # fallback nacional
 
 
+# ── WFS publico SIGEF ─────────────────────────────────────────────────────────
+
+SIGEF_WFS = "https://sigef.incra.gov.br/geo/wfs/"
+WFS_TYPENAME = "sigef:parcela_public"
+WFS_VERSION = "2.0.0"
+
+
+async def consultar_wfs_por_ccir(ccir: str) -> Optional[dict]:
+    """Consulta WFS publico SIGEF pelo numero CCIR (CQL_FILTER)."""
+    digits = re.sub(r"\D", "", ccir or "")
+    if len(digits) < 10:
+        return None
+    params = {
+        "service": "WFS",
+        "version": WFS_VERSION,
+        "request": "GetFeature",
+        "typeName": WFS_TYPENAME,
+        "outputFormat": "application/json",
+        "CQL_FILTER": f"ccir='{digits}'",
+        "maxFeatures": "1",
+    }
+    try:
+        async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT, follow_redirects=True) as client:
+            r = await client.get(SIGEF_WFS, params=params, headers={
+                "Accept": "application/json",
+                "User-Agent": "AvalieImob/1.0 (FQNS/CFTMA 12-091-853-69)",
+            })
+            if r.status_code == 200:
+                return _normalizar_geojson(r.json())
+    except Exception:
+        pass
+    return None
+
+
+async def consultar_wfs_por_codigo(codigo_sigef: str) -> Optional[dict]:
+    """Consulta WFS publico SIGEF pelo codigo/UUID da parcela."""
+    codigo = (codigo_sigef or "").strip()
+    if not codigo:
+        return None
+    params = {
+        "service": "WFS",
+        "version": WFS_VERSION,
+        "request": "GetFeature",
+        "typeName": WFS_TYPENAME,
+        "outputFormat": "application/json",
+        "CQL_FILTER": f"parcela_codigo='{codigo}'",
+        "maxFeatures": "1",
+    }
+    try:
+        async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT, follow_redirects=True) as client:
+            r = await client.get(SIGEF_WFS, params=params, headers={
+                "Accept": "application/json",
+                "User-Agent": "AvalieImob/1.0 (FQNS/CFTMA 12-091-853-69)",
+            })
+            if r.status_code == 200:
+                return _normalizar_geojson(r.json())
+    except Exception:
+        pass
+    return None
+
+
+def _normalizar_geojson(data: dict) -> Optional[dict]:
+    """Normaliza resposta GeoJSON WFS para estrutura padrao."""
+    if not isinstance(data, dict):
+        return None
+    features = data.get("features") or []
+    if not features:
+        return None
+    feat = features[0]
+    props = feat.get("properties") or {}
+    geom = feat.get("geometry")
+
+    # Conta vertices do poligono
+    vertices = None
+    import json as _json
+    poligono = None
+    if geom:
+        try:
+            coords = geom.get("coordinates", [])
+            if coords:
+                ring = coords[0] if isinstance(coords[0], list) else coords
+                if ring and isinstance(ring[0], list):
+                    vertices = len(ring)
+            poligono = _json.dumps(geom)
+        except Exception:
+            pass
+
+    # Normaliza area
+    area_ha = _parse_area_ha(
+        props.get("area_ha") or props.get("area") or props.get("area_total_ha")
+    )
+
+    situacao_raw = str(props.get("situacao") or props.get("status") or "").lower()
+    situacao_map = {
+        "certificada": "certificado", "certificado": "certificado",
+        "em_certificacao": "em_certificacao", "em certificacao": "em_certificacao",
+        "nao_certificada": "nao_certificado", "nao_certificado": "nao_certificado",
+        "georreferenciada": "certificado",
+    }
+    situacao = situacao_map.get(situacao_raw, situacao_raw or "nao_certificado")
+
+    data_cert = props.get("data_certificacao") or props.get("data_aprovacao") or ""
+    if data_cert:
+        try:
+            dt = datetime.fromisoformat(str(data_cert).replace("Z", "+00:00"))
+            data_cert = dt.strftime("%d/%m/%Y")
+        except Exception:
+            pass
+
+    municipio = str(props.get("municipio") or props.get("municipio_nome") or "")
+    uf = str(props.get("uf") or props.get("estado") or "").upper()
+    codigo = str(props.get("codigo") or props.get("id") or props.get("parcela_codigo") or "")
+    denominacao = str(props.get("denominacao") or props.get("nome") or "")
+    ccir_raw = str(props.get("ccir") or "")
+
+    return {
+        "codigo": codigo,
+        "denominacao": denominacao,
+        "situacao": situacao,
+        "data_certificacao": data_cert,
+        "area_ha": area_ha,
+        "perimetro_m": _parse_area_ha(props.get("perimetro") or props.get("perimetro_m")),
+        "vertices": vertices,
+        "datum": props.get("datum") or "SIRGAS 2000",
+        "municipio": municipio,
+        "uf": uf,
+        "poligono": poligono,
+        "ccir_raw": ccir_raw,
+        "raw": data,
+    }
+
+
+# ── Parsers de arquivo exportado pelo SIGEF ──────────────────────────────────
+
+def parsear_arquivo_sigef(conteudo: bytes, nome_arquivo: str) -> dict:
+    """Roteia parse por extensao do arquivo exportado pelo SIGEF.
+    
+    Suporta: .kml, .xml, .gml, .json, .geojson
+    Retorna dict no mesmo formato de _normalizar_parcela_sigef.
+    """
+    nome = (nome_arquivo or "").lower().strip()
+    texto = ""
+    try:
+        texto = conteudo.decode("utf-8", errors="replace")
+    except Exception:
+        texto = ""
+
+    if nome.endswith(".kml"):
+        return _parsear_kml(texto)
+    if nome.endswith(".gml"):
+        return _parsear_gml(texto)
+    if nome.endswith((".json", ".geojson")):
+        import json as _json
+        try:
+            data = _json.loads(texto)
+            result = _normalizar_geojson(data)
+            if result:
+                return result
+        except Exception:
+            pass
+        return {"erro": "JSON invalido", "encontrado": False}
+    # XML generico (inclui export SIGEF .xml)
+    return _parsear_xml_sigef(texto)
+
+
+def _parsear_kml(kml_text: str) -> dict:
+    """Parser KML exportado pelo SIGEF (feicoes de parcela georreferenciada)."""
+    import xml.etree.ElementTree as ET
+    try:
+        root = ET.fromstring(kml_text)
+        ns_kml = "{http://www.opengis.net/kml/2.2}"
+        ns_ext = "{http://www.google.com/kml/ext/2.2}"
+
+        # Extrai ExtendedData (metadados)
+        props = {}
+        ed = root.find(f".//{ns_kml}ExtendedData")
+        if ed is None:
+            # Tenta sem namespace
+            ed = root.find(".//ExtendedData")
+        if ed is not None:
+            for data_el in ed.findall(f".//{ns_kml}Data") or ed.findall(".//Data"):
+                name = data_el.get("name", "")
+                val_el = data_el.find(f"{ns_kml}value") or data_el.find("value")
+                if val_el is not None and val_el.text:
+                    props[name.lower()] = val_el.text.strip()
+            for sdata in ed.findall(f".//{ns_kml}SimpleData") or ed.findall(".//SimpleData"):
+                name = sdata.get("name", "")
+                if sdata.text:
+                    props[name.lower()] = sdata.text.strip()
+
+        # Extrai coordenadas do poligono
+        vertices = None
+        poligono = None
+        coords_el = root.find(f".//{ns_kml}coordinates") or root.find(".//coordinates")
+        if coords_el is not None and coords_el.text:
+            raw_coords = coords_el.text.strip().split()
+            points = []
+            for c in raw_coords:
+                parts = c.split(",")
+                if len(parts) >= 2:
+                    try:
+                        points.append([float(parts[0]), float(parts[1])])
+                    except Exception:
+                        pass
+            if points:
+                vertices = len(points)
+                import json as _json
+                poligono = _json.dumps({"type": "Polygon", "coordinates": [points]})
+
+        area_ha = _parse_area_ha(
+            props.get("area_ha") or props.get("area") or props.get("area_total_ha")
+        )
+        situacao_raw = props.get("situacao") or props.get("status") or ""
+        situacao_map = {
+            "certificada": "certificado", "certificado": "certificado",
+            "em_certificacao": "em_certificacao",
+            "nao_certificada": "nao_certificado",
+        }
+        situacao = situacao_map.get(situacao_raw.lower(), situacao_raw or "certificado")
+
+        return {
+            "codigo": props.get("codigo") or props.get("parcela_codigo") or "",
+            "denominacao": props.get("denominacao") or props.get("nome") or "",
+            "situacao": situacao,
+            "data_certificacao": props.get("data_certificacao") or props.get("data_aprovacao") or "",
+            "area_ha": area_ha,
+            "perimetro_m": _parse_area_ha(props.get("perimetro") or props.get("perimetro_m")),
+            "vertices": vertices,
+            "datum": props.get("datum") or "SIRGAS 2000",
+            "municipio": props.get("municipio") or "",
+            "uf": (props.get("uf") or props.get("estado") or "").upper(),
+            "ccir_raw": props.get("ccir") or "",
+            "poligono": poligono,
+            "fonte": "kml_sigef",
+        }
+    except Exception as ex:
+        return {"erro": f"KML invalido: {str(ex)[:80]}", "encontrado": False}
+
+
+def _parsear_gml(xml_text: str) -> dict:
+    """Parser fallback XML/GML para formatos OGC do WFS SIGEF."""
+    import xml.etree.ElementTree as ET
+    try:
+        root = ET.fromstring(xml_text)
+        # Namespaces GML
+        ns_gml = "http://www.opengis.net/gml/3.2"
+        ns_sigef = "http://sigef.incra.gov.br"
+
+        props = {}
+        # Itera todos os elementos procurando tags conhecidas
+        for el in root.iter():
+            tag = el.tag.split("}")[-1].lower() if "}" in el.tag else el.tag.lower()
+            if el.text and el.text.strip():
+                props[tag] = el.text.strip()
+
+        # Extrai coordenadas GML
+        vertices = None
+        poligono = None
+        for el in root.iter():
+            tag = el.tag.split("}")[-1] if "}" in el.tag else el.tag
+            if tag in ("posList", "coordinates"):
+                raw = el.text.strip() if el.text else ""
+                nums = [float(x) for x in raw.split() if re.match(r"^-?\d+\.?\d*$", x)]
+                if len(nums) >= 4:
+                    # GML posList: x y x y ...
+                    points = [[nums[i], nums[i+1]] for i in range(0, len(nums)-1, 2)]
+                    vertices = len(points)
+                    import json as _json
+                    poligono = _json.dumps({"type": "Polygon", "coordinates": [points]})
+                break
+
+        area_ha = _parse_area_ha(
+            props.get("area_ha") or props.get("area") or props.get("area_total_ha")
+        )
+
+        return {
+            "codigo": props.get("codigo") or props.get("parcela_codigo") or "",
+            "denominacao": props.get("denominacao") or props.get("nome") or "",
+            "situacao": props.get("situacao") or "certificado",
+            "data_certificacao": props.get("data_certificacao") or "",
+            "area_ha": area_ha,
+            "perimetro_m": _parse_area_ha(props.get("perimetro") or props.get("perimetro_m")),
+            "vertices": vertices,
+            "datum": props.get("datum") or "SIRGAS 2000",
+            "municipio": props.get("municipio") or "",
+            "uf": (props.get("uf") or props.get("estado") or "").upper(),
+            "ccir_raw": props.get("ccir") or "",
+            "poligono": poligono,
+            "fonte": "gml_wfs",
+        }
+    except Exception as ex:
+        return {"erro": f"GML invalido: {str(ex)[:80]}", "encontrado": False}
+
+
+def _parsear_xml_sigef(xml_text: str) -> dict:
+    """Parser XML proprio do SIGEF (memorial descritivo, export INCRA)."""
+    import xml.etree.ElementTree as ET
+    try:
+        root = ET.fromstring(xml_text)
+        props = {}
+        for el in root.iter():
+            tag = el.tag.split("}")[-1].lower() if "}" in el.tag else el.tag.lower()
+            if el.text and el.text.strip():
+                props[tag] = el.text.strip()
+
+        # Tenta extrair coordenadas se houver
+        vertices = None
+        poligono = None
+        for el in root.iter():
+            tag = el.tag.split("}")[-1] if "}" in el.tag else el.tag
+            if tag.lower() in ("poslist", "coordinates", "coord"):
+                raw = el.text.strip() if el.text else ""
+                nums = [float(x) for x in re.findall(r"-?\d+\.?\d+", raw)]
+                if len(nums) >= 4:
+                    points = [[nums[i], nums[i+1]] for i in range(0, len(nums)-1, 2)]
+                    vertices = len(points)
+                    import json as _json
+                    poligono = _json.dumps({"type": "Polygon", "coordinates": [points]})
+                break
+
+        area_ha = _parse_area_ha(
+            props.get("area_ha") or props.get("area") or props.get("area_total")
+        )
+
+        return {
+            "codigo": props.get("codigo") or props.get("parcela_codigo") or "",
+            "denominacao": props.get("denominacao") or props.get("nome") or "",
+            "situacao": props.get("situacao") or "certificado",
+            "data_certificacao": props.get("data_certificacao") or props.get("data_aprovacao") or "",
+            "area_ha": area_ha,
+            "perimetro_m": _parse_area_ha(props.get("perimetro") or props.get("perimetro_m")),
+            "vertices": vertices,
+            "datum": props.get("datum") or "SIRGAS 2000",
+            "municipio": props.get("municipio") or "",
+            "uf": (props.get("uf") or props.get("estado") or "").upper(),
+            "ccir_raw": props.get("ccir") or "",
+            "poligono": poligono,
+            "fonte": "xml_sigef",
+        }
+    except Exception as ex:
+        return {"erro": f"XML invalido: {str(ex)[:80]}", "encontrado": False}
+
+
+def calcular_modulos_fiscais(area_ha: float, municipio: str, uf: str = "MA") -> dict:
+    """Calcula numero de modulos fiscais e classificacao fundiaria.
+    
+    Classificacao (Lei 8.629/93):
+    - Minifundio: < 1 modulo fiscal
+    - Pequena Propriedade: 1-4 modulos fiscais
+    - Media Propriedade: 4-15 modulos fiscais
+    - Grande Propriedade: > 15 modulos fiscais
+    """
+    modulo_ha = buscar_modulo_fiscal(municipio, uf)
+    n_modulos = round(area_ha / modulo_ha, 2) if modulo_ha and area_ha else None
+
+    classificacao = None
+    if n_modulos is not None:
+        if n_modulos < 1:
+            classificacao = "Minifúndio"
+        elif n_modulos <= 4:
+            classificacao = "Pequena Propriedade"
+        elif n_modulos <= 15:
+            classificacao = "Média Propriedade"
+        else:
+            classificacao = "Grande Propriedade"
+
+    return {
+        "modulo_fiscal_ha": modulo_ha,
+        "numero_modulos_fiscais": n_modulos,
+        "classificacao_fundiaria": classificacao,
+        "municipio": municipio,
+        "uf": uf.upper(),
+    }
+
+
 async def consulta_completa_rural(
     ccir: Optional[str] = None,
     sigef_codigo: Optional[str] = None,

@@ -3,7 +3,7 @@
 
 Credenciais INCRA: FQNS / CFTMA 12-091-853-69
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from pydantic import BaseModel
 from typing import Optional
 import re
@@ -14,6 +14,8 @@ from db import get_db
 from services.sigef_service import (
     consulta_completa_rural,
     buscar_modulo_fiscal,
+    calcular_modulos_fiscais,
+    parsear_arquivo_sigef,
     _validar_ccir,
     _formatar_ccir,
 )
@@ -209,3 +211,91 @@ async def vincular_ptam(
         "campos_atualizados": campos_atualizados,
         "mensagem": f"{campos_atualizados} campos rurais atualizados via SIGEF/INCRA.",
     }
+
+
+@router.post("/importar-arquivo")
+async def importar_arquivo_sigef(
+    file: UploadFile = File(...),
+    ptam_id: Optional[str] = Query(None),
+    current_user: dict = Depends(get_current_user),
+):
+    """Faz parse de arquivo KML/XML/GML/JSON exportado pelo SIGEF.
+    
+    Tipos aceitos: .kml, .xml, .gml, .json, .geojson
+    Retorna dados normalizados prontos para preencher o PTAM.
+    """
+    nome = file.filename or ""
+    extensoes_validas = (".kml", ".xml", ".gml", ".json", ".geojson")
+    if not any(nome.lower().endswith(ext) for ext in extensoes_validas):
+        raise HTTPException(
+            status_code=415,
+            detail=f"Formato nao suportado. Aceitos: KML, XML, GML, JSON, GeoJSON."
+        )
+
+    conteudo = await file.read()
+    if len(conteudo) > 10 * 1024 * 1024:  # 10 MB max
+        raise HTTPException(status_code=413, detail="Arquivo muito grande (max 10 MB).")
+
+    resultado = parsear_arquivo_sigef(conteudo, nome)
+
+    if resultado.get("erro"):
+        return {
+            "encontrado": False,
+            "erro": resultado["erro"],
+            "arquivo": nome,
+        }
+
+    # Calcula modulos fiscais a partir dos dados extraidos
+    area_ha = resultado.get("area_ha")
+    municipio = resultado.get("municipio", "")
+    uf = resultado.get("uf", "MA")
+    modulos = calcular_modulos_fiscais(area_ha, municipio, uf) if area_ha else {}
+
+    sigef_situacao = resultado.get("situacao") or "certificado"
+    ccir_raw = resultado.get("ccir_raw") or ""
+    ccir_fmt = _formatar_ccir(ccir_raw) if ccir_raw else None
+
+    return {
+        "encontrado": True,
+        "fonte": resultado.get("fonte", "arquivo_sigef"),
+        "arquivo": nome,
+        "data_consulta": datetime.now().strftime("%d/%m/%Y %H:%M"),
+        # Dados extraidos
+        "sigef_codigo": resultado.get("codigo"),
+        "denominacao": resultado.get("denominacao"),
+        "municipio": municipio,
+        "uf": uf,
+        "sigef_situacao": sigef_situacao,
+        "sigef_data_certificacao": resultado.get("data_certificacao"),
+        "sigef_area_ha": area_ha,
+        "sigef_perimetro_m": resultado.get("perimetro_m"),
+        "sigef_vertices": resultado.get("vertices"),
+        "sigef_datum": resultado.get("datum", "SIRGAS 2000"),
+        "ccir_numero": ccir_fmt,
+        # Modulos fiscais calculados
+        "modulo_fiscal_ha": modulos.get("modulo_fiscal_ha"),
+        "numero_modulos_fiscais": modulos.get("numero_modulos_fiscais"),
+        "classificacao_fundiaria": modulos.get("classificacao_fundiaria"),
+        "ptam_id": ptam_id,
+    }
+
+
+@router.get("/modulo-fiscal")
+async def get_modulo_fiscal(
+    municipio: str = Query(..., description="Nome do municipio"),
+    uf: str = Query("MA", description="Sigla do estado (UF)"),
+    area_ha: Optional[float] = Query(None, description="Area em ha para calcular n de modulos"),
+    current_user: dict = Depends(get_current_user),
+):
+    """Retorna modulo fiscal e classificacao fundiaria para um municipio/UF."""
+    if area_ha is not None and area_ha > 0:
+        return calcular_modulos_fiscais(area_ha, municipio, uf)
+    modulo_ha = buscar_modulo_fiscal(municipio, uf)
+    return {
+        "municipio": municipio,
+        "uf": uf.upper(),
+        "modulo_fiscal_ha": modulo_ha,
+        "numero_modulos_fiscais": None,
+        "classificacao_fundiaria": None,
+    }
+

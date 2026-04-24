@@ -1,7 +1,7 @@
 // @module Garantias/steps/StepAvaliacao — Rural: Step 5 — Metodologia e Avaliação
 import React, { useCallback } from 'react';
 import { SectionTitle, Field, Input, Select, Textarea } from './shared.js';
-import MetodoEvolutivo from '../../../ptam/MetodoEvolutivo';
+import MetodoEvolutivo from '../../ptam/MetodoEvolutivo';
 
 const StepAvaliacao = ({ form, set }) => {
   // Adapta a interface do MetodoEvolutivo (que usa setForm(fn)) para o padrão de Garantias (set(field, val))
