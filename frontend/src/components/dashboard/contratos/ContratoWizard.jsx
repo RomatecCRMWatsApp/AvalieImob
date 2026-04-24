@@ -120,6 +120,7 @@ const EMPTY = {
   corretor: { incluir: false, nome: '', cpf_cnpj: '', creci: '', email: '', telefone: '', comissao_percentual: 6, exclusividade: false, prazo_exclusividade: '' },
   objeto: { tipo_bem: 'imovel_urbano', endereco: '', bairro: '', cidade: '', uf: '', cep: '', registro_imovel: '', matricula: '', area_total: '', area_construida: '', situacao_ocupacao: '', onus: '', benfeitorias: '', ccir: '', car: '', modulos_fiscais: '', descricao_veiculo: '', placa: '', renavam: '', chassi: '', ano_fabricacao: '', cor: '' },
   pagamento: { valor_total: '', arras_valor: '', arras_data: '', arras_tipo: 'confirmatorias', formas: [], penalidades: null },
+  config: { incluir_logo: true, incluir_recibo_arras: true, incluir_checklist: true },
 };
 
 const EMPTY_PESSOA = { tipo: 'pf', nome: '', cpf: '', rg: '', rg_orgao: '', nascimento: '', estado_civil: '', profissao: '', nacionalidade: 'brasileiro(a)', email: '', telefone: '', endereco: '', cidade: '', uf: '', cep: '', conjuge_nome: '', conjuge_cpf: '', conjuge_rg: '', conjuge_nascimento: '', conjuge_profissao: '', conjuge_nacionalidade: 'brasileiro(a)', procurador: false, procurador_nome: '', procurador_cpf: '', procurador_instrumento: '', cnpj: '', razao_social: '', nome_fantasia: '', inscricao_estadual: '', representante_nome: '', representante_cpf: '', representante_cargo: '' };
@@ -1326,7 +1327,7 @@ const Step10Revisao = ({ form, contratoId }) => {
 /* ═══════════════════════════════════════════════════════════
    STEP 11 — Exportar e Assinar
 ═══════════════════════════════════════════════════════════ */
-const Step11Exportar = ({ form, contratoId }) => {
+const Step11Exportar = ({ form, setForm, contratoId, user }) => {
   const { toast } = useToast();
   const [loadingDocx, setLoadingDocx] = useState(false);
   const [loadingPdf, setLoadingPdf] = useState(false);
@@ -1336,6 +1337,12 @@ const Step11Exportar = ({ form, contratoId }) => {
   const [loadingD4sign, setLoadingD4sign] = useState(false);
   const [linkPublico, setLinkPublico] = useState(form.link_publico || null);
   const [linkCopiado, setLinkCopiado] = useState(false);
+
+  const config = form.config || { incluir_logo: true, incluir_recibo_arras: true, incluir_checklist: true };
+  const updConfig = (key, val) => setForm({ ...form, config: { ...config, [key]: val } });
+
+  const hasLogo = !!user?.company_logo;
+  const logoUrl = hasLogo ? `/api/upload/image/${user.company_logo}` : null;
 
   const downloadBlob = (data, filename) => {
     const url = window.URL.createObjectURL(new Blob([data]));
@@ -1453,6 +1460,77 @@ const Step11Exportar = ({ form, contratoId }) => {
       <div>
         <h2 className="text-xl font-bold text-gray-900 mb-1">Exportar e Assinar</h2>
         <p className="text-sm text-gray-500">Baixe o documento, lacrare a versão definitiva e envie para assinatura.</p>
+      </div>
+
+      {/* Configurações do Documento */}
+      <div className="bg-gray-50 rounded-xl p-5 space-y-4">
+        <div className="font-semibold text-gray-800 text-sm mb-1">Configurações do Documento</div>
+        
+        {/* Logo do Escritório */}
+        <div className="space-y-3">
+          <label className="flex items-center gap-3 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={config.incluir_logo}
+              onChange={(e) => updConfig('incluir_logo', e.target.checked)}
+              disabled={!hasLogo}
+              className="rounded"
+            />
+            <div className="flex-1">
+              <div className={`text-sm font-medium ${hasLogo ? 'text-gray-700' : 'text-gray-400'}`}>
+                Incluir logo do escritório
+              </div>
+              {!hasLogo && (
+                <div className="text-xs text-gray-400">
+                  Você ainda não cadastrou um logo. <a href="/dashboard/config" className="text-emerald-600 hover:underline">Cadastrar logo</a>
+                </div>
+              )}
+            </div>
+          </label>
+          
+          {hasLogo && config.incluir_logo && (
+            <div className="ml-6 p-3 bg-white rounded-lg border border-gray-200 inline-block">
+              <img 
+                src={logoUrl} 
+                alt="Logo do escritório" 
+                className="h-16 object-contain"
+                onError={(e) => { e.target.style.display = 'none'; }}
+              />
+            </div>
+          )}
+        </div>
+
+        <hr className="border-gray-200" />
+
+        {/* Recibo de Arras */}
+        <label className="flex items-center gap-3 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={config.incluir_recibo_arras}
+            onChange={(e) => updConfig('incluir_recibo_arras', e.target.checked)}
+            className="rounded"
+          />
+          <div>
+            <div className="text-sm font-medium text-gray-700">Incluir recibo de arras separado</div>
+            <div className="text-xs text-gray-500">Gera um documento adicional com o recibo das arras/sinal</div>
+          </div>
+        </label>
+
+        <hr className="border-gray-200" />
+
+        {/* Checklist */}
+        <label className="flex items-center gap-3 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={config.incluir_checklist}
+            onChange={(e) => updConfig('incluir_checklist', e.target.checked)}
+            className="rounded"
+          />
+          <div>
+            <div className="text-sm font-medium text-gray-700">Incluir checklist documental</div>
+            <div className="text-xs text-gray-500">Adiciona lista de documentos necessários ao final do contrato</div>
+          </div>
+        </label>
       </div>
 
       {/* Downloads */}
@@ -1654,7 +1732,7 @@ const ContratoWizard = () => {
       case 7: return <Step8Validacao contratoId={contratoId} onGoToStep={setStep} />;
       case 8: return <Step9Testemunhas form={form} setForm={setForm} />;
       case 9: return <Step10Revisao form={form} contratoId={contratoId} />;
-      case 10: return <Step11Exportar form={form} contratoId={contratoId} />;
+      case 10: return <Step11Exportar form={form} setForm={setForm} contratoId={contratoId} user={user} />;
       default: return null;
     }
   };
