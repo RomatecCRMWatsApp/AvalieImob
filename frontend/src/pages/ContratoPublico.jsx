@@ -44,6 +44,7 @@ const TIPO_LABEL = {
   doacao: 'Doação',
   arras: 'Arras / Sinal',
   intermediacao: 'Intermediação',
+  exclusividade: 'Exclusividade',
   usufruto: 'Usufruto',
   compra_venda_veiculo: 'C&V Veículo',
   distrato: 'Distrato',

@@ -28,6 +28,7 @@ const TIPO_CONFIG = {
   comodato:              { label: 'Comodato' },
   arras:                 { label: 'Arras / Sinal' },
   intermediacao:         { label: 'Intermediação' },
+  exclusividade:         { label: 'Exclusividade' },
   cessao_direitos:       { label: 'Cessão de Direitos' },
   usufruto:              { label: 'Usufruto' },
   parceria_rural:        { label: 'Parceria Rural' },
