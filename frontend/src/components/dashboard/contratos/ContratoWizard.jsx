@@ -1351,8 +1351,11 @@ const Step11Exportar = ({ form, setForm, contratoId, user }) => {
     const a = document.createElement('a');
     a.href = url;
     a.download = filename;
+    document.body.appendChild(a);
     a.click();
-    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    // Adia a revogação para garantir que o browser terminou o download
+    setTimeout(() => window.URL.revokeObjectURL(url), 1000);
   };
 
   const baixarDocx = async () => {
@@ -1373,10 +1376,6 @@ const Step11Exportar = ({ form, setForm, contratoId, user }) => {
     setLoadingPdf(true);
     try {
       const res = await contratosAPI.pdf(contratoId);
-      const ct = (res?.headers?.['content-type'] || '').toLowerCase();
-      if (!ct.includes('application/pdf')) {
-        throw new Error('Resposta não é PDF');
-      }
       downloadBlob(res.data, `contrato_${form.numero || contratoId}.pdf`);
     } catch {
       toast({ title: 'Erro ao gerar PDF', variant: 'destructive' });

@@ -143,6 +143,13 @@ def _normalize_contrato_doc(doc: Optional[dict]) -> Optional[dict]:
     return payload
 
 
+def _safe_text(value: Any) -> str:
+    """Converte para string e codifica em cp1252 (WinAnsiEncoding do PDF/Helvetica).
+    Substitui chars fora do cp1252 por '?' para evitar UnicodeEncodeError no reportlab."""
+    text = str(value) if value is not None else ""
+    return text.encode("cp1252", errors="replace").decode("cp1252")
+
+
 def _fmt_brl(value: Any) -> str:
     try:
         n = float(value)
@@ -221,13 +228,13 @@ def _draw_multiline(c: canvas.Canvas, text: str, x: float, y: float, max_width: 
 
 def _generate_contrato_pdf_bytes(doc: dict, uid: str, empresa: str) -> bytes:
     contrato_id = str(doc.get("id") or doc.get("_id") or "-")
-    numero = doc.get("numero_contrato") or contrato_id
-    tipo = doc.get("tipo_contrato") or "-"
-    status = doc.get("status") or "-"
+    numero = _safe_text(doc.get("numero_contrato") or contrato_id)
+    tipo = _safe_text(doc.get("tipo_contrato") or "-")
+    status = _safe_text(doc.get("status") or "-")
 
-    vendedores = [n for n in (_nome_parte(p) for p in doc.get("vendedores", [])) if n]
-    compradores = [n for n in (_nome_parte(p) for p in doc.get("compradores", [])) if n]
-    partes = ", ".join(vendedores + compradores) or "-"
+    vendedores = [_safe_text(n) for n in (_nome_parte(p) for p in doc.get("vendedores", [])) if n]
+    compradores = [_safe_text(n) for n in (_nome_parte(p) for p in doc.get("compradores", [])) if n]
+    partes = _safe_text(", ".join(vendedores + compradores) or "-")
 
     pagamento = doc.get("pagamento") if isinstance(doc.get("pagamento"), dict) else {}
     valor = (
@@ -238,54 +245,59 @@ def _generate_contrato_pdf_bytes(doc: dict, uid: str, empresa: str) -> bytes:
     )
 
     created_at = _fmt_date(doc.get("created_at"))
-    corpo_linhas = _extract_corpo_contrato(doc)
+    corpo_linhas = [_safe_text(l) for l in _extract_corpo_contrato(doc)]
+    empresa_safe = _safe_text(empresa or "AvalieImob")
 
     buffer = io.BytesIO()
-    c = canvas.Canvas(buffer, pagesize=A4)
-    w, h = A4
-    margin_x = 40
-    y = h - 50
-
-    c.setTitle(f"contrato_{contrato_id}")
-    c.setFont("Helvetica-Bold", 14)
-    c.drawString(margin_x, y, empresa or "AvalieImob")
-    y -= 22
-
-    c.setFont("Helvetica", 10)
-    y = _draw_multiline(c, f"Número/ID: {numero}", margin_x, y, w - 2 * margin_x)
-    y = _draw_multiline(c, f"Tipo do contrato: {tipo}", margin_x, y, w - 2 * margin_x)
-    y = _draw_multiline(c, f"Partes envolvidas: {partes}", margin_x, y, w - 2 * margin_x)
-    y = _draw_multiline(c, f"Valor: {_fmt_brl(valor)}", margin_x, y, w - 2 * margin_x)
-    y = _draw_multiline(c, f"Data de criação: {created_at}", margin_x, y, w - 2 * margin_x)
-    y = _draw_multiline(c, f"Status atual: {status}", margin_x, y, w - 2 * margin_x)
-
-    y -= 6
-    c.setFont("Helvetica-Bold", 11)
-    c.drawString(margin_x, y, "Corpo do contrato")
-    y -= 16
-    c.setFont("Helvetica", 10)
-
-    max_width = w - 2 * margin_x
-    for linha in corpo_linhas:
-        if y < 80:
-            c.showPage()
-            y = h - 50
-            c.setFont("Helvetica", 10)
-        y = _draw_multiline(c, linha, margin_x, y, max_width)
-
-    if y < 70:
-        c.showPage()
+    try:
+        c = canvas.Canvas(buffer, pagesize=A4)
+        w, h = A4
+        margin_x = 40
         y = h - 50
+
+        c.setTitle(f"contrato_{contrato_id}")
+        c.setFont("Helvetica-Bold", 14)
+        c.drawString(margin_x, y, empresa_safe)
+        y -= 22
+
+        c.setFont("Helvetica", 10)
+        y = _draw_multiline(c, f"Numero/ID: {numero}", margin_x, y, w - 2 * margin_x)
+        y = _draw_multiline(c, f"Tipo do contrato: {tipo}", margin_x, y, w - 2 * margin_x)
+        y = _draw_multiline(c, f"Partes envolvidas: {partes}", margin_x, y, w - 2 * margin_x)
+        y = _draw_multiline(c, f"Valor: {_fmt_brl(valor)}", margin_x, y, w - 2 * margin_x)
+        y = _draw_multiline(c, f"Data de criacao: {created_at}", margin_x, y, w - 2 * margin_x)
+        y = _draw_multiline(c, f"Status atual: {status}", margin_x, y, w - 2 * margin_x)
+
+        y -= 6
+        c.setFont("Helvetica-Bold", 11)
+        c.drawString(margin_x, y, "Corpo do contrato")
+        y -= 16
         c.setFont("Helvetica", 10)
 
-    c.setFont("Helvetica-Oblique", 9)
-    c.drawString(
-        margin_x,
-        40,
-        f"Gerado em {datetime.utcnow().strftime('%d/%m/%Y %H:%M UTC')} | Gerado por AvalieImob / Romatec | usuário {uid}",
-    )
+        max_width = w - 2 * margin_x
+        for linha in corpo_linhas:
+            if y < 80:
+                c.showPage()
+                y = h - 50
+                c.setFont("Helvetica", 10)
+            y = _draw_multiline(c, linha, margin_x, y, max_width)
 
-    c.save()
+        if y < 70:
+            c.showPage()
+            y = h - 50
+
+        c.setFont("Helvetica-Oblique", 9)
+        rodape = _safe_text(
+            f"Gerado em {datetime.utcnow().strftime('%d/%m/%Y %H:%M UTC')} "
+            f"| AvalieImob / Romatec | usuario {uid}"
+        )
+        c.drawString(margin_x, 40, rodape)
+
+        c.save()
+    except Exception as exc:
+        logger.error("Erro ao gerar PDF do contrato %s: %s", contrato_id, exc)
+        return b""
+
     buffer.seek(0)
     return buffer.read()
 
