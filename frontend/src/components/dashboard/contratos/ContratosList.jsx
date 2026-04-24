@@ -72,10 +72,15 @@ const getParteNome = (parte) => {
 };
 
 /* ── Download helper ─────────────────────────────────────── */
-const downloadBlob = async (apiFn, id, filename, toast) => {
+const downloadBlob = async (apiFn, id, filename, toast, expectedMime = null) => {
   try {
     const res = await apiFn(id);
-    const url = URL.createObjectURL(new Blob([res.data]));
+    const ct = (res?.headers?.['content-type'] || '').toLowerCase();
+    if (expectedMime && !ct.includes(expectedMime.toLowerCase())) {
+      throw new Error(`Tipo de conteúdo inválido: ${ct}`);
+    }
+    const blob = res.data instanceof Blob ? res.data : new Blob([res.data]);
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = filename; a.click();
     URL.revokeObjectURL(url);
@@ -118,7 +123,7 @@ const CardActions = ({ contrato, onEdit, onDelete, toast }) => {
           </button>
           <button
             disabled={!id}
-            onClick={() => { setOpen(false); downloadBlob(contratosAPI.pdf, id, `contrato-${id}.pdf`, toast); }}
+            onClick={() => { setOpen(false); downloadBlob(contratosAPI.pdf, id, `contrato-${id}.pdf`, toast, 'application/pdf'); }}
             className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 w-full text-left"
           >
             <FileText className="w-3.5 h-3.5 text-red-500" /> Baixar PDF

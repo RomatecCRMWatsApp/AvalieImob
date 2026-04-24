@@ -7,10 +7,12 @@ import uuid as _uuid_module
 from datetime import datetime
 from typing import List, Optional, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from pymongo import ReturnDocument
 from pydantic import BaseModel
 from bson import ObjectId
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
 
 from db import get_db
 from dependencies import get_active_subscriber, get_authenticated_user, serialize_doc
@@ -141,6 +143,153 @@ def _normalize_contrato_doc(doc: Optional[dict]) -> Optional[dict]:
     return payload
 
 
+def _fmt_brl(value: Any) -> str:
+    try:
+        n = float(value)
+    except (TypeError, ValueError):
+        return "R$ 0,00"
+    s = f"{n:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    return f"R$ {s}"
+
+
+def _fmt_date(value: Any) -> str:
+    if isinstance(value, datetime):
+        return value.strftime("%d/%m/%Y")
+    if isinstance(value, str) and value:
+        return value
+    return "-"
+
+
+def _nome_parte(parte: dict) -> str:
+    if not isinstance(parte, dict):
+        return ""
+    return (
+        parte.get("nome")
+        or parte.get("razao_social")
+        or (parte.get("pf") or {}).get("nome")
+        or (parte.get("pj") or {}).get("razao_social")
+        or (parte.get("pj") or {}).get("nome_fantasia")
+        or ""
+    )
+
+
+def _extract_corpo_contrato(doc: dict) -> List[str]:
+    # Prioridade: cláusulas estruturadas, depois campos textuais livres.
+    clausulas = doc.get("clausulas")
+    linhas: List[str] = []
+
+    if isinstance(clausulas, list) and clausulas:
+        for i, item in enumerate(clausulas, 1):
+            if isinstance(item, dict):
+                titulo = item.get("titulo") or item.get("nome") or f"Cláusula {i}"
+                texto = item.get("texto") or item.get("conteudo") or ""
+                if texto:
+                    linhas.append(f"{titulo}: {texto}")
+                else:
+                    linhas.append(str(titulo))
+            elif isinstance(item, str) and item.strip():
+                linhas.append(item.strip())
+
+    for key in ("corpo", "texto", "texto_contrato", "clausulas_texto"):
+        value = doc.get(key)
+        if isinstance(value, str) and value.strip():
+            linhas.extend([p.strip() for p in value.split("\n") if p.strip()])
+
+    if not linhas:
+        linhas.append("Contrato sem cláusulas textuais cadastradas.")
+
+    return linhas
+
+
+def _draw_multiline(c: canvas.Canvas, text: str, x: float, y: float, max_width: float, line_height: float = 14.0) -> float:
+    words = text.split()
+    if not words:
+        return y - line_height
+
+    current = words[0]
+    for w in words[1:]:
+        candidate = f"{current} {w}"
+        if c.stringWidth(candidate, "Helvetica", 10) <= max_width:
+            current = candidate
+        else:
+            c.drawString(x, y, current)
+            y -= line_height
+            current = w
+    c.drawString(x, y, current)
+    return y - line_height
+
+
+def _generate_contrato_pdf_bytes(doc: dict, uid: str, empresa: str) -> bytes:
+    contrato_id = str(doc.get("id") or doc.get("_id") or "-")
+    numero = doc.get("numero_contrato") or contrato_id
+    tipo = doc.get("tipo_contrato") or "-"
+    status = doc.get("status") or "-"
+
+    vendedores = [n for n in (_nome_parte(p) for p in doc.get("vendedores", [])) if n]
+    compradores = [n for n in (_nome_parte(p) for p in doc.get("compradores", [])) if n]
+    partes = ", ".join(vendedores + compradores) or "-"
+
+    pagamento = doc.get("pagamento") if isinstance(doc.get("pagamento"), dict) else {}
+    valor = (
+        pagamento.get("valor_total")
+        or pagamento.get("valor")
+        or (doc.get("objeto") or {}).get("valor")
+        or 0
+    )
+
+    created_at = _fmt_date(doc.get("created_at"))
+    corpo_linhas = _extract_corpo_contrato(doc)
+
+    buffer = io.BytesIO()
+    c = canvas.Canvas(buffer, pagesize=A4)
+    w, h = A4
+    margin_x = 40
+    y = h - 50
+
+    c.setTitle(f"contrato_{contrato_id}")
+    c.setFont("Helvetica-Bold", 14)
+    c.drawString(margin_x, y, empresa or "AvalieImob")
+    y -= 22
+
+    c.setFont("Helvetica", 10)
+    y = _draw_multiline(c, f"Número/ID: {numero}", margin_x, y, w - 2 * margin_x)
+    y = _draw_multiline(c, f"Tipo do contrato: {tipo}", margin_x, y, w - 2 * margin_x)
+    y = _draw_multiline(c, f"Partes envolvidas: {partes}", margin_x, y, w - 2 * margin_x)
+    y = _draw_multiline(c, f"Valor: {_fmt_brl(valor)}", margin_x, y, w - 2 * margin_x)
+    y = _draw_multiline(c, f"Data de criação: {created_at}", margin_x, y, w - 2 * margin_x)
+    y = _draw_multiline(c, f"Status atual: {status}", margin_x, y, w - 2 * margin_x)
+
+    y -= 6
+    c.setFont("Helvetica-Bold", 11)
+    c.drawString(margin_x, y, "Corpo do contrato")
+    y -= 16
+    c.setFont("Helvetica", 10)
+
+    max_width = w - 2 * margin_x
+    for linha in corpo_linhas:
+        if y < 80:
+            c.showPage()
+            y = h - 50
+            c.setFont("Helvetica", 10)
+        y = _draw_multiline(c, linha, margin_x, y, max_width)
+
+    if y < 70:
+        c.showPage()
+        y = h - 50
+        c.setFont("Helvetica", 10)
+
+    c.setFont("Helvetica-Oblique", 9)
+    c.drawString(
+        margin_x,
+        40,
+        f"Gerado em {datetime.utcnow().strftime('%d/%m/%Y %H:%M UTC')} | Gerado por AvalieImob / Romatec | usuário {uid}",
+    )
+
+    c.save()
+    buffer.seek(0)
+    return buffer.read()
+
+
 async def _next_contrato_numero(db, ano: int) -> str:
     seq = await db.counters.find_one_and_update(
         {"_id": f"contrato_numero_{ano}"},
@@ -256,6 +405,35 @@ async def buscar_contrato(
     if not doc:
         raise HTTPException(status_code=404, detail="Contrato não encontrado")
     return _normalize_contrato_doc(doc)
+
+
+@router.get("/contratos/{cid}/pdf")
+async def baixar_contrato_pdf(
+    cid: str,
+    uid: str = Depends(get_authenticated_user),
+    db=Depends(get_db),
+):
+    """Gera e retorna PDF binário válido do contrato do usuário autenticado."""
+    doc = await db.contratos.find_one(_contrato_query_by_cid(cid, uid))
+    if not doc:
+        raise HTTPException(status_code=404, detail="Contrato não encontrado")
+
+    user = await db.users.find_one({"id": uid}, {"company": 1, "name": 1})
+    empresa = (user or {}).get("company") or (user or {}).get("name") or "AvalieImob"
+
+    pdf_bytes = _generate_contrato_pdf_bytes(doc=doc, uid=uid, empresa=empresa)
+    if not pdf_bytes.startswith(b"%PDF-"):
+        raise HTTPException(status_code=500, detail="Falha ao gerar PDF válido")
+
+    filename_id = str(doc.get("id") or doc.get("_id") or cid)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="contrato_{filename_id}.pdf"',
+            "Cache-Control": "no-store",
+        },
+    )
 
 
 @router.put("/contratos/{cid}")
