@@ -246,11 +246,23 @@ export const zonasAPI = {
 };
 
 // ---- Contratos (compra/venda, locação, permuta, arras, etc.)
+const normalizeContrato = (contrato) => {
+  if (!contrato) return contrato;
+  return {
+    ...contrato,
+    id: contrato.id || contrato._id || null,
+    numero_contrato: contrato.numero_contrato || contrato.numero || '',
+    tipo_contrato: contrato.tipo_contrato || contrato.tipo || '',
+    vendedores: Array.isArray(contrato.vendedores) ? contrato.vendedores : [],
+    compradores: Array.isArray(contrato.compradores) ? contrato.compradores : [],
+  };
+};
+
 export const contratosAPI = {
-  listar: (params) => api.get('/contratos', { params }).then(r => r.data),
-  criar: (data) => api.post('/contratos', data).then(r => r.data),
-  buscar: (id) => api.get(`/contratos/${id}`).then(r => r.data),
-  atualizar: (id, data) => api.put(`/contratos/${id}`, data).then(r => r.data),
+  listar: (params) => api.get('/contratos', { params }).then(r => (r.data || []).map(normalizeContrato)),
+  criar: (data) => api.post('/contratos', data).then(r => normalizeContrato(r.data)),
+  buscar: (id) => api.get(`/contratos/${id}`).then(r => normalizeContrato(r.data)),
+  atualizar: (id, data) => api.put(`/contratos/${id}`, data).then(r => normalizeContrato(r.data)),
   excluir: (id) => api.delete(`/contratos/${id}`).then(r => r.data),
   gerarClausulas: (id, data) => api.post(`/contratos/${id}/gerar-clausulas`, data).then(r => r.data),
   validarJuridico: (id) => api.post(`/contratos/${id}/validar-juridico`).then(r => r.data),

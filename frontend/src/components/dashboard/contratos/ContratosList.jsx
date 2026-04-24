@@ -56,6 +56,21 @@ const fmtCurrency = (v) =>
 
 const fmtDate = (s) => (s ? new Date(s).toLocaleDateString('pt-BR') : '—');
 
+const getContratoId = (contrato) => contrato?.id || contrato?._id || null;
+
+const getParteNome = (parte) => {
+  if (!parte) return '';
+  return (
+    parte.nome ||
+    parte.razao_social ||
+    parte.pf?.nome ||
+    parte.pj?.razao_social ||
+    parte.pj?.nome_fantasia ||
+    parte.pj?.representante_nome ||
+    ''
+  );
+};
+
 /* ── Download helper ─────────────────────────────────────── */
 const downloadBlob = async (apiFn, id, filename, toast) => {
   try {
@@ -72,7 +87,7 @@ const downloadBlob = async (apiFn, id, filename, toast) => {
 /* ── Action menu for each card ───────────────────────────── */
 const CardActions = ({ contrato, onEdit, onDelete, toast }) => {
   const [open, setOpen] = useState(false);
-  const id = contrato.id;
+  const id = getContratoId(contrato);
 
   return (
     <div className="relative" onClick={(e) => e.stopPropagation()}>
@@ -95,12 +110,14 @@ const CardActions = ({ contrato, onEdit, onDelete, toast }) => {
             <PenSquare className="w-3.5 h-3.5 text-gray-400" /> Editar
           </button>
           <button
+            disabled={!id}
             onClick={() => { setOpen(false); downloadBlob(contratosAPI.docx, id, `contrato-${id}.docx`, toast); }}
             className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 w-full text-left"
           >
             <Download className="w-3.5 h-3.5 text-blue-500" /> Baixar DOCX
           </button>
           <button
+            disabled={!id}
             onClick={() => { setOpen(false); downloadBlob(contratosAPI.pdf, id, `contrato-${id}.pdf`, toast); }}
             className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 w-full text-left"
           >
@@ -108,6 +125,7 @@ const CardActions = ({ contrato, onEdit, onDelete, toast }) => {
           </button>
           <button
             onClick={() => {
+              if (!id) return;
               setOpen(false);
               contratosAPI.compartilhar(id)
                 .then(r => {
@@ -122,6 +140,7 @@ const CardActions = ({ contrato, onEdit, onDelete, toast }) => {
           </button>
           <button
             onClick={() => {
+              if (!id) return;
               setOpen(false);
               contratosAPI.assinarD4sign(id, {})
                 .then(() => toast({ title: 'Enviado para assinatura D4Sign!' }))
@@ -159,8 +178,8 @@ const ContratosList = () => {
     setLoading(true);
     try {
       const params = {};
-      if (filterTipo) params.tipo = filterTipo;
-      if (filterStatus) params.status = filterStatus;
+      if (filterTipo) params.tipo_contrato = filterTipo;
+      if (filterStatus) params.status = filterStatus.toLowerCase();
       setItems(await contratosAPI.listar(params));
     } catch (err) {
       console.warn(err);
@@ -173,10 +192,14 @@ const ContratosList = () => {
   useEffect(() => { load(); }, [load]);
 
   const remove = async (id) => {
+    if (!id) {
+      toast({ title: 'Contrato sem ID válido', variant: 'destructive' });
+      return;
+    }
     if (!window.confirm('Excluir este contrato? Esta ação não pode ser desfeita.')) return;
     try {
       await contratosAPI.excluir(id);
-      setItems(items.filter((c) => c.id !== id));
+      setItems(items.filter((c) => getContratoId(c) !== id));
       toast({ title: 'Contrato excluído' });
     } catch {
       toast({ title: 'Erro ao excluir', variant: 'destructive' });
@@ -188,9 +211,9 @@ const ContratosList = () => {
     ? items.filter((c) => {
         const q = search.toLowerCase();
         const partes = [
-          c.vendedores?.map(v => v.nome)?.join(' ') || '',
-          c.compradores?.map(v => v.nome)?.join(' ') || '',
-          c.numero || '',
+          c.vendedores?.map(getParteNome)?.join(' ') || '',
+          c.compradores?.map(getParteNome)?.join(' ') || '',
+          c.numero_contrato || c.numero || '',
           c.objeto?.endereco || '',
         ].join(' ').toLowerCase();
         return partes.includes(q);
@@ -268,19 +291,21 @@ const ContratosList = () => {
         </div>
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((c) => {
-            const statusCfg = STATUS_CONFIG[c.status] || STATUS_CONFIG.MINUTA;
-            const tipoCfg = TIPO_CONFIG[c.tipo] || { label: c.tipo || 'Contrato' };
+          {filtered.map((c, idx) => {
+            const contratoId = getContratoId(c);
+            const statusCfg = STATUS_CONFIG[(c.status || '').toUpperCase()] || STATUS_CONFIG.MINUTA;
+            const tipoContrato = c.tipo_contrato || c.tipo;
+            const tipoCfg = TIPO_CONFIG[tipoContrato] || { label: tipoContrato || 'Contrato' };
             const partesPrinc = [
-              ...(c.vendedores || []).map(v => v.nome).filter(Boolean),
-              ...(c.compradores || []).map(v => v.nome).filter(Boolean),
+              ...(c.vendedores || []).map(getParteNome).filter(Boolean),
+              ...(c.compradores || []).map(getParteNome).filter(Boolean),
             ].filter(Boolean);
 
             return (
               <div
-                key={c.id}
+                key={contratoId || c.numero_contrato || c.numero || `contrato-${idx}`}
                 className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition cursor-pointer"
-                onClick={() => nav(`/dashboard/contratos/${c.id}`)}
+                onClick={() => contratoId && nav(`/dashboard/contratos/${contratoId}`)}
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="w-10 h-10 rounded-lg bg-emerald-900/10 flex items-center justify-center">
@@ -290,7 +315,7 @@ const ContratosList = () => {
                 </div>
 
                 <div className="text-xs font-semibold text-emerald-700 tracking-wider">
-                  {c.numero || 'Sem número'}
+                  {c.numero_contrato || c.numero || 'Sem número'}
                 </div>
                 <Badge className="bg-gray-100 text-gray-700 text-[10px] mt-1">{tipoCfg.label}</Badge>
 
@@ -316,14 +341,15 @@ const ContratosList = () => {
                   <Button
                     size="sm"
                     className="flex-1 bg-emerald-900 hover:bg-emerald-800 text-white"
-                    onClick={() => nav(`/dashboard/contratos/${c.id}`)}
+                    disabled={!contratoId}
+                    onClick={() => contratoId && nav(`/dashboard/contratos/${contratoId}`)}
                   >
                     Editar
                   </Button>
                   <CardActions
                     contrato={c}
-                    onEdit={() => nav(`/dashboard/contratos/${c.id}`)}
-                    onDelete={() => remove(c.id)}
+                    onEdit={() => contratoId && nav(`/dashboard/contratos/${contratoId}`)}
+                    onDelete={() => remove(contratoId)}
                     toast={toast}
                   />
                 </div>

@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pymongo import ReturnDocument
 from pydantic import BaseModel
+from bson import ObjectId
 
 from db import get_db
 from dependencies import get_active_subscriber, serialize_doc
@@ -121,6 +122,25 @@ def _create_version(
     }
 
 
+def _contrato_query_by_cid(cid: str, uid: str) -> dict:
+    query = {"user_id": uid}
+    if ObjectId.is_valid(cid):
+        query["$or"] = [{"id": cid}, {"_id": ObjectId(cid)}]
+    else:
+        query["id"] = cid
+    return query
+
+
+def _normalize_contrato_doc(doc: Optional[dict]) -> Optional[dict]:
+    if not doc:
+        return doc
+    raw_id = doc.get("_id")
+    payload = serialize_doc(doc)
+    if not payload.get("id") and raw_id is not None:
+        payload["id"] = str(raw_id)
+    return payload
+
+
 async def _next_contrato_numero(db, ano: int) -> str:
     seq = await db.counters.find_one_and_update(
         {"_id": f"contrato_numero_{ano}"},
@@ -140,7 +160,10 @@ async def _next_lacre_versao(db, contrato_id: str, ano: int) -> str:
         return_document=ReturnDocument.AFTER,
     )
     n = seq.get("seq", 1) if seq else 1
-    doc = await db.contratos.find_one({"id": contrato_id})
+    contrato_lookup = {"id": contrato_id}
+    if ObjectId.is_valid(contrato_id):
+        contrato_lookup = {"$or": [{"id": contrato_id}, {"_id": ObjectId(contrato_id)}]}
+    doc = await db.contratos.find_one(contrato_lookup)
     numero_base = doc.get("numero_contrato", f"CV-{ano}") if doc else f"CV-{ano}"
     return f"{numero_base}-v{n}"
 
@@ -167,6 +190,7 @@ async def criar_contrato(
     
     # Monta o documento com todos os campos opcionais
     contrato_data = {
+        "id": str(_uuid_module.uuid4()),
         "user_id": uid,
         "tipo_contrato": body.tipo_contrato,
         "numero_contrato": numero,
@@ -189,7 +213,7 @@ async def criar_contrato(
     }
     
     await db.contratos.insert_one(contrato_data)
-    return serialize_doc(contrato_data)
+    return _normalize_contrato_doc(contrato_data)
 
 
 @router.get("/contratos")
@@ -218,7 +242,7 @@ async def listar_contratos(
             or busca.lower() in json.dumps(d.get("compradores", []), ensure_ascii=False).lower()
         ]
     
-    return [serialize_doc(d) for d in docs]
+    return [_normalize_contrato_doc(d) for d in docs]
 
 
 @router.get("/contratos/{cid}")
@@ -228,10 +252,10 @@ async def buscar_contrato(
     db=Depends(get_db),
 ):
     """Busca um contrato completo pelo ID."""
-    doc = await db.contratos.find_one({"id": cid, "user_id": uid})
+    doc = await db.contratos.find_one(_contrato_query_by_cid(cid, uid))
     if not doc:
         raise HTTPException(status_code=404, detail="Contrato não encontrado")
-    return serialize_doc(doc)
+    return _normalize_contrato_doc(doc)
 
 
 @router.put("/contratos/{cid}")
@@ -242,9 +266,11 @@ async def atualizar_contrato(
     db=Depends(get_db),
 ):
     """Atualiza contrato e salva versão anterior."""
-    doc = await db.contratos.find_one({"id": cid, "user_id": uid})
+    query = _contrato_query_by_cid(cid, uid)
+    doc = await db.contratos.find_one(query)
     if not doc:
         raise HTTPException(status_code=404, detail="Contrato não encontrado")
+    contrato_id_ref = doc.get("id") or str(doc.get("_id"))
     
     # Salvar versão anterior
     versao_atual = doc.get("versao_atual", 1)
@@ -254,7 +280,7 @@ async def atualizar_contrato(
     diffs = _deep_diff(snapshot_anterior, body.dict(exclude_unset=True))
     if diffs:
         version_doc = _create_version(
-            contrato_id=cid,
+            contrato_id=contrato_id_ref,
             user_id=uid,
             numero_versao=versao_atual,
             tipo="auto",
@@ -267,16 +293,18 @@ async def atualizar_contrato(
     
     # Atualizar
     update_data = body.dict(exclude_unset=True)
+    if not doc.get("id"):
+        update_data["id"] = contrato_id_ref
     update_data["versao_atual"] = versao_atual
     update_data["updated_at"] = datetime.utcnow()
     
     await db.contratos.update_one(
-        {"id": cid, "user_id": uid},
+        query,
         {"$set": update_data}
     )
     
-    doc_atualizado = await db.contratos.find_one({"id": cid, "user_id": uid})
-    return serialize_doc(doc_atualizado)
+    doc_atualizado = await db.contratos.find_one(query)
+    return _normalize_contrato_doc(doc_atualizado)
 
 
 @router.delete("/contratos/{cid}")
@@ -286,12 +314,13 @@ async def deletar_contrato(
     db=Depends(get_db),
 ):
     """Soft delete do contrato (status = arquivado)."""
-    doc = await db.contratos.find_one({"id": cid, "user_id": uid})
+    query = _contrato_query_by_cid(cid, uid)
+    doc = await db.contratos.find_one(query)
     if not doc:
         raise HTTPException(status_code=404, detail="Contrato não encontrado")
     
     await db.contratos.update_one(
-        {"id": cid, "user_id": uid},
+        query,
         {"$set": {"status": "arquivado", "updated_at": datetime.utcnow()}}
     )
     return {"message": "Contrato arquivado com sucesso"}
@@ -309,7 +338,7 @@ async def gerar_clausulas(
     Retorna lista de clausulas sugeridas. As clausulas NAO sao salvas automaticamente
     — o front-end deve confirmar e chamar PUT /contratos/{cid} para persistir.
     """
-    doc = await db.contratos.find_one({"id": cid, "user_id": uid})
+    doc = await db.contratos.find_one(_contrato_query_by_cid(cid, uid))
     if not doc:
         raise HTTPException(status_code=404, detail="Contrato não encontrado")
 
@@ -358,7 +387,8 @@ async def validar_juridico(
 
     Salva os alertas no banco e retorna a lista completa.
     """
-    doc = await db.contratos.find_one({"id": cid, "user_id": uid})
+    query = _contrato_query_by_cid(cid, uid)
+    doc = await db.contratos.find_one(query)
     if not doc:
         raise HTTPException(status_code=404, detail="Contrato não encontrado")
 
@@ -366,7 +396,7 @@ async def validar_juridico(
     
     # Salvar alertas no contrato
     await db.contratos.update_one(
-        {"id": cid, "user_id": uid},
+        query,
         {"$set": {"alertas_juridicos": alertas, "updated_at": datetime.utcnow()}}
     )
     
@@ -380,7 +410,7 @@ async def simulador_penalidades(
     db=Depends(get_db),
 ):
     """Calcula penalidades do contrato (multas, juros, correção)."""
-    doc = await db.contratos.find_one({"id": cid, "user_id": uid})
+    doc = await db.contratos.find_one(_contrato_query_by_cid(cid, uid))
     if not doc:
         raise HTTPException(status_code=404, detail="Contrato não encontrado")
 
@@ -395,7 +425,7 @@ async def checklist_documental(
     db=Depends(get_db),
 ):
     """Gera checklist de documentos necessários para o contrato."""
-    doc = await db.contratos.find_one({"id": cid, "user_id": uid})
+    doc = await db.contratos.find_one(_contrato_query_by_cid(cid, uid))
     if not doc:
         raise HTTPException(status_code=404, detail="Contrato não encontrado")
 
@@ -425,9 +455,11 @@ async def lacrar_contrato(
     db=Depends(get_db),
 ):
     """Lacra a versão atual do contrato com hash SHA-256."""
-    doc = await db.contratos.find_one({"id": cid, "user_id": uid})
+    query = _contrato_query_by_cid(cid, uid)
+    doc = await db.contratos.find_one(query)
     if not doc:
         raise HTTPException(status_code=404, detail="Contrato não encontrado")
+    contrato_id_ref = doc.get("id") or str(doc.get("_id"))
     
     if doc.get("lacrado"):
         raise HTTPException(status_code=400, detail="Contrato já está lacrado")
@@ -438,11 +470,11 @@ async def lacrar_contrato(
     
     # Gerar número de lacre
     ano = datetime.utcnow().year
-    numero_lacre = await _next_lacre_versao(db, cid, ano)
+    numero_lacre = await _next_lacre_versao(db, contrato_id_ref, ano)
     
     # Criar versão lacrada
     version_doc = _create_version(
-        contrato_id=cid,
+        contrato_id=contrato_id_ref,
         user_id=uid,
         numero_versao=doc.get("versao_atual", 1),
         tipo="lacrado",
@@ -455,9 +487,10 @@ async def lacrar_contrato(
     
     # Atualizar contrato
     await db.contratos.update_one(
-        {"id": cid, "user_id": uid},
+        query,
         {
             "$set": {
+                "id": contrato_id_ref,
                 "lacrado": True,
                 "versao_lacrada": numero_lacre,
                 "hash_lacrado": hash_sha256,
@@ -480,7 +513,8 @@ async def compartilhar_contrato(
     db=Depends(get_db),
 ):
     """Gera link público para visualização do contrato."""
-    doc = await db.contratos.find_one({"id": cid, "user_id": uid})
+    query = _contrato_query_by_cid(cid, uid)
+    doc = await db.contratos.find_one(query)
     if not doc:
         raise HTTPException(status_code=404, detail="Contrato não encontrado")
     
@@ -488,7 +522,7 @@ async def compartilhar_contrato(
     token = str(_uuid_module.uuid4())
     
     await db.contratos.update_one(
-        {"id": cid, "user_id": uid},
+        query,
         {
             "$set": {
                 "link_publico_token": token,
