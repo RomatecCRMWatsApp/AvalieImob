@@ -213,13 +213,60 @@ class PtamBase(BaseModel):
     registro_profissional: Optional[str] = ""
     art_rrt_numero: Optional[str] = ""
 
-    # Campos Rurais
+    # Campos Rurais — Identificação
     certificacao_sigef: Optional[str] = None
     cadastro_incra: Optional[str] = None
     ccir: Optional[str] = None
     nirf_cib: Optional[str] = None
     car: Optional[str] = None
     perimetro_m: Optional[float] = None
+
+    # Campos Rurais — Identificação Expandida (SIGEF/INCRA)
+    ccir_numero: Optional[str] = None           # CCIR com máscara formatada
+    car_numero: Optional[str] = None            # CAR completo (estado-municipio-hash)
+    sigef_codigo: Optional[str] = None          # UUID SIGEF (parcela certificada)
+    nirf_numero: Optional[str] = None           # NIRF / CIB (ITR)
+    cod_imovel_incra: Optional[str] = None      # Código INCRA (ex: 950.203.934.550-0)
+
+    # Campos Rurais — SIGEF / Georreferenciamento
+    sigef_situacao: Optional[str] = None        # certificado | em_certificacao | nao_certificado
+    sigef_data_certificacao: Optional[str] = None
+    sigef_area_ha: Optional[float] = None
+    sigef_perimetro_m: Optional[float] = None
+    sigef_vertices: Optional[int] = None
+    sigef_datum: Optional[str] = None           # SIRGAS 2000
+    sigef_poligono: Optional[str] = None        # GeoJSON string
+
+    # Campos Rurais — Denominação e Localização INCRA
+    denominacao: Optional[str] = None           # Nome da fazenda/imóvel rural
+    municipio_incra: Optional[str] = None
+    uf_incra: Optional[str] = None
+    modulo_fiscal_ha: Optional[float] = None    # Módulo fiscal do município (ha)
+    numero_modulos_fiscais: Optional[float] = None  # Área / módulo fiscal
+
+    # Campos Rurais — Áreas Detalhadas
+    area_total_ha: Optional[float] = None
+    area_explorada_ha: Optional[float] = None
+    area_reserva_legal_ha: Optional[float] = None
+    area_app_ha: Optional[float] = None         # Área de Preservação Permanente
+    area_vegetacao_nativa_ha: Optional[float] = None
+    area_nao_aproveitavel_ha: Optional[float] = None
+
+    # Campos Rurais — CAR
+    car_situacao: Optional[str] = None          # ativo | pendente | suspenso | cancelado
+    car_area_ha: Optional[float] = None
+    car_data_inscricao: Optional[str] = None
+
+    # Campos Rurais — ITR
+    itr_ano_referencia: Optional[int] = None
+    itr_valor_terra_nua: Optional[float] = None
+    itr_valor_total: Optional[float] = None
+
+    # Metadados consulta SIGEF/INCRA automática
+    dados_incra_automaticos: Optional[bool] = False
+    dados_incra_data_consulta: Optional[str] = None
+
+    # Docs rurais upload
     doc_mapa_sigef: Optional[List[str]] = []
     doc_memorial_descritivo: Optional[List[str]] = []
     doc_ccir: Optional[List[str]] = []
@@ -272,6 +319,17 @@ class PtamBase(BaseModel):
     d4sign_assinado_em: Optional[datetime] = None
     d4sign_signatarios: Optional[List[dict]] = []
     d4sign_pdf_assinado_url: Optional[str] = None
+
+    # Método Evolutivo (NBR 14.653-2:2011, item 8.2.1.2)
+    metodo_evolutivo_tipo_cub: Optional[str] = None         # ex: "R1-N"
+    metodo_evolutivo_valor_cub: Optional[float] = None      # R$/m²
+    metodo_evolutivo_fonte_cub: Optional[str] = None        # ex: "SINDUSCON-SP (scraping)"
+    metodo_evolutivo_area_construida: Optional[float] = None
+    metodo_evolutivo_fator_obsolescencia: Optional[float] = None  # 0–80%
+    metodo_evolutivo_fator_adequacao: Optional[float] = None
+    metodo_evolutivo_valor_terreno: Optional[float] = None
+    metodo_evolutivo_benfeitoria_extra: Optional[float] = None
+    metodo_evolutivo_resultado: Optional[dict] = None       # output de calcular_metodo_evolutivo()
 
     # Meta
     status: str = "Rascunho"

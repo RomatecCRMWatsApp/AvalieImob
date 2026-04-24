@@ -4,6 +4,7 @@ import { Textarea } from '../../../ui/textarea';
 import { SectionHeader, AiButton } from '../shared/primitives';
 import { computeStatsNBR } from '../ptamHelpers';
 import { AlertTriangle, CheckCircle, Info } from 'lucide-react';
+import MetodoEvolutivo from '../MetodoEvolutivo';
 
 const fmtBRL = (v) =>
   Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -35,6 +36,10 @@ export const StepCalculos = ({ form, setForm, onAi, aiLoading }) => {
   const cvColors = getCVColor(stats.coef_variacao);
   const fundColors = getGrauColor(stats.grau_fundamentacao);
   const precColors = getGrauColor(stats.grau_precisao === 'fora' ? null : stats.grau_precisao);
+
+  // Detecta se metodologia inclui evolutivo
+  const isEvolutivo = (form.methodology || '').toLowerCase().includes('evolutivo');
+  const [activeTab, setActiveTab] = useState(isEvolutivo ? 'evolutivo' : 'comparativo');
 
   // Estado local para área a considerar
   const [areaInput, setAreaInput] = useState(form.imovel_area_a_considerar || '');
@@ -84,17 +89,42 @@ export const StepCalculos = ({ form, setForm, onAi, aiLoading }) => {
   // Verificar se há amostras
   if (stats.n_total === 0) {
     return (
-      <div>
+      <div className="space-y-4">
         <SectionHeader
           title="8. Cálculos e Tratamento Estatístico"
           subtitle="Estatísticas calculadas automaticamente com base nas amostras coletadas."
         />
-        <div className="p-6 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-sm">
-          <div className="flex items-center gap-2">
-            <Info className="w-5 h-5" />
-            <span>Nenhuma amostra com área e valor informados. Volte ao passo 6 e preencha as amostras.</span>
+        {isEvolutivo && (
+          <>
+            <div className="flex gap-1 p-1 bg-gray-100 rounded-lg w-fit">
+              <button
+                type="button"
+                onClick={() => setActiveTab('comparativo')}
+                className={`px-4 py-1.5 rounded-md text-xs font-medium transition-colors ${activeTab === 'comparativo' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                Comparativo
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('evolutivo')}
+                className={`px-4 py-1.5 rounded-md text-xs font-medium transition-colors ${activeTab === 'evolutivo' ? 'bg-emerald-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                Evolutivo (CUB)
+              </button>
+            </div>
+            {activeTab === 'evolutivo' && (
+              <MetodoEvolutivo form={form} setForm={setForm} />
+            )}
+          </>
+        )}
+        {(!isEvolutivo || activeTab === 'comparativo') && (
+          <div className="p-6 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-sm">
+            <div className="flex items-center gap-2">
+              <Info className="w-5 h-5" />
+              <span>Nenhuma amostra com área e valor informados. Volte ao passo 6 e preencha as amostras.</span>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     );
   }
@@ -105,6 +135,34 @@ export const StepCalculos = ({ form, setForm, onAi, aiLoading }) => {
         title="8. Cálculos e Tratamento Estatístico"
         subtitle="Análise estatística completa conforme NBR 14653-2"
       />
+
+      {/* Tabs: Comparativo / Evolutivo */}
+      {isEvolutivo && (
+        <div className="flex gap-1 p-1 bg-gray-100 rounded-lg w-fit">
+          <button
+            type="button"
+            onClick={() => setActiveTab('comparativo')}
+            className={`px-4 py-1.5 rounded-md text-xs font-medium transition-colors ${activeTab === 'comparativo' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            Comparativo
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('evolutivo')}
+            className={`px-4 py-1.5 rounded-md text-xs font-medium transition-colors ${activeTab === 'evolutivo' ? 'bg-emerald-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            Evolutivo (CUB)
+          </button>
+        </div>
+      )}
+
+      {/* Aba Evolutivo */}
+      {isEvolutivo && activeTab === 'evolutivo' && (
+        <MetodoEvolutivo form={form} setForm={setForm} />
+      )}
+
+      {/* Conteúdo Comparativo */}
+      {(!isEvolutivo || activeTab === 'comparativo') && (<>
 
       {/* Bloco A — Saneamento */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -404,6 +462,7 @@ export const StepCalculos = ({ form, setForm, onAi, aiLoading }) => {
           </div>
         </div>
       </div>
+      </>)}
     </div>
   );
 };

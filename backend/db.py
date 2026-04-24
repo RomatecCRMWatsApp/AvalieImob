@@ -26,13 +26,16 @@ def init_db():
 
 
 async def setup_indexes():
-    """Cria índices necessários para o versionamento de PTAM."""
+    """Cria índices necessários para o versionamento de PTAM e cache CUB."""
     if _db is None:
         return
     # Índices para ptam_versions
     await _db.ptam_versions.create_index([("ptam_id", 1), ("numero_versao", -1)])
     await _db.ptam_versions.create_index([("ptam_id", 1), ("tipo", 1)])
     await _db.ptam_versions.create_index([("ptam_id", 1), ("created_at", -1)])
+    # Índices para cub_cache (TTL 30 dias)
+    await _db.cub_cache.create_index("chave", unique=True)
+    await _db.cub_cache.create_index("criado_em", expireAfterSeconds=2592000)
 
 
 def get_client() -> AsyncIOMotorClient:

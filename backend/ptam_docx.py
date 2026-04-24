@@ -963,6 +963,59 @@ def _render_metodo_avaliacao(doc: Document, ptam: dict) -> None:
     run2.font.color.rgb = GREEN
 
 
+def _render_metodo_evolutivo(doc: Document, ptam: dict) -> None:
+    """Seção — Método Evolutivo (NBR 14.653-2:2011, item 8.2.1.2) — exibido quando resultado presente."""
+    resultado = ptam.get("metodo_evolutivo_resultado")
+    if not resultado:
+        return
+
+    _add_section_heading(doc, "MÉTODO EVOLUTIVO — NBR 14.653-2:2011, ITEM 8.2.1.2")
+
+    _add_subsection_heading(doc, "Base Legal")
+    _add_styled_paragraph(
+        doc,
+        "Cálculo conforme NBR 14.653-2:2011, item 8.2.1.2 — Método Evolutivo / Custo de Reprodução.",
+        italic=True,
+    )
+    _add_styled_paragraph(
+        doc,
+        "Fórmula: VT = VTe + [CUB × Área × Fa × (1 − Fd%)] + BE",
+        italic=True,
+    )
+
+    _add_subsection_heading(doc, "CUB — Custo Unitário Básico")
+    _add_label_value(doc, "Tipo CUB", resultado.get("tipo_cub", "—"))
+    _add_label_value(doc, "Valor CUB (R$/m²)", _format_currency(resultado.get("cub_valor", 0)))
+    _add_label_value(doc, "Fonte / Referência", resultado.get("fonte_cub", "—"))
+
+    _add_subsection_heading(doc, "Parâmetros da Edificação")
+    _add_label_value(doc, "Área Construída", f"{resultado.get('area_construida', 0):,.2f} m²".replace(",", "."))
+    _add_label_value(doc, "Fator de Adequação (Fa)", f"{resultado.get('fator_adequacao', 1.0):.4f}")
+    _add_label_value(doc, "Depreciação / Obsolescência (Fd)", f"{resultado.get('fator_obsolescencia_pct', 0):.1f}%")
+
+    _add_subsection_heading(doc, "Resultado Consolidado")
+    _add_label_value(doc, "Custo de Reprodução (CUB × Área × Fa)", _format_currency(resultado.get("custo_reproducao", 0)))
+    _add_label_value(doc, "(−) Depreciação acumulada", _format_currency(resultado.get("depreciacao_valor", 0)))
+    _add_label_value(doc, "Valor das Benfeitorias (pós-depreciação)", _format_currency(resultado.get("valor_benfeitoria", 0)))
+    _add_label_value(doc, "Valor do Terreno / Terra Nua", _format_currency(resultado.get("valor_terreno", 0)))
+    _add_label_value(doc, "Benfeitorias Extras", _format_currency(resultado.get("benfeitoria_extra", 0)))
+
+    # Valor total em destaque
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    r1 = p.add_run("Valor Total do Imóvel (Método Evolutivo): ")
+    r1.font.bold = True
+    r1.font.size = Pt(12)
+    r2 = p.add_run(_format_currency(resultado.get("valor_total", 0)))
+    r2.font.bold = True
+    r2.font.size = Pt(13)
+    r2.font.color.rgb = GREEN
+
+    formula = resultado.get("formula", "")
+    if formula:
+        _add_styled_paragraph(doc, f"Fórmula aplicada: {formula}", italic=True, size=9)
+
+
 def _render_areas_impacto(doc: Document, impact_areas: list) -> None:
     """Seção — Áreas de Impacto (legacy desapropriação)."""
     if not impact_areas:
@@ -1795,6 +1848,11 @@ def generate_ptam_docx(ptam: dict, user: dict, cnd_consultas: list | None = None
     # ── Seção 9: Método de Avaliação / Depreciação ────────────────────────────
     _render_metodo_avaliacao(doc, ptam)
     doc.add_paragraph()
+
+    # ── Seção 9b: Método Evolutivo (NBR 14.653-2:2011, item 8.2.1.2) ────────
+    _render_metodo_evolutivo(doc, ptam)
+    if ptam.get("metodo_evolutivo_resultado"):
+        doc.add_paragraph()
 
     # ── Legacy: Áreas de Impacto ───────────────────────────────────────────────
     _render_areas_impacto(doc, impact_areas)

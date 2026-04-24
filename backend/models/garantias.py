@@ -171,6 +171,17 @@ class GarantiaBase(BaseModel):
     d4sign_signatarios: Optional[List[dict]] = []
     d4sign_pdf_assinado_url: Optional[str] = None
 
+    # Método Evolutivo (NBR 14.653-2:2011, item 8.2.1.2)
+    metodo_evolutivo_tipo_cub: Optional[str] = None
+    metodo_evolutivo_valor_cub: Optional[float] = None
+    metodo_evolutivo_fonte_cub: Optional[str] = None
+    metodo_evolutivo_area_construida: Optional[float] = None
+    metodo_evolutivo_fator_obsolescencia: Optional[float] = None
+    metodo_evolutivo_fator_adequacao: Optional[float] = None
+    metodo_evolutivo_valor_terreno: Optional[float] = None
+    metodo_evolutivo_benfeitoria_extra: Optional[float] = None
+    metodo_evolutivo_resultado: Optional[dict] = None
+
     # Meta
     status: str = "rascunho"
 
