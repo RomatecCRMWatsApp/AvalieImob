@@ -1,8 +1,5 @@
 # @module routes.sigef — Endpoints de consulta SIGEF/INCRA para laudos rurais
-"""Rotas para consulta automatica ao SIGEF (INCRA) e preenchimento de PTAMs rurais.
-
-Credenciais INCRA: FQNS / CFTMA 12-091-853-69
-"""
+"""Rotas para consulta automatica ao SIGEF (INCRA) e preenchimento de PTAMs rurais."""
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from pydantic import BaseModel
 from typing import Optional

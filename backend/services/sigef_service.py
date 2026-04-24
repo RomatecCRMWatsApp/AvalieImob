@@ -1,8 +1,6 @@
 # @module services.sigef_service — Consulta automatica SIGEF/INCRA para laudos rurais
 """Servico de consulta ao SIGEF (Sistema de Gestao Fundiaria - INCRA) e SICAR (CAR).
 
-Credenciais INCRA: FQNS / CFTMA 12-091-853-69
-
 Endpoints utilizados:
   SIGEF: https://sigef.incra.gov.br/api/parcela/{uuid}
   SIGEF busca: https://sigef.incra.gov.br/api/parcela/?search=...
@@ -21,6 +19,7 @@ SICAR_BASE = "https://www.car.gov.br"
 BRASIL_API = "https://brasilapi.com.br/api"
 
 REQUEST_TIMEOUT = 20.0
+SIGEF_USER_AGENT = "AvalieImob/1.0 (avaliacao-imovel-rural)"
 
 # ── Tabela de Modulos Fiscais — Municipios do Maranhao ───────────────────────
 MODULOS_FISCAIS_MA = {
@@ -296,7 +295,7 @@ async def buscar_por_sigef_codigo(codigo: str) -> Optional[dict]:
         async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT, follow_redirects=True) as client:
             r = await client.get(url, headers={
                 "Accept": "application/json",
-                "User-Agent": "AvalieImob/1.0 (avaliacao-imovel-rural; FQNS/CFTMA 12-091-853-69)",
+                "User-Agent": SIGEF_USER_AGENT,
             })
             if r.status_code == 200:
                 data = r.json()
@@ -322,7 +321,7 @@ async def buscar_por_ccir(ccir: str) -> Optional[dict]:
         async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT, follow_redirects=True) as client:
             r = await client.get(url, params=params, headers={
                 "Accept": "application/json",
-                "User-Agent": "AvalieImob/1.0 (avaliacao-imovel-rural; FQNS/CFTMA 12-091-853-69)",
+                "User-Agent": SIGEF_USER_AGENT,
             })
             if r.status_code == 200:
                 data = r.json()
@@ -460,7 +459,7 @@ async def consultar_wfs_por_ccir(ccir: str) -> Optional[dict]:
         async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT, follow_redirects=True) as client:
             r = await client.get(SIGEF_WFS, params=params, headers={
                 "Accept": "application/json",
-                "User-Agent": "AvalieImob/1.0 (FQNS/CFTMA 12-091-853-69)",
+                "User-Agent": SIGEF_USER_AGENT,
             })
             if r.status_code == 200:
                 return _normalizar_geojson(r.json())
@@ -487,7 +486,7 @@ async def consultar_wfs_por_codigo(codigo_sigef: str) -> Optional[dict]:
         async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT, follow_redirects=True) as client:
             r = await client.get(SIGEF_WFS, params=params, headers={
                 "Accept": "application/json",
-                "User-Agent": "AvalieImob/1.0 (FQNS/CFTMA 12-091-853-69)",
+                "User-Agent": SIGEF_USER_AGENT,
             })
             if r.status_code == 200:
                 return _normalizar_geojson(r.json())
