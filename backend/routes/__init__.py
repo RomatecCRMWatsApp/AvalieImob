@@ -26,6 +26,7 @@ from routes.samples import router as samples_router
 from routes.cub import router as cub_router
 from routes.sigef import router as sigef_router
 from routes.zonas import router as zonas_router
+from routes.contratos import router as contratos_router
 
 all_routers = [
     auth_router, users_router, ptam_router, locacao_router,
@@ -35,5 +36,5 @@ all_routers = [
     clients_router, properties_router, evaluations_router,
     tvi_router, maps_router, cnd_router, scraper_router,
     cnd_router, scraper_router, search_router, assinatura_router, samples_router, cub_router,
-    sigef_router, zonas_router,
+    sigef_router, zonas_router, contratos_router,
 ]

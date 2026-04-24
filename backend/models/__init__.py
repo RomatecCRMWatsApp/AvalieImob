@@ -24,6 +24,14 @@ from models.tvi import (
     VistoriaPhoto, VistoriaSignature, VistoriaShare,
     PhotoUploadRequest, SignatureRequest,
 )
+from models.contrato import (
+    PessoaFisica, PessoaJuridica, Parte, Corretor,
+    ObjetoContrato, ParcelaPagamento, CondicoesPagamento,
+    Testemunha, Clausula, AlertaJuridico,
+    ContratoVersionDiff, ContratoVersion,
+    ContratoBase, Contrato,
+    TIPOS_CONTRATO,
+)
 
 __all__ = [
     "_id", "_now",
@@ -44,4 +52,11 @@ __all__ = [
     "VistoriaBase", "Vistoria",
     "VistoriaPhoto", "VistoriaSignature", "VistoriaShare",
     "PhotoUploadRequest", "SignatureRequest",
+    # Contratos
+    "PessoaFisica", "PessoaJuridica", "Parte", "Corretor",
+    "ObjetoContrato", "ParcelaPagamento", "CondicoesPagamento",
+    "Testemunha", "Clausula", "AlertaJuridico",
+    "ContratoVersionDiff", "ContratoVersion",
+    "ContratoBase", "Contrato",
+    "TIPOS_CONTRATO",
 ]

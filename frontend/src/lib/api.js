@@ -244,3 +244,24 @@ export const zonasAPI = {
   atualizar: (id, data) => api.put(`/zonas/${id}`, data).then(r => r.data),
   excluir: (id) => api.delete(`/zonas/${id}`).then(r => r.data),
 };
+
+// ---- Contratos (compra/venda, locação, permuta, arras, etc.)
+export const contratosAPI = {
+  listar: (params) => api.get('/contratos', { params }).then(r => r.data),
+  criar: (data) => api.post('/contratos', data).then(r => r.data),
+  buscar: (id) => api.get(`/contratos/${id}`).then(r => r.data),
+  atualizar: (id, data) => api.put(`/contratos/${id}`, data).then(r => r.data),
+  excluir: (id) => api.delete(`/contratos/${id}`).then(r => r.data),
+  gerarClausulas: (id, data) => api.post(`/contratos/${id}/gerar-clausulas`, data).then(r => r.data),
+  validarJuridico: (id) => api.post(`/contratos/${id}/validar-juridico`).then(r => r.data),
+  simuladorPenalidades: (id, data) => api.post(`/contratos/${id}/simulador-penalidades`, data).then(r => r.data),
+  checklist: (id) => api.get(`/contratos/${id}/checklist`).then(r => r.data),
+  docx: (id) => api.get(`/contratos/${id}/docx`, { responseType: 'blob' }),
+  pdf: (id) => api.get(`/contratos/${id}/pdf`, { responseType: 'blob' }),
+  reciboArras: (id) => api.get(`/contratos/${id}/recibo-arras/docx`, { responseType: 'blob' }),
+  lacrar: (id, data) => api.post(`/contratos/${id}/lacrar`, data).then(r => r.data),
+  compartilhar: (id) => api.post(`/contratos/${id}/compartilhar`).then(r => r.data),
+  assinarD4sign: (id, data) => api.post(`/contratos/${id}/assinar-d4sign`, data).then(r => r.data),
+  versoes: (id) => api.get(`/contratos/${id}/versoes`).then(r => r.data),
+  tipos: () => api.get('/contratos/tipos').then(r => r.data),
+};

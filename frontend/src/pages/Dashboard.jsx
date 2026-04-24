@@ -3,7 +3,7 @@ import { Link, NavLink, Routes, Route, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Building2, BarChart3, FileText,
   CreditCard, Settings, LogOut, Menu, X, Bell, FileCheck2, Globe,
-  Search, ChevronDown, User, Shield, Beef, Award, Home, ClipboardCheck, FileSearch
+  Search, ChevronDown, User, Shield, Beef, Award, Home, ClipboardCheck, FileSearch, FileSignature
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { BRAND } from '../mock/mock';
@@ -32,6 +32,8 @@ import TVIForm from '../components/dashboard/tvi/TVIForm';
 import CNDConsulta from '../components/dashboard/cnd/CNDConsulta';
 import CNDHistorico from '../components/dashboard/cnd/CNDHistorico';
 import GlobalSearch from '../components/common/GlobalSearch';
+import ContratosList from '../components/dashboard/contratos/ContratosList';
+import ContratoWizard from '../components/dashboard/contratos/ContratoWizard';
 
 /* ─── Brand ─────────────────────────────────────────────── */
 const GOLD       = '#D4A830';
@@ -62,6 +64,12 @@ const NAV_GROUPS = [
       { to: '/dashboard/locacao',    icon: Home,       label: 'Aval. Locacao' },
       { to: '/dashboard/tvi',        icon: ClipboardCheck, label: 'Kit TVI' },
       { to: '/dashboard/laudos',     icon: FileText,   label: 'Avaliações' },
+    ],
+  },
+  {
+    label: 'Contratos',
+    items: [
+      { to: '/dashboard/contratos', icon: FileSignature, label: 'Contratos', badge: 'NOVO' },
     ],
   },
   {
@@ -140,6 +148,11 @@ const SideLink = ({ item, onClick }) => {
             />
           </div>
           <span className={isActive ? 'font-semibold' : ''}>{item.label}</span>
+            {item.badge && (
+              <span className="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-400/20 text-amber-300 tracking-widest">
+                {item.badge}
+              </span>
+            )}
         </>
       )}
     </NavLink>
@@ -388,6 +401,9 @@ const Dashboard = () => {
             <Route path="tvi/:id"          element={<TVIForm />} />
             <Route path="cnd"              element={<CNDConsulta />} />
             <Route path="cnd/historico"    element={<CNDHistorico />} />
+            <Route path="contratos"        element={<ContratosList />} />
+            <Route path="contratos/novo"   element={<ContratoWizard />} />
+            <Route path="contratos/:id"    element={<ContratoWizard />} />
             <Route path="laudos"      element={<Evaluations />} />
             <Route path="ia"          element={<AIAssistant />} />
             <Route path="curriculo"   element={<PerfilAvaliador />} />

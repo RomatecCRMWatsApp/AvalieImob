@@ -38,6 +38,12 @@ async def setup_indexes():
     await _db.cub_cache.create_index("criado_em", expireAfterSeconds=2592000)
     # Índices para zonas_planodiretor
     await _db.zonas_planodiretor.create_index([("user_id", 1), ("municipio", 1), ("codigo", 1)])
+    # Índices para contratos
+    await _db.contratos.create_index([("user_id", 1), ("updated_at", -1)])
+    await _db.contratos.create_index([("user_id", 1), ("status", 1)])
+    await _db.contratos.create_index("link_publico_token", sparse=True)
+    # Índices para contrato_versions
+    await _db.contrato_versions.create_index([("contrato_id", 1), ("numero_versao", -1)])
 
 
 def get_client() -> AsyncIOMotorClient:
