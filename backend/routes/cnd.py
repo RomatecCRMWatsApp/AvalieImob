@@ -66,8 +66,7 @@ async def iniciar_consulta(
 async def _run_consulta_by_id(db, user_id: str, consulta_id: str, body: CNDConsultarRequest, ip: Optional[str]):
     """Background: orquestra providers e atualiza consulta existente."""
     try:
-        from services.cnd import receita_federal, pgfn, tst, trf1, tjma, cnib, rfb_cadastro
-        from services.cnd.cnd_service import PROVIDERS, _run_provider
+        from services.cnd.cnd_service import _get_providers, _run_provider
         from models.cnd import CNDCertidao, CNDLog
         import asyncio
 
@@ -75,7 +74,8 @@ async def _run_consulta_by_id(db, user_id: str, consulta_id: str, body: CNDConsu
         await db.cnd_logs.insert_one(log.model_dump())
 
         await db.cnd_consultas.update_one({"id": consulta_id}, {"$set": {"status": "processando"}})
-        tasks = [_run_provider(fn, body.cpf_cnpj) for fn in PROVIDERS]
+        providers = _get_providers(body.cpf_cnpj)
+        tasks = [_run_provider(fn, body.cpf_cnpj) for fn in providers]
         resultados = await asyncio.gather(*tasks, return_exceptions=True)
 
         for res in resultados:
