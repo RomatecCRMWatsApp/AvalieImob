@@ -163,6 +163,7 @@ const AIAssistant = () => {
                 autoPlay
                 muted={false}
                 playsInline
+                controls
                 className="w-full h-full object-cover"
                 onError={(e) => {
                   // Fallback se o vídeo não existir
@@ -170,6 +171,7 @@ const AIAssistant = () => {
                   e.target.nextSibling.style.display = 'flex';
                 }}
               >
+                <source src="/brand/roma_ia_animated_bem_vindo.MP4" type="video/mp4" />
                 <source src="/brand/roma_ia_animated_bem_vindo.mp4" type="video/mp4" />
                 <source src="/brand/roma_ia_animated_bem_vindo.webm" type="video/webm" />
                 Seu navegador não suporta vídeo.
