@@ -1689,6 +1689,11 @@ const ContratoWizard = () => {
 
   /* Save */
   const save = useCallback(async (silent = false) => {
+    // Validação: tipo_contrato é obrigatório
+    if (!form.tipo_contrato) {
+      if (!silent) toast({ title: 'Selecione o tipo de contrato', description: 'Escolha uma modalidade na Etapa 1 antes de salvar.', variant: 'destructive' });
+      return;
+    }
     setSaving(true);
     try {
       if (contratoId) {
@@ -1701,8 +1706,9 @@ const ContratoWizard = () => {
       setLastSaved(new Date());
       if (!silent) toast({ title: 'Rascunho salvo' });
     } catch (err) {
-      console.warn(err);
-      if (!silent) toast({ title: 'Erro ao salvar', description: err.response?.data?.detail, variant: 'destructive' });
+      console.warn('Erro ao salvar contrato:', err);
+      const detail = err.response?.data?.detail || err.message || 'Erro desconhecido';
+      if (!silent) toast({ title: 'Erro ao salvar', description: detail, variant: 'destructive' });
     } finally {
       setSaving(false);
     }
