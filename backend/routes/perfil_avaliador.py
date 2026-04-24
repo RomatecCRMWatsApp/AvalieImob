@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime
 from fastapi import APIRouter, Depends
 from db import get_db
+from dependencies import serialize_doc
 from services.auth_service import get_current_user_id
 from models import PerfilAvaliadorBase, PerfilAvaliador
 
@@ -14,8 +15,7 @@ async def get_perfil_avaliador(uid: str = Depends(get_current_user_id), db=Depen
     doc = await db.perfil_avaliador.find_one({"user_id": uid})
     if not doc:
         return PerfilAvaliador(user_id=uid).model_dump(mode="json")
-    doc.pop("_id", None)
-    return doc
+    return serialize_doc(doc)
 
 
 @router.put("/perfil-avaliador")
@@ -33,5 +33,4 @@ async def update_perfil_avaliador(body: PerfilAvaliadorBase, uid: str = Depends(
         data["created_at"] = now
         await db.perfil_avaliador.insert_one(data)
         doc = await db.perfil_avaliador.find_one({"user_id": uid})
-    doc.pop("_id", None)
-    return doc
+    return serialize_doc(doc)

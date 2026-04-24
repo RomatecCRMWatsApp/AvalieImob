@@ -9,6 +9,7 @@ from fastapi import APIRouter, Query, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 
+from dependencies import get_active_subscriber, get_admin_user
 from db import get_db
 from services.cub_service import (
     get_cub,
@@ -61,6 +62,7 @@ async def obter_cub(
 @router.post("/calcular")
 async def calcular_evolutivo(
     payload: CalcularEvolutivoRequest,
+    uid: str = Depends(get_active_subscriber),
     db=Depends(get_db),
 ):
     """
@@ -117,6 +119,7 @@ async def listar_tipos_cub():
 @router.post("/atualizar-cache")
 async def atualizar_cache_cub(
     estado: str = Query("SP", min_length=2, max_length=2),
+    uid: str = Depends(get_admin_user),
     db=Depends(get_db),
 ):
     """

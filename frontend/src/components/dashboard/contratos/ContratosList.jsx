@@ -182,7 +182,9 @@ const ContratosList = () => {
       if (filterStatus) params.status = filterStatus.toLowerCase();
       setItems(await contratosAPI.listar(params));
     } catch (err) {
-      console.warn(err);
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(err);
+      }
       toast({ title: 'Erro ao carregar contratos', variant: 'destructive' });
     } finally {
       setLoading(false);

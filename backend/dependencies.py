@@ -27,9 +27,21 @@ async def get_active_subscriber(uid: str = Depends(get_current_user_id), db=Depe
     return uid
 
 
+async def get_admin_user(uid: str = Depends(get_current_user_id), db=Depends(get_db)) -> str:
+    u = await db.users.find_one({"id": uid})
+    if not u:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    if u.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
+    return uid
+
+
 def serialize_doc(doc):
     if not doc:
         return doc
-    doc.pop("_id", None)
-    doc.pop("password_hash", None)
-    return doc
+    payload = dict(doc)
+    mongo_id = payload.pop("_id", None)
+    if mongo_id is not None and not payload.get("id"):
+        payload["id"] = str(mongo_id)
+    payload.pop("password_hash", None)
+    return payload

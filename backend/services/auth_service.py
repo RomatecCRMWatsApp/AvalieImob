@@ -10,7 +10,12 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
 
-JWT_SECRET = os.environ.get("JWT_SECRET", "change-me")
+APP_ENV = os.environ.get("APP_ENV", os.environ.get("ENVIRONMENT", "development")).lower()
+JWT_SECRET = os.environ.get("JWT_SECRET", "")
+if not JWT_SECRET:
+    if APP_ENV in {"production", "staging"}:
+        raise RuntimeError("JWT_SECRET não configurado para ambiente não local")
+    JWT_SECRET = "change-me-dev-only"
 JWT_ALG = os.environ.get("JWT_ALGORITHM", "HS256")
 JWT_EXPIRE_HOURS = int(os.environ.get("JWT_EXPIRE_HOURS", "168"))
 

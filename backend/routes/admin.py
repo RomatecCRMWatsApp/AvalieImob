@@ -5,20 +5,12 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 
 from db import get_db
-from services.auth_service import get_current_user_id, hash_password
+from dependencies import get_admin_user, serialize_doc
+from services.auth_service import hash_password
 from models import CreateTestUserRequest, AdminUserOut, User
 
 router = APIRouter(tags=["admin"])
 logger = logging.getLogger("romatec")
-
-
-async def get_admin_user(uid: str = Depends(get_current_user_id), db=Depends(get_db)) -> str:
-    u = await db.users.find_one({"id": uid})
-    if not u:
-        raise HTTPException(status_code=404, detail="Usuário não encontrado")
-    if u.get("role") != "admin":
-        raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
-    return uid
 
 
 @router.post("/admin/create-test-user")
@@ -44,8 +36,7 @@ async def admin_list_users(uid: str = Depends(get_admin_user), db=Depends(get_db
     docs = await db.users.find({}).sort("created_at", -1).to_list(5000)
     result = []
     for d in docs:
-        d.pop("_id", None)
-        d.pop("password_hash", None)
+        d = serialize_doc(d)
         result.append(AdminUserOut(
             id=d.get("id", ""), name=d.get("name", ""), email=d.get("email", ""),
             role=d.get("role", "user"), plan=d.get("plan", "mensal"),

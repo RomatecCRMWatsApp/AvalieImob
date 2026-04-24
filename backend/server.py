@@ -29,6 +29,19 @@ logging.basicConfig(
 )
 logger = logging.getLogger("romatec")
 
+
+def _cors_origins() -> list[str]:
+    raw = os.getenv("CORS_ORIGINS", "")
+    if raw.strip():
+        return [origin.strip() for origin in raw.split(",") if origin.strip()]
+    return [
+        "https://www.romatecavalieimob.com.br",
+        "https://romatecavalieimob.com.br",
+        "https://avalieimob-production.up.railway.app",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
+
 # ── Rate limiter ────────────────────────────────────────────────────
 limiter = Limiter(key_func=get_remote_address, default_limits=["100/10minutes"])
 
@@ -218,7 +231,7 @@ app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=["*"],
+    allow_origins=_cors_origins(),
     allow_methods=["*"],
     allow_headers=["*"],
 )

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Header, HTTPException
 from db import get_db
 from datetime import datetime
 import os
@@ -6,12 +6,20 @@ import os
 router = APIRouter(tags=["seed"])
 
 @router.post("/seed-admin")
-async def seed_admin():
-    # Protecao simples: so funciona se nao houver usuarios
+async def seed_admin(x_seed_token: str | None = Header(default=None)):
+    if os.getenv("ENABLE_SEED_ADMIN", "false").lower() != "true":
+        raise HTTPException(404, "Rota não disponível")
+
+    expected_token = os.getenv("SEED_ADMIN_TOKEN", "")
+    if not expected_token:
+        raise HTTPException(503, "SEED_ADMIN_TOKEN não configurado")
+    if x_seed_token != expected_token:
+        raise HTTPException(403, "Token de seed inválido")
+
     db = get_db()
-    existing = await db.users.find_one({})
+    existing = await db.users.find_one({"role": "admin"})
     if existing:
-        raise HTTPException(400, "Usuarios ja existem. Seed nao permitido.")
+        raise HTTPException(400, "Administrador já existe. Seed não permitido.")
     
     admin_user = {
         "id": "admin-001",
@@ -27,4 +35,4 @@ async def seed_admin():
         "updated_at": datetime.utcnow(),
     }
     await db.users.insert_one(admin_user)
-    return {"ok": True, "message": "Admin criado", "email": "admin@romatec.com", "senha": "430198Ro"}
+    return {"ok": True, "message": "Admin criado", "email": "admin@romatec.com"}

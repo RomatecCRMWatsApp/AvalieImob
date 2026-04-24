@@ -20,7 +20,9 @@ export const AuthProvider = ({ children }) => {
       try {
         setUser(JSON.parse(stored));
       } catch (err) {
-        console.warn('Failed to parse stored user', err);
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('Failed to parse stored user', err);
+        }
       }
       // Validate token in background
       authAPI.me()
@@ -29,7 +31,9 @@ export const AuthProvider = ({ children }) => {
           localStorage.setItem(USER_KEY, JSON.stringify(u));
         })
         .catch((err) => {
-          console.warn('Token validation failed, clearing session', err?.response?.status);
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('Token validation failed, clearing session', err?.response?.status);
+          }
           localStorage.removeItem(TOKEN_KEY);
           localStorage.removeItem(USER_KEY);
           setUser(null);
@@ -68,7 +72,9 @@ export const AuthProvider = ({ children }) => {
       setUser(u);
       localStorage.setItem(USER_KEY, JSON.stringify(u));
     } catch (err) {
-      console.warn('Failed to refresh user', err);
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Failed to refresh user', err);
+      }
     }
   }, []);
 

@@ -7,6 +7,7 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from db import get_db
+from dependencies import serialize_doc
 from services.auth_service import get_current_user_id
 from services.mercadopago_service import (
     PLAN_CONFIG, get_mp_sdk, build_preference_data,
@@ -100,10 +101,11 @@ async def payment_status(uid: str = Depends(get_current_user_id), db=Depends(get
         plan_st = "expired"
         await db.users.update_one({"id": uid}, {"$set": {"plan_status": "expired"}})
     txns = await db.transactions.find({"user_id": uid}).sort("created_at", -1).to_list(50)
-    for t in txns:
-        t.pop("_id", None)
+    for idx, t in enumerate(txns):
+        t = serialize_doc(t)
         if isinstance(t.get("created_at"), datetime):
             t["created_at"] = t["created_at"].isoformat()
+        txns[idx] = t
     return {
         "plan": u.get("plan", "mensal"),
         "plan_status": plan_st,

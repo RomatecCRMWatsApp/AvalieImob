@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 
 from db import get_db
+from dependencies import serialize_doc
 from services.auth_service import get_current_user_id
 from models import LocacaoBase
 from pdf.locacao_pdf import generate_locacao_pdf
@@ -40,8 +41,7 @@ async def create_locacao(body: LocacaoBase, uid: str = Depends(get_current_user_
     if not data.get("numero_locacao"):
         data["numero_locacao"] = await _next_locacao_number(db)
     await db.locacoes.insert_one(data)
-    data.pop("_id", None)
-    return data
+    return serialize_doc(data)
 
 
 @router.get("/locacao")
@@ -60,8 +60,7 @@ async def list_locacoes(
         query["status"] = status
     cursor = db.locacoes.find(query).sort("created_at", -1).skip(skip).limit(limit)
     docs = await cursor.to_list(length=limit)
-    for d in docs:
-        d.pop("_id", None)
+    docs = [serialize_doc(d) for d in docs]
     total = await db.locacoes.count_documents(query)
     return {"items": docs, "total": total, "skip": skip, "limit": limit}
 
@@ -71,8 +70,7 @@ async def get_locacao(locacao_id: str, uid: str = Depends(get_current_user_id), 
     doc = await db.locacoes.find_one({"id": locacao_id, "user_id": uid})
     if not doc:
         raise HTTPException(status_code=404, detail="Avaliação de locação não encontrada")
-    doc.pop("_id", None)
-    return doc
+    return serialize_doc(doc)
 
 
 @router.put("/locacao/{locacao_id}")
@@ -86,8 +84,7 @@ async def update_locacao(locacao_id: str, body: LocacaoBase, uid: str = Depends(
         data["numero_locacao"] = doc["numero_locacao"]
     await db.locacoes.update_one({"id": locacao_id, "user_id": uid}, {"$set": data})
     updated = await db.locacoes.find_one({"id": locacao_id, "user_id": uid})
-    updated.pop("_id", None)
-    return updated
+    return serialize_doc(updated)
 
 
 @router.delete("/locacao/{locacao_id}", status_code=204)
@@ -102,10 +99,10 @@ async def download_locacao_pdf(locacao_id: str, uid: str = Depends(get_current_u
     doc = await db.locacoes.find_one({"id": locacao_id, "user_id": uid})
     if not doc:
         raise HTTPException(status_code=404, detail="Avaliação de locação não encontrada")
-    doc.pop("_id", None)
+    doc = serialize_doc(doc)
     user = await db.users.find_one({"id": uid})
     if user:
-        user.pop("_id", None)
+        user = serialize_doc(user)
     try:
         # Buscar imagens do banco antes de gerar PDF
         fotos_imovel = doc.get("fotos_imovel") or []
@@ -217,10 +214,10 @@ async def download_locacao_docx(locacao_id: str, uid: str = Depends(get_current_
     doc = await db.locacoes.find_one({"id": locacao_id, "user_id": uid})
     if not doc:
         raise HTTPException(status_code=404, detail="Avaliação de locação não encontrada")
-    doc.pop("_id", None)
+    doc = serialize_doc(doc)
     user = await db.users.find_one({"id": uid})
     if user:
-        user.pop("_id", None)
+        user = serialize_doc(user)
     try:
         # Buscar imagens do banco antes de gerar DOCX
         fotos_imovel = doc.get("fotos_imovel") or []

@@ -1672,7 +1672,9 @@ const ContratoWizard = () => {
       const data = await contratosAPI.buscar(contratoId);
       setForm({ ...EMPTY, vendedores: [{ ...EMPTY_PESSOA }], compradores: [{ ...EMPTY_PESSOA }], ...data });
     } catch (err) {
-      console.warn(err);
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(err);
+      }
       toast({ title: 'Erro ao carregar contrato', variant: 'destructive' });
       nav('/dashboard/contratos');
     } finally {
@@ -1709,7 +1711,9 @@ const ContratoWizard = () => {
       setLastSaved(new Date());
       if (!silent) toast({ title: 'Rascunho salvo' });
     } catch (err) {
-      console.warn('Erro ao salvar contrato:', err);
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Erro ao salvar contrato:', err);
+      }
       const detail = err.response?.data?.detail || err.message || 'Erro desconhecido';
       if (!silent) toast({ title: 'Erro ao salvar', description: detail, variant: 'destructive' });
     } finally {

@@ -38,5 +38,7 @@ ENV PORT=8000
 
 EXPOSE ${PORT}
 
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 CMD python -c "import os, sys, urllib.request; port=os.getenv('PORT','8000'); urllib.request.urlopen(f'http://127.0.0.1:{port}/api/', timeout=3); sys.exit(0)"
+
 WORKDIR /app/backend
 CMD ["python", "run_server.py"]

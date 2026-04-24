@@ -12,7 +12,7 @@ PLAN_CONFIG = {
     "anual":      {"title": "AvalieImob - Plano Anual",        "unit_price": 849.90, "days": 365},
 }
 
-APP_URL = "https://avalieimob-production.up.railway.app"
+APP_URL = os.environ.get("APP_URL", "https://www.romatecavalieimob.com.br").rstrip("/")
 
 
 def get_mp_sdk():
