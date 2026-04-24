@@ -52,6 +52,7 @@ api = APIRouter(prefix="/api")
 
 for router in all_routers:
     api.include_router(router)
+    logger.info(f"Router registered: {router.prefix}")
 
 # Root health check
 @api.get("/")
