@@ -1,8 +1,8 @@
 // @module ptam/steps/StepRegiao — Step 4: Caracterização da Região (zoneamento, infraestrutura, mercado)
 import React from 'react';
 import { Textarea } from '../../../ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
 import { SectionHeader, AiButton } from '../shared/primitives';
+import { SelectZoneamento } from '../../../common/SelectZoneamento';
 
 const REGION_FIELDS = [
   { key: 'regiao_infraestrutura',    label: 'Infraestrutura Urbana', placeholder: 'Pavimentação, iluminação, calçadas, drenagem pluvial...' },
@@ -25,21 +25,11 @@ export const StepRegiao = ({ form, setForm, onAi, aiLoading }) => (
         Zoneamento (Plano Diretor) <span className="text-xs text-gray-400">— NBR 14653-2</span>
       </label>
       <div className="flex gap-2 items-center">
-        <Select value={form.zoneamento || ''} onValueChange={(v) => setForm({ ...form, zoneamento: v })}>
-          <SelectTrigger className="max-w-xs"><SelectValue placeholder="Selecione o zoneamento..." /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ZR1">ZR1 — Zona Residencial 1</SelectItem>
-            <SelectItem value="ZR2">ZR2 — Zona Residencial 2</SelectItem>
-            <SelectItem value="ZR3">ZR3 — Zona Residencial 3</SelectItem>
-            <SelectItem value="ZC">ZC — Zona Comercial</SelectItem>
-            <SelectItem value="ZCI">ZCI — Zona Comercial e Industrial</SelectItem>
-            <SelectItem value="ZI">ZI — Zona Industrial</SelectItem>
-            <SelectItem value="ZEI">ZEI — Zona de Expansão Industrial</SelectItem>
-            <SelectItem value="ZRu">ZRu — Zona Rural</SelectItem>
-            <SelectItem value="ZEIS">ZEIS — Zona Especial de Interesse Social</SelectItem>
-            <SelectItem value="outro">Outro (especificar nas observações)</SelectItem>
-          </SelectContent>
-        </Select>
+        <SelectZoneamento
+          value={form.zoneamento || ''}
+          onChange={(v) => setForm({ ...form, zoneamento: v })}
+          municipio={form.property_city || ''}
+        />
         <span className="text-xs text-gray-400">ou informe nas observações</span>
       </div>
     </div>

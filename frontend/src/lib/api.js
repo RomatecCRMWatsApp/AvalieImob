@@ -236,3 +236,11 @@ export const tviAPI = {
   exportPdf: (id) => api.post(`/tvi/vistoria/${id}/export/pdf`, {}, { responseType: 'blob' }).then(r => r.data),
   exportDocx: (id) => api.post(`/tvi/vistoria/${id}/export/docx`, {}, { responseType: 'blob' }).then(r => r.data),
 };
+
+// ---- Zonas do Plano Diretor (personalizadas por usuário)
+export const zonasAPI = {
+  listar: () => api.get('/zonas').then(r => r.data),
+  criar: (data) => api.post('/zonas', data).then(r => r.data),
+  atualizar: (id, data) => api.put(`/zonas/${id}`, data).then(r => r.data),
+  excluir: (id) => api.delete(`/zonas/${id}`).then(r => r.data),
+};

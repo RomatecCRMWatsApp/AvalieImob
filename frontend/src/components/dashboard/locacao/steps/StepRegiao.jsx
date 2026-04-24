@@ -1,6 +1,7 @@
 // @module locacao/steps/StepRegiao — Step 4: Caracterização da Região para Locação
 import React from 'react';
 import { Field, Input, Textarea, Grid } from '../shared/primitives';
+import { SelectZoneamento } from '../../../common/SelectZoneamento';
 
 export const StepRegiao = ({ form, setForm }) => {
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -23,8 +24,12 @@ export const StepRegiao = ({ form, setForm }) => {
         <Field label="Tendência de Mercado">
           <Input value={form.regiao_tendencia_mercado} onChange={e => set('regiao_tendencia_mercado', e.target.value)} placeholder="Valorização, estabilidade, desvalorização..." />
         </Field>
-        <Field label="Zoneamento">
-          <Input value={form.zoneamento} onChange={e => set('zoneamento', e.target.value)} placeholder="ZR1, ZC2..." />
+        <Field label="Zoneamento (Plano Diretor)">
+          <SelectZoneamento
+            value={form.zoneamento || ''}
+            onChange={(v) => set('zoneamento', v)}
+            municipio={form.property_city || ''}
+          />
         </Field>
         <Field label="Observações da Região" className="md:col-span-2">
           <Textarea value={form.regiao_observacoes} onChange={e => set('regiao_observacoes', e.target.value)} rows={4} />

@@ -36,6 +36,8 @@ async def setup_indexes():
     # Índices para cub_cache (TTL 30 dias)
     await _db.cub_cache.create_index("chave", unique=True)
     await _db.cub_cache.create_index("criado_em", expireAfterSeconds=2592000)
+    # Índices para zonas_planodiretor
+    await _db.zonas_planodiretor.create_index([("user_id", 1), ("municipio", 1), ("codigo", 1)])
 
 
 def get_client() -> AsyncIOMotorClient:
