@@ -6,8 +6,10 @@ Credenciais INCRA: FQNS / CFTMA 12-091-853-69
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from pydantic import BaseModel
 from typing import Optional
+import json
 import re
 from datetime import datetime
+import xml.etree.ElementTree as ET
 
 from dependencies import get_active_subscriber
 from db import get_db
@@ -21,6 +23,56 @@ from services.sigef_service import (
 )
 
 router = APIRouter(prefix="/sigef", tags=["sigef"])
+
+
+def _validate_sigef_file_structure(filename: str, content: bytes) -> str:
+    if not content:
+        raise HTTPException(status_code=400, detail="Arquivo vazio não é permitido")
+
+    lowered_name = (filename or "").lower().strip()
+    text = content.decode("utf-8", errors="replace").lstrip("\ufeff \t\r\n")
+
+    if lowered_name.endswith((".json", ".geojson")):
+        try:
+            data = json.loads(text)
+        except Exception:
+            raise HTTPException(status_code=400, detail="JSON/GeoJSON inválido")
+        if not isinstance(data, dict):
+            raise HTTPException(status_code=400, detail="Estrutura JSON inválida para arquivo SIGEF")
+        if not any(key in data for key in ("features", "geometry", "coordinates", "type")):
+            raise HTTPException(status_code=400, detail="GeoJSON sem estrutura geométrica reconhecida")
+        return text
+
+    if not text.startswith("<"):
+        raise HTTPException(status_code=400, detail="Arquivo SIGEF XML/KML/GML inválido")
+
+    try:
+        root = ET.fromstring(text)
+    except Exception:
+        raise HTTPException(status_code=400, detail="XML/KML/GML inválido")
+
+    root_tag = root.tag.split("}")[-1].lower() if "}" in root.tag else root.tag.lower()
+    tags = {
+        (el.tag.split("}")[-1].lower() if "}" in el.tag else el.tag.lower())
+        for el in root.iter()
+    }
+
+    if lowered_name.endswith(".kml") and "kml" not in tags and root_tag != "kml":
+        raise HTTPException(status_code=400, detail="KML inválido: raiz/namespace não reconhecidos")
+
+    if lowered_name.endswith(".gml"):
+        has_gml_structure = any(tag in tags for tag in {"featurecollection", "featuremember", "poslist", "polygon", "surface"})
+        if not has_gml_structure:
+            raise HTTPException(status_code=400, detail="GML inválido: estrutura geoespacial não reconhecida")
+
+    expected_sigef_tags = {
+        "coordinates", "poslist", "coord", "ccir", "codigo", "parcela_codigo",
+        "denominacao", "municipio", "estado", "uf", "area", "area_ha",
+    }
+    if not tags.intersection(expected_sigef_tags):
+        raise HTTPException(status_code=400, detail="Arquivo SIGEF sem campos estruturais reconhecidos")
+
+    return text
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
@@ -235,6 +287,8 @@ async def importar_arquivo_sigef(
     conteudo = await file.read()
     if len(conteudo) > 10 * 1024 * 1024:  # 10 MB max
         raise HTTPException(status_code=413, detail="Arquivo muito grande (max 10 MB).")
+
+    _validate_sigef_file_structure(nome, conteudo)
 
     resultado = parsear_arquivo_sigef(conteudo, nome)
 
