@@ -118,7 +118,7 @@ const EMPTY = {
   foro_eleito: '',
   vendedores: [],
   compradores: [],
-  corretor: { incluir: false, nome: '', cpf_cnpj: '', creci: '', email: '', telefone: '', comissao_percentual: 6, exclusividade: false, prazo_exclusividade: '' },
+  corretor: { incluir: false, nome: '', cpf_cnpj: '', creci: '', email: '', telefone: '', comissao_percentual: 6, exclusividade: false, prazo_exclusividade: '', comissao_responsavel: 'vendedor', comissao_parcela1_pct: 50, comissao_parcela2_pct: 50, banco: 'Santander', agencia: '1225', conta: '130007144', banco_cnpj: '17.261.987/0001-09', banco_pix: 'romatec.cad@hotmail.com' },
   objeto: { tipo_bem: 'imovel_urbano', endereco: '', bairro: '', cidade: '', uf: '', cep: '', registro_imovel: '', matricula: '', area_total: '', area_construida: '', situacao_ocupacao: '', onus: '', benfeitorias: '', ccir: '', car: '', modulos_fiscais: '', descricao_veiculo: '', placa: '', renavam: '', chassi: '', ano_fabricacao: '', cor: '' },
   pagamento: { valor_total: '', arras_valor: '', arras_data: '', arras_tipo: 'confirmatorias', formas: [], penalidades: null },
   config: { incluir_logo: true, incluir_recibo_arras: true, incluir_checklist: true },
@@ -512,6 +512,41 @@ const Step4Corretor = ({ form, setForm, perfil, labels }) => {
               </div>
             )}
           </div>
+
+          {parte3 === 'Corretor' && (
+            <>
+              <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Responsável e Parcelas da Comissão</p>
+                <Select
+                  label="Responsável pelo pagamento"
+                  value={cor.comissao_responsavel || 'vendedor'}
+                  onChange={(v) => upd('comissao_responsavel', v)}
+                  options={[
+                    { value: 'vendedor', label: 'Vendedor' },
+                    { value: 'comprador', label: 'Comprador' },
+                    { value: 'ambos', label: 'Ambos (50/50)' },
+                  ]}
+                />
+                <div className="grid grid-cols-2 gap-3">
+                  <Input label="1ª parcela (% no sinal)" value={cor.comissao_parcela1_pct ?? 50} onChange={(v) => upd('comissao_parcela1_pct', v)} type="number" placeholder="50" />
+                  <Input label="2ª parcela (% na quitação)" value={cor.comissao_parcela2_pct ?? 50} onChange={(v) => upd('comissao_parcela2_pct', v)} type="number" placeholder="50" />
+                </div>
+              </div>
+
+              <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 space-y-3">
+                <p className="text-xs font-semibold text-emerald-800 uppercase tracking-wide">Dados Bancários para Recebimento</p>
+                <div className="grid sm:grid-cols-3 gap-3">
+                  <Input label="Banco" value={cor.banco || ''} onChange={(v) => upd('banco', v)} placeholder="Santander" />
+                  <Input label="Agência" value={cor.agencia || ''} onChange={(v) => upd('agencia', v)} placeholder="1225" />
+                  <Input label="Conta Corrente" value={cor.conta || ''} onChange={(v) => upd('conta', v)} placeholder="130007144" />
+                </div>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <Input label="CNPJ/CPF da conta" value={cor.banco_cnpj || ''} onChange={(v) => upd('banco_cnpj', v)} placeholder="17.261.987/0001-09" />
+                  <Input label="Chave PIX" value={cor.banco_pix || ''} onChange={(v) => upd('banco_pix', v)} placeholder="romatec.cad@hotmail.com" />
+                </div>
+              </div>
+            </>
+          )}
 
           <div className="bg-gray-50 rounded-xl p-4 space-y-3">
             <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-gray-700">

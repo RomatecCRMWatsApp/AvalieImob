@@ -13,6 +13,13 @@ from pydantic import BaseModel
 from bson import ObjectId
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
+from reportlab.platypus import (
+    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
+    HRFlowable, KeepTogether, PageBreak,
+)
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
+from reportlab.lib.units import cm
 
 from db import get_db
 from dependencies import get_active_subscriber, get_authenticated_user, serialize_doc
@@ -143,11 +150,106 @@ def _normalize_contrato_doc(doc: Optional[dict]) -> Optional[dict]:
     return payload
 
 
+_BLANK = "_______________"
+_BLANK_BRL = "R$ _______________"
+_BLANK_DATE = "___/___/______"
+_BLANK_EXT = "_" * 45
+
+_UNIDADES = [
+    "", "um", "dois", "tres", "quatro", "cinco", "seis", "sete", "oito", "nove",
+    "dez", "onze", "doze", "treze", "quatorze", "quinze", "dezesseis", "dezessete",
+    "dezoito", "dezenove",
+]
+_DEZENAS = ["", "", "vinte", "trinta", "quarenta", "cinquenta", "sessenta", "setenta", "oitenta", "noventa"]
+_CENTENAS = ["", "cento", "duzentos", "trezentos", "quatrocentos", "quinhentos",
+             "seiscentos", "setecentos", "oitocentos", "novecentos"]
+
+
+def _centenas_ext(n: int) -> str:
+    if n == 0:
+        return ""
+    if n == 100:
+        return "cem"
+    parts = []
+    c, r = divmod(n, 100)
+    if c:
+        parts.append(_CENTENAS[c])
+    if r < 20:
+        if r:
+            parts.append(_UNIDADES[r])
+    else:
+        d, u = divmod(r, 10)
+        parts.append(_DEZENAS[d])
+        if u:
+            parts.append(_UNIDADES[u])
+    return " e ".join(parts)
+
+
+def _extenso(valor: Any) -> str:
+    """Converte valor monetario para extenso em portugues."""
+    try:
+        raw = str(valor).replace("R$", "").replace("\xa0", "").strip()
+        raw = raw.replace(".", "").replace(",", ".")
+        n = float(raw)
+        if n <= 0:
+            return _BLANK_EXT
+    except Exception:
+        return _BLANK_EXT
+
+    inteiro = int(n)
+    centavos = round((n - inteiro) * 100)
+
+    parts: list[str] = []
+    bi, resto = divmod(inteiro, 1_000_000_000)
+    mi, resto = divmod(resto, 1_000_000)
+    mil, u = divmod(resto, 1_000)
+
+    if bi:
+        parts.append(_centenas_ext(bi) + (" bilhao" if bi == 1 else " bilhoes"))
+    if mi:
+        parts.append(_centenas_ext(mi) + (" milhao" if mi == 1 else " milhoes"))
+    if mil:
+        s = "mil" if mil == 1 else (_centenas_ext(mil) + " mil")
+        parts.append(s)
+    if u:
+        parts.append(_centenas_ext(u))
+
+    if not parts:
+        parts = ["zero"]
+
+    reais_str = " e ".join(parts)
+    reais_str += " real" if inteiro == 1 else " reais"
+
+    if centavos:
+        reais_str += " e " + _centenas_ext(centavos)
+        reais_str += " centavo" if centavos == 1 else " centavos"
+
+    return reais_str
+
+
 def _safe_text(value: Any) -> str:
-    """Converte para string e codifica em cp1252 (WinAnsiEncoding do PDF/Helvetica).
-    Substitui chars fora do cp1252 por '?' para evitar UnicodeEncodeError no reportlab."""
+    """Codifica string para cp1252 (WinAnsiEncoding — Helvetica no PDF)."""
     text = str(value) if value is not None else ""
     return text.encode("cp1252", errors="replace").decode("cp1252")
+
+
+def _s(value: Any, fallback: str = _BLANK) -> str:
+    """Retorna valor formatado ou fallback se vazio."""
+    if value is None or value == "" or value == 0:
+        return fallback
+    return _safe_text(str(value))
+
+
+def _brl(value: Any) -> str:
+    """Formata valor BRL ou retorna blank."""
+    try:
+        n = float(str(value).replace("R$", "").replace(".", "").replace(",", ".").strip())
+        if n == 0:
+            return _BLANK_BRL
+        s = f"{n:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        return f"R$ {s}"
+    except Exception:
+        return _BLANK_BRL
 
 
 def _fmt_brl(value: Any) -> str:
@@ -164,7 +266,61 @@ def _fmt_date(value: Any) -> str:
         return value.strftime("%d/%m/%Y")
     if isinstance(value, str) and value:
         return value
-    return "-"
+    return _BLANK_DATE
+
+
+def _qualifica_pf(p: dict, role: str = "") -> str:
+    """Formata qualificacao completa de pessoa fisica para o contrato."""
+    nome = _s(p.get("nome"), _BLANK)
+    cpf = _s(p.get("cpf"), _BLANK)
+    rg = p.get("rg") or ""
+    rg_orgao = p.get("rg_orgao") or ""
+    nascimento = _fmt_date(p.get("nascimento"))
+    estado_civil = _s(p.get("estado_civil"), _BLANK)
+    profissao = _s(p.get("profissao"), _BLANK)
+    nacionalidade = _s(p.get("nacionalidade"), "brasileiro(a)")
+    endereco = _s(p.get("endereco"), _BLANK)
+    cidade = _s(p.get("cidade"), _BLANK)
+    uf = _s(p.get("uf"), _BLANK)
+    cep = p.get("cep") or ""
+
+    rg_part = f", RG {rg}" if rg else ""
+    if rg and rg_orgao:
+        rg_part = f", RG {rg} {rg_orgao}"
+    cep_part = f", CEP {cep}" if cep else ""
+    loc = f"{endereco}, {cidade}-{uf}{cep_part}"
+
+    qualif = (
+        f"{nome}, {nacionalidade}, {estado_civil}, {profissao}, "
+        f"portador(a) do CPF n. {cpf}{rg_part}, "
+        f"nascido(a) em {nascimento}, "
+        f"residente em {loc}"
+    )
+
+    conjuge = p.get("conjuge_nome") or ""
+    if conjuge:
+        cjcpf = _s(p.get("conjuge_cpf"), _BLANK)
+        qualif += f"; conjuge: {_safe_text(conjuge)}, CPF {cjcpf}"
+
+    return _safe_text(qualif)
+
+
+def _qualifica_pj(p: dict, role: str = "") -> str:
+    """Formata qualificacao completa de pessoa juridica para o contrato."""
+    razao = _s(p.get("razao_social") or p.get("nome"), _BLANK)
+    cnpj = _s(p.get("cnpj"), _BLANK)
+    endereco = _s(p.get("endereco"), _BLANK)
+    cidade = _s(p.get("cidade"), _BLANK)
+    uf = _s(p.get("uf"), _BLANK)
+    rep_nome = _s(p.get("representante_nome") or p.get("nome"), _BLANK)
+    rep_cpf = _s(p.get("representante_cpf"), _BLANK)
+    rep_cargo = p.get("representante_cargo") or "representante legal"
+
+    return _safe_text(
+        f"{razao}, inscrita no CNPJ/MF sob n. {cnpj}, "
+        f"com sede em {endereco}, {cidade}-{uf}, "
+        f"neste ato representada por {rep_nome}, CPF {rep_cpf}, na qualidade de {rep_cargo}"
+    )
 
 
 def _nome_parte(parte: dict) -> str:
@@ -208,94 +364,417 @@ def _extract_corpo_contrato(doc: dict) -> List[str]:
     return linhas
 
 
-def _draw_multiline(c: canvas.Canvas, text: str, x: float, y: float, max_width: float, line_height: float = 14.0) -> float:
-    words = text.split()
-    if not words:
-        return y - line_height
+def _pdf_styles() -> dict:
+    ss = getSampleStyleSheet()
+    verde = colors.HexColor("#1a4731")
+    cinza = colors.HexColor("#4a4a4a")
 
-    current = words[0]
-    for w in words[1:]:
-        candidate = f"{current} {w}"
-        if c.stringWidth(candidate, "Helvetica", 10) <= max_width:
-            current = candidate
-        else:
-            c.drawString(x, y, current)
-            y -= line_height
-            current = w
-    c.drawString(x, y, current)
-    return y - line_height
+    return {
+        "titulo": ParagraphStyle("titulo", parent=ss["Heading1"], fontSize=14,
+                                 textColor=verde, spaceAfter=4, leading=18),
+        "subtitulo": ParagraphStyle("subtitulo", parent=ss["Heading2"], fontSize=11,
+                                    textColor=verde, spaceAfter=3, spaceBefore=10, leading=14),
+        "secao": ParagraphStyle("secao", parent=ss["Normal"], fontSize=9,
+                                textColor=verde, fontName="Helvetica-Bold",
+                                spaceAfter=2, spaceBefore=6, leading=12),
+        "corpo": ParagraphStyle("corpo", parent=ss["Normal"], fontSize=9,
+                                textColor=cinza, spaceAfter=3, leading=13),
+        "clausula_titulo": ParagraphStyle("clausula_titulo", parent=ss["Normal"], fontSize=9,
+                                          fontName="Helvetica-Bold", textColor=cinza,
+                                          spaceAfter=2, spaceBefore=5, leading=12),
+        "clausula_texto": ParagraphStyle("clausula_texto", parent=ss["Normal"], fontSize=9,
+                                         textColor=cinza, spaceAfter=4, leading=13,
+                                         leftIndent=10),
+        "rodape": ParagraphStyle("rodape", parent=ss["Normal"], fontSize=7,
+                                 textColor=colors.grey, alignment=1),
+        "assinatura": ParagraphStyle("assinatura", parent=ss["Normal"], fontSize=9,
+                                     textColor=cinza, alignment=1, spaceAfter=2, leading=13),
+    }
+
+
+def _p(text: str, style) -> Paragraph:
+    return Paragraph(_safe_text(text), style)
 
 
 def _generate_contrato_pdf_bytes(doc: dict, uid: str, empresa: str) -> bytes:
     contrato_id = str(doc.get("id") or doc.get("_id") or "-")
-    numero = _safe_text(doc.get("numero_contrato") or contrato_id)
-    tipo = _safe_text(doc.get("tipo_contrato") or "-")
-    status = _safe_text(doc.get("status") or "-")
-
-    vendedores = [_safe_text(n) for n in (_nome_parte(p) for p in doc.get("vendedores", [])) if n]
-    compradores = [_safe_text(n) for n in (_nome_parte(p) for p in doc.get("compradores", [])) if n]
-    partes = _safe_text(", ".join(vendedores + compradores) or "-")
-
-    pagamento = doc.get("pagamento") if isinstance(doc.get("pagamento"), dict) else {}
-    valor = (
-        pagamento.get("valor_total")
-        or pagamento.get("valor")
-        or (doc.get("objeto") or {}).get("valor")
-        or 0
-    )
-
-    created_at = _fmt_date(doc.get("created_at"))
-    corpo_linhas = [_safe_text(l) for l in _extract_corpo_contrato(doc)]
-    empresa_safe = _safe_text(empresa or "AvalieImob")
-
+    styles = _pdf_styles()
     buffer = io.BytesIO()
+
     try:
-        c = canvas.Canvas(buffer, pagesize=A4)
-        w, h = A4
-        margin_x = 40
-        y = h - 50
-
-        c.setTitle(f"contrato_{contrato_id}")
-        c.setFont("Helvetica-Bold", 14)
-        c.drawString(margin_x, y, empresa_safe)
-        y -= 22
-
-        c.setFont("Helvetica", 10)
-        y = _draw_multiline(c, f"Numero/ID: {numero}", margin_x, y, w - 2 * margin_x)
-        y = _draw_multiline(c, f"Tipo do contrato: {tipo}", margin_x, y, w - 2 * margin_x)
-        y = _draw_multiline(c, f"Partes envolvidas: {partes}", margin_x, y, w - 2 * margin_x)
-        y = _draw_multiline(c, f"Valor: {_fmt_brl(valor)}", margin_x, y, w - 2 * margin_x)
-        y = _draw_multiline(c, f"Data de criacao: {created_at}", margin_x, y, w - 2 * margin_x)
-        y = _draw_multiline(c, f"Status atual: {status}", margin_x, y, w - 2 * margin_x)
-
-        y -= 6
-        c.setFont("Helvetica-Bold", 11)
-        c.drawString(margin_x, y, "Corpo do contrato")
-        y -= 16
-        c.setFont("Helvetica", 10)
-
-        max_width = w - 2 * margin_x
-        for linha in corpo_linhas:
-            if y < 80:
-                c.showPage()
-                y = h - 50
-                c.setFont("Helvetica", 10)
-            y = _draw_multiline(c, linha, margin_x, y, max_width)
-
-        if y < 70:
-            c.showPage()
-            y = h - 50
-
-        c.setFont("Helvetica-Oblique", 9)
-        rodape = _safe_text(
-            f"Gerado em {datetime.utcnow().strftime('%d/%m/%Y %H:%M UTC')} "
-            f"| AvalieImob / Romatec | usuario {uid}"
+        pdf = SimpleDocTemplate(
+            buffer, pagesize=A4,
+            leftMargin=2.5 * cm, rightMargin=2.5 * cm,
+            topMargin=2 * cm, bottomMargin=2.5 * cm,
+            title=f"Contrato {contrato_id}",
         )
-        c.drawString(margin_x, 40, rodape)
 
-        c.save()
+        elems: list = []
+        verde = colors.HexColor("#1a4731")
+
+        # ── Cabeçalho ────────────────────────────────────────────────────────
+        empresa_safe = _safe_text(empresa or "AvalieImob / Romatec")
+        elems.append(_p(f"<b>{empresa_safe}</b>", styles["subtitulo"]))
+
+        tipo_raw = doc.get("tipo_contrato") or ""
+        TIPOS_LABEL = {
+            "compra_venda": "COMPRA E VENDA DE IMOVEL",
+            "promessa_compra_venda": "PROMESSA DE COMPRA E VENDA DE IMOVEL",
+            "locacao_residencial": "LOCACAO RESIDENCIAL",
+            "locacao_comercial": "LOCACAO COMERCIAL",
+            "arras": "RECIBO DE ARRAS / SINAL",
+            "permuta": "PERMUTA DE IMOVEIS",
+            "intermediacao": "INTERMEDIACAO IMOBILIARIA",
+            "cessao_direitos": "CESSAO DE DIREITOS",
+            "comodato": "COMODATO",
+            "distrato": "DISTRATO",
+            "exclusividade": "EXCLUSIVIDADE DE INTERMEDIACAO",
+            "locacao_rural": "LOCACAO RURAL",
+            "arrendamento_rural": "ARRENDAMENTO RURAL",
+            "compra_venda_veiculo": "COMPRA E VENDA DE VEICULO",
+        }
+        tipo_label = TIPOS_LABEL.get(tipo_raw, _safe_text(tipo_raw).upper() or "CONTRATO PARTICULAR")
+        elems.append(_p(f"CONTRATO PARTICULAR DE {tipo_label}", styles["titulo"]))
+
+        numero = _s(doc.get("numero_contrato"), "s/n")
+        data_ass = _fmt_date(doc.get("data_assinatura"))
+        cidade_ass = _s(doc.get("cidade_assinatura"), _BLANK)
+        status = _s(doc.get("status"), "MINUTA")
+        elems.append(_p(
+            f"<b>Numero:</b> {numero} &nbsp;&nbsp; <b>Status:</b> {status} &nbsp;&nbsp; "
+            f"<b>Data de assinatura:</b> {data_ass} &nbsp;&nbsp; <b>Foro:</b> {cidade_ass}",
+            styles["corpo"]
+        ))
+        elems.append(HRFlowable(width="100%", thickness=1.2, color=verde, spaceAfter=8))
+
+        # ── Das Partes ────────────────────────────────────────────────────────
+        labels = doc.get("_labels", {})
+        parte1_label = _safe_text(labels.get("parte1", "Vendedor"))
+        parte2_label = _safe_text(labels.get("parte2", "Comprador"))
+
+        elems.append(_p("DAS PARTES", styles["secao"]))
+
+        vendedores = doc.get("vendedores") or []
+        if not vendedores:
+            elems.append(_p(f"<b>{parte1_label}(es):</b> {_BLANK}", styles["corpo"]))
+        else:
+            for i, v in enumerate(vendedores, 1):
+                prefix = f"<b>{parte1_label} {i}:</b> " if len(vendedores) > 1 else f"<b>{parte1_label}:</b> "
+                if isinstance(v, dict):
+                    qualif = _qualifica_pj(v) if v.get("tipo") == "pj" else _qualifica_pf(v)
+                else:
+                    qualif = _safe_text(str(v))
+                elems.append(_p(prefix + qualif + ".", styles["corpo"]))
+
+        elems.append(Spacer(1, 4))
+
+        compradores = doc.get("compradores") or []
+        if not compradores:
+            elems.append(_p(f"<b>{parte2_label}(es):</b> {_BLANK}", styles["corpo"]))
+        else:
+            for i, c in enumerate(compradores, 1):
+                prefix = f"<b>{parte2_label} {i}:</b> " if len(compradores) > 1 else f"<b>{parte2_label}:</b> "
+                if isinstance(c, dict):
+                    qualif = _qualifica_pj(c) if c.get("tipo") == "pj" else _qualifica_pf(c)
+                else:
+                    qualif = _safe_text(str(c))
+                elems.append(_p(prefix + qualif + ".", styles["corpo"]))
+
+        # Corretor
+        cor = doc.get("corretor") or {}
+        if isinstance(cor, dict) and cor.get("incluir"):
+            elems.append(Spacer(1, 4))
+            cor_nome = _s(cor.get("nome"), _BLANK)
+            cor_creci = _s(cor.get("creci"), _BLANK)
+            cor_cpf = _s(cor.get("cpf_cnpj"), _BLANK)
+            elems.append(_p(
+                f"<b>Corretor(a):</b> {cor_nome}, CRECI {cor_creci}, CPF/CNPJ {cor_cpf}.",
+                styles["corpo"]
+            ))
+
+        elems.append(HRFlowable(width="100%", thickness=0.5, color=colors.lightgrey, spaceAfter=6))
+
+        # ── Do Imóvel / Objeto ────────────────────────────────────────────────
+        obj = doc.get("objeto") or {}
+        if isinstance(obj, dict) and any(obj.values()):
+            elems.append(_p("DO OBJETO DO CONTRATO", styles["secao"]))
+            tipo_bem = obj.get("tipo_bem", "imovel_urbano")
+
+            if tipo_bem == "veiculo":
+                desc = _s(obj.get("descricao_veiculo"), _BLANK)
+                placa = _s(obj.get("placa"), _BLANK)
+                renavam = _s(obj.get("renavam"), _BLANK)
+                chassi = _s(obj.get("chassi"), _BLANK)
+                ano = _s(obj.get("ano_fabricacao"), _BLANK)
+                cor_v = _s(obj.get("cor"), _BLANK)
+                elems.append(_p(
+                    f"Veiculo: <b>{desc}</b>, placa <b>{placa}</b>, RENAVAM {renavam}, "
+                    f"chassi {chassi}, ano {ano}, cor {cor_v}.",
+                    styles["corpo"]
+                ))
+            else:
+                endereco = _s(obj.get("endereco"), _BLANK)
+                bairro = _s(obj.get("bairro"), "")
+                cidade = _s(obj.get("cidade"), _BLANK)
+                uf = _s(obj.get("uf"), _BLANK)
+                cep = obj.get("cep") or ""
+                matricula = _s(obj.get("matricula"), _BLANK)
+                reg_imovel = _s(obj.get("registro_imovel"), _BLANK)
+                area_total = _s(obj.get("area_total"), _BLANK)
+                area_construida = _s(obj.get("area_construida"), "")
+                ccir = _s(obj.get("ccir"), "")
+                car = _s(obj.get("car"), "")
+
+                loc = f"{endereco}, {bairro + ', ' if bairro else ''}{cidade}-{uf}"
+                if cep:
+                    loc += f", CEP {cep}"
+
+                unidade = "ha" if tipo_bem == "imovel_rural" else "m2"
+                area_txt = f"{area_total} {unidade}"
+                if area_construida:
+                    area_txt += f" (construida: {area_construida} m2)"
+
+                tipo_bem_label = "Imovel Urbano" if tipo_bem == "imovel_urbano" else "Imovel Rural"
+                elems.append(_p(
+                    f"{tipo_bem_label} situado em <b>{loc}</b>, "
+                    f"com area total de <b>{area_txt}</b>, "
+                    f"matricula n. <b>{matricula}</b>, registrado no <b>{reg_imovel}</b>.",
+                    styles["corpo"]
+                ))
+
+                if ccir:
+                    elems.append(_p(f"CCIR: {ccir}" + (f"  |  CAR: {car}" if car else ""), styles["corpo"]))
+
+                situacao = obj.get("situacao_ocupacao") or ""
+                SITUACAO_LABEL = {
+                    "desocupado": "desocupado e livre",
+                    "ocupado_vendedor": "ocupado pelo Vendedor, com imissao na posse no ato",
+                    "ocupado_terceiros": "ocupado por terceiros",
+                    "locado": "locado a terceiros",
+                }
+                if situacao:
+                    elems.append(_p(f"Situacao de ocupacao: {SITUACAO_LABEL.get(situacao, situacao)}.", styles["corpo"]))
+
+                onus = _s(obj.get("onus"), "")
+                if onus and onus != _BLANK:
+                    elems.append(_p(f"Onus/Gravames: {onus}", styles["corpo"]))
+
+                benf = _s(obj.get("benfeitorias"), "")
+                if benf and benf != _BLANK:
+                    elems.append(_p(f"Benfeitorias incluidas: {benf}", styles["corpo"]))
+
+            elems.append(HRFlowable(width="100%", thickness=0.5, color=colors.lightgrey, spaceAfter=6))
+
+        # ── Do Preço e Pagamento ──────────────────────────────────────────────
+        pag = doc.get("pagamento") or {}
+        if isinstance(pag, dict):
+            elems.append(_p("DO PRECO E FORMA DE PAGAMENTO", styles["secao"]))
+
+            valor_total = pag.get("valor_total") or 0
+            valor_brl = _brl(valor_total)
+            valor_ext = _extenso(valor_total)
+
+            elems.append(_p(
+                f"O preco total da presente negociacao e de <b>{valor_brl}</b> "
+                f"(<i>{valor_ext}</i>).",
+                styles["corpo"]
+            ))
+
+            # Arras
+            arras_val = pag.get("arras_valor") or 0
+            arras_data = _fmt_date(pag.get("arras_data"))
+            arras_tipo = pag.get("arras_tipo") or "confirmatorias"
+            if arras_val:
+                elems.append(_p(
+                    f"Arras {arras_tipo}: <b>{_brl(arras_val)}</b>, pagos em {arras_data}.",
+                    styles["corpo"]
+                ))
+
+            # Formas de pagamento
+            formas = pag.get("formas") or []
+            if formas:
+                TIPO_FORMA = {
+                    "dinheiro": "Dinheiro/PIX", "financiamento": "Financiamento",
+                    "parcelado": "Parcelado", "cheque": "Cheque",
+                    "permuta": "Permuta", "fgts": "FGTS", "consorcio": "Consorcio", "outro": "Outro",
+                }
+                rows = [["Forma", "Valor", "Vencimento", "Descricao"]]
+                for f in formas:
+                    if not isinstance(f, dict):
+                        continue
+                    rows.append([
+                        TIPO_FORMA.get(f.get("tipo", ""), _s(f.get("tipo"), "-")),
+                        _brl(f.get("valor")),
+                        _fmt_date(f.get("data")),
+                        _s(f.get("descricao") or f.get("banco"), "-"),
+                    ])
+                tbl = Table(rows, colWidths=[3.5 * cm, 3.5 * cm, 3 * cm, 5.5 * cm])
+                tbl.setStyle(TableStyle([
+                    ("BACKGROUND", (0, 0), (-1, 0), verde),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 8),
+                    ("GRID", (0, 0), (-1, -1), 0.4, colors.lightgrey),
+                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f5f5f5")]),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 5),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+                    ("TOPPADDING", (0, 0), (-1, -1), 3),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                ]))
+                elems.append(Spacer(1, 4))
+                elems.append(tbl)
+
+            # Penalidades
+            pen = pag.get("penalidades") or {}
+            if isinstance(pen, dict) and pen:
+                elems.append(Spacer(1, 6))
+                elems.append(_p("PENALIDADES", styles["secao"]))
+                vd = pen.get("vendedor_desiste") or ""
+                cd = pen.get("comprador_desiste") or ""
+                if vd:
+                    elems.append(_p(f"Desistencia do {parte1_label}: {_safe_text(str(vd))}", styles["corpo"]))
+                if cd:
+                    elems.append(_p(f"Desistencia do {parte2_label}: {_safe_text(str(cd))}", styles["corpo"]))
+
+            elems.append(HRFlowable(width="100%", thickness=0.5, color=colors.lightgrey, spaceAfter=6))
+
+        # ── Corretagem ────────────────────────────────────────────────────────
+        if isinstance(cor, dict) and cor.get("incluir"):
+            elems.append(_p("DA CORRETAGEM", styles["secao"]))
+            pct = _s(cor.get("comissao_percentual"), _BLANK)
+            valor_cor = ""
+            try:
+                vc = float(str(cor.get("comissao_percentual") or 0))
+                vt = float(str((doc.get("pagamento") or {}).get("valor_total") or 0))
+                if vc and vt:
+                    valor_cor = f" = {_brl(vc * vt / 100)}"
+            except Exception:
+                pass
+
+            resp = cor.get("comissao_responsavel") or "vendedor"
+            RESP_LABEL = {"vendedor": parte1_label, "comprador": parte2_label, "ambos": "ambas as partes (50/50)"}
+            elems.append(_p(
+                f"Comissao de corretagem: <b>{pct}%{valor_cor}</b>, de responsabilidade do(a) {RESP_LABEL.get(resp, resp)}.",
+                styles["corpo"]
+            ))
+
+            # Parcelas comissão
+            p1 = cor.get("comissao_parcela1_pct") or 50
+            p2 = cor.get("comissao_parcela2_pct") or 50
+            elems.append(_p(f"Pagamento: {p1}% no ato do sinal e {p2}% na quitacao.", styles["corpo"]))
+
+            # Dados bancários
+            banco = cor.get("banco") or ""
+            agencia = cor.get("agencia") or ""
+            conta = cor.get("conta") or ""
+            pix = cor.get("banco_pix") or ""
+            cnpj_banco = cor.get("banco_cnpj") or ""
+            if any([banco, agencia, conta, pix]):
+                dados = []
+                if banco:
+                    dados.append(f"Banco: {_safe_text(banco)}")
+                if agencia:
+                    dados.append(f"Ag. {_safe_text(agencia)}")
+                if conta:
+                    dados.append(f"CC {_safe_text(conta)}")
+                if cnpj_banco:
+                    dados.append(f"CNPJ {_safe_text(cnpj_banco)}")
+                if pix:
+                    dados.append(f"PIX: {_safe_text(pix)}")
+                elems.append(_p("Dados bancarios: " + " | ".join(dados), styles["corpo"]))
+
+            elems.append(HRFlowable(width="100%", thickness=0.5, color=colors.lightgrey, spaceAfter=6))
+
+        # ── Cláusulas ─────────────────────────────────────────────────────────
+        clausulas = doc.get("clausulas") or []
+        if clausulas:
+            elems.append(_p("CLAUSULAS E CONDICOES", styles["secao"]))
+            for i, cl in enumerate(clausulas, 1):
+                if isinstance(cl, dict):
+                    titulo = _s(cl.get("titulo") or cl.get("nome"), f"Clausula {i}")
+                    texto = _s(cl.get("texto") or cl.get("conteudo"), "")
+                    elems.append(_p(f"<b>Clausula {i}a — {titulo}</b>", styles["clausula_titulo"]))
+                    if texto:
+                        elems.append(_p(texto, styles["clausula_texto"]))
+                elif isinstance(cl, str) and cl.strip():
+                    elems.append(_p(cl.strip(), styles["clausula_texto"]))
+
+            elems.append(HRFlowable(width="100%", thickness=0.5, color=colors.lightgrey, spaceAfter=6))
+        else:
+            # Cláusula de foro padrão
+            foro = _s(doc.get("foro_eleito"), "Comarca de Acailandia - Estado do Maranhao")
+            elems.append(_p("DO FORO", styles["secao"]))
+            elems.append(_p(
+                f"Fica eleito o foro da {foro} para dirimir quaisquer controversias "
+                f"oriundas do presente instrumento.",
+                styles["corpo"]
+            ))
+            elems.append(HRFlowable(width="100%", thickness=0.5, color=colors.lightgrey, spaceAfter=6))
+
+        # ── Testemunhas ───────────────────────────────────────────────────────
+        test1 = doc.get("testemunha_1") or {}
+        test2 = doc.get("testemunha_2") or {}
+        if isinstance(test1, dict) and test1.get("nome"):
+            elems.append(_p("DAS TESTEMUNHAS", styles["secao"]))
+            for t in [test1, test2]:
+                if isinstance(t, dict) and t.get("nome"):
+                    tnome = _s(t.get("nome"), _BLANK)
+                    tcpf = _s(t.get("cpf"), _BLANK)
+                    elems.append(_p(f"{tnome} — CPF {tcpf}", styles["corpo"]))
+
+        # ── Local e Assinaturas ────────────────────────────────────────────────
+        elems.append(PageBreak())
+        cidade_ass = _s(doc.get("cidade_assinatura"), _BLANK)
+        data_ass = _fmt_date(doc.get("data_assinatura"))
+        elems.append(Spacer(1, 1 * cm))
+        elems.append(_p(
+            f"{cidade_ass}, {data_ass}",
+            styles["corpo"]
+        ))
+        elems.append(Spacer(1, 1.5 * cm))
+
+        todas_partes = list(vendedores) + list(compradores)
+        if not todas_partes:
+            todas_partes = [_BLANK, _BLANK]
+
+        # Assinaturas em pares (2 por linha)
+        sig_data = []
+        for i in range(0, max(len(todas_partes), 2), 2):
+            n1 = _safe_text(todas_partes[i]) if i < len(todas_partes) else _BLANK
+            n2 = _safe_text(todas_partes[i + 1]) if i + 1 < len(todas_partes) else ""
+            sig_data.append([
+                Paragraph(f"_______________________________<br/>{n1}", styles["assinatura"]),
+                Paragraph(f"_______________________________<br/>{n2}" if n2 else "", styles["assinatura"]),
+            ])
+
+        # Corretor signature
+        if isinstance(cor, dict) and cor.get("incluir") and cor.get("nome"):
+            sig_data.append([
+                Paragraph(f"_______________________________<br/>{_safe_text(cor['nome'])}", styles["assinatura"]),
+                Paragraph("", styles["assinatura"]),
+            ])
+
+        sig_tbl = Table(sig_data, colWidths=[8 * cm, 8 * cm])
+        sig_tbl.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("TOPPADDING", (0, 0), (-1, -1), 12),
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ]))
+        elems.append(sig_tbl)
+
+        # Rodapé
+        elems.append(Spacer(1, 1.5 * cm))
+        elems.append(HRFlowable(width="100%", thickness=0.5, color=colors.lightgrey))
+        elems.append(_p(
+            f"Gerado em {datetime.utcnow().strftime('%d/%m/%Y as %H:%M UTC')} "
+            f"| AvalieImob / Romatec | Documento n. {contrato_id}",
+            styles["rodape"]
+        ))
+
+        pdf.build(elems)
+
     except Exception as exc:
-        logger.error("Erro ao gerar PDF do contrato %s: %s", contrato_id, exc)
+        logger.error("Erro ao gerar PDF do contrato %s: %s", contrato_id, exc, exc_info=True)
         return b""
 
     buffer.seek(0)
