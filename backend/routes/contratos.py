@@ -37,6 +37,15 @@ logger = logging.getLogger("romatec")
 class ContratoCreate(BaseModel):
     tipo_contrato: str
     numero_contrato: Optional[str] = None
+    cidade_assinatura: Optional[str] = None
+    data_assinatura: Optional[str] = None
+    foro_eleito: Optional[str] = None
+    vendedores: Optional[List[Any]] = None
+    compradores: Optional[List[Any]] = None
+    corretor: Optional[Any] = None
+    objeto: Optional[Any] = None
+    pagamento: Optional[Any] = None
+    config: Optional[Any] = None
 
 
 class ContratoUpdate(BaseModel):
@@ -156,15 +165,31 @@ async def criar_contrato(
     ano = datetime.utcnow().year
     numero = await _next_contrato_numero(db, ano)
     
-    doc = Contrato(
-        user_id=uid,
-        tipo_contrato=body.tipo_contrato,
-        numero_contrato=numero,
-        status="minuta",
-    ).dict()
+    # Monta o documento com todos os campos opcionais
+    contrato_data = {
+        "user_id": uid,
+        "tipo_contrato": body.tipo_contrato,
+        "numero_contrato": numero,
+        "status": "minuta",
+        "cidade_assinatura": body.cidade_assinatura or "",
+        "data_assinatura": body.data_assinatura or "",
+        "foro_eleito": body.foro_eleito or "",
+        "vendedores": body.vendedores or [],
+        "compradores": body.compradores or [],
+        "corretor": body.corretor or {"incluir": False},
+        "objeto": body.objeto or {},
+        "pagamento": body.pagamento or {},
+        "config": body.config or {"incluir_logo": True, "incluir_recibo_arras": True, "incluir_checklist": True},
+        "clausulas": [],
+        "alertas_juridicos": [],
+        "versao_atual": 1,
+        "lacrado": False,
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow(),
+    }
     
-    await db.contratos.insert_one(doc)
-    return serialize_doc(doc)
+    await db.contratos.insert_one(contrato_data)
+    return serialize_doc(contrato_data)
 
 
 @router.get("/contratos")
