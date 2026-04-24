@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Toaster } from './components/ui/toaster';
 import InstallPrompt from './components/common/InstallPrompt';
+import RomaIAWidget from './components/common/RomaIAWidget';
 
 import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
@@ -74,6 +75,7 @@ function App() {
           </ErrorBoundary>
           <Toaster />
           <InstallPrompt />
+          <RomaIAWidget />
         </BrowserRouter>
       </AuthProvider>
     </div>
