@@ -85,17 +85,19 @@ const RomaIAWidget = () => {
 
   return (
     <>
-      {/* Botão Flutuante */}
+      {/* Botão Flutuante - Responsivo para Mobile */}
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 z-50 group"
+          onTouchStart={() => setIsOpen(true)}
+          className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-[100] group touch-manipulation"
           aria-label="Abrir chat com Roma_IA"
+          style={{ WebkitTapHighlightColor: 'transparent' }}
         >
           <div className="relative">
             <div className="absolute inset-0 bg-emerald-500 rounded-full animate-ping opacity-30"></div>
-            <div className="relative bg-emerald-900 hover:bg-emerald-800 rounded-full p-3 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110">
-              <RomaIAAvatar state="idle" size="md" />
+            <div className="relative bg-emerald-900 hover:bg-emerald-800 active:bg-emerald-700 rounded-full p-2 sm:p-3 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110 active:scale-95">
+              <RomaIAAvatar state="idle" size="sm" className="sm:w-[72px] sm:h-[72px]" />
             </div>
             {/* Badge de notificação */}
             {showWelcome && (
@@ -107,33 +109,37 @@ const RomaIAWidget = () => {
         </button>
       )}
 
-      {/* Tooltip de boas-vindas */}
+      {/* Tooltip de boas-vindas - Responsivo */}
       {showWelcome && !isOpen && (
         <div 
-          className="fixed bottom-24 right-6 z-40 bg-white rounded-xl shadow-lg p-4 max-w-xs animate-fade-in-up"
+          className="fixed bottom-20 right-4 sm:bottom-24 sm:right-6 z-[99] bg-white rounded-xl shadow-lg p-3 sm:p-4 max-w-[280px] sm:max-w-xs animate-fade-in-up cursor-pointer"
           onClick={() => {
             setIsOpen(true);
             setShowWelcome(false);
           }}
+          onTouchStart={() => {
+            setIsOpen(true);
+            setShowWelcome(false);
+          }}
         >
-          <div className="flex items-start gap-3">
+          <div className="flex items-start gap-2 sm:gap-3">
             <RomaIAAvatar state="speaking" size="sm" />
             <div>
               <p className="text-sm font-medium text-gray-900">Olá! Sou a Roma_IA 👋</p>
               <p className="text-xs text-gray-500 mt-1">Posso ajudar com dúvidas sobre avaliação imobiliária!</p>
             </div>
           </div>
-          <div className="absolute bottom-[-8px] right-6 w-4 h-4 bg-white transform rotate-45"></div>
+          <div className="absolute bottom-[-8px] right-4 sm:right-6 w-4 h-4 bg-white transform rotate-45"></div>
         </div>
       )}
 
-      {/* Chat Window */}
+      {/* Chat Window - Responsivo para Mobile */}
       {isOpen && (
-        <div className="fixed bottom-6 right-6 z-50 w-96 max-w-[calc(100vw-2rem)]">
-          <div className="bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-200">
+        <div className="fixed inset-0 sm:inset-auto sm:bottom-4 sm:right-4 lg:bottom-6 lg:right-6 z-[100] sm:w-96 sm:max-w-[calc(100vw-2rem)]">
+          <div className="bg-white sm:rounded-2xl shadow-2xl overflow-hidden border-0 sm:border border-gray-200 h-full sm:h-auto flex flex-col">
             {/* Header */}
-            <div className="bg-emerald-900 p-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
+            <div className="bg-emerald-900 p-3 sm:p-4 flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-2 sm:gap-3">
                 <RomaIAAvatar state={loading ? 'thinking' : 'speaking'} size="sm" />
                 <div>
                   <h3 className="text-white font-semibold text-sm">Roma_IA</h3>
@@ -158,20 +164,20 @@ const RomaIAWidget = () => {
             </div>
 
             {/* Messages */}
-            <div className="h-80 overflow-y-auto p-4 space-y-4 bg-gray-50">
+            <div className="flex-1 sm:h-80 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4 bg-gray-50">
               {messages.map((m, i) => (
                 <div 
                   key={i} 
                   className={`flex gap-2 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}
                 >
-                  <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center ${m.role === 'user' ? 'bg-amber-500' : ''}`}>
+                  <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex-shrink-0 flex items-center justify-center ${m.role === 'user' ? 'bg-amber-500' : ''}`}>
                     {m.role === 'user' ? (
-                      <User className="w-4 h-4 text-white" />
+                      <User className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
                     ) : (
                       <RomaIAAvatar state="idle" size="sm" />
                     )}
                   </div>
-                  <div className={`max-w-[75%] rounded-xl p-3 text-sm ${m.role === 'user' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-800 shadow-sm'}`}>
+                  <div className={`max-w-[75%] rounded-xl p-2 sm:p-3 text-sm ${m.role === 'user' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-800 shadow-sm'}`}>
                     {m.content}
                     {m.role === 'assistant' && m.provider && (
                       <span className="block text-[10px] opacity-50 mt-1">via {m.provider}</span>
@@ -181,10 +187,10 @@ const RomaIAWidget = () => {
               ))}
               {loading && (
                 <div className="flex gap-2">
-                  <div className="w-8 h-8 rounded-full flex-shrink-0">
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex-shrink-0">
                     <RomaIAAvatar state="thinking" size="sm" />
                   </div>
-                  <div className="bg-white rounded-xl p-3 flex items-center gap-2 shadow-sm">
+                  <div className="bg-white rounded-xl p-2 sm:p-3 flex items-center gap-2 shadow-sm">
                     <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
                     <span className="text-sm text-gray-500">Pensando...</span>
                   </div>
@@ -194,7 +200,7 @@ const RomaIAWidget = () => {
             </div>
 
             {/* Input */}
-            <div className="p-3 border-t border-gray-200 bg-white">
+            <div className="p-3 border-t border-gray-200 bg-white flex-shrink-0">
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -207,6 +213,7 @@ const RomaIAWidget = () => {
                 />
                 <button
                   onClick={() => sendMessage()}
+                  onTouchStart={() => sendMessage()}
                   disabled={loading || !input.trim()}
                   className="bg-emerald-900 hover:bg-emerald-800 disabled:bg-gray-300 text-white p-2 rounded-lg transition-colors"
                 >

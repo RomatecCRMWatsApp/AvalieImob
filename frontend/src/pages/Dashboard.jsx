@@ -449,10 +449,9 @@ const Dashboard = () => {
               </button>
             </div>
             
-            {/* Vídeo de Boas-Vindas com Áudio */}
+            {/* Vídeo de Boas-Vindas com Áudio - Suporte MP4/WebM */}
             <div className="relative aspect-square bg-emerald-900">
               <video
-                src="/brand/roma_ia_animated_bem_vindo.webm"
                 autoPlay
                 muted={false}
                 playsInline
@@ -462,7 +461,11 @@ const Dashboard = () => {
                   e.target.style.display = 'none';
                   e.target.nextSibling.style.display = 'flex';
                 }}
-              />
+              >
+                <source src="/brand/roma_ia_animated_bem_vindo.mp4" type="video/mp4" />
+                <source src="/brand/roma_ia_animated_bem_vindo.webm" type="video/webm" />
+                Seu navegador não suporta vídeo.
+              </video>
               <div className="absolute inset-0 hidden items-center justify-center bg-emerald-900 text-white text-center p-6">
                 <div>
                   <RomaIAAvatar state="speaking" size="lg" />
