@@ -927,6 +927,261 @@ async def baixar_contrato_pdf(
     )
 
 
+@router.get("/contratos/{cid}/docx")
+async def baixar_contrato_docx(
+    cid: str,
+    uid: str = Depends(get_authenticated_user),
+    db=Depends(get_db),
+):
+    """Gera DOCX juridico premium do contrato (Times New Roman, margens 3/2cm)."""
+    from contrato_docx import generate_contrato_docx
+
+    doc = await db.contratos.find_one(_contrato_query_by_cid(cid, uid))
+    if not doc:
+        raise HTTPException(status_code=404, detail="Contrato nao encontrado")
+
+    user = await db.users.find_one({"id": uid}) or {}
+    logo_id = user.get("company_logo")
+    if logo_id:
+        try:
+            import gridfs
+            from bson import ObjectId as BsonOID
+            fs = gridfs.GridFS(db.delegate)
+            logo_bytes = fs.get(BsonOID(logo_id)).read()
+            user["_company_logo_bytes"] = logo_bytes
+        except Exception:
+            pass
+
+    # Adapta o schema simplificado do wizard para o schema completo do docx generator
+    contrato_adapted = _adapt_for_docx(doc)
+    try:
+        docx_bytes = generate_contrato_docx(contrato_adapted, user)
+    except Exception as exc:
+        logger.error("Erro ao gerar DOCX %s: %s", cid, exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Falha ao gerar DOCX")
+
+    filename_id = str(doc.get("id") or doc.get("_id") or cid)
+    return Response(
+        content=docx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={
+            "Content-Disposition": f'attachment; filename="contrato_{filename_id}.docx"',
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+@router.get("/contratos/{cid}/recibo-arras/docx")
+async def baixar_recibo_arras_docx(
+    cid: str,
+    uid: str = Depends(get_authenticated_user),
+    db=Depends(get_db),
+):
+    """Gera DOCX do Recibo de Sinal/Arras do contrato."""
+    from contrato_docx import generate_recibo_arras_docx
+
+    doc = await db.contratos.find_one(_contrato_query_by_cid(cid, uid))
+    if not doc:
+        raise HTTPException(status_code=404, detail="Contrato nao encontrado")
+
+    user = await db.users.find_one({"id": uid}) or {}
+    contrato_adapted = _adapt_for_docx(doc)
+    try:
+        docx_bytes = generate_recibo_arras_docx(contrato_adapted, user)
+    except Exception as exc:
+        logger.error("Erro ao gerar recibo arras %s: %s", cid, exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Falha ao gerar Recibo de Arras")
+
+    filename_id = str(doc.get("id") or doc.get("_id") or cid)
+    return Response(
+        content=docx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={
+            "Content-Disposition": f'attachment; filename="recibo_arras_{filename_id}.docx"',
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+def _adapt_for_docx(doc: dict) -> dict:
+    """Converte o schema simplificado do wizard para o schema do docx generator."""
+    partes = []
+
+    for v in doc.get("vendedores") or []:
+        if not isinstance(v, dict):
+            continue
+        if v.get("tipo") == "pj":
+            partes.append({"tipo": "pj", "qualificacao": "Vendedor", "pj": {
+                "razao_social": v.get("razao_social") or v.get("nome"),
+                "cnpj": v.get("cnpj"), "endereco": v.get("endereco"),
+                "cidade": v.get("cidade"), "uf": v.get("uf"), "cep": v.get("cep"),
+                "representante_nome": v.get("representante_nome"),
+                "representante_cpf": v.get("representante_cpf"),
+                "representante_cargo": v.get("representante_cargo"),
+            }})
+        else:
+            partes.append({"tipo": "pf", "qualificacao": "Vendedor", "pf": {
+                "nome": v.get("nome"), "cpf": v.get("cpf"), "rg": v.get("rg"),
+                "rg_orgao": v.get("rg_orgao"), "data_nascimento": v.get("nascimento"),
+                "estado_civil": v.get("estado_civil"), "profissao": v.get("profissao"),
+                "nacionalidade": v.get("nacionalidade", "brasileiro(a)"),
+                "endereco": v.get("endereco"), "cidade": v.get("cidade"),
+                "uf": v.get("uf"), "cep": v.get("cep"),
+                "conjuge_nome": v.get("conjuge_nome"), "conjuge_cpf": v.get("conjuge_cpf"),
+                "regime_bens": v.get("conjuge_regime"),
+                "procurador_nome": v.get("procurador_nome"),
+                "procurador_cpf": v.get("procurador_cpf"),
+                "procurador_instrumento": v.get("procurador_instrumento"),
+            }})
+
+    for c in doc.get("compradores") or []:
+        if not isinstance(c, dict):
+            continue
+        if c.get("tipo") == "pj":
+            partes.append({"tipo": "pj", "qualificacao": "Comprador", "pj": {
+                "razao_social": c.get("razao_social") or c.get("nome"),
+                "cnpj": c.get("cnpj"), "endereco": c.get("endereco"),
+                "cidade": c.get("cidade"), "uf": c.get("uf"), "cep": c.get("cep"),
+                "representante_nome": c.get("representante_nome"),
+                "representante_cpf": c.get("representante_cpf"),
+                "representante_cargo": c.get("representante_cargo"),
+            }})
+        else:
+            partes.append({"tipo": "pf", "qualificacao": "Comprador", "pf": {
+                "nome": c.get("nome"), "cpf": c.get("cpf"), "rg": c.get("rg"),
+                "rg_orgao": c.get("rg_orgao"), "data_nascimento": c.get("nascimento"),
+                "estado_civil": c.get("estado_civil"), "profissao": c.get("profissao"),
+                "nacionalidade": c.get("nacionalidade", "brasileiro(a)"),
+                "endereco": c.get("endereco"), "cidade": c.get("cidade"),
+                "uf": c.get("uf"), "cep": c.get("cep"),
+                "conjuge_nome": c.get("conjuge_nome"), "conjuge_cpf": c.get("conjuge_cpf"),
+                "regime_bens": c.get("conjuge_regime"),
+            }})
+
+    pag_raw = doc.get("pagamento") or {}
+    valor_total = pag_raw.get("valor_total") or 0
+    try:
+        valor_total = float(str(valor_total).replace(".", "").replace(",", "."))
+    except Exception:
+        valor_total = 0
+
+    formas = pag_raw.get("formas") or []
+    parcelas = []
+    for i, f in enumerate(formas):
+        if not isinstance(f, dict):
+            continue
+        parcelas.append({
+            "numero": i + 1,
+            "valor": f.get("valor", 0),
+            "vencimento": f.get("data", ""),
+            "forma_pagamento": f.get("tipo", ""),
+            "banco": f.get("banco") or f.get("descricao", ""),
+        })
+
+    obj_raw = doc.get("objeto") or {}
+    objeto = {
+        "tipo": obj_raw.get("tipo_bem", "imovel_urbano"),
+        "endereco": obj_raw.get("endereco"), "bairro": obj_raw.get("bairro"),
+        "cidade": obj_raw.get("cidade"), "uf": obj_raw.get("uf"), "cep": obj_raw.get("cep"),
+        "matricula": obj_raw.get("matricula"), "cartorio": obj_raw.get("registro_imovel"),
+        "area_terreno": obj_raw.get("area_total"), "area_construida": obj_raw.get("area_construida"),
+        "situacao": obj_raw.get("situacao_ocupacao"), "onus": obj_raw.get("onus"),
+        "ccir": obj_raw.get("ccir"), "car": obj_raw.get("car"),
+        "veiculo_marca": obj_raw.get("descricao_veiculo"),
+        "veiculo_placa": obj_raw.get("placa"), "veiculo_renavam": obj_raw.get("renavam"),
+        "veiculo_chassi": obj_raw.get("chassi"),
+        "veiculo_ano_fabricacao": obj_raw.get("ano_fabricacao"),
+        "veiculo_cor": obj_raw.get("cor"),
+    }
+
+    cor_raw = doc.get("corretor") or {}
+    corretor = None
+    if isinstance(cor_raw, dict) and cor_raw.get("incluir"):
+        corretor = {
+            "nome": cor_raw.get("nome"), "creci": cor_raw.get("creci"),
+            "cpf_cnpj": cor_raw.get("cpf_cnpj"), "email": cor_raw.get("email"),
+            "comissao_percentual": cor_raw.get("comissao_percentual"),
+            "comissao_responsavel": cor_raw.get("comissao_responsavel", "Vendedor"),
+            "exclusividade": cor_raw.get("exclusividade", False),
+            "exclusividade_prazo_dias": cor_raw.get("prazo_exclusividade"),
+        }
+
+    testemunhas = []
+    for key in ("testemunha_1", "testemunha_2"):
+        t = doc.get(key)
+        if isinstance(t, dict) and t.get("nome"):
+            testemunhas.append({"nome": t.get("nome"), "cpf": t.get("cpf")})
+
+    return {
+        "tipo_contrato": doc.get("tipo_contrato", ""),
+        "numero_contrato": doc.get("numero_contrato", ""),
+        "status": doc.get("status", ""),
+        "cidade_assinatura": doc.get("cidade_assinatura", ""),
+        "uf_assinatura": doc.get("uf", ""),
+        "data_assinatura": doc.get("data_assinatura", ""),
+        "partes": partes,
+        "objeto": objeto,
+        "corretor": corretor,
+        "clausulas": doc.get("clausulas") or [],
+        "testemunhas": testemunhas,
+        "condicoes_pagamento": {
+            "valor_total": valor_total,
+            "valor_total_extenso": _extenso(valor_total),
+            "forma_principal": (formas[0].get("tipo") if formas else None),
+            "sinal_valor": pag_raw.get("arras_valor"),
+            "sinal_data": pag_raw.get("arras_data"),
+            "sinal_arras_tipo": pag_raw.get("arras_tipo", "confirmatorias"),
+            "parcelas": parcelas,
+        },
+    }
+
+
+# ── Biblioteca de Cláusulas ──────────────────────────────────────────────────
+
+@router.get("/contratos/clausulas/templates")
+async def listar_templates_clausulas(
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db),
+):
+    """Lista templates de clausulas disponíveis."""
+    docs = await db.contrato_clause_templates.find({"ativo": True}).sort("nome", 1).to_list(50)
+    return [serialize_doc(d) for d in docs]
+
+
+@router.get("/contratos/clausulas/por-tipo/{tipo_contrato}")
+async def clausulas_por_tipo(
+    tipo_contrato: str,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db),
+):
+    """Retorna cláusulas agrupadas por categoria para o tipo de contrato dado."""
+    docs = await db.contrato_clausulas.find(
+        {"$or": [{"tipo_contrato": tipo_contrato}, {"tipo_contrato": "todos"}]}
+    ).sort([("categoria", 1), ("ordem", 1)]).to_list(100)
+
+    agrupadas: dict = {}
+    for d in docs:
+        cat = d.get("categoria", "geral")
+        agrupadas.setdefault(cat, []).append(serialize_doc(d))
+    return agrupadas
+
+
+@router.post("/contratos/seed-clausulas")
+async def seed_clausulas(
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db),
+):
+    """Popula a biblioteca de cláusulas PCV com as 15 cláusulas padrão Romatec."""
+    from seed_contratos import CLAUSULAS_PCV, TEMPLATE_PCV
+    existing = await db.contrato_clausulas.count_documents({"tipo_contrato": "compra_venda"})
+    if existing > 0:
+        return {"status": "ja_existem", "total": existing}
+    await db.contrato_clause_templates.insert_one(TEMPLATE_PCV)
+    if CLAUSULAS_PCV:
+        await db.contrato_clausulas.insert_many(CLAUSULAS_PCV)
+    return {"status": "ok", "inseridas": len(CLAUSULAS_PCV)}
+
+
 @router.put("/contratos/{cid}")
 async def atualizar_contrato(
     cid: str,
