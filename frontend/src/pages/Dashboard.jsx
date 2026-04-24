@@ -268,6 +268,7 @@ const Dashboard = () => {
   const nav = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  const [videoMuted, setVideoMuted] = useState(true);
 
   const handleLogout = () => {
     logout();
@@ -453,9 +454,9 @@ const Dashboard = () => {
             <div className="relative aspect-square bg-emerald-900">
               <video
                 autoPlay
-                muted={false}
+                muted={videoMuted}
                 playsInline
-                controls
+                loop
                 className="w-full h-full object-cover"
                 onError={(e) => {
                   // Fallback se o vídeo não existir
@@ -468,6 +469,23 @@ const Dashboard = () => {
                 <source src="/brand/roma_ia_animated_bem_vindo.webm" type="video/webm" />
                 Seu navegador não suporta vídeo.
               </video>
+              
+              {/* Botão Ativar Som */}
+              {videoMuted && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setVideoMuted(false);
+                  }}
+                  className="absolute bottom-4 right-4 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg transition-colors flex items-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                  </svg>
+                  Ativar Som
+                </button>
+              )}
+              
               <div className="absolute inset-0 hidden items-center justify-center bg-emerald-900 text-white text-center p-6">
                 <div>
                   <RomaIAAvatar state="speaking" size="lg" />
