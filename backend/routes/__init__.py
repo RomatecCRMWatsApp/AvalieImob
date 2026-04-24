@@ -22,7 +22,7 @@ from routes.cnd import router as cnd_router
 from routes.scraper import router as scraper_router
 from routes.search import router as search_router
 from routes.assinatura import router as assinatura_router
-from routes.seed import router as seed_router
+from routes.samples import router as samples_router
 from routes.cub import router as cub_router
 from routes.sigef import router as sigef_router
 
@@ -33,6 +33,6 @@ all_routers = [
     imoveis_crm_router, email_router, perfil_avaliador_router,
     clients_router, properties_router, evaluations_router,
     tvi_router, maps_router, cnd_router, scraper_router,
-    search_router, assinatura_router, seed_router, cub_router,
+    cnd_router, scraper_router, search_router, assinatura_router, samples_router, cub_router,
     sigef_router,
 ]

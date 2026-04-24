@@ -23,9 +23,10 @@ const Samples = () => {
   }, [toast]);
   useEffect(() => { load(); }, [load]);
 
-  const avg = items.length ? items.reduce((a, b) => a + (b.price_per_sqm || 0), 0) / items.length : 0;
-  const min = items.length ? Math.min(...items.map(s => s.price_per_sqm || 0)) : 0;
-  const max = items.length ? Math.max(...items.map(s => s.price_per_sqm || 0)) : 0;
+  const itemsArray = Array.isArray(items) ? items : [];
+  const avg = itemsArray.length ? itemsArray.reduce((a, b) => a + (b.price_per_sqm || 0), 0) / itemsArray.length : 0;
+  const min = itemsArray.length ? Math.min(...itemsArray.map(s => s.price_per_sqm || 0)) : 0;
+  const max = itemsArray.length ? Math.max(...itemsArray.map(s => s.price_per_sqm || 0)) : 0;
 
   const save = async () => {
     if (!form.ref || !form.value || !form.area) { toast({ title: 'Preencha os campos', variant: 'destructive' }); return; }
