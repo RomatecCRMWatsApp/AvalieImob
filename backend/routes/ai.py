@@ -224,7 +224,7 @@ async def ai_history(
 
 
 @router.get("/ai/status")
-async def ai_status(uid: str = Depends(get_active_subscriber)):
+async def ai_status():
     """Retorna quais provedores estao configurados."""
     return {
         "groq": bool(os.environ.get("GROQ_API_KEY")),
