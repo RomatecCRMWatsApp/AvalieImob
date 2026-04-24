@@ -24,6 +24,7 @@ from routes.search import router as search_router
 from routes.assinatura import router as assinatura_router
 from routes.seed import router as seed_router
 from routes.cub import router as cub_router
+from routes.sigef import router as sigef_router
 
 all_routers = [
     auth_router, users_router, ptam_router, locacao_router,
@@ -33,4 +34,5 @@ all_routers = [
     clients_router, properties_router, evaluations_router,
     tvi_router, maps_router, cnd_router, scraper_router,
     search_router, assinatura_router, seed_router, cub_router,
+    sigef_router,
 ]

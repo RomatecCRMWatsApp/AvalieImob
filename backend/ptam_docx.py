@@ -485,16 +485,73 @@ def _render_imovel(doc: Document, ptam: dict) -> None:
     if rural:
         rural_fields = [
             ("SIGEF — Sistema de Gestão Fundiária", "certificacao_sigef"),
+            ("Código SIGEF (UUID)", "sigef_codigo"),
             ("INCRA — Cadastro no INCRA", "cadastro_incra"),
-            ("CCIR — Certificado de Cadastro de Imóvel Rural", "ccir"),
-            ("NIRF / CIB", "nirf_cib"),
-            ("CAR — Cadastro Ambiental Rural", "car"),
+            ("CCIR — Certificado de Cadastro de Imóvel Rural", "ccir_numero"),
+            ("CCIR (legado)", "ccir"),
+            ("NIRF / CIB", "nirf_numero"),
+            ("NIRF / CIB (legado)", "nirf_cib"),
+            ("CAR — Cadastro Ambiental Rural", "car_numero"),
+            ("CAR (legado)", "car"),
         ]
         rural_items = [(l, ptam.get(k)) for l, k in rural_fields if ptam.get(k)]
         if rural_items:
             _add_subsection_heading(doc, "Registros Rurais")
             for l, v in rural_items:
                 _add_label_value(doc, l, v)
+
+        # Tabela: DADOS CADASTRAIS RURAIS (INCRA/SIGEF)
+        sigef_keys = [
+            "sigef_codigo", "ccir_numero", "car_numero", "sigef_situacao",
+            "sigef_area_ha", "sigef_data_certificacao", "modulo_fiscal_ha",
+            "numero_modulos_fiscais", "dados_incra_automaticos", "dados_incra_data_consulta",
+        ]
+        if any(ptam.get(k) for k in sigef_keys):
+            _add_subsection_heading(doc, "Dados Cadastrais Rurais (INCRA/SIGEF)")
+            headers = ["Campo", "Valor"]
+            table = doc.add_table(rows=1, cols=2)
+            table.style = "Table Grid"
+            hdr = table.rows[0].cells
+            for i, h in enumerate(headers):
+                hdr[i].text = h
+                _set_cell_shading(hdr[i], "1B4D1B")
+                hdr[i].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+                for run in hdr[i].paragraphs[0].runs:
+                    run.font.color.rgb = WHITE
+                    run.font.bold = True
+                    run.font.size = Pt(10)
+
+            sit_map = {
+                "certificado": "Certificado",
+                "em_certificacao": "Em Certificação",
+                "nao_certificado": "Não Certificado",
+            }
+            fonte = "SIGEF/INCRA (automático)" if ptam.get("dados_incra_automaticos") else "Preenchimento manual"
+            sigef_rows = [
+                ("CCIR", ptam.get("ccir_numero") or ptam.get("ccir")),
+                ("Código SIGEF", ptam.get("sigef_codigo") or ptam.get("certificacao_sigef")),
+                ("CAR", ptam.get("car_numero") or ptam.get("car")),
+                ("NIRF / ITR", ptam.get("nirf_numero") or ptam.get("nirf_cib")),
+                ("Situação SIGEF", sit_map.get(ptam.get("sigef_situacao", ""), ptam.get("sigef_situacao", ""))),
+                ("Área Certificada (SIGEF)", _format_area_ha(ptam["sigef_area_ha"]) if ptam.get("sigef_area_ha") else None),
+                ("Data Certificação SIGEF", ptam.get("sigef_data_certificacao")),
+                ("Módulo Fiscal do Município", f"{ptam['modulo_fiscal_ha']} ha" if ptam.get("modulo_fiscal_ha") else None),
+                ("Número de Módulos Fiscais", str(ptam["numero_modulos_fiscais"]) if ptam.get("numero_modulos_fiscais") else None),
+                ("Fonte dos Dados", fonte),
+                ("Data da Consulta SIGEF", ptam.get("dados_incra_data_consulta")),
+            ]
+            for campo, valor in sigef_rows:
+                if not valor or str(valor).strip() in ("", "—", "None"):
+                    continue
+                row = table.add_row().cells
+                row[0].text = campo
+                row[1].text = str(valor)
+                row[0].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.LEFT
+                row[1].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.LEFT
+                for cell in row:
+                    for run in cell.paragraphs[0].runs:
+                        run.font.size = Pt(10)
+            doc.add_paragraph()
 
 
 def _render_caracterizacao(doc: Document, ptam: dict) -> None:

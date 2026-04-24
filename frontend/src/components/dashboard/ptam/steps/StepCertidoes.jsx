@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ShieldCheck, Plus, RotateCcw, Loader2, X } from 'lucide-react';
+import { ShieldCheck, Plus, RotateCcw, Loader2, X, CheckCircle, Leaf } from 'lucide-react';
 import { cndAPI } from '../../../../lib/api';
 import { useConsulta } from '../../cnd/hooks/useCND';
+
+const RURAL_TYPES = new Set(['rural', 'fazenda', 'sitio', 'chacara', 'terreno_rural']);
+const isRural = (tipo) => RURAL_TYPES.has((tipo || '').toLowerCase());
 
 const PROVIDER_LABELS = {
   receita: 'Receita Federal',
@@ -123,6 +126,7 @@ export function StepCertidoes({ form }) {
   const [consultas, setConsultas] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const rural = isRural(form.property_type);
 
   const load = useCallback(async () => {
     if (!ptamId) return;
@@ -208,6 +212,63 @@ export function StepCertidoes({ form }) {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Seção Rural — Documentação INCRA/CAR */}
+      {rural && (
+        <div className="mt-6 border-t border-emerald-100 pt-5">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-8 h-8 rounded-lg bg-emerald-700 flex items-center justify-center flex-shrink-0">
+              <Leaf className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <h4 className="font-bold text-emerald-900 text-sm">Documentação Rural (INCRA/CAR)</h4>
+              <p className="text-xs text-emerald-700">Checklist de documentos obrigatórios para laudos rurais</p>
+            </div>
+            {form.sigef_situacao === 'certificado' && form.sigef_codigo && (
+              <div className="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 border border-emerald-300 rounded-full">
+                <CheckCircle className="w-3.5 h-3.5 text-emerald-700" />
+                <span className="text-xs font-semibold text-emerald-800">SIGEF Certificado</span>
+                {form.sigef_data_certificacao && (
+                  <span className="text-xs text-emerald-600">— {form.sigef_data_certificacao}</span>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 gap-2">
+            {[
+              { id: 'ccir_rural', label: 'CCIR — Certificado de Cadastro de Imóvel Rural', valor: form.ccir_numero || form.ccir },
+              { id: 'car_rural', label: 'CAR — Cadastro Ambiental Rural', valor: form.car_numero || form.car },
+              { id: 'itr_rural', label: 'ITR — Imposto Territorial Rural (últimos 5 anos)', valor: form.nirf_numero || form.nirf_cib },
+              { id: 'sigef_rural', label: 'Georreferenciamento SIGEF/INCRA', valor: form.sigef_codigo || form.certificacao_sigef },
+              { id: 'matricula_rural', label: 'Matrícula com averbação do georreferenciamento', valor: form.property_matricula },
+              { id: 'art_rural', label: 'ART/TRT do responsável técnico pelo georreferenciamento', valor: form.art_rrt_numero },
+              { id: 'ccir_quitado', label: 'CCIR quitado (exercício em curso)', valor: null },
+            ].map(({ id, label, valor }) => (
+              <div key={id} className="flex items-start gap-2.5 bg-white rounded-lg border border-emerald-100 px-3 py-2.5">
+                <div className={`w-4 h-4 rounded border flex-shrink-0 mt-0.5 flex items-center justify-center ${valor ? 'bg-emerald-600 border-emerald-600' : 'border-gray-300'}`}>
+                  {valor && <CheckCircle className="w-3 h-3 text-white" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm text-gray-700">{label}</div>
+                  {valor && (
+                    <div className="text-xs text-emerald-700 font-mono truncate mt-0.5">{valor}</div>
+                  )}
+                </div>
+                <span className={`text-xs px-1.5 py-0.5 rounded font-medium flex-shrink-0 ${valor ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-400'}`}>
+                  {valor ? 'OK' : 'Pendente'}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {form.dados_incra_automaticos && form.dados_incra_data_consulta && (
+            <p className="text-xs text-emerald-600 mt-3">
+              Dados consultados automaticamente via SIGEF/INCRA em {form.dados_incra_data_consulta}
+            </p>
+          )}
         </div>
       )}
     </div>

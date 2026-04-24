@@ -181,6 +181,13 @@ export const imoveisAPI = {
   list: () => api.get('/imoveis-crm').then(r => r.data),
 };
 
+// ---- SIGEF / INCRA (Consulta automatica para laudos rurais)
+export const sigefAPI = {
+  consultar: (body) => api.post('/sigef/consultar', body).then(r => r.data),
+  validarCcir: (ccir) => api.get(`/sigef/validar-ccir/${encodeURIComponent(ccir)}`).then(r => r.data),
+  vincularPtam: (ptamId, body) => api.post(`/sigef/vincular-ptam/${ptamId}`, body).then(r => r.data),
+};
+
 // ---- CND (Certidões Negativas de Débito)
 export const cndAPI = {
   consultar: (body) => api.post('/cnd/consultar', body).then(r => r.data),

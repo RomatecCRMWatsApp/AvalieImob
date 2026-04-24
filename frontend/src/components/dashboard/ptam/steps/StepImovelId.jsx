@@ -9,6 +9,7 @@ import RuralDocSection, { isRural } from '../shared/RuralDocSection';
 import ImageUploader from '../ImageUploader';
 import ImovelMap from '../../../maps/ImovelMap';
 import StreetView from '../../../maps/StreetView';
+import { ConsultaSIGEF } from '../ConsultaSIGEF';
 
 export const StepImovelId = ({ form, setForm }) => {
   const rural = isRural(form.property_type);
@@ -34,6 +35,19 @@ export const StepImovelId = ({ form, setForm }) => {
     {rural && (
       <div className="mb-4 flex items-center gap-2 text-xs bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 text-emerald-800">
         <span className="font-semibold">Modo Rural ativo</span> — unidades de área em hectares (ha) e campos rurais habilitados
+        {form.dados_incra_automaticos && (
+          <span className="ml-auto px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-800 font-semibold text-xs">
+            Dados via SIGEF
+          </span>
+        )}
+      </div>
+    )}
+    {rural && (
+      <div className="grid grid-cols-2 gap-4 mb-2">
+        <ConsultaSIGEF form={form} setForm={setForm} />
+        <div className="col-span-2 text-center text-xs text-gray-400 font-medium py-1">
+          — ou preencha manualmente abaixo —
+        </div>
       </div>
     )}
     <div className="grid grid-cols-2 gap-4">
@@ -112,6 +126,41 @@ export const StepImovelId = ({ form, setForm }) => {
           </Field>
           <Field label="Área construída / benfeitorias (m²)">
             <Input type="number" step="0.01" value={form.property_area_sqm} onChange={(e) => setForm({ ...form, property_area_sqm: Number(e.target.value) })} placeholder="Área das construções em m²" />
+          </Field>
+          <Field label="CCIR (Certificado de Cadastro de Imóvel Rural)">
+            <Input value={form.ccir_numero || form.ccir || ''} onChange={(e) => setForm({ ...form, ccir_numero: e.target.value, ccir: e.target.value })} placeholder="XXX.XXX.XXX-XXXXXX" />
+          </Field>
+          <Field label="Código SIGEF (UUID)">
+            <Input value={form.sigef_codigo || form.certificacao_sigef || ''} onChange={(e) => setForm({ ...form, sigef_codigo: e.target.value, certificacao_sigef: e.target.value })} placeholder="b533967e-f6b0-4b19-b4a1-fc834e1f9ebb" className="font-mono text-xs" />
+          </Field>
+          <Field label="Código CAR (Cadastro Ambiental Rural)">
+            <Input value={form.car_numero || form.car || ''} onChange={(e) => setForm({ ...form, car_numero: e.target.value, car: e.target.value })} placeholder="MA-2100055-F942.2E73..." />
+          </Field>
+          <Field label="NIRF / ITR (Imposto Territorial Rural)">
+            <Input value={form.nirf_numero || form.nirf_cib || ''} onChange={(e) => setForm({ ...form, nirf_numero: e.target.value, nirf_cib: e.target.value })} placeholder="5.690.070-8" />
+          </Field>
+          <Field label="Módulo Fiscal do Município (ha)">
+            <Input type="number" step="0.01" value={form.modulo_fiscal_ha ?? ''} onChange={(e) => setForm({ ...form, modulo_fiscal_ha: e.target.value === '' ? null : Number(e.target.value) })} placeholder="65" />
+          </Field>
+          <Field label="Nº de Módulos Fiscais (calculado)">
+            <Input
+              type="number" step="0.01"
+              value={form.numero_modulos_fiscais ?? (form.property_area_ha && form.modulo_fiscal_ha ? (Number(form.property_area_ha) / Number(form.modulo_fiscal_ha)).toFixed(2) : '')}
+              onChange={(e) => setForm({ ...form, numero_modulos_fiscais: e.target.value === '' ? null : Number(e.target.value) })}
+              placeholder="Calculado automaticamente"
+            />
+          </Field>
+          <Field label="Área explorada (ha)">
+            <Input type="number" step="0.0001" value={form.area_explorada_ha ?? ''} onChange={(e) => setForm({ ...form, area_explorada_ha: e.target.value === '' ? null : Number(e.target.value) })} placeholder="0,0000" />
+          </Field>
+          <Field label="Área de Reserva Legal (ha)">
+            <Input type="number" step="0.0001" value={form.area_reserva_legal_ha ?? ''} onChange={(e) => setForm({ ...form, area_reserva_legal_ha: e.target.value === '' ? null : Number(e.target.value) })} placeholder="0,0000" />
+          </Field>
+          <Field label="Área APP — Preservação Permanente (ha)">
+            <Input type="number" step="0.0001" value={form.area_app_ha ?? ''} onChange={(e) => setForm({ ...form, area_app_ha: e.target.value === '' ? null : Number(e.target.value) })} placeholder="0,0000" />
+          </Field>
+          <Field label="Área de Vegetação Nativa (ha)">
+            <Input type="number" step="0.0001" value={form.area_vegetacao_nativa_ha ?? ''} onChange={(e) => setForm({ ...form, area_vegetacao_nativa_ha: e.target.value === '' ? null : Number(e.target.value) })} placeholder="0,0000" />
           </Field>
         </>
       ) : (
