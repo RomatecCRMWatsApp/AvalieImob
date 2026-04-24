@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, NavLink, Routes, Route, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, Users, Building2, BarChart3, FileText, Sparkles,
+  LayoutDashboard, Users, Building2, BarChart3, FileText,
   CreditCard, Settings, LogOut, Menu, X, Bell, FileCheck2, Globe,
   Search, ChevronDown, User, Shield, Beef, Award, Home, ClipboardCheck, FileSearch
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { BRAND } from '../mock/mock';
+import RomaIAAvatar from '../components/common/RomaIAAvatar';
 
 import DashOverview from '../components/dashboard/DashOverview';
 import Clients from '../components/dashboard/Clients';
@@ -66,7 +67,7 @@ const NAV_GROUPS = [
   {
     label: 'Ferramentas',
     items: [
-      { to: '/dashboard/ia',        icon: Sparkles,    label: 'Assistente IA' },
+      { to: '/dashboard/ia',        custom: 'roma_ia', label: 'Roma_IA' },
       { to: '/dashboard/cnd',       icon: FileSearch,  label: 'Certidões CND' },
     ],
   },
@@ -83,6 +84,36 @@ const NAV_GROUPS = [
 /* ─── Sidebar nav link ───────────────────────────────────── */
 const SideLink = ({ item, onClick }) => {
   const Icon = item.icon;
+  
+  // Item customizado Roma_IA
+  if (item.custom === 'roma_ia') {
+    return (
+      <NavLink
+        to={item.to}
+        end={item.end}
+        onClick={onClick}
+        className={({ isActive }) =>
+          `group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150
+           ${isActive
+             ? 'text-white shadow-sm'
+             : 'text-emerald-100/80 hover:bg-white/10 hover:text-white'
+           }`
+        }
+        style={({ isActive }) => isActive ? { background: GOLD + '22', borderLeft: `3px solid ${GOLD}`, paddingLeft: '9px' } : {}}
+      >
+        {({ isActive }) => (
+          <>
+            <RomaIAAvatar state={isActive ? 'speaking' : 'idle'} size="sm" />
+            <div className="flex flex-col leading-none">
+              <span className={isActive ? 'font-semibold' : ''}>Roma_IA</span>
+              <span className="text-[10px] opacity-60">Especialista NBR 14.653</span>
+            </div>
+          </>
+        )}
+      </NavLink>
+    );
+  }
+  
   return (
     <NavLink
       to={item.to}
