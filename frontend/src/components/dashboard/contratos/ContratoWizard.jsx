@@ -110,7 +110,7 @@ const TIPOS = [
 
 /* ─── Empty form ─────────────────────────────────────────── */
 const EMPTY = {
-  tipo: '',
+  tipo_contrato: '',
   status: 'MINUTA',
   cidade_assinatura: '',
   data_assinatura: '',
@@ -177,9 +177,9 @@ const Step1Tipo = ({ form, setForm }) => (
           {grupo.items.map((t) => (
             <button
               key={t.value}
-              onClick={() => setForm({ ...form, tipo: t.value })}
+              onClick={() => setForm({ ...form, tipo_contrato: t.value })}
               className={`text-left p-4 rounded-xl border-2 transition-all ${
-                form.tipo === t.value
+                form.tipo_contrato === t.value
                   ? 'border-emerald-600 bg-emerald-50 shadow-sm'
                   : 'border-gray-200 hover:border-emerald-300 hover:bg-gray-50'
               }`}
@@ -851,7 +851,7 @@ const Step7Clausulas = ({ form, setForm, contratoId }) => {
     }
     setIaState('thinking');
     try {
-      const res = await contratosAPI.gerarClausulas(contratoId, { tipo: form.tipo });
+      const res = await contratosAPI.gerarClausulas(contratoId, { tipo: form.tipo_contrato });
       setClausulas(res.clausulas || []);
       setIaState('done');
       toast({ title: `${res.clausulas?.length || 0} cláusulas geradas pela Roma_IA` });
@@ -1726,7 +1726,7 @@ const ContratoWizard = () => {
   );
 
   const renderStep = () => {
-    const labels = getParteLabels(form.tipo);
+    const labels = getParteLabels(form.tipo_contrato);
     switch (step) {
       case 0: return <Step1Tipo form={form} setForm={setForm} />;
       case 1: return <Step2Parte1 form={form} setForm={setForm} labels={labels} />;
@@ -1744,7 +1744,7 @@ const ContratoWizard = () => {
   };
 
   const progressPct = Math.round(((step + 1) / STEP_LABELS.length) * 100);
-  const parteLabels = getParteLabels(form.tipo);
+  const parteLabels = getParteLabels(form.tipo_contrato);
   const dynamicStepLabels = [
     'Tipo',
     parteLabels.parte1 + '(es)',
