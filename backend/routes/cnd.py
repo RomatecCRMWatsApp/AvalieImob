@@ -88,6 +88,7 @@ async def _run_consulta_by_id(db, user_id: str, consulta_id: str, body: CNDConsu
                 pdf_base64=res.get("pdf_base64"),
                 validade=res.get("validade"),
                 observacao=res.get("observacao"),
+                link_manual=res.get("link_manual"),
                 tempo_ms=res.get("tempo_ms", 0),
             )
             await db.cnd_certidoes.insert_one(cert.model_dump())
