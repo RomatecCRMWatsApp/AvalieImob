@@ -30,6 +30,44 @@ const STEP_LABELS = [
   'Exportar',
 ];
 
+/* ─── Configuração de partes por tipo de contrato ────────── */
+const PARTES_POR_TIPO = {
+  // Compra e Venda
+  compra_venda:              { parte1: 'Vendedor', parte2: 'Comprador', parte3: 'Corretor', temParte3: true },
+  promessa_compra_venda:     { parte1: 'Vendedor', parte2: 'Comprador', parte3: 'Corretor', temParte3: true },
+  permuta:                   { parte1: 'Permutante A', parte2: 'Permutante B', parte3: 'Corretor', temParte3: true },
+  cessao_direitos:           { parte1: 'Cedente', parte2: 'Cessionário', parte3: 'Corretor', temParte3: true },
+  
+  // Locação
+  locacao_residencial:       { parte1: 'Locador', parte2: 'Locatário', parte3: 'Fiador', temParte3: true },
+  locacao_comercial:         { parte1: 'Locador', parte2: 'Locatário', parte3: 'Fiador', temParte3: true },
+  comodato:                  { parte1: 'Comodante', parte2: 'Comodatário', parte3: null, temParte3: false },
+  arrendamento_rural:        { parte1: 'Arrendador', parte2: 'Arrendatário', parte3: null, temParte3: false },
+  
+  // Rural
+  parceria_rural:            { parte1: 'Proprietário', parte2: 'Parceiro', parte3: null, temParte3: false },
+  doacao:                    { parte1: 'Doador', parte2: 'Donatário', parte3: null, temParte3: false },
+  
+  // Outros
+  arras:                     { parte1: 'Vendedor', parte2: 'Comprador', parte3: null, temParte3: false },
+  intermediacao:             { parte1: 'Cliente', parte2: 'Corretor', parte3: null, temParte3: false },
+  exclusividade:             { parte1: 'Proprietário', parte2: 'Corretor', parte3: null, temParte3: false },
+  usufruto:                  { parte1: 'Usufrutuário', parte2: 'Proprietário', parte3: null, temParte3: false },
+  compra_venda_veiculo:      { parte1: 'Vendedor', parte2: 'Comprador', parte3: null, temParte3: false },
+  distrato:                  { parte1: 'Parte A', parte2: 'Parte B', parte3: null, temParte3: false },
+};
+
+/* ─── Função para obter labels dinâmicos ─────────────────── */
+const getParteLabels = (tipoContrato) => {
+  const config = PARTES_POR_TIPO[tipoContrato] || PARTES_POR_TIPO.compra_venda;
+  return {
+    parte1: config.parte1,
+    parte2: config.parte2,
+    parte3: config.parte3,
+    temParte3: config.temParte3,
+  };
+};
+
 /* ─── Tipos de contrato por categoria ───────────────────── */
 const TIPOS = [
   {
@@ -274,33 +312,34 @@ const PessoaForm = ({ pessoa, onChange, titulo }) => {
 };
 
 /* ═══════════════════════════════════════════════════════════
-   STEP 2 — Vendedor(es)
+   STEP 2 — Parte 1 (Vendedor/Locador/Proprietário/etc)
 ═══════════════════════════════════════════════════════════ */
-const Step2Vendedores = ({ form, setForm }) => {
-  const addVendedor = () => setForm({ ...form, vendedores: [...form.vendedores, { ...EMPTY_PESSOA }] });
-  const removeVendedor = (i) => setForm({ ...form, vendedores: form.vendedores.filter((_, idx) => idx !== i) });
-  const updateVendedor = (i, p) => setForm({ ...form, vendedores: form.vendedores.map((v, idx) => idx === i ? p : v) });
+const Step2Parte1 = ({ form, setForm, labels }) => {
+  const { parte1 } = labels;
+  const addParte = () => setForm({ ...form, vendedores: [...form.vendedores, { ...EMPTY_PESSOA }] });
+  const removeParte = (i) => setForm({ ...form, vendedores: form.vendedores.filter((_, idx) => idx !== i) });
+  const updateParte = (i, p) => setForm({ ...form, vendedores: form.vendedores.map((v, idx) => idx === i ? p : v) });
 
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-xl font-bold text-gray-900 mb-1">Vendedor(es) / Locador(es)</h2>
-        <p className="text-sm text-gray-500">Informe os dados de todas as partes que alienam ou cedem o bem.</p>
+        <h2 className="text-xl font-bold text-gray-900 mb-1">{parte1}(es)</h2>
+        <p className="text-sm text-gray-500">Informe os dados de todas as partes que alienam, cedem ou disponibilizam o bem.</p>
       </div>
 
       {form.vendedores.length === 0 && (
         <div className="text-center py-10 bg-gray-50 rounded-xl border border-dashed border-gray-200">
           <Users className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-          <p className="text-sm text-gray-500">Nenhum vendedor adicionado ainda.</p>
+          <p className="text-sm text-gray-500">Nenhum {parte1.toLowerCase()} adicionado ainda.</p>
         </div>
       )}
 
       {form.vendedores.map((v, i) => (
         <div key={i} className="relative">
-          <PessoaForm pessoa={v} onChange={(p) => updateVendedor(i, p)} titulo={`Vendedor ${i + 1}`} />
+          <PessoaForm pessoa={v} onChange={(p) => updateParte(i, p)} titulo={`${parte1} ${i + 1}`} />
           {form.vendedores.length > 1 && (
             <button
-              onClick={() => removeVendedor(i)}
+              onClick={() => removeParte(i)}
               className="absolute top-3 right-3 text-red-500 hover:text-red-700 transition"
               title="Remover"
             >
@@ -310,41 +349,42 @@ const Step2Vendedores = ({ form, setForm }) => {
         </div>
       ))}
 
-      <Button variant="outline" onClick={addVendedor} className="w-full border-dashed border-emerald-300 text-emerald-700 hover:bg-emerald-50">
-        <Plus className="w-4 h-4 mr-2" /> Adicionar outro vendedor
+      <Button variant="outline" onClick={addParte} className="w-full border-dashed border-emerald-300 text-emerald-700 hover:bg-emerald-50">
+        <Plus className="w-4 h-4 mr-2" /> Adicionar outro {parte1.toLowerCase()}
       </Button>
     </div>
   );
 };
 
 /* ═══════════════════════════════════════════════════════════
-   STEP 3 — Comprador(es)
+   STEP 3 — Parte 2 (Comprador/Locatário/Cessionário/etc)
 ═══════════════════════════════════════════════════════════ */
-const Step3Compradores = ({ form, setForm }) => {
-  const addComprador = () => setForm({ ...form, compradores: [...form.compradores, { ...EMPTY_PESSOA }] });
-  const removeComprador = (i) => setForm({ ...form, compradores: form.compradores.filter((_, idx) => idx !== i) });
-  const updateComprador = (i, p) => setForm({ ...form, compradores: form.compradores.map((v, idx) => idx === i ? p : v) });
+const Step3Parte2 = ({ form, setForm, labels }) => {
+  const { parte2 } = labels;
+  const addParte = () => setForm({ ...form, compradores: [...form.compradores, { ...EMPTY_PESSOA }] });
+  const removeParte = (i) => setForm({ ...form, compradores: form.compradores.filter((_, idx) => idx !== i) });
+  const updateParte = (i, p) => setForm({ ...form, compradores: form.compradores.map((v, idx) => idx === i ? p : v) });
 
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-xl font-bold text-gray-900 mb-1">Comprador(es) / Locatário(s)</h2>
-        <p className="text-sm text-gray-500">Informe os dados de todas as partes que adquirem ou tomam o bem.</p>
+        <h2 className="text-xl font-bold text-gray-900 mb-1">{parte2}(es)</h2>
+        <p className="text-sm text-gray-500">Informe os dados de todas as partes que adquirem, tomam ou recebem o bem.</p>
       </div>
 
       {form.compradores.length === 0 && (
         <div className="text-center py-10 bg-gray-50 rounded-xl border border-dashed border-gray-200">
           <Users className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-          <p className="text-sm text-gray-500">Nenhum comprador adicionado ainda.</p>
+          <p className="text-sm text-gray-500">Nenhum {parte2.toLowerCase()} adicionado ainda.</p>
         </div>
       )}
 
       {form.compradores.map((c, i) => (
         <div key={i} className="relative">
-          <PessoaForm pessoa={c} onChange={(p) => updateComprador(i, p)} titulo={`Comprador ${i + 1}`} />
+          <PessoaForm pessoa={c} onChange={(p) => updateParte(i, p)} titulo={`${parte2} ${i + 1}`} />
           {form.compradores.length > 1 && (
             <button
-              onClick={() => removeComprador(i)}
+              onClick={() => removeParte(i)}
               className="absolute top-3 right-3 text-red-500 hover:text-red-700 transition"
               title="Remover"
             >
@@ -354,19 +394,36 @@ const Step3Compradores = ({ form, setForm }) => {
         </div>
       ))}
 
-      <Button variant="outline" onClick={addComprador} className="w-full border-dashed border-emerald-300 text-emerald-700 hover:bg-emerald-50">
-        <Plus className="w-4 h-4 mr-2" /> Adicionar outro comprador
+      <Button variant="outline" onClick={addParte} className="w-full border-dashed border-emerald-300 text-emerald-700 hover:bg-emerald-50">
+        <Plus className="w-4 h-4 mr-2" /> Adicionar outro {parte2.toLowerCase()}
       </Button>
     </div>
   );
 };
 
 /* ═══════════════════════════════════════════════════════════
-   STEP 4 — Corretor
+   STEP 4 — Corretor / Parte 3 (Fiador, etc)
 ═══════════════════════════════════════════════════════════ */
-const Step4Corretor = ({ form, setForm, perfil }) => {
+const Step4Corretor = ({ form, setForm, perfil, labels }) => {
+  const { parte3, temParte3 } = labels;
   const cor = form.corretor;
   const upd = (key, val) => setForm({ ...form, corretor: { ...cor, [key]: val } });
+
+  // Se não tem parte 3 (ex: exclusividade, intermediacao), mostra mensagem
+  if (!temParte3) {
+    return (
+      <div className="space-y-5">
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 mb-1">Parte 3</h2>
+          <p className="text-sm text-gray-500">Este tipo de contrato não possui terceira parte obrigatória.</p>
+        </div>
+        <div className="bg-gray-50 rounded-xl p-6 text-center">
+          <Info className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+          <p className="text-sm text-gray-600">Clique em "Próximo" para continuar.</p>
+        </div>
+      </div>
+    );
+  }
 
   const valorComissao = cor.comissao_percentual && form.pagamento?.valor_total
     ? (parseFloat(form.pagamento.valor_total) * parseFloat(cor.comissao_percentual)) / 100
@@ -388,11 +445,16 @@ const Step4Corretor = ({ form, setForm, perfil }) => {
     });
   };
 
+  const titulo = parte3 === 'Corretor' ? 'Corretor de Imóveis' : `${parte3}(es)`;
+  const descricao = parte3 === 'Corretor' 
+    ? 'Inclua o corretor responsável pela intermediação, se houver.'
+    : `Inclua os dados do(s) ${parte3.toLowerCase()}(es), se houver.`;
+
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-xl font-bold text-gray-900 mb-1">Corretor de Imóveis</h2>
-        <p className="text-sm text-gray-500">Inclua o corretor responsável pela intermediação, se houver.</p>
+        <h2 className="text-xl font-bold text-gray-900 mb-1">{titulo}</h2>
+        <p className="text-sm text-gray-500">{descricao}</p>
       </div>
 
       <label className="flex items-center gap-2 cursor-pointer select-none text-sm font-medium text-gray-700 bg-gray-50 p-3 rounded-xl">
@@ -402,43 +464,51 @@ const Step4Corretor = ({ form, setForm, perfil }) => {
           onChange={(e) => upd('incluir', e.target.checked)}
           className="rounded"
         />
-        Incluir corretor neste contrato
+        Incluir {parte3.toLowerCase()} neste contrato
       </label>
 
       {cor.incluir && (
         <div className="space-y-4">
-          <div className="flex justify-end">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={usarMeusDados}
-              className="text-emerald-700 border-emerald-300 hover:bg-emerald-50"
-            >
-              <User className="w-3.5 h-3.5 mr-1.5" /> Usar meus dados
-            </Button>
-          </div>
+          {parte3 === 'Corretor' && (
+            <div className="flex justify-end">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={usarMeusDados}
+                className="text-emerald-700 border-emerald-300 hover:bg-emerald-50"
+              >
+                <User className="w-3.5 h-3.5 mr-1.5" /> Usar meus dados
+              </Button>
+            </div>
+          )}
 
           <div className="bg-gray-50 rounded-xl p-4 grid sm:grid-cols-2 gap-3">
-            <Input label="Nome do Corretor" value={cor.nome} onChange={(v) => upd('nome', v)} required />
-            <Input label="CRECI" value={cor.creci} onChange={(v) => upd('creci', v)} placeholder="CRECI/MT 12345-J" />
-            <Input label="CPF / CNPJ" value={cor.cpf_cnpj} onChange={(v) => upd('cpf_cnpj', v)} />
+            <Input label={`Nome do ${parte3}`} value={cor.nome} onChange={(v) => upd('nome', v)} required />
+            {parte3 === 'Corretor' && (
+              <Input label="CRECI" value={cor.creci} onChange={(v) => upd('creci', v)} placeholder="CRECI/MT 12345-J" />
+            )}
+            {parte3 === 'Fiador' && (
+              <Input label="CPF" value={cor.cpf_cnpj} onChange={(v) => upd('cpf_cnpj', v)} placeholder="000.000.000-00" />
+            )}
             <Input label="E-mail" value={cor.email} onChange={(v) => upd('email', v)} type="email" />
             <Input label="Telefone" value={cor.telefone} onChange={(v) => upd('telefone', v)} placeholder="(65) 99999-9999" />
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Comissão (%)</label>
-              <input
-                type="number"
-                min="0" max="100" step="0.1"
-                value={cor.comissao_percentual ?? 6}
-                onChange={(e) => upd('comissao_percentual', e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              />
-              {valorComissao !== null && (
-                <p className="text-xs text-emerald-700 font-semibold mt-1">
-                  = {fmtCurrency(valorComissao)}
-                </p>
-              )}
-            </div>
+            {parte3 === 'Corretor' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Comissão (%)</label>
+                <input
+                  type="number"
+                  min="0" max="100" step="0.1"
+                  value={cor.comissao_percentual ?? 6}
+                  onChange={(e) => upd('comissao_percentual', e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+                {valorComissao !== null && (
+                  <p className="text-xs text-emerald-700 font-semibold mt-1">
+                    = {fmtCurrency(valorComissao)}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="bg-gray-50 rounded-xl p-4 space-y-3">
@@ -1572,11 +1642,12 @@ const ContratoWizard = () => {
   );
 
   const renderStep = () => {
+    const labels = getParteLabels(form.tipo);
     switch (step) {
       case 0: return <Step1Tipo form={form} setForm={setForm} />;
-      case 1: return <Step2Vendedores form={form} setForm={setForm} />;
-      case 2: return <Step3Compradores form={form} setForm={setForm} />;
-      case 3: return <Step4Corretor form={form} setForm={setForm} perfil={perfil} />;
+      case 1: return <Step2Parte1 form={form} setForm={setForm} labels={labels} />;
+      case 2: return <Step3Parte2 form={form} setForm={setForm} labels={labels} />;
+      case 3: return <Step4Corretor form={form} setForm={setForm} perfil={perfil} labels={labels} />;
       case 4: return <Step5Objeto form={form} setForm={setForm} />;
       case 5: return <Step6Pagamento form={form} setForm={setForm} contratoId={contratoId} />;
       case 6: return <Step7Clausulas form={form} setForm={setForm} contratoId={contratoId} />;
@@ -1589,6 +1660,20 @@ const ContratoWizard = () => {
   };
 
   const progressPct = Math.round(((step + 1) / STEP_LABELS.length) * 100);
+  const parteLabels = getParteLabels(form.tipo);
+  const dynamicStepLabels = [
+    'Tipo',
+    parteLabels.parte1 + '(es)',
+    parteLabels.parte2 + '(es)',
+    parteLabels.temParte3 ? (parteLabels.parte3 === 'Corretor' ? 'Corretor' : parteLabels.parte3 + '(es)') : 'Parte 3',
+    'Objeto',
+    'Pagamento',
+    'Cláusulas',
+    'Validação',
+    'Testemunhas',
+    'Revisão',
+    'Exportar',
+  ];
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
@@ -1628,7 +1713,7 @@ const ContratoWizard = () => {
       <div>
         <div className="flex items-center justify-between mb-1">
           <span className="text-xs text-gray-500 font-medium">
-            Etapa {step + 1} de {STEP_LABELS.length} — {STEP_LABELS[step]}
+            Etapa {step + 1} de {STEP_LABELS.length} — {dynamicStepLabels[step]}
           </span>
           <span className="text-xs text-gray-400">{progressPct}%</span>
         </div>
