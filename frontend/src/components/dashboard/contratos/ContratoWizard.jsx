@@ -12,6 +12,7 @@ import {
 import { Button } from '../../ui/button';
 import { useToast } from '../../../hooks/use-toast';
 import { contratosAPI, perfilAPI } from '../../../lib/api';
+import { useAuth } from '../../../contexts/AuthContext';
 import ImovelMap from '../../maps/ImovelMap';
 import RomaIAAvatar from '../../common/RomaIAAvatar';
 
@@ -1653,6 +1654,7 @@ const ContratoWizard = () => {
   const { id } = useParams();
   const nav = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const isNew = !id || id === 'novo';
   const [form, setForm] = useState({ ...EMPTY, vendedores: [{ ...EMPTY_PESSOA }], compradores: [{ ...EMPTY_PESSOA }] });
