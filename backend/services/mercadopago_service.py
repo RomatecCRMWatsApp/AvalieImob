@@ -15,6 +15,12 @@ PLAN_CONFIG = {
 APP_URL = os.environ.get("APP_URL", "https://www.romatecavalieimob.com.br").rstrip("/")
 
 
+def notification_url() -> str:
+    webhook_token = os.environ.get("MERCADOPAGO_WEBHOOK_TOKEN", "").strip()
+    base = f"{APP_URL}/api/payments/webhook"
+    return f"{base}?token={webhook_token}" if webhook_token else base
+
+
 def get_mp_sdk():
     import mercadopago
     access_token = os.environ.get("MERCADOPAGO_ACCESS_TOKEN", "")
@@ -40,7 +46,7 @@ def build_preference_data(uid: str, plan_id: str) -> dict:
             "pending": f"{APP_URL}/dashboard?payment=pending",
         },
         "auto_return": "approved",
-        "notification_url": f"{APP_URL}/api/payments/webhook",
+        "notification_url": notification_url(),
         "external_reference": f"{uid}|{plan_id}",
         "statement_descriptor": "AVALIEIMOB",
         "payment_methods": {

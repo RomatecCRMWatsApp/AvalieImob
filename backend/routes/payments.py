@@ -1,6 +1,7 @@
 # @module routes.payments — Integração Mercado Pago: criação de preferência e webhook
 import asyncio
 import logging
+import os
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Request
 from slowapi import Limiter
@@ -42,6 +43,11 @@ async def create_preference(request: Request, data: CreatePreferenceRequest, uid
 
 @router.post("/payments/webhook")
 async def payment_webhook(request: Request, db=Depends(get_db)):
+    expected_token = os.environ.get("MERCADOPAGO_WEBHOOK_TOKEN", "").strip()
+    if expected_token and request.query_params.get("token") != expected_token:
+        logger.warning("MP webhook rejected: invalid token")
+        raise HTTPException(status_code=403, detail="Webhook token inválido")
+
     body = await request.json()
     logger.info("MP webhook received: %s", body)
     topic = body.get("topic") or body.get("type")

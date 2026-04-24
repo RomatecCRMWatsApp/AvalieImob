@@ -74,6 +74,20 @@ async def _get_doc_by_uuid(db, document_uuid: str):
     return None, None
 
 
+def _validate_d4sign_webhook(request: Request):
+    expected_token = os.environ.get("D4SIGN_WEBHOOK_TOKEN", "").strip()
+    if not expected_token:
+        return
+
+    provided_token = (
+        request.query_params.get("token")
+        or request.headers.get("X-D4Sign-Webhook-Token")
+        or request.headers.get("X-Webhook-Token")
+    )
+    if provided_token != expected_token:
+        raise HTTPException(status_code=403, detail="Webhook token inválido")
+
+
 async def _gerar_pdf(tipo: str, doc: dict) -> bytes:
     """Gera PDF do documento conforme tipo."""
     if tipo == "ptam":
@@ -313,6 +327,8 @@ async def cancelar_assinatura(
 @router.post("/webhook")
 async def webhook_d4sign(request: Request, db=Depends(get_db)):
     """Recebe notificacoes D4Sign e atualiza status. Responde < 2s."""
+    _validate_d4sign_webhook(request)
+
     try:
         body = await request.json()
     except Exception:
@@ -340,18 +356,25 @@ async def webhook_d4sign(request: Request, db=Depends(get_db)):
         try:
             from services import d4sign_service as d4
             pdf_bytes = await d4.download_documento_assinado(doc_uuid)
-            import uuid as _uuid
-            file_id = str(_uuid.uuid4())
             tipo = [k for k, v in _TIPO_COLECAO.items() if v == colecao][0]
             doc_id = doc.get("id", "")
-            await db["assinaturas_pdf"].insert_one({
-                "id": file_id,
-                "doc_tipo": tipo,
-                "doc_id": doc_id,
-                "d4sign_document_uuid": doc_uuid,
-                "content": pdf_bytes,
-                "created_at": datetime.utcnow(),
-            })
+            existing_pdf = await db["assinaturas_pdf"].find_one({"doc_tipo": tipo, "doc_id": doc_id})
+            if existing_pdf:
+                await db["assinaturas_pdf"].update_one(
+                    {"id": existing_pdf.get("id")},
+                    {"$set": {"content": pdf_bytes, "d4sign_document_uuid": doc_uuid, "updated_at": datetime.utcnow()}},
+                )
+            else:
+                import uuid as _uuid
+                file_id = str(_uuid.uuid4())
+                await db["assinaturas_pdf"].insert_one({
+                    "id": file_id,
+                    "doc_tipo": tipo,
+                    "doc_id": doc_id,
+                    "d4sign_document_uuid": doc_uuid,
+                    "content": pdf_bytes,
+                    "created_at": datetime.utcnow(),
+                })
             update_fields["d4sign_pdf_assinado_url"] = f"/api/assinatura/{tipo}/{doc_id}/download"
         except Exception as e:
             logger.error("Webhook: erro ao baixar PDF assinado: %s", e)
