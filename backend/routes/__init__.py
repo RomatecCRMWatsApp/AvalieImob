@@ -35,6 +35,6 @@ all_routers = [
     imoveis_crm_router, email_router, perfil_avaliador_router,
     clients_router, properties_router, evaluations_router,
     tvi_router, maps_router, cnd_router, scraper_router,
-    cnd_router, scraper_router, search_router, assinatura_router, samples_router, cub_router,
+    search_router, assinatura_router, samples_router, cub_router,
     sigef_router, zonas_router, contratos_router,
 ]

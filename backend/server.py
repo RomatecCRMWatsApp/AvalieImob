@@ -8,6 +8,7 @@ load_dotenv(ROOT_DIR / ".env")
 
 import logging
 import os
+import sys
 
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
@@ -21,7 +22,11 @@ from slowapi.errors import RateLimitExceeded
 from db import init_db, close_db, get_db
 from routes import all_routers
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    stream=sys.stdout,
+)
 logger = logging.getLogger("romatec")
 
 # ── Rate limiter ────────────────────────────────────────────────────
@@ -52,7 +57,8 @@ api = APIRouter(prefix="/api")
 
 for router in all_routers:
     api.include_router(router)
-    logger.info(f"Router registered: {router.prefix}")
+    prefix = router.prefix or "/"
+    logger.info("Router registered: %s", prefix)
 
 # Root health check
 @api.get("/")
