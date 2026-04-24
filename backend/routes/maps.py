@@ -4,8 +4,8 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from bson import ObjectId
 
-from dependencies import get_active_subscriber
 from db import get_db
+from dependencies import get_active_subscriber
 
 router = APIRouter(prefix="/maps", tags=["maps"])
 
@@ -39,16 +39,16 @@ async def geocode(endereco: str = Query(..., min_length=3)):
 @router.get("/comparativos/{ptam_id}")
 async def comparativos(
     ptam_id: str,
-    current_user=Depends(get_active_subscriber),
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db),
 ):
     """Retorna amostras do PTAM com coordenadas geocodificadas."""
-    db = get_db()
     try:
         oid = ObjectId(ptam_id)
     except Exception:
         raise HTTPException(status_code=400, detail="ptam_id inválido")
 
-    ptam = await db["ptams"].find_one({"_id": oid, "user_id": str(current_user["_id"])})
+    ptam = await db["ptams"].find_one({"_id": oid, "user_id": uid})
     if not ptam:
         raise HTTPException(status_code=404, detail="PTAM não encontrado")
 

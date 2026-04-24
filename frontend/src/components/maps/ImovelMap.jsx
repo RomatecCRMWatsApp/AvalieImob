@@ -23,55 +23,84 @@ const greenIcon = new L.Icon({
   iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41],
 });
 
+// Centro do Brasil — usado como fallback quando geocoding falha
+const BRAZIL_CENTER = { lat: -15.7801, lng: -47.9292 };
+const BRAZIL_ZOOM = 4;
+
 const ImovelMap = ({ endereco, lat, lng, height = 280 }) => {
   const mapRef = useRef(null);
   const mapInstance = useRef(null);
   const tileRef = useRef(null);
+  const markerRef = useRef(null);
   const [tileMode, setTileMode] = useState('mapa');
   const [coords, setCoords] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [geocodeFailed, setGeocodeFailed] = useState(false);
 
   // Geocodifica via backend quando não há coords diretas
   useEffect(() => {
+    setGeocodeFailed(false);
     if (lat && lng) {
       setCoords({ lat: parseFloat(lat), lng: parseFloat(lng) });
       return;
     }
-    if (!endereco || endereco.trim().length < 5) return;
+    if (!endereco || endereco.trim().length < 10) return;
     setLoading(true);
-    setError(null);
     const params = new URLSearchParams({ endereco });
     fetch(`${API_BASE}/maps/geocode?${params}`)
       .then((r) => {
-        if (!r.ok) throw new Error('Endereço não encontrado');
+        if (!r.ok) throw new Error('not_found');
         return r.json();
       })
-      .then((d) => setCoords({ lat: d.lat, lng: d.lng }))
-      .catch((e) => setError(e.message))
+      .then((d) => {
+        setCoords({ lat: d.lat, lng: d.lng });
+        setGeocodeFailed(false);
+      })
+      .catch(() => {
+        // Fallback: mostra mapa centrado no Brasil em vez de mensagem de erro
+        setCoords(BRAZIL_CENTER);
+        setGeocodeFailed(true);
+      })
       .finally(() => setLoading(false));
   }, [endereco, lat, lng]);
 
-  // Inicializa mapa quando há coords
+  // Inicializa ou atualiza mapa quando há coords
   useEffect(() => {
     if (!coords || !mapRef.current) return;
+    const zoom = geocodeFailed ? BRAZIL_ZOOM : 17;
+
     if (!mapInstance.current) {
-      mapInstance.current = L.map(mapRef.current, { zoomControl: true, scrollWheelZoom: false }).setView(
-        [coords.lat, coords.lng], 17
-      );
+      mapInstance.current = L.map(mapRef.current, {
+        zoomControl: true,
+        scrollWheelZoom: false,
+      }).setView([coords.lat, coords.lng], zoom);
+
       tileRef.current = L.tileLayer(TILE_LAYERS.mapa, {
         attribution: '© <a href="https://osm.org/copyright">OpenStreetMap</a>',
         maxZoom: 19,
       }).addTo(mapInstance.current);
-      L.marker([coords.lat, coords.lng], { icon: greenIcon })
-        .addTo(mapInstance.current)
-        .bindPopup(endereco || 'Imóvel avaliado')
-        .openPopup();
+
+      if (!geocodeFailed) {
+        markerRef.current = L.marker([coords.lat, coords.lng], { icon: greenIcon })
+          .addTo(mapInstance.current)
+          .bindPopup(endereco || 'Imóvel avaliado')
+          .openPopup();
+      }
     } else {
-      mapInstance.current.setView([coords.lat, coords.lng], 17);
+      mapInstance.current.setView([coords.lat, coords.lng], zoom);
+      if (markerRef.current) {
+        markerRef.current.remove();
+        markerRef.current = null;
+      }
+      if (!geocodeFailed) {
+        markerRef.current = L.marker([coords.lat, coords.lng], { icon: greenIcon })
+          .addTo(mapInstance.current)
+          .bindPopup(endereco || 'Imóvel avaliado')
+          .openPopup();
+      }
     }
     return () => {};
-  }, [coords, endereco]);
+  }, [coords, endereco, geocodeFailed]);
 
   // Troca tile layer ao mudar modo
   useEffect(() => {
@@ -86,6 +115,8 @@ const ImovelMap = ({ endereco, lat, lng, height = 280 }) => {
     };
   }, []);
 
+  const showMap = !!coords && !loading;
+
   return (
     <div className="rounded-xl overflow-hidden border border-gray-200 shadow-sm">
       <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border-b border-gray-100">
@@ -99,22 +130,27 @@ const ImovelMap = ({ endereco, lat, lng, height = 280 }) => {
           ))}
         </div>
       </div>
+
       {loading && (
         <div style={{ height }} className="flex items-center justify-center bg-gray-50 text-sm text-gray-400">
           Geocodificando endereço...
         </div>
       )}
-      {error && !loading && (
-        <div style={{ height }} className="flex items-center justify-center bg-gray-50 text-sm text-red-500 px-4 text-center">
-          {error} — verifique o endereço informado.
-        </div>
-      )}
-      {!coords && !loading && !error && (
+
+      {!coords && !loading && (
         <div style={{ height }} className="flex items-center justify-center bg-gray-50 text-sm text-gray-400">
-          Preencha o endereço para ver o mapa.
+          Preencha o endereço completo (rua, bairro, cidade) para ver o mapa.
         </div>
       )}
-      <div ref={mapRef} style={{ height: coords ? height : 0 }} />
+
+      {geocodeFailed && showMap && (
+        <div className="px-3 py-1.5 bg-amber-50 border-b border-amber-100 text-xs text-amber-700">
+          Endereço não localizado automaticamente — mapa centralizado no Brasil.
+          Informe rua, bairro e cidade para melhor precisão.
+        </div>
+      )}
+
+      <div ref={mapRef} style={{ height: showMap ? height : 0 }} />
     </div>
   );
 };
