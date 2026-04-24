@@ -500,14 +500,15 @@ def _render_imovel(doc: Document, ptam: dict) -> None:
             for l, v in rural_items:
                 _add_label_value(doc, l, v)
 
-        # Tabela: DADOS CADASTRAIS RURAIS (INCRA/SIGEF)
+        # Tabela: DADOS CADASTRAIS RURAIS — FONTE: SIGEF/INCRA
         sigef_keys = [
             "sigef_codigo", "ccir_numero", "car_numero", "sigef_situacao",
             "sigef_area_ha", "sigef_data_certificacao", "modulo_fiscal_ha",
             "numero_modulos_fiscais", "dados_incra_automaticos", "dados_incra_data_consulta",
+            "denominacao", "municipio_incra", "sigef_vertices", "sigef_datum",
         ]
         if any(ptam.get(k) for k in sigef_keys):
-            _add_subsection_heading(doc, "Dados Cadastrais Rurais (INCRA/SIGEF)")
+            _add_subsection_heading(doc, "DADOS CADASTRAIS RURAIS — FONTE: SIGEF/INCRA")
             headers = ["Campo", "Valor"]
             table = doc.add_table(rows=1, cols=2)
             table.style = "Table Grid"
@@ -522,21 +523,46 @@ def _render_imovel(doc: Document, ptam: dict) -> None:
                     run.font.size = Pt(10)
 
             sit_map = {
-                "certificado": "Certificado",
+                "certificado": "Certificado (SIGEF)",
                 "em_certificacao": "Em Certificação",
                 "nao_certificado": "Não Certificado",
             }
             fonte = "SIGEF/INCRA (automático)" if ptam.get("dados_incra_automaticos") else "Preenchimento manual"
+
+            # Calcula classificacao fundiaria se nao tiver
+            class_fund = ""
+            n_mod = ptam.get("numero_modulos_fiscais")
+            if n_mod is not None:
+                try:
+                    n = float(n_mod)
+                    if n < 1:      class_fund = "Minifúndio"
+                    elif n <= 4:   class_fund = "Pequena Propriedade"
+                    elif n <= 15:  class_fund = "Média Propriedade"
+                    else:          class_fund = "Grande Propriedade"
+                except Exception:
+                    pass
+
             sigef_rows = [
+                ("Denominação / Nome", ptam.get("denominacao")),
+                ("Município (INCRA)", ptam.get("municipio_incra") or ptam.get("property_city")),
+                ("UF (INCRA)", ptam.get("uf_incra") or ptam.get("property_state")),
                 ("CCIR", ptam.get("ccir_numero") or ptam.get("ccir")),
-                ("Código SIGEF", ptam.get("sigef_codigo") or ptam.get("certificacao_sigef")),
-                ("CAR", ptam.get("car_numero") or ptam.get("car")),
+                ("Código SIGEF (UUID)", ptam.get("sigef_codigo") or ptam.get("certificacao_sigef")),
+                ("CAR — Cadastro Ambiental Rural", ptam.get("car_numero") or ptam.get("car")),
                 ("NIRF / ITR", ptam.get("nirf_numero") or ptam.get("nirf_cib")),
                 ("Situação SIGEF", sit_map.get(ptam.get("sigef_situacao", ""), ptam.get("sigef_situacao", ""))),
                 ("Área Certificada (SIGEF)", _format_area_ha(ptam["sigef_area_ha"]) if ptam.get("sigef_area_ha") else None),
+                ("Perímetro (SIGEF)", f"{float(ptam['sigef_perimetro_m']):,.2f} m".replace(",","X").replace(".",",").replace("X",".") if ptam.get("sigef_perimetro_m") else None),
+                ("Nº de Vértices", str(ptam["sigef_vertices"]) if ptam.get("sigef_vertices") else None),
+                ("Datum Geodésico", ptam.get("sigef_datum") or "SIRGAS 2000"),
                 ("Data Certificação SIGEF", ptam.get("sigef_data_certificacao")),
                 ("Módulo Fiscal do Município", f"{ptam['modulo_fiscal_ha']} ha" if ptam.get("modulo_fiscal_ha") else None),
                 ("Número de Módulos Fiscais", str(ptam["numero_modulos_fiscais"]) if ptam.get("numero_modulos_fiscais") else None),
+                ("Classificação Fundiária (Lei 8.629/93)", class_fund or None),
+                ("Área Explorada", _format_area_ha(ptam["area_explorada_ha"]) if ptam.get("area_explorada_ha") else None),
+                ("Área de Reserva Legal", _format_area_ha(ptam["area_reserva_legal_ha"]) if ptam.get("area_reserva_legal_ha") else None),
+                ("Área APP", _format_area_ha(ptam["area_app_ha"]) if ptam.get("area_app_ha") else None),
+                ("Área de Vegetação Nativa", _format_area_ha(ptam["area_vegetacao_nativa_ha"]) if ptam.get("area_vegetacao_nativa_ha") else None),
                 ("Fonte dos Dados", fonte),
                 ("Data da Consulta SIGEF", ptam.get("dados_incra_data_consulta")),
             ]
