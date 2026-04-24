@@ -8,7 +8,7 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from db import get_db
-from dependencies import serialize_doc
+from dependencies import get_admin_user, serialize_doc
 from services.auth_service import get_current_user_id
 from services.mercadopago_service import (
     PLAN_CONFIG, get_mp_sdk, build_preference_data,
@@ -136,7 +136,9 @@ async def subscription(uid: str = Depends(get_current_user_id), db=Depends(get_d
 
 
 @router.post("/subscription/change")
-async def change_subscription(payload: dict, uid: str = Depends(get_current_user_id), db=Depends(get_db)):
+async def change_subscription(payload: dict, uid: str = Depends(get_admin_user), db=Depends(get_db)):
     plan_id = payload.get("plan_id", "mensal")
+    if plan_id not in PLAN_CONFIG:
+        raise HTTPException(status_code=400, detail="Plano inválido")
     await db.users.update_one({"id": uid}, {"$set": {"plan": plan_id}})
     return {"ok": True, "plan": plan_id}

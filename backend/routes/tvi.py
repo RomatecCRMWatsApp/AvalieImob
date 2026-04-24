@@ -19,6 +19,7 @@ from models.tvi import (
 from pdf.tvi_pdf import generate_tvi_pdf
 from docx_gen.tvi_docx import generate_tvi_docx
 from services.tvi_share import enviar_tvi_email, gerar_link_whatsapp
+from services.upload_security import detect_content_type, normalize_filename
 
 
 class ShareEmailRequest(BaseModel):
@@ -192,6 +193,7 @@ async def delete_vistoria(
 
 # ── Fotos ───────────────────────────────────────────────────────────────────
 ALLOWED_IMG = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
+MAX_TVI_PHOTO_SIZE_BYTES = 5 * 1024 * 1024
 
 @router.post("/tvi/vistoria/{vid}/photos", status_code=201)
 async def add_photos(
@@ -211,16 +213,25 @@ async def add_photos(
 
     gps = GpsCoord(lat=gps_lat, lng=gps_lng) if gps_lat is not None and gps_lng is not None else None
     saved = []
+    invalid_files = 0
 
     for f in files:
-        ct = f.content_type or "image/jpeg"
-        if ct not in ALLOWED_IMG:
+        declared_content_type = (f.content_type or "image/jpeg").lower()
+        if declared_content_type not in ALLOWED_IMG:
+            invalid_files += 1
             continue
         data = await f.read()
+        if not data or len(data) > MAX_TVI_PHOTO_SIZE_BYTES:
+            invalid_files += 1
+            continue
+        detected_content_type = detect_content_type(data)
+        if detected_content_type not in {"image/jpeg", "image/png", "image/webp"}:
+            invalid_files += 1
+            continue
         img_id = str(uuid.uuid4())
         img_doc = {
-            "id": img_id, "user_id": uid, "filename": f.filename or "foto",
-            "content_type": ct, "data_b64": base64.b64encode(data).decode(),
+            "id": img_id, "user_id": uid, "filename": normalize_filename(f.filename, fallback="foto"),
+            "content_type": detected_content_type, "data_b64": base64.b64encode(data).decode(),
             "size_bytes": len(data), "created_at": datetime.utcnow(),
         }
         await db.images.insert_one(img_doc)
@@ -232,6 +243,11 @@ async def add_photos(
         )
         await db.vistoria_photos.insert_one(photo.model_dump())
         saved.append({"url": url, "ambiente": ambiente, "legenda": legenda, "id": photo.id})
+
+    if not saved:
+        if invalid_files:
+            raise HTTPException(status_code=400, detail="Nenhum arquivo de imagem válido enviado")
+        raise HTTPException(status_code=400, detail="Nenhum arquivo enviado")
 
     return {"photos": saved}
 
