@@ -27,6 +27,16 @@ async def get_active_subscriber(uid: str = Depends(get_current_user_id), db=Depe
     return uid
 
 
+async def get_authenticated_user(uid: str = Depends(get_current_user_id), db=Depends(get_db)) -> str:
+    """Valida JWT e confirma que o usuário existe, sem exigir plano ativo.
+    Use em endpoints de leitura onde usuários com plano expirado ainda devem
+    acessar seus próprios dados."""
+    u = await db.users.find_one({"id": uid})
+    if not u:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    return uid
+
+
 async def get_admin_user(uid: str = Depends(get_current_user_id), db=Depends(get_db)) -> str:
     u = await db.users.find_one({"id": uid})
     if not u:

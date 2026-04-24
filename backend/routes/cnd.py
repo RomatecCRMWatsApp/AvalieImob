@@ -123,16 +123,25 @@ async def download_certidao(
     uid: str = Depends(get_active_subscriber),
     db=Depends(get_db),
 ):
-    """Retorna PDF base64 de uma certidão específica."""
+    """Retorna PDF base64 ou dados JSON de uma certidão específica."""
     consulta = await db.cnd_consultas.find_one({"id": consulta_id, "user_id": uid})
     if not consulta:
         raise HTTPException(status_code=404, detail="Consulta não encontrada")
     cert = await db.cnd_certidoes.find_one({"consulta_id": consulta_id, "provider": provider})
     if not cert:
-        raise HTTPException(status_code=404, detail="Certidão não encontrada")
-    if not cert.get("pdf_base64"):
-        raise HTTPException(status_code=404, detail="PDF não disponível para este provider")
-    return {"provider": provider, "pdf_base64": cert["pdf_base64"]}
+        raise HTTPException(status_code=404, detail="Certidão não encontrada para este provider")
+    if cert.get("pdf_base64"):
+        return {"provider": provider, "pdf_base64": cert["pdf_base64"]}
+    # Providers baseados em busca (ex: datajud) não geram PDF — retornar dados estruturados
+    return {
+        "provider": provider,
+        "pdf_base64": None,
+        "resultado": cert.get("resultado"),
+        "observacao": cert.get("observacao"),
+        "link_manual": cert.get("link_manual"),
+        "validade": cert.get("validade"),
+        "tempo_ms": cert.get("tempo_ms"),
+    }
 
 
 @router.get("/cnd/historico")

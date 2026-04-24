@@ -53,7 +53,7 @@ async def _consultar_tribunal(
         resp = await client.post(
             BASE_URL.format(tribunal=tribunal_path),
             headers={
-                "Authorization": f"ApiKey {api_key}",
+                "Authorization": f"APIKey {api_key}",
                 "Content-Type": "application/json",
             },
             json=_build_query(doc),

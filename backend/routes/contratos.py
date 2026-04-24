@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from bson import ObjectId
 
 from db import get_db
-from dependencies import get_active_subscriber, serialize_doc
+from dependencies import get_active_subscriber, get_authenticated_user, serialize_doc
 from models.contrato import (
     ContratoBase, Contrato, ContratoVersion, ContratoVersionDiff,
     TIPOS_CONTRATO,
@@ -248,10 +248,10 @@ async def listar_contratos(
 @router.get("/contratos/{cid}")
 async def buscar_contrato(
     cid: str,
-    uid: str = Depends(get_active_subscriber),
+    uid: str = Depends(get_authenticated_user),
     db=Depends(get_db),
 ):
-    """Busca um contrato completo pelo ID."""
+    """Busca um contrato completo pelo ID. Permite acesso mesmo com plano expirado."""
     doc = await db.contratos.find_one(_contrato_query_by_cid(cid, uid))
     if not doc:
         raise HTTPException(status_code=404, detail="Contrato não encontrado")
