@@ -1701,7 +1701,10 @@ const ContratoWizard = () => {
       } else {
         const created = await contratosAPI.criar(form);
         setContratoId(created.id);
-        nav(`/dashboard/contratos/${created.id}`, { replace: true });
+        // Só redireciona se for autosave (silent=true), não quando clica no botão Salvar
+        if (silent) {
+          nav(`/dashboard/contratos/${created.id}`, { replace: true });
+        }
       }
       setLastSaved(new Date());
       if (!silent) toast({ title: 'Rascunho salvo' });
