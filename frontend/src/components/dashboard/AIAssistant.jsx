@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, User, Wand2, Loader2 } from 'lucide-react';
+import { Send, User, Wand2, Loader2, X } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import { useToast } from '../../hooks/use-toast';
@@ -32,6 +32,7 @@ const AIAssistant = () => {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [avatarState, setAvatarState] = useState('idle');
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const endRef = useRef(null);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
@@ -84,10 +85,15 @@ const AIAssistant = () => {
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-6 flex items-start justify-between">
-        <div className="flex items-center gap-3">
-          <RomaIAAvatar state={avatarState} size="md" />
+        <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setShowWelcomeModal(true)}>
+          <div className="relative">
+            <RomaIAAvatar state={avatarState} size="md" />
+            <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <span className="text-[10px] text-white">👋</span>
+            </div>
+          </div>
           <div>
-            <h1 className="font-display text-3xl font-bold text-gray-900">Roma_IA</h1>
+            <h1 className="font-display text-3xl font-bold text-gray-900 group-hover:text-emerald-700 transition-colors">Roma_IA</h1>
             <p className="text-gray-600">Especialista NBR 14.653 · Groq / Gemini / Claude / OpenAI</p>
           </div>
         </div>
@@ -136,6 +142,64 @@ const AIAssistant = () => {
           <div className="text-[11px] text-gray-400 mt-2">Roma_IA · Groq / Gemini / Claude / OpenAI · Conversa persistida no servidor.</div>
         </div>
       </div>
+
+      {/* Modal de Boas-Vindas */}
+      {showWelcomeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowWelcomeModal(false)}>
+          <div className="relative bg-white rounded-2xl shadow-2xl overflow-hidden max-w-md w-full mx-4" onClick={e => e.stopPropagation()}>
+            {/* Header com botão fechar */}
+            <div className="absolute top-3 right-3 z-10">
+              <button 
+                onClick={() => setShowWelcomeModal(false)}
+                className="w-8 h-8 rounded-full bg-black/20 hover:bg-black/40 flex items-center justify-center transition-colors"
+              >
+                <X className="w-5 h-5 text-white" />
+              </button>
+            </div>
+            
+            {/* Vídeo de Boas-Vindas */}
+            <div className="relative aspect-square bg-emerald-900">
+              <img 
+                src="/brand/roma_ia_animated_bem_vindo.webp" 
+                alt="Roma_IA - Boas-vindas"
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  // Fallback se o vídeo não existir
+                  e.target.style.display = 'none';
+                  e.target.nextSibling.style.display = 'flex';
+                }}
+              />
+              <div className="absolute inset-0 hidden items-center justify-center bg-emerald-900 text-white text-center p-6">
+                <div>
+                  <RomaIAAvatar state="speaking" size="lg" />
+                  <p className="mt-4 text-lg font-semibold">Olá! Sou a Roma_IA</p>
+                  <p className="text-sm text-emerald-200 mt-2">Sua especialista em avaliação imobiliária</p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Conteúdo */}
+            <div className="p-6 text-center">
+              <h2 className="text-xl font-bold text-gray-900 mb-2">Bem-vindo à Roma_IA!</h2>
+              <p className="text-gray-600 text-sm mb-4">
+                Sou sua assistente especializada em NBR 14.653. Posso ajudar com:
+              </p>
+              <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 mb-6">
+                <div className="bg-gray-50 rounded-lg p-2">✓ Aperfeiçoar laudos</div>
+                <div className="bg-gray-50 rounded-lg p-2">✓ Gerar fundamentações</div>
+                <div className="bg-gray-50 rounded-lg p-2">✓ Análises SWOT</div>
+                <div className="bg-gray-50 rounded-lg p-2">✓ Memoriais descritivos</div>
+              </div>
+              <Button 
+                onClick={() => setShowWelcomeModal(false)}
+                className="w-full bg-emerald-900 hover:bg-emerald-800 text-white"
+              >
+                Começar a conversar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
