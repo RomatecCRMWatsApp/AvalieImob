@@ -157,11 +157,13 @@ const AIAssistant = () => {
               </button>
             </div>
             
-            {/* Vídeo de Boas-Vindas */}
+            {/* Vídeo de Boas-Vindas com Áudio */}
             <div className="relative aspect-square bg-emerald-900">
-              <img 
-                src="/brand/roma_ia_animated_bem_vindo.webp" 
-                alt="Roma_IA - Boas-vindas"
+              <video
+                src="/brand/roma_ia_animated_bem_vindo.webm"
+                autoPlay
+                muted={false}
+                playsInline
                 className="w-full h-full object-cover"
                 onError={(e) => {
                   // Fallback se o vídeo não existir
