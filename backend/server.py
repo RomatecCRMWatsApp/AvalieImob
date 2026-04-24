@@ -55,10 +55,13 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 from fastapi import APIRouter
 api = APIRouter(prefix="/api")
 
+seen_prefixes = set()
 for router in all_routers:
     api.include_router(router)
     prefix = router.prefix or "/"
-    logger.info("Router registered: %s", prefix)
+    if prefix not in seen_prefixes:
+        seen_prefixes.add(prefix)
+        logger.info("Router registered: %s (%d routes)", prefix, len(router.routes))
 
 # Root health check
 @api.get("/")
