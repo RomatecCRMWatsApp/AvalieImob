@@ -242,9 +242,14 @@ app.add_middleware(
 async def startup():
     init_db()
     logger.info("MongoDB conectado")
-    # v2 campos profissionais 45 modelos — SEMPRE dropar collection e reinserir
+    # Auto-seed TVI é opcional e deve ser explicitamente habilitado.
+    enable_tvi_autoseed = os.getenv("ENABLE_TVI_AUTOSEED", "").strip().lower() in {"1", "true", "yes", "on"}
+    if not enable_tvi_autoseed:
+        logger.info("TVI auto-seed desabilitado (ENABLE_TVI_AUTOSEED != true)")
+        return
+
+    # v2 campos profissionais 45 modelos — ao habilitar, dropa e reinsere.
     try:
-        from db import get_db
         db = get_db()
         col = db.vistoria_models
         await col.drop()
