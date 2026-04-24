@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Sparkles, Send, Bot, User, Wand2, Loader2 } from 'lucide-react';
+import { Send, User, Wand2, Loader2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import { useToast } from '../../hooks/use-toast';
 import { aiAPI } from '../../lib/api';
+import RomaIAAvatar from '../common/RomaIAAvatar';
 
 const SUGGESTIONS = [
   { id: 'aperfeicoar', icon: Wand2, title: 'Aperfeiçoar laudo', prompt: 'Aperfeiçoe este texto técnico de um laudo de avaliação imobiliária pelo método comparativo direto: "O imóvel avaliado possui 85m² em boa localização e apresenta-se em bom estado de conservação."' },
@@ -26,13 +27,28 @@ const AIAssistant = () => {
   const { toast } = useToast();
   const [sessionId] = useState(getSessionId);
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: 'Olá! Sou a IA do RomaTec AvalieImob, especialista em PTAM e laudos técnicos conforme a NBR 14.653. Posso aperfeiçoar textos, gerar fundamentações, elaborar memórias de cálculo e análises técnicas. Como posso ajudar?' },
+    { role: 'assistant', content: 'Olá! Sou a Roma_IA, especialista em PTAM e laudos técnicos conforme a NBR 14.653. Posso aperfeiçoar textos, gerar fundamentações, elaborar memórias de cálculo e análises técnicas. Como posso ajudar?' },
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [avatarState, setAvatarState] = useState('idle');
   const endRef = useRef(null);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+
+  // Atualiza estado do avatar baseado no loading
+  useEffect(() => {
+    if (loading) {
+      setAvatarState('thinking');
+    } else if (messages.length > 1 && messages[messages.length - 1].role === 'assistant') {
+      setAvatarState('speaking');
+      // Volta para idle após 3 segundos
+      const timer = setTimeout(() => setAvatarState('idle'), 3000);
+      return () => clearTimeout(timer);
+    } else {
+      setAvatarState('idle');
+    }
+  }, [loading, messages]);
 
   // Load history on mount
   useEffect(() => {
@@ -69,10 +85,10 @@ const AIAssistant = () => {
     <div className="max-w-4xl mx-auto">
       <div className="mb-6 flex items-start justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-700 to-emerald-900 flex items-center justify-center"><Sparkles className="w-6 h-6 text-white" /></div>
+          <RomaIAAvatar state={avatarState} size="md" />
           <div>
-            <h1 className="font-display text-3xl font-bold text-gray-900">Assistente IA</h1>
-            <p className="text-gray-600">GPT-5-mini especializado em NBR 14.653.</p>
+            <h1 className="font-display text-3xl font-bold text-gray-900">Roma_IA</h1>
+            <p className="text-gray-600">Especialista NBR 14.653 · Groq / Gemini / Claude / OpenAI</p>
           </div>
         </div>
         <Button variant="outline" size="sm" onClick={newSession}>Nova conversa</Button>
@@ -96,8 +112,8 @@ const AIAssistant = () => {
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
           {messages.map((m, i) => (
             <div key={`${m.role}-${i}-${m.content.slice(0, 20)}`} className={`flex gap-3 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
-              <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center ${m.role === 'user' ? 'bg-amber-500 text-white' : 'bg-emerald-900 text-white'}`}>
-                {m.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+              <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center ${m.role === 'user' ? 'bg-amber-500 text-white' : ''}`}>
+                {m.role === 'user' ? <User className="w-4 h-4" /> : <RomaIAAvatar state={avatarState} size="sm" />}
               </div>
               <div className="group relative max-w-[80%]">
                 <div className={`rounded-xl p-3 text-sm whitespace-pre-wrap ${m.role === 'user' ? 'bg-emerald-50 text-gray-900' : 'bg-gray-50 text-gray-800'}`}>{m.content}</div>
@@ -108,7 +124,7 @@ const AIAssistant = () => {
             </div>
           ))}
           {loading && (
-            <div className="flex gap-3"><div className="w-8 h-8 rounded-full bg-emerald-900 text-white flex items-center justify-center"><Bot className="w-4 h-4" /></div><div className="bg-gray-50 rounded-xl p-3 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin text-emerald-700" /><span className="text-sm text-gray-500">Pensando...</span></div></div>
+            <div className="flex gap-3"><div className="w-8 h-8 rounded-full flex-shrink-0"><RomaIAAvatar state="thinking" size="sm" /></div><div className="bg-gray-50 rounded-xl p-3 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin text-emerald-700" /><span className="text-sm text-gray-500">Pensando...</span></div></div>
           )}
           <div ref={endRef} />
         </div>
