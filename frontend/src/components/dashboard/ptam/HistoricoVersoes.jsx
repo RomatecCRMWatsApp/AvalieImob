@@ -1,5 +1,5 @@
 // @module ptam/HistoricoVersoes — Drawer de histórico de versões com diff, lacre e QR Code
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../../ui/sheet';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -318,7 +318,7 @@ export const HistoricoVersoes = ({ ptamId, numeroPtam, open, onClose, versaoAtua
   const [showVerificar, setShowVerificar] = useState(false);
   const { toast } = useToast();
 
-  const fetchVersoes = async () => {
+  const fetchVersoes = useCallback(async () => {
     if (!ptamId) return;
     setLoading(true);
     try {
@@ -333,13 +333,13 @@ export const HistoricoVersoes = ({ ptamId, numeroPtam, open, onClose, versaoAtua
     } finally {
       setLoading(false);
     }
-  };
+  }, [ptamId, toast]);
 
   useEffect(() => {
     if (open) {
       fetchVersoes();
     }
-  }, [open, ptamId]);
+  }, [open, fetchVersoes]);
 
   const handleDownloadSnapshot = (versao) => {
     if (!versao.snapshot) {

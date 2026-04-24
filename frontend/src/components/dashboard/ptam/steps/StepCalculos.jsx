@@ -31,7 +31,7 @@ const getGrauColor = (grau) => {
 };
 
 export const StepCalculos = ({ form, setForm, onAi, aiLoading }) => {
-  const samples = form.market_samples || [];
+  const samples = useMemo(() => form.market_samples ?? [], [form.market_samples]);
   const stats = useMemo(() => computeStatsNBR(samples), [samples]);
   const cvColors = getCVColor(stats.coef_variacao);
   const fundColors = getGrauColor(stats.grau_fundamentacao);

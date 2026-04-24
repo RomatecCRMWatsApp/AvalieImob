@@ -16,7 +16,7 @@ const SignaturePad = ({ value, onChange }) => {
       };
       img.src = value;
     }
-  }, []);
+  }, [value]);
 
   const getPos = (e, canvas) => {
     const r = canvas.getBoundingClientRect();

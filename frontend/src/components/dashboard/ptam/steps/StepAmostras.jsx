@@ -85,7 +85,7 @@ const MarketSampleRow = ({ s, onChange, onRemove, idx, isSaneada }) => {
 };
 
 export const StepAmostras = ({ form, setForm, onAi, aiLoading }) => {
-  const samples = form.market_samples || [];
+  const samples = useMemo(() => form.market_samples ?? [], [form.market_samples]);
   const [showBusca, setShowBusca] = useState(false);
   const add = () => setForm({ ...form, market_samples: [...samples, emptyMarketSample()] });
   const update = (i, ns) => setForm({ ...form, market_samples: samples.map((s, idx) => idx === i ? ns : s) });

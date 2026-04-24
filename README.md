@@ -47,6 +47,40 @@ yarn start
 
 Acesse: http://localhost:3000
 
+### Automacao de build e deploy (Windows)
+No diretorio raiz do projeto:
+
+```powershell
+# Valida frontend + backend automaticamente
+npm run auto:build
+
+# Valida e dispara deploy via Railway CLI
+npm run auto:deploy
+```
+
+Opcionalmente, para deploy em um service especifico da Railway:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\deploy-automatic.ps1 -Deploy -Service "nome-do-service"
+```
+
+### Deploy automatico no GitHub Actions (Railway)
+O repositório possui o workflow [deploy-railway.yml](.github/workflows/deploy-railway.yml), que:
+
+- roda automaticamente apos o CI passar em `main`/`master`
+- pode ser executado manualmente em `Actions > Deploy Railway > Run workflow`
+
+Para funcionar, configure este secret no GitHub:
+
+- `RAILWAY_DEPLOY_HOOK_URL`: URL do Deploy Hook gerado na Railway para o service
+
+Como obter na Railway:
+
+1. Abra o service na Railway.
+2. Va em Settings.
+3. Copie o Deploy Hook URL.
+4. Adicione em GitHub: Settings > Secrets and variables > Actions > New repository secret.
+
 ---
 
 ## 🌐 Deploy em VPS próprio (produção)

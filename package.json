@@ -5,7 +5,9 @@
   "description": "Romatec Avaliação Imobiliária - PTAM + Laudos com Transcrição de Áudio",
   "scripts": {
     "start": "node index.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "auto:build": "powershell -ExecutionPolicy Bypass -File ./scripts/deploy-automatic.ps1",
+    "auto:deploy": "powershell -ExecutionPolicy Bypass -File ./scripts/deploy-automatic.ps1 -Deploy"
   },
   "dependencies": {
     "express": "^4.18.2"

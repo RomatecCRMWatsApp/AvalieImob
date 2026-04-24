@@ -29,7 +29,7 @@ const PerfilAvaliador = () => {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [toast]);
 
   const set = useCallback((field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));

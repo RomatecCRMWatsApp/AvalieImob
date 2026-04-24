@@ -52,7 +52,7 @@ const SubscriptionPage = () => {
       toast({ title: 'Pagamento pendente', description: 'Aguardando confirmação do pagamento.' });
       window.history.replaceState({}, '', window.location.pathname);
     }
-  }, []);
+  }, [toast]);
 
   const handleSubscribe = async (plan) => {
     const planId = PLAN_ID_MAP[plan.id] || plan.id;
