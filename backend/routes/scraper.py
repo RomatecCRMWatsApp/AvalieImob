@@ -506,3 +506,62 @@ async def buscar_amostras(
 async def health_check() -> Dict[str, str]:
     """Endpoint de health check."""
     return {"status": "ok", "service": "scraper"}
+
+
+# ── Funções para gerenciamento de amostras salvas ─────────────────────
+
+async def listar_amostras_salvas(uid: str, db=None, limit: int = 50) -> list:
+    """Lista amostras salvas pelo usuário no MongoDB."""
+    from db import get_db
+    if db is None:
+        db = get_db()
+    try:
+        cursor = db.amostras_mercado.find({"user_id": uid}).sort("created_at", -1).limit(limit)
+        docs = await cursor.to_list(limit)
+        for d in docs:
+            d.pop("_id", None)
+        return docs
+    except Exception:
+        return []
+
+async def salvar_amostra_manual(data: dict, uid: str, db=None) -> dict:
+    """Salva uma amostra manual no MongoDB."""
+    from db import get_db
+    from datetime import datetime
+    if db is None:
+        db = get_db()
+    try:
+        doc = {
+            "user_id": uid,
+            "tipo": data.get("tipo", "manual"),
+            "endereco": data.get("endereco", ""),
+            "cidade": data.get("cidade", ""),
+            "estado": data.get("estado", ""),
+            "area_util": data.get("area_util", 0),
+            "valor": data.get("valor", 0),
+            "valor_m2": data.get("valor_m2", 0),
+            "fonte": data.get("fonte", "manual"),
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow(),
+        }
+        result = await db.amostras_mercado.insert_one(doc)
+        doc["id"] = str(result.inserted_id)
+        doc.pop("_id", None)
+        return doc
+    except Exception as e:
+        return {"erro": str(e)}
+
+async def remover_amostra_salva(id: str, uid: str, db=None) -> bool:
+    """Remove uma amostra salva do MongoDB."""
+    from db import get_db
+    from bson.objectid import ObjectId
+    if db is None:
+        db = get_db()
+    try:
+        result = await db.amostras_mercado.delete_one({
+            "_id": ObjectId(id),
+            "user_id": uid
+        })
+        return result.deleted_count > 0
+    except Exception:
+        return False
