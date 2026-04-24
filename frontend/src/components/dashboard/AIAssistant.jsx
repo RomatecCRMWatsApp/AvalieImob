@@ -38,7 +38,7 @@ const AIAssistant = () => {
   useEffect(() => {
     aiAPI.history(sessionId).then((hist) => {
       if (hist && hist.length > 0) {
-        setMessages(hist.map(h => ({ role: h.role, content: h.content })));
+        setMessages(hist.map(h => ({ role: h.role, content: h.content, provider: h.provider })));
       }
     }).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -52,7 +52,7 @@ const AIAssistant = () => {
     setLoading(true);
     try {
       const res = await aiAPI.chat(sessionId, content);
-      setMessages(m => [...m, { role: 'assistant', content: res.reply }]);
+      setMessages(m => [...m, { role: 'assistant', content: res.reply, provider: res.provider }]);
     } catch (e) {
       toast({ title: 'Erro na IA', description: e.response?.data?.detail || 'Tente novamente', variant: 'destructive' });
     } finally {
@@ -99,7 +99,12 @@ const AIAssistant = () => {
               <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center ${m.role === 'user' ? 'bg-amber-500 text-white' : 'bg-emerald-900 text-white'}`}>
                 {m.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
               </div>
-              <div className={`max-w-[80%] rounded-xl p-3 text-sm whitespace-pre-wrap ${m.role === 'user' ? 'bg-emerald-50 text-gray-900' : 'bg-gray-50 text-gray-800'}`}>{m.content}</div>
+              <div className="group relative max-w-[80%]">
+                <div className={`rounded-xl p-3 text-sm whitespace-pre-wrap ${m.role === 'user' ? 'bg-emerald-50 text-gray-900' : 'bg-gray-50 text-gray-800'}`}>{m.content}</div>
+                {m.role === 'assistant' && m.provider && (
+                  <span className="absolute bottom-[-16px] left-1 text-[10px] text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">via {m.provider}</span>
+                )}
+              </div>
             </div>
           ))}
           {loading && (
@@ -112,7 +117,7 @@ const AIAssistant = () => {
             <Textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} placeholder="Descreva o que deseja aperfeiçoar ou gerar..." className="min-h-[60px] resize-none" disabled={loading} />
             <Button onClick={() => send()} disabled={loading || !input.trim()} className="bg-emerald-900 hover:bg-emerald-800 text-white h-auto"><Send className="w-4 h-4" /></Button>
           </div>
-          <div className="text-[11px] text-gray-400 mt-2">Powered by GPT-5-mini · Conversa persistida no servidor.</div>
+          <div className="text-[11px] text-gray-400 mt-2">Roma_IA · Groq / Gemini / Claude / OpenAI · Conversa persistida no servidor.</div>
         </div>
       </div>
     </div>

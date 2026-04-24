@@ -351,12 +351,14 @@ class AIMessage(BaseModel):
 class AIMessageResponse(BaseModel):
     session_id: str
     reply: str
+    provider: Optional[str] = None
 
 
 class AIHistoryItem(BaseModel):
     role: str
     content: str
     ts: datetime
+    provider: Optional[str] = None
 
 
 # ---------- Payments / Transactions ----------
