@@ -9,7 +9,13 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
 
-JWT_SECRET = os.environ.get("JWT_SECRET", "change-me")
+JWT_SECRET = os.environ.get("JWT_SECRET")
+if not JWT_SECRET or JWT_SECRET == "change-me" or len(JWT_SECRET) < 32:
+    raise RuntimeError(
+        "[Auth] JWT_SECRET nao configurado ou inseguro. "
+        "Defina uma string aleatoria de pelo menos 32 caracteres em .env "
+        "(ex: openssl rand -hex 32)."
+    )
 JWT_ALG = os.environ.get("JWT_ALGORITHM", "HS256")
 JWT_EXPIRE_HOURS = int(os.environ.get("JWT_EXPIRE_HOURS", "168"))
 
