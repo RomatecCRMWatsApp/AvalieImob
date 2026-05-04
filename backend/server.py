@@ -239,6 +239,40 @@ async def robots():
     )
     return _Response(content=content, media_type="text/plain")
 
+# ── IndexNow (Bing/Yandex) ───────────────────────────────────────────
+# Plano SEO v1.0 — Maio/2026. Chave gerada no Bing Webmaster Tools.
+# Bing valida a chave acessando https://dominio/{KEY}.txt e o conteudo
+# precisa ser exatamente a chave (texto puro). Tambem servimos no path
+# raiz padrao do protocolo IndexNow.
+INDEXNOW_KEY = "4d342968679b48f4817f345f7baa2881"
+
+@app.get("/" + INDEXNOW_KEY + ".txt")
+async def indexnow_key_file():
+    return _Response(content=INDEXNOW_KEY, media_type="text/plain")
+
+@app.post("/api/seo/indexnow-ping")
+async def indexnow_ping(payload: dict):
+    """Notifica Bing/Yandex via IndexNow sobre URLs novas ou atualizadas.
+    Body: { "urls": ["https://www.romatecavalieimob.com.br/blog/xyz", ...] }
+    Util pra disparar manualmente quando publicar artigo novo no blog.
+    """
+    import httpx
+    urls = payload.get("urls") or []
+    if not urls:
+        return {"ok": False, "error": "passe ao menos 1 url"}
+    body = {
+        "host": "www.romatecavalieimob.com.br",
+        "key": INDEXNOW_KEY,
+        "keyLocation": f"https://www.romatecavalieimob.com.br/{INDEXNOW_KEY}.txt",
+        "urlList": urls,
+    }
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.post("https://api.indexnow.org/IndexNow", json=body)
+            return {"ok": r.status_code in (200, 202), "status": r.status_code, "submitted": len(urls)}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
 # ── React SPA static files ───────────────────────────────────────────
 import pathlib as _pathlib
 _frontend_build = _pathlib.Path(__file__).parent.parent / "frontend" / "build"
