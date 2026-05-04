@@ -18,6 +18,11 @@ import ServicoLaudoTecnico from './pages/ServicoLaudoTecnico';
 import ServicoAvaliacaoRural from './pages/ServicoAvaliacaoRural';
 import ServicoAvaliacaoGarantia from './pages/ServicoAvaliacaoGarantia';
 import ServicoAvaliacaoUrbana from './pages/ServicoAvaliacaoUrbana';
+import Blog from './pages/Blog';
+import BlogPostComoFazerPTAM from './pages/blog/BlogPostComoFazerPTAM';
+import BlogPostPtamLaudo from './pages/blog/BlogPostPtamLaudo';
+import BlogPostAvaliacaoRural from './pages/blog/BlogPostAvaliacaoRural';
+import BlogPostVLF from './pages/blog/BlogPostVLF';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -79,6 +84,11 @@ function App() {
                 <Route path="/servicos/avaliacao-rural" element={<ServicoAvaliacaoRural />} />
                 <Route path="/servicos/avaliacao-garantia" element={<ServicoAvaliacaoGarantia />} />
                 <Route path="/servicos/avaliacao-urbana" element={<ServicoAvaliacaoUrbana />} />
+                <Route path="/blog" element={<Blog />} />
+                <Route path="/blog/como-fazer-ptam-passo-a-passo-nbr-14653" element={<BlogPostComoFazerPTAM />} />
+                <Route path="/blog/diferenca-ptam-laudo-avaliacao-imobiliaria" element={<BlogPostPtamLaudo />} />
+                <Route path="/blog/avaliacao-imovel-rural-nbr-14653-3-guia-completo" element={<BlogPostAvaliacaoRural />} />
+                <Route path="/blog/como-calcular-valor-liquidacao-forcada-vlf" element={<BlogPostVLF />} />
                 <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
                 <Route path="/cadastro" element={<PublicRoute><Register /></PublicRoute>} />
                 <Route path="/laudo/:token" element={<PortalCliente />} />
