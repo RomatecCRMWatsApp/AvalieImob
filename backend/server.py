@@ -180,29 +180,57 @@ from datetime import datetime as _datetime
 
 @app.get("/sitemap.xml")
 async def sitemap():
-    """Sitemap dinâmico para indexação pelo Google."""
+    """Sitemap dinâmico para indexação pelo Google.
+    Plano SEO v1.0 — Maio/2026: lista todas as páginas públicas com
+    prioridade e changefreq ajustados conforme estratégia de conteúdo.
+    """
     hoje = _datetime.utcnow().strftime("%Y-%m-%d")
-    xml = (
-        '<?xml version="1.0" encoding="UTF-8"?>\n'
-        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"'
-        ' xmlns:xhtml="http://www.w3.org/1999/xhtml">\n'
-        f'  <url><loc>https://www.romatecavalieimob.com.br/</loc><lastmod>{hoje}</lastmod><changefreq>weekly</changefreq><priority>1.0</priority>'
-        '<xhtml:link rel="alternate" hreflang="pt-BR" href="https://www.romatecavalieimob.com.br/"/></url>\n'
-        f'  <url><loc>https://www.romatecavalieimob.com.br/login</loc><lastmod>{hoje}</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>\n'
-        f'  <url><loc>https://www.romatecavalieimob.com.br/cadastro</loc><lastmod>{hoje}</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>\n'
-        f'  <url><loc>https://www.romatecavalieimob.com.br/privacidade</loc><lastmod>{hoje}</lastmod><changefreq>yearly</changefreq><priority>0.3</priority></url>\n'
-        '</urlset>'
-    )
+    base = "https://www.romatecavalieimob.com.br"
+    # (path, priority, changefreq)
+    paginas = [
+        ("/",                            "1.0", "weekly"),
+        ("/sobre",                       "0.8", "monthly"),
+        ("/planos",                      "0.9", "monthly"),
+        ("/servicos/ptam",               "0.9", "monthly"),
+        ("/servicos/laudo-tecnico",      "0.9", "monthly"),
+        ("/servicos/avaliacao-rural",    "0.9", "monthly"),
+        ("/servicos/avaliacao-garantia", "0.9", "monthly"),
+        ("/servicos/avaliacao-urbana",   "0.9", "monthly"),
+        ("/blog",                        "0.7", "daily"),
+        ("/contato",                     "0.7", "monthly"),
+        ("/cadastro",                    "0.8", "monthly"),
+        ("/login",                       "0.6", "monthly"),
+        ("/privacidade",                 "0.3", "yearly"),
+    ]
+    parts = ['<?xml version="1.0" encoding="UTF-8"?>',
+             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">']
+    for path, prio, freq in paginas:
+        loc = f"{base}{path}"
+        parts.append(
+            f'  <url><loc>{loc}</loc><lastmod>{hoje}</lastmod>'
+            f'<changefreq>{freq}</changefreq><priority>{prio}</priority>'
+            f'<xhtml:link rel="alternate" hreflang="pt-BR" href="{loc}"/>'
+            f'<xhtml:link rel="alternate" hreflang="x-default" href="{loc}"/>'
+            f'</url>'
+        )
+    parts.append('</urlset>')
+    xml = "\n".join(parts)
     return _Response(content=xml, media_type="application/xml")
 
 @app.get("/robots.txt")
 async def robots():
-    """robots.txt via backend (sobrescreve o estático se servido pelo FastAPI)."""
+    """robots.txt via backend. Bloqueia áreas de aplicação (dashboard, api,
+    fluxos autenticados) e libera tudo o que é público pra indexação."""
     content = (
         "User-agent: *\n"
         "Allow: /\n"
+        "Disallow: /admin/\n"
         "Disallow: /dashboard/\n"
-        "Disallow: /api/\n\n"
+        "Disallow: /api/\n"
+        "Disallow: /reset-senha\n"
+        "Disallow: /*?token=\n"
+        "Disallow: /*?reset=\n"
+        "\n"
         "Sitemap: https://www.romatecavalieimob.com.br/sitemap.xml\n"
     )
     return _Response(content=content, media_type="text/plain")
