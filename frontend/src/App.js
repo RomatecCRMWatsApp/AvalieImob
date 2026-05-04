@@ -23,6 +23,10 @@ import BlogPostComoFazerPTAM from './pages/blog/BlogPostComoFazerPTAM';
 import BlogPostPtamLaudo from './pages/blog/BlogPostPtamLaudo';
 import BlogPostAvaliacaoRural from './pages/blog/BlogPostAvaliacaoRural';
 import BlogPostVLF from './pages/blog/BlogPostVLF';
+import BlogPostGrauFundamentacao from './pages/blog/BlogPostGrauFundamentacao';
+import BlogPostMetodoComparativo from './pages/blog/BlogPostMetodoComparativo';
+import BlogPostInventarioPartilha from './pages/blog/BlogPostInventarioPartilha';
+import BlogPostART_RRT_TRT from './pages/blog/BlogPostART_RRT_TRT';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -89,6 +93,10 @@ function App() {
                 <Route path="/blog/diferenca-ptam-laudo-avaliacao-imobiliaria" element={<BlogPostPtamLaudo />} />
                 <Route path="/blog/avaliacao-imovel-rural-nbr-14653-3-guia-completo" element={<BlogPostAvaliacaoRural />} />
                 <Route path="/blog/como-calcular-valor-liquidacao-forcada-vlf" element={<BlogPostVLF />} />
+                <Route path="/blog/grau-fundamentacao-precisao-nbr-14653" element={<BlogPostGrauFundamentacao />} />
+                <Route path="/blog/metodo-comparativo-direto-passo-a-passo" element={<BlogPostMetodoComparativo />} />
+                <Route path="/blog/avaliacao-imovel-inventario-partilha" element={<BlogPostInventarioPartilha />} />
+                <Route path="/blog/como-emitir-art-rrt-trt-avaliacao-imobiliaria" element={<BlogPostART_RRT_TRT />} />
                 <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
                 <Route path="/cadastro" element={<PublicRoute><Register /></PublicRoute>} />
                 <Route path="/laudo/:token" element={<PortalCliente />} />
