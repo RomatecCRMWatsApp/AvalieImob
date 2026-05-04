@@ -276,9 +276,33 @@ async def indexnow_ping(payload: dict):
 # ── React SPA static files ───────────────────────────────────────────
 import pathlib as _pathlib
 _frontend_build = _pathlib.Path(__file__).parent.parent / "frontend" / "build"
+
+# v1.0 SEO: o Dockerfile builda o React no Stage 1 sem injetar env vars
+# REACT_APP_*, entao placeholders %REACT_APP_FOO% ficam literais no HTML.
+# Solucao: substituir em runtime aqui no backend, lendo as env vars que
+# o Railway injeta no Stage 2. Cacheia o HTML processado em memoria.
+_index_html_cache = None
+
+def _render_index_html() -> str:
+    global _index_html_cache
+    if _index_html_cache is not None:
+        return _index_html_cache
+    raw = (_frontend_build / "index.html").read_text(encoding="utf-8")
+    # Lista de env vars que o frontend espera. Vazio se nao definida —
+    # o JS de cada tag verifica isso e nao carrega o script.
+    placeholders = [
+        "REACT_APP_GA_MEASUREMENT_ID",
+        "REACT_APP_CLARITY_PROJECT_ID",
+        "REACT_APP_BACKEND_URL",
+    ]
+    for var in placeholders:
+        raw = raw.replace(f"%{var}%", os.getenv(var, ""))
+    _index_html_cache = raw
+    return _index_html_cache
+
 if _frontend_build.exists():
     from fastapi.staticfiles import StaticFiles
-    from starlette.responses import FileResponse
+    from starlette.responses import FileResponse, HTMLResponse
 
     app.mount("/static", StaticFiles(directory=str(_frontend_build / "static")), name="static-assets")
 
@@ -290,11 +314,11 @@ if _frontend_build.exists():
             return _Response(content=INDEXNOW_KEY, media_type="text/plain")
         # Nunca servir arquivos internos do react-snap como rotas
         if full_path in ("200.html", "404.html") or full_path.startswith("_"):
-            return FileResponse(str(_frontend_build / "index.html"))
+            return HTMLResponse(content=_render_index_html())
         file_path = _frontend_build / full_path
         if full_path and file_path.is_file():
             return FileResponse(str(file_path))
-        return FileResponse(str(_frontend_build / "index.html"))
+        return HTMLResponse(content=_render_index_html())
 
 # ── Middlewares (ordem importa: após rotas, antes do startup) ────────
 app.add_middleware(SecurityHeadersMiddleware)
