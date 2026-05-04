@@ -12,6 +12,11 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import PortalCliente from './pages/PortalCliente';
 import ContratoPublico from './pages/ContratoPublico';
+import ServicoPTAM from './pages/ServicoPTAM';
+import ServicoLaudoTecnico from './pages/ServicoLaudoTecnico';
+import ServicoAvaliacaoRural from './pages/ServicoAvaliacaoRural';
+import ServicoAvaliacaoGarantia from './pages/ServicoAvaliacaoGarantia';
+import ServicoAvaliacaoUrbana from './pages/ServicoAvaliacaoUrbana';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -67,6 +72,11 @@ function App() {
           <ErrorBoundary>
             <Routes>
               <Route path="/" element={<LandingPage />} />
+              <Route path="/servicos/ptam" element={<ServicoPTAM />} />
+              <Route path="/servicos/laudo-tecnico" element={<ServicoLaudoTecnico />} />
+              <Route path="/servicos/avaliacao-rural" element={<ServicoAvaliacaoRural />} />
+              <Route path="/servicos/avaliacao-garantia" element={<ServicoAvaliacaoGarantia />} />
+              <Route path="/servicos/avaliacao-urbana" element={<ServicoAvaliacaoUrbana />} />
               <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
               <Route path="/cadastro" element={<PublicRoute><Register /></PublicRoute>} />
               <Route path="/laudo/:token" element={<PortalCliente />} />
