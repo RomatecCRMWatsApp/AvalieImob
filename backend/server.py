@@ -284,6 +284,10 @@ if _frontend_build.exists():
 
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
+        # IndexNow: serve a chave em texto puro. Precisa estar AQUI dentro
+        # do catch-all senao o roteador serve a home pra qualquer .txt.
+        if full_path == f"{INDEXNOW_KEY}.txt":
+            return _Response(content=INDEXNOW_KEY, media_type="text/plain")
         # Nunca servir arquivos internos do react-snap como rotas
         if full_path in ("200.html", "404.html") or full_path.startswith("_"):
             return FileResponse(str(_frontend_build / "index.html"))
