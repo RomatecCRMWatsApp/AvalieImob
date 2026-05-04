@@ -244,7 +244,7 @@ async def robots():
 # Bing valida a chave acessando https://dominio/{KEY}.txt e o conteudo
 # precisa ser exatamente a chave (texto puro). Tambem servimos no path
 # raiz padrao do protocolo IndexNow.
-INDEXNOW_KEY = "4d342968679b48f4817f345f7baa2881"
+INDEXNOW_KEY = "1c0dea749e32413489e0d037de123c41"
 
 @app.get("/" + INDEXNOW_KEY + ".txt")
 async def indexnow_key_file():
