@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { User, Mail, Lock, Briefcase, ArrowRight, Eye, EyeOff } from 'lucide-react';
-import { Helmet } from 'react-helmet-async';
+import SEO from '../components/common/SEO';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
@@ -42,10 +42,12 @@ const Register = () => {
 
   return (
     <div className="min-h-screen grid lg:grid-cols-2">
-      <Helmet>
-        <title>Criar conta gratis — AvalieImob | Software de PTAM Online</title>
-        <meta name="description" content="Crie sua conta gratuita e emita seu primeiro PTAM em minutos. Conforme NBR 14.653." />
-      </Helmet>
+      <SEO
+        title="Cadastro grátis — Crie sua conta"
+        description="Crie sua conta gratuita no AvalieImob e emita seu primeiro PTAM em minutos. 7 dias grátis sem cartão de crédito. Conforme NBR 14.653."
+        url="https://www.romatecavalieimob.com.br/cadastro"
+        keywords="cadastro AvalieImob, criar conta avaliador, PTAM gratis, teste gratis software avaliacao"
+      />
       <div className="flex items-center justify-center p-6 md:p-12 bg-white order-2 lg:order-1">
         <div className="w-full max-w-md">
           <div className="lg:hidden mb-8 flex items-center gap-3">

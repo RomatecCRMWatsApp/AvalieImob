@@ -1,6 +1,7 @@
 import React from 'react';
 import './App.css';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HelmetProvider } from 'react-helmet-async';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Toaster } from './components/ui/toaster';
 import InstallPrompt from './components/common/InstallPrompt';
@@ -67,29 +68,31 @@ const PublicRoute = ({ children }) => {
 function App() {
   return (
     <div className="App">
-      <AuthProvider>
-        <BrowserRouter>
-          <ErrorBoundary>
-            <Routes>
-              <Route path="/" element={<LandingPage />} />
-              <Route path="/servicos/ptam" element={<ServicoPTAM />} />
-              <Route path="/servicos/laudo-tecnico" element={<ServicoLaudoTecnico />} />
-              <Route path="/servicos/avaliacao-rural" element={<ServicoAvaliacaoRural />} />
-              <Route path="/servicos/avaliacao-garantia" element={<ServicoAvaliacaoGarantia />} />
-              <Route path="/servicos/avaliacao-urbana" element={<ServicoAvaliacaoUrbana />} />
-              <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
-              <Route path="/cadastro" element={<PublicRoute><Register /></PublicRoute>} />
-              <Route path="/laudo/:token" element={<PortalCliente />} />
-              <Route path="/contrato/public/:token" element={<ContratoPublico />} />
-              <Route path="/dashboard/*" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </ErrorBoundary>
-          <Toaster />
-          <InstallPrompt />
-          <RomaIAWidget />
-        </BrowserRouter>
-      </AuthProvider>
+      <HelmetProvider>
+        <AuthProvider>
+          <BrowserRouter>
+            <ErrorBoundary>
+              <Routes>
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/servicos/ptam" element={<ServicoPTAM />} />
+                <Route path="/servicos/laudo-tecnico" element={<ServicoLaudoTecnico />} />
+                <Route path="/servicos/avaliacao-rural" element={<ServicoAvaliacaoRural />} />
+                <Route path="/servicos/avaliacao-garantia" element={<ServicoAvaliacaoGarantia />} />
+                <Route path="/servicos/avaliacao-urbana" element={<ServicoAvaliacaoUrbana />} />
+                <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+                <Route path="/cadastro" element={<PublicRoute><Register /></PublicRoute>} />
+                <Route path="/laudo/:token" element={<PortalCliente />} />
+                <Route path="/contrato/public/:token" element={<ContratoPublico />} />
+                <Route path="/dashboard/*" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </ErrorBoundary>
+            <Toaster />
+            <InstallPrompt />
+            <RomaIAWidget />
+          </BrowserRouter>
+        </AuthProvider>
+      </HelmetProvider>
     </div>
   );
 }
