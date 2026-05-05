@@ -1,5 +1,6 @@
 # ---- Stage 1: Build React frontend ----
-FROM node:20-slim AS frontend-build
+# Node 22+ exigido por camera-controls@3.x (dep transitiva de @react-three/drei).
+FROM node:22-slim AS frontend-build
 
 WORKDIR /app/frontend
 
