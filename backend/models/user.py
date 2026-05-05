@@ -11,6 +11,17 @@ class UserRegister(BaseModel):
     password: str
     role: Optional[str] = "Profissional"
     crea: Optional[str] = ""
+    # Plano SEO/leads v1.0: rastreamento de origem do trafego (UTM tags + page).
+    # Frontend captura em sessionStorage e envia no submit. ZAYRA recebe via
+    # webhook e usa pra notificar o CEO com a origem.
+    utm_source: Optional[str] = None
+    utm_medium: Optional[str] = None
+    utm_campaign: Optional[str] = None
+    utm_content: Optional[str] = None
+    utm_term: Optional[str] = None
+    page_origin: Optional[str] = None
+    referrer: Optional[str] = None
+    phone: Optional[str] = None  # opcional, ZAYRA usa pra auto-resposta WhatsApp
 
 
 class UserLogin(BaseModel):

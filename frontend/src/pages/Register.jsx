@@ -27,7 +27,24 @@ const Register = () => {
     }
     setLoading(true);
     try {
-      await register(form);
+      // v1.0 SEO: captura UTM tags e page_origin pra rastreamento de leads.
+      // ZAYRA recebe via webhook e notifica o CEO em WhatsApp+Telegram com a
+      // origem do trafego (qual artigo/servico converteu o lead).
+      const params = new URLSearchParams(window.location.search);
+      const stored = (() => {
+        try { return JSON.parse(sessionStorage.getItem('utm_data') || '{}'); }
+        catch { return {}; }
+      })();
+      const utm = {
+        utm_source:   params.get('utm_source')   || stored.utm_source   || null,
+        utm_medium:   params.get('utm_medium')   || stored.utm_medium   || null,
+        utm_campaign: params.get('utm_campaign') || stored.utm_campaign || null,
+        utm_content:  params.get('utm_content')  || stored.utm_content  || null,
+        utm_term:     params.get('utm_term')     || stored.utm_term     || null,
+        page_origin:  stored.page_origin || document.referrer || '/',
+        referrer:     document.referrer || null,
+      };
+      await register({ ...form, ...utm });
       nav('/dashboard', { replace: true });
     } catch (err) {
       const msg =

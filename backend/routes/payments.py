@@ -92,6 +92,28 @@ async def payment_webhook(request: Request, db=Depends(get_db)):
                 plan=plan_label,
                 amount=amount,
             ))
+            # Plano SEO/leads v1.0: notifica ZAYRA da nova assinatura.
+            # ZAYRA dispara WhatsApp + Telegram pro CEO ("💰 NOVA ASSINATURA")
+            # e auto-resposta WhatsApp pro cliente agradecendo a assinatura.
+            from services.zayra_webhook import notify_lead
+            asyncio.create_task(notify_lead(
+                event_type="assinatura",
+                name=user_doc.get("name", "Cliente"),
+                email=user_doc.get("email", ""),
+                external_id=user_id,
+                phone=user_doc.get("phone"),
+                role=user_doc.get("role"),
+                crea=user_doc.get("crea") or None,
+                # Reaproveita UTM persistida no doc do user no momento do cadastro
+                utm_source=user_doc.get("utm_source"),
+                utm_medium=user_doc.get("utm_medium"),
+                utm_campaign=user_doc.get("utm_campaign"),
+                page_origin=user_doc.get("page_origin"),
+                referrer=user_doc.get("referrer"),
+                assinatura_plano=plan_id,
+                assinatura_valor=float(amount or 0),
+                payload_raw={"mp_payment_id": mp_payment_id, "plan_label": plan_label},
+            ))
     return {"ok": True}
 
 

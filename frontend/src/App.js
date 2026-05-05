@@ -74,6 +74,28 @@ const PublicRoute = ({ children }) => {
   return children;
 };
 
+// v1.0 SEO/leads: captura UTM tags + page_origin assim que o app monta.
+// Persiste em sessionStorage pra sobreviver a navegacao SPA (usuario pode
+// entrar via /blog/X com utm_source=google, scrollar e so depois clicar em
+// "Cadastrar" na rota /cadastro — sem isso a UTM se perde).
+function captureUtm() {
+  if (typeof window === 'undefined') return;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const utmKeys = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
+    const captured = {};
+    for (const k of utmKeys) {
+      const v = params.get(k);
+      if (v) captured[k] = v;
+    }
+    if (Object.keys(captured).length === 0) return; // nada novo, mantem o que tinha
+    captured.page_origin = window.location.pathname + window.location.search;
+    captured.captured_at = new Date().toISOString();
+    sessionStorage.setItem('utm_data', JSON.stringify(captured));
+  } catch (_e) { /* sessionStorage indisponivel (private mode antigo) — ignora */ }
+}
+captureUtm();
+
 function App() {
   return (
     <div className="App">

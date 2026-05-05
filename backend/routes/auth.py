@@ -16,6 +16,10 @@ except ImportError:
     _email_enabled = False
     async def send_welcome_email(*a, **kw): pass
 
+# Plano SEO/leads v1.0: dispatch fire-and-forget pra ZAYRA quando alguem
+# cadastra. Fail-safe — se ZAYRA estiver offline, cadastro nao quebra.
+from services.zayra_webhook import notify_lead
+
 logger = logging.getLogger("romatec")
 limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -33,9 +37,31 @@ async def register(request: Request, data: UserRegister, db=Depends(get_db)):
     user = User(name=data.name, email=data.email.lower(), role=data.role or "Profissional", crea=data.crea or "")
     doc = user.model_dump()
     doc["password_hash"] = hash_password(data.password)
+    # Persiste UTM no doc do user pra historico/analytics futuros
+    for k in ("utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "page_origin", "referrer", "phone"):
+        v = getattr(data, k, None)
+        if v:
+            doc[k] = v
     await db.users.insert_one(doc)
     token = create_token(user.id)
     asyncio.create_task(send_welcome_email(user.email, user.name))
+    # Plano SEO/leads v1.0: ZAYRA recebe e notifica CEO via WhatsApp+Telegram
+    asyncio.create_task(notify_lead(
+        event_type="cadastro",
+        name=user.name,
+        email=user.email,
+        external_id=user.id,
+        phone=data.phone,
+        role=user.role,
+        crea=user.crea or None,
+        utm_source=data.utm_source,
+        utm_medium=data.utm_medium,
+        utm_campaign=data.utm_campaign,
+        utm_content=data.utm_content,
+        utm_term=data.utm_term,
+        page_origin=data.page_origin,
+        referrer=data.referrer,
+    ))
     return AuthResponse(user=UserPublic(**user.model_dump()), token=token)
 
 
