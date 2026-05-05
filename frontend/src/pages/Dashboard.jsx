@@ -8,6 +8,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { BRAND } from '../mock/mock';
 import RomaIAAvatar from '../components/common/RomaIAAvatar';
+import LgpdBadge from '../components/common/LgpdBadge';
 import { Button } from '../components/ui/button';
 
 import DashOverview from '../components/dashboard/DashOverview';
@@ -363,6 +364,10 @@ const Dashboard = () => {
           >
             <LogOut className="w-4 h-4" /> Sair da conta
           </button>
+          {/* LGPD compliance badge */}
+          <div className="mt-3 flex justify-center">
+            <LgpdBadge size="sm" />
+          </div>
         </div>
       </aside>
 

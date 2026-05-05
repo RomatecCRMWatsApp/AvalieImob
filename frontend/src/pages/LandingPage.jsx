@@ -13,6 +13,7 @@ import Pricing from '../components/landing/Pricing';
 import About from '../components/landing/About';
 import CeoSection from '../components/landing/CeoSection';
 import ImoveisCarousel from '../components/landing/ImoveisCarousel';
+import LgpdSection from '../components/landing/LgpdSection';
 import Footer from '../components/landing/Footer';
 import WhatsAppButton from '../components/landing/WhatsAppButton';
 
@@ -110,6 +111,7 @@ const LandingPage = () => {
           <About />
           <CeoSection />
           <ImoveisCarousel />
+          <LgpdSection />
         </main>
         <Footer />
         <WhatsAppButton />
