@@ -5,7 +5,7 @@ export { CasaResidencial } from './CasaResidencial';
 export { Apartamento } from './Apartamento';
 export { Galpao } from './Galpao';
 export { Comercio } from './Comercio';
-export { Rural } from './Rural';
+export { Sitio } from './Sitio'; // antes Rural; renomeado pra remover overlap com Fazenda
 export { Terreno } from './Terreno';
 export { Fazenda } from './Fazenda';
 export { SalaComercial } from './SalaComercial';
@@ -18,9 +18,9 @@ export const TIPOS_IMOVEIS_META = [
   { key: 'apto',       label: 'Apartamento' },
   { key: 'galpao',     label: 'Galpão Industrial' },
   { key: 'comercio',   label: 'Comércio e Loja' },
-  { key: 'rural',      label: 'Imóvel Rural' },
+  { key: 'sitio',      label: 'Sítio / Pequena Propriedade' },
   { key: 'terreno',    label: 'Terrenos e Lotes' },
-  { key: 'fazenda',    label: 'Propriedade Rural' },
+  { key: 'fazenda',    label: 'Fazenda / Grande Propriedade' },
   { key: 'sala',       label: 'Sala Comercial' },
   { key: 'equipamento',label: 'Equipamentos / Garantia' },
 ];

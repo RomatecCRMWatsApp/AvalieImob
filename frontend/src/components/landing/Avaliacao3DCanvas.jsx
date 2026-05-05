@@ -10,20 +10,51 @@
 //   primary  hsl(155, 68%, 18%)  -> #0d4f3c (verde RomaTec)
 //   accent   hsl(43, 65%, 52%)   -> #c9a84c (dourado)
 //   ciano #00d4ff usado APENAS como light pontual (vibe futurista, nao dominante)
-import React, { Suspense, useEffect, useMemo, useRef } from 'react';
+import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Html, Float } from '@react-three/drei';
+import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useScrollProgress } from './useScrollProgress';
+import {
+  CasaResidencial, Apartamento, Galpao, Comercio, Sitio,
+  Terreno, Fazenda, SalaComercial, Equipamento,
+  TIPOS_IMOVEIS_META,
+} from './imoveis3d';
 
 // === CORES DA MARCA ===
 const COLOR_PRIMARY = '#0d4f3c';   // derivado de hsl(155, 68%, 18%)
 const COLOR_PRIMARY_LIGHT = '#1a6b52';
 const COLOR_ACCENT = '#c9a84c';    // derivado de hsl(43, 65%, 52%)
 const COLOR_CYAN_DETAIL = '#00d4ff'; // ciano so como detalhe / luz futurista
-const COLOR_BG_DARK = '#0a0f0a';
+const COLOR_BG_DARK = '#050a08';   // mais escuro pra harmonizar com gradient
+
+// === SCALES dos icones do grid 3x3 (cena 2 v2) ===
+// Normalizacao visual: alguns icones sao maiores que outros por natureza
+// (SalaComercial 2.0 alto, Terreno 1.4 plano). Aqui a gente equaliza.
+// Constante exposta no topo conforme pedido pra fácil tunning futuro.
+const ICON_SCALES = {
+  CasaResidencial: 1.0,
+  Apartamento:     0.7,
+  Galpao:          0.85,
+  Comercio:        1.0,
+  Sitio:           0.9,
+  Terreno:         1.1,
+  Fazenda:         0.85,
+  SalaComercial:   0.65,
+  Equipamento:     1.0,
+};
+
+// === DEVICE FRACO === reduz ícones de 9 -> 6 quando dispositivo é low-end.
+// Corre uma vez no client. Em SSR/Node retorna false (assume desktop).
+function isLowEndDevice() {
+  if (typeof window === 'undefined') return false;
+  const dpr = window.devicePixelRatio || 1;
+  const cores = navigator.hardwareConcurrency || 4;
+  return dpr < 2 && cores < 4;
+}
 
 // Helper: lerp suave
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -113,103 +144,145 @@ function Cena1PlantaBaixa({ progress, sceneActive }) {
   );
 }
 
-// === CENA 2 === Casa 3D + comparaveis flutuando + linhas de conexao
-//
-// TODO (cena 2 v2): substituir esta funcao Cena2Comparaveis por uma vitrine
-// dos 9 tipos de imovel avaliados (componentes em ./imoveis3d/).
-// Plano de integracao:
-//   1. import { CasaResidencial, Apartamento, Galpao, Comercio, Rural,
-//                Terreno, Fazenda, SalaComercial, Equipamento,
-//                TIPOS_IMOVEIS_META } from './imoveis3d';
-//   2. Animacao em 3 sub-fases (renormalizar progress 0.30..0.70 em 0..1):
-//        sub-fase A (0..0.33):   entrada dispersa (raio 8, posicoes aleatorias)
-//        sub-fase B (0.33..0.66): grid 3x3 frontal (col, row centrados)
-//        sub-fase C (0.66..1):    formacao esferica orbital (Fibonacci sphere)
-//   3. Iluminacao reforcada: ambient 0.25 + directional 1.5 + 3 pointLights
-//      (dourado #c9a84c, ciano #00d4ff, verde marca #0d4f3c)
-//   4. Pos-processamento: yarn add @react-three/postprocessing
-//      <EffectComposer><Bloom intensity 0.7 /><Vignette /></EffectComposer>
-//   5. Atualizar overlay textual da cena 2 com subtitulo dinamico por sub-fase.
-//   6. Performance: reduzir pra 6 icones se devicePixelRatio<2 && hardwareConcurrency<4
-//   7. Camera: { position: [0, 0, 9], fov: 38 }  // mais cinematografico
-//   8. Background: radial-gradient(ellipse at center, #0a1f18, #050a08, #000)
-//
-// Nao mexer enquanto o usuario nao liberar a integracao oficial.
-function Cena2Comparaveis({ progress }) {
+// === CENA 2 v2 === Vitrine 3D dos 9 tipos de imovel avaliados.
+// 3 sub-fases controladas pelo progress global (0.33..0.66 mapeado em 0..1):
+//   A) entrada dispersa (raio 6-8, posicoes aleatorias com delay escalonado)
+//   B) grid 3x3 frontal organizado (col x row centrados)
+//   C) formacao esferica orbital (Fibonacci sphere) com group rotation Y
+function Cena2VitrineImoveis({ progress, lowEnd }) {
   const groupRef = useRef();
-  const linesRef = useRef();
 
-  const comparaveis = useMemo(() => {
-    const arr = [];
-    const N = 24;
-    for (let i = 0; i < N; i += 1) {
-      const angle = (i / N) * Math.PI * 2;
-      const r = 4.5 + Math.random() * 1.8;
-      const y = (Math.random() - 0.5) * 2.5;
-      arr.push({
-        pos: [Math.cos(angle) * r, y, Math.sin(angle) * r],
-        size: 0.18 + Math.random() * 0.18,
-        delay: Math.random() * Math.PI * 2,
-      });
-    }
-    return arr;
-  }, []);
+  // Componentes por ordem canonica do TIPOS_IMOVEIS_META
+  const COMPS_FULL = useMemo(() => [
+    { Comp: CasaResidencial, scale: ICON_SCALES.CasaResidencial, key: 'casa' },
+    { Comp: Apartamento,     scale: ICON_SCALES.Apartamento,     key: 'apto' },
+    { Comp: Galpao,          scale: ICON_SCALES.Galpao,          key: 'galpao' },
+    { Comp: Comercio,        scale: ICON_SCALES.Comercio,        key: 'comercio' },
+    { Comp: Sitio,           scale: ICON_SCALES.Sitio,           key: 'sitio' },
+    { Comp: Terreno,         scale: ICON_SCALES.Terreno,         key: 'terreno' },
+    { Comp: Fazenda,         scale: ICON_SCALES.Fazenda,         key: 'fazenda' },
+    { Comp: SalaComercial,   scale: ICON_SCALES.SalaComercial,   key: 'sala' },
+    { Comp: Equipamento,     scale: ICON_SCALES.Equipamento,     key: 'equipamento' },
+  ], []);
 
-  // Linhas: criadas uma vez, opacity pulsa conforme cena 2 ativa
-  const lineGeo = useMemo(() => {
-    const positions = [];
-    comparaveis.forEach((c) => {
-      positions.push(0, 0, 0, c.pos[0], c.pos[1], c.pos[2]);
+  // Em devices fracos, mostra so 6 (drop apartamento, fazenda, sala — visualmente
+  // mais pesados e tem CasaResidencial / Sitio cobrindo conceitos similares)
+  const COMPS = useMemo(() => (lowEnd ? COMPS_FULL.filter((_, i) => ![1, 6, 7].includes(i)) : COMPS_FULL), [COMPS_FULL, lowEnd]);
+
+  // === POSICOES PRE-COMPUTADAS POR SUB-FASE ===
+  // A) DISPERSAS: aleatorias com seed deterministica via index
+  const posDispersas = useMemo(() => COMPS.map((_, i) => {
+    // Seeds pseudo-aleatorias deterministicas (i*PI, i*GoldenRatio, etc)
+    const a = (i * 1.732) % (Math.PI * 2);
+    const b = (i * 2.236) % (Math.PI * 2);
+    const r = 6.5 + (i % 3) * 0.8;
+    return [
+      Math.cos(a) * r,
+      Math.sin(b) * 3,
+      Math.sin(a) * r * 0.6,
+    ];
+  }), [COMPS]);
+
+  // B) GRID 3X3 FRONTAL (ou 3x2 / 2x3 quando 6 icones)
+  const posGrid = useMemo(() => {
+    const cols = COMPS.length === 9 ? 3 : 3;
+    const gap = 2.4;
+    return COMPS.map((_, i) => {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const totalRows = Math.ceil(COMPS.length / cols);
+      return [
+        (col - (cols - 1) / 2) * gap,
+        ((totalRows - 1) / 2 - row) * gap,
+        0,
+      ];
     });
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    return geo;
-  }, [comparaveis]);
+  }, [COMPS]);
 
-  useFrame((state) => {
+  // C) FORMACAO ESFERICA ORBITAL (Fibonacci sphere distribution)
+  const posEsfera = useMemo(() => {
+    const r = 3.4;
+    const N = COMPS.length;
+    const phi0 = Math.PI * (1 + Math.sqrt(5)); // golden angle
+    return COMPS.map((_, i) => {
+      const phi = Math.acos(1 - (2 * (i + 0.5)) / N);
+      const theta = phi0 * (i + 0.5);
+      return [
+        r * Math.cos(theta) * Math.sin(phi),
+        r * Math.sin(theta) * Math.sin(phi),
+        r * Math.cos(phi),
+      ];
+    });
+  }, [COMPS]);
+
+  // Refs por icone pra anim individual (lerp de posicao)
+  const itemRefs = useRef([]);
+  // Inicializa refs (uma por componente)
+  if (itemRefs.current.length !== COMPS.length) {
+    itemRefs.current = Array.from({ length: COMPS.length }, () => React.createRef());
+  }
+
+  useFrame(() => {
     if (!groupRef.current) return;
-    // Cena 2 visivel quando progress entre 0.33 e 0.66 (com fade dos lados)
-    const t2 = sceneRange(progress, 0.30, 0.40); // fade-in
-    const t2out = 1 - sceneRange(progress, 0.62, 0.75); // fade-out
-    const visibility = Math.min(t2, t2out);
-
+    // Visibilidade da cena 2: fade-in 0.30..0.40, fade-out 0.62..0.72
+    const fadeIn = sceneRange(progress, 0.30, 0.40);
+    const fadeOut = 1 - sceneRange(progress, 0.62, 0.72);
+    const visibility = Math.min(fadeIn, fadeOut);
     groupRef.current.scale.setScalar(lerp(groupRef.current.scale.x, visibility, 0.1));
 
-    // Comparaveis pulsam levemente
-    if (linesRef.current) {
-      linesRef.current.material.opacity = lerp(
-        linesRef.current.material.opacity,
-        visibility * 0.45,
-        0.1
-      );
-    }
+    // Sub-fase: 0..1 dentro de 0.33..0.66
+    const subT = sceneRange(progress, 0.33, 0.66);
+
+    // Determinar pesos das 3 sub-fases (cross-fade entre A->B e B->C)
+    // A) 0.00..0.33 -> peso 1..0
+    // B) 0.33..0.66 -> peso 0..1..0
+    // C) 0.66..1.00 -> peso 0..1
+    const wA = 1 - smoothstep(subT, 0.0, 0.40);
+    const wC = smoothstep(subT, 0.55, 0.95);
+    const wB = Math.max(0, 1 - wA - wC);
+
+    // Atualiza posicao de cada icone como blend dos 3 alvos
+    COMPS.forEach((_, i) => {
+      const ref = itemRefs.current[i];
+      if (!ref?.current) return;
+      const a = posDispersas[i];
+      const b = posGrid[i];
+      const c = posEsfera[i];
+      const tx = a[0] * wA + b[0] * wB + c[0] * wC;
+      const ty = a[1] * wA + b[1] * wB + c[1] * wC;
+      const tz = a[2] * wA + b[2] * wB + c[2] * wC;
+      // Lerp suave em vez de set direto
+      ref.current.position.x = lerp(ref.current.position.x, tx, 0.12);
+      ref.current.position.y = lerp(ref.current.position.y, ty, 0.12);
+      ref.current.position.z = lerp(ref.current.position.z, tz, 0.12);
+      // Rotacao Y de cada item (mais intenso na sub-fase C)
+      ref.current.rotation.y += 0.005 + 0.015 * wC;
+    });
+
+    // Rotacao Y do grupo pai (so na sub-fase C, "orbita")
+    groupRef.current.rotation.y = lerp(groupRef.current.rotation.y, wC * Math.PI * 0.5, 0.05);
   });
 
   return (
     <group ref={groupRef} scale={0}>
-      {/* Linhas do centro pra cada comparavel */}
-      <lineSegments ref={linesRef}>
-        <primitive object={lineGeo} attach="geometry" />
-        <lineBasicMaterial color={COLOR_CYAN_DETAIL} transparent opacity={0} />
-      </lineSegments>
-
-      {/* Comparaveis flutuando */}
-      {comparaveis.map((c, i) => (
-        <Float key={i} speed={1.2} rotationIntensity={0.4} floatIntensity={0.6}>
-          <mesh position={c.pos}>
-            <boxGeometry args={[c.size, c.size, c.size]} />
-            <meshStandardMaterial
-              color={COLOR_ACCENT}
-              metalness={0.6}
-              roughness={0.3}
-              emissive={COLOR_ACCENT}
-              emissiveIntensity={0.15}
-            />
-          </mesh>
-        </Float>
-      ))}
+      {COMPS.map((item, i) => {
+        const Comp = item.Comp;
+        return (
+          <group key={item.key} ref={itemRefs.current[i]} position={posDispersas[i]}>
+            <Float speed={1.4} rotationIntensity={0.15} floatIntensity={0.3}>
+              <Comp scale={item.scale} />
+            </Float>
+          </group>
+        );
+      })}
     </group>
   );
+}
+
+// Helper: smoothstep classico (interpolacao S-shaped entre edge0 e edge1)
+function smoothstep(x, edge0, edge1) {
+  const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+  return t * t * (3 - 2 * t);
 }
 
 // === CENA 3 === Documento PTAM + selo dourado + contador R$
@@ -299,26 +372,35 @@ function Cena3Documento({ progress }) {
   );
 }
 
-function Scene({ progress }) {
+function Scene({ progress, lowEnd }) {
   const sceneActive = progress > 0.02 && progress < 0.98;
   return (
     <>
-      <fog attach="fog" args={[COLOR_BG_DARK, 8, 22]} />
+      <fog attach="fog" args={[COLOR_BG_DARK, 9, 26]} />
       <color attach="background" args={[COLOR_BG_DARK]} />
 
-      <ambientLight intensity={0.4} />
-      <directionalLight position={[5, 8, 5]} intensity={0.8} color={'#ffffff'} castShadow />
-      <pointLight position={[-6, 3, 4]} intensity={0.6} color={COLOR_CYAN_DETAIL} />
-      <pointLight position={[6, -2, -4]} intensity={0.4} color={COLOR_ACCENT} />
+      {/* Iluminacao reforcada (cena 2 v2 tem 9 objetos detalhados) */}
+      <ambientLight intensity={0.25} />
+      <directionalLight position={[5, 8, 5]} intensity={1.5} color={'#ffffff'} castShadow />
+      <pointLight position={[-4, 3, -4]} intensity={1.8} color={COLOR_ACCENT} />
+      <pointLight position={[ 4, -2, 4]} intensity={1.2} color={COLOR_CYAN_DETAIL} />
+      <pointLight position={[ 0,  5, 0]} intensity={0.8} color={COLOR_PRIMARY} />
 
       <Cena1PlantaBaixa progress={progress} sceneActive={sceneActive} />
-      <Cena2Comparaveis progress={progress} />
+      <Cena2VitrineImoveis progress={progress} lowEnd={lowEnd} />
       <Cena3Documento progress={progress} />
+
+      {/* Pos-processamento: Bloom + Vignette pra vibe cinematografica */}
+      <EffectComposer multisampling={0} disableNormalPass>
+        <Bloom intensity={0.7} luminanceThreshold={0.4} luminanceSmoothing={0.85} mipmapBlur />
+        <Vignette offset={0.15} darkness={0.55} />
+      </EffectComposer>
     </>
   );
 }
 
 // === OVERLAY DE TEXTO ===
+// Cena 2 agora tem subtitulo dinamico por sub-fase (A: dispersa, B: grid, C: orbita)
 const OVERLAYS = [
   {
     n: '01',
@@ -327,8 +409,12 @@ const OVERLAYS = [
   },
   {
     n: '02',
-    title: 'Cruzamos com o mercado',
-    desc: 'Análise estatística conforme NBR 14.653 com amostras de imóveis comparáveis e tratamento Chauvenet.',
+    title: 'Avaliamos qualquer tipo de imóvel',
+    descs: [
+      'Urbanos, rurais, residenciais, comerciais...', // sub-fase A
+      '9 categorias cobertas pelo sistema, conforme NBR 14.653.', // sub-fase B
+      'Análise especializada para cada perfil de imóvel.', // sub-fase C
+    ],
   },
   {
     n: '03',
@@ -343,13 +429,24 @@ function getActiveCena(p) {
   return 2;
 }
 
+// Retorna 0 (A), 1 (B) ou 2 (C) conforme posicao dentro de 0.33..0.66
+function getSubFase(p) {
+  if (p < 0.33 || p >= 0.66) return 1; // fallback grid
+  const t = (p - 0.33) / (0.66 - 0.33);
+  if (t < 0.32) return 0;
+  if (t < 0.66) return 1;
+  return 2;
+}
+
 export default function Avaliacao3DCanvas({ onSkip }) {
   const sectionRef = useRef(null);
   const progress = useScrollProgress(sectionRef);
   const cena = getActiveCena(progress);
+  const [lowEnd, setLowEnd] = useState(false);
 
   // GSAP ScrollTrigger registrado dentro do useEffect (evita SSR/hydration issues)
   useEffect(() => {
+    setLowEnd(isLowEndDevice());
     gsap.registerPlugin(ScrollTrigger);
     // ScrollTrigger.refresh garante que mudancas de DOM (lazy load do canvas)
     // sejam recalculadas. Isso evita "trigger congelado" caso o componente
@@ -362,6 +459,10 @@ export default function Avaliacao3DCanvas({ onSkip }) {
     };
   }, []);
 
+  // Subtitulo dinamico da cena 2 (cross-fade entre as 3 sub-fases via state derivado)
+  const cena2Sub = cena === 1 ? OVERLAYS[1].descs[getSubFase(progress)] : null;
+  const overlayDesc = cena === 1 ? cena2Sub : OVERLAYS[cena].desc;
+
   return (
     <section
       ref={sectionRef}
@@ -369,7 +470,8 @@ export default function Avaliacao3DCanvas({ onSkip }) {
       style={{
         position: 'relative',
         height: '300vh',
-        background: COLOR_BG_DARK,
+        // Background gradient esverdeado (mais cinematografico que cor solida)
+        background: 'radial-gradient(ellipse at center, #0a1f18 0%, #050a08 60%, #000000 100%)',
       }}
     >
       <div style={{ position: 'sticky', top: 0, height: '100vh', overflow: 'hidden' }}>
@@ -398,15 +500,16 @@ export default function Avaliacao3DCanvas({ onSkip }) {
           Pular animação ↓
         </button>
 
-        {/* Canvas 3D */}
+        {/* Canvas 3D — camera mais cinematografica (fov 38, position [0,0,9]) */}
         <Canvas
-          camera={{ position: [0, 1.8, 9], fov: 45 }}
+          camera={{ position: [0, 0, 9], fov: 38 }}
           dpr={[1, 2]}
           gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
           style={{ position: 'absolute', inset: 0 }}
+          shadows
         >
           <Suspense fallback={null}>
-            <Scene progress={progress} />
+            <Scene progress={progress} lowEnd={lowEnd} />
           </Suspense>
         </Canvas>
 
@@ -460,7 +563,7 @@ export default function Avaliacao3DCanvas({ onSkip }) {
                   maxWidth: 420,
                 }}
               >
-                {OVERLAYS[cena].desc}
+                {overlayDesc}
               </p>
             </div>
           </div>

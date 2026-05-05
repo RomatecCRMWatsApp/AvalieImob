@@ -3,7 +3,7 @@
 // perimetro tracejadas + marcador "M²" via Html no centro.
 import React, { useMemo } from 'react';
 import * as THREE from 'three';
-import { Html } from '@react-three/drei';
+import { Text } from '@react-three/drei';
 
 const COLOR_GROUND = '#5a4a3a';    // marrom terra
 const COLOR_STAKE = '#c9a84c';     // dourado (estacas)
@@ -62,21 +62,21 @@ export function Terreno({ scale = 1, ...props }) {
         <lineBasicMaterial color={COLOR_LINE} transparent opacity={0.7} linewidth={1} />
       </lineSegments>
 
-      {/* Marcador M2 centralizado */}
-      <Html center transform position={[0, 0.05, 0]} rotation={[-Math.PI / 2, 0, 0]} occlude={false}>
-        <div style={{
-          color: COLOR_STAKE,
-          fontWeight: 900,
-          fontSize: 12,
-          letterSpacing: '0.05em',
-          fontFamily: 'system-ui, sans-serif',
-          textShadow: '0 0 6px rgba(0,212,255,0.4)',
-          pointerEvents: 'none',
-          whiteSpace: 'nowrap',
-        }}>
-          M²
-        </div>
-      </Html>
+      {/* Marcador M² centralizado — Text 3D nativo (recebe Bloom + nao quebra
+          em transformacoes/orbita, ao contrario do Html). */}
+      <Text
+        position={[0, 0.05, 0]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        fontSize={0.25}
+        color={COLOR_STAKE}
+        anchorX="center"
+        anchorY="middle"
+        outlineWidth={0.008}
+        outlineColor="#000000"
+        outlineOpacity={0.6}
+      >
+        M²
+      </Text>
     </group>
   );
 }

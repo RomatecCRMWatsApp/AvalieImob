@@ -93,6 +93,40 @@ export function Equipamento({ scale = 1, ...props }) {
           roughness={0.15}
         />
       </mesh>
+
+      {/* === CADEADO DOURADO no topo do equipamento ===
+          Comunica imediatamente "garantia / bem registrado / penhor" — caso
+          de uso central do AvalieImob (avaliacao de garantias bancarias).
+          Composicao: corpo (Box) + arco (TorusGeometry meio-arco em cima). */}
+      <group position={[0.25, 0.62, 0]} scale={0.2}>
+        {/* Corpo do cadeado */}
+        <mesh castShadow frustumCulled>
+          <boxGeometry args={[0.7, 0.55, 0.35]} />
+          <meshStandardMaterial
+            color={COLOR_GEAR}
+            metalness={0.92}
+            roughness={0.18}
+            emissive={COLOR_GEAR}
+            emissiveIntensity={0.25}
+          />
+        </mesh>
+        {/* Furo central (cilindro pequeno escuro) */}
+        <mesh position={[0, 0.05, 0.18]} frustumCulled>
+          <cylinderGeometry args={[0.08, 0.08, 0.06, 12]} />
+          <meshStandardMaterial color="#3a2a10" metalness={0.6} roughness={0.5} />
+        </mesh>
+        {/* Arco do cadeado (meio-toro voltado pra cima) */}
+        <mesh position={[0, 0.42, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow frustumCulled>
+          <torusGeometry args={[0.22, 0.07, 8, 16, Math.PI]} />
+          <meshStandardMaterial
+            color={COLOR_GEAR}
+            metalness={0.95}
+            roughness={0.15}
+            emissive={COLOR_GEAR}
+            emissiveIntensity={0.2}
+          />
+        </mesh>
+      </group>
     </group>
   );
 }

@@ -36,15 +36,15 @@ const STEPS = [
 // Os 9 tipos de imovel — espelham os componentes 3D em /imoveis3d/.
 // Icones Lucide escolhidos para serem visualmente distinguiveis no mobile.
 const TIPOS = [
-  { icon: Home,      label: 'Residencial Urbano',     accent: false },
-  { icon: Building,  label: 'Apartamento',            accent: false },
-  { icon: Warehouse, label: 'Galpão Industrial',      accent: false },
-  { icon: Store,     label: 'Comércio e Loja',        accent: false },
-  { icon: Trees,     label: 'Imóvel Rural',           accent: false },
-  { icon: Map,       label: 'Terrenos e Lotes',       accent: true  }, // destaque
-  { icon: TreePine,  label: 'Propriedade Rural',      accent: false },
-  { icon: Building2, label: 'Sala Comercial',         accent: false },
-  { icon: Cog,       label: 'Equipamentos / Garantia',accent: false },
+  { icon: Home,      label: 'Residencial Urbano',          accent: false },
+  { icon: Building,  label: 'Apartamento',                 accent: false },
+  { icon: Warehouse, label: 'Galpão Industrial',           accent: false },
+  { icon: Store,     label: 'Comércio e Loja',             accent: false },
+  { icon: Trees,     label: 'Sítio / Pequena Propriedade', accent: false },
+  { icon: Map,       label: 'Terrenos e Lotes',            accent: true  }, // destaque
+  { icon: TreePine,  label: 'Fazenda / Grande Propriedade',accent: false },
+  { icon: Building2, label: 'Sala Comercial',              accent: false },
+  { icon: Cog,       label: 'Equipamentos / Garantia',     accent: false },
 ];
 
 export default function Avaliacao3DFallback() {
