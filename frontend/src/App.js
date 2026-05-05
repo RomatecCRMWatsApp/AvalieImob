@@ -110,6 +110,14 @@ function App() {
                 <Route path="/servicos/avaliacao-rural" element={<ServicoAvaliacaoRural />} />
                 <Route path="/servicos/avaliacao-garantia" element={<ServicoAvaliacaoGarantia />} />
                 <Route path="/servicos/avaliacao-urbana" element={<ServicoAvaliacaoUrbana />} />
+                {/* SEO v1.1 — aliases curtos pra capturar buscas diretas tipo "ptam" */}
+                <Route path="/ptam" element={<ServicoPTAM />} />
+                <Route path="/laudo-tecnico" element={<ServicoLaudoTecnico />} />
+                <Route path="/avaliacao-rural" element={<ServicoAvaliacaoRural />} />
+                <Route path="/avaliacao-garantia" element={<ServicoAvaliacaoGarantia />} />
+                <Route path="/avaliacao-urbana" element={<ServicoAvaliacaoUrbana />} />
+                <Route path="/avaliacao-imovel" element={<ServicoAvaliacaoUrbana />} />
+                <Route path="/avaliacao-imobiliaria" element={<ServicoAvaliacaoUrbana />} />
                 <Route path="/blog" element={<Blog />} />
                 <Route path="/blog/como-fazer-ptam-passo-a-passo-nbr-14653" element={<BlogPostComoFazerPTAM />} />
                 <Route path="/blog/diferenca-ptam-laudo-avaliacao-imobiliaria" element={<BlogPostPtamLaudo />} />

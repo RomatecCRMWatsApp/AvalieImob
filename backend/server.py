@@ -191,11 +191,14 @@ async def sitemap():
         ("/",                            "1.0", "weekly"),
         ("/sobre",                       "0.8", "monthly"),
         ("/planos",                      "0.9", "monthly"),
-        ("/servicos/ptam",               "0.9", "monthly"),
-        ("/servicos/laudo-tecnico",      "0.9", "monthly"),
-        ("/servicos/avaliacao-rural",    "0.9", "monthly"),
-        ("/servicos/avaliacao-garantia", "0.9", "monthly"),
-        ("/servicos/avaliacao-urbana",   "0.9", "monthly"),
+        # SEO v1.1 — URLs curtas viraram canonicas. /servicos/* fazem 301 pra elas.
+        ("/ptam",                        "1.0", "weekly"),
+        ("/laudo-tecnico",               "0.9", "monthly"),
+        ("/avaliacao-rural",             "0.9", "monthly"),
+        ("/avaliacao-garantia",          "0.9", "monthly"),
+        ("/avaliacao-urbana",            "0.9", "monthly"),
+        ("/avaliacao-imovel",            "1.0", "weekly"),
+        ("/avaliacao-imobiliaria",       "1.0", "weekly"),
         ("/blog",                        "0.8", "daily"),
         ("/blog/como-fazer-ptam-passo-a-passo-nbr-14653",           "0.8", "monthly"),
         ("/blog/diferenca-ptam-laudo-avaliacao-imobiliaria",         "0.8", "monthly"),
@@ -306,9 +309,21 @@ def _render_index_html() -> str:
 
 if _frontend_build.exists():
     from fastapi.staticfiles import StaticFiles
-    from starlette.responses import FileResponse, HTMLResponse
+    from starlette.responses import FileResponse, HTMLResponse, RedirectResponse
 
     app.mount("/static", StaticFiles(directory=str(_frontend_build / "static")), name="static-assets")
+
+    # SEO v1.1 — redirect 301 das URLs antigas /servicos/* para aliases curtos.
+    # URLs curtas rankeiam melhor (PTAM, avaliacao-imovel etc). 301 transfere
+    # page rank pras novas. Mantem /servicos/ptam funcionando via redirect
+    # pra nao quebrar links externos ja existentes.
+    _SEO_REDIRECTS_301 = {
+        "servicos/ptam": "/ptam",
+        "servicos/laudo-tecnico": "/laudo-tecnico",
+        "servicos/avaliacao-rural": "/avaliacao-rural",
+        "servicos/avaliacao-garantia": "/avaliacao-garantia",
+        "servicos/avaliacao-urbana": "/avaliacao-urbana",
+    }
 
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
@@ -316,6 +331,9 @@ if _frontend_build.exists():
         # do catch-all senao o roteador serve a home pra qualquer .txt.
         if full_path == f"{INDEXNOW_KEY}.txt":
             return _Response(content=INDEXNOW_KEY, media_type="text/plain")
+        # SEO: redirect 301 pra URLs curtas
+        if full_path in _SEO_REDIRECTS_301:
+            return RedirectResponse(url=_SEO_REDIRECTS_301[full_path], status_code=301)
         # Nunca servir arquivos internos do react-snap como rotas
         if full_path in ("200.html", "404.html") or full_path.startswith("_"):
             return HTMLResponse(content=_render_index_html())

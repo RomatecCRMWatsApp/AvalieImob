@@ -165,7 +165,7 @@ export default function BlogPostTemplate({
                 <h3 style={styles.h3Sec}>Serviços relacionados</h3>
                 <div style={styles.linksInternos}>
                   {servicosRelacionados.map(s => (
-                    <Link key={s.slug} to={`/servicos/${s.slug}`} style={styles.linkInterno}>
+                    <Link key={s.slug} to={`/${s.slug}`} style={styles.linkInterno}>
                       → {s.titulo}
                     </Link>
                   ))}

@@ -25,7 +25,8 @@ export default function ServicoTemplate({
   ctaTexto,
   palavrasChave,
 }) {
-  const url = `${BASE}/servicos/${slug}`;
+  // SEO v1.1 — URL canonica curta (/ptam, /laudo-tecnico). /servicos/* faz 301.
+  const url = `${BASE}/${slug}`;
   const ogImage = `${BASE}/brand/banner.png`;
 
   const serviceSchema = {
@@ -38,9 +39,17 @@ export default function ServicoTemplate({
       '@type': 'Organization',
       name: 'RomaTec Consultoria Total',
       url: BASE,
+      logo: `${BASE}/brand/logo.png`,
     },
     areaServed: { '@type': 'Country', name: 'Brasil' },
     serviceType: titulo,
+    offers: {
+      '@type': 'Offer',
+      price: '49.00',
+      priceCurrency: 'BRL',
+      availability: 'https://schema.org/InStock',
+      url: `${BASE}/cadastro`,
+    },
   };
 
   const faqSchema = faq.length > 0 ? {
@@ -52,6 +61,17 @@ export default function ServicoTemplate({
       acceptedAnswer: { '@type': 'Answer', text: f.a },
     })),
   } : null;
+
+  // SEO v1.1 — BreadcrumbList ajuda Google a entender hierarquia
+  const breadcrumbSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Início', item: BASE },
+      { '@type': 'ListItem', position: 2, name: 'Serviços', item: `${BASE}/#servicos` },
+      { '@type': 'ListItem', position: 3, name: titulo, item: url },
+    ],
+  };
 
   return (
     <>
@@ -73,6 +93,7 @@ export default function ServicoTemplate({
         <link rel="alternate" hrefLang="pt-BR" href={url} />
         <script type="application/ld+json">{JSON.stringify(serviceSchema)}</script>
         {faqSchema && <script type="application/ld+json">{JSON.stringify(faqSchema)}</script>}
+        <script type="application/ld+json">{JSON.stringify(breadcrumbSchema)}</script>
       </Helmet>
 
       <main style={styles.main}>

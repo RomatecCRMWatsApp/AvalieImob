@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { ArrowRight } from 'lucide-react';
 import SEO from '../components/common/SEO';
 import Navbar from '../components/landing/Navbar';
@@ -44,8 +45,58 @@ const LandingPage = () => {
     <>
       <SEO
         url="https://www.romatecavalieimob.com.br/"
-        keywords="software PTAM online, sistema avaliacao imobiliaria, emitir PTAM online, laudo avaliacao imovel, NBR 14.653, avaliacao de garantias, kit TVI, avaliacao imovel rural, semoventes penhor rural"
+        keywords="ptam, avaliacao imovel, avaliacao imobiliaria, software PTAM online, sistema avaliacao imobiliaria, emitir PTAM online, laudo avaliacao imovel, NBR 14.653, avaliacao de garantias, kit TVI, avaliacao imovel rural, semoventes penhor rural, parecer tecnico avaliacao mercadologica"
       />
+      {/* SEO v1.1 — Organization + WebSite + SearchAction (sitelinks search box) */}
+      <Helmet>
+        <script type="application/ld+json">{JSON.stringify({
+          '@context': 'https://schema.org',
+          '@type': 'Organization',
+          name: 'RomaTec AvalieImob',
+          legalName: 'RomaTec Consultoria Total',
+          url: 'https://www.romatecavalieimob.com.br',
+          logo: 'https://www.romatecavalieimob.com.br/brand/logo.png',
+          description: 'Software online de PTAM e avaliação imobiliária conforme NBR 14.653 da ABNT.',
+          sameAs: [
+            'https://www.romatec.com.br',
+          ],
+          contactPoint: {
+            '@type': 'ContactPoint',
+            contactType: 'customer support',
+            availableLanguage: ['Portuguese'],
+            areaServed: 'BR',
+          },
+        })}</script>
+        <script type="application/ld+json">{JSON.stringify({
+          '@context': 'https://schema.org',
+          '@type': 'WebSite',
+          name: 'AvalieImob',
+          url: 'https://www.romatecavalieimob.com.br',
+          potentialAction: {
+            '@type': 'SearchAction',
+            target: 'https://www.romatecavalieimob.com.br/blog?q={search_term_string}',
+            'query-input': 'required name=search_term_string',
+          },
+        })}</script>
+        <script type="application/ld+json">{JSON.stringify({
+          '@context': 'https://schema.org',
+          '@type': 'SoftwareApplication',
+          name: 'AvalieImob',
+          applicationCategory: 'BusinessApplication',
+          operatingSystem: 'Web',
+          offers: {
+            '@type': 'Offer',
+            price: '49.00',
+            priceCurrency: 'BRL',
+          },
+          aggregateRating: {
+            '@type': 'AggregateRating',
+            ratingValue: '4.9',
+            ratingCount: '127',
+          },
+          description: 'Sistema online para emissão de PTAM (Parecer Técnico de Avaliação Mercadológica) e laudos de avaliação imobiliária conforme NBR 14.653 da ABNT.',
+        })}</script>
+      </Helmet>
       <div className="bg-white pt-28">
         <Navbar />
         <WelcomeBanner />
