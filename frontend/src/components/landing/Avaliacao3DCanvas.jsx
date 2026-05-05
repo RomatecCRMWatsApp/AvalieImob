@@ -114,6 +114,27 @@ function Cena1PlantaBaixa({ progress, sceneActive }) {
 }
 
 // === CENA 2 === Casa 3D + comparaveis flutuando + linhas de conexao
+//
+// TODO (cena 2 v2): substituir esta funcao Cena2Comparaveis por uma vitrine
+// dos 9 tipos de imovel avaliados (componentes em ./imoveis3d/).
+// Plano de integracao:
+//   1. import { CasaResidencial, Apartamento, Galpao, Comercio, Rural,
+//                Terreno, Fazenda, SalaComercial, Equipamento,
+//                TIPOS_IMOVEIS_META } from './imoveis3d';
+//   2. Animacao em 3 sub-fases (renormalizar progress 0.30..0.70 em 0..1):
+//        sub-fase A (0..0.33):   entrada dispersa (raio 8, posicoes aleatorias)
+//        sub-fase B (0.33..0.66): grid 3x3 frontal (col, row centrados)
+//        sub-fase C (0.66..1):    formacao esferica orbital (Fibonacci sphere)
+//   3. Iluminacao reforcada: ambient 0.25 + directional 1.5 + 3 pointLights
+//      (dourado #c9a84c, ciano #00d4ff, verde marca #0d4f3c)
+//   4. Pos-processamento: yarn add @react-three/postprocessing
+//      <EffectComposer><Bloom intensity 0.7 /><Vignette /></EffectComposer>
+//   5. Atualizar overlay textual da cena 2 com subtitulo dinamico por sub-fase.
+//   6. Performance: reduzir pra 6 icones se devicePixelRatio<2 && hardwareConcurrency<4
+//   7. Camera: { position: [0, 0, 9], fov: 38 }  // mais cinematografico
+//   8. Background: radial-gradient(ellipse at center, #0a1f18, #050a08, #000)
+//
+// Nao mexer enquanto o usuario nao liberar a integracao oficial.
 function Cena2Comparaveis({ progress }) {
   const groupRef = useRef();
   const linesRef = useRef();
