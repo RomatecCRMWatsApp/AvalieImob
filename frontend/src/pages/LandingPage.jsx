@@ -6,6 +6,7 @@ import Navbar from '../components/landing/Navbar';
 import Hero from '../components/landing/Hero';
 import Features from '../components/landing/Features';
 import Services from '../components/landing/Services';
+import Avaliacao3D from '../components/landing/Avaliacao3D';
 import Flow from '../components/landing/Flow';
 import Pricing from '../components/landing/Pricing';
 import About from '../components/landing/About';
@@ -52,6 +53,7 @@ const LandingPage = () => {
           <Hero />
           <Features />
           <Services />
+          <Avaliacao3D />
           <Flow />
           <Pricing />
           <About />
