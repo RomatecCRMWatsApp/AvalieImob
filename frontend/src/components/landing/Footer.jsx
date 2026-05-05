@@ -5,6 +5,7 @@ import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
 import { useToast } from '../../hooks/use-toast';
 import { BRAND } from '../../mock/mock';
+import LgpdBadge from '../common/LgpdBadge';
 
 const SPECIALISTS = [
   {
@@ -154,6 +155,8 @@ const Footer = () => {
             </div>
           </div>
           <div className="flex flex-col sm:flex-row items-center gap-4">
+            {/* v1: badge LGPD — conformidade com a Lei 13.709/2018 */}
+            <LgpdBadge size="md" />
             <div className="flex items-center gap-2 text-xs text-emerald-300">
               <Phone className="w-3.5 h-3.5 text-emerald-400" />
               <span>Jose Romario: (99) 9 9181-1246</span>
