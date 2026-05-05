@@ -282,18 +282,20 @@ const Dashboard = () => {
       <aside
         className={`fixed lg:sticky top-0 inset-y-0 left-0 z-40 w-72 flex flex-col transition-transform duration-300 h-screen
                     ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
-        style={{ background: DARK_GREEN }}
+        style={{
+          background: `linear-gradient(180deg, #ffffff 0%, #ffffff 140px, #d8e8dc 200px, #5a8166 260px, ${DARK_GREEN} 340px)`,
+        }}
       >
-        {/* Logo */}
-        <div className="px-3 py-4 flex items-center justify-between border-b" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
+        {/* Logo (sobre fundo branco do gradiente — sem corte grosseiro) */}
+        <div className="px-3 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
           <Link to="/dashboard" className="flex items-center flex-1" onClick={() => setMobileOpen(false)}>
             <img src={BRAND.logo} alt="AvalieImob" className="h-28 w-full object-contain object-left" />
           </Link>
           <button
-            className="lg:hidden w-7 h-7 rounded-lg flex items-center justify-center hover:bg-white/10 transition-colors"
+            className="lg:hidden w-7 h-7 rounded-lg flex items-center justify-center hover:bg-black/5 transition-colors"
             onClick={() => setMobileOpen(false)}
           >
-            <X className="w-4 h-4 text-white" />
+            <X className="w-4 h-4" style={{ color: DARK_GREEN }} />
           </button>
         </div>
 
