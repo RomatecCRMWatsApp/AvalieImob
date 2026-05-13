@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs ls *)",
+      "mcp__obsidian__create",
+      "mcp__obsidian__get_workspace_files",
+      "Bash(mkdir -p 'C:/Users/Ronicley Pinto/Documents/ROMATEC_AVALIEIMOB_/ROMATECAVALIEIMOB/00-Overview')",
+      "Bash(mkdir -p 'C:/Users/Ronicley Pinto/Documents/ROMATEC_AVALIEIMOB_/ROMATECAVALIEIMOB/01-Banco de Dados')",
+      "Bash(mkdir -p 'C:/Users/Ronicley Pinto/Documents/ROMATEC_AVALIEIMOB_/ROMATECAVALIEIMOB/02-Backend')",
+      "Bash(mkdir -p 'C:/Users/Ronicley Pinto/Documents/ROMATEC_AVALIEIMOB_/ROMATECAVALIEIMOB/03-Frontend')",
+      "Bash(mkdir -p 'C:/Users/Ronicley Pinto/Documents/ROMATEC_AVALIEIMOB_/ROMATECAVALIEIMOB/04-Roadmap')",
+      "mcp__obsidian__str_replace",
+      "Bash(claude mcp *)"
+    ]
+  }
+}

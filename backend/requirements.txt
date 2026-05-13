@@ -37,3 +37,10 @@ httpx>=0.27.0
 fake-useragent>=1.5.1
 beautifulsoup4>=4.12.0
 lxml>=5.0.0
+# ── Assinatura Digital ICP-Brasil PAdES ──────────────────────
+pyhanko>=0.25.0
+pyhanko-certvalidator>=0.26.0
+qrcode[pil]>=7.4.2
+pypdf>=4.0.0
+# ── Recibo por extenso (opcional) ──────────────────────────────
+num2words>=0.5.13

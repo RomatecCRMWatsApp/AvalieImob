@@ -32,6 +32,15 @@ from models.contrato import (
     ContratoBase, Contrato,
     TIPOS_CONTRATO,
 )
+from models.certificado import (
+    CertificadoBase, Certificado, CertificadoPublic,
+)
+from models.integracoes import (
+    IntegracoesBase, Integracoes, IntegracoesPublic, mascarar_token,
+)
+from models.recibo import (
+    ReciboBase, Recibo, ReciboCreate, ReciboUpdate, TIPOS_RECIBO, FORMAS_PAGAMENTO,
+)
 
 __all__ = [
     "_id", "_now",
@@ -52,11 +61,13 @@ __all__ = [
     "VistoriaBase", "Vistoria",
     "VistoriaPhoto", "VistoriaSignature", "VistoriaShare",
     "PhotoUploadRequest", "SignatureRequest",
-    # Contratos
     "PessoaFisica", "PessoaJuridica", "Parte", "Corretor",
     "ObjetoContrato", "ParcelaPagamento", "CondicoesPagamento",
     "Testemunha", "Clausula", "AlertaJuridico",
     "ContratoVersionDiff", "ContratoVersion",
     "ContratoBase", "Contrato",
     "TIPOS_CONTRATO",
+    "CertificadoBase", "Certificado", "CertificadoPublic",
+    "IntegracoesBase", "Integracoes", "IntegracoesPublic", "mascarar_token",
+    "ReciboBase", "Recibo", "ReciboCreate", "ReciboUpdate", "TIPOS_RECIBO", "FORMAS_PAGAMENTO",
 ]

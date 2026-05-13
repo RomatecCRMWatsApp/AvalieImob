@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, FileText, Download, Trash2, Loader2, Calendar, DollarSign, FileDown, Mail, X, Send, Lock, Link2, Eye, Check, Copy, ExternalLink, PenLine } from 'lucide-react';
+import { Plus, FileText, Download, Trash2, Loader2, Calendar, DollarSign, FileDown, Mail, X, Send, Lock, Link2, Eye, Check, Copy, ExternalLink, PenLine, Copy as CopyIcon, Receipt, MessageCircle, Edit3, ShieldCheck, RefreshCw } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Badge } from '../../ui/badge';
 import { useToast } from '../../../hooks/use-toast';
-import { ptamAPI } from '../../../lib/api';
+import { ptamAPI, ptamExtrasAPI } from '../../../lib/api';
 import AssinaturaDigital from './AssinaturaDigital';
 
 // ── Modal de envio por email ──────────────────────────────────────────────────
@@ -133,6 +133,9 @@ const PtamList = () => {
   const [shareModal, setShareModal] = useState(null);
   const [shareLoading, setShareLoading] = useState({});
   const [assinaturaModal, setAssinaturaModal] = useState(null);
+  const [reciboModal, setReciboModal] = useState(null);
+  const [telegramModal, setTelegramModal] = useState(null);
+  const [cloneLoading, setCloneLoading] = useState({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -178,6 +181,45 @@ const PtamList = () => {
     if (!window.confirm('Remover este PTAM? Esta ação não pode ser desfeita.')) return;
     try { await ptamAPI.remove(id); setItems(items.filter((p) => p.id !== id)); toast({ title: 'PTAM removido' }); }
     catch { toast({ title: 'Erro ao remover', variant: 'destructive' }); }
+  };
+
+  const clonar = async (p) => {
+    setCloneLoading(prev => ({ ...prev, [p.id]: true }));
+    try {
+      const novo = await ptamExtrasAPI.clonar(p.id);
+      toast({ title: `PTAM clonado: ${novo.numero_ptam || novo.number}` });
+      load();
+    } catch (e) {
+      toast({ title: 'Erro ao clonar', description: e.response?.data?.detail, variant: 'destructive' });
+    } finally {
+      setCloneLoading(prev => ({ ...prev, [p.id]: false }));
+    }
+  };
+
+  // Envio direto via Z-API ou Meta (provedor configurado em Configurações).
+  // Faz fallback pra wa.me se a integração não estiver configurada.
+  const enviarWhatsApp = async (p) => {
+    const phone = window.prompt('WhatsApp do destinatário (com DDI+DDD, só dígitos):', '55');
+    if (!phone) return;
+    try {
+      const res = await ptamExtrasAPI.enviarWhatsApp(p.id, phone.trim());
+      toast({ title: `Laudo enviado via ${res.provider === 'meta' ? 'Meta' : 'Z-API'}!` });
+    } catch (e) {
+      const detail = e.response?.data?.detail || '';
+      // Se integração não configurada, abre wa.me como fallback
+      if (detail.includes('não configurada') || detail.includes('Cadastre')) {
+        const link = `${window.location.origin}/laudo/${p.link_publico_token || ''}`;
+        const texto = `Segue o laudo PTAM ${p.numero_ptam || p.number}` + (p.link_publico_ativo ? `\n${link}` : '');
+        const url = `https://wa.me/${phone.replace(/\D/g, '')}?text=${encodeURIComponent(texto)}`;
+        toast({
+          title: 'Z-API/Meta não configurados',
+          description: 'Abrindo no WhatsApp Web (modo manual). Configure em Configurações → Integrações.',
+        });
+        window.open(url, '_blank');
+      } else {
+        toast({ title: detail || 'Erro ao enviar WhatsApp', variant: 'destructive' });
+      }
+    }
   };
 
   const download = async (p) => {
@@ -327,6 +369,21 @@ const PtamList = () => {
         />
       )}
 
+      {reciboModal && (
+        <ReciboModal
+          ptam={reciboModal}
+          onClose={() => setReciboModal(null)}
+          onGerado={load}
+        />
+      )}
+
+      {telegramModal && (
+        <TelegramModal
+          ptam={telegramModal}
+          onClose={() => setTelegramModal(null)}
+        />
+      )}
+
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="font-display text-3xl font-bold text-gray-900">PTAM — Pareceres Técnicos</h1>
@@ -375,66 +432,139 @@ const PtamList = () => {
                 <div className="flex items-center gap-1.5 text-xs text-gray-600"><DollarSign className="w-3 h-3" />R$ {Number(p.total_indemnity || 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}</div>
                 <div className="flex items-center gap-1.5 text-xs text-gray-500"><Calendar className="w-3 h-3" />{p.updated_at ? new Date(p.updated_at).toLocaleDateString('pt-BR') : '—'}</div>
               </div>
-              <div className="flex gap-2 mt-4">
-                <Button size="sm" className="flex-1 bg-emerald-900 hover:bg-emerald-800 text-white" onClick={() => nav(`/dashboard/ptam/${p.id}`)}>Editar</Button>
+              {/* Linha 1: ações principais */}
+              <div className="flex gap-2 mt-4 flex-wrap">
+                <Button
+                  size="sm"
+                  className="bg-amber-400 hover:bg-amber-500 text-emerald-950 font-semibold gap-1"
+                  onClick={() => nav(`/dashboard/ptam/${p.id}`)}
+                  title="Abrir / Editar"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  Abrir
+                </Button>
                 <Button
                   size="sm"
                   variant="outline"
-                  title={p.d4sign_status === 'assinado' ? 'Assinado' : p.d4sign_status === 'aguardando' ? 'Aguardando assinaturas' : 'Assinar digitalmente'}
+                  title="Exportar PDF"
+                  onClick={() => downloadPdf(p)}
+                  disabled={pdfLoading[p.id]}
+                  className="gap-1"
+                >
+                  {pdfLoading[p.id] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5" />}
+                  PDF
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  title="Clonar PTAM"
+                  onClick={() => clonar(p)}
+                  disabled={cloneLoading[p.id]}
+                  className="gap-1 text-amber-700 border-amber-200 hover:bg-amber-50"
+                >
+                  {cloneLoading[p.id] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CopyIcon className="w-3.5 h-3.5" />}
+                  Clonar
+                </Button>
+              </div>
+
+              {/* Linha 2: assinatura */}
+              <div className="flex gap-2 mt-2 flex-wrap">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  title={
+                    p.icp_status === 'assinado'
+                      ? 'Assinado com ICP-Brasil'
+                      : p.d4sign_status === 'assinado'
+                      ? 'Assinado via D4Sign'
+                      : p.d4sign_status === 'aguardando'
+                      ? 'Aguardando assinaturas'
+                      : 'Assinar digitalmente'
+                  }
                   onClick={() => setAssinaturaModal(p)}
                   className={
-                    p.d4sign_status === 'assinado'
-                      ? 'text-indigo-700 border-indigo-200 hover:bg-indigo-50'
-                      : p.d4sign_status === 'aguardando'
-                      ? 'text-amber-700 border-amber-200 hover:bg-amber-50'
-                      : 'text-emerald-700 border-emerald-200 hover:bg-emerald-50'
+                    `gap-1 ${
+                      p.icp_status === 'assinado'
+                        ? 'text-emerald-700 border-emerald-300 bg-emerald-50 hover:bg-emerald-100'
+                        : p.d4sign_status === 'assinado'
+                        ? 'text-indigo-700 border-indigo-200 hover:bg-indigo-50'
+                        : p.d4sign_status === 'aguardando'
+                        ? 'text-amber-700 border-amber-200 hover:bg-amber-50'
+                        : 'text-emerald-700 border-emerald-200 hover:bg-emerald-50'
+                    }`
                   }
                 >
-                  <PenLine className="w-3.5 h-3.5" />
+                  {p.icp_status === 'assinado' ? <ShieldCheck className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+                  {p.icp_status === 'assinado' || p.d4sign_status === 'assinado' ? 'Assinado' : 'Assinar'}
                 </Button>
-                {p.d4sign_status === 'assinado' && (
+                {(p.icp_status === 'assinado' || p.d4sign_status === 'assinado') && (
                   <Button
                     size="sm"
                     variant="outline"
-                    title="Baixar PDF Assinado"
-                    onClick={() => {
-                      const a = document.createElement('a');
-                      a.href = `/api/assinatura/ptam/${p.id}/download`;
-                      a.download = `PTAM_${(p.number || 'sem-numero').replace(/\//g, '-')}_ASSINADO.pdf`;
-                      a.click();
-                    }}
-                    className="text-indigo-700 border-indigo-200 hover:bg-indigo-50"
+                    title="Reassinar (gera nova assinatura sobre versão atual)"
+                    onClick={() => setAssinaturaModal({ ...p, icp_status: null, d4sign_status: null })}
+                    className="gap-1 text-blue-700 border-blue-200 hover:bg-blue-50"
                   >
-                    <Download className="w-3.5 h-3.5" />
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    Re-assinar
                   </Button>
                 )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  title="Recibo de honorários"
+                  onClick={() => setReciboModal(p)}
+                  className="gap-1 text-amber-800 border-amber-200 bg-amber-50 hover:bg-amber-100"
+                >
+                  <Receipt className="w-3.5 h-3.5" />
+                  Recibo
+                </Button>
+              </div>
+
+              {/* Linha 3: envio */}
+              <div className="flex gap-2 mt-2 flex-wrap">
+                <Button
+                  size="sm"
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white gap-1"
+                  title="Enviar por WhatsApp"
+                  onClick={() => enviarWhatsApp(p)}
+                >
+                  <MessageCircle className="w-3.5 h-3.5" />
+                  WhatsApp
+                </Button>
+                <Button
+                  size="sm"
+                  className="flex-1 bg-sky-500 hover:bg-sky-600 text-white gap-1"
+                  title="Enviar via Telegram"
+                  onClick={() => setTelegramModal(p)}
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  Telegram
+                </Button>
                 <Button size="sm" variant="outline" title="Enviar por E-mail" onClick={() => setEmailModal(p)}
                   className="text-emerald-700 hover:bg-emerald-50 border-emerald-200">
                   <Mail className="w-3.5 h-3.5" />
                 </Button>
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  title={p.link_publico_ativo ? "Link ativo" : "Compartilhar"}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  title={p.link_publico_ativo ? "Link ativo" : "Compartilhar via link"}
                   onClick={() => p.link_publico_ativo ? setShareModal(p) : handleCompartilhar(p)}
                   disabled={shareLoading[p.id]}
                   className={p.link_publico_ativo ? "text-blue-600 border-blue-200 hover:bg-blue-50" : ""}
                 >
                   {shareLoading[p.id] ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : p.link_publico_ativo ? (
-                    <Link2 className="w-3.5 h-3.5" />
                   ) : (
                     <Link2 className="w-3.5 h-3.5" />
                   )}
                 </Button>
-                <Button size="sm" variant="outline" title="Exportar PDF" onClick={() => downloadPdf(p)} disabled={pdfLoading[p.id]}>
-                  {pdfLoading[p.id] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5" />}
-                </Button>
                 <Button size="sm" variant="outline" title="Exportar DOCX" onClick={() => download(p)} disabled={docxLoading[p.id]}>
                   {docxLoading[p.id] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
                 </Button>
-                <Button size="sm" variant="outline" className="text-red-600 hover:bg-red-50" onClick={() => remove(p.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                <Button size="sm" variant="outline" className="text-red-600 hover:bg-red-50" onClick={() => remove(p.id)} title="Excluir">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
               </div>
             </div>
           ))}
@@ -443,5 +573,225 @@ const PtamList = () => {
     </div>
   );
 };
+
+// ════════════════════════════════════════════════════════════════════════════
+// Modal: Recibo de Honorários
+// ════════════════════════════════════════════════════════════════════════════
+const ReciboModal = ({ ptam, onClose, onGerado }) => {
+  const { toast } = useToast();
+  const [valor, setValor] = useState(ptam?.honorarios ? String(ptam.honorarios) : '');
+  const [forma, setForma] = useState('PIX');
+  const [data, setData] = useState(new Date().toISOString().slice(0, 10));
+  const [gerando, setGerando] = useState(false);
+  const [reciboGerado, setReciboGerado] = useState(Boolean(ptam?.recibo_emitido));
+
+  const handleGerar = async (e) => {
+    e.preventDefault();
+    const valorNum = parseFloat(String(valor).replace(',', '.'));
+    if (!valorNum || valorNum <= 0) {
+      toast({ title: 'Informe um valor válido', variant: 'destructive' });
+      return;
+    }
+    setGerando(true);
+    try {
+      await ptamExtrasAPI.gerarRecibo(ptam.id, {
+        valor_honorarios: valorNum,
+        forma_pagamento: forma,
+        data_pagamento: data,
+      });
+      toast({ title: 'Recibo gerado com sucesso!' });
+      setReciboGerado(true);
+      if (onGerado) onGerado();
+    } catch (err) {
+      toast({ title: err.response?.data?.detail || 'Erro ao gerar recibo', variant: 'destructive' });
+    } finally {
+      setGerando(false);
+    }
+  };
+
+  const handleBaixar = async () => {
+    try {
+      const blob = await ptamExtrasAPI.downloadRecibo(ptam.id);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `RECIBO_PTAM_${(ptam.numero_ptam || 'sem-numero').replace(/\//g, '-')}.pdf`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      toast({ title: 'Erro ao baixar recibo', variant: 'destructive' });
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 relative">
+        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+          <X className="w-5 h-5" />
+        </button>
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
+            <Receipt className="w-5 h-5 text-amber-700" />
+          </div>
+          <div>
+            <h2 className="font-semibold text-gray-900 text-base">Recibo de Honorários</h2>
+            <p className="text-xs text-gray-500">PTAM {ptam.numero_ptam || ptam.number}</p>
+          </div>
+        </div>
+
+        <form onSubmit={handleGerar} className="space-y-3">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Valor dos honorários (R$) <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              inputMode="decimal"
+              required
+              value={valor}
+              onChange={e => setValor(e.target.value)}
+              placeholder="0,00"
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-amber-500"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Forma de pagamento</label>
+              <select
+                value={forma}
+                onChange={e => setForma(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-amber-500"
+              >
+                <option value="PIX">PIX</option>
+                <option value="Dinheiro">Dinheiro</option>
+                <option value="Transferência bancária">Transferência bancária</option>
+                <option value="Boleto">Boleto</option>
+                <option value="Cartão de crédito">Cartão de crédito</option>
+                <option value="Cartão de débito">Cartão de débito</option>
+                <option value="Cheque">Cheque</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Data do pagamento</label>
+              <input
+                type="date"
+                value={data}
+                onChange={e => setData(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-amber-500"
+              />
+            </div>
+          </div>
+
+          <Button
+            type="submit"
+            disabled={gerando}
+            className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold gap-2"
+          >
+            {gerando ? <><Loader2 className="w-4 h-4 animate-spin" />Gerando...</> : <><Receipt className="w-4 h-4" />Gerar recibo</>}
+          </Button>
+
+          {reciboGerado && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleBaixar}
+              className="w-full gap-2 text-amber-800 border-amber-200 hover:bg-amber-50"
+            >
+              <Download className="w-4 h-4" />
+              Baixar PDF do recibo
+            </Button>
+          )}
+        </form>
+      </div>
+    </div>
+  );
+};
+
+
+// ════════════════════════════════════════════════════════════════════════════
+// Modal: Envio via Telegram
+// ════════════════════════════════════════════════════════════════════════════
+const TelegramModal = ({ ptam, onClose }) => {
+  const { toast } = useToast();
+  const [chatId, setChatId] = useState(localStorage.getItem('avalieimob_telegram_chat_id') || '');
+  const [legenda, setLegenda] = useState(`Segue o laudo PTAM ${ptam.numero_ptam || ptam.number}`);
+  const [enviando, setEnviando] = useState(false);
+
+  const handleEnviar = async (e) => {
+    e.preventDefault();
+    if (!chatId.trim()) {
+      toast({ title: 'Informe o chat_id ou @username', variant: 'destructive' });
+      return;
+    }
+    setEnviando(true);
+    try {
+      await ptamExtrasAPI.enviarTelegram(ptam.id, chatId.trim(), legenda);
+      localStorage.setItem('avalieimob_telegram_chat_id', chatId.trim());
+      toast({ title: 'Enviado via Telegram!' });
+      onClose();
+    } catch (err) {
+      toast({ title: err.response?.data?.detail || 'Erro ao enviar Telegram', variant: 'destructive' });
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 relative">
+        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+          <X className="w-5 h-5" />
+        </button>
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-10 h-10 rounded-xl bg-sky-100 flex items-center justify-center">
+            <Send className="w-5 h-5 text-sky-600" />
+          </div>
+          <div>
+            <h2 className="font-semibold text-gray-900 text-base">Enviar via Telegram</h2>
+            <p className="text-xs text-gray-500">PTAM {ptam.numero_ptam || ptam.number}</p>
+          </div>
+        </div>
+
+        <form onSubmit={handleEnviar} className="space-y-3">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Chat ID ou @usuario <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              required
+              value={chatId}
+              onChange={e => setChatId(e.target.value)}
+              placeholder="ex: @joaosilva ou 123456789"
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-sky-500 font-mono"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Pra grupo, use o ID numérico (começa com -100). O destinatário precisa ter
+              iniciado conversa com o bot.
+            </p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Legenda</label>
+            <textarea
+              rows={3}
+              value={legenda}
+              onChange={(e) => setLegenda(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm resize-none focus:outline-none focus:border-sky-500"
+            />
+          </div>
+
+          <Button
+            type="submit"
+            disabled={enviando}
+            className="w-full bg-sky-500 hover:bg-sky-600 text-white font-bold gap-2"
+          >
+            {enviando ? <><Loader2 className="w-4 h-4 animate-spin" />Enviando...</> : <><Send className="w-4 h-4" />Enviar via Telegram</>}
+          </Button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 
 export default PtamList;

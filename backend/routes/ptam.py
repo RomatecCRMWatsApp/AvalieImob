@@ -993,25 +993,25 @@ async def verificar_integridade_publico(token: str, db=Depends(get_db)):
         "link_publico_token": token,
         "link_publico_ativo": True
     })
-    
+
     if not ptam:
         raise HTTPException(status_code=404, detail="Laudo não encontrado ou link inativo")
-    
+
     if not ptam.get("lacrado"):
         raise HTTPException(status_code=400, detail="Este laudo não possui versão lacrada")
-    
+
     # Buscar versão lacrada mais recente
     versao_lacrada = await db.ptam_versions.find_one(
         {"ptam_id": ptam["id"], "tipo": "lacrado"},
         sort=[("numero_versao", -1)]
     )
-    
+
     if not versao_lacrada or not versao_lacrada.get("snapshot"):
         raise HTTPException(status_code=400, detail="Versão lacrada não encontrada")
-    
+
     hash_armazenado = versao_lacrada.get("hash_sha256", "")
     hash_calculado = _calculate_hash(versao_lacrada["snapshot"])
-    
+
     return {
         "integro": hash_armazenado == hash_calculado,
         "hash_armazenado": hash_armazenado,
@@ -1020,3 +1020,323 @@ async def verificar_integridade_publico(token: str, db=Depends(get_db)):
         "data_lacre": versao_lacrada.get("created_at"),
         "versao_lacrada": ptam.get("versao_lacrada")
     }
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# CLONAR PTAM — duplica laudo com novo número e status Rascunho
+# ════════════════════════════════════════════════════════════════════════════
+
+@router.post("/ptam/{pid}/clonar", response_model=Ptam)
+async def clonar_ptam(
+    pid: str,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db),
+):
+    """Duplica um PTAM mantendo todos os dados, com novo número e status Rascunho.
+    Limpa campos de assinatura, lacre e link público — o clone começa do zero
+    nessas dimensões.
+    """
+    original = await db.ptam_documents.find_one({"id": pid, "user_id": uid})
+    if not original:
+        raise HTTPException(status_code=404, detail="PTAM não encontrado")
+
+    # Novo número
+    novo_numero = await _next_ptam_numero(db)
+
+    # Copia limpando metadados e estados de assinatura/lacre/link
+    clone = {k: v for k, v in original.items() if not k.startswith("_")}
+    clone.pop("id", None)
+    clone["id"] = str(uuid.uuid4())
+    clone["numero_ptam"] = novo_numero
+    clone["number"] = novo_numero
+    clone["status"] = "Rascunho"
+    clone["created_at"] = datetime.utcnow()
+    clone["updated_at"] = datetime.utcnow()
+
+    # Limpar campos de assinatura/lacre/link (clone começa "limpo")
+    campos_a_limpar = [
+        "lacrado", "versao_lacrada", "hash_lacrado",
+        "link_publico", "link_publico_token", "link_publico_ativo",
+        "link_publico_criado_em", "visualizacoes",
+        "d4sign_document_uuid", "d4sign_status", "d4sign_enviado_em",
+        "d4sign_assinado_em", "d4sign_signatarios", "d4sign_pdf_assinado_url",
+        "icp_status", "icp_signed_at", "icp_cert_id", "icp_titular",
+        "icp_documento", "icp_emissor", "icp_hash", "icp_pdf_url",
+        "icp_verificacao_url",
+        "recibo_emitido", "recibo_emitido_em", "recibo_pdf_url",
+    ]
+    for campo in campos_a_limpar:
+        clone.pop(campo, None)
+
+    await db.ptam_documents.insert_one(clone)
+    return Ptam(**serialize_doc(clone))
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# RECIBO DE HONORÁRIOS — geração e download
+# ════════════════════════════════════════════════════════════════════════════
+
+class GerarReciboRequest(BaseModel):
+    valor_honorarios: float
+    forma_pagamento: Optional[str] = "PIX"
+    data_pagamento: Optional[str] = None  # ISO date
+
+
+@router.post("/ptam/{pid}/recibo")
+async def gerar_recibo_ptam(
+    pid: str,
+    body: GerarReciboRequest,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db),
+):
+    """Gera recibo de honorários do laudo (PDF) e marca como emitido."""
+    ptam = await db.ptam_documents.find_one({"id": pid, "user_id": uid})
+    if not ptam:
+        raise HTTPException(status_code=404, detail="PTAM não encontrado")
+
+    if body.valor_honorarios <= 0:
+        raise HTTPException(status_code=400, detail="Valor de honorários deve ser positivo")
+
+    # Importar serviço de PDF de recibo
+    try:
+        from pdf.recibo_pdf import gerar_recibo_pdf
+    except ImportError:
+        # Fallback inline mínimo se o módulo ainda não estiver disponível
+        from services.recibo_inline import gerar_recibo_pdf
+
+    user = await db.users.find_one({"id": uid}) or {}
+    perfil = await db.perfis_avaliador.find_one({"user_id": uid}) or {}
+
+    pdf_bytes = gerar_recibo_pdf(
+        ptam=ptam,
+        user=user,
+        perfil=perfil,
+        valor=body.valor_honorarios,
+        forma_pagamento=body.forma_pagamento or "PIX",
+        data_pagamento=body.data_pagamento,
+    )
+
+    # Salvar
+    import uuid as _uuid
+    recibo_id = str(_uuid.uuid4())
+    await db.recibos_ptam.insert_one({
+        "id": recibo_id,
+        "ptam_id": pid,
+        "user_id": uid,
+        "valor": body.valor_honorarios,
+        "forma_pagamento": body.forma_pagamento,
+        "content": pdf_bytes,
+        "created_at": datetime.utcnow(),
+    })
+
+    # Marcar PTAM
+    await db.ptam_documents.update_one(
+        {"id": pid},
+        {"$set": {
+            "honorarios": body.valor_honorarios,
+            "recibo_emitido": True,
+            "recibo_emitido_em": datetime.utcnow(),
+            "recibo_pdf_url": f"/api/ptam/{pid}/recibo",
+            "updated_at": datetime.utcnow(),
+        }},
+    )
+
+    return {
+        "ok": True,
+        "recibo_id": recibo_id,
+        "download_url": f"/api/ptam/{pid}/recibo",
+    }
+
+
+@router.get("/ptam/{pid}/recibo")
+async def download_recibo(
+    pid: str,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db),
+):
+    ptam = await db.ptam_documents.find_one({"id": pid, "user_id": uid})
+    if not ptam:
+        raise HTTPException(status_code=404, detail="PTAM não encontrado")
+    recibo = await db.recibos_ptam.find_one(
+        {"ptam_id": pid, "user_id": uid},
+        sort=[("created_at", -1)],
+    )
+    if not recibo or not recibo.get("content"):
+        raise HTTPException(status_code=404, detail="Recibo ainda não gerado")
+
+    numero = ptam.get("numero_ptam") or pid
+    filename = f"RECIBO_PTAM_{numero}.pdf"
+    return Response(
+        content=recibo["content"],
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# TELEGRAM — envio do PDF do laudo via bot configurado
+# ════════════════════════════════════════════════════════════════════════════
+
+class TelegramSendRequest(BaseModel):
+    chat_id: Optional[str] = None  # se vazio, usa o chat_id_default do perfil
+    legenda: Optional[str] = ""
+
+
+async def _melhor_pdf_ptam(db, ptam: dict) -> tuple[bytes, str]:
+    """Retorna (pdf_bytes, nome_arquivo) preferindo a versão assinada mais
+    recente: ICP > D4Sign > PDF original."""
+    pid = ptam["id"]
+    nome_arquivo = f"PTAM_{ptam.get('numero_ptam', pid)}.pdf"
+
+    if ptam.get("icp_status") == "assinado":
+        ass = await db["assinaturas_pdf"].find_one(
+            {"doc_tipo": "ptam", "doc_id": pid, "metodo": "icp"}
+        )
+        if ass and ass.get("content"):
+            return ass["content"], nome_arquivo.replace(".pdf", "_ASSINADO_ICP.pdf")
+
+    if ptam.get("d4sign_status") == "assinado":
+        ass = await db["assinaturas_pdf"].find_one({"doc_tipo": "ptam", "doc_id": pid})
+        if ass and ass.get("content"):
+            return ass["content"], nome_arquivo.replace(".pdf", "_ASSINADO.pdf")
+
+    try:
+        pdf_bytes = generate_ptam_pdf(ptam)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao gerar PDF: {e}")
+    return pdf_bytes, nome_arquivo
+
+
+@router.post("/ptam/{pid}/telegram")
+async def enviar_telegram(
+    pid: str,
+    body: TelegramSendRequest,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db),
+):
+    """Envia o PDF do PTAM via bot Telegram do USUÁRIO (multi-tenant).
+    Requer que o usuário tenha telegram_bot_token configurado em /api/integracoes.
+    Se chat_id vazio, usa o telegram_chat_id_default do perfil.
+    """
+    import httpx as _httpx
+
+    cfg = await db.integracoes.find_one({"user_id": uid})
+    bot_token = (cfg or {}).get("telegram_bot_token")
+    if not bot_token:
+        raise HTTPException(
+            status_code=400,
+            detail="Telegram não configurado. Cadastre seu bot_token em Configurações → Integrações.",
+        )
+
+    chat_id = (body.chat_id or "").strip() or (cfg or {}).get("telegram_chat_id_default")
+    if not chat_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Informe um chat_id ou configure um padrão em Configurações → Integrações.",
+        )
+
+    ptam = await db.ptam_documents.find_one({"id": pid, "user_id": uid})
+    if not ptam:
+        raise HTTPException(status_code=404, detail="PTAM não encontrado")
+
+    pdf_bytes, nome_arquivo = await _melhor_pdf_ptam(db, ptam)
+    legenda = body.legenda or f"Segue o laudo PTAM {ptam.get('numero_ptam', '')}"
+
+    url = f"https://api.telegram.org/bot{bot_token}/sendDocument"
+    try:
+        async with _httpx.AsyncClient(timeout=60) as client:
+            files = {"document": (nome_arquivo, pdf_bytes, "application/pdf")}
+            data = {"chat_id": chat_id, "caption": legenda}
+            r = await client.post(url, data=data, files=files)
+            if r.status_code != 200:
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"Telegram erro {r.status_code}: {r.text[:200]}",
+                )
+            return {"ok": True, "telegram_response": r.json()}
+    except _httpx.HTTPError as e:
+        logger.error("Erro ao enviar Telegram: %s", e)
+        raise HTTPException(status_code=502, detail=f"Erro de rede ao enviar Telegram: {e}")
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# WHATSAPP via Z-API — usa credenciais do usuário (multi-tenant SaaS)
+# ════════════════════════════════════════════════════════════════════════════
+
+class WhatsAppSendRequest(BaseModel):
+    phone: str  # com DDI+DDD (ex: 5599991234567 ou 99991234567)
+    legenda: Optional[str] = ""
+
+
+@router.post("/ptam/{pid}/whatsapp")
+async def enviar_whatsapp(
+    pid: str,
+    body: WhatsAppSendRequest,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db),
+):
+    """Envia o PDF do PTAM via WhatsApp do USUÁRIO (multi-tenant).
+    Roteia automaticamente entre Z-API e Meta Cloud API conforme a preferência
+    'whatsapp_provider' configurada em /api/integracoes.
+    """
+    from services import zapi_service
+    from services import meta_whatsapp_service as meta
+
+    cfg = await db.integracoes.find_one({"user_id": uid})
+    if not cfg:
+        raise HTTPException(
+            status_code=400,
+            detail="Nenhum provedor WhatsApp configurado. Cadastre Z-API ou Meta em Configurações → Integrações.",
+        )
+
+    provider = (cfg.get("whatsapp_provider") or "zapi").lower()
+
+    ptam = await db.ptam_documents.find_one({"id": pid, "user_id": uid})
+    if not ptam:
+        raise HTTPException(status_code=404, detail="PTAM não encontrado")
+
+    pdf_bytes, nome_arquivo = await _melhor_pdf_ptam(db, ptam)
+    legenda = body.legenda or f"Segue o laudo PTAM {ptam.get('numero_ptam', '')}"
+
+    if provider == "meta":
+        if not cfg.get("meta_phone_number_id") or not cfg.get("meta_access_token"):
+            raise HTTPException(
+                status_code=400,
+                detail="Meta WhatsApp não configurada. Cadastre em Configurações → Integrações.",
+            )
+        try:
+            resp = await meta.send_pdf(
+                phone_number_id=cfg["meta_phone_number_id"],
+                access_token=cfg["meta_access_token"],
+                phone=body.phone,
+                pdf_bytes=pdf_bytes,
+                filename=nome_arquivo,
+                caption=legenda,
+            )
+            return {"ok": True, "provider": "meta", "response": resp}
+        except Exception as e:
+            logger.error("Erro Meta WhatsApp: %s", e)
+            raise HTTPException(status_code=502, detail=f"Erro Meta WhatsApp: {e}")
+
+    # Default: Z-API
+    if not cfg.get("zapi_instance_id") or not cfg.get("zapi_token"):
+        raise HTTPException(
+            status_code=400,
+            detail="Z-API não configurada. Cadastre em Configurações → Integrações.",
+        )
+    try:
+        resp = await zapi_service.send_document_pdf(
+            instance_id=cfg["zapi_instance_id"],
+            token=cfg["zapi_token"],
+            security_token=cfg.get("zapi_security_token"),
+            phone=body.phone,
+            pdf_bytes=pdf_bytes,
+            filename=nome_arquivo,
+            caption=legenda,
+        )
+        return {"ok": True, "provider": "zapi", "response": resp}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error("Erro Z-API: %s", e)
+        raise HTTPException(status_code=502, detail=f"Erro Z-API: {e}")

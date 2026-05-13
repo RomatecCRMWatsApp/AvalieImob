@@ -212,12 +212,65 @@ export const cndAPI = {
   getConsultasPtam: (ptamId) => api.get('/cnd/historico').then(r => r.data.filter(c => c.ptam_id === ptamId)),
 };
 
-// ---- Assinatura Digital D4Sign
+// ---- Assinatura Digital D4Sign + ICP-Brasil PAdES
 export const assinaturaAPI = {
+  // D4Sign (assinatura eletrônica via e-mail)
   iniciar: (tipo, id, payload) => api.post(`/assinatura/${tipo}/${id}/iniciar`, payload),
   status: (tipo, id) => api.get(`/assinatura/${tipo}/${id}/status`),
   download: (tipo, id) => api.get(`/assinatura/${tipo}/${id}/download`, { responseType: 'blob' }),
   cancelar: (tipo, id) => api.delete(`/assinatura/${tipo}/${id}/cancelar`),
+  // ICP-Brasil A1/PAdES (certificado .pfx local)
+  assinarIcp: (tipo, id, certId) =>
+    api.post(`/assinatura/icp/${tipo}/${id}/assinar`, { cert_id: certId }).then(r => r.data),
+  downloadIcp: (tipo, id) =>
+    api.get(`/assinatura/icp/${tipo}/${id}/download`, { responseType: 'blob' }).then(r => r.data),
+  verificarPublico: (hash) =>
+    api.get(`/assinatura/v/laudo/v/${hash}`).then(r => r.data),
+};
+
+// ---- Certificados Digitais ICP-Brasil A1 (.pfx) — por usuário
+export const certificadosAPI = {
+  list: () => api.get('/certificados').then(r => r.data),
+  upload: (file, { label, perfil, senha }) => {
+    const fd = new FormData();
+    fd.append('arquivo', file);
+    fd.append('label', label);
+    fd.append('perfil', perfil);
+    fd.append('senha', senha);
+    return api.post('/certificados', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then(r => r.data);
+  },
+  toggle: (id, ativo) => api.patch(`/certificados/${id}/ativar`, { ativo }).then(r => r.data),
+  remove: (id) => api.delete(`/certificados/${id}`).then(r => r.data),
+};
+
+// ---- PTAM extras: Clonar, Recibo de honorários, WhatsApp via Z-API, Telegram
+export const ptamExtrasAPI = {
+  clonar: (id) => api.post(`/ptam/${id}/clonar`).then(r => r.data),
+  gerarRecibo: (id, payload) => api.post(`/ptam/${id}/recibo`, payload).then(r => r.data),
+  downloadRecibo: (id) =>
+    api.get(`/ptam/${id}/recibo`, { responseType: 'blob' }).then(r => r.data),
+  // chat_id pode vir vazio — backend usa o default das integrações do usuário
+  enviarTelegram: (id, chatId = '', legenda = '') =>
+    api.post(`/ptam/${id}/telegram`, { chat_id: chatId, legenda }).then(r => r.data),
+  // phone com DDI+DDD (Z-API normaliza)
+  enviarWhatsApp: (id, phone, legenda = '') =>
+    api.post(`/ptam/${id}/whatsapp`, { phone, legenda }).then(r => r.data),
+};
+
+// ---- Integrações por usuário (Z-API + Meta WhatsApp + Telegram)
+export const integracoesAPI = {
+  get: () => api.get('/integracoes').then(r => r.data),
+  update: (data) => api.put('/integracoes', data).then(r => r.data),
+  // Testes de conexão (validam credenciais sem enviar mensagem real)
+  testarZapi: () => api.post('/integracoes/zapi/testar').then(r => r.data),
+  testarMeta: () => api.post('/integracoes/meta/testar').then(r => r.data),
+  // Envio de mensagem de teste real
+  enviarTesteWhatsApp: (phone, mensagem) =>
+    api.post('/integracoes/whatsapp/enviar-teste', { phone, mensagem }).then(r => r.data),
+  testarTelegram: (chatId, mensagem) =>
+    api.post('/integracoes/telegram/testar', { chat_id: chatId, mensagem }).then(r => r.data),
 };
 
 // ---- TVI (Termo de Vistoria de Imóvel)
@@ -264,16 +317,24 @@ export const contratosAPI = {
   buscar: (id) => api.get(`/contratos/${id}`).then(r => normalizeContrato(r.data)),
   atualizar: (id, data) => api.put(`/contratos/${id}`, data).then(r => normalizeContrato(r.data)),
   excluir: (id) => api.delete(`/contratos/${id}`).then(r => r.data),
-  gerarClausulas: (id, data) => api.post(`/contratos/${id}/gerar-clausulas`, data).then(r => r.data),
-  validarJuridico: (id) => api.post(`/contratos/${id}/validar-juridico`).then(r => r.data),
-  simuladorPenalidades: (id, data) => api.post(`/contratos/${id}/simulador-penalidades`, data).then(r => r.data),
-  checklist: (id) => api.get(`/contratos/${id}/checklist`).then(r => r.data),
-  docx: (id) => api.get(`/contratos/${id}/docx`, { responseType: 'blob' }),
-  pdf: (id) => api.get(`/contratos/${id}/pdf`, { responseType: 'blob' }),
-  reciboArras: (id) => api.get(`/contratos/${id}/recibo-arras/docx`, { responseType: 'blob' }),
-  lacrar: (id, data) => api.post(`/contratos/${id}/lacrar`, data).then(r => r.data),
-  compartilhar: (id) => api.post(`/contratos/${id}/compartilhar`).then(r => r.data),
-  assinarD4sign: (id, data) => api.post(`/contratos/${id}/assinar-d4sign`, data).then(r => r.data),
-  versoes: (id) => api.get(`/contratos/${id}/versoes`).then(r => r.data),
-  tipos: () => api.get('/contratos/tipos').then(r => r.data),
+};
+
+// ---- Recibos (independentes — honorários, serviços, mão de obra...)
+export const recibosAPI = {
+  listar: (params) => api.get('/recibos', { params }).then(r => r.data),
+  buscar: (id) => api.get(`/recibos/${id}`).then(r => r.data),
+  criar: (data) => api.post('/recibos', data).then(r => r.data),
+  atualizar: (id, data) => api.put(`/recibos/${id}`, data).then(r => r.data),
+  excluir: (id) => api.delete(`/recibos/${id}`).then(r => r.data),
+  emitir: (id) => api.post(`/recibos/${id}/emitir`).then(r => r.data),
+  // Live preview — body é o estado atual do form
+  preview: (data) =>
+    api.post('/recibos/preview', data, { responseType: 'blob' }).then(r => r.data),
+  // Download PDF do recibo já salvo
+  pdf: (id) => api.get(`/recibos/${id}/pdf`, { responseType: 'blob' }).then(r => r.data),
+  // Envio
+  enviarWhatsApp: (id, phone = '', legenda = '') =>
+    api.post(`/recibos/${id}/enviar-whatsapp`, { phone, legenda }).then(r => r.data),
+  // Tipos disponíveis (drives o select)
+  tipos: () => api.get('/recibos/tipos').then(r => r.data),
 };

@@ -27,6 +27,7 @@ import BlogPostGrauFundamentacao from './pages/blog/BlogPostGrauFundamentacao';
 import BlogPostMetodoComparativo from './pages/blog/BlogPostMetodoComparativo';
 import BlogPostInventarioPartilha from './pages/blog/BlogPostInventarioPartilha';
 import BlogPostART_RRT_TRT from './pages/blog/BlogPostART_RRT_TRT';
+import VerificarLaudo from './pages/VerificarLaudo';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -130,6 +131,7 @@ function App() {
                 <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
                 <Route path="/cadastro" element={<PublicRoute><Register /></PublicRoute>} />
                 <Route path="/laudo/:token" element={<PortalCliente />} />
+                <Route path="/v/laudo/v/:hash" element={<VerificarLaudo />} />
                 <Route path="/contrato/public/:token" element={<ContratoPublico />} />
                 <Route path="/dashboard/*" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                 <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,4 +1,5 @@
-# @module routes.assinatura — Endpoints de assinatura digital com validade juridica via D4Sign
+# @module routes.assinatura — Endpoints de assinatura digital com validade juridica
+# Suporta D4Sign (assinatura eletrônica via e-mail) E ICP-Brasil A1/PAdES (cert local).
 # Lei 14.063/2020 + MP 2.200-2/2001
 import os
 import logging
@@ -384,3 +385,211 @@ async def webhook_d4sign(request: Request, db=Depends(get_db)):
 
     await db[colecao].update_one({"id": doc.get("id")}, {"$set": update_fields})
     return {"ok": True}
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# ICP-BRASIL (PAdES) — Assinatura local com certificado A1 do avaliador
+# ════════════════════════════════════════════════════════════════════════════
+
+class AssinarIcpRequest(BaseModel):
+    cert_id: str   # id do certificado cadastrado pelo usuário em /api/certificados
+
+
+@router.post("/icp/{tipo}/{id}/assinar")
+async def assinar_icp_brasil(
+    tipo: str,
+    id: str,
+    body: AssinarIcpRequest,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db),
+):
+    """Assina o documento com certificado ICP-Brasil A1 (.pfx) via PAdES.
+
+    Anexa página visual padrão Romatec ao final do PDF e aplica assinatura
+    digital com a cadeia ICP-Brasil. Resultado é equivalente ao que o
+    gov.br/validar e Adobe Reader reconhecem como ICP-Brasil válido.
+    """
+    from services.cert_crypto import decrypt_bytes
+    from services.pades_service import assinar_pdf_icp
+
+    doc = await _get_doc(db, tipo, id, uid)
+
+    # Buscar certificado e descriptografar
+    cert = await db.certificados.find_one({"id": body.cert_id, "user_id": uid})
+    if not cert:
+        raise HTTPException(status_code=404, detail="Certificado não encontrado")
+    if not cert.get("ativo", True):
+        raise HTTPException(status_code=400, detail="Certificado desativado")
+
+    # Validade do cert
+    valido_ate = cert.get("valido_ate")
+    if valido_ate and isinstance(valido_ate, datetime) and valido_ate < datetime.utcnow():
+        raise HTTPException(
+            status_code=400,
+            detail=f"Certificado expirado em {valido_ate.strftime('%d/%m/%Y')}",
+        )
+
+    try:
+        pfx_bytes = decrypt_bytes(cert["pfx_encrypted"], cert["nonce_pfx"])
+        pfx_password = decrypt_bytes(cert["password_encrypted"], cert["nonce_password"]).decode("utf-8")
+    except Exception as e:
+        logger.exception("Falha ao descriptografar certificado")
+        raise HTTPException(status_code=500, detail=f"Falha ao acessar certificado: {e}")
+
+    # Gerar PDF original
+    try:
+        pdf_bytes = await _gerar_pdf(tipo, doc)
+    except Exception as e:
+        logger.error("Erro ao gerar PDF para assinatura ICP: %s", e)
+        raise HTTPException(status_code=500, detail=f"Erro ao gerar PDF: {e}")
+
+    # Buscar dados do avaliador (perfil + user) pra preencher o bloco visual
+    user = await db.users.find_one({"id": uid}) or {}
+    perfil = await db.perfis_avaliador.find_one({"user_id": uid}) or {}
+
+    cidade_uf = ""
+    if perfil.get("cidade") and perfil.get("uf"):
+        cidade_uf = f"{perfil['cidade']}/{perfil['uf']}"
+    elif doc.get("conclusion_city"):
+        cidade_uf = doc["conclusion_city"]
+
+    # Cargo + registro principal
+    cargo = perfil.get("nome_completo") and (user.get("role") or "")
+    registros = perfil.get("registros") or []
+    registro_str = ""
+    if registros:
+        r0 = registros[0]
+        registro_str = f"{r0.get('tipo','')} {r0.get('numero','')}".strip()
+
+    try:
+        pdf_assinado, hash_final, data_assinatura = assinar_pdf_icp(
+            pdf_bytes=pdf_bytes,
+            pfx_bytes=pfx_bytes,
+            pfx_password=pfx_password,
+            titular=cert.get("titular") or perfil.get("nome_completo") or user.get("name") or "Avaliador",
+            documento=cert.get("documento") or perfil.get("cpf") or "",
+            cargo=user.get("role") or perfil.get("nome_completo") and "" or "",
+            registro=registro_str,
+            cidade_uf=cidade_uf,
+            emissor=cert.get("emissor") or "",
+            valido_ate=cert.get("valido_ate"),
+        )
+    except Exception as e:
+        logger.exception("Falha ao assinar PDF ICP-Brasil")
+        raise HTTPException(status_code=500, detail=f"Falha ao assinar: {e}")
+
+    # Salvar PDF assinado em assinaturas_pdf (substitui se já existir)
+    import uuid as _uuid
+    existing = await db["assinaturas_pdf"].find_one({"doc_tipo": tipo, "doc_id": id, "metodo": "icp"})
+    if existing:
+        await db["assinaturas_pdf"].update_one(
+            {"id": existing["id"]},
+            {"$set": {
+                "content": pdf_assinado,
+                "hash_sha256": hash_final,
+                "updated_at": datetime.utcnow(),
+            }},
+        )
+    else:
+        await db["assinaturas_pdf"].insert_one({
+            "id": str(_uuid.uuid4()),
+            "doc_tipo": tipo,
+            "doc_id": id,
+            "metodo": "icp",
+            "cert_id": body.cert_id,
+            "hash_sha256": hash_final,
+            "content": pdf_assinado,
+            "created_at": datetime.utcnow(),
+        })
+
+    # Atualizar documento com status ICP
+    colecao = _TIPO_COLECAO[tipo]
+    await db[colecao].update_one(
+        {"id": id},
+        {"$set": {
+            "icp_status": "assinado",
+            "icp_signed_at": data_assinatura,
+            "icp_cert_id": body.cert_id,
+            "icp_titular": cert.get("titular"),
+            "icp_documento": cert.get("documento"),
+            "icp_emissor": cert.get("emissor"),
+            "icp_hash": hash_final,
+            "icp_pdf_url": f"/api/assinatura/icp/{tipo}/{id}/download",
+            "icp_verificacao_url": f"/v/laudo/v/{hash_final}",
+            "updated_at": datetime.utcnow(),
+        }},
+    )
+
+    return {
+        "ok": True,
+        "status": "assinado",
+        "metodo": "icp",
+        "hash": hash_final,
+        "assinado_em": data_assinatura.isoformat(),
+        "download_url": f"/api/assinatura/icp/{tipo}/{id}/download",
+        "verificacao_url": f"/v/laudo/v/{hash_final}",
+    }
+
+
+@router.get("/icp/{tipo}/{id}/download")
+async def download_icp(
+    tipo: str,
+    id: str,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db),
+):
+    doc = await _get_doc(db, tipo, id, uid)
+    if doc.get("icp_status") != "assinado":
+        raise HTTPException(status_code=404, detail="Documento ainda não assinado com ICP-Brasil")
+
+    assinatura = await db["assinaturas_pdf"].find_one(
+        {"doc_tipo": tipo, "doc_id": id, "metodo": "icp"}
+    )
+    if not assinatura or not assinatura.get("content"):
+        raise HTTPException(status_code=404, detail="PDF assinado não disponível")
+
+    numero = doc.get("numero_ptam") or doc.get("numero_tvi") or doc.get("numero") or id
+    filename = f"{tipo.upper()}_{numero}_ASSINADO_ICP.pdf"
+    return Response(
+        content=assinatura["content"],
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Verificação pública (NÃO autenticada) — alvo do QR Code
+# ════════════════════════════════════════════════════════════════════════════
+
+@router.get("/v/laudo/v/{hash_id}", include_in_schema=True)
+async def verificar_publico(hash_id: str, db=Depends(get_db)):
+    """Endpoint público pra validar autenticidade de um laudo assinado.
+    Retorna metadados (sem .pfx, sem PDF) — chamado pelo QR Code do bloco visual.
+    """
+    assinatura = await db["assinaturas_pdf"].find_one(
+        {"hash_sha256": hash_id, "metodo": "icp"}
+    )
+    if not assinatura:
+        raise HTTPException(status_code=404, detail="Hash não encontrado")
+
+    tipo = assinatura.get("doc_tipo")
+    doc_id = assinatura.get("doc_id")
+    colecao = _TIPO_COLECAO.get(tipo)
+    if not colecao:
+        raise HTTPException(status_code=400, detail="Tipo inválido")
+
+    doc = await db[colecao].find_one({"id": doc_id})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Documento não encontrado")
+
+    return {
+        "autentico": True,
+        "tipo": tipo,
+        "numero": doc.get("numero_ptam") or doc.get("number") or doc_id,
+        "titular": doc.get("icp_titular"),
+        "documento": doc.get("icp_documento"),
+        "emissor": doc.get("icp_emissor"),
+        "assinado_em": doc.get("icp_signed_at").isoformat() if doc.get("icp_signed_at") else None,
+        "imovel": doc.get("property_label") or doc.get("property_address"),
+        "hash": hash_id,
+    }

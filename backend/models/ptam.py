@@ -320,6 +320,23 @@ class PtamBase(BaseModel):
     d4sign_signatarios: Optional[List[dict]] = []
     d4sign_pdf_assinado_url: Optional[str] = None
 
+    # ICP-Brasil PAdES — Assinatura local com certificado A1 do avaliador
+    icp_status: Optional[str] = None        # None|assinado
+    icp_signed_at: Optional[datetime] = None
+    icp_cert_id: Optional[str] = None
+    icp_titular: Optional[str] = None
+    icp_documento: Optional[str] = None
+    icp_emissor: Optional[str] = None
+    icp_hash: Optional[str] = None
+    icp_pdf_url: Optional[str] = None
+    icp_verificacao_url: Optional[str] = None
+
+    # Recibo de Honorários (R$ pago pelo serviço técnico)
+    honorarios: Optional[float] = None
+    recibo_emitido: Optional[bool] = False
+    recibo_emitido_em: Optional[datetime] = None
+    recibo_pdf_url: Optional[str] = None
+
     # Método Evolutivo (NBR 14.653-2:2011, item 8.2.1.2)
     metodo_evolutivo_tipo_cub: Optional[str] = None         # ex: "R1-N"
     metodo_evolutivo_valor_cub: Optional[float] = None      # R$/m²

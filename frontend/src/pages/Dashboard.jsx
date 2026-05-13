@@ -3,7 +3,7 @@ import { Link, NavLink, Routes, Route, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Building2, BarChart3, FileText,
   CreditCard, Settings, LogOut, Menu, X, Bell, FileCheck2, Globe,
-  Search, ChevronDown, User, Shield, Beef, Award, Home, ClipboardCheck, FileSearch, FileSignature
+  Search, ChevronDown, User, Shield, Beef, Award, Home, ClipboardCheck, FileSearch, FileSignature, Receipt
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { BRAND } from '../mock/mock';
@@ -36,6 +36,8 @@ import CNDHistorico from '../components/dashboard/cnd/CNDHistorico';
 import GlobalSearch from '../components/common/GlobalSearch';
 import ContratosList from '../components/dashboard/contratos/ContratosList';
 import ContratoWizard from '../components/dashboard/contratos/ContratoWizard';
+import RecibosList from '../components/dashboard/recibos/RecibosList';
+import ReciboWizard from '../components/dashboard/recibos/ReciboWizard';
 
 /* ─── Brand ─────────────────────────────────────────────── */
 const GOLD       = '#D4A830';
@@ -72,6 +74,7 @@ const NAV_GROUPS = [
     label: 'Contratos',
     items: [
       { to: '/dashboard/contratos', icon: FileSignature, label: 'Contratos', badge: 'NOVO' },
+      { to: '/dashboard/recibos',   icon: Receipt,       label: 'Recibos',   badge: 'NOVO' },
     ],
   },
   {
@@ -105,15 +108,15 @@ const SideLink = ({ item, onClick, onAvatarClick }) => {
         className={({ isActive }) =>
           `group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150
            ${isActive
-             ? 'text-white shadow-sm'
+             ? 'shadow-md font-semibold'
              : 'text-emerald-100/80 hover:bg-white/10 hover:text-white'
            }`
         }
-        style={({ isActive }) => isActive ? { background: GOLD + '22', borderLeft: `3px solid ${GOLD}`, paddingLeft: '9px' } : {}}
+        style={({ isActive }) => isActive ? { background: GOLD, color: DARK_GREEN, borderLeft: `4px solid #FFFFFF`, paddingLeft: '8px', boxShadow: '0 2px 8px rgba(212,168,48,0.45)' } : {}}
       >
         {({ isActive }) => (
           <>
-            <div 
+            <div
               className="cursor-pointer hover:scale-110 transition-transform"
               onClick={(e) => {
                 e.preventDefault();
@@ -124,8 +127,8 @@ const SideLink = ({ item, onClick, onAvatarClick }) => {
               <RomaIAAvatar state={isActive ? 'speaking' : 'idle'} size="sm" />
             </div>
             <div className="flex flex-col leading-none">
-              <span className={isActive ? 'font-semibold' : ''}>Roma_IA</span>
-              <span className="text-[10px] opacity-60">Especialista NBR 14.653</span>
+              <span className={isActive ? 'font-bold' : ''}>Roma_IA</span>
+              <span className="text-[10px] opacity-70">Especialista NBR 14.653</span>
             </div>
           </>
         )}
@@ -141,24 +144,25 @@ const SideLink = ({ item, onClick, onAvatarClick }) => {
       className={({ isActive }) =>
         `group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150
          ${isActive
-           ? 'text-white shadow-sm'
+           ? 'shadow-md font-semibold'
            : 'text-emerald-100/80 hover:bg-white/10 hover:text-white'
          }`
       }
-      style={({ isActive }) => isActive ? { background: GOLD + '22', borderLeft: `3px solid ${GOLD}`, paddingLeft: '9px' } : {}}
+      style={({ isActive }) => isActive ? { background: GOLD, color: DARK_GREEN, borderLeft: `4px solid #FFFFFF`, paddingLeft: '8px', boxShadow: '0 2px 8px rgba(212,168,48,0.45)' } : {}}
     >
       {({ isActive }) => (
         <>
           <div
             className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors
-                        ${isActive ? 'bg-white/15' : 'bg-transparent group-hover:bg-white/10'}`}
+                        ${isActive ? '' : 'bg-transparent group-hover:bg-white/10'}`}
+            style={isActive ? { background: DARK_GREEN } : {}}
           >
             <Icon
               className="w-4 h-4"
               style={{ color: isActive ? GOLD : undefined }}
             />
           </div>
-          <span className={isActive ? 'font-semibold' : ''}>{item.label}</span>
+          <span className={isActive ? 'font-bold' : ''}>{item.label}</span>
             {item.badge && (
               <span className="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-400/20 text-amber-300 tracking-widest">
                 {item.badge}
@@ -428,6 +432,9 @@ const Dashboard = () => {
             <Route path="contratos"        element={<ContratosList />} />
             <Route path="contratos/novo"   element={<ContratoWizard />} />
             <Route path="contratos/:id"    element={<ContratoWizard />} />
+            <Route path="recibos"        element={<RecibosList />} />
+            <Route path="recibos/novo"   element={<ReciboWizard />} />
+            <Route path="recibos/:id"    element={<ReciboWizard />} />
             <Route path="laudos"      element={<Evaluations />} />
             <Route path="ia"          element={<AIAssistant />} />
             <Route path="curriculo"   element={<PerfilAvaliador />} />
