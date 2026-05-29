@@ -19,6 +19,7 @@ import io
 import urllib.request
 from datetime import datetime
 from typing import Any
+from xml.sax.saxutils import escape as _xml_escape
 
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT, TA_RIGHT
@@ -320,8 +321,10 @@ def _lv(styles, label: str, value: Any, skip_zero: bool = True) -> list:
         return []
     if skip_zero and str(value).strip() in ("0", "0.0", "0.00", "0.0000"):
         return []
+    # Escapa o valor digitado pelo usuário: '&', '<', '>' quebram o parser XML
+    # do reportlab e fariam a seção inteira ser descartada pelo _safe_build.
     return [
-        Paragraph(f"<b>{label}:</b> {value}", styles["value"]),
+        Paragraph(f"<b>{_xml_escape(str(label))}:</b> {_xml_escape(str(value))}", styles["value"]),
     ]
 
 
@@ -340,7 +343,10 @@ def _subsection(styles, text: str) -> list:
 def _body(styles, text: str) -> list:
     if not text or not text.strip():
         return []
-    return [Paragraph(text.replace("\n", "<br/>"), styles["body"])]
+    # Escapa antes de inserir o <br/> proposital, para que '&'/'<'/'>' no texto
+    # do usuário não quebrem o parser XML do reportlab.
+    safe = _xml_escape(str(text)).replace("\n", "<br/>")
+    return [Paragraph(safe, styles["body"])]
 
 
 def _spacer(h: float = 0.4) -> Spacer:
@@ -2173,5 +2179,22 @@ def generate_ptam_pdf(ptam: dict, user: dict, cnd_consultas: list | None = None,
         story.append(PageBreak())
         story += curriculo_section
 
-    doc.build(story)
+    try:
+        doc.build(story)
+    except Exception:
+        # Último recurso: se algum flowable (ex.: imagem corrompida) derrubar o
+        # build, gera um PDF mínimo válido em vez de retornar 500 ao usuário.
+        _pdf_logger.exception("ptam_pdf: falha no build final; gerando PDF mínimo de fallback")
+        buf = io.BytesIO()
+        fallback = _RomaTecDoc(buf, company_logo_bytes=company_logo_bytes)
+        fallback._logo_bytes = system_logo_bytes
+        fallback._ptam_number = ptam.get("numero_ptam") or ptam.get("number", "")
+        fallback._company_name = user.get("company", "") or ""
+        fallback.build([
+            Paragraph(
+                "Não foi possível renderizar todas as seções deste PTAM. "
+                "Revise os dados do laudo e gere o documento novamente.",
+                styles["body"],
+            ),
+        ])
     return buf.getvalue()
