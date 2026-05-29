@@ -32,12 +32,18 @@ const getStepIconClasses = (active, done) => {
   return 'bg-gray-100';
 };
 
+// Um id de PTAM válido é um uuid já persistido no backend.
+// Bloqueia 'novo', 'undefined', 'null' e vazio — impede PUT /api/ptam/undefined,
+// que retorna 404 em loop quando disparado pelo auto-save a cada 30s.
+const isValidPtamId = (v) =>
+  typeof v === 'string' && v.length > 0 && !['novo', 'undefined', 'null'].includes(v);
+
 const PtamWizard = () => {
   const { id } = useParams();
   const nav = useNavigate();
   const { toast } = useToast();
   const [form, setForm] = useState(EMPTY_PTAM);
-  const [ptamId, setPtamId] = useState(id && id !== 'novo' ? id : null);
+  const [ptamId, setPtamId] = useState(isValidPtamId(id) ? id : null);
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(!!ptamId);
   const [saving, setSaving] = useState(false);
@@ -52,7 +58,7 @@ const PtamWizard = () => {
   const debounceRef = useRef(null);
 
   const load = useCallback(async () => {
-    if (!ptamId) return;
+    if (!isValidPtamId(ptamId)) return;
     setLoading(true);
     try {
       const data = await ptamAPI.get(ptamId);
@@ -108,17 +114,20 @@ const PtamWizard = () => {
         impact_areas: computeImpactTotals(form.impact_areas),
         total_indemnity: form.total_indemnity || form.resultado_valor_total || sumIndemnity(form.impact_areas),
       };
-      if (ptamId) {
+      if (isValidPtamId(ptamId)) {
         await ptamAPI.update(ptamId, payload);
       } else {
         const created = await ptamAPI.create(payload);
+        if (!isValidPtamId(created?.id)) {
+          throw new Error('Falha ao criar PTAM: backend não retornou um id válido.');
+        }
         setPtamId(created.id);
         setForm((f) => ({ ...f, number: created.number, numero_ptam: created.numero_ptam || '' }));
         nav(`/dashboard/ptam/${created.id}`, { replace: true });
       }
       setLastSaved(new Date());
       // Atualizar versão atual após save
-      if (ptamId) {
+      if (isValidPtamId(ptamId)) {
         try {
           const versoes = await ptamAPI.listVersoes(ptamId);
           if (versoes.length > 0) {
@@ -139,7 +148,7 @@ const PtamWizard = () => {
 
   // Auto-save every 30s when there's an id
   useEffect(() => {
-    if (!ptamId) return;
+    if (!isValidPtamId(ptamId)) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => save(true), 30000);
     return () => debounceRef.current && clearTimeout(debounceRef.current);
