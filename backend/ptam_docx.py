@@ -30,6 +30,9 @@ from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 import io
+import logging
+
+logger = logging.getLogger("romatec")
 
 
 # ── Cores Romatec ─────────────────────────────────────────────────────────────
@@ -1890,98 +1893,110 @@ def generate_ptam_docx(ptam: dict, user: dict, cnd_consultas: list | None = None
 
     impact_areas = ptam.get("impact_areas") or []
 
+    def _safe(_name, _fn, *_args):
+        # Isola cada secao: uma falha (ex.: imagem invalida, campo inesperado)
+        # vira uma nota no documento em vez de derrubar todo o DOCX com 500.
+        try:
+            _fn(*_args)
+        except Exception:
+            logger.exception("DOCX: falha ao renderizar secao '%s'", _name)
+            try:
+                _add_styled_paragraph(doc, f"[Secao '{_name}' indisponivel neste documento]", italic=True)
+            except Exception:
+                pass
+
     # ── Capa ──────────────────────────────────────────────────────────────────
-    _render_cover(doc, ptam, user)
+    _safe("cover", _render_cover, doc, ptam, user)
 
     # ── Sumário ───────────────────────────────────────────────────────────────
-    _render_sumario(doc)
+    _safe("sumario", _render_sumario, doc)
 
     # ── Seção 1: Identificação e Objetivo ────────────────────────────────────
-    _render_identificacao(doc, ptam)
+    _safe("identificacao", _render_identificacao, doc, ptam)
     doc.add_paragraph()
 
     # ── Seção 2: Documentação Analisada ──────────────────────────────────────
-    _render_documentos_analisados(doc, ptam)
+    _safe("documentos_analisados", _render_documentos_analisados, doc, ptam)
     doc.add_paragraph()
 
     # ── Seção 3: Identificação do Imóvel ─────────────────────────────────────
-    _render_imovel(doc, ptam)
+    _safe("imovel", _render_imovel, doc, ptam)
     doc.add_paragraph()
 
     # ── Seção 4: Caracterização do Imóvel ─────────────────────────────────────
-    _render_caracterizacao(doc, ptam)
+    _safe("caracterizacao", _render_caracterizacao, doc, ptam)
     doc.add_paragraph()
 
     # ── Seção 5: Análise da Região ────────────────────────────────────────────
-    _render_regiao(doc, ptam)
+    _safe("regiao", _render_regiao, doc, ptam)
     doc.add_paragraph()
 
     # ── Seção 6: Amostras de Mercado ──────────────────────────────────────────
-    _render_mercado(doc, ptam)
+    _safe("mercado", _render_mercado, doc, ptam)
     doc.add_paragraph()
 
     # ── Seção 7: Metodologia ──────────────────────────────────────────────────
-    _render_metodologia(doc, ptam)
+    _safe("metodologia", _render_metodologia, doc, ptam)
     doc.add_paragraph()
 
     # ── Seção 8: Ponderância ──────────────────────────────────────────────────
-    _render_ponderancia(doc, ptam)
+    _safe("ponderancia", _render_ponderancia, doc, ptam)
     doc.add_paragraph()
 
     # ── Seção 9: Método de Avaliação / Depreciação ────────────────────────────
-    _render_metodo_avaliacao(doc, ptam)
+    _safe("metodo_avaliacao", _render_metodo_avaliacao, doc, ptam)
     doc.add_paragraph()
 
     # ── Seção 9b: Método Evolutivo (NBR 14.653-2:2011, item 8.2.1.2) ────────
-    _render_metodo_evolutivo(doc, ptam)
+    _safe("metodo_evolutivo", _render_metodo_evolutivo, doc, ptam)
     if ptam.get("metodo_evolutivo_resultado"):
         doc.add_paragraph()
 
     # ── Legacy: Áreas de Impacto ───────────────────────────────────────────────
-    _render_areas_impacto(doc, impact_areas)
+    _safe("areas_impacto", _render_areas_impacto, doc, impact_areas)
     if impact_areas:
         doc.add_paragraph()
 
     # ── Seção 10: Resultado da Avaliação ──────────────────────────────────────
     doc.add_page_break()
-    _render_resultado(doc, ptam, impact_areas)
+    _safe("resultado", _render_resultado, doc, ptam, impact_areas)
     doc.add_paragraph()
 
     # ── Seção: Considerações, Ressalvas e Pressupostos ────────────────────────
-    _render_consideracoes(doc, ptam)
+    _safe("consideracoes", _render_consideracoes, doc, ptam)
     doc.add_paragraph()
 
     # ── Anexo III: Base Legal ─────────────────────────────────────────────────
     _add_section_heading(doc, "ANEXO III — BASE LEGAL E NORMATIVA")
-    _render_base_legal(doc)
+    _safe("base_legal", _render_base_legal, doc)
     doc.add_paragraph()
 
     # ── Responsável Técnico + Assinatura ──────────────────────────────────────
     doc.add_page_break()
-    _render_responsavel(doc, ptam, user)
+    _safe("responsavel", _render_responsavel, doc, ptam, user)
 
     # ── Anexo I: Registro Fotográfico ─────────────────────────────────────────
     fotos = ptam.get("fotos_imovel") or ptam.get("photos") or []
     if fotos:
         doc.add_page_break()
         _add_section_heading(doc, "ANEXO I — FICHA DO IMÓVEL, FOTOS E DOCUMENTOS")
-        _render_fotos(doc, fotos)
+        _safe("fotos", _render_fotos, doc, fotos)
 
     # ── Documentos Anexos ─────────────────────────────────────────────────────
     docs_list = ptam.get("fotos_documentos") or []
     if docs_list:
         doc.add_page_break()
-        _render_documentos(doc, docs_list)
+        _safe("documentos", _render_documentos, doc, docs_list)
 
     # ── Anexo IV: Certidões das Partes (CND) ──────────────────────────────────
     if cnd_consultas:
         doc.add_page_break()
-        _render_certidoes(doc, cnd_consultas)
+        _safe("certidoes", _render_certidoes, doc, cnd_consultas)
 
     # ── Anexo V: Currículo do Avaliador ───────────────────────────────────────
     if perfil_avaliador:
         doc.add_page_break()
-        _render_curriculo(doc, perfil_avaliador, user)
+        _safe("curriculo", _render_curriculo, doc, perfil_avaliador, user)
 
     buf = BytesIO()
     doc.save(buf)

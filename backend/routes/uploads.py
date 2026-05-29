@@ -48,12 +48,24 @@ async def upload_image(file: UploadFile = File(...), uid: str = Depends(get_acti
 
 
 @router.get("/upload/image/{image_id}")
-async def get_image(image_id: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
-    doc = await db.images.find_one({"id": image_id, "user_id": uid})
+async def get_image(image_id: str, db=Depends(get_db)):
+    # Servida SEM exigir o header Authorization: tags <img src="..."> do navegador
+    # não enviam o Bearer token, então qualquer dependência de auth (HTTPBearer)
+    # retornaria 403 e a imagem nunca carregaria. O UUID v4 é a própria credencial
+    # (capability URL, não enumerável) — coerente com a geração de DOCX/PDF, que já
+    # busca a imagem só por id, e com o compartilhamento público de PTAM.
+    doc = await db.images.find_one({"id": image_id})
     if not doc:
         raise HTTPException(status_code=404, detail="Imagem não encontrada")
-    raw = base64.b64decode(doc["data_b64"])
-    return Response(content=raw, media_type=doc.get("content_type", "image/jpeg"))
+    try:
+        raw = base64.b64decode(doc["data_b64"])
+    except Exception:
+        raise HTTPException(status_code=422, detail="Imagem corrompida")
+    return Response(
+        content=raw,
+        media_type=doc.get("content_type", "image/jpeg"),
+        headers={"Cache-Control": "private, max-age=86400"},
+    )
 
 
 @router.delete("/upload/image/{image_id}")
