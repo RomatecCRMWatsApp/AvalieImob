@@ -1,0 +1,43 @@
+# Normaliza fins de linha: armazena tudo como LF no repositório.
+# Acaba com o churn de CRLF que fazia centenas de arquivos aparecerem "modificados".
+* text=auto eol=lf
+
+# Código e texto — sempre LF
+*.py    text eol=lf
+*.js    text eol=lf
+*.jsx   text eol=lf
+*.ts    text eol=lf
+*.tsx   text eol=lf
+*.json  text eol=lf
+*.css   text eol=lf
+*.scss  text eol=lf
+*.html  text eol=lf
+*.md    text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.txt   text eol=lf
+*.env   text eol=lf
+*.gradle text eol=lf
+*.xml   text eol=lf
+
+# Scripts Windows — mantêm CRLF (exigido pelo PowerShell/CMD)
+*.ps1   text eol=crlf
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+
+# Binários — nunca normalizar
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.webp  binary
+*.ico   binary
+*.pdf   binary
+*.docx  binary
+*.xlsx  binary
+*.zip   binary
+*.jar   binary
+*.keystore binary
+*.ttf   binary
+*.woff  binary
+*.woff2 binary
