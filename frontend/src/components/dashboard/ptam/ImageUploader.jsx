@@ -1,6 +1,6 @@
 // @module ImageUploader — reutilizável; mobile usa SmartPhotoInput, desktop usa drop zone
 import React, { useRef, useState } from 'react';
-import { Upload, X, Loader2, Image as ImageIcon, FileText, MapPin } from 'lucide-react';
+import { Upload, X, Loader2, Image as ImageIcon, FileText, MapPin, Check } from 'lucide-react';
 import { uploadAPI } from '../../../lib/api';
 import { useToast } from '../../../hooks/use-toast';
 import { useIsMobile } from '../../../hooks/useIsMobile';
@@ -22,6 +22,17 @@ const ImageUploader = ({
   const isMobile = useIsMobile();
 
   const [metaLoading, setMetaLoading] = useState({});
+  const [copiados, setCopiados] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('avalieimob_fotos_gps_copiadas') || '[]'); }
+    catch { return []; }
+  });
+  const jaCopiado = (id) => copiados.includes(id);
+  const marcarCopiado = (id) => setCopiados((prev) => {
+    if (prev.includes(id)) return prev;
+    const novo = [...prev, id];
+    try { localStorage.setItem('avalieimob_fotos_gps_copiadas', JSON.stringify(novo)); } catch { /* ignore */ }
+    return novo;
+  });
   const canAdd = single ? images.length === 0 : images.length < maxImages;
   const isPdf = (id) => contentTypes[id] === 'application/pdf';
 
@@ -39,6 +50,7 @@ const ImageUploader = ({
         return;
       }
       await navigator.clipboard.writeText(m.texto_copia);
+      marcarCopiado(id);
       toast({ title: 'GPS e data/hora copiados!', description: m.texto_copia });
     } catch (e) {
       toast({ title: 'Erro ao ler dados da foto', variant: 'destructive' });
@@ -113,11 +125,18 @@ const ImageUploader = ({
                   <img src={uploadAPI.getImageUrl(id)} alt="uploaded" className="w-full h-full object-cover" />
                 )}
                 {!isPdf(id) && (
-                  <button type="button" onClick={() => copiarMeta(id)} disabled={metaLoading[id]}
-                    title="Copiar GPS e data/hora da foto"
-                    className="absolute top-1 left-1 w-6 h-6 bg-emerald-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition hover:bg-emerald-700">
-                    {metaLoading[id] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MapPin className="w-3.5 h-3.5" />}
-                  </button>
+                  <>
+                    <button type="button" onClick={() => copiarMeta(id)} disabled={metaLoading[id]}
+                      title={jaCopiado(id) ? 'GPS já copiado — clique para copiar de novo' : 'Copiar GPS e data/hora da foto'}
+                      className={`absolute top-1 left-1 w-6 h-6 ${jaCopiado(id) ? 'bg-emerald-700' : 'bg-emerald-600'} text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition hover:bg-emerald-700`}>
+                      {metaLoading[id] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : jaCopiado(id) ? <Check className="w-3.5 h-3.5" /> : <MapPin className="w-3.5 h-3.5" />}
+                    </button>
+                    {jaCopiado(id) && (
+                      <span className="absolute bottom-1 left-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-600 text-white flex items-center gap-0.5 shadow">
+                        <Check className="w-3 h-3" /> GPS
+                      </span>
+                    )}
+                  </>
                 )}
                 <button type="button" onClick={() => handleRemove(id)}
                   className="absolute top-1 right-1 w-6 h-6 bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition hover:bg-red-700">
@@ -173,11 +192,18 @@ const ImageUploader = ({
                 </>
               )}
               {!isPdf(id) && (
-                <button type="button" onClick={() => copiarMeta(id)} disabled={metaLoading[id]}
-                  title="Copiar GPS e data/hora da foto"
-                  className="absolute top-1 left-1 w-6 h-6 bg-emerald-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition hover:bg-emerald-700">
-                  {metaLoading[id] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MapPin className="w-3.5 h-3.5" />}
-                </button>
+                <>
+                  <button type="button" onClick={() => copiarMeta(id)} disabled={metaLoading[id]}
+                    title={jaCopiado(id) ? 'GPS já copiado — clique para copiar de novo' : 'Copiar GPS e data/hora da foto'}
+                    className={`absolute top-1 left-1 w-6 h-6 ${jaCopiado(id) ? 'bg-emerald-700' : 'bg-emerald-600'} text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition hover:bg-emerald-700`}>
+                    {metaLoading[id] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : jaCopiado(id) ? <Check className="w-3.5 h-3.5" /> : <MapPin className="w-3.5 h-3.5" />}
+                  </button>
+                  {jaCopiado(id) && (
+                    <span className="absolute bottom-1 left-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-600 text-white flex items-center gap-0.5 shadow">
+                      <Check className="w-3 h-3" /> GPS
+                    </span>
+                  )}
+                </>
               )}
               <button type="button" onClick={() => handleRemove(id)}
                 className="absolute top-1 right-1 w-6 h-6 bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition hover:bg-red-700">
