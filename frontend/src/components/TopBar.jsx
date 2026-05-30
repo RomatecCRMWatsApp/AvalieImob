@@ -75,8 +75,24 @@ export default function TopBar({
 }) {
   const [now, setNow] = useState(new Date());
   const [menuOpen, setMenu] = useState(false);
+  const [compacto, setCompacto] = useState(false);
   const menuRef = useRef(null);
   const localizacao = useLocalizacao();
+
+  // Mostra a faixa extra (data/local/versao) só abaixo de lg (1024px), espelhando
+  // os utilitarios `lg:` da barra principal. Evita duplicacao no desktop.
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(max-width: 1023px)');
+    const upd = () => setCompacto(mq.matches);
+    upd();
+    if (mq.addEventListener) mq.addEventListener('change', upd);
+    else mq.addListener(upd);
+    return () => {
+      if (mq.removeEventListener) mq.removeEventListener('change', upd);
+      else mq.removeListener(upd);
+    };
+  }, []);
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
@@ -212,8 +228,9 @@ export default function TopBar({
       </div>
     </header>
 
-      {/* Faixa só-mobile: data, localização e versão (não cabem na linha principal) */}
-      <div className="lg:hidden" style={{
+      {/* Faixa compacta (abaixo de lg): data, localização e versão */}
+      {compacto && (
+      <div style={{
         background: T.bg, borderBottom: `1px solid ${T.borderMain}`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         gap: 12, padding: '4px 10px', flexWrap: 'wrap',
@@ -230,6 +247,7 @@ export default function TopBar({
           {version}{deployDate ? ` · ${deployDate}` : ''}
         </span>
       </div>
+      )}
     </div>
   );
 }
