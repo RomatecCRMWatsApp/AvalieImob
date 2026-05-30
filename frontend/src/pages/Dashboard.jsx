@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, NavLink, Routes, Route, useNavigate } from 'react-router-dom';
 import {
@@ -7,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { APP_VERSION } from '../version';
+import Sidebar from '../components/Sidebar';
 import { BRAND } from '../mock/mock';
 import RomaIAAvatar from '../components/common/RomaIAAvatar';
 import LgpdBadge from '../components/common/LgpdBadge';
@@ -284,14 +286,15 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen flex" style={{ background: '#f8fafc' }}>
 
-      {/* ── Sidebar ── */}
+      {/* ── Sidebar (dark elegante) ── */}
       <aside
-        className={`fixed lg:sticky top-0 inset-y-0 left-0 z-40 w-72 flex flex-col transition-transform duration-300 h-screen
+        className={`fixed lg:sticky top-0 inset-y-0 left-0 z-40 flex transition-transform duration-300 h-screen
                     ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
-        style={{
-          background: `linear-gradient(180deg, #ffffff 0%, #ffffff 140px, #d8e8dc 200px, #5a8166 260px, ${DARK_GREEN} 340px)`,
-        }}
       >
+        <Sidebar user={user} onLogout={handleLogout} onNavigate={() => setMobileOpen(false)} />
+      </aside>
+      {/* legado-sidebar-inicio */}
+      <aside style={{ display: 'none' }}>
         {/* Logo (sobre fundo branco do gradiente — sem corte grosseiro) */}
         <div className="px-3 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
           <Link to="/dashboard" className="flex items-center flex-1" onClick={() => setMobileOpen(false)}>

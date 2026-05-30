@@ -474,6 +474,47 @@ class FotoCard(Flowable):
         _campos_dir(c, dx, h - 1.05 * cm, 'Informações da Foto', campos, dy=0.62 * cm, val_x=1.9 * cm)
 
 
+class DocCard(Flowable):
+    """Documento digitalizado (certidao/IPTU/BCI): cabecalho com nome + imagem (ou placeholder PDF)."""
+    CH = 13.0 * cm
+
+    def __init__(self, numero, nome, img_bytes=None, content_type='image/jpeg'):
+        super().__init__()
+        self.numero = numero
+        self.nome = nome or f'Documento {numero}'
+        self.img = img_bytes
+        self.ct = (content_type or '').lower()
+        self.width = UTIL_W
+        self.height = self.CH
+
+    def wrap(self, aw, ah):
+        return (self.width, self.height)
+
+    def draw(self):
+        c = self.canv
+        w, h = self.width, self.height
+        c.setFillColor(BRANCO)
+        c.setStrokeColor(CINZA_BRD)
+        c.setLineWidth(0.5)
+        c.roundRect(0, 0, w, h, 0.18 * cm, stroke=1, fill=1)
+        c.setFillColor(VERDE_MED)
+        c.setFont('Helvetica-Bold', 9.5)
+        c.drawString(0.4 * cm, h - 0.62 * cm, f'Documento {self.numero}: {str(self.nome)[:72]}')
+        c.setStrokeColor(CINZA_BRD)
+        c.setLineWidth(0.3)
+        c.line(0.2 * cm, h - 0.88 * cm, w - 0.2 * cm, h - 0.88 * cm)
+        fx, fy = 0.3 * cm, 0.3 * cm
+        fw, fh = w - 0.6 * cm, h - 1.25 * cm
+        if 'pdf' in self.ct:
+            c.setFillColor(HexColor('#EEEEEE'))
+            c.roundRect(fx, fy, fw, fh, 0.12 * cm, stroke=0, fill=1)
+            c.setFillColor(CINZA)
+            c.setFont('Helvetica-Oblique', 10)
+            c.drawCentredString(fx + fw / 2, fy + fh / 2, 'Documento em PDF anexado ao processo.')
+        else:
+            _draw_foto_box(c, fx, fy, fw, fh, _load_image_reader(self.img), 'Documento')
+
+
 # ╔══════════════════════════════════════════════════════════════════════════╗
 # ║  DOC com tracking de paginas (2 passagens)                                 ║
 # ╚══════════════════════════════════════════════════════════════════════════╝
@@ -601,6 +642,56 @@ def _leg(f, n):
     if isinstance(f, dict):
         return f.get('legenda') or f.get('description') or f.get('caption') or f'Foto {n}'
     return f'Foto {n}'
+
+
+def _exif_gps_data(img_bytes):
+    """Extrai (gps_str, data_hora_str) do EXIF da imagem. Nunca lanca."""
+    try:
+        from PIL import Image as _PILImg, ExifTags as _ExifTags
+        im = _PILImg.open(BytesIO(img_bytes))
+        exif = im._getexif() or {}
+        tags = {_ExifTags.TAGS.get(k, k): v for k, v in exif.items()}
+        dh = tags.get('DateTimeOriginal') or tags.get('DateTime') or ''
+        if dh:
+            try:
+                d, t = str(dh).split(' ', 1)
+                y, mo, da = d.split(':')
+                dh = f"{da}/{mo}/{y} {t}"
+            except Exception:
+                dh = str(dh)
+        gps = ''
+        gi = tags.get('GPSInfo')
+        if gi:
+            g = {_ExifTags.GPSTAGS.get(k, k): v for k, v in gi.items()}
+
+            def _conv(coord, ref):
+                dd = float(coord[0]) + float(coord[1]) / 60 + float(coord[2]) / 3600
+                return -dd if ref in ('S', 'W') else dd
+            if 'GPSLatitude' in g and 'GPSLongitude' in g:
+                lat = _conv(g['GPSLatitude'], g.get('GPSLatitudeRef', 'N'))
+                lon = _conv(g['GPSLongitude'], g.get('GPSLongitudeRef', 'E'))
+                gps = f"{lat:.6f}, {lon:.6f}"
+                alt = g.get('GPSAltitude')
+                if alt:
+                    try:
+                        gps += f" alt {float(alt):.0f}m"
+                    except Exception:
+                        pass
+        return gps, dh
+    except Exception:
+        return '', ''
+
+
+def _fotocard(f, n, total):
+    """Cria um FotoCard a partir do dict da foto, extraindo GPS/Data do EXIF se faltarem."""
+    b = f.get('_image_bytes') if isinstance(f, dict) else None
+    g = (f.get('gps') if isinstance(f, dict) else '') or ''
+    dh = (f.get('data_hora') if isinstance(f, dict) else '') or ''
+    if (not g or not dh) and b:
+        eg, ed = _exif_gps_data(b)
+        g = g or eg
+        dh = dh or ed
+    return FotoCard(n, _leg(f, n), total, b, g, dh)
 
 
 def build_story(ptam, page_map):
@@ -803,20 +894,25 @@ def build_story(ptam, page_map):
             n2 = min(i + 2, total)
             st.append(Paragraph(f'Fotografias {i + 1} e {n2} de {total}'
                                 if n2 > i + 1 else f'Fotografia {i + 1} de {total}', sPag))
-            f1 = fotos[i]
-            st.append(FotoCard(i + 1, _leg(f1, i + 1),
-                               total, (f1.get('_image_bytes') if isinstance(f1, dict) else None),
-                               (f1.get('gps') if isinstance(f1, dict) else ''),
-                               (f1.get('data_hora') if isinstance(f1, dict) else '')))
+            st.append(_fotocard(fotos[i], i + 1, total))
             if i + 1 < total:
                 st.append(Spacer(1, GAP))
-                f2 = fotos[i + 1]
-                st.append(FotoCard(i + 2, _leg(f2, i + 2),
-                                   total, (f2.get('_image_bytes') if isinstance(f2, dict) else None),
-                                   (f2.get('gps') if isinstance(f2, dict) else ''),
-                                   (f2.get('data_hora') if isinstance(f2, dict) else '')))
+                st.append(_fotocard(fotos[i + 1], i + 2, total))
             if n2 < total:
                 st.append(PageBreak())
+
+    # ── Documentos digitalizados do imovel (Certidoes, IPTU, BCI...) ──
+    documentos = ptam.get('documentos_resolvidos') or []
+    if documentos:
+        st.append(PageBreak())
+        st += sec('ANEXO I.B — DOCUMENTOS DO IMÓVEL', 'anexo1b')
+        st.append(Paragraph('Certidões, IPTU, BCI e demais documentos analisados, anexados ao parecer.', sPag))
+        for k, d in enumerate(documentos, 1):
+            if not isinstance(d, dict):
+                continue
+            st.append(DocCard(k, d.get('name') or f'Documento {k}',
+                              d.get('_doc_bytes'), d.get('content_type', 'image/jpeg')))
+            st.append(Spacer(1, GAP))
 
     # ── ANEXO II — Amostras Comparativas ──
     st.append(PageBreak())

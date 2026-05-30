@@ -750,6 +750,25 @@ async def download_ptam_pdf_v2(pid: str, uid: str = Depends(get_active_subscribe
                 simg = await db.images.find_one({"id": sample_image_id})
                 if simg and simg.get("data_b64"):
                     sample["_image_bytes"] = base64.b64decode(simg["data_b64"])
+        # Resolve documentos digitalizados (fotos_documentos: IDs -> bytes + nome)
+        docs_resolvidos = []
+        for kdoc, ditem in enumerate(doc.get("fotos_documentos") or [], 1):
+            if isinstance(ditem, dict):
+                durl = ditem.get("url") or ditem.get("doc_id") or ditem.get("image_id", "")
+                dnome = ditem.get("name") or ditem.get("tipo") or ditem.get("descricao")
+            else:
+                durl = str(ditem)
+                dnome = None
+            did = str(durl).replace('/api/upload/image/', '').split('/')[-1]
+            if len(did) > 30 and '-' in did:
+                dimg = await db.images.find_one({"id": did})
+                if dimg and dimg.get("data_b64"):
+                    docs_resolvidos.append({
+                        "name": dnome or dimg.get("filename") or f"Documento {kdoc}",
+                        "_doc_bytes": base64.b64decode(dimg["data_b64"]),
+                        "content_type": dimg.get("content_type", "image/jpeg"),
+                    })
+        doc["documentos_resolvidos"] = docs_resolvidos
         perfil = await db.perfil_avaliador.find_one({"user_id": uid})
         if perfil:
             perfil.pop("_id", None)

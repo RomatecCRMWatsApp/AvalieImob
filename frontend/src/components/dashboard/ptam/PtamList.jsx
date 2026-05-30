@@ -257,7 +257,7 @@ const PtamList = () => {
   const downloadPdf = async (p) => {
     setPdfLoading((prev) => ({ ...prev, [p.id]: true }));
     try {
-      const blob = await ptamAPI.downloadPdf(p.id);
+      const blob = await ptamAPI.downloadPdfV2(p.id);
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
