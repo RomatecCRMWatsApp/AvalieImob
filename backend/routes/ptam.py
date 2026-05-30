@@ -767,7 +767,6 @@ async def download_ptam_pdf_v2(pid: str, uid: str = Depends(get_active_subscribe
                     img_doc = await db.images.find_one({"id": image_id})
                     if img_doc and img_doc.get("data_b64"):
                         raw = base64.b64decode(img_doc["data_b64"])
-                        entry["_image_bytes"] = raw
                         if img_doc.get("filename"):
                             entry["legenda"] = img_doc["filename"]
                         g, d = await _gps_data_foto(db, img_doc, raw)
@@ -775,6 +774,8 @@ async def download_ptam_pdf_v2(pid: str, uid: str = Depends(get_active_subscribe
                             entry["gps"] = g
                         if d:
                             entry["data_hora"] = d
+                        from services.img_util import downscale_image
+                        entry["_image_bytes"] = downscale_image(raw)
                 fotos_norm.append(entry)
         doc["fotos_imovel"] = fotos_norm
         # Resolve fotos das amostras (IDs -> bytes)

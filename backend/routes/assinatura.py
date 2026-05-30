@@ -93,13 +93,17 @@ def _validate_d4sign_webhook(request: Request):
 
 async def _resolve_ptam_assets(db, doc: dict) -> None:
     """Resolve IDs de imagens -> bytes para o gerador v2 (fotos do imovel,
-    fotos das amostras e documentos digitalizados). Espelha o endpoint /pdf-v2."""
+    fotos das amostras e documentos digitalizados). Espelha o endpoint /pdf-v2.
+    Reamostra as imagens (downscale) para reduzir memoria na assinatura."""
     import base64
+    from services.img_util import downscale_image
     fotos_norm = []
     for i, foto in enumerate(doc.get("fotos_imovel") or [], 1):
         if isinstance(foto, dict):
             if not foto.get("legenda"):
                 foto["legenda"] = foto.get("description") or foto.get("caption") or f"Foto {i}"
+            if isinstance(foto.get("_image_bytes"), (bytes, bytearray)):
+                foto["_image_bytes"] = downscale_image(bytes(foto["_image_bytes"]))
             fotos_norm.append(foto)
             continue
         image_id = str(foto).replace('/api/upload/image/', '').split('/')[-1]
@@ -107,9 +111,13 @@ async def _resolve_ptam_assets(db, doc: dict) -> None:
         if len(image_id) > 30 and '-' in image_id:
             img = await db.images.find_one({"id": image_id})
             if img and img.get("data_b64"):
-                entry["_image_bytes"] = base64.b64decode(img["data_b64"])
+                entry["_image_bytes"] = downscale_image(base64.b64decode(img["data_b64"]))
                 if img.get("filename"):
                     entry["legenda"] = img["filename"]
+                if img.get("meta_gps"):
+                    entry["gps"] = img["meta_gps"]
+                if img.get("meta_data_hora"):
+                    entry["data_hora"] = img["meta_data_hora"]
         fotos_norm.append(entry)
     doc["fotos_imovel"] = fotos_norm
 
@@ -119,7 +127,7 @@ async def _resolve_ptam_assets(db, doc: dict) -> None:
         if len(sid) > 30 and '-' in sid:
             simg = await db.images.find_one({"id": sid})
             if simg and simg.get("data_b64"):
-                s["_image_bytes"] = base64.b64decode(simg["data_b64"])
+                s["_image_bytes"] = downscale_image(base64.b64decode(simg["data_b64"]))
 
     docs_res = []
     for kd, di in enumerate(doc.get("fotos_documentos") or [], 1):
@@ -129,10 +137,14 @@ async def _resolve_ptam_assets(db, doc: dict) -> None:
         if len(did) > 30 and '-' in did:
             dimg = await db.images.find_one({"id": did})
             if dimg and dimg.get("data_b64"):
+                _ct = dimg.get("content_type", "image/jpeg")
+                _raw = base64.b64decode(dimg["data_b64"])
+                if str(_ct).startswith("image/"):
+                    _raw = downscale_image(_raw, max_side=1800)
                 docs_res.append({
                     "name": dn or dimg.get("filename") or f"Documento {kd}",
-                    "_doc_bytes": base64.b64decode(dimg["data_b64"]),
-                    "content_type": dimg.get("content_type", "image/jpeg"),
+                    "_doc_bytes": _raw,
+                    "content_type": _ct,
                 })
     doc["documentos_resolvidos"] = docs_res
 
