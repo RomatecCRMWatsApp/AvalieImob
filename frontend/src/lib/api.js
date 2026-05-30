@@ -104,6 +104,7 @@ export const ptamAPI = {
   remove: (id) => api.delete(`/ptam/${id}`).then(r => r.data),
   downloadDocx: (id) => api.get(`/ptam/${id}/docx`, { responseType: 'blob' }).then(r => r.data),
   downloadPdf: (id) => api.get(`/ptam/${id}/pdf`, { responseType: 'blob' }).then(r => r.data),
+  downloadPdfV2: (id) => api.get(`/ptam/${id}/pdf-v2`, { responseType: 'blob' }).then(r => r.data),
   sendEmail: (id, data) => api.post(`/ptam/${id}/email`, data).then(r => r.data),
   // Versionamento
   listVersoes: (id) => api.get(`/ptam/${id}/versoes`).then(r => r.data),

@@ -17,6 +17,8 @@ from services.auth_service import get_current_user_id
 from services.ptam_share import enviar_ptam_email
 from models import PtamBase, Ptam, PtamVersion, PtamVersionDiff
 from pdf.ptam_pdf import generate_ptam_pdf
+from ptam_docx import generate_ptam_docx
+from services.ptam_pdf_v2 import generate_ptam_pdf_v2
 
 router = APIRouter(tags=["ptam"])
 logger = logging.getLogger("romatec")
@@ -603,6 +605,163 @@ async def download_ptam_pdf(pid: str, uid: str = Depends(get_active_subscriber),
             "Content-Transfer-Encoding": "binary",
             "Cache-Control": "no-store",
         },
+    )
+
+
+def _map_ptam_to_spec_v2(doc: dict, perfil: dict | None) -> dict:
+    """Traduz o documento real (ptam_documents) para o schema do gerador v2 (best-effort).
+    Campos ausentes no banco viram placeholders no PDF (o gerador e defensivo)."""
+    perfil = perfil or {}
+    ptype = (doc.get("property_type") or "").upper() or None
+
+    amostras = []
+    for s in (doc.get("market_samples") or []):
+        amostras.append({
+            "endereco": s.get("address"),
+            "tipo": "Consolidada" if s.get("tipo_amostra") == "consolidada" else "Oferta de Mercado",
+            "tipo_tag": ptype,
+            "area_terreno": s.get("area"),
+            "valor_ofertado": s.get("value"),
+            "valor_unitario_oferta": s.get("value_per_sqm"),
+            "valor_unitario_tratado": s.get("value_per_sqm"),
+            "fator_oferta": "",
+            "fonte": s.get("source"),
+            "data_coleta": s.get("collection_date"),
+            "foto_url": s.get("_image_bytes"),
+        })
+
+    fotos = []
+    for i, f in enumerate(doc.get("fotos_imovel") or [], 1):
+        if isinstance(f, dict):
+            fotos.append({
+                "url": f.get("_image_bytes"),
+                "legenda": f.get("description") or f.get("descricao") or f"Foto {i}",
+                "ordem": i,
+            })
+
+    return {
+        "id": doc.get("id"),
+        "id_curto": str(doc.get("number") or ""),
+        "data_laudo": doc.get("conclusion_date") or doc.get("vistoria_date"),
+        "data_vistoria": doc.get("vistoria_date"),
+        "finalidade": doc.get("finalidade") or "",
+        "finalidade_texto": doc.get("finalidade_outros"),
+        "grau_fundamentacao": doc.get("calc_grau_fundamentacao"),
+        "grau_precisao": doc.get("grau_precisao"),
+        "solicitante": {
+            "nome": doc.get("solicitante_nome") or doc.get("solicitante"),
+            "cpf_cnpj": doc.get("solicitante_cpf_cnpj"),
+            "endereco": doc.get("solicitante_endereco"),
+            "telefone": doc.get("solicitante_telefone"),
+            "email": doc.get("solicitante_email"),
+        },
+        "imovel": {
+            "endereco": doc.get("property_address"),
+            "bairro": doc.get("property_neighborhood"),
+            "municipio": doc.get("property_city"),
+            "uf": doc.get("property_state"),
+            "cep": doc.get("property_cep"),
+            "matricula": doc.get("property_matricula"),
+            "cartorio": doc.get("property_cartorio"),
+            "tipo": doc.get("property_type"),
+            "uso": doc.get("property_label"),
+            "area_terreno": doc.get("imovel_area_terreno") or doc.get("property_area_sqm"),
+            "area_construida": doc.get("imovel_area_construida"),
+            "area_total": doc.get("imovel_area_a_considerar") or doc.get("area_total"),
+        },
+        "avaliador": {
+            "nome": perfil.get("nome") or perfil.get("nome_completo"),
+            "cnai": perfil.get("cnai"),
+            "creci": perfil.get("creci"),
+            "cft": perfil.get("cft"),
+            "crea": perfil.get("crea"),
+            "incra": perfil.get("incra"),
+            "formacao": perfil.get("formacao"),
+            "especializacao": perfil.get("especializacao"),
+            "empresa": perfil.get("empresa"),
+            "cnpj_empresa": perfil.get("cnpj_empresa"),
+            "endereco": perfil.get("endereco"),
+            "cep": perfil.get("cep"),
+            "telefone": perfil.get("telefone"),
+            "email": perfil.get("email"),
+            "site": perfil.get("site"),
+            "curriculo": perfil.get("curriculo"),
+        },
+        "metodologia": {"metodo_principal": doc.get("metodo_avaliacao")},
+        "amostras": amostras,
+        "resultado": {
+            "metodo": doc.get("metodo_avaliacao"),
+            "valor_unitario": doc.get("resultado_valor_unitario"),
+            "area": doc.get("imovel_area_a_considerar") or doc.get("imovel_area_construida"),
+            "valor_final": doc.get("resultado_valor_total"),
+            "valor_extenso": doc.get("resultado_valor_extenso"),
+            "data_base": doc.get("resultado_data_referencia") or doc.get("vistoria_date"),
+        },
+        "conclusao": {
+            "texto": doc.get("conclusion_text"),
+            "texto_conclusao": doc.get("conclusion_text"),
+        },
+        "fotos_imovel": fotos,
+    }
+
+
+@router.get("/ptam/{pid}/pdf-v2")
+async def download_ptam_pdf_v2(pid: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    """Gera o PDF do PTAM no novo layout (spec 1.0). Rota paralela — nao substitui /pdf."""
+    doc = await db.ptam_documents.find_one({"id": pid, "user_id": uid})
+    if not doc:
+        raise HTTPException(status_code=404, detail="PTAM não encontrado")
+    try:
+        # Resolve fotos do imovel (IDs -> bytes)
+        for foto in (doc.get("fotos_imovel") or []):
+            if isinstance(foto, dict):
+                url = foto.get("url") or foto.get("image_id", "")
+            else:
+                url = str(foto)
+            image_id = str(url).replace('/api/upload/image/', '').split('/')[-1]
+            if len(image_id) > 30 and '-' in image_id:
+                img_doc = await db.images.find_one({"id": image_id})
+                if img_doc and img_doc.get("data_b64"):
+                    if isinstance(foto, dict):
+                        foto["_image_bytes"] = base64.b64decode(img_doc["data_b64"])
+        # Normaliza fotos_imovel que sao strings para dicts com bytes
+        fotos_norm = []
+        for i, foto in enumerate(doc.get("fotos_imovel") or [], 1):
+            if isinstance(foto, dict):
+                fotos_norm.append(foto)
+            else:
+                image_id = str(foto).replace('/api/upload/image/', '').split('/')[-1]
+                entry = {"description": f"Foto {i}"}
+                if len(image_id) > 30 and '-' in image_id:
+                    img_doc = await db.images.find_one({"id": image_id})
+                    if img_doc and img_doc.get("data_b64"):
+                        entry["_image_bytes"] = base64.b64decode(img_doc["data_b64"])
+                fotos_norm.append(entry)
+        doc["fotos_imovel"] = fotos_norm
+        # Resolve fotos das amostras (IDs -> bytes)
+        for sample in (doc.get("market_samples") or []):
+            foto_url = sample.get("foto") or sample.get("foto_url") or ""
+            sample_image_id = str(foto_url).replace('/api/upload/image/', '').split('/')[-1]
+            if len(sample_image_id) > 30 and '-' in sample_image_id:
+                simg = await db.images.find_one({"id": sample_image_id})
+                if simg and simg.get("data_b64"):
+                    sample["_image_bytes"] = base64.b64decode(simg["data_b64"])
+        perfil = await db.perfil_avaliador.find_one({"user_id": uid})
+        if perfil:
+            perfil.pop("_id", None)
+        spec = _map_ptam_to_spec_v2(doc, perfil)
+        data = generate_ptam_pdf_v2(spec)
+    except Exception as e:
+        logger.exception("PDF v2 generation error")
+        raise HTTPException(status_code=500, detail=f"Erro ao gerar PDF v2: {str(e)[:200]}")
+    if not data or not data.startswith(b'%PDF-'):
+        raise HTTPException(status_code=500, detail="PDF v2 inválido")
+    date_str = datetime.utcnow().strftime("%Y%m%d")
+    filename = f"PTAM_{doc.get('number', 'sem-numero')}_v2_{date_str}.pdf"
+    return Response(
+        content=data,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"', "Cache-Control": "no-store"},
     )
 
 

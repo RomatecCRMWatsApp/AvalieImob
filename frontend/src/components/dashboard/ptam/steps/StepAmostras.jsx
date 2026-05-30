@@ -1,4 +1,4 @@
-// @module ptam/steps/StepAmostras — Step 6: Amostras de Mercado (tabela de pesquisa, análise)
+// @module ptam/steps/StepAmostras — Step 6: Amostras de Mercado (cards de pesquisa, análise)
 import React, { useState, useMemo } from 'react';
 import { Input } from '../../../ui/input';
 import { Textarea } from '../../../ui/textarea';
@@ -9,7 +9,11 @@ import { emptyMarketSample, computeStatsNBR } from '../ptamHelpers';
 import ImageUploader from '../ImageUploader';
 import { BuscaAmostras } from '../BuscaAmostras';
 
-const MarketSampleRow = ({ s, onChange, onRemove, idx, isSaneada }) => {
+const FieldLabel = ({ children }) => (
+  <label className="block text-[11px] font-medium text-gray-500 mb-1">{children}</label>
+);
+
+const MarketSampleCard = ({ s, onChange, onRemove, idx, isSaneada }) => {
   const handleValue = (field, raw) => {
     const v = Number(raw);
     const area = field === 'area' ? v : Number(s.area || 0);
@@ -23,64 +27,98 @@ const MarketSampleRow = ({ s, onChange, onRemove, idx, isSaneada }) => {
     ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
     : 'bg-amber-100 text-amber-800 border-amber-300';
 
-  // Estilos para amostras saneadas (eliminadas)
-  const rowClass = isSaneada
-    ? 'bg-red-50 border-t border-red-100 text-sm'
-    : 'border-t border-gray-100 text-sm';
-
   return (
-    <tr className={rowClass}>
-      <td className="px-2 py-1.5 text-center">
-        <span className={`font-mono ${isSaneada ? 'text-red-500' : 'text-gray-400'}`}>{idx + 1}</span>
-        {isSaneada && (
-          <div className="group relative inline-block ml-1">
-            <AlertTriangle className="w-3.5 h-3.5 text-red-500 inline" />
-            <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block w-64 p-2 bg-gray-800 text-white text-xs rounded shadow-lg z-10">
-              Eliminada por estar fora do intervalo de saneamento (±10% da média inicial)
-            </span>
-          </div>
-        )}
-      </td>
-      <td className="px-2 py-1.5"><Input value={s.address || ''} onChange={(e) => onChange({ ...s, address: e.target.value })} placeholder="Endereço" className="text-xs h-8" /></td>
-      <td className="px-2 py-1.5"><Input value={s.neighborhood || ''} onChange={(e) => onChange({ ...s, neighborhood: e.target.value })} placeholder="Bairro" className="text-xs h-8" /></td>
-      <td className="px-2 py-1.5 w-24"><Input type="number" value={s.area || ''} onChange={(e) => handleValue('area', e.target.value)} placeholder="m²" className="text-xs h-8" /></td>
-      <td className="px-2 py-1.5 w-28"><Input type="number" value={s.value || ''} onChange={(e) => handleValue('value', e.target.value)} placeholder="R$" className="text-xs h-8" /></td>
-      <td className={`px-2 py-1.5 w-24 text-center font-semibold ${isSaneada ? 'text-red-600 line-through' : 'text-emerald-800'}`}>
-        {s.value_per_sqm > 0 ? `R$ ${Number(s.value_per_sqm).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}` : '—'}
-      </td>
-      <td className="px-2 py-1.5 w-36">
-        <div className="space-y-1">
-          <select
-            value={s.tipo_amostra || 'oferta'}
-            onChange={(e) => onChange({ ...s, tipo_amostra: e.target.value })}
-            className="w-full text-xs h-8 rounded border border-gray-200 px-1 focus:outline-none focus:border-emerald-400"
-          >
-            <option value="oferta">Oferta de Mercado</option>
-            <option value="consolidada">Consolidada / Comercializada</option>
-          </select>
-          <span className={`inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded border ${tipoBadge}`}>
-            {tipoLabel}
+    <div className={`rounded-xl border p-4 transition ${isSaneada ? 'border-red-200 bg-red-50/60' : 'border-gray-200 bg-white hover:border-emerald-200'}`}>
+      {/* Cabeçalho do card */}
+      <div className="flex items-center justify-between gap-3 mb-4 pb-3 border-b border-gray-100">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className={`flex items-center justify-center w-7 h-7 rounded-full text-sm font-semibold ${isSaneada ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-800'}`}>
+            {idx + 1}
           </span>
+          <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${tipoBadge}`}>{tipoLabel}</span>
+          {isSaneada && (
+            <span className="flex items-center gap-1 text-xs text-red-600">
+              <AlertTriangle className="w-3.5 h-3.5" /> Eliminada pelo saneamento (±10% da média)
+            </span>
+          )}
         </div>
-      </td>
-      <td className="px-2 py-1.5"><Input value={s.source || ''} onChange={(e) => onChange({ ...s, source: e.target.value })} placeholder="Fonte" className="text-xs h-8" /></td>
-      <td className="px-2 py-1.5 w-28"><Input type="date" value={s.collection_date || ''} onChange={(e) => onChange({ ...s, collection_date: e.target.value })} className="text-xs h-8" /></td>
-      <td className="px-2 py-1.5 w-28"><Input value={s.contact_phone || ''} onChange={(e) => onChange({ ...s, contact_phone: e.target.value })} placeholder="Telefone" className="text-xs h-8" /></td>
-      <td className="px-2 py-1.5 w-24">
-        <ImageUploader
-          images={s.foto ? [s.foto] : []}
-          onImagesChange={(ids) => onChange({ ...s, foto: ids[0] || null })}
-          maxImages={1}
-          single
-          label=""
-        />
-      </td>
-      <td className="px-2 py-1.5">
-        <button type="button" onClick={onRemove} className="p-1.5 text-red-500 hover:bg-red-50 rounded">
-          <Trash2 className="w-3.5 h-3.5" />
-        </button>
-      </td>
-    </tr>
+        <div className="flex items-center gap-3">
+          <div className="text-right">
+            <div className="text-[10px] uppercase tracking-wide text-gray-400">R$/m²</div>
+            <div className={`text-base font-bold ${isSaneada ? 'text-red-600 line-through' : 'text-emerald-800'}`}>
+              {s.value_per_sqm > 0
+                ? `R$ ${Number(s.value_per_sqm).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}`
+                : '—'}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onRemove}
+            className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition"
+            title="Remover amostra"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Corpo: campos rotulados + foto */}
+      <div className="flex flex-col lg:flex-row gap-4">
+        <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="sm:col-span-2">
+            <FieldLabel>Endereço</FieldLabel>
+            <Input value={s.address || ''} onChange={(e) => onChange({ ...s, address: e.target.value })} placeholder="Rua, número" className="h-9" />
+          </div>
+          <div>
+            <FieldLabel>Bairro</FieldLabel>
+            <Input value={s.neighborhood || ''} onChange={(e) => onChange({ ...s, neighborhood: e.target.value })} placeholder="Bairro" className="h-9" />
+          </div>
+          <div>
+            <FieldLabel>Área (m²)</FieldLabel>
+            <Input type="number" value={s.area || ''} onChange={(e) => handleValue('area', e.target.value)} placeholder="0" className="h-9" />
+          </div>
+          <div>
+            <FieldLabel>Valor (R$)</FieldLabel>
+            <Input type="number" value={s.value || ''} onChange={(e) => handleValue('value', e.target.value)} placeholder="0" className="h-9" />
+          </div>
+          <div>
+            <FieldLabel>Tipo da amostra</FieldLabel>
+            <select
+              value={s.tipo_amostra || 'oferta'}
+              onChange={(e) => onChange({ ...s, tipo_amostra: e.target.value })}
+              className="w-full h-9 rounded-md border border-gray-200 px-2 text-sm bg-white focus:outline-none focus:border-emerald-400"
+            >
+              <option value="oferta">Oferta de Mercado</option>
+              <option value="consolidada">Consolidada / Comercializada</option>
+            </select>
+          </div>
+          <div>
+            <FieldLabel>Fonte</FieldLabel>
+            <Input value={s.source || ''} onChange={(e) => onChange({ ...s, source: e.target.value })} placeholder="Imobiliária, portal, contato..." className="h-9" />
+          </div>
+          <div>
+            <FieldLabel>Data da coleta</FieldLabel>
+            <Input type="date" value={s.collection_date || ''} onChange={(e) => onChange({ ...s, collection_date: e.target.value })} className="h-9" />
+          </div>
+          <div>
+            <FieldLabel>Telefone</FieldLabel>
+            <Input value={s.contact_phone || ''} onChange={(e) => onChange({ ...s, contact_phone: e.target.value })} placeholder="(00) 00000-0000" className="h-9" />
+          </div>
+        </div>
+
+        {/* Foto da amostra */}
+        <div className="lg:w-56 shrink-0">
+          <FieldLabel>Foto da amostra</FieldLabel>
+          <ImageUploader
+            images={s.foto ? [s.foto] : []}
+            onImagesChange={(ids) => onChange({ ...s, foto: ids[0] || null })}
+            maxImages={1}
+            single
+            label=""
+          />
+        </div>
+      </div>
+    </div>
   );
 };
 
@@ -123,8 +161,8 @@ export const StepAmostras = ({ form, setForm, onAi, aiLoading }) => {
         subtitle="Cadastre as amostras coletadas para a pesquisa de mercado (mínimo 3)."
       />
 
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div className="flex items-center gap-3 flex-wrap">
           <span className="text-sm text-gray-500">{samples.length} amostra(s) cadastrada(s)</span>
           {validCount < 3 && (
             <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-0.5">
@@ -138,10 +176,10 @@ export const StepAmostras = ({ form, setForm, onAi, aiLoading }) => {
           )}
         </div>
         <div className="flex gap-2">
-          <Button 
-            type="button" 
+          <Button
+            type="button"
             variant="outline"
-            onClick={() => setShowBusca(true)} 
+            onClick={() => setShowBusca(true)}
             className="border-emerald-300 text-emerald-700 hover:bg-emerald-50 text-sm"
           >
             <Search className="w-4 h-4 mr-1" /> Buscar no ZAP / VivaReal
@@ -155,10 +193,10 @@ export const StepAmostras = ({ form, setForm, onAi, aiLoading }) => {
       {/* Resumo de Saneamento */}
       {stats.n_total > 0 && (
         <div className={`mb-4 p-3 rounded-lg border ${
-          stats.n_validas < 3 
-            ? 'bg-red-50 border-red-200' 
-            : saneadasCount > 0 
-              ? 'bg-amber-50 border-amber-200' 
+          stats.n_validas < 3
+            ? 'bg-red-50 border-red-200'
+            : saneadasCount > 0
+              ? 'bg-amber-50 border-amber-200'
               : 'bg-emerald-50 border-emerald-200'
         }`}>
           <div className="flex items-center gap-2">
@@ -200,37 +238,17 @@ export const StepAmostras = ({ form, setForm, onAi, aiLoading }) => {
           Nenhuma amostra cadastrada. Clique em "Nova amostra" para começar.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-gray-200">
-          <table className="w-full text-sm min-w-[1050px]">
-            <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wider">
-              <tr>
-                <th className="px-2 py-2 text-center">#</th>
-                <th className="px-2 py-2 text-left">Endereço</th>
-                <th className="px-2 py-2 text-left">Bairro</th>
-                <th className="px-2 py-2 text-left">Área (m²)</th>
-                <th className="px-2 py-2 text-left">Valor (R$)</th>
-                <th className="px-2 py-2 text-center">R$/m²</th>
-                <th className="px-2 py-2 text-left">Tipo</th>
-                <th className="px-2 py-2 text-left">Fonte</th>
-                <th className="px-2 py-2 text-left">Data coleta</th>
-                <th className="px-2 py-2 text-left">Telefone</th>
-                <th className="px-2 py-2 text-left">Foto</th>
-                <th className="px-2 py-2" />
-              </tr>
-            </thead>
-            <tbody>
-              {samples.map((s, i) => (
-                <MarketSampleRow
-                  key={s._key || `ms-${i}`}
-                  s={s}
-                  idx={i}
-                  onChange={(ns) => update(i, ns)}
-                  onRemove={() => remove(i)}
-                  isSaneada={stats.indices_saneadas.includes(i)}
-                />
-              ))}
-            </tbody>
-          </table>
+        <div className="space-y-4">
+          {samples.map((s, i) => (
+            <MarketSampleCard
+              key={s._key || `ms-${i}`}
+              s={s}
+              idx={i}
+              onChange={(ns) => update(i, ns)}
+              onRemove={() => remove(i)}
+              isSaneada={stats.indices_saneadas.includes(i)}
+            />
+          ))}
         </div>
       )}
 
