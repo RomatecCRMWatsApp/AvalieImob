@@ -363,6 +363,7 @@ class Ptam(PtamBase):
 class AIMessage(BaseModel):
     session_id: str
     message: str
+    persona: Optional[str] = "geral"  # geral | ptam | indenizacao
 
 
 class AIMessageResponse(BaseModel):

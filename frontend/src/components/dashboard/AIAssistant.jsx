@@ -30,6 +30,7 @@ const AIAssistant = () => {
     { role: 'assistant', content: 'Olá! Sou a Roma_IA, especialista em PTAM e laudos técnicos conforme a NBR 14.653. Posso aperfeiçoar textos, gerar fundamentações, elaborar memórias de cálculo e análises técnicas. Como posso ajudar?' },
   ]);
   const [input, setInput] = useState('');
+  const [persona, setPersona] = useState('geral'); // geral | ptam | indenizacao
   const [loading, setLoading] = useState(false);
   const [avatarState, setAvatarState] = useState('idle');
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
@@ -69,7 +70,7 @@ const AIAssistant = () => {
     setInput('');
     setLoading(true);
     try {
-      const res = await aiAPI.chat(sessionId, content);
+      const res = await aiAPI.chat(sessionId, content, persona);
       setMessages(m => [...m, { role: 'assistant', content: res.reply, provider: res.provider }]);
     } catch (e) {
       toast({ title: 'Erro na IA', description: e.response?.data?.detail || 'Tente novamente', variant: 'destructive' });
@@ -136,6 +137,19 @@ const AIAssistant = () => {
           <div ref={endRef} />
         </div>
         <div className="border-t border-gray-100 p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-[11px] text-gray-500">Modo:</span>
+            <select
+              value={persona}
+              onChange={(e) => setPersona(e.target.value)}
+              disabled={loading}
+              className="text-xs border border-gray-200 rounded-md px-2 py-1 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            >
+              <option value="geral">Geral — NBR 14.653</option>
+              <option value="ptam">Gerar PTAM completo</option>
+              <option value="indenizacao">Indenização / Desapropriação</option>
+            </select>
+          </div>
           <div className="flex gap-2">
             <Textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} placeholder="Descreva o que deseja aperfeiçoar ou gerar..." className="min-h-[60px] resize-none" disabled={loading} />
             <Button onClick={() => send()} disabled={loading || !input.trim()} className="bg-emerald-900 hover:bg-emerald-800 text-white h-auto"><Send className="w-4 h-4" /></Button>

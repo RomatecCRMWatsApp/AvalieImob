@@ -91,7 +91,7 @@ export const dashboardAPI = {
 
 // ---- AI
 export const aiAPI = {
-  chat: (session_id, message) => api.post('/ai/chat', { session_id, message }).then(r => r.data),
+  chat: (session_id, message, persona = 'geral') => api.post('/ai/chat', { session_id, message, persona }).then(r => r.data),
   history: (session_id) => api.get(`/ai/history/${session_id}`).then(r => r.data),
 };
 

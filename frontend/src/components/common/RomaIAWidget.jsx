@@ -90,7 +90,7 @@ const RomaIAWidget = () => {
         <button
           onClick={() => setIsOpen(true)}
           onTouchStart={() => setIsOpen(true)}
-          className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-[100] group touch-manipulation"
+          className="fixed top-20 right-4 sm:right-6 z-[100] group touch-manipulation"
           aria-label="Abrir chat com Roma_IA"
           style={{ WebkitTapHighlightColor: 'transparent' }}
         >
@@ -112,7 +112,7 @@ const RomaIAWidget = () => {
       {/* Tooltip de boas-vindas - Responsivo */}
       {showWelcome && !isOpen && (
         <div 
-          className="fixed bottom-20 right-4 sm:bottom-24 sm:right-6 z-[99] bg-white rounded-xl shadow-lg p-3 sm:p-4 max-w-[280px] sm:max-w-xs animate-fade-in-up cursor-pointer"
+          className="fixed top-40 right-4 sm:top-48 sm:right-6 z-[99] bg-white rounded-xl shadow-lg p-3 sm:p-4 max-w-[280px] sm:max-w-xs animate-fade-in-up cursor-pointer"
           onClick={() => {
             setIsOpen(true);
             setShowWelcome(false);
@@ -129,13 +129,13 @@ const RomaIAWidget = () => {
               <p className="text-xs text-gray-500 mt-1">Posso ajudar com dúvidas sobre avaliação imobiliária!</p>
             </div>
           </div>
-          <div className="absolute bottom-[-8px] right-4 sm:right-6 w-4 h-4 bg-white transform rotate-45"></div>
+          <div className="absolute top-[-8px] right-4 sm:right-6 w-4 h-4 bg-white transform rotate-45"></div>
         </div>
       )}
 
       {/* Chat Window - Responsivo para Mobile */}
       {isOpen && (
-        <div className="fixed inset-0 sm:inset-auto sm:bottom-4 sm:right-4 lg:bottom-6 lg:right-6 z-[100] sm:w-96 sm:max-w-[calc(100vw-2rem)]">
+        <div className="fixed inset-0 sm:inset-auto sm:top-20 sm:right-4 lg:top-24 lg:right-6 z-[100] sm:w-96 sm:max-w-[calc(100vw-2rem)] sm:max-h-[calc(100vh-6rem)]">
           <div className="bg-white sm:rounded-2xl shadow-2xl overflow-hidden border-0 sm:border border-gray-200 h-full sm:h-auto flex flex-col">
             {/* Header */}
             <div className="bg-emerald-900 p-3 sm:p-4 flex items-center justify-between flex-shrink-0">
@@ -231,4 +231,4 @@ const RomaIAWidget = () => {
   );
 };
 
-export default RomaIAWidget;
+export default RomaIAWidget;
