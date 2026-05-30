@@ -67,11 +67,16 @@ def _gerar_carimbo_assinatura(
     c = canvas.Canvas(buf, pagesize=A4)
     page_w, page_h = A4
 
-    # Caixa no rodape
+    # Titulo da pagina de assinatura
+    c.setFillColor(colors.HexColor("#1B5E20"))
+    c.setFont("Helvetica-Bold", 13)
+    c.drawCentredString(page_w / 2, page_h - 28 * mm, "ASSINATURA DIGITAL — ICP-BRASIL")
+
+    # Caixa do carimbo (parte superior da pagina)
     box_x = 18 * mm
-    box_y = 16 * mm
     box_w = page_w - 2 * box_x
     box_h = 60 * mm
+    box_y = page_h - 45 * mm - box_h
 
     # Fundo branco semi-translucido + borda verde (cobre eventual conteudo atras)
     c.setFillColor(colors.white)
@@ -171,27 +176,23 @@ def _indice_pagina_conclusao(reader) -> Optional[int]:
 
 
 def _aplicar_carimbo(pdf_bytes: bytes, carimbo_pdf: bytes) -> bytes:
-    """Sobrepoe o carimbo na pagina de conclusao; se nao achar, anexa ao final."""
+    """Insere a pagina do carimbo logo APOS a pagina de conclusao (sem merge_page,
+    que corrompe PDFs complexos como o v2). Se nao achar a conclusao, anexa ao final."""
     from pypdf import PdfReader, PdfWriter
 
     reader = PdfReader(io.BytesIO(pdf_bytes))
     writer = PdfWriter()
     idx = _indice_pagina_conclusao(reader)
+    carimbo_page = PdfReader(io.BytesIO(carimbo_pdf)).pages[0]
 
-    if idx is not None:
-        overlay_page = PdfReader(io.BytesIO(carimbo_pdf)).pages[0]
-        for i, p in enumerate(reader.pages):
-            if i == idx:
-                try:
-                    p.merge_page(overlay_page)
-                except Exception as e:
-                    logger.warning("Falha ao sobrepor carimbo na conclusao: %s", e)
-            writer.add_page(p)
-    else:
-        for p in reader.pages:
-            writer.add_page(p)
-        for op in PdfReader(io.BytesIO(carimbo_pdf)).pages:
-            writer.add_page(op)
+    inserido = False
+    for i, p in enumerate(reader.pages):
+        writer.add_page(p)
+        if idx is not None and i == idx:
+            writer.add_page(carimbo_page)
+            inserido = True
+    if not inserido:
+        writer.add_page(carimbo_page)
 
     out = io.BytesIO()
     writer.write(out)
