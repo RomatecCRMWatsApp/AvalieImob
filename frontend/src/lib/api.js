@@ -222,10 +222,10 @@ export const assinaturaAPI = {
   download: (tipo, id) => api.get(`/assinatura/${tipo}/${id}/download`, { responseType: 'blob' }),
   cancelar: (tipo, id) => api.delete(`/assinatura/${tipo}/${id}/cancelar`),
   // ICP-Brasil A1/PAdES (certificado .pfx local)
-  assinarIcp: (tipo, id, certId) =>
-    api.post(`/assinatura/icp/${tipo}/${id}/assinar`, { cert_id: certId }).then(r => r.data),
-  downloadIcp: (tipo, id) =>
-    api.get(`/assinatura/icp/${tipo}/${id}/download`, { responseType: 'blob' }).then(r => r.data),
+  assinarIcp: (tipo, id, certId, layouts = ['v2']) =>
+    api.post(`/assinatura/icp/${tipo}/${id}/assinar`, { cert_id: certId, layouts }).then(r => r.data),
+  downloadIcp: (tipo, id, layout = 'v2') =>
+    api.get(`/assinatura/icp/${tipo}/${id}/download`, { params: { layout }, responseType: 'blob' }).then(r => r.data),
   verificarPublico: (hash) =>
     api.get(`/assinatura/v/laudo/v/${hash}`).then(r => r.data),
 };

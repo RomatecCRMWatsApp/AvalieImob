@@ -109,6 +109,14 @@ const AssinaturaICP = ({ tipo, docId, docData, onUpdate, onClose, toast, nav }) 
   const [icpStatus, setIcpStatus] = useState(docData?.icp_status || null);
   const [icpHash, setIcpHash] = useState(docData?.icp_hash || null);
   const [verificacaoUrl, setVerificacaoUrl] = useState(docData?.icp_verificacao_url || null);
+  const isPtam = tipo === 'ptam';
+  // Layouts a assinar (so PTAM tem 2 layouts: v2 completo e v1 classico)
+  const [layouts, setLayouts] = useState(['v2']);
+  const [signedLayouts, setSignedLayouts] = useState(
+    docData?.icp_layouts || (docData?.icp_status === 'assinado' ? ['v2'] : [])
+  );
+  const toggleLayout = (l) =>
+    setLayouts((prev) => (prev.includes(l) ? prev.filter((x) => x !== l) : [...prev, l]));
 
   useEffect(() => {
     const load = async () => {
@@ -132,12 +140,18 @@ const AssinaturaICP = ({ tipo, docId, docData, onUpdate, onClose, toast, nav }) 
       toast({ title: 'Selecione um certificado', variant: 'destructive' });
       return;
     }
+    if (isPtam && layouts.length === 0) {
+      toast({ title: 'Selecione ao menos um layout para assinar', variant: 'destructive' });
+      return;
+    }
     setSigning(true);
     try {
-      const res = await assinaturaAPI.assinarIcp(tipo, docId, selectedCert);
+      const layoutsPedidos = isPtam ? layouts : ['v2'];
+      const res = await assinaturaAPI.assinarIcp(tipo, docId, selectedCert, layoutsPedidos);
       setIcpStatus('assinado');
       setIcpHash(res.hash);
       setVerificacaoUrl(res.verificacao_url);
+      setSignedLayouts(res.layouts || layoutsPedidos);
       toast({ title: 'Documento assinado com sucesso!', description: 'Validade jurídica ICP-Brasil garantida.' });
       if (onUpdate) onUpdate({
         icp_status: 'assinado',
@@ -153,20 +167,23 @@ const AssinaturaICP = ({ tipo, docId, docData, onUpdate, onClose, toast, nav }) 
     }
   };
 
-  const handleDownload = async () => {
+  const handleDownload = async (layout = 'v2') => {
     try {
-      const blob = await assinaturaAPI.downloadIcp(tipo, docId);
+      const blob = await assinaturaAPI.downloadIcp(tipo, docId, layout);
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       const numero = docData?.numero_ptam || docData?.number || docId;
-      a.download = `${tipo.toUpperCase()}_${String(numero).replace(/\//g, '-')}_ASSINADO_ICP.pdf`;
+      const sfx = layout && layout !== 'v2' ? `_${layout}` : '';
+      a.download = `${tipo.toUpperCase()}_${String(numero).replace(/\//g, '-')}_ASSINADO_ICP${sfx}.pdf`;
       a.click();
       window.URL.revokeObjectURL(url);
     } catch (e) {
       toast({ title: 'Erro ao baixar PDF assinado', variant: 'destructive' });
     }
   };
+
+  const LAYOUT_LABEL = { v2: 'Completo (v2)', v1: 'Clássico (v1)' };
 
   // Estado: já assinado
   if (icpStatus === 'assinado') {
@@ -200,14 +217,17 @@ const AssinaturaICP = ({ tipo, docId, docData, onUpdate, onClose, toast, nav }) 
           )}
         </div>
 
-        <div className="flex gap-2">
-          <Button
-            onClick={handleDownload}
-            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
-          >
-            <Download className="w-4 h-4" />
-            Baixar PDF Assinado
-          </Button>
+        <div className="flex flex-wrap gap-2">
+          {(signedLayouts.length ? signedLayouts : ['v2']).map((lay) => (
+            <Button
+              key={lay}
+              onClick={() => handleDownload(lay)}
+              className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+            >
+              <Download className="w-4 h-4" />
+              {signedLayouts.length > 1 ? `Baixar ${LAYOUT_LABEL[lay] || lay}` : 'Baixar PDF Assinado'}
+            </Button>
+          ))}
           {verificacaoUrl && (
             <Button
               variant="outline"
@@ -310,9 +330,33 @@ const AssinaturaICP = ({ tipo, docId, docData, onUpdate, onClose, toast, nav }) 
             </div>
           </div>
 
+          {isPtam && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Em qual PDF inserir a assinatura?
+              </label>
+              <div className="space-y-2">
+                <label className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition ${layouts.includes('v2') ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 hover:bg-gray-50'}`}>
+                  <input type="checkbox" checked={layouts.includes('v2')} onChange={() => toggleLayout('v2')} className="w-4 h-4" />
+                  <div>
+                    <div className="font-semibold text-sm text-gray-900">Laudo completo (v2)</div>
+                    <div className="text-xs text-gray-500">Layout aprovado — sumário, fotos e currículo.</div>
+                  </div>
+                </label>
+                <label className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition ${layouts.includes('v1') ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 hover:bg-gray-50'}`}>
+                  <input type="checkbox" checked={layouts.includes('v1')} onChange={() => toggleLayout('v1')} className="w-4 h-4" />
+                  <div>
+                    <div className="font-semibold text-sm text-gray-900">Laudo clássico (v1)</div>
+                    <div className="text-xs text-gray-500">Layout antigo. Marque os dois para assinar e guardar ambos.</div>
+                  </div>
+                </label>
+              </div>
+            </div>
+          )}
+
           <Button
             onClick={handleAssinar}
-            disabled={signing || !selectedCert}
+            disabled={signing || !selectedCert || (isPtam && layouts.length === 0)}
             className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-2"
           >
             {signing ? (

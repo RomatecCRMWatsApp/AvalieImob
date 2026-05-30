@@ -159,6 +159,92 @@ async def _gerar_pdf(tipo: str, doc: dict, db=None, perfil: dict | None = None) 
     raise HTTPException(status_code=400, detail=f"Geracao de PDF nao suportada para tipo: {tipo}")
 
 
+async def _render_ptam_layout(db, doc: dict, uid: str, layout: str) -> bytes:
+    """Gera bytes do PDF do PTAM no layout pedido.
+    'v2' = completo/aprovado (espelha /pdf-v2); 'v1' = classico (espelha /pdf)."""
+    import base64 as _b64
+    user = await db.users.find_one({"id": uid}) or {}
+    perfil = await db.perfil_avaliador.find_one({"user_id": uid})
+    if perfil:
+        perfil.pop("_id", None)
+
+    if layout == "v1":
+        from pdf.ptam_pdf import generate_ptam_pdf
+        # Logo da empresa
+        company_logo_id = user.get("company_logo")
+        if company_logo_id:
+            logo_doc = await db.images.find_one({"id": company_logo_id, "user_id": uid})
+            if logo_doc and logo_doc.get("data_b64"):
+                user["_company_logo_bytes"] = _b64.b64decode(logo_doc["data_b64"])
+        # Fotos do imovel
+        fotos_imovel = doc.get("fotos_imovel") or []
+        for i, foto in enumerate(fotos_imovel):
+            if isinstance(foto, str):
+                url = foto
+            elif isinstance(foto, dict):
+                url = foto.get("url") or foto.get("image_id", "")
+            else:
+                continue
+            image_id = str(url).replace('/api/upload/image/', '').split('/')[-1]
+            if len(image_id) > 30 and '-' in image_id:
+                img_doc = await db.images.find_one({"id": image_id})
+                if img_doc and img_doc.get("data_b64"):
+                    fotos_imovel[i] = {
+                        "image_id": image_id,
+                        "url": url,
+                        "_image_bytes": _b64.b64decode(img_doc["data_b64"]),
+                        "description": (foto.get("description") or foto.get("descricao") or f"Foto {i+1}") if isinstance(foto, dict) else f"Foto {i+1}",
+                    }
+        doc["fotos_imovel"] = fotos_imovel
+        # Documentos digitalizados
+        docs_processados = []
+        for i, doc_item in enumerate(doc.get("fotos_documentos") or []):
+            if isinstance(doc_item, str):
+                url = doc_item
+            elif isinstance(doc_item, dict):
+                url = doc_item.get("url") or doc_item.get("doc_id") or doc_item.get("image_id", "")
+            else:
+                continue
+            doc_id = str(url).replace('/api/upload/image/', '').split('/')[-1]
+            if len(doc_id) > 30 and '-' in doc_id:
+                doc_db = await db.images.find_one({"id": doc_id})
+                if doc_db and doc_db.get("data_b64"):
+                    docs_processados.append({
+                        "doc_id": doc_id,
+                        "url": url,
+                        "_doc_bytes": _b64.b64decode(doc_db["data_b64"]),
+                        "name": doc_db.get("filename") or (doc_item.get("name") if isinstance(doc_item, dict) else None) or f"Documento {i+1}",
+                        "content_type": doc_db.get("content_type", "application/pdf"),
+                    })
+                else:
+                    docs_processados.append(doc_item if isinstance(doc_item, dict) else {"url": doc_item, "name": f"Documento {i+1}"})
+            else:
+                docs_processados.append(doc_item if isinstance(doc_item, dict) else {"url": doc_item, "name": f"Documento {i+1}"})
+        doc["fotos_documentos"] = docs_processados
+        # Amostras de mercado
+        market_samples = doc.get("market_samples") or []
+        for j, sample in enumerate(market_samples):
+            foto_url = sample.get("foto") or sample.get("foto_url") or ""
+            sid = str(foto_url).replace('/api/upload/image/', '').split('/')[-1]
+            if len(sid) > 30 and '-' in sid:
+                simg = await db.images.find_one({"id": sid})
+                if simg and simg.get("data_b64"):
+                    market_samples[j] = {**sample, "_image_bytes": _b64.b64decode(simg["data_b64"])}
+        doc["market_samples"] = market_samples
+        # Consultas CND vinculadas
+        cnd_consultas = []
+        raw_consultas = await db.cnd_consultas.find({"ptam_id": doc.get("id"), "user_id": uid}).to_list(20)
+        for c in raw_consultas:
+            certs = await db.cnd_certidoes.find({"consulta_id": c.get("id", "")}).to_list(10)
+            cnd_consultas.append({"consulta": c, "certidoes": certs})
+        return generate_ptam_pdf(doc, user, cnd_consultas=cnd_consultas, perfil_avaliador=perfil)
+
+    # Default: v2 (completo / aprovado)
+    from services.ptam_pdf_v2 import generate_ptam_pdf_v2
+    await _resolve_ptam_assets(db, doc)
+    return generate_ptam_pdf_v2(doc, perfil)
+
+
 # ── POST /assinatura/{tipo}/{id}/iniciar ─────────────────────────────────────
 
 @router.post("/{tipo}/{id}/iniciar")
@@ -443,6 +529,7 @@ async def webhook_d4sign(request: Request, db=Depends(get_db)):
 
 class AssinarIcpRequest(BaseModel):
     cert_id: str   # id do certificado cadastrado pelo usuário em /api/certificados
+    layouts: list[str] = ["v2"]   # PTAM: quais layouts assinar — "v2" (completo) e/ou "v1" (classico)
 
 
 @router.post("/icp/{tipo}/{id}/assinar")
@@ -486,19 +573,7 @@ async def assinar_icp_brasil(
         logger.exception("Falha ao descriptografar certificado")
         raise HTTPException(status_code=500, detail=f"Falha ao acessar certificado: {e}")
 
-    # Perfil do avaliador (mesma colecao do endpoint /pdf-v2) para o layout v2
-    perfil_pdf = await db.perfil_avaliador.find_one({"user_id": uid})
-    if perfil_pdf:
-        perfil_pdf.pop("_id", None)
-
-    # Gerar PDF original (layout v2 aprovado)
-    try:
-        pdf_bytes = await _gerar_pdf(tipo, doc, db=db, perfil=perfil_pdf)
-    except Exception as e:
-        logger.error("Erro ao gerar PDF para assinatura ICP: %s", e)
-        raise HTTPException(status_code=500, detail=f"Erro ao gerar PDF: {e}")
-
-    # Buscar dados do avaliador (perfil + user) pra preencher o bloco visual
+    # Dados do avaliador (perfil + user) — layout v2 e bloco visual da assinatura
     user = await db.users.find_one({"id": uid}) or {}
     perfil = await db.perfis_avaliador.find_one({"user_id": uid}) or {}
 
@@ -508,69 +583,101 @@ async def assinar_icp_brasil(
     elif doc.get("conclusion_city"):
         cidade_uf = doc["conclusion_city"]
 
-    # Cargo + registro principal
-    cargo = perfil.get("nome_completo") and (user.get("role") or "")
     registros = perfil.get("registros") or []
     registro_str = ""
     if registros:
         r0 = registros[0]
         registro_str = f"{r0.get('tipo','')} {r0.get('numero','')}".strip()
 
-    try:
-        pdf_assinado, hash_final, data_assinatura = assinar_pdf_icp(
-            pdf_bytes=pdf_bytes,
-            pfx_bytes=pfx_bytes,
-            pfx_password=pfx_password,
-            titular=cert.get("titular") or perfil.get("nome_completo") or user.get("name") or "Avaliador",
-            documento=cert.get("documento") or perfil.get("cpf") or "",
-            cargo=user.get("role") or perfil.get("nome_completo") and "" or "",
-            registro=registro_str,
-            cidade_uf=cidade_uf,
-            emissor=cert.get("emissor") or "",
-            valido_ate=cert.get("valido_ate"),
-        )
-    except Exception as e:
-        logger.exception("Falha ao assinar PDF ICP-Brasil")
-        raise HTTPException(status_code=500, detail=f"Falha ao assinar: {e}")
-
-    # Salvar PDF assinado em assinaturas_pdf (substitui se já existir)
-    import uuid as _uuid
-    existing = await db["assinaturas_pdf"].find_one({"doc_tipo": tipo, "doc_id": id, "metodo": "icp"})
-    if existing:
-        await db["assinaturas_pdf"].update_one(
-            {"id": existing["id"]},
-            {"$set": {
-                "content": pdf_assinado,
-                "hash_sha256": hash_final,
-                "updated_at": datetime.utcnow(),
-            }},
-        )
+    # Layouts a assinar. Para PTAM o usuario escolhe v2 (completo) e/ou v1 (classico);
+    # demais tipos tem layout unico.
+    if tipo == "ptam":
+        layouts = [l for l in (body.layouts or ["v2"]) if l in ("v1", "v2")] or ["v2"]
     else:
-        await db["assinaturas_pdf"].insert_one({
-            "id": str(_uuid.uuid4()),
-            "doc_tipo": tipo,
-            "doc_id": id,
-            "metodo": "icp",
-            "cert_id": body.cert_id,
-            "hash_sha256": hash_final,
-            "content": pdf_assinado,
-            "created_at": datetime.utcnow(),
-        })
+        layouts = ["v2"]
 
-    # Atualizar documento com status ICP
+    import uuid as _uuid
+    import copy as _copy
+    assinados = []
+
+    for layout in layouts:
+        doc_layout = _copy.deepcopy(doc)
+        # 1) Gera o PDF do layout
+        try:
+            if tipo == "ptam":
+                pdf_bytes = await _render_ptam_layout(db, doc_layout, uid, layout)
+            else:
+                pdf_bytes = await _gerar_pdf(tipo, doc_layout, db=db, perfil=perfil)
+        except Exception as e:
+            logger.error("Erro ao gerar PDF (%s) para assinatura ICP: %s", layout, e)
+            raise HTTPException(status_code=500, detail=f"Erro ao gerar PDF {layout}: {e}")
+
+        # 2) Assina com ICP-Brasil (PAdES)
+        try:
+            pdf_assinado, hash_final, data_assinatura = assinar_pdf_icp(
+                pdf_bytes=pdf_bytes,
+                pfx_bytes=pfx_bytes,
+                pfx_password=pfx_password,
+                titular=cert.get("titular") or perfil.get("nome_completo") or user.get("name") or "Avaliador",
+                documento=cert.get("documento") or perfil.get("cpf") or "",
+                cargo=user.get("role") or perfil.get("nome_completo") and "" or "",
+                registro=registro_str,
+                cidade_uf=cidade_uf,
+                emissor=cert.get("emissor") or "",
+                valido_ate=cert.get("valido_ate"),
+            )
+        except Exception as e:
+            logger.exception("Falha ao assinar PDF ICP-Brasil (%s)", layout)
+            raise HTTPException(status_code=500, detail=f"Falha ao assinar {layout}: {e}")
+
+        # 3) Salva o PDF assinado deste layout (substitui se ja existir)
+        existing = await db["assinaturas_pdf"].find_one(
+            {"doc_tipo": tipo, "doc_id": id, "metodo": "icp", "layout": layout}
+        )
+        if existing:
+            await db["assinaturas_pdf"].update_one(
+                {"id": existing["id"]},
+                {"$set": {
+                    "content": pdf_assinado,
+                    "hash_sha256": hash_final,
+                    "cert_id": body.cert_id,
+                    "updated_at": datetime.utcnow(),
+                }},
+            )
+        else:
+            await db["assinaturas_pdf"].insert_one({
+                "id": str(_uuid.uuid4()),
+                "doc_tipo": tipo,
+                "doc_id": id,
+                "metodo": "icp",
+                "layout": layout,
+                "cert_id": body.cert_id,
+                "hash_sha256": hash_final,
+                "content": pdf_assinado,
+                "created_at": datetime.utcnow(),
+            })
+
+        assinados.append({"layout": layout, "hash": hash_final, "assinado_em": data_assinatura.isoformat()})
+
+    # Campos do documento: usa o v2 como principal (ou o primeiro assinado)
+    principal = next((a for a in assinados if a["layout"] == "v2"), assinados[0])
+    hash_principal = principal["hash"]
+    data_principal = datetime.fromisoformat(principal["assinado_em"])
+
     colecao = _TIPO_COLECAO[tipo]
     await db[colecao].update_one(
         {"id": id},
         {"$set": {
             "icp_status": "assinado",
-            "icp_signed_at": data_assinatura,
+            "icp_signed_at": data_principal,
             "icp_cert_id": body.cert_id,
             "icp_titular": cert.get("titular"),
             "icp_documento": cert.get("documento"),
             "icp_emissor": cert.get("emissor"),
-            "icp_hash": hash_final,
+            "icp_hash": hash_principal,
+            "icp_layouts": [a["layout"] for a in assinados],
             "icp_pdf_url": f"/api/assinatura/icp/{tipo}/{id}/download",
-            "icp_verificacao_url": f"/v/laudo/v/{hash_final}",
+            "icp_verificacao_url": f"/v/laudo/v/{hash_principal}",
             "updated_at": datetime.utcnow(),
         }},
     )
@@ -579,10 +686,12 @@ async def assinar_icp_brasil(
         "ok": True,
         "status": "assinado",
         "metodo": "icp",
-        "hash": hash_final,
-        "assinado_em": data_assinatura.isoformat(),
+        "hash": hash_principal,
+        "assinado_em": principal["assinado_em"],
+        "layouts": [a["layout"] for a in assinados],
+        "assinados": assinados,
         "download_url": f"/api/assinatura/icp/{tipo}/{id}/download",
-        "verificacao_url": f"/v/laudo/v/{hash_final}",
+        "verificacao_url": f"/v/laudo/v/{hash_principal}",
     }
 
 
@@ -590,6 +699,7 @@ async def assinar_icp_brasil(
 async def download_icp(
     tipo: str,
     id: str,
+    layout: str = "v2",
     uid: str = Depends(get_active_subscriber),
     db=Depends(get_db),
 ):
@@ -597,14 +707,20 @@ async def download_icp(
     if doc.get("icp_status") != "assinado":
         raise HTTPException(status_code=404, detail="Documento ainda não assinado com ICP-Brasil")
 
+    # Tenta o layout pedido; cai para qualquer assinatura ICP (compat. com docs antigos)
     assinatura = await db["assinaturas_pdf"].find_one(
-        {"doc_tipo": tipo, "doc_id": id, "metodo": "icp"}
+        {"doc_tipo": tipo, "doc_id": id, "metodo": "icp", "layout": layout}
     )
+    if not assinatura:
+        assinatura = await db["assinaturas_pdf"].find_one(
+            {"doc_tipo": tipo, "doc_id": id, "metodo": "icp"}
+        )
     if not assinatura or not assinatura.get("content"):
         raise HTTPException(status_code=404, detail="PDF assinado não disponível")
 
     numero = doc.get("numero_ptam") or doc.get("numero_tvi") or doc.get("numero") or id
-    filename = f"{tipo.upper()}_{numero}_ASSINADO_ICP.pdf"
+    suffix = f"_{layout}" if (assinatura.get("layout") and assinatura.get("layout") != "v2") else ""
+    filename = f"{tipo.upper()}_{numero}_ASSINADO_ICP{suffix}.pdf"
     return Response(
         content=assinatura["content"],
         media_type="application/pdf",
