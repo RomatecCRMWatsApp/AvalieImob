@@ -6,6 +6,7 @@ import {
   Search, ChevronDown, User, Shield, Beef, Award, Home, ClipboardCheck, FileSearch, FileSignature, Receipt
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { APP_VERSION } from '../version';
 import { BRAND } from '../mock/mock';
 import RomaIAAvatar from '../components/common/RomaIAAvatar';
 import LgpdBadge from '../components/common/LgpdBadge';
@@ -400,6 +401,12 @@ const Dashboard = () => {
           <GlobalSearch />
 
           <div className="flex items-center gap-1 ml-auto">
+            <span
+              className="hidden sm:inline-flex items-center px-2 py-0.5 mr-1 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-semibold tracking-wide"
+              title="Versão do sistema"
+            >
+              {APP_VERSION}
+            </span>
             <NotifButton />
             <div className="w-px h-6 bg-gray-200 mx-1" />
             <AvatarMenu user={user} onLogout={handleLogout} />
