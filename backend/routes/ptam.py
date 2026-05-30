@@ -787,6 +787,67 @@ async def download_ptam_pdf_v2(pid: str, uid: str = Depends(get_active_subscribe
     )
 
 
+@router.post("/ptam/preview-pdf")
+async def preview_ptam_pdf(body: dict, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    """Gera PDF de preview (layout v2) a partir de dados parciais do formulario.
+    NAO salva nada no banco — apenas renderiza e devolve inline."""
+    doc = dict(body or {})
+    try:
+        # Fotos do imovel (IDs -> bytes + legenda)
+        fotos_norm = []
+        for i, foto in enumerate(doc.get("fotos_imovel") or [], 1):
+            if isinstance(foto, dict):
+                if not foto.get("legenda"):
+                    foto["legenda"] = foto.get("description") or foto.get("caption") or f"Foto {i}"
+                fotos_norm.append(foto)
+                continue
+            image_id = str(foto).replace('/api/upload/image/', '').split('/')[-1]
+            entry = {"legenda": f"Foto {i}", "description": f"Foto {i}"}
+            if len(image_id) > 30 and '-' in image_id:
+                img = await db.images.find_one({"id": image_id})
+                if img and img.get("data_b64"):
+                    entry["_image_bytes"] = base64.b64decode(img["data_b64"])
+                    if img.get("filename"):
+                        entry["legenda"] = img["filename"]
+            fotos_norm.append(entry)
+        doc["fotos_imovel"] = fotos_norm
+        # Fotos das amostras
+        for s in (doc.get("market_samples") or []):
+            fu = s.get("foto") or s.get("foto_url") or ""
+            sid = str(fu).replace('/api/upload/image/', '').split('/')[-1]
+            if len(sid) > 30 and '-' in sid:
+                simg = await db.images.find_one({"id": sid})
+                if simg and simg.get("data_b64"):
+                    s["_image_bytes"] = base64.b64decode(simg["data_b64"])
+        # Documentos digitalizados
+        docs_res = []
+        for kd, di in enumerate(doc.get("fotos_documentos") or [], 1):
+            du = (di.get("url") or di.get("doc_id") or di.get("image_id", "")) if isinstance(di, dict) else str(di)
+            dn = (di.get("name") or di.get("tipo")) if isinstance(di, dict) else None
+            did = str(du).replace('/api/upload/image/', '').split('/')[-1]
+            if len(did) > 30 and '-' in did:
+                dimg = await db.images.find_one({"id": did})
+                if dimg and dimg.get("data_b64"):
+                    docs_res.append({
+                        "name": dn or dimg.get("filename") or f"Documento {kd}",
+                        "_doc_bytes": base64.b64decode(dimg["data_b64"]),
+                        "content_type": dimg.get("content_type", "image/jpeg"),
+                    })
+        doc["documentos_resolvidos"] = docs_res
+        perfil = await db.perfil_avaliador.find_one({"user_id": uid})
+        if perfil:
+            perfil.pop("_id", None)
+        data = generate_ptam_pdf_v2(doc, perfil)
+    except Exception as e:
+        logger.exception("PTAM preview error")
+        raise HTTPException(status_code=500, detail=f"Erro no preview: {str(e)[:200]}")
+    return Response(
+        content=data,
+        media_type="application/pdf",
+        headers={"Content-Disposition": "inline; filename=preview.pdf", "Cache-Control": "no-store"},
+    )
+
+
 @router.post("/ptam/{pid}/email")
 async def send_ptam_email(
     pid: str,

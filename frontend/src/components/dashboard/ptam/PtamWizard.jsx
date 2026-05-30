@@ -18,6 +18,7 @@ import { StepPonderancia } from './steps/StepPonderancia';
 import { StepMetodoAvaliacao } from './steps/StepMetodoAvaliacao';
 import { StepResultado } from './steps/StepResultado';
 import { StepConclusao } from './steps/StepConclusao';
+import PtamPreviewAoVivo from './PtamPreviewAoVivo';
 import { HistoricoVersoes } from './HistoricoVersoes';
 import AssinaturaDigital from './AssinaturaDigital';
 
@@ -55,6 +56,7 @@ const PtamWizard = () => {
   const [shareData, setShareData] = useState(null);
   const [shareLoading, setShareLoading] = useState(false);
   const [showAssinatura, setShowAssinatura] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const debounceRef = useRef(null);
 
   const load = useCallback(async () => {
@@ -327,6 +329,9 @@ const PtamWizard = () => {
           <Button variant="outline" onClick={() => save(false)} disabled={saving}>
             <Save className="w-4 h-4 mr-1" />{saving ? 'Salvando...' : 'Salvar rascunho'}
           </Button>
+          <Button variant="outline" className={showPreview ? 'border-emerald-500 text-emerald-700 bg-emerald-50' : ''} onClick={() => setShowPreview(v => !v)}>
+            <LucideIcons.Eye className="w-4 h-4 mr-1" />{showPreview ? 'Ocultar preview' : 'Preview ao vivo'}
+          </Button>
           <Button variant="outline" className="border-red-300 text-red-700 hover:bg-red-50" onClick={handleDownloadPdf}>
             <Download className="w-4 h-4 mr-1" />Baixar PDF
           </Button>
@@ -371,10 +376,21 @@ const PtamWizard = () => {
         </div>
       </div>
 
-      {/* Step content */}
-      <div className="bg-white rounded-xl border border-gray-200 p-8">
-        {renderStep()}
-      </div>
+      {/* Step content (com preview ao vivo opcional) */}
+      {showPreview ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="bg-white rounded-xl border border-gray-200 p-6 overflow-y-auto" style={{ maxHeight: '74vh' }}>
+            {renderStep()}
+          </div>
+          <div className="hidden lg:block" style={{ position: 'sticky', top: 12, height: '74vh' }}>
+            <PtamPreviewAoVivo form={form} />
+          </div>
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl border border-gray-200 p-8">
+          {renderStep()}
+        </div>
+      )}
 
       {/* Navigation */}
       <div className="flex items-center justify-between mt-6">
