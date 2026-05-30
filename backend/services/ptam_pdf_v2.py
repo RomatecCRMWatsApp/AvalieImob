@@ -245,19 +245,23 @@ def make_capa(ptam):
 # ║  SUMARIO (Flowable, com numeracao real + links)                           ║
 # ╚══════════════════════════════════════════════════════════════════════════╝
 ITENS_SUM = [
-    ('1', 'Identificação e Objetivo', 'sec1'),
-    ('2', 'Documentação Analisada', 'sec2'),
-    ('3', 'Identificação do Imóvel', 'sec3'),
-    ('4', 'Contexto Urbano / Análise da Região', 'sec4'),
-    ('5', 'Análise Mercadológica e Amostras', 'sec5'),
-    ('6', 'Metodologia', 'sec6'),
-    ('7', 'Cálculos e Tratamento Estatístico', 'sec7'),
-    ('8', 'Resultado da Avaliação', 'sec8'),
-    ('9', 'Conclusão e Responsabilidade Técnica', 'sec9'),
-    ('A.1', 'Anexo I — Ficha do Imóvel, Fotos e Documentos', 'anexo1'),
-    ('A.2', 'Anexo II — Amostras Comparativas', 'anexo2'),
-    ('A.3', 'Anexo III — Base Legal e Normativa', 'anexo3'),
-    ('A.4', 'Anexo IV — Currículo do Avaliador', 'anexo4'),
+    ('1', 'Identificação e Objetivo', 'sec1', 0),
+    ('2', 'Documentação Analisada', 'sec2', 0),
+    ('3', 'Identificação do Imóvel', 'sec3', 0),
+    ('3.1', 'Caracterização do Imóvel', 'sec3carac', 1),
+    ('4', 'Contexto Urbano / Análise da Região', 'sec4', 0),
+    ('5', 'Análise Mercadológica e Amostras', 'sec5', 0),
+    ('6', 'Metodologia', 'sec6', 0),
+    ('7', 'Cálculos e Tratamento Estatístico', 'sec7', 0),
+    ('7.1', 'Quadro de Amostras com Classificação', 'sec7quadro', 1),
+    ('8', 'Resultado da Avaliação', 'sec8', 0),
+    ('8.1', 'Cálculo do Valor Final', 'sec8calc', 1),
+    ('9', 'Conclusão e Responsabilidade Técnica', 'sec9', 0),
+    ('A.1', 'Anexo I — Ficha do Imóvel, Fotos e Documentos', 'anexo1', 0),
+    ('•', 'Documentos do Imóvel (Certidões, IPTU, BCI)', 'anexo1b', 1),
+    ('A.2', 'Anexo II — Amostras Comparativas', 'anexo2', 0),
+    ('A.3', 'Anexo III — Base Legal e Normativa', 'anexo3', 0),
+    ('A.4', 'Anexo IV — Currículo do Avaliador', 'anexo4', 0),
 ]
 
 
@@ -284,25 +288,31 @@ class Sumario(Flowable):
         c.drawString(0.3 * cm, h - self.hh + 0.18 * cm, 'Seção')
         c.drawString(2.2 * cm, h - self.hh + 0.18 * cm, 'Título')
         c.drawRightString(w - 0.3 * cm, h - self.hh + 0.18 * cm, 'Página')
-        for i, (num, titulo, ancora) in enumerate(ITENS_SUM):
+        for i, item in enumerate(ITENS_SUM):
+            num, titulo, ancora = item[0], item[1], item[2]
+            nivel = item[3] if len(item) > 3 else 0
             y = h - self.hh - (i + 1) * self.rh
             if i % 2 == 1:
                 c.setFillColor(VERDE_CLR)
                 c.rect(0, y, w, self.rh, stroke=0, fill=1)
             pag = str(self.page_map.get(ancora, '—'))
+            num_x = 0.4 * cm if nivel == 0 else 0.8 * cm
+            tit_x = 2.2 * cm if nivel == 0 else 2.9 * cm
+            tit_font = 'Helvetica' if nivel == 0 else 'Helvetica-Oblique'
+            tit_size = 9 if nivel == 0 else 8
             # numero secao
-            c.setFillColor(VERDE)
-            c.setFont('Helvetica-Bold', 9)
-            c.drawString(0.4 * cm, y + 0.22 * cm, num)
+            c.setFillColor(VERDE if nivel == 0 else CINZA)
+            c.setFont('Helvetica-Bold' if nivel == 0 else 'Helvetica', 9 if nivel == 0 else 8)
+            c.drawString(num_x, y + 0.22 * cm, num)
             # titulo
-            c.setFillColor(PRETO)
-            c.setFont('Helvetica', 9)
-            c.drawString(2.2 * cm, y + 0.22 * cm, titulo)
+            c.setFillColor(PRETO if nivel == 0 else CINZA)
+            c.setFont(tit_font, tit_size)
+            c.drawString(tit_x, y + 0.22 * cm, titulo)
             # lideres de ponto
             c.setFillColor(CINZA)
             c.setFont('Helvetica', 7)
             tx_end = w - 1.8 * cm
-            tx_start = 2.2 * cm + c.stringWidth(titulo, 'Helvetica', 9) + 0.4 * cm
+            tx_start = tit_x + c.stringWidth(titulo, tit_font, tit_size) + 0.4 * cm
             dot_w = c.stringWidth('.', 'Helvetica', 7) + 0.5
             x = tx_start
             while x < tx_end - dot_w:
@@ -310,7 +320,7 @@ class Sumario(Flowable):
                 x += dot_w + 1.2
             # pagina
             c.setFillColor(VERMELHO)
-            c.setFont('Helvetica-Bold', 9)
+            c.setFont('Helvetica-Bold', 9 if nivel == 0 else 8)
             c.drawRightString(w - 0.3 * cm, y + 0.22 * cm, pag)
             # link
             try:
@@ -556,8 +566,12 @@ def sec(texto, ancora=None):
     return out
 
 
-def subsec(texto):
-    return [Paragraph(texto, sSub)]
+def subsec(texto, ancora=None):
+    out = []
+    if ancora:
+        out.append(Paragraph(f'<a name="{ancora}"/>', sNormal))
+    out.append(Paragraph(texto, sSub))
+    return out
 
 
 def tbl(dados, cw=None):
@@ -754,7 +768,7 @@ def build_story(ptam, page_map):
         st.append(tbl_header(['Nome / Razão Social', 'CPF / CNPJ', 'Fração'], linhas,
                              [7.0 * cm, 4.0 * cm, UTIL_W - 11.0 * cm]))
     st.append(Spacer(1, 8))
-    st += subsec('Caracterização do Imóvel')
+    st += subsec('Caracterização do Imóvel', 'sec3carac')
     st.append(tbl([
         ('Área do Terreno', fmt_area(ptam.get('imovel_area_terreno'))),
         ('Área Construída', fmt_area(ptam.get('imovel_area_construida'))),
@@ -805,7 +819,7 @@ def build_story(ptam, page_map):
     # ── 7. Calculos ──
     st.append(PageBreak())
     st += sec('7. CÁLCULOS E TRATAMENTO ESTATÍSTICO', 'sec7')
-    st += subsec('Quadro de Amostras com Classificação')
+    st += subsec('Quadro de Amostras com Classificação', 'sec7quadro')
     linhas7 = []
     for i, a in enumerate(amostras, 1):
         local = f"{a.get('address', '')} / {a.get('neighborhood', '')}".strip(' /')
@@ -833,7 +847,7 @@ def build_story(ptam, page_map):
         f"Com fundamento na vistoria realizada, na documentação fundiária analisada (Matrícula nº "
         f"{_txt(ptam.get('property_matricula'), '—')}) e no tratamento estatístico das amostras de "
         f"mercado coletadas, conclui-se que o valor de mercado do imóvel é:", sBody))
-    st += subsec('Cálculo do Valor Final')
+    st += subsec('Cálculo do Valor Final', 'sec8calc')
     st.append(tbl_header(['Componente', 'Valor'], [
         ['Média Ponderada Final', f"{fmt_moeda(vu)}/m²"],
         ['Área do Imóvel Avaliando', fmt_area(area_av)],

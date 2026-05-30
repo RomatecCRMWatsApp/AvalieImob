@@ -62,6 +62,7 @@
   },
   "scripts": {
     "start": "craco start",
+    "prebuild": "node scripts/genversion.js",
     "build": "craco build",
     "test": "craco test"
   },
