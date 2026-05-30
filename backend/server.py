@@ -325,6 +325,15 @@ if _frontend_build.exists():
         "servicos/avaliacao-urbana": "/avaliacao-urbana",
     }
 
+    # Arquivos que NUNCA podem ser cacheados (senao iOS/Safari serve app velho):
+    # index.html aponta para os JS/CSS com hash; se cachear, carrega versao antiga.
+    _NO_CACHE = {
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0",
+    }
+    _NO_CACHE_FILES = {"service-worker.js", "manifest.json", "asset-manifest.json"}
+
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
         # IndexNow: serve a chave em texto puro. Precisa estar AQUI dentro
@@ -336,11 +345,14 @@ if _frontend_build.exists():
             return RedirectResponse(url=_SEO_REDIRECTS_301[full_path], status_code=301)
         # Nunca servir arquivos internos do react-snap como rotas
         if full_path in ("200.html", "404.html") or full_path.startswith("_"):
-            return HTMLResponse(content=_render_index_html())
+            return HTMLResponse(content=_render_index_html(), headers=dict(_NO_CACHE))
         file_path = _frontend_build / full_path
         if full_path and file_path.is_file():
+            if full_path in _NO_CACHE_FILES or full_path.endswith(".html"):
+                return FileResponse(str(file_path), headers=dict(_NO_CACHE))
             return FileResponse(str(file_path))
-        return HTMLResponse(content=_render_index_html())
+        # SPA fallback (index.html) — sempre revalidar
+        return HTMLResponse(content=_render_index_html(), headers=dict(_NO_CACHE))
 
 # ── Middlewares (ordem importa: após rotas, antes do startup) ────────
 app.add_middleware(SecurityHeadersMiddleware)
