@@ -14,7 +14,7 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT, TA_JUSTIFY
 from reportlab.platypus import (
     BaseDocTemplate, PageTemplate, Frame, Paragraph, Spacer, Table, TableStyle,
-    PageBreak, Flowable, HRFlowable,
+    PageBreak, Flowable, HRFlowable, KeepTogether,
 )
 from reportlab.platypus.tableofcontents import TableOfContents
 from reportlab.lib.utils import ImageReader
@@ -113,7 +113,7 @@ def _load_image_reader(src):
 # ╔══════════════════════════════════════════════════════════════════════════╗
 # ║  FLOWABLE: CARD DE AMOSTRA                                                 ║
 # ╚══════════════════════════════════════════════════════════════════════════╝
-CARD_H = 5.2 * cm
+CARD_H = 6.6 * cm
 FOTO_R = 1.85 * cm
 
 
@@ -128,13 +128,22 @@ class AmostraCard(Flowable):
     def wrap(self, availWidth, availHeight):
         return (self.width, self.height)
 
-    def _campo(self, c, x, y, label, valor):
+    def _campo(self, c, x, y, label, valor, w_field=3.6 * cm):
         c.setFillColor(CINZA)
         c.setFont("Helvetica", 6.2)
-        c.drawString(x, y, str(label).upper()[:34])
+        c.drawString(x, y, str(label).upper()[:36])
         c.setFillColor(PRETO)
         c.setFont("Helvetica-Bold", 7.5)
-        c.drawString(x, y - 0.32 * cm, _txt(valor)[:42])
+        c.drawString(x, y - 0.32 * cm, _txt(valor)[:48])
+        c.setStrokeColor(HexColor('#E5E5E5'))
+        c.setLineWidth(0.3)
+        c.line(x, y - 0.52 * cm, x + w_field, y - 0.52 * cm)
+
+    def _foto_placeholder(self, c, cx, cy):
+        c.setFillColor(HexColor('#D8D8D8'))
+        c.circle(cx, cy, FOTO_R - 0.05 * cm, stroke=0, fill=1)
+        c.setFillColor(HexColor('#9A9A9A'))
+        c.rect(cx - 0.2 * cm, cy - 0.2 * cm, 0.4 * cm, 0.4 * cm, stroke=0, fill=1)
 
     def draw(self):
         c = self.canv
@@ -183,14 +192,12 @@ class AmostraCard(Flowable):
                             preserveAspectRatio=True, anchor='c', mask='auto')
                 c.restoreState()
             except Exception:
-                pass
+                self._foto_placeholder(c, cx, cy)
         else:
-            c.setFillColor(VERDE)
-            c.setFont("Helvetica", 11)
-            c.drawCentredString(cx, cy + 0.15 * cm, "[FOTO]")
-            c.setFillColor(CINZA)
-            c.setFont("Helvetica", 5.5)
-            c.drawCentredString(cx, cy - 0.45 * cm, "Foto da Amostra")
+            self._foto_placeholder(c, cx, cy)
+        c.setFillColor(CINZA)
+        c.setFont("Helvetica-Oblique", 6.5)
+        c.drawCentredString(cx, cy - FOTO_R - 0.35 * cm, "Foto da Amostra")
 
         # 6. Separador vertical
         sep_x = 0.6 * cm + FOTO_R * 2 + 0.55 * cm
@@ -199,31 +206,35 @@ class AmostraCard(Flowable):
         c.line(sep_x, 0.3 * cm, sep_x, h - 0.3 * cm)
 
         # 7. Grid de dados (2 colunas)
+        col_gap = 0.4 * cm
+        col_w = (w - sep_x - 0.35 * cm - col_gap) / 2
         col1_x = sep_x + 0.35 * cm
-        col2_x = sep_x + (w - sep_x) / 2 + 0.35 * cm
-        top_y = h - 0.85 * cm
-        dy = 1.0 * cm
+        col2_x = col1_x + col_w + col_gap
+        field_w = col_w - 0.3 * cm
+        top_y = h - 1.05 * cm
+        dy = 1.15 * cm
         area_t = a.get("area_terreno")
         area_c = a.get("area_construida")
         area_str = " / ".join([s for s in [
             fmt_area(area_t) if area_t else None,
             fmt_area(area_c) if area_c else None,
         ] if s]) or "—"
+        fonte_data = "{} — {}".format(_txt(a.get('fonte'), ''), fmt_data(a.get('data_coleta'))).strip(' —')
         esquerda = [
             ("Endereco", a.get("endereco")),
             ("Tipo", a.get("tipo")),
-            ("Area T / C", area_str),
-            ("Fonte / Data", f"{_txt(a.get('fonte'), '')} {fmt_data(a.get('data_coleta'))}".strip()),
+            ("Area Terreno/Const.", area_str),
+            ("Valor Ofertado", fmt_moeda(a.get("valor_ofertado"))),
         ]
         direita = [
-            ("Valor Ofertado", fmt_moeda(a.get("valor_ofertado"))),
             ("V.U. Tratado", fmt_moeda(a.get("valor_unitario_tratado"))),
             ("Fator Oferta", _txt(a.get("fator_oferta"))),
+            ("Fonte / Data", fonte_data or "—"),
         ]
         for i, (lb, vl) in enumerate(esquerda):
-            self._campo(c, col1_x, top_y - i * dy, lb, vl)
+            self._campo(c, col1_x, top_y - i * dy, lb, vl, field_w)
         for i, (lb, vl) in enumerate(direita):
-            self._campo(c, col2_x, top_y - i * dy, lb, vl)
+            self._campo(c, col2_x, top_y - i * dy, lb, vl, field_w)
 
         # 8. Tag tipo (canto sup direito)
         tag = _txt(a.get("tipo_tag"), "")
@@ -305,18 +316,20 @@ class FotoGrande(Flowable):
         c.setFillColor(VERDE)
         c.rect(0, faixa_h - 0.3 * cm, w, 0.3 * cm, stroke=0, fill=1)
         c.setFillColor(DOURADO)
-        c.setFont("Helvetica-Bold", 10)
-        c.drawString(0.4 * cm, faixa_h / 2 - 0.12 * cm, "•")
+        c.rect(0.45 * cm, faixa_h / 2 - 0.1 * cm, 0.22 * cm, 0.22 * cm, stroke=0, fill=1)
         c.setFillColor(BRANCO)
         c.setFont("Helvetica-Bold", 9)
-        c.drawString(0.85 * cm, faixa_h / 2 - 0.12 * cm, str(self.legenda)[:95])
+        c.drawString(0.9 * cm, faixa_h / 2 - 0.12 * cm, str(self.legenda)[:95])
 
     def _placeholder(self, c, w, h):
+        cx, cy = w / 2, h / 2 + 0.3 * cm
+        c.setFillColor(HexColor('#D8D8D8'))
+        c.circle(cx, cy, 1.6 * cm, stroke=0, fill=1)
+        c.setFillColor(HexColor('#9A9A9A'))
+        c.rect(cx - 0.25 * cm, cy - 0.25 * cm, 0.5 * cm, 0.5 * cm, stroke=0, fill=1)
         c.setFillColor(CINZA)
-        c.setFont("Helvetica", 22)
-        c.drawCentredString(w / 2, h / 2 + 0.2 * cm, "[ ]")
-        c.setFont("Helvetica", 9)
-        c.drawCentredString(w / 2, h / 2 - 0.6 * cm, f"Foto {self.numero} de {self.total}")
+        c.setFont("Helvetica-Oblique", 9)
+        c.drawCentredString(cx, cy - 0.95 * cm, f"Foto {self.numero} de {self.total} — Imovel Avaliando")
 
 
 # ╔══════════════════════════════════════════════════════════════════════════╗
@@ -755,9 +768,10 @@ class PtamPDFGenerator:
             out.append(Paragraph("Nenhuma amostra de mercado cadastrada.", self.st_corpo))
             return out
         for i, a in enumerate(amostras, 1):
-            out.append(AmostraCard(i, a))
-            out.append(Spacer(1, 0.35 * cm))
-        out += self._subtitulo("9.N Quadro Resumo das Amostras")
+            bloco = self._subtitulo(f"9.{i} Amostra {i}") + [AmostraCard(i, a)]
+            out.append(KeepTogether(bloco))
+            out.append(Spacer(1, 0.5 * cm))
+        out += self._subtitulo(f"9.{len(amostras) + 1} Quadro Resumo das Amostras")
         out.append(self._quadro_resumo_amostras(amostras))
         return out
 
@@ -945,15 +959,17 @@ class PtamPDFGenerator:
             out.append(Paragraph("Nenhuma foto do imovel cadastrada.", self.st_corpo))
             return out
         total = len(fotos)
-        out.append(Paragraph("Registro fotografico do imovel avaliando, ordenado conforme vistoria.",
-                             self.st_nota))
+        out.append(Paragraph("2 fotografias por pagina — imovel avaliando.", self.st_nota))
+        cnt_style = ParagraphStyle('cnt', fontName='Helvetica', fontSize=7.5,
+                                   textColor=CINZA, alignment=TA_CENTER, spaceAfter=4)
         for i in range(0, total, 2):
             if i > 0:
                 out.append(PageBreak())
-                n2 = min(i + 2, total)
-                out.append(Paragraph(f"Fotografias {i + 1} e {n2} de {total}",
-                           ParagraphStyle('cnt', fontName='Helvetica', fontSize=7.5,
-                                          textColor=CINZA, alignment=TA_CENTER, spaceAfter=4)))
+            n2 = min(i + 2, total)
+            if n2 > i + 1:
+                out.append(Paragraph(f"Fotografias {i + 1} e {n2} de {total}", cnt_style))
+            else:
+                out.append(Paragraph(f"Fotografia {i + 1} de {total}", cnt_style))
             f1 = fotos[i]
             out.append(FotoGrande(i + 1, _g(f1, 'legenda') if isinstance(f1, dict) else '',
                                   total, _g(f1, 'url') if isinstance(f1, dict) else f1))
@@ -962,9 +978,6 @@ class PtamPDFGenerator:
                 f2 = fotos[i + 1]
                 out.append(FotoGrande(i + 2, _g(f2, 'legenda') if isinstance(f2, dict) else '',
                                       total, _g(f2, 'url') if isinstance(f2, dict) else f2))
-            else:
-                out.append(Spacer(1, GAP))
-                out.append(Spacer(1, FOTO_H))
         return out
 
     def _build_secao_17_documentos(self):
