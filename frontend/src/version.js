@@ -1,3 +1,2 @@
-// @module version — Versão do sistema AvalieImob (fonte única).
-// Bumpe APP_VERSION a cada release. Exibida no header do dashboard.
-export const APP_VERSION = 'v1.0.0';
+// Gerado automaticamente no build (prebuild). NAO editar manualmente.
+export const APP_VERSION = 'v1.0 Â· 30/05 09:30';

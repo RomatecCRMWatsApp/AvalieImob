@@ -129,6 +129,7 @@ const PtamList = () => {
   const [loading, setLoading] = useState(true);
   const [pdfLoading, setPdfLoading] = useState({});
   const [pdfV2Loading, setPdfV2Loading] = useState({});
+  const [modalPdf, setModalPdf] = useState(null);
   const [docxLoading, setDocxLoading] = useState({});
   const [emailModal, setEmailModal] = useState(null);
   const [shareModal, setShareModal] = useState(null);
@@ -292,6 +293,23 @@ const PtamList = () => {
     } finally {
       setPdfV2Loading((prev) => ({ ...prev, [p.id]: false }));
     }
+  };
+
+  const visualizarPdf = async (p) => {
+    setPdfLoading((prev) => ({ ...prev, [p.id]: true }));
+    try {
+      const blob = await ptamAPI.downloadPdfV2(p.id);
+      const url = window.URL.createObjectURL(blob);
+      setModalPdf({ url, titulo: `PTAM ${p.number || ''} — ${p.property_label || p.titulo || ''}`.replace(/—\s*$/, '').trim() });
+    } catch (e) {
+      const detalhe = await extrairErroBlob(e);
+      toast({ title: 'Erro ao abrir PDF', description: detalhe, variant: 'destructive' });
+    } finally {
+      setPdfLoading((prev) => ({ ...prev, [p.id]: false }));
+    }
+  };
+  const fecharModalPdf = () => {
+    setModalPdf((m) => { if (m?.url) window.URL.revokeObjectURL(m.url); return null; });
   };
 
   const statusColor = (s) => {
@@ -484,6 +502,17 @@ const PtamList = () => {
                 <Button
                   size="sm"
                   variant="outline"
+                  title="Visualizar PDF no navegador"
+                  onClick={() => visualizarPdf(p)}
+                  disabled={pdfLoading[p.id]}
+                  className="gap-1 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                >
+                  {pdfLoading[p.id] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Eye className="w-3.5 h-3.5" />}
+                  Visualizar
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
                   title="Exportar PDF"
                   onClick={() => downloadPdf(p)}
                   disabled={pdfLoading[p.id]}
@@ -617,6 +646,68 @@ const PtamList = () => {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {modalPdf && (
+        <div
+          onClick={fecharModalPdf}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1000,
+            background: 'rgba(8,14,9,0.78)', backdropFilter: 'blur(3px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: 'min(960px, 96vw)', height: 'min(92vh, 1000px)',
+              background: '#14241a', borderRadius: 14, overflow: 'hidden',
+              border: '1px solid rgba(76,175,80,0.22)', display: 'flex', flexDirection: 'column',
+              boxShadow: '0 18px 50px rgba(0,0,0,0.55)',
+            }}
+          >
+            <div style={{
+              padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)',
+              display: 'flex', alignItems: 'center', gap: 10,
+            }}>
+              <span style={{ fontSize: 16 }}>📄</span>
+              <span style={{
+                flex: 1, fontSize: 13, fontWeight: 600, color: '#E8F5E9',
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>
+                {modalPdf.titulo || 'Laudo PTAM'}
+              </span>
+              <a
+                href={modalPdf.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  fontSize: 12, color: '#B8860B', textDecoration: 'none',
+                  border: '1px solid rgba(184,134,11,0.4)', borderRadius: 7,
+                  padding: '5px 11px', whiteSpace: 'nowrap',
+                }}
+              >
+                Abrir em nova aba
+              </a>
+              <button
+                onClick={fecharModalPdf}
+                aria-label="Fechar"
+                style={{
+                  width: 30, height: 30, borderRadius: 7, cursor: 'pointer',
+                  background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+                  color: 'rgba(255,255,255,0.7)', fontSize: 16, lineHeight: 1,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            <iframe
+              src={modalPdf.url}
+              title="Visualizador de PDF"
+              style={{ flex: 1, width: '100%', border: 'none', background: '#f5f5f0' }}
+            />
+          </div>
         </div>
       )}
     </div>
