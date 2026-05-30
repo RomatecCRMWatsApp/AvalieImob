@@ -1261,7 +1261,7 @@ async def gerar_recibo_ptam(
 
     # Gerador de recibo — usa o inline (assinatura ptam=/valor=/forma_pagamento=/data_pagamento=).
     # NAO usar pdf.recibo_pdf aqui: ele tem assinatura diferente (recibo=dict) e causava TypeError.
-    from services.recibo_inline import gerar_recibo_pdf
+    from services.recibo_zayra import gerar_recibo_pdf
 
     user = await db.users.find_one({"id": uid}) or {}
     perfil = await db.perfis_avaliador.find_one({"user_id": uid}) or {}
