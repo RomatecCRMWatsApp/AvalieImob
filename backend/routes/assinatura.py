@@ -89,26 +89,73 @@ def _validate_d4sign_webhook(request: Request):
         raise HTTPException(status_code=403, detail="Webhook token inválido")
 
 
-async def _gerar_pdf(tipo: str, doc: dict) -> bytes:
-    """Gera PDF do documento conforme tipo."""
+async def _resolve_ptam_assets(db, doc: dict) -> None:
+    """Resolve IDs de imagens -> bytes para o gerador v2 (fotos do imovel,
+    fotos das amostras e documentos digitalizados). Espelha o endpoint /pdf-v2."""
+    import base64
+    fotos_norm = []
+    for i, foto in enumerate(doc.get("fotos_imovel") or [], 1):
+        if isinstance(foto, dict):
+            if not foto.get("legenda"):
+                foto["legenda"] = foto.get("description") or foto.get("caption") or f"Foto {i}"
+            fotos_norm.append(foto)
+            continue
+        image_id = str(foto).replace('/api/upload/image/', '').split('/')[-1]
+        entry = {"legenda": f"Foto {i}", "description": f"Foto {i}"}
+        if len(image_id) > 30 and '-' in image_id:
+            img = await db.images.find_one({"id": image_id})
+            if img and img.get("data_b64"):
+                entry["_image_bytes"] = base64.b64decode(img["data_b64"])
+                if img.get("filename"):
+                    entry["legenda"] = img["filename"]
+        fotos_norm.append(entry)
+    doc["fotos_imovel"] = fotos_norm
+
+    for s in (doc.get("market_samples") or []):
+        fu = s.get("foto") or s.get("foto_url") or ""
+        sid = str(fu).replace('/api/upload/image/', '').split('/')[-1]
+        if len(sid) > 30 and '-' in sid:
+            simg = await db.images.find_one({"id": sid})
+            if simg and simg.get("data_b64"):
+                s["_image_bytes"] = base64.b64decode(simg["data_b64"])
+
+    docs_res = []
+    for kd, di in enumerate(doc.get("fotos_documentos") or [], 1):
+        du = (di.get("url") or di.get("doc_id") or di.get("image_id", "")) if isinstance(di, dict) else str(di)
+        dn = (di.get("name") or di.get("tipo")) if isinstance(di, dict) else None
+        did = str(du).replace('/api/upload/image/', '').split('/')[-1]
+        if len(did) > 30 and '-' in did:
+            dimg = await db.images.find_one({"id": did})
+            if dimg and dimg.get("data_b64"):
+                docs_res.append({
+                    "name": dn or dimg.get("filename") or f"Documento {kd}",
+                    "_doc_bytes": base64.b64decode(dimg["data_b64"]),
+                    "content_type": dimg.get("content_type", "image/jpeg"),
+                })
+    doc["documentos_resolvidos"] = docs_res
+
+
+async def _gerar_pdf(tipo: str, doc: dict, db=None, perfil: dict | None = None) -> bytes:
+    """Gera PDF do documento conforme tipo. PTAM usa o layout v2 (aprovado)."""
     if tipo == "ptam":
-        from pdf.ptam_pdf import generate_ptam_pdf
-        return generate_ptam_pdf(doc)
+        from services.ptam_pdf_v2 import generate_ptam_pdf_v2
+        if db is not None:
+            await _resolve_ptam_assets(db, doc)
+        return generate_ptam_pdf_v2(doc, perfil)
     elif tipo == "tvi":
-        # TVI usa exportacao similar — fallback para PDF simples se nao implementado
         try:
             from pdf.tvi_pdf import generate_tvi_pdf
             return generate_tvi_pdf(doc)
         except ImportError:
-            from pdf.ptam_pdf import generate_ptam_pdf
-            return generate_ptam_pdf(doc)
+            from services.ptam_pdf_v2 import generate_ptam_pdf_v2
+            return generate_ptam_pdf_v2(doc, perfil)
     elif tipo == "garantia":
         try:
             from pdf.garantia_pdf import generate_garantia_pdf
             return generate_garantia_pdf(doc)
         except ImportError:
-            from pdf.ptam_pdf import generate_ptam_pdf
-            return generate_ptam_pdf(doc)
+            from services.ptam_pdf_v2 import generate_ptam_pdf_v2
+            return generate_ptam_pdf_v2(doc, perfil)
     raise HTTPException(status_code=400, detail=f"Geracao de PDF nao suportada para tipo: {tipo}")
 
 
@@ -127,9 +174,12 @@ async def iniciar_assinatura(
 
     doc = await _get_doc(db, tipo, id, uid)
 
-    # Gerar PDF
+    # Gerar PDF (layout v2 aprovado)
+    perfil_pdf = await db.perfil_avaliador.find_one({"user_id": uid})
+    if perfil_pdf:
+        perfil_pdf.pop("_id", None)
     try:
-        pdf_bytes = await _gerar_pdf(tipo, doc)
+        pdf_bytes = await _gerar_pdf(tipo, doc, db=db, perfil=perfil_pdf)
     except Exception as e:
         logger.error("Erro ao gerar PDF para assinatura: %s", e)
         raise HTTPException(status_code=500, detail=f"Erro ao gerar PDF: {e}")
@@ -436,9 +486,14 @@ async def assinar_icp_brasil(
         logger.exception("Falha ao descriptografar certificado")
         raise HTTPException(status_code=500, detail=f"Falha ao acessar certificado: {e}")
 
-    # Gerar PDF original
+    # Perfil do avaliador (mesma colecao do endpoint /pdf-v2) para o layout v2
+    perfil_pdf = await db.perfil_avaliador.find_one({"user_id": uid})
+    if perfil_pdf:
+        perfil_pdf.pop("_id", None)
+
+    # Gerar PDF original (layout v2 aprovado)
     try:
-        pdf_bytes = await _gerar_pdf(tipo, doc)
+        pdf_bytes = await _gerar_pdf(tipo, doc, db=db, perfil=perfil_pdf)
     except Exception as e:
         logger.error("Erro ao gerar PDF para assinatura ICP: %s", e)
         raise HTTPException(status_code=500, detail=f"Erro ao gerar PDF: {e}")

@@ -1440,7 +1440,49 @@ async def _melhor_pdf_ptam(db, ptam: dict) -> tuple[bytes, str]:
             return ass["content"], nome_arquivo.replace(".pdf", "_ASSINADO.pdf")
 
     try:
-        pdf_bytes = generate_ptam_pdf(ptam)
+        # Resolve assets (fotos do imovel, amostras, documentos) e usa layout v2 aprovado
+        fotos_norm = []
+        for i, foto in enumerate(ptam.get("fotos_imovel") or [], 1):
+            if isinstance(foto, dict):
+                if not foto.get("legenda"):
+                    foto["legenda"] = foto.get("description") or foto.get("caption") or f"Foto {i}"
+                fotos_norm.append(foto)
+                continue
+            image_id = str(foto).replace('/api/upload/image/', '').split('/')[-1]
+            entry = {"legenda": f"Foto {i}", "description": f"Foto {i}"}
+            if len(image_id) > 30 and '-' in image_id:
+                img = await db.images.find_one({"id": image_id})
+                if img and img.get("data_b64"):
+                    entry["_image_bytes"] = base64.b64decode(img["data_b64"])
+                    if img.get("filename"):
+                        entry["legenda"] = img["filename"]
+            fotos_norm.append(entry)
+        ptam["fotos_imovel"] = fotos_norm
+        for s in (ptam.get("market_samples") or []):
+            fu = s.get("foto") or s.get("foto_url") or ""
+            sid = str(fu).replace('/api/upload/image/', '').split('/')[-1]
+            if len(sid) > 30 and '-' in sid:
+                simg = await db.images.find_one({"id": sid})
+                if simg and simg.get("data_b64"):
+                    s["_image_bytes"] = base64.b64decode(simg["data_b64"])
+        docs_res = []
+        for kd, di in enumerate(ptam.get("fotos_documentos") or [], 1):
+            du = (di.get("url") or di.get("doc_id") or di.get("image_id", "")) if isinstance(di, dict) else str(di)
+            dn = (di.get("name") or di.get("tipo")) if isinstance(di, dict) else None
+            did = str(du).replace('/api/upload/image/', '').split('/')[-1]
+            if len(did) > 30 and '-' in did:
+                dimg = await db.images.find_one({"id": did})
+                if dimg and dimg.get("data_b64"):
+                    docs_res.append({
+                        "name": dn or dimg.get("filename") or f"Documento {kd}",
+                        "_doc_bytes": base64.b64decode(dimg["data_b64"]),
+                        "content_type": dimg.get("content_type", "image/jpeg"),
+                    })
+        ptam["documentos_resolvidos"] = docs_res
+        perfil = await db.perfil_avaliador.find_one({"user_id": ptam.get("user_id")})
+        if perfil:
+            perfil.pop("_id", None)
+        pdf_bytes = generate_ptam_pdf_v2(ptam, perfil)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao gerar PDF: {e}")
     return pdf_bytes, nome_arquivo
