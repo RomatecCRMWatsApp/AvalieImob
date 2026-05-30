@@ -96,12 +96,13 @@ export default function TopBar({
     || (nome.split(' ').filter(Boolean).slice(0, 2).map((n) => n[0]).join('').toUpperCase() || 'U');
 
   return (
+    <div style={{ position: 'sticky', top: 0, zIndex: 100 }}>
     <header
       aria-label="Barra de navegação principal"
       style={{
         height: 52, background: T.bg, borderBottom: `1px solid ${T.borderMain}`,
         display: 'flex', alignItems: 'center', padding: '0 12px', gap: 10,
-        fontFamily: "'DM Sans', system-ui, sans-serif", position: 'sticky', top: 0, zIndex: 100,
+        fontFamily: "'DM Sans', system-ui, sans-serif",
       }}
     >
       {onMenu && (
@@ -210,5 +211,25 @@ export default function TopBar({
         </div>
       </div>
     </header>
+
+      {/* Faixa só-mobile: data, localização e versão (não cabem na linha principal) */}
+      <div className="lg:hidden" style={{
+        background: T.bg, borderBottom: `1px solid ${T.borderMain}`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        gap: 12, padding: '4px 10px', flexWrap: 'wrap',
+        fontFamily: "'DM Sans', system-ui, sans-serif",
+      }}>
+        <span style={{ fontSize: 10, color: T.textDate, letterSpacing: '0.4px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+          {formatDate(now)}
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: T.goldText }}>
+          <IconMapPin />
+          <span style={{ fontSize: 10.5, fontWeight: 500, whiteSpace: 'nowrap' }}>{localizacao}</span>
+        </span>
+        <span style={{ fontSize: 10, color: T.goldText, fontWeight: 600, whiteSpace: 'nowrap' }}>
+          {version}{deployDate ? ` · ${deployDate}` : ''}
+        </span>
+      </div>
+    </div>
   );
 }

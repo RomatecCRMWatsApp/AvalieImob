@@ -11,6 +11,17 @@ import { aiAPI } from '../../lib/api';
 const RomaIAWidget = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
+  const [hidden, setHidden] = useState(() => {
+    try { return localStorage.getItem('romatec_widget_hidden') === '1'; } catch { return false; }
+  });
+  const ocultar = () => {
+    setHidden(true); setShowWelcome(false); setIsOpen(false);
+    try { localStorage.setItem('romatec_widget_hidden', '1'); } catch { /* ignore */ }
+  };
+  const mostrar = () => {
+    setHidden(false);
+    try { localStorage.removeItem('romatec_widget_hidden'); } catch { /* ignore */ }
+  };
   const [messages, setMessages] = useState([
     { role: 'assistant', content: 'Olá! Sou a Roma_IA, especialista em avaliação imobiliária. Como posso ajudar você hoje?' }
   ]);
@@ -85,32 +96,55 @@ const RomaIAWidget = () => {
 
   return (
     <>
-      {/* Botão Flutuante - Responsivo para Mobile */}
-      {!isOpen && (
+      {/* Aba discreta para reexibir quando oculto */}
+      {hidden && !isOpen && (
         <button
-          onClick={() => setIsOpen(true)}
-          onTouchStart={() => setIsOpen(true)}
-          className="fixed top-1/2 -translate-y-1/2 right-3 sm:right-4 z-[100] group touch-manipulation"
-          aria-label="Abrir chat com Roma_IA"
-          style={{ WebkitTapHighlightColor: 'transparent' }}
+          onClick={mostrar}
+          className="fixed top-1/2 -translate-y-1/2 right-0 z-[90] bg-emerald-900/90 hover:bg-emerald-800 text-white text-[10px] font-semibold px-1.5 py-3 rounded-l-lg shadow-lg"
+          title="Mostrar Roma_IA"
+          style={{ writingMode: 'vertical-rl' }}
         >
-          <div className="relative">
-            <div className="absolute inset-0 bg-emerald-500 rounded-full animate-ping opacity-30"></div>
-            <div className="relative bg-emerald-900 hover:bg-emerald-800 active:bg-emerald-700 rounded-full p-2 sm:p-3 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110 active:scale-95">
-              <RomaIAAvatar state="idle" size="sm" className="sm:w-[72px] sm:h-[72px]" />
-            </div>
-            {/* Badge de notificação */}
-            {showWelcome && (
-              <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold animate-bounce">
-                1
-              </div>
-            )}
-          </div>
+          Roma_IA
         </button>
       )}
 
+      {/* Botão Flutuante - Responsivo para Mobile */}
+      {!isOpen && !hidden && (
+        <div className="fixed top-1/2 -translate-y-1/2 right-3 sm:right-4 z-[100] group">
+          <button
+            onClick={() => setIsOpen(true)}
+            onTouchStart={() => setIsOpen(true)}
+            className="touch-manipulation block"
+            aria-label="Abrir chat com Roma_IA"
+            style={{ WebkitTapHighlightColor: 'transparent' }}
+          >
+            <div className="relative">
+              <div className="absolute inset-0 bg-emerald-500 rounded-full animate-ping opacity-30"></div>
+              <div className="relative bg-emerald-900 hover:bg-emerald-800 active:bg-emerald-700 rounded-full p-2 sm:p-3 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110 active:scale-95">
+                <RomaIAAvatar state="idle" size="sm" className="sm:w-[72px] sm:h-[72px]" />
+              </div>
+              {/* Badge de notificação */}
+              {showWelcome && (
+                <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold animate-bounce">
+                  1
+                </div>
+              )}
+            </div>
+          </button>
+          {/* Botão ocultar */}
+          <button
+            onClick={ocultar}
+            aria-label="Ocultar Roma_IA"
+            title="Ocultar assistente"
+            className="absolute -top-1 -left-1 w-5 h-5 bg-gray-800/85 hover:bg-gray-900 text-white rounded-full flex items-center justify-center z-[101] shadow"
+          >
+            <X className="w-3 h-3" />
+          </button>
+        </div>
+      )}
+
       {/* Tooltip de boas-vindas - Responsivo */}
-      {showWelcome && !isOpen && (
+      {showWelcome && !isOpen && !hidden && (
         <div 
           className="fixed top-1/2 -translate-y-1/2 right-20 sm:right-24 z-[99] bg-white rounded-xl shadow-lg p-3 sm:p-4 max-w-[260px] sm:max-w-xs animate-fade-in-up cursor-pointer"
           onClick={() => {
