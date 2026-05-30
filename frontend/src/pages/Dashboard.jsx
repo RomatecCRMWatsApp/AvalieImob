@@ -10,6 +10,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { APP_VERSION } from '../version';
 import Sidebar from '../components/Sidebar';
 import HeaderClock from '../components/common/HeaderClock';
+import TopBar from '../components/TopBar';
 import { BRAND } from '../mock/mock';
 import RomaIAAvatar from '../components/common/RomaIAAvatar';
 import LgpdBadge from '../components/common/LgpdBadge';
@@ -391,32 +392,20 @@ const Dashboard = () => {
       {/* ── Main content ── */}
       <main className="flex-1 min-w-0 flex flex-col">
 
-        {/* ── Header ── */}
-        <header className="sticky top-0 z-20 bg-white/95 backdrop-blur-md border-b border-gray-200/80 h-16 flex items-center px-4 sm:px-6 gap-3 shadow-sm">
-          {/* Mobile menu toggle */}
-          <button
-            className="lg:hidden w-9 h-9 rounded-xl hover:bg-gray-100 flex items-center justify-center transition-colors"
-            onClick={() => setMobileOpen(true)}
-          >
-            <Menu className="w-5 h-5 text-gray-600" />
-          </button>
-
-          {/* Search bar */}
-          <GlobalSearch />
-
-          <div className="hidden lg:block ml-auto mr-3"><HeaderClock /></div>
-          <div className="flex items-center gap-1 lg:ml-0 ml-auto">
-            <span
-              className="hidden sm:inline-flex items-center px-2 py-0.5 mr-1 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-semibold tracking-wide"
-              title="Versão do sistema"
-            >
-              {APP_VERSION}
-            </span>
-            <NotifButton />
-            <div className="w-px h-6 bg-gray-200 mx-1" />
-            <AvatarMenu user={user} onLogout={handleLogout} />
-          </div>
-        </header>
+        {/* ── TopBar dark ── */}
+        <TopBar
+          onMenu={() => setMobileOpen(true)}
+          searchSlot={<GlobalSearch />}
+          notifCount={0}
+          user={{
+            name: user?.name || 'Usuário',
+            role: user?.role || 'Admin',
+            initials: (user?.name || 'U').split(' ').filter(Boolean).slice(0, 2).map((n) => n[0]).join('').toUpperCase(),
+          }}
+          onLogout={handleLogout}
+          onProfile={() => nav('/dashboard/config')}
+          version={APP_VERSION}
+        />
 
         {/* ── Page content ── */}
         <div className="flex-1 p-4 sm:p-6 lg:p-8">
