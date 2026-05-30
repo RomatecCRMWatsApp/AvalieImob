@@ -105,6 +105,16 @@ async def image_metadata(image_id: str, uid: str = Depends(get_active_subscriber
         m = _re.match(r"\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)", gps)
         if m:
             maps_url = f"https://www.google.com/maps?q={m.group(1)},{m.group(2)}"
+    # Cacheia na imagem para o PDF reusar (sem reprocessar OCR).
+    if gps or data_hora:
+        try:
+            await db.images.update_one(
+                {"id": image_id},
+                {"$set": {"meta_gps": gps, "meta_data_hora": data_hora}},
+            )
+        except Exception:
+            pass
+
     partes = []
     if gps:
         partes.append(f"GPS: {gps}")

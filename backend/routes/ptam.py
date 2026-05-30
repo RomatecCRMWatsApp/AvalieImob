@@ -705,6 +705,35 @@ def _map_ptam_to_spec_v2(doc: dict, perfil: dict | None) -> dict:
     }
 
 
+async def _gps_data_foto(db, img_doc, raw_bytes):
+    """(gps, data_hora) da foto: cache em db.images > EXIF > OCR (cacheia o resultado)."""
+    g = (img_doc.get("meta_gps") or "").strip()
+    d = (img_doc.get("meta_data_hora") or "").strip()
+    if g or d:
+        return g, d
+    try:
+        from services.ptam_pdf_v2 import _exif_gps_data
+        g, d = _exif_gps_data(raw_bytes)
+    except Exception:
+        g, d = "", ""
+    if not g and not d:
+        try:
+            import asyncio as _aio
+            from services.foto_ocr import extrair_gps_data_ocr
+            g, d = await _aio.to_thread(extrair_gps_data_ocr, raw_bytes)
+        except Exception:
+            g, d = "", ""
+    if g or d:
+        try:
+            await db.images.update_one(
+                {"id": img_doc.get("id")},
+                {"$set": {"meta_gps": g, "meta_data_hora": d}},
+            )
+        except Exception:
+            pass
+    return g, d
+
+
 @router.get("/ptam/{pid}/pdf-v2")
 async def download_ptam_pdf_v2(pid: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
     """Gera o PDF do PTAM no novo layout (spec 1.0). Rota paralela — nao substitui /pdf."""
@@ -737,9 +766,15 @@ async def download_ptam_pdf_v2(pid: str, uid: str = Depends(get_active_subscribe
                 if len(image_id) > 30 and '-' in image_id:
                     img_doc = await db.images.find_one({"id": image_id})
                     if img_doc and img_doc.get("data_b64"):
-                        entry["_image_bytes"] = base64.b64decode(img_doc["data_b64"])
+                        raw = base64.b64decode(img_doc["data_b64"])
+                        entry["_image_bytes"] = raw
                         if img_doc.get("filename"):
                             entry["legenda"] = img_doc["filename"]
+                        g, d = await _gps_data_foto(db, img_doc, raw)
+                        if g:
+                            entry["gps"] = g
+                        if d:
+                            entry["data_hora"] = d
                 fotos_norm.append(entry)
         doc["fotos_imovel"] = fotos_norm
         # Resolve fotos das amostras (IDs -> bytes)
