@@ -1,4 +1,5 @@
 # @module routes.uploads — Upload e recuperação de imagens/documentos em base64 no MongoDB
+import asyncio
 import base64
 import logging
 import uuid
@@ -78,11 +79,26 @@ async def image_metadata(image_id: str, uid: str = Depends(get_active_subscriber
         raw = base64.b64decode(doc["data_b64"])
     except Exception:
         raise HTTPException(status_code=422, detail="Imagem corrompida")
+    fonte = ""
     try:
         from services.ptam_pdf_v2 import _exif_gps_data
         gps, data_hora = _exif_gps_data(raw)
+        if gps or data_hora:
+            fonte = "exif"
     except Exception:
         gps, data_hora = "", ""
+
+    # Fallback: muitas fotos perdem o EXIF (WhatsApp etc.), mas tem o overlay
+    # "queimado" com GPS/data. Le via OCR (Tesseract) em thread separada.
+    if not gps and not data_hora:
+        try:
+            from services.foto_ocr import extrair_gps_data_ocr
+            g2, d2 = await asyncio.to_thread(extrair_gps_data_ocr, raw)
+            if g2 or d2:
+                gps, data_hora, fonte = g2, d2, "ocr"
+        except Exception:
+            pass
+
     maps_url = ""
     if gps:
         import re as _re
@@ -98,6 +114,7 @@ async def image_metadata(image_id: str, uid: str = Depends(get_active_subscriber
         "gps": gps,
         "data_hora": data_hora,
         "maps_url": maps_url,
+        "fonte": fonte,
         "tem_dados": bool(gps or data_hora),
         "texto_copia": "  |  ".join(partes),
     }

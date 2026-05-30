@@ -160,7 +160,16 @@ const AssinaturaICP = ({ tipo, docId, docData, onUpdate, onClose, toast, nav }) 
         icp_verificacao_url: res.verificacao_url,
       });
     } catch (err) {
-      const detail = err?.response?.data?.detail || 'Falha ao assinar com ICP-Brasil';
+      let detail = err?.response?.data?.detail;
+      if (!detail) {
+        if (err?.code === 'ECONNABORTED' || /timeout/i.test(err?.message || '')) {
+          detail = 'Tempo esgotado ao assinar (timeout). Tente assinar só um layout (desmarque o v1).';
+        } else if (err?.response?.status) {
+          detail = `Falha ao assinar (HTTP ${err.response.status}). Se for 502/504 é tempo excedido — tente um layout só.`;
+        } else {
+          detail = err?.message || 'Falha ao assinar com ICP-Brasil';
+        }
+      }
       toast({ title: detail, variant: 'destructive' });
     } finally {
       setSigning(false);

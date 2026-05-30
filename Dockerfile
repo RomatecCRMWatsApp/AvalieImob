@@ -19,6 +19,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     openssl \
     libssl-dev \
+    tesseract-ocr \
+    tesseract-ocr-por \
     && rm -rf /var/lib/apt/lists/* \
     && update-ca-certificates
 

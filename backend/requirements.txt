@@ -44,3 +44,6 @@ qrcode[pil]>=7.4.2
 pypdf>=4.0.0
 # ── Recibo por extenso (opcional) ──────────────────────────────
 num2words>=0.5.13
+# ── OCR do overlay de GPS/data das fotos (Tesseract instalado no Dockerfile) ──
+pytesseract>=0.3.10
+Pillow>=10.0.0
