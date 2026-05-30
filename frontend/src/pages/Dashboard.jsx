@@ -9,6 +9,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { APP_VERSION } from '../version';
 import Sidebar from '../components/Sidebar';
+import HeaderClock from '../components/common/HeaderClock';
 import { BRAND } from '../mock/mock';
 import RomaIAAvatar from '../components/common/RomaIAAvatar';
 import LgpdBadge from '../components/common/LgpdBadge';
@@ -403,7 +404,8 @@ const Dashboard = () => {
           {/* Search bar */}
           <GlobalSearch />
 
-          <div className="flex items-center gap-1 ml-auto">
+          <div className="hidden lg:block ml-auto mr-3"><HeaderClock /></div>
+          <div className="flex items-center gap-1 lg:ml-0 ml-auto">
             <span
               className="hidden sm:inline-flex items-center px-2 py-0.5 mr-1 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-semibold tracking-wide"
               title="Versão do sistema"
