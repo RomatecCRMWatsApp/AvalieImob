@@ -2,6 +2,7 @@
 # Suporta D4Sign (assinatura eletrônica via e-mail) E ICP-Brasil A1/PAdES (cert local).
 # Lei 14.063/2020 + MP 2.200-2/2001
 import os
+import asyncio
 import logging
 from datetime import datetime
 from typing import List, Optional
@@ -646,9 +647,12 @@ async def assinar_icp_brasil(
             logger.error("Erro ao gerar PDF (%s) para assinatura ICP: %s", layout, e)
             raise HTTPException(status_code=500, detail=f"Erro ao gerar PDF {layout}: {e}")
 
-        # 2) Assina com ICP-Brasil (PAdES)
+        # 2) Assina com ICP-Brasil (PAdES).
+        #    Roda em thread: o pyhanko (sign_pdf) chama asyncio.run() internamente,
+        #    o que estoura se executado dentro do event loop do FastAPI.
         try:
-            pdf_assinado, hash_final, data_assinatura = assinar_pdf_icp(
+            pdf_assinado, hash_final, data_assinatura = await asyncio.to_thread(
+                assinar_pdf_icp,
                 pdf_bytes=pdf_bytes,
                 pfx_bytes=pfx_bytes,
                 pfx_password=pfx_password,
