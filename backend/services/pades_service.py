@@ -146,28 +146,48 @@ def _gerar_carimbo_assinatura(
 # Sobreposicao na pagina de conclusao (com fallback de anexar pagina)
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _indice_pagina_conclusao(reader) -> Optional[int]:
-    """Acha a pagina da secao de conclusao. Prioriza 'RESPONSABILIDADE'
-    (so aparece na secao), depois 'CONCLUS'. Ignora a pagina de sumario."""
-    def _norm(s: str) -> str:
-        return (s or "").upper()
+def _eh_pagina_sumario(txt: str) -> bool:
+    """Detecta a pagina de sumario/indice (que tambem cita 'Conclusao e
+    Responsabilidade Tecnica' como item, mas NAO e a secao em si)."""
+    t = txt or ""
+    if "SUMÁRIO" in t or "SUMARIO" in t or "ÍNDICE" in t or "INDICE" in t:
+        return True
+    # Cabecalho da tabela do sumario: colunas Secao / Titulo / Pagina
+    if ("SEÇÃO" in t or "SECAO" in t) and ("PÁGINA" in t or "PAGINA" in t):
+        return True
+    # Muitos itens numerados de secoes na mesma pagina (caracteristico do sumario)
+    marcadores = sum(1 for m in ("IDENTIFICAÇÃO", "METODOLOGIA", "ANEXO", "AVALIAÇÃO", "AMOSTRAS") if m in t)
+    if marcadores >= 3:
+        return True
+    return False
 
-    alvo = None
-    for i, p in enumerate(reader.pages):
+
+def _indice_pagina_conclusao(reader) -> Optional[int]:
+    """Acha a pagina REAL da secao de conclusao (nao o sumario).
+    Identifica pelo CORPO do texto da secao, que nao aparece no sumario."""
+    paginas = []
+    for p in reader.pages:
         try:
-            txt = _norm(p.extract_text())
+            paginas.append((p.extract_text() or "").upper())
         except Exception:
-            txt = ""
-        if "RESPONSABILIDADE" in txt and ("CONCLUS" in txt or "TECNICA" in txt or "TÉCNICA" in txt):
+            paginas.append("")
+
+    # 1) Marcadores exclusivos do CORPO da conclusao (nao existem no sumario)
+    corpo = ("RESPONSABILIZANDO", "SIGNATÁRIO", "SIGNATARIO", "PROFISSIONAL SIGNAT")
+    for i, t in enumerate(paginas):
+        if _eh_pagina_sumario(t):
+            continue
+        if any(m in t for m in corpo):
             return i
-    for i, p in enumerate(reader.pages):
-        try:
-            txt = _norm(p.extract_text())
-        except Exception:
-            txt = ""
-        if "CONCLUS" in txt and "SUMARIO" not in txt and "SUMÁRIO" not in txt:
-            alvo = i
-    return alvo
+
+    # 2) Cabecalho da secao, ignorando o sumario
+    for i, t in enumerate(paginas):
+        if _eh_pagina_sumario(t):
+            continue
+        if "RESPONSABILIDADE" in t and "CONCLUS" in t:
+            return i
+
+    return None
 
 
 def _aplicar_carimbo(pdf_bytes: bytes, carimbo_pdf: bytes) -> bytes:
