@@ -728,14 +728,18 @@ async def download_ptam_pdf_v2(pid: str, uid: str = Depends(get_active_subscribe
         fotos_norm = []
         for i, foto in enumerate(doc.get("fotos_imovel") or [], 1):
             if isinstance(foto, dict):
+                if not foto.get("legenda"):
+                    foto["legenda"] = foto.get("description") or foto.get("caption") or f"Foto {i}"
                 fotos_norm.append(foto)
             else:
                 image_id = str(foto).replace('/api/upload/image/', '').split('/')[-1]
-                entry = {"description": f"Foto {i}"}
+                entry = {"legenda": f"Foto {i}", "description": f"Foto {i}"}
                 if len(image_id) > 30 and '-' in image_id:
                     img_doc = await db.images.find_one({"id": image_id})
                     if img_doc and img_doc.get("data_b64"):
                         entry["_image_bytes"] = base64.b64decode(img_doc["data_b64"])
+                        if img_doc.get("filename"):
+                            entry["legenda"] = img_doc["filename"]
                 fotos_norm.append(entry)
         doc["fotos_imovel"] = fotos_norm
         # Resolve fotos das amostras (IDs -> bytes)
@@ -749,8 +753,7 @@ async def download_ptam_pdf_v2(pid: str, uid: str = Depends(get_active_subscribe
         perfil = await db.perfil_avaliador.find_one({"user_id": uid})
         if perfil:
             perfil.pop("_id", None)
-        spec = _map_ptam_to_spec_v2(doc, perfil)
-        data = generate_ptam_pdf_v2(spec)
+        data = generate_ptam_pdf_v2(doc, perfil)
     except Exception as e:
         logger.exception("PDF v2 generation error")
         raise HTTPException(status_code=500, detail=f"Erro ao gerar PDF v2: {str(e)[:200]}")
