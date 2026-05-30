@@ -597,6 +597,12 @@ def _g(p, k, default=None):
     return v if v not in (None, '') else default
 
 
+def _leg(f, n):
+    if isinstance(f, dict):
+        return f.get('legenda') or f.get('description') or f.get('caption') or f'Foto {n}'
+    return f'Foto {n}'
+
+
 def build_story(ptam, page_map):
     perfil = ptam.get('_perfil') or {}
     fotos = ptam.get('fotos_imovel') or []
@@ -624,8 +630,18 @@ def build_story(ptam, page_map):
     # ── 2. Documentacao Analisada ──
     st.append(PageBreak())
     st += sec('2. DOCUMENTAÇÃO ANALISADA', 'sec2')
-    st.append(Paragraph('<b>Matrícula do imóvel</b> | Fotografias do imóvel', sBody))
+    docs_analisados = [d for d in (ptam.get('documentos_analisados') or []) if str(d).strip()]
+    docs_scan = ptam.get('fotos_documentos') or []
+    if docs_analisados:
+        st += subsec('Documentos Analisados')
+        linhas_doc = [[str(i), _txt(d)] for i, d in enumerate(docs_analisados, 1)]
+        st.append(tbl_header(['Nº', 'Documento'], linhas_doc, [1.4 * cm, UTIL_W - 1.4 * cm]))
+        st.append(Spacer(1, 8))
+    else:
+        st.append(Paragraph('<b>Matrícula do imóvel</b> | Fotografias do imóvel', sBody))
     st.append(Paragraph(f'<b>Fotos do imóvel:</b> {len(fotos)} foto(s) anexada(s)', sBody))
+    if docs_scan:
+        st.append(Paragraph(f'<b>Documentos digitalizados:</b> {len(docs_scan)} arquivo(s) anexado(s)', sBody))
 
     # ── 3. Identificacao do Imovel ──
     st.append(PageBreak())
@@ -788,14 +804,14 @@ def build_story(ptam, page_map):
             st.append(Paragraph(f'Fotografias {i + 1} e {n2} de {total}'
                                 if n2 > i + 1 else f'Fotografia {i + 1} de {total}', sPag))
             f1 = fotos[i]
-            st.append(FotoCard(i + 1, _g(f1, 'legenda') if isinstance(f1, dict) else '',
+            st.append(FotoCard(i + 1, _leg(f1, i + 1),
                                total, (f1.get('_image_bytes') if isinstance(f1, dict) else None),
                                (f1.get('gps') if isinstance(f1, dict) else ''),
                                (f1.get('data_hora') if isinstance(f1, dict) else '')))
             if i + 1 < total:
                 st.append(Spacer(1, GAP))
                 f2 = fotos[i + 1]
-                st.append(FotoCard(i + 2, _g(f2, 'legenda') if isinstance(f2, dict) else '',
+                st.append(FotoCard(i + 2, _leg(f2, i + 2),
                                    total, (f2.get('_image_bytes') if isinstance(f2, dict) else None),
                                    (f2.get('gps') if isinstance(f2, dict) else ''),
                                    (f2.get('data_hora') if isinstance(f2, dict) else '')))
