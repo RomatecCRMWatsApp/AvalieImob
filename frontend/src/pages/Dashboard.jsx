@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-vars */
 import React, { useState, useRef, useEffect } from 'react';
-import { Link, NavLink, Routes, Route, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Building2, BarChart3, FileText,
   CreditCard, Settings, LogOut, Menu, X, Bell, FileCheck2, Globe,
@@ -442,6 +442,7 @@ const Dashboard = () => {
             <Route path="curriculo"   element={<PerfilAvaliador />} />
             <Route path="assinatura"  element={<SubscriptionPage />} />
             <Route path="config"      element={<SettingsPage />} />
+            <Route path="*"            element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </div>
       </main>

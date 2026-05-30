@@ -514,6 +514,17 @@ const CertificadosICPSection = () => {
 
   useEffect(() => { load(); }, [load]);
 
+  // Vindo do botao "Ir para Configuracoes" da assinatura (#certificados):
+  // rola ate a secao e ja abre o formulario de cadastro.
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.hash === '#certificados') {
+      setShowForm(true);
+      setTimeout(() => {
+        document.getElementById('certificados')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 200);
+    }
+  }, []);
+
   const handleFile = (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
@@ -576,7 +587,7 @@ const CertificadosICPSection = () => {
   };
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-6">
+    <div id="certificados" className="bg-white rounded-xl border border-gray-200 p-6 scroll-mt-20">
       <div className="flex items-center justify-between mb-1">
         <h3 className="font-semibold text-gray-900 flex items-center gap-2">
           <Lock className="w-4 h-4 text-emerald-700" />

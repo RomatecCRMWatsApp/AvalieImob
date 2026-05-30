@@ -254,7 +254,7 @@ const AssinaturaICP = ({ tipo, docId, docData, onUpdate, onClose, toast, nav }) 
           <Button
             size="sm"
             variant="outline"
-            onClick={() => { onClose(); nav('/dashboard/configuracoes'); }}
+            onClick={() => { onClose(); nav('/dashboard/config#certificados'); }}
             className="gap-2"
           >
             <SettingsIcon className="w-4 h-4" />

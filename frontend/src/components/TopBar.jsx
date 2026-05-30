@@ -143,8 +143,9 @@ export default function TopBar({
       {/* Direita: versão + sino + avatar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
         <span className="hidden sm:inline" style={{
-          fontSize: 10, color: T.textVer, background: T.bgVer, padding: '2px 8px',
-          borderRadius: 99, border: '1px solid rgba(255,255,255,0.06)', whiteSpace: 'nowrap',
+          fontSize: 11, fontWeight: 700, color: T.goldText, background: T.bgLoc, padding: '3px 10px',
+          borderRadius: 99, border: `1px solid ${T.borderLoc}`, whiteSpace: 'nowrap', letterSpacing: '0.3px',
+          boxShadow: '0 0 0 1px rgba(184,134,11,0.06)',
         }}>
           {version}{deployDate ? ` · ${deployDate}` : ''}
         </span>
