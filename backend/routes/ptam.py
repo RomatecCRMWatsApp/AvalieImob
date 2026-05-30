@@ -1259,12 +1259,9 @@ async def gerar_recibo_ptam(
     if body.valor_honorarios <= 0:
         raise HTTPException(status_code=400, detail="Valor de honorários deve ser positivo")
 
-    # Importar serviço de PDF de recibo
-    try:
-        from pdf.recibo_pdf import gerar_recibo_pdf
-    except ImportError:
-        # Fallback inline mínimo se o módulo ainda não estiver disponível
-        from services.recibo_inline import gerar_recibo_pdf
+    # Gerador de recibo — usa o inline (assinatura ptam=/valor=/forma_pagamento=/data_pagamento=).
+    # NAO usar pdf.recibo_pdf aqui: ele tem assinatura diferente (recibo=dict) e causava TypeError.
+    from services.recibo_inline import gerar_recibo_pdf
 
     user = await db.users.find_one({"id": uid}) or {}
     perfil = await db.perfis_avaliador.find_one({"user_id": uid}) or {}
