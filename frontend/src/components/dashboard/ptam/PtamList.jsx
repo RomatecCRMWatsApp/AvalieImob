@@ -222,6 +222,19 @@ const PtamList = () => {
     }
   };
 
+  // Extrai a mensagem de erro real do backend. Como o responseType é 'blob',
+  // o corpo do erro (JSON {detail}) chega como Blob e precisa ser lido como texto.
+  const extrairErroBlob = async (e) => {
+    try {
+      const data = e?.response?.data;
+      if (data instanceof Blob) {
+        const txt = await data.text();
+        try { return JSON.parse(txt)?.detail || txt; } catch { return txt; }
+      }
+      return e?.response?.data?.detail || e?.message || 'Tente novamente';
+    } catch { return e?.message || 'Tente novamente'; }
+  };
+
   const download = async (p) => {
     setDocxLoading((prev) => ({ ...prev, [p.id]: true }));
     try {
@@ -233,7 +246,10 @@ const PtamList = () => {
       a.click();
       window.URL.revokeObjectURL(url);
       toast({ title: 'DOCX gerado com sucesso' });
-    } catch { toast({ title: 'Erro ao baixar DOCX', variant: 'destructive' }); }
+    } catch (e) {
+      const detalhe = await extrairErroBlob(e);
+      toast({ title: 'Erro ao baixar DOCX', description: detalhe, variant: 'destructive' });
+    }
     finally { setDocxLoading((prev) => ({ ...prev, [p.id]: false })); }
   };
 
@@ -249,8 +265,9 @@ const PtamList = () => {
       a.click();
       window.URL.revokeObjectURL(url);
       toast({ title: 'PDF gerado com sucesso' });
-    } catch {
-      toast({ title: 'Erro ao gerar PDF', variant: 'destructive' });
+    } catch (e) {
+      const detalhe = await extrairErroBlob(e);
+      toast({ title: 'Erro ao gerar PDF', description: detalhe, variant: 'destructive' });
     } finally {
       setPdfLoading((prev) => ({ ...prev, [p.id]: false }));
     }

@@ -31,8 +31,24 @@ from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 import io
 import logging
+import re
 
 logger = logging.getLogger("romatec")
+
+
+# ── Saneamento de texto para XML ───────────────────────────────────────────────
+# Caracteres de controle proibidos em XML 1.0 (rejeitados pelo lxml na serializacao
+# do DOCX). Texto digitado/ditado/colado pelo usuario pode conter NULL, VT, FF ou
+# outros control chars (ex.: copia de PDF, OCR, autocompletar). Se chegarem a um
+# run, o doc.save() estoura com ValueError fora dos guards de secao -> 500.
+_ILLEGAL_XML_CHARS_RE = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\ufffe\uffff]")
+
+
+def _xml_safe(value) -> str:
+    """Converte para str e remove caracteres invalidos em XML 1.0."""
+    if value is None:
+        return ""
+    return _ILLEGAL_XML_CHARS_RE.sub("", str(value))
 
 
 # ── Cores Romatec ─────────────────────────────────────────────────────────────
@@ -74,7 +90,7 @@ def _add_styled_paragraph(doc, text: str, bold: bool = False, italic: bool = Fal
     p = doc.add_paragraph()
     p.alignment = alignment
     p.paragraph_format.space_after = space_after
-    run = p.add_run(text)
+    run = p.add_run(_xml_safe(text))
     run.font.size = Pt(size)
     run.font.bold = bold
     run.font.italic = italic
@@ -87,7 +103,7 @@ def _add_section_heading(doc, text: str):
     table = doc.add_table(rows=1, cols=1)
     table.alignment = WD_TABLE_ALIGNMENT.LEFT
     cell = table.cell(0, 0)
-    cell.text = text
+    cell.text = _xml_safe(text)
     _set_cell_shading(cell, "1B4D1B")
     cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.LEFT
     run = cell.paragraphs[0].runs[0]
@@ -101,7 +117,7 @@ def _add_section_heading(doc, text: str):
 def _add_subsection_heading(doc, text: str):
     """Sub-título de seção em verde."""
     p = doc.add_paragraph()
-    run = p.add_run(text)
+    run = p.add_run(_xml_safe(text))
     run.font.bold = True
     run.font.size = Pt(11)
     run.font.color.rgb = GREEN
@@ -118,10 +134,10 @@ def _add_label_value(doc, label: str, value, bold_label: bool = True, skip_zero:
     if skip_zero and text.strip() in ("0", "0.0", "0.00", "0,00", "False"):
         return
     p = doc.add_paragraph()
-    r1 = p.add_run(f"{label}: ")
+    r1 = p.add_run(_xml_safe(f"{label}: "))
     r1.bold = bold_label
     r1.font.size = Pt(11)
-    r2 = p.add_run(str(text))
+    r2 = p.add_run(_xml_safe(text))
     r2.font.size = Pt(11)
 
 
@@ -131,10 +147,10 @@ def _fmt_val(val) -> str:
     if isinstance(val, bool):
         return "Sim" if val else ""
     if isinstance(val, list):
-        return ", ".join(str(i) for i in val if i is not None and str(i).strip())
+        return _xml_safe(", ".join(str(i) for i in val if i is not None and str(i).strip()))
     if isinstance(val, dict):
-        return " | ".join(f"{k}: {v}" for k, v in val.items() if v is not None and str(v).strip())
-    return str(val)
+        return _xml_safe(" | ".join(f"{k}: {v}" for k, v in val.items() if v is not None and str(v).strip()))
+    return _xml_safe(val)
 
 
 def _format_currency(value) -> str:
