@@ -23,6 +23,7 @@ _TIPO_COLECAO = {
     "ptam": "ptam_documents",
     "tvi": "vistorias",
     "garantia": "garantias",
+    "recibo": "recibos",
 }
 
 
@@ -156,6 +157,19 @@ async def _gerar_pdf(tipo: str, doc: dict, db=None, perfil: dict | None = None) 
         except ImportError:
             from services.ptam_pdf_v2 import generate_ptam_pdf_v2
             return generate_ptam_pdf_v2(doc, perfil)
+    elif tipo == "recibo":
+        from pdf.recibo_pdf import gerar_recibo_pdf
+        u = {}
+        logo = None
+        if db is not None:
+            u = await db.users.find_one({"id": doc.get("user_id")}) or {}
+            logo_id = doc.get("emitente_logo_id") or u.get("company_logo")
+            if logo_id:
+                limg = await db.images.find_one({"id": logo_id})
+                if limg and limg.get("data_b64"):
+                    import base64 as _b64
+                    logo = _b64.b64decode(limg["data_b64"])
+        return gerar_recibo_pdf(recibo=doc, user=u, perfil=perfil or {}, logo_bytes=logo)
     raise HTTPException(status_code=400, detail=f"Geracao de PDF nao suportada para tipo: {tipo}")
 
 
@@ -573,9 +587,9 @@ async def assinar_icp_brasil(
         logger.exception("Falha ao descriptografar certificado")
         raise HTTPException(status_code=500, detail=f"Falha ao acessar certificado: {e}")
 
-    # Dados do avaliador (perfil + user) — layout v2 e bloco visual da assinatura
+    # Dados do avaliador (perfil + user) — layout v2 e carimbo visual da assinatura
     user = await db.users.find_one({"id": uid}) or {}
-    perfil = await db.perfis_avaliador.find_one({"user_id": uid}) or {}
+    perfil = await db.perfil_avaliador.find_one({"user_id": uid}) or {}
 
     cidade_uf = ""
     if perfil.get("cidade") and perfil.get("uf"):
@@ -588,6 +602,26 @@ async def assinar_icp_brasil(
     if registros:
         r0 = registros[0]
         registro_str = f"{r0.get('tipo','')} {r0.get('numero','')}".strip()
+
+    # Linhas do carimbo de assinatura (dados Romatec, vindos do perfil)
+    regs_fmt = " / ".join(
+        f"{(r.get('tipo') or '').strip()} nº {(r.get('numero') or '').strip()}".strip()
+        for r in registros if (r.get('numero') or '').strip()
+    )
+    registro_full = ("Avaliador " + regs_fmt).strip() if regs_fmt else (
+        ("Avaliador " + registro_str).strip() if registro_str else ""
+    )
+    _tel = (perfil.get("telefone") or "").strip()
+    _end = (perfil.get("endereco_escritorio") or "").strip()
+    if _end:
+        endereco_linha = _end + (f" / Fone: {_tel}" if _tel else "")
+    else:
+        endereco_linha = f"Fone: {_tel}" if _tel else ""
+    _email = (perfil.get("email_profissional") or user.get("email") or "").strip()
+    _site = (perfil.get("site") or "").strip()
+    contato_linha = " / ".join(
+        x for x in [f"E-mail: {_email}" if _email else "", f"Site: {_site}" if _site else ""] if x
+    )
 
     # Layouts a assinar. Para PTAM o usuario escolhe v2 (completo) e/ou v1 (classico);
     # demais tipos tem layout unico.
@@ -625,6 +659,9 @@ async def assinar_icp_brasil(
                 cidade_uf=cidade_uf,
                 emissor=cert.get("emissor") or "",
                 valido_ate=cert.get("valido_ate"),
+                registro_full=registro_full,
+                endereco=endereco_linha,
+                contato=contato_linha,
             )
         except Exception as e:
             logger.exception("Falha ao assinar PDF ICP-Brasil (%s)", layout)

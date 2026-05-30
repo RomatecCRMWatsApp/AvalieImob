@@ -16,12 +16,21 @@ if errorlevel 1 (
   exit /b 1
 )
 
+echo --- Atualizando numero de build ---
+set "BUILDNUM="
+for /f "delims=" %%i in ('git rev-list --count HEAD 2^>nul') do set "BUILDNUM=%%i"
+if not defined BUILDNUM set "BUILDNUM=0"
+set /a BUILDNUM=BUILDNUM+1
+> "frontend\build-number.txt" echo %BUILDNUM%
+echo Esta versao sera: v1.0.%BUILDNUM%
+echo.
+
 echo --- Arquivos alterados ---
 git status --short
 echo.
 
 git add -A
-git commit -m "feat(ptam): visualizador PDF inline no card + versao v1.0.N incremental com data/hora"
+git commit -m "deploy AvalieImob v1.0.%BUILDNUM%"
 
 if errorlevel 1 (
   echo.
@@ -45,9 +54,8 @@ if errorlevel 1 (
 
 echo.
 echo ============================================
-echo   DEPLOY ENVIADO COM SUCESSO!
+echo   DEPLOY ENVIADO COM SUCESSO!  v1.0.%BUILDNUM%
 echo   O CI (GitHub - Railway) vai buildar e publicar.
-echo   A versao vai subir para v1.0.335 automaticamente.
 echo ============================================
 echo.
 pause

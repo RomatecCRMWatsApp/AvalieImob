@@ -3,12 +3,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Plus, Receipt, Loader2, Calendar, Trash2, FileDown, MessageCircle,
-  CheckCircle2, Clock, Send, Search, Edit3,
+  CheckCircle2, Clock, Send, Search, Edit3, Lock, ShieldCheck,
 } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Badge } from '../../ui/badge';
 import { useToast } from '../../../hooks/use-toast';
 import { recibosAPI } from '../../../lib/api';
+import AssinaturaDigital from '../ptam/AssinaturaDigital';
 
 const formatBRL = (v) => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', {
   minimumFractionDigits: 2, maximumFractionDigits: 2,
@@ -30,6 +31,7 @@ const RecibosList = () => {
   const [filtroStatus, setFiltroStatus] = useState('');
   const [pdfLoading, setPdfLoading] = useState({});
   const [enviando, setEnviando] = useState({});
+  const [assinaturaModal, setAssinaturaModal] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -101,6 +103,18 @@ const RecibosList = () => {
 
   return (
     <div className="space-y-6">
+      {assinaturaModal && (
+        <AssinaturaDigital
+          tipo="recibo"
+          docId={assinaturaModal.id}
+          docData={assinaturaModal}
+          onClose={() => setAssinaturaModal(null)}
+          onUpdate={(updates) =>
+            setItems((prev) => prev.map((x) => (x.id === assinaturaModal.id ? { ...x, ...updates } : x)))
+          }
+        />
+      )}
+
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="font-display text-3xl font-bold text-gray-900 flex items-center gap-2">
@@ -220,6 +234,16 @@ const RecibosList = () => {
                       <FileDown className="w-3.5 h-3.5" />
                     )}
                     PDF
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setAssinaturaModal(r)}
+                    title={r.icp_status === 'assinado' ? 'Assinado com ICP-Brasil' : 'Assinar com ICP-Brasil'}
+                    className={`gap-1 ${r.icp_status === 'assinado' ? 'text-emerald-700 border-emerald-300 bg-emerald-50 hover:bg-emerald-100' : 'text-emerald-700 border-emerald-200 hover:bg-emerald-50'}`}
+                  >
+                    {r.icp_status === 'assinado' ? <ShieldCheck className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+                    {r.icp_status === 'assinado' ? 'Assinado' : 'Assinar'}
                   </Button>
                   <Button
                     size="sm"

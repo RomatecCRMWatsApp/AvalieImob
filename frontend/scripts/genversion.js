@@ -1,5 +1,9 @@
-// Gera frontend/src/version.js no prebuild:
-// numero de build incremental (quantas versoes / em qual esta) + SHA + data/hora.
+// Gera frontend/src/version.js no prebuild.
+// Numero de build (incremental) + SHA + data/hora.
+//
+// IMPORTANTE: no build do Docker/Railway o .git NAO existe (.dockerignore exclui **/.git),
+// entao 'git rev-list' falha la. Por isso a fonte primaria do numero e o arquivo
+// committed frontend/build-number.txt — incrementado pelo DEPLOY.bat (onde o git existe).
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
@@ -13,15 +17,24 @@ function git(cmd, fallback) {
   }
 }
 
-// Numero de build = total de commits no historico (monotonico e crescente).
-// Diz exatamente quantas versoes ja sairam e em qual o sistema esta.
-let build = parseInt(git('rev-list --count HEAD', ''), 10);
-if (!Number.isFinite(build) || build <= 0) {
-  // Fallback (sem git): incrementa a partir do version.js anterior.
+// 1) build-number.txt (commitado, funciona sem git)  2) git count  3) version.js anterior
+let build;
+try {
+  const raw = fs.readFileSync(path.join(__dirname, '..', 'build-number.txt'), 'utf8').trim();
+  const n = parseInt(raw, 10);
+  if (Number.isFinite(n) && n > 0) build = n;
+} catch (e) { /* sem arquivo */ }
+
+if (build === undefined) {
+  const g = parseInt(git('rev-list --count HEAD', ''), 10);
+  if (Number.isFinite(g) && g > 0) build = g;
+}
+
+if (build === undefined) {
   try {
     const prev = fs.readFileSync(path.join(__dirname, '..', 'src', 'version.js'), 'utf8');
     const m = prev.match(/BUILD_NUMBER\s*=\s*(\d+)/);
-    build = m ? parseInt(m[1], 10) + 1 : 1;
+    build = m ? parseInt(m[1], 10) : 1;   // sem +1 (nao infla a cada build sem git)
   } catch (e) {
     build = 1;
   }
@@ -29,7 +42,7 @@ if (!Number.isFinite(build) || build <= 0) {
 
 const sha = git('rev-parse --short HEAD', 'local');
 
-// Horario do build em UTC-3 (Brasil).
+// Horario do build em UTC-3 (Brasil)
 const now = new Date();
 const br = new Date(now.getTime() - 3 * 60 * 60 * 1000);
 const p = (n) => String(n).padStart(2, '0');
@@ -38,9 +51,9 @@ const hora = p(br.getUTCHours()) + ':' + p(br.getUTCMinutes());
 
 const MAJOR = 1;
 const MINOR = 0;
-const version = 'v' + MAJOR + '.' + MINOR + '.' + build;          // ex.: v1.0.137
-const dataHora = data + ' ' + hora;                                // ex.: 30/05/2026 09:30
-const label = version + ' - ' + dataHora;                          // ex.: v1.0.137 - 30/05/2026 09:30
+const version = 'v' + MAJOR + '.' + MINOR + '.' + build;     // ex.: v1.0.339
+const dataHora = data + ' ' + hora;                           // ex.: 30/05/2026 12:07
+const label = version + ' - ' + dataHora;
 
 const out =
   '// Gerado automaticamente no build (prebuild). NAO editar manualmente.\n' +
