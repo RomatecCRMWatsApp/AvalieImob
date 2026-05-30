@@ -68,6 +68,41 @@ async def get_image(image_id: str, db=Depends(get_db)):
     )
 
 
+@router.get("/upload/image/{image_id}/metadata")
+async def image_metadata(image_id: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    """Extrai GPS e data/hora do EXIF da foto (quando presentes) para copiar."""
+    doc = await db.images.find_one({"id": image_id, "user_id": uid})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Imagem não encontrada")
+    try:
+        raw = base64.b64decode(doc["data_b64"])
+    except Exception:
+        raise HTTPException(status_code=422, detail="Imagem corrompida")
+    try:
+        from services.ptam_pdf_v2 import _exif_gps_data
+        gps, data_hora = _exif_gps_data(raw)
+    except Exception:
+        gps, data_hora = "", ""
+    maps_url = ""
+    if gps:
+        import re as _re
+        m = _re.match(r"\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)", gps)
+        if m:
+            maps_url = f"https://www.google.com/maps?q={m.group(1)},{m.group(2)}"
+    partes = []
+    if gps:
+        partes.append(f"GPS: {gps}")
+    if data_hora:
+        partes.append(f"Data/Hora: {data_hora}")
+    return {
+        "gps": gps,
+        "data_hora": data_hora,
+        "maps_url": maps_url,
+        "tem_dados": bool(gps or data_hora),
+        "texto_copia": "  |  ".join(partes),
+    }
+
+
 @router.delete("/upload/image/{image_id}")
 async def delete_image(image_id: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
     res = await db.images.delete_one({"id": image_id, "user_id": uid})

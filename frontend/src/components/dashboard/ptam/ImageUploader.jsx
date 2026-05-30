@@ -1,6 +1,6 @@
 // @module ImageUploader — reutilizável; mobile usa SmartPhotoInput, desktop usa drop zone
 import React, { useRef, useState } from 'react';
-import { Upload, X, Loader2, Image as ImageIcon, FileText } from 'lucide-react';
+import { Upload, X, Loader2, Image as ImageIcon, FileText, MapPin } from 'lucide-react';
 import { uploadAPI } from '../../../lib/api';
 import { useToast } from '../../../hooks/use-toast';
 import { useIsMobile } from '../../../hooks/useIsMobile';
@@ -21,8 +21,31 @@ const ImageUploader = ({
   const [contentTypes, setContentTypes] = useState({});
   const isMobile = useIsMobile();
 
+  const [metaLoading, setMetaLoading] = useState({});
   const canAdd = single ? images.length === 0 : images.length < maxImages;
   const isPdf = (id) => contentTypes[id] === 'application/pdf';
+
+  // Copia GPS + data/hora extraidos do EXIF da foto para a area de transferencia.
+  const copiarMeta = async (id) => {
+    setMetaLoading((p) => ({ ...p, [id]: true }));
+    try {
+      const m = await uploadAPI.imageMetadata(id);
+      if (!m.tem_dados) {
+        toast({
+          title: 'Sem GPS/data nesta foto',
+          description: 'O EXIF pode ter sido removido (ex.: foto enviada por WhatsApp).',
+          variant: 'destructive',
+        });
+        return;
+      }
+      await navigator.clipboard.writeText(m.texto_copia);
+      toast({ title: 'GPS e data/hora copiados!', description: m.texto_copia });
+    } catch (e) {
+      toast({ title: 'Erro ao ler dados da foto', variant: 'destructive' });
+    } finally {
+      setMetaLoading((p) => ({ ...p, [id]: false }));
+    }
+  };
 
   const handleFiles = async (files) => {
     if (!files || files.length === 0) return;
@@ -89,6 +112,13 @@ const ImageUploader = ({
                 ) : (
                   <img src={uploadAPI.getImageUrl(id)} alt="uploaded" className="w-full h-full object-cover" />
                 )}
+                {!isPdf(id) && (
+                  <button type="button" onClick={() => copiarMeta(id)} disabled={metaLoading[id]}
+                    title="Copiar GPS e data/hora da foto"
+                    className="absolute top-1 left-1 w-6 h-6 bg-emerald-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition hover:bg-emerald-700">
+                    {metaLoading[id] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MapPin className="w-3.5 h-3.5" />}
+                  </button>
+                )}
                 <button type="button" onClick={() => handleRemove(id)}
                   className="absolute top-1 right-1 w-6 h-6 bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition hover:bg-red-700">
                   <X className="w-3.5 h-3.5" />
@@ -141,6 +171,13 @@ const ImageUploader = ({
                     onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }} />
                   <div className="hidden w-full h-full items-center justify-center"><ImageIcon className="w-6 h-6 text-gray-400" /></div>
                 </>
+              )}
+              {!isPdf(id) && (
+                <button type="button" onClick={() => copiarMeta(id)} disabled={metaLoading[id]}
+                  title="Copiar GPS e data/hora da foto"
+                  className="absolute top-1 left-1 w-6 h-6 bg-emerald-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition hover:bg-emerald-700">
+                  {metaLoading[id] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MapPin className="w-3.5 h-3.5" />}
+                </button>
               )}
               <button type="button" onClick={() => handleRemove(id)}
                 className="absolute top-1 right-1 w-6 h-6 bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition hover:bg-red-700">
