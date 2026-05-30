@@ -7,7 +7,7 @@ import {
   Search, ChevronDown, User, Shield, Beef, Award, Home, ClipboardCheck, FileSearch, FileSignature, Receipt
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { APP_VERSION } from '../version';
+import { APP_VERSION, BUILD_DATE } from '../version';
 import Sidebar from '../components/Sidebar';
 import HeaderClock from '../components/common/HeaderClock';
 import TopBar from '../components/TopBar';
@@ -405,6 +405,7 @@ const Dashboard = () => {
           onLogout={handleLogout}
           onProfile={() => nav('/dashboard/config')}
           version={APP_VERSION}
+          deployDate={BUILD_DATE}
         />
 
         {/* ── Page content ── */}
