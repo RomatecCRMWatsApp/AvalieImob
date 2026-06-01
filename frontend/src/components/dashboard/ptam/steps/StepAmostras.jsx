@@ -1,4 +1,4 @@
-// @module ptam/steps/StepAmostras — Step 6: Amostras de Mercado (cards de pesquisa, análise)
+// @module ptam/steps/StepAmostras — Step 6: Amostras de Mercado (cards dinâmicos por tipo de imóvel)
 import React, { useState, useMemo } from 'react';
 import { Input } from '../../../ui/input';
 import { Textarea } from '../../../ui/textarea';
@@ -8,19 +8,211 @@ import { SectionHeader, AiButton } from '../shared/primitives';
 import { emptyMarketSample, computeStatsNBR } from '../ptamHelpers';
 import ImageUploader from '../ImageUploader';
 import { BuscaAmostras } from '../BuscaAmostras';
+import {
+  amostraCategoria,
+  isRuralImovel,
+  valorUnitario,
+  unidadeValorLabel,
+  conversoesArea,
+} from '../shared/amostraCategoria';
+
+const fmtUnit = (n) => Number(n || 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 });
 
 const FieldLabel = ({ children }) => (
   <label className="block text-[11px] font-medium text-gray-500 mb-1">{children}</label>
 );
 
-const MarketSampleCard = ({ s, onChange, onRemove, idx, isSaneada }) => {
-  const handleValue = (field, raw) => {
-    const v = Number(raw);
-    const area = field === 'area' ? v : Number(s.area || 0);
-    const value = field === 'value' ? v : Number(s.value || 0);
-    const vpm = area > 0 ? Math.round((value / area) * 100) / 100 : 0;
-    onChange({ ...s, [field]: v, value_per_sqm: vpm });
+// Campo de texto/numérico rotulado, no padrão visual do step.
+const Labeled = ({ label, children }) => (
+  <div>
+    <FieldLabel>{label}</FieldLabel>
+    {children}
+  </div>
+);
+
+// Campo "select" estilizado igual ao seletor de tipo de amostra.
+const SelectField = ({ label, value, onChange, options }) => (
+  <Labeled label={label}>
+    <select
+      value={value || ''}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full h-9 rounded-md border border-gray-200 px-2 text-sm bg-white focus:outline-none focus:border-emerald-400"
+    >
+      <option value="">—</option>
+      {options.map((o) => {
+        const val = typeof o === 'string' ? o : o.value;
+        const lbl = typeof o === 'string' ? o : o.label;
+        return <option key={val} value={val}>{lbl}</option>;
+      })}
+    </select>
+  </Labeled>
+);
+
+// Caixa de valor calculado (somente leitura) com destaque emerald.
+const ComputedBox = ({ label, children }) => (
+  <Labeled label={label}>
+    <div className="h-9 flex items-center px-2 rounded-md border border-emerald-300 bg-emerald-50 text-sm font-medium text-emerald-800">
+      {children}
+    </div>
+  </Labeled>
+);
+
+const numHandler = (onChange) => (e) => onChange(parseFloat(e.target.value) || 0);
+const intHandler = (onChange) => (e) => onChange(parseInt(e.target.value, 10) || 0);
+
+// ── Campos extras por categoria de imóvel ──────────────────────────────────
+const ExtraFields = ({ categoria, s, set }) => {
+  switch (categoria) {
+    case 'terreno_urbano':
+      return (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <Labeled label="Testada (m)">
+              <Input type="number" min={0} step="any" value={s.testada_m || ''} onChange={numHandler((v) => set('testada_m', v))} className="h-9" placeholder="0" />
+            </Labeled>
+            <Labeled label="Zoneamento">
+              <Input value={s.zoneamento || ''} onChange={(e) => set('zoneamento', e.target.value)} className="h-9" placeholder="ZR-1, ZC..." />
+            </Labeled>
+            <Labeled label="Uso permitido">
+              <Input value={s.uso_permitido || ''} onChange={(e) => set('uso_permitido', e.target.value)} className="h-9" placeholder="Residencial, misto..." />
+            </Labeled>
+          </div>
+        </>
+      );
+
+    case 'casa_apto':
+      return (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Labeled label="Área construída (m²)">
+              <Input type="number" min={0} step="any" value={s.area_construida_m2 || ''} onChange={numHandler((v) => set('area_construida_m2', v))} className="h-9" placeholder="0" />
+            </Labeled>
+            <Labeled label="Área do terreno (m²)">
+              <Input type="number" min={0} step="any" value={s.area_terreno_m2 || ''} onChange={numHandler((v) => set('area_terreno_m2', v))} className="h-9" placeholder="0" />
+            </Labeled>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <Labeled label="Quartos">
+              <Input type="number" min={0} value={s.quartos || ''} onChange={intHandler((v) => set('quartos', v))} className="h-9" placeholder="0" />
+            </Labeled>
+            <Labeled label="Banheiros">
+              <Input type="number" min={0} value={s.banheiros || ''} onChange={intHandler((v) => set('banheiros', v))} className="h-9" placeholder="0" />
+            </Labeled>
+            <Labeled label="Vagas">
+              <Input type="number" min={0} value={s.vagas || ''} onChange={intHandler((v) => set('vagas', v))} className="h-9" placeholder="0" />
+            </Labeled>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <SelectField label="Padrão" value={s.padrao} onChange={(v) => set('padrao', v)} options={[{ value: 'baixo', label: 'Baixo' }, { value: 'normal', label: 'Normal' }, { value: 'alto', label: 'Alto' }, { value: 'luxo', label: 'Luxo' }]} />
+            <SelectField label="Conservação" value={s.conservacao} onChange={(v) => set('conservacao', v)} options={[{ value: 'novo', label: 'Novo' }, { value: 'bom', label: 'Bom' }, { value: 'regular', label: 'Regular' }, { value: 'ruim', label: 'Ruim' }]} />
+            <Labeled label="Idade (anos)">
+              <Input type="number" min={0} value={s.idade_anos || ''} onChange={intHandler((v) => set('idade_anos', v))} className="h-9" placeholder="0" />
+            </Labeled>
+          </div>
+        </>
+      );
+
+    case 'galpao_comercial':
+      return (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Labeled label="Área construída (m²)">
+              <Input type="number" min={0} step="any" value={s.area_construida_m2 || ''} onChange={numHandler((v) => set('area_construida_m2', v))} className="h-9" placeholder="0" />
+            </Labeled>
+            <Labeled label="Área do terreno (m²)">
+              <Input type="number" min={0} step="any" value={s.area_terreno_m2 || ''} onChange={numHandler((v) => set('area_terreno_m2', v))} className="h-9" placeholder="0" />
+            </Labeled>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <Labeled label="Pé-direito (m)">
+              <Input type="number" min={0} step="0.1" value={s.pe_direito_m || ''} onChange={numHandler((v) => set('pe_direito_m', v))} className="h-9" placeholder="0" />
+            </Labeled>
+            <Labeled label="Vão livre (m)">
+              <Input type="number" min={0} step="0.1" value={s.vao_livre_m || ''} onChange={numHandler((v) => set('vao_livre_m', v))} className="h-9" placeholder="0" />
+            </Labeled>
+            <Labeled label="Docas">
+              <Input type="number" min={0} value={s.docas || ''} onChange={intHandler((v) => set('docas', v))} className="h-9" placeholder="0" />
+            </Labeled>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <SelectField label="Padrão" value={s.padrao} onChange={(v) => set('padrao', v)} options={[{ value: 'baixo', label: 'Baixo' }, { value: 'normal', label: 'Normal' }, { value: 'alto', label: 'Alto' }]} />
+            <SelectField label="Conservação" value={s.conservacao} onChange={(v) => set('conservacao', v)} options={[{ value: 'novo', label: 'Novo' }, { value: 'bom', label: 'Bom' }, { value: 'regular', label: 'Regular' }, { value: 'ruim', label: 'Ruim' }]} />
+          </div>
+        </>
+      );
+
+    case 'terreno_rural':
+    case 'fazenda_sitio':
+      return (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <SelectField label="Topografia" value={s.topografia} onChange={(v) => set('topografia', v)} options={['Plano', 'Suave ondulado', 'Ondulado', 'Forte ondulado', 'Montanhoso']} />
+            <SelectField label="Solo" value={s.solo} onChange={(v) => set('solo', v)} options={['Argiloso', 'Arenoso', 'Misto', 'Latossolo', 'Rochoso']} />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <SelectField label="Recursos hídricos" value={s.recursos_hidricos} onChange={(v) => set('recursos_hidricos', v)} options={['Sem', 'Rio / córrego', 'Lagoa', 'Irrigação / pivô']} />
+            <SelectField label="Vegetação" value={s.vegetacao} onChange={(v) => set('vegetacao', v)} options={['Pastagem', 'Lavoura', 'Cerrado', 'Mata']} />
+          </div>
+          {categoria === 'fazenda_sitio' && (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <SelectField label="Atividade principal" value={s.atividade} onChange={(v) => set('atividade', v)} options={['Pecuária', 'Lavoura anual', 'Lavoura perene', 'Mista', 'Reflorestamento']} />
+                <Labeled label="Lotação (UA/ha)">
+                  <Input type="number" min={0} step="0.1" value={s.lotacao_ua_ha || ''} onChange={numHandler((v) => set('lotacao_ua_ha', v))} className="h-9" placeholder="0" />
+                </Labeled>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <SelectField label="Benfeitorias" value={s.benfeitorias} onChange={(v) => set('benfeitorias', v)} options={['Sem', 'Simples', 'Médio', 'Completo']} />
+                <SelectField label="Sede / casa" value={s.sede} onChange={(v) => set('sede', v)} options={['Não', 'Simples', 'Boa']} />
+              </div>
+            </>
+          )}
+        </>
+      );
+
+    default:
+      return null;
+  }
+};
+
+const ExtraSection = ({ categoria, s, set }) => {
+  if (categoria === 'outros' || !categoria) return null;
+  const titulo = {
+    terreno_urbano: 'Dimensões e uso',
+    casa_apto: 'Características',
+    galpao_comercial: 'Especificações técnicas',
+    terreno_rural: 'Características rurais',
+    fazenda_sitio: 'Características rurais',
+  }[categoria];
+  const rural = categoria === 'terreno_rural' || categoria === 'fazenda_sitio';
+  return (
+    <div className="mt-3 pt-3 border-t border-gray-100 space-y-3">
+      <span className={`text-[10px] font-semibold uppercase tracking-wide ${rural ? 'text-emerald-700' : 'text-gray-400'}`}>
+        {titulo}
+      </span>
+      <ExtraFields categoria={categoria} s={s} set={set} />
+    </div>
+  );
+};
+
+const MarketSampleCard = ({ s, onChange, onRemove, idx, isSaneada, tipoImovel }) => {
+  const rural = isRuralImovel(tipoImovel);
+  const categoria = amostraCategoria(tipoImovel);
+  const conv = conversoesArea(s.area);
+  const vUnit = valorUnitario(s.area, s.value, rural);
+  const vUnitLabel = unidadeValorLabel(rural);
+
+  // set genérico que também mantém value_per_sqm (R$/m²) para o computeStatsNBR.
+  const set = (field, raw) => {
+    const next = { ...s, [field]: raw };
+    if (field === 'area' || field === 'value') {
+      const area = Number(next.area || 0);
+      const value = Number(next.value || 0);
+      next.value_per_sqm = area > 0 ? Math.round((value / area) * 100) / 100 : 0;
+    }
+    onChange(next);
   };
+  const setNum = (field) => (e) => set(field, Number(e.target.value));
 
   const tipoLabel = s.tipo_amostra === 'consolidada' ? 'Consolidada' : 'Oferta';
   const tipoBadge = s.tipo_amostra === 'consolidada'
@@ -44,11 +236,9 @@ const MarketSampleCard = ({ s, onChange, onRemove, idx, isSaneada }) => {
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right">
-            <div className="text-[10px] uppercase tracking-wide text-gray-400">R$/m²</div>
+            <div className="text-[10px] uppercase tracking-wide text-gray-400">{vUnitLabel}</div>
             <div className={`text-base font-bold ${isSaneada ? 'text-red-600 line-through' : 'text-emerald-800'}`}>
-              {s.value_per_sqm > 0
-                ? `R$ ${Number(s.value_per_sqm).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}`
-                : '—'}
+              {vUnit > 0 ? `R$ ${fmtUnit(vUnit)}` : '—'}
             </div>
           </div>
           <button
@@ -64,45 +254,88 @@ const MarketSampleCard = ({ s, onChange, onRemove, idx, isSaneada }) => {
 
       {/* Corpo: campos rotulados + foto */}
       <div className="flex flex-col lg:flex-row gap-4">
-        <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          <div className="sm:col-span-2">
-            <FieldLabel>Endereço</FieldLabel>
-            <Input value={s.address || ''} onChange={(e) => onChange({ ...s, address: e.target.value })} placeholder="Rua, número" className="h-9" />
+        <div className="flex-1 space-y-3">
+          {/* Localização */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Labeled label="Endereço">
+              <Input value={s.address || ''} onChange={(e) => set('address', e.target.value)} placeholder="Rua, número, referência" className="h-9" />
+            </Labeled>
+            <Labeled label="Bairro / localidade">
+              <Input value={s.neighborhood || ''} onChange={(e) => set('neighborhood', e.target.value)} placeholder="Bairro" className="h-9" />
+            </Labeled>
           </div>
-          <div>
-            <FieldLabel>Bairro</FieldLabel>
-            <Input value={s.neighborhood || ''} onChange={(e) => onChange({ ...s, neighborhood: e.target.value })} placeholder="Bairro" className="h-9" />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="sm:col-span-2">
+              <Labeled label="Município">
+                <Input value={s.municipio || ''} onChange={(e) => set('municipio', e.target.value)} placeholder="Município" className="h-9" />
+              </Labeled>
+            </div>
+            <Labeled label="UF">
+              <Input value={s.uf || ''} maxLength={2} onChange={(e) => set('uf', e.target.value.toUpperCase())} placeholder="MA" className="h-9" />
+            </Labeled>
           </div>
-          <div>
-            <FieldLabel>Área (m²)</FieldLabel>
-            <Input type="number" value={s.area || ''} onChange={(e) => handleValue('area', e.target.value)} placeholder="0" className="h-9" />
-          </div>
-          <div>
-            <FieldLabel>Valor (R$)</FieldLabel>
-            <Input type="number" value={s.value || ''} onChange={(e) => handleValue('value', e.target.value)} placeholder="0" className="h-9" />
-          </div>
-          <div>
-            <FieldLabel>Tipo da amostra</FieldLabel>
-            <select
-              value={s.tipo_amostra || 'oferta'}
-              onChange={(e) => onChange({ ...s, tipo_amostra: e.target.value })}
-              className="w-full h-9 rounded-md border border-gray-200 px-2 text-sm bg-white focus:outline-none focus:border-emerald-400"
-            >
-              <option value="oferta">Oferta de Mercado</option>
-              <option value="consolidada">Consolidada / Comercializada</option>
-            </select>
-          </div>
-          <div>
-            <FieldLabel>Fonte</FieldLabel>
-            <Input value={s.source || ''} onChange={(e) => onChange({ ...s, source: e.target.value })} placeholder="Imobiliária, portal, contato..." className="h-9" />
-          </div>
-          <div>
-            <FieldLabel>Data da coleta</FieldLabel>
-            <Input type="date" value={s.collection_date || ''} onChange={(e) => onChange({ ...s, collection_date: e.target.value })} className="h-9" />
-          </div>
-          <div>
-            <FieldLabel>Telefone</FieldLabel>
-            <Input value={s.contact_phone || ''} onChange={(e) => onChange({ ...s, contact_phone: e.target.value })} placeholder="(00) 00000-0000" className="h-9" />
+
+          {/* Área — urbana simples */}
+          {!rural && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Labeled label="Área (m²)">
+                <Input type="number" min={0} step="any" value={s.area || ''} onChange={setNum('area')} placeholder="0" className="h-9" />
+              </Labeled>
+              <ComputedBox label={`${vUnitLabel} (calculado)`}>
+                {vUnit > 0 ? `R$ ${fmtUnit(vUnit)}` : '—'}
+              </ComputedBox>
+            </div>
+          )}
+
+          {/* Área — rural com conversão em tempo real */}
+          {rural && (
+            <div>
+              <span className="block text-[10px] font-semibold uppercase tracking-wide text-emerald-700 mb-2">Área rural</span>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <Labeled label="Área (m²)">
+                  <Input type="number" min={0} step="any" value={s.area || ''} onChange={setNum('area')} placeholder="0" className="h-9 border-emerald-400" />
+                </Labeled>
+                <ComputedBox label="→ hectares">{conv.ha} ha</ComputedBox>
+                <ComputedBox label="→ alqueires min.">{conv.alq} alq</ComputedBox>
+              </div>
+            </div>
+          )}
+
+          {/* Campos específicos por tipo */}
+          <ExtraSection categoria={categoria} s={s} set={set} />
+
+          {/* Transação */}
+          <div className="mt-3 pt-3 border-t border-gray-100 space-y-3">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Transação</span>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <Labeled label="Valor (R$)">
+                <Input type="number" min={0} step="any" value={s.value || ''} onChange={setNum('value')} placeholder="0" className="h-9" />
+              </Labeled>
+              <ComputedBox label={`${vUnitLabel} (calculado)`}>
+                {vUnit > 0 ? `R$ ${fmtUnit(vUnit)}` : '—'}
+              </ComputedBox>
+              <Labeled label="Tipo da amostra">
+                <select
+                  value={s.tipo_amostra || 'oferta'}
+                  onChange={(e) => set('tipo_amostra', e.target.value)}
+                  className="w-full h-9 rounded-md border border-gray-200 px-2 text-sm bg-white focus:outline-none focus:border-emerald-400"
+                >
+                  <option value="oferta">Oferta de Mercado</option>
+                  <option value="consolidada">Consolidada / Comercializada</option>
+                </select>
+              </Labeled>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <Labeled label="Fonte">
+                <Input value={s.source || ''} onChange={(e) => set('source', e.target.value)} placeholder="Imobiliária, portal..." className="h-9" />
+              </Labeled>
+              <Labeled label="Data da coleta">
+                <Input type="date" value={s.collection_date || ''} onChange={(e) => set('collection_date', e.target.value)} className="h-9" />
+              </Labeled>
+              <Labeled label="Telefone">
+                <Input value={s.contact_phone || ''} onChange={(e) => set('contact_phone', e.target.value)} placeholder="(00) 00000-0000" className="h-9" />
+              </Labeled>
+            </div>
           </div>
         </div>
 
@@ -125,6 +358,7 @@ const MarketSampleCard = ({ s, onChange, onRemove, idx, isSaneada }) => {
 export const StepAmostras = ({ form, setForm, onAi, aiLoading }) => {
   const samples = useMemo(() => form.market_samples ?? [], [form.market_samples]);
   const [showBusca, setShowBusca] = useState(false);
+  const tipoImovel = form.property_type;
   const add = () => setForm({ ...form, market_samples: [...samples, emptyMarketSample()] });
   const update = (i, ns) => setForm({ ...form, market_samples: samples.map((s, idx) => idx === i ? ns : s) });
   const remove = (i) => setForm({ ...form, market_samples: samples.filter((_, idx) => idx !== i) });
@@ -171,7 +405,7 @@ export const StepAmostras = ({ form, setForm, onAi, aiLoading }) => {
           )}
           {validCount >= 3 && (
             <span className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2 py-0.5">
-              {validCount} amostras com R$/m²
+              {validCount} amostras com {unidadeValorLabel(isRuralImovel(tipoImovel))}
             </span>
           )}
         </div>
@@ -244,6 +478,7 @@ export const StepAmostras = ({ form, setForm, onAi, aiLoading }) => {
               key={s._key || `ms-${i}`}
               s={s}
               idx={i}
+              tipoImovel={tipoImovel}
               onChange={(ns) => update(i, ns)}
               onRemove={() => remove(i)}
               isSaneada={stats.indices_saneadas.includes(i)}
