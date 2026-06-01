@@ -5,6 +5,7 @@ import { SectionHeader, AiButton } from '../shared/primitives';
 import { computeStatsNBR } from '../ptamHelpers';
 import { AlertTriangle, CheckCircle, Info } from 'lucide-react';
 import MetodoEvolutivo from '../MetodoEvolutivo';
+import { ResumoArea } from '../shared/ResumoArea';
 
 const fmtBRL = (v) =>
   Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -415,6 +416,14 @@ export const StepCalculos = ({ form, setForm, onAi, aiLoading }) => {
                 Usar estes valores no resultado
               </button>
             </div>
+          )}
+
+          {areaConsiderar > 0 && (
+            <ResumoArea
+              areaM2={areaConsiderar}
+              tipoImovel={form.property_type}
+              valorTotal={valorTotal}
+            />
           )}
         </div>
       </div>
