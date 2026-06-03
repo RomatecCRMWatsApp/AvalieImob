@@ -1,11 +1,27 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, FileText, Download, Trash2, Loader2, Calendar, DollarSign, FileDown, Mail, X, Send, Lock, Link2, Eye, Check, Copy, ExternalLink, PenLine, Copy as CopyIcon, Receipt, MessageCircle, Edit3, ShieldCheck, RefreshCw } from 'lucide-react';
+import { Plus, FileText, Download, Trash2, Loader2, Calendar, DollarSign, FileDown, Mail, X, Send, Lock, Link2, Eye, Check, Copy, ExternalLink, PenLine, Copy as CopyIcon, Receipt, MessageCircle, Edit3, ShieldCheck, RefreshCw, MapPin, Ruler, User } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Badge } from '../../ui/badge';
 import { useToast } from '../../../hooks/use-toast';
 import { ptamAPI, ptamExtrasAPI } from '../../../lib/api';
 import AssinaturaDigital from './AssinaturaDigital';
+import { fromM2, fmtBR } from '../../../utils/areaConversao';
+import { isRuralImovel } from './shared/amostraCategoria';
+
+// Resumo de campos do imóvel para o card da lista.
+function resumoImovel(p) {
+  const areaM2 = Number(p.imovel_area_a_considerar || p.imovel_area_construida || p.imovel_area_terreno || 0);
+  const rural = isRuralImovel(p.property_type);
+  const areaTxt = areaM2 > 0
+    ? (rural ? `${fmtBR(fromM2(areaM2, 'ha'), 4)} ha` : `${fmtBR(areaM2, 2)} m²`)
+    : null;
+  const proprietario = (Array.isArray(p.proprietarios) && p.proprietarios[0]?.nome)
+    || p.solicitante_nome || p.solicitante || null;
+  const endereco = p.property_address || null;
+  const matricula = p.property_matricula || null;
+  return { areaTxt, proprietario, endereco, matricula };
+}
 
 // ── Modal de envio por email ──────────────────────────────────────────────────
 const EmailModal = ({ ptam, onClose, onSent }) => {
@@ -483,7 +499,25 @@ const PtamList = () => {
               </div>
               <div className="text-xs font-semibold text-emerald-700 tracking-wider">PTAM {p.number}</div>
               <div className="font-semibold text-gray-900 mt-1 line-clamp-1">{p.property_label || p.property_address || '(sem título)'}</div>
-              <div className="text-xs text-gray-500 mt-1 line-clamp-1">{p.solicitante || '—'}</div>
+              {(() => {
+                const r = resumoImovel(p);
+                return (
+                  <div className="mt-2 space-y-1">
+                    {r.proprietario && (
+                      <div className="flex items-center gap-1.5 text-xs text-gray-600 line-clamp-1"><User className="w-3 h-3 shrink-0 text-gray-400" />{r.proprietario}</div>
+                    )}
+                    {r.endereco && (
+                      <div className="flex items-start gap-1.5 text-xs text-gray-500 line-clamp-2"><MapPin className="w-3 h-3 shrink-0 mt-0.5 text-gray-400" /><span>{r.endereco}{r.matricula ? ` · Matrícula ${r.matricula}` : ''}</span></div>
+                    )}
+                    {!r.endereco && r.matricula && (
+                      <div className="flex items-center gap-1.5 text-xs text-gray-500 line-clamp-1"><FileText className="w-3 h-3 shrink-0 text-gray-400" />Matrícula {r.matricula}</div>
+                    )}
+                    {r.areaTxt && (
+                      <div className="flex items-center gap-1.5 text-xs text-gray-600"><Ruler className="w-3 h-3 shrink-0 text-gray-400" />Área: {r.areaTxt}</div>
+                    )}
+                  </div>
+                );
+              })()}
               <div className="mt-4 pt-4 border-t border-gray-100 space-y-1.5">
                 <div className="flex items-center gap-1.5 text-xs text-gray-600"><DollarSign className="w-3 h-3" />R$ {Number(p.total_indemnity || 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}</div>
                 <div className="flex items-center gap-1.5 text-xs text-gray-500"><Calendar className="w-3 h-3" />{p.updated_at ? new Date(p.updated_at).toLocaleDateString('pt-BR') : '—'}</div>
