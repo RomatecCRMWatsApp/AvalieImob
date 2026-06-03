@@ -692,7 +692,9 @@ def _build_identification(ptam: dict, styles: dict) -> list:
         ("Requerido", "requerido"),
         ("Juiz", "judge"),
     ]:
-        story += _lv(styles, label, ptam.get(key))
+        # BUG-05: CPF/CNPJ do solicitante de FONTE ÚNICA, com máscara consistente.
+        valor = cpf_solicitante(ptam) if key == "solicitante_cpf_cnpj" else ptam.get(key)
+        story += _lv(styles, label, valor)
     # Legacy fallback
     if not ptam.get("solicitante_nome") and ptam.get("solicitante"):
         story += _lv(styles, "Solicitante", ptam["solicitante"])
@@ -780,7 +782,7 @@ def _build_property(ptam: dict, styles: dict) -> list:
         prop_data = [prop_headers] + [
             [
                 p.get("nome", ""),
-                p.get("cpf_cnpj", ""),
+                formata_doc(p.get("cpf_cnpj", "")),
                 p.get("percentual", ""),
             ]
             for p in proprietarios_validos
@@ -1486,7 +1488,7 @@ def _build_avaliacoes_areas(ptam: dict, styles: dict) -> list:
     return story
 
 
-def _build_conclusion(ptam: dict, user: dict, styles: dict) -> list:
+def _build_conclusion(ptam: dict, user: dict, styles: dict, perfil: dict | None = None) -> list:
     story = []
     story += _section(styles, "9. Valor de Avaliação e Resultado")
     story += _body(styles, ptam.get("conclusion_text", ""))
@@ -1660,26 +1662,19 @@ def _build_conclusion(ptam: dict, user: dict, styles: dict) -> list:
     sig_line_tbl.hAlign = "CENTER"
     story.append(sig_line_tbl)
 
-    # nome preferencial: do PTAM ou do user
-    name = ptam.get("responsavel_nome") or user.get("name", "")
-    role = user.get("role", "")
-    # registros: CRECI, CNAI, CREA/CAU
-    creci = ptam.get("responsavel_creci") or user.get("crea", "")
-    cnai = ptam.get("responsavel_cnai") or ""
-    registro = ptam.get("registro_profissional") or ""
+    # BUG-04: dados do avaliador de FONTE ÚNICA (perfil cadastrado), sem hardcode.
+    av = resolver_dados_avaliador(perfil=perfil, user=user, ptam=ptam)
+    name = av["nome"]
+    cargo = av["cargo"] or user.get("role", "")
 
     if name:
         story.append(Paragraph(f"<b>{name}</b>", styles["sig_line"]))
-    if role:
-        story.append(Paragraph(role, styles["sig_line"]))
-    if creci:
-        story.append(Paragraph(creci, styles["sig_line"]))
-    if cnai:
-        story.append(Paragraph(cnai, styles["sig_line"]))
-    if registro:
-        story.append(Paragraph(registro, styles["sig_line"]))
-    if art_rrt:
-        story.append(Paragraph(f"ART/RRT nº {art_rrt}", styles["sig_line"]))
+    if cargo:
+        story.append(Paragraph(cargo, styles["sig_line"]))
+    for linha in av["registros_linhas"]:
+        story.append(Paragraph(linha, styles["sig_line"]))
+    if av["art_trt"]:
+        story.append(Paragraph(f"ART/TRT nº {av['art_trt']}", styles["sig_line"]))
 
     return story
 
@@ -2157,7 +2152,7 @@ def generate_ptam_pdf(ptam: dict, user: dict, cnd_consultas: list | None = None,
         story.append(_spacer(0.5))
 
     # ── Seções 8-10: Resultado, Prazo, Responsabilidade Técnica ──────────
-    story += _safe_build(_build_conclusion, ptam, user, styles, section_name="8-10-conclusao")
+    story += _safe_build(_build_conclusion, ptam, user, styles, perfil_avaliador, section_name="8-10-conclusao")
 
     # ── Anexo I: Registro Fotográfico e Documentos ────────────────────────
     fotos_docs_section = _safe_build(_build_fotos_e_documentos, ptam, styles, section_name="fotos-docs")
