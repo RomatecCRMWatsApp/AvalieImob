@@ -144,7 +144,6 @@ const PtamList = () => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pdfLoading, setPdfLoading] = useState({});
-  const [pdfV2Loading, setPdfV2Loading] = useState({});
   const [modalPdf, setModalPdf] = useState(null);
   const [docxLoading, setDocxLoading] = useState({});
   const [emailModal, setEmailModal] = useState(null);
@@ -274,7 +273,7 @@ const PtamList = () => {
   const downloadPdf = async (p) => {
     setPdfLoading((prev) => ({ ...prev, [p.id]: true }));
     try {
-      const blob = await ptamAPI.downloadPdfV2(p.id);
+      const blob = await ptamAPI.downloadPdf(p.id);
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -291,30 +290,10 @@ const PtamList = () => {
     }
   };
 
-  const downloadPdfV2 = async (p) => {
-    setPdfV2Loading((prev) => ({ ...prev, [p.id]: true }));
-    try {
-      const blob = await ptamAPI.downloadPdfV2(p.id);
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-      a.download = `PTAM_${(p.number || 'sem-numero').replace(/\//g, '-')}_v2_${date}.pdf`;
-      a.click();
-      window.URL.revokeObjectURL(url);
-      toast({ title: 'PDF (novo layout) gerado' });
-    } catch (e) {
-      const detalhe = await extrairErroBlob(e);
-      toast({ title: 'Erro ao gerar PDF v2', description: detalhe, variant: 'destructive' });
-    } finally {
-      setPdfV2Loading((prev) => ({ ...prev, [p.id]: false }));
-    }
-  };
-
   const visualizarPdf = async (p) => {
     setPdfLoading((prev) => ({ ...prev, [p.id]: true }));
     try {
-      const blob = await ptamAPI.downloadPdfV2(p.id);
+      const blob = await ptamAPI.downloadPdf(p.id);
       const url = window.URL.createObjectURL(blob);
       setModalPdf({ url, titulo: `PTAM ${p.number || ''} — ${p.property_label || p.titulo || ''}`.replace(/—\s*$/, '').trim() });
     } catch (e) {
@@ -554,17 +533,6 @@ const PtamList = () => {
                 >
                   {pdfLoading[p.id] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5" />}
                   PDF
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  title="Exportar PDF no novo layout (spec 1.0)"
-                  onClick={() => downloadPdfV2(p)}
-                  disabled={pdfV2Loading[p.id]}
-                  className="gap-1 border-amber-300 text-amber-700 hover:bg-amber-50"
-                >
-                  {pdfV2Loading[p.id] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5" />}
-                  PDF v2
                 </Button>
                 <Button
                   size="sm"
