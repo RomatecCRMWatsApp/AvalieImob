@@ -585,7 +585,31 @@ async def download_ptam_pdf(pid: str, uid: str = Depends(get_active_subscriber),
         if perfil_avaliador:
             perfil_avaliador.pop("_id", None)
 
-        data = generate_ptam_pdf(doc, user, cnd_consultas=cnd_consultas, perfil_avaliador=perfil_avaliador)
+        # ── Normalização para o layout v2 (sumário clicável + numeração real) ──
+        # Documentos digitalizados: v2 lê "documentos_resolvidos".
+        doc["documentos_resolvidos"] = [
+            {
+                "name": d.get("name") or d.get("tipo") or d.get("descricao") or "Documento",
+                "_doc_bytes": d.get("_doc_bytes"),
+                "content_type": d.get("content_type", "image/jpeg"),
+            }
+            for d in (doc.get("fotos_documentos") or [])
+            if isinstance(d, dict) and d.get("_doc_bytes")
+        ]
+        # Fotos do imóvel: garante dicts com legenda (v2 espera dict, não string).
+        fotos_fix = []
+        for i, f in enumerate(doc.get("fotos_imovel") or [], 1):
+            if isinstance(f, dict):
+                if not f.get("legenda"):
+                    f["legenda"] = f.get("description") or f.get("descricao") or f"Foto {i}"
+                fotos_fix.append(f)
+            else:
+                fotos_fix.append({"legenda": f"Foto {i}", "description": f"Foto {i}"})
+        doc["fotos_imovel"] = fotos_fix
+        doc["cnd_consultas"] = cnd_consultas  # disponível ao v2 (forward-compat)
+
+        # Gerador v2: layout aprovado, com sumário numerado e clicável.
+        data = generate_ptam_pdf_v2(doc, perfil_avaliador)
     except Exception as e:
         logger.exception("PDF generation error")
         raise HTTPException(status_code=500, detail=f"Erro ao gerar PDF: {str(e)[:200]}")
