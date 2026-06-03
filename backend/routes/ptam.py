@@ -596,6 +596,33 @@ async def download_ptam_pdf(pid: str, uid: str = Depends(get_active_subscriber),
             for d in (doc.get("fotos_documentos") or [])
             if isinstance(d, dict) and d.get("_doc_bytes")
         ]
+        # ── Documentos rurais (SIGEF, Memorial, CCIR, ITR, CAR) também entram
+        #    em "Documentos do Imóvel" do laudo ──────────────────────────────
+        GRUPOS_RURAIS = [
+            ("doc_mapa_sigef", "Mapa Georreferenciado / Certificado SIGEF"),
+            ("doc_memorial_descritivo", "Memorial Descritivo Topográfico / SIGEF"),
+            ("doc_ccir", "CCIR — Certificado de Cadastro de Imóvel Rural"),
+            ("doc_itr", "ITR — Imposto Territorial Rural"),
+            ("doc_car", "CAR — Cadastro Ambiental Rural"),
+        ]
+        for _campo, _rotulo in GRUPOS_RURAIS:
+            _arquivos = doc.get(_campo) or []
+            _total = len(_arquivos)
+            for _k, _item in enumerate(_arquivos, 1):
+                if isinstance(_item, dict):
+                    _url = _item.get("url") or _item.get("image_id", "")
+                else:
+                    _url = str(_item)
+                _img_id = str(_url).replace("/api/upload/image/", "").split("/")[-1]
+                if len(_img_id) > 30 and "-" in _img_id:
+                    _img_db = await db.images.find_one({"id": _img_id})
+                    if _img_db and _img_db.get("data_b64"):
+                        _nome = _rotulo if _total <= 1 else f"{_rotulo} ({_k}/{_total})"
+                        doc["documentos_resolvidos"].append({
+                            "name": _nome,
+                            "_doc_bytes": base64.b64decode(_img_db["data_b64"]),
+                            "content_type": _img_db.get("content_type", "image/jpeg"),
+                        })
         # Fotos do imóvel: garante dicts com legenda (v2 espera dict, não string).
         fotos_fix = []
         for i, f in enumerate(doc.get("fotos_imovel") or [], 1):
@@ -828,6 +855,26 @@ async def download_ptam_pdf_v2(pid: str, uid: str = Depends(get_active_subscribe
                         "_doc_bytes": base64.b64decode(dimg["data_b64"]),
                         "content_type": dimg.get("content_type", "image/jpeg"),
                     })
+        # Documentos rurais (SIGEF, Memorial, CCIR, ITR, CAR) → "Documentos do Imóvel".
+        for _campo, _rotulo in [
+            ("doc_mapa_sigef", "Mapa Georreferenciado / Certificado SIGEF"),
+            ("doc_memorial_descritivo", "Memorial Descritivo Topográfico / SIGEF"),
+            ("doc_ccir", "CCIR — Certificado de Cadastro de Imóvel Rural"),
+            ("doc_itr", "ITR — Imposto Territorial Rural"),
+            ("doc_car", "CAR — Cadastro Ambiental Rural"),
+        ]:
+            _arqs = doc.get(_campo) or []
+            for _k, _item in enumerate(_arqs, 1):
+                _url = (_item.get("url") or _item.get("image_id", "")) if isinstance(_item, dict) else str(_item)
+                _iid = str(_url).replace("/api/upload/image/", "").split("/")[-1]
+                if len(_iid) > 30 and "-" in _iid:
+                    _idb = await db.images.find_one({"id": _iid})
+                    if _idb and _idb.get("data_b64"):
+                        docs_resolvidos.append({
+                            "name": _rotulo if len(_arqs) <= 1 else f"{_rotulo} ({_k}/{len(_arqs)})",
+                            "_doc_bytes": base64.b64decode(_idb["data_b64"]),
+                            "content_type": _idb.get("content_type", "image/jpeg"),
+                        })
         doc["documentos_resolvidos"] = docs_resolvidos
         perfil = await db.perfil_avaliador.find_one({"user_id": uid})
         if perfil:
