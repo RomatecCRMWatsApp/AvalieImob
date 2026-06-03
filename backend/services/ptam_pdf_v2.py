@@ -325,11 +325,15 @@ class Sumario(Flowable):
             c.setFillColor(VERMELHO)
             c.setFont('Helvetica-Bold', 9 if nivel == 0 else 8)
             c.drawRightString(w - 0.3 * cm, y + 0.22 * cm, pag)
-            # link
-            try:
-                c.linkRect('', ancora, (0, y, w, y + self.rh), relative=1, thickness=0)
-            except Exception:
-                pass
+            # link — somente para âncoras realmente renderizadas no documento.
+            # Seções condicionais (anexo1b, 3.1, 7.1, 8.1) podem não existir;
+            # linkar para um destino inexistente quebra o build ("undefined
+            # destination target"). page_map contém apenas âncoras desenhadas.
+            if ancora and ancora in self.page_map:
+                try:
+                    c.linkRect('', ancora, (0, y, w, y + self.rh), relative=1, thickness=0)
+                except Exception:
+                    pass
             # divisoria
             c.setStrokeColor(CINZA_BRD)
             c.setLineWidth(0.3)
