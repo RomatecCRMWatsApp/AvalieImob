@@ -33,6 +33,9 @@ import io
 import logging
 import re
 
+from utils.extenso import valor_por_extenso
+from utils.avaliador import resolver_dados_avaliador, formata_doc, cpf_solicitante
+
 logger = logging.getLogger("romatec")
 
 
@@ -1254,8 +1257,9 @@ def _render_resultado(doc: Document, ptam: dict, impact_areas: list) -> None:
         run2.font.size = Pt(15)
         run2.font.color.rgb = GREEN
 
-        if ptam.get("total_indemnity_words"):
-            _add_styled_paragraph(doc, f"({ptam['total_indemnity_words']})",
+        palavras_valor = ptam.get("total_indemnity_words") or valor_por_extenso(valor_total)
+        if palavras_valor:
+            _add_styled_paragraph(doc, f"({palavras_valor})",
                                    italic=True, alignment=WD_ALIGN_PARAGRAPH.CENTER)
         if valor_unitario:
             _add_label_value(doc, "Valor Unitário (R$/m²)", _format_currency(valor_unitario))

@@ -21,6 +21,9 @@ from reportlab.platypus import (
 )
 from reportlab.lib.utils import ImageReader
 
+from utils.extenso import valor_por_extenso
+from utils.avaliador import resolver_dados_avaliador, formata_doc, cpf_solicitante
+
 logger = logging.getLogger("romatec")
 
 # ── Cores ─────────────────────────────────────────────────────────────────────
@@ -854,7 +857,7 @@ def build_story(ptam, page_map):
         [f"Valor Final = {fmt_moeda(vu)}/m² × {fmt_area(area_av)}", fmt_moeda(vtotal)],
     ], [UTIL_W - 4.5 * cm, 4.5 * cm], bold_last=True))
     st.append(Spacer(1, 10))
-    st.append(caixa_valor(vtotal, ptam.get('total_indemnity_words')))
+    st.append(caixa_valor(vtotal, ptam.get('total_indemnity_words') or valor_por_extenso(vtotal)))
     st.append(Spacer(1, 10))
     st.append(tbl([
         ('Valor Unitário R$/m²', fmt_moeda(vu)),

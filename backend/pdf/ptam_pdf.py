@@ -21,6 +21,9 @@ from datetime import datetime
 from typing import Any
 from xml.sax.saxutils import escape as _xml_escape
 
+from utils.extenso import valor_por_extenso
+from utils.avaliador import resolver_dados_avaliador, formata_doc, cpf_solicitante
+
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT, TA_RIGHT
 from reportlab.lib.pagesizes import A4
@@ -1552,9 +1555,10 @@ def _build_conclusion(ptam: dict, user: dict, styles: dict) -> list:
             f"Valor de Mercado Avaliado: {_fmt_currency(valor_total)}",
             styles["conclusion_value"],
         ))
-        if ptam.get("total_indemnity_words"):
+        palavras_valor = ptam.get("total_indemnity_words") or valor_por_extenso(valor_total)
+        if palavras_valor:
             story.append(Paragraph(
-                f"({ptam['total_indemnity_words']})",
+                f"({palavras_valor})",
                 styles["conclusion_words"],
             ))
         if valor_unitario:
