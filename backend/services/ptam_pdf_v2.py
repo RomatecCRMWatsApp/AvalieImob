@@ -793,6 +793,46 @@ def _fotocard(f, n, total):
     return FotoCard(n, _leg(f, n), total, b, g, dh)
 
 
+_MESES_PT = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+             'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
+
+
+def _data_extenso(iso):
+    """ISO -> '03 de junho de 2026.' (cai para hoje se inválido)."""
+    from datetime import datetime as _dt
+    try:
+        d = _dt.fromisoformat(str(iso or '')[:10])
+    except Exception:
+        d = _dt.now()
+    return f'{d.day:02d} de {_MESES_PT[d.month - 1]} de {d.year}.'
+
+
+def _esc_xml(s):
+    return str(s).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+
+
+def _bloco_conclusao(st, titulo, texto):
+    """Renderiza um bloco da Seção 9 na íntegra, justificado, com subseções 9.x em verde."""
+    txt = limpar_texto_ia(texto)
+    if not txt:
+        return
+    st.append(Spacer(1, 6))
+    st.append(HRFlowable(width='100%', thickness=0.5, color=CINZA_BRD, spaceAfter=6))
+    if titulo:
+        st.append(Paragraph(titulo, ParagraphStyle('c9t', fontName='Helvetica-Bold',
+                                                   fontSize=10, textColor=VERDE, spaceAfter=4)))
+    for linha in txt.split('\n'):
+        l = linha.strip()
+        if not l:
+            st.append(Spacer(1, 4))
+        elif re.match(r'^\d+\.\d+[\s\.]', l):
+            st.append(Paragraph(_esc_xml(l), ParagraphStyle('c9s', fontName='Helvetica-Bold',
+                                                            fontSize=10, textColor=VERDE,
+                                                            spaceBefore=4, spaceAfter=3)))
+        else:
+            st.append(Paragraph(_esc_xml(l), sBody))
+
+
 def build_story(ptam, page_map):
     # BUG-04: resolve o perfil do avaliador para FONTE ÚNICA (nome, CNAI, CRECI/MA,
     # CFT, INCRA, ART/TRT, contatos) — sem hardcode. Alimenta assinatura e currículo.
@@ -993,13 +1033,23 @@ def build_story(ptam, page_map):
         '<b>Corretor de Imóveis habilitado nos termos da Resolução COFECI 957/2006</b>, '
         'responsabilizando-se técnica e legalmente pelo conteúdo e pelos valores aqui expressos, '
         'conforme as normas regulamentadoras vigentes.', sBody))
-    art = ptam.get('art_rrt_numero')
-    if art:
-        st.append(Paragraph(f'<b>Nº ART / RRT / TRT (Res. CONFEA 345/90):</b> Nº {_txt(art)}', sBody))
-    cidade = _txt(ptam.get('conclusion_city') or ptam.get('property_city'), '')
-    data = _txt(ptam.get('conclusion_date'), '')
+    # Conteúdo técnico-jurídico preenchido pelo avaliador — íntegra, justificado.
+    _bloco_conclusao(st, 'CONSIDERAÇÕES E PRESSUPOSTOS ADOTADOS', ptam.get('consideracoes_pressupostos'))
+    _bloco_conclusao(st, 'RESSALVAS E LIMITAÇÕES', ptam.get('consideracoes_ressalvas'))
+    _bloco_conclusao(st, 'CONSIDERAÇÕES E LIMITAÇÕES', ptam.get('consideracoes_limitacoes'))
+    _bloco_conclusao(st, None, ptam.get('conclusion_text'))
+    st.append(Spacer(1, 8))
+    st.append(HRFlowable(width='100%', thickness=0.5, color=CINZA_BRD, spaceAfter=6))
+    # TRT — sem prefixo duplicado; omitido se vazio ou só zeros (Fix C).
+    _art = (ptam.get('art_rrt_numero') or ptam.get('art_trt_numero') or '').strip()
+    if _art and not re.match(r'^0+$', _art):
+        _trt = _art if _art.upper().startswith('CFT') else f'CFT Nº {_art}'
+        st.append(Paragraph(f'<b>Nº TRT (Res. CONFEA 345/90):</b> {_esc_xml(_trt)}', sBody))
+    # Data por extenso, sem espaço antes da vírgula e sem ISO (Fix A).
+    _cid = re.sub(r'\s+', ' ', (ptam.get('conclusion_city') or ptam.get('property_city') or 'Açailândia')).strip()
+    _cid = (re.split(r'[/,]', _cid)[0].strip() or 'Açailândia')
     st.append(Spacer(1, 6))
-    st.append(Paragraph(f'{cidade} , {data}.',
+    st.append(Paragraph(f'{_cid}-MA, {_data_extenso(ptam.get("conclusion_date"))}',
                         ParagraphStyle('dt', parent=sBody, alignment=2)))
     st.append(Spacer(1, 1.4 * cm))
     nome = perfil.get('nome') or ptam.get('responsavel_nome') or ''
