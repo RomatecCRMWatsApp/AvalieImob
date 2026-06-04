@@ -412,10 +412,20 @@ async def download_ptam_docx(pid: str, uid: str = Depends(get_active_subscriber)
             if len(image_id) > 30 and '-' in image_id:
                 img_doc = await db.images.find_one({"id": image_id})
                 if img_doc and img_doc.get("data_b64"):
+                    _raw = base64.b64decode(img_doc["data_b64"])
+                    # FIX 1: GPS + Data/Hora (cache > EXIF > OCR) — nunca omite no card.
+                    try:
+                        _gps, _dh = await _gps_data_foto(db, img_doc, _raw)
+                    except Exception:
+                        _gps, _dh = "", ""
+                    _gps_prev = (foto.get("gps") if isinstance(foto, dict) else "") or ""
+                    _dh_prev = (foto.get("data_hora") if isinstance(foto, dict) else "") or ""
                     fotos_imovel[i] = {
                         "image_id": image_id,
                         "url": url,
-                        "_image_bytes": base64.b64decode(img_doc["data_b64"]),
+                        "_image_bytes": _raw,
+                        "gps": _gps or _gps_prev,
+                        "data_hora": _dh or _dh_prev,
                         "description": (foto.get("description") or foto.get("descricao") or f"Foto {i+1}") if isinstance(foto, dict) else f"Foto {i+1}",
                     }
         doc["fotos_imovel"] = fotos_imovel
@@ -520,10 +530,20 @@ async def download_ptam_pdf(pid: str, uid: str = Depends(get_active_subscriber),
             if len(image_id) > 30 and '-' in image_id:
                 img_doc = await db.images.find_one({"id": image_id})
                 if img_doc and img_doc.get("data_b64"):
+                    _raw = base64.b64decode(img_doc["data_b64"])
+                    # FIX 1: GPS + Data/Hora (cache > EXIF > OCR) — nunca omite no card.
+                    try:
+                        _gps, _dh = await _gps_data_foto(db, img_doc, _raw)
+                    except Exception:
+                        _gps, _dh = "", ""
+                    _gps_prev = (foto.get("gps") if isinstance(foto, dict) else "") or ""
+                    _dh_prev = (foto.get("data_hora") if isinstance(foto, dict) else "") or ""
                     fotos_imovel[i] = {
                         "image_id": image_id,
                         "url": url,
-                        "_image_bytes": base64.b64decode(img_doc["data_b64"]),
+                        "_image_bytes": _raw,
+                        "gps": _gps or _gps_prev,
+                        "data_hora": _dh or _dh_prev,
                         "description": (foto.get("description") or foto.get("descricao") or f"Foto {i+1}") if isinstance(foto, dict) else f"Foto {i+1}",
                     }
         doc["fotos_imovel"] = fotos_imovel

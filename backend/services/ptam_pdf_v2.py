@@ -205,12 +205,14 @@ def make_hf(ptam):
         canvas.setStrokeColor(VERDE)
         canvas.setLineWidth(0.5)
         canvas.line(ML, ry + 0.46 * cm, W - MR, ry + 0.46 * cm)
+        # Normas — linha 1 (centralizada)
         canvas.setFillColor(CINZA)
         canvas.setFont('Helvetica', 5.8)
-        canvas.drawCentredString(W / 2, ry + 0.22 * cm, NORMAS_RODAPE)
+        canvas.drawCentredString(W / 2, ry + 0.30 * cm, NORMAS_RODAPE)
+        # Pág. N — linha 2 própria, CENTRALIZADA abaixo das normas (FIX 2: sem sobrepor)
         canvas.setFillColor(VERMELHO)
-        canvas.setFont('Helvetica-Bold', 9)
-        canvas.drawRightString(W - MR, ry + 0.22 * cm, f'Pág. {doc.page}')
+        canvas.setFont('Helvetica-Bold', 8)
+        canvas.drawCentredString(W / 2, ry + 0.10 * cm, f'Pág. {doc.page}')
         canvas.restoreState()
 
     return header_footer
@@ -594,6 +596,7 @@ sSub = ParagraphStyle('sub', fontName='Helvetica-Bold', fontSize=10, textColor=V
                       spaceBefore=8, spaceAfter=4)
 sCenter = ParagraphStyle('c', parent=sBody, alignment=TA_CENTER)
 sCell = ParagraphStyle('cell', fontName='Helvetica', fontSize=9, textColor=PRETO, leading=12)
+sCellJ = ParagraphStyle('cellJ', parent=sCell, alignment=TA_JUSTIFY)  # FIX 3: texto longo justificado
 sPag = ParagraphStyle('p', fontName='Helvetica', fontSize=7.5, textColor=CINZA,
                       alignment=TA_CENTER, spaceAfter=4)
 sTitulo = ParagraphStyle('t', fontName='Helvetica-Bold', fontSize=20, textColor=VERDE,
@@ -661,7 +664,8 @@ def subsec(texto, ancora=None):
 
 def tbl(dados, cw=None):
     cw = cw or [5.0 * cm, UTIL_W - 5.0 * cm]
-    linhas = [[lb, Paragraph(_txt(vl), sCell)] for lb, vl in dados]
+    # FIX 3: valor com >80 chars é justificado; curto fica à esquerda.
+    linhas = [[lb, Paragraph(_txt(vl), sCellJ if len(_txt(vl)) > 80 else sCell)] for lb, vl in dados]
     if not linhas:
         linhas = [["—", Paragraph("—", sCell)]]
     t = Table(linhas, colWidths=cw)
