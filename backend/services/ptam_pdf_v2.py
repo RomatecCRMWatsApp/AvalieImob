@@ -23,6 +23,7 @@ from reportlab.lib.utils import ImageReader
 
 from utils.extenso import valor_por_extenso
 from utils.avaliador import resolver_dados_avaliador, formata_doc, cpf_solicitante
+from utils.texto_ia import limpar_texto_ia
 
 logger = logging.getLogger("romatec")
 
@@ -716,7 +717,9 @@ def _fotocard(f, n, total):
 
 
 def build_story(ptam, page_map):
-    perfil = ptam.get('_perfil') or {}
+    # BUG-04: resolve o perfil do avaliador para FONTE ÚNICA (nome, CNAI, CRECI/MA,
+    # CFT, INCRA, ART/TRT, contatos) — sem hardcode. Alimenta assinatura e currículo.
+    perfil = resolver_dados_avaliador(perfil=ptam.get('_perfil') or {}, ptam=ptam)
     fotos = ptam.get('fotos_imovel') or []
     amostras = ptam.get('market_samples') or []
     num = _ptam_num(ptam)
@@ -728,7 +731,7 @@ def build_story(ptam, page_map):
         ('Número do PTAM', num),
         ('Finalidade', ptam.get('finalidade')),
         ('Solicitante', ptam.get('solicitante_nome') or ptam.get('solicitante')),
-        ('CPF/CNPJ', ptam.get('solicitante_cpf_cnpj')),
+        ('CPF/CNPJ', cpf_solicitante(ptam)),
         ('Endereço', ptam.get('solicitante_endereco')),
         ('Telefone', ptam.get('solicitante_telefone')),
     ]
@@ -771,7 +774,7 @@ def build_story(ptam, page_map):
     if props:
         st.append(Spacer(1, 8))
         st += subsec('Proprietário(s) do Imóvel')
-        linhas = [[p.get('nome', ''), p.get('cpf_cnpj', ''), p.get('percentual', '')] for p in props]
+        linhas = [[p.get('nome', ''), formata_doc(p.get('cpf_cnpj', '')), p.get('percentual', '')] for p in props]
         st.append(tbl_header(['Nome / Razão Social', 'CPF / CNPJ', 'Fração'], linhas,
                              [7.0 * cm, 4.0 * cm, UTIL_W - 11.0 * cm]))
     st.append(Spacer(1, 8))
@@ -789,12 +792,12 @@ def build_story(ptam, page_map):
     st.append(PageBreak())
     st += sec('4. CONTEXTO URBANO / ANÁLISE DA REGIÃO', 'sec4')
     dados4 = [
-        ('Zoneamento', ptam.get('zoneamento')),
-        ('Padrão Construtivo', ptam.get('regiao_padrao_construtivo')),
-        ('Tendência de Mercado', ptam.get('regiao_tendencia_mercado')),
-        ('Uso Predominante', ptam.get('regiao_uso_predominante')),
-        ('Infraestrutura', ptam.get('regiao_infraestrutura')),
-        ('Serviços Públicos', ptam.get('regiao_servicos_publicos')),
+        ('Zoneamento', limpar_texto_ia(ptam.get('zoneamento'))),
+        ('Padrão Construtivo', limpar_texto_ia(ptam.get('regiao_padrao_construtivo'))),
+        ('Tendência de Mercado', limpar_texto_ia(ptam.get('regiao_tendencia_mercado'))),
+        ('Uso Predominante', limpar_texto_ia(ptam.get('regiao_uso_predominante'))),
+        ('Infraestrutura', limpar_texto_ia(ptam.get('regiao_infraestrutura'))),
+        ('Serviços Públicos', limpar_texto_ia(ptam.get('regiao_servicos_publicos'))),
     ]
     dados4 = [(lb, vl) for lb, vl in dados4 if vl not in (None, '')]
     st.append(tbl(dados4 or [('Observações', ptam.get('regiao_observacoes'))]))
@@ -803,7 +806,7 @@ def build_story(ptam, page_map):
     st.append(PageBreak())
     st += sec('5. ANÁLISE MERCADOLÓGICA E AMOSTRAS', 'sec5')
     if ptam.get('market_analysis'):
-        st.append(Paragraph(_txt(ptam.get('market_analysis')), sBody))
+        st.append(Paragraph(_txt(limpar_texto_ia(ptam.get('market_analysis'))), sBody))
         st.append(Spacer(1, 6))
     if amostras:
         for i, a in enumerate(amostras, 1):
@@ -898,7 +901,8 @@ def build_story(ptam, page_map):
     st.append(Paragraph(_txt(nome, '').upper(),
               ParagraphStyle('sg', fontName='Helvetica-BoldOblique', fontSize=11,
                              textColor=PRETO, alignment=TA_CENTER)))
-    st.append(Paragraph(f'Avaliador CRECI nº {_txt(creci, "")} / MA nº {_txt(cnai, "")}',
+    _regs = ' · '.join(perfil.get('registros_linhas') or [r for r in [creci, cnai] if r])
+    st.append(Paragraph(f'Avaliador — {_txt(_regs, "")}' if _regs else 'Avaliador',
               ParagraphStyle('sg2', fontName='Helvetica', fontSize=9, textColor=CINZA, alignment=TA_CENTER)))
     st.append(Paragraph(f'{_txt(end, "")} | {_txt(tel, "")}',
               ParagraphStyle('sg3', fontName='Helvetica', fontSize=9, textColor=CINZA, alignment=TA_CENTER)))
