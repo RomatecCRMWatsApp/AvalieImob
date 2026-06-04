@@ -1,5 +1,24 @@
 # CLAUDE.md — Instruções permanentes para o Claude Code
 
+## ⚠️ Versionamento — OBRIGATÓRIO a cada atualização/deploy
+
+**SEMPRE que fizer qualquer alteração que vá para a `main` (deploy), ANTES do commit:**
+
+1. **Incrementar `frontend/build-number.txt`** (+1 em relação ao valor atual). Este é o passo
+   que faz o badge de versão mudar.
+2. A versão exibida é `v{MAJOR}.{MINOR}.{build}`, gerada por `frontend/scripts/genversion.js`
+   (prebuild) em `frontend/src/version.js`.
+3. **Por que isso é necessário:** no build do Docker/Railway o `.git` NÃO existe
+   (`.dockerignore` exclui `**/.git`), então `git rev-list` falha e o número vem **só** do
+   `build-number.txt`. Um `git push` direto **não incrementa nada** — só o `DEPLOY.bat` ou
+   esta regra incrementam. Se esquecer, o badge fica travado (ex.: ficou preso em v1.0.350).
+4. **Subir o MINOR** (constante em `genversion.js`) em marcos/releases relevantes.
+5. Após bumpar, rodar `node frontend/scripts/genversion.js` para regenerar o `version.js`
+   (opcional — o Railway regenera no prebuild).
+6. Registrar a atualização também no Obsidian (ver seção abaixo), nota de releases/changelog.
+
+**Estado atual: v1.1.368** (MAJOR=1, MINOR=1).
+
 ## Obsidian MCP — Sincronização automática
 
 A cada feature implementada, bug corrigido, decisão técnica tomada ou ideia registrada nesta sessão, salve automaticamente no Obsidian via MCP na pasta correspondente. Nunca peça confirmação para salvar.
