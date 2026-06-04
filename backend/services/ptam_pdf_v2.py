@@ -27,13 +27,14 @@ from utils.texto_ia import limpar_texto_ia
 
 logger = logging.getLogger("romatec")
 
-# ── Cores ─────────────────────────────────────────────────────────────────────
-VERDE = HexColor('#1B5E20')
+# ── Cores (paleta Modelo 3 — Elegante Escudo Jurídico) ──────────────────────────
+VERDE = HexColor('#0B6E4F')
 VERDE_MED = HexColor('#2E7D32')
 VERDE_CLR = HexColor('#E8F5E9')
 DOURADO = HexColor('#B8860B')
-VERMELHO = HexColor('#C62828')
-CINZA = HexColor('#555555')
+DOURADO_CLR = HexColor('#D4AF37')
+VERMELHO = HexColor('#CC0000')
+CINZA = HexColor('#666666')
 CINZA_BRD = HexColor('#CCCCCC')
 PRETO = HexColor('#1A1A1A')
 BRANCO = colors.white
@@ -152,29 +153,63 @@ def _draw_logo(canvas, x, y, w, h):
 # ║  CABECALHO / RODAPE / CAPA                                                 ║
 # ╚══════════════════════════════════════════════════════════════════════════╝
 def make_hf(ptam):
-    ref = f"PTAM nº {_ptam_num(ptam)}"
+    num = _ptam_num(ptam)
+    badge_txt = f'PTAM Nº {num}'
+    trt = (ptam.get('art_rrt_numero') or ptam.get('art_trt_numero') or '').strip()
+    cidade = (ptam.get('conclusion_city') or ptam.get('property_city') or 'Açailândia-MA').strip()
+    from datetime import datetime as _dtnow
+    _sub = []
+    if trt:
+        _sub.append(f'TRT: CFT Nº {trt}')
+    if cidade:
+        _sub.append(cidade)
+    _sub.append(_dtnow.now().strftime('%d/%m/%Y'))
+    sub_line = ' · '.join(_sub)
+    CINZA_SUB = HexColor('#888888')
 
     def header_footer(canvas, doc):
         canvas.saveState()
-        ly = H - MT + 0.25 * cm
-        lh = 1.65 * cm
-        _draw_logo(canvas, ML, ly, 3.4 * cm, lh)
+        # 1. Barra dupla no topo: verde (≈5px) + dourado (≈2.5px)
+        canvas.setFillColor(VERDE)
+        canvas.rect(0, H - 0.18 * cm, W, 0.18 * cm, stroke=0, fill=1)
         canvas.setFillColor(DOURADO)
-        canvas.setFont('Helvetica-Bold', 9)
-        canvas.drawRightString(W - MR, ly + lh * 0.5, ref)
+        canvas.rect(0, H - 0.27 * cm, W, 0.09 * cm, stroke=0, fill=1)
+        # 2. Cabeçalho: logo (esq.) + badge PTAM (dir.) + linha TRT/cidade/data
+        ly = H - MT + 0.25 * cm
+        lh = 1.5 * cm
+        _draw_logo(canvas, ML, ly, 3.2 * cm, lh)
+        canvas.setFont('Helvetica-Bold', 9.5)
+        bw = canvas.stringWidth(badge_txt, 'Helvetica-Bold', 9.5) + 0.55 * cm
+        bh = 0.52 * cm
+        bx, by = W - MR - bw, ly + lh - bh
+        canvas.setFillColor(VERDE)
+        canvas.roundRect(bx, by, bw, bh, 0.06 * cm, stroke=0, fill=1)
+        canvas.setFillColor(DOURADO)
+        canvas.drawCentredString(bx + bw / 2, by + 0.16 * cm, badge_txt)
+        canvas.setFillColor(CINZA_SUB)
+        canvas.setFont('Helvetica', 7)
+        canvas.drawRightString(W - MR, by - 0.32 * cm, sub_line)
+        # 3. Separador pós-cabeçalho: dourado + linha verde leve
+        sy = ly - 0.1 * cm
         canvas.setStrokeColor(DOURADO)
         canvas.setLineWidth(1.2)
-        canvas.line(ML, ly - 0.08 * cm, W - MR, ly - 0.08 * cm)
-        # Rodape
+        canvas.line(ML, sy, W - MR, sy)
+        canvas.setStrokeColor(VERDE)
+        canvas.setLineWidth(0.4)
+        canvas.line(ML, sy - 0.06 * cm, W - MR, sy - 0.06 * cm)
+        # 4. Rodapé: barra dourada + linha verde + normas + Pág. N
         ry = MB - 0.5 * cm
         canvas.setStrokeColor(DOURADO)
-        canvas.setLineWidth(0.6)
-        canvas.line(ML, ry + 0.45 * cm, W - MR, ry + 0.45 * cm)
-        canvas.setFillColor(PRETO)
+        canvas.setLineWidth(1.0)
+        canvas.line(ML, ry + 0.55 * cm, W - MR, ry + 0.55 * cm)
+        canvas.setStrokeColor(VERDE)
+        canvas.setLineWidth(0.5)
+        canvas.line(ML, ry + 0.46 * cm, W - MR, ry + 0.46 * cm)
+        canvas.setFillColor(CINZA)
         canvas.setFont('Helvetica', 5.8)
         canvas.drawCentredString(W / 2, ry + 0.22 * cm, NORMAS_RODAPE)
         canvas.setFillColor(VERMELHO)
-        canvas.setFont('Helvetica-Bold', 8)
+        canvas.setFont('Helvetica-Bold', 9)
         canvas.drawRightString(W - MR, ry + 0.22 * cm, f'Pág. {doc.page}')
         canvas.restoreState()
 
