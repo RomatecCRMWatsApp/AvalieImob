@@ -17,7 +17,7 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
 from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak,
-    Flowable, HRFlowable, KeepTogether,
+    Flowable, HRFlowable, KeepTogether, Image as RLImage,
 )
 from reportlab.lib.utils import ImageReader
 
@@ -821,7 +821,7 @@ def build_story(ptam, page_map):
     st.append(tbl([
         ('Método Utilizado', ptam.get('methodology') or 'Método Comparativo Direto de Dados de Mercado'),
         ('Norma', 'NBR 14653-1:2001 (item 8.2) e NBR 14653-2:2011 (item 8.2.1)'),
-        ('Tratamento', ptam.get('methodology_justification') or 'Média ponderada com peso igualitário (1/N)'),
+        ('Tratamento', limpar_texto_ia(ptam.get('methodology_justification')) or 'Média ponderada com peso igualitário (1/N)'),
         ('Grau de Fundamentação', ptam.get('calc_grau_fundamentacao') or ptam.get('fundamentacao_grau')),
         ('Saneamento', 'Eliminação de outliers ±10% da média'),
     ]))
@@ -830,22 +830,55 @@ def build_story(ptam, page_map):
     st.append(PageBreak())
     st += sec('7. CÁLCULOS E TRATAMENTO ESTATÍSTICO', 'sec7')
     st += subsec('Quadro de Amostras com Classificação', 'sec7quadro')
+    # Estatísticas descritivas das amostras (R$/m²) — NBR 14653-2
+    _vals = [v for v in (float(a.get('value_per_sqm') or 0) for a in amostras) if v > 0]
+    _n = len(_vals)
+    if _n:
+        _media = sum(_vals) / _n
+        _minimo, _maximo = min(_vals), max(_vals)
+        _desvio = (sum((x - _media) ** 2 for x in _vals) / _n) ** 0.5
+        _cv = (_desvio / _media * 100) if _media else 0.0
+        _li, _ls = _media * 0.9, _media * 1.1
+        _dentro = [x for x in _vals if _li <= x <= _ls]
+        _ponderada = (sum(_dentro) / len(_dentro)) if _dentro else _media
+    else:
+        _media = _minimo = _maximo = _desvio = _cv = _li = _ls = _ponderada = 0.0
+        _dentro = []
+
+    # Quadro de amostras (coluna "Local" com quebra de linha — evita sobreposição)
     linhas7 = []
     for i, a in enumerate(amostras, 1):
         local = f"{a.get('address', '')} / {a.get('neighborhood', '')}".strip(' /')
+        _vpm = float(a.get('value_per_sqm') or 0)
+        _sit = ('Dentro' if _li <= _vpm <= _ls else 'Fora') if _n else '—'
         linhas7.append([
-            str(i), local[:42],
+            str(i), Paragraph(local[:90] or '—', sCell),
             fmt_area(a.get('area')).replace(' m²', ''),
             fmt_moeda(a.get('value')).replace('R$ ', ''),
             fmt_moeda(a.get('value_per_sqm')).replace('R$ ', ''),
-            'OK',
+            _sit,
         ])
     st.append(tbl_header(['Nº', 'Bairro / Local', 'Área (m²)', 'Valor (R$)', 'R$/m²', 'Situação'],
-                         linhas7, [0.9 * cm, 5.2 * cm, 1.8 * cm, 2.6 * cm, 1.9 * cm, 1.5 * cm]))
+                         linhas7, [1.0 * cm, 6.5 * cm, 2.3 * cm, 3.0 * cm, 2.3 * cm, 1.7 * cm]))
     st.append(Spacer(1, 8))
     st += subsec('8B. Cálculo de Ponderância')
-    st.append(Paragraph('Método comparativo com filtragem de amostras fora da faixa de 50% a 150% '
-                        'da média simples (Norma ABNT NBR 14653-2).', sBody))
+    st.append(Paragraph('Método comparativo com saneamento das amostras fora da faixa de ±10% '
+                        'em torno da média simples dos valores unitários (ABNT NBR 14653-2). '
+                        'As amostras dentro da faixa compõem a média ponderada final.', sBody))
+    st.append(Spacer(1, 6))
+    _num = lambda x: f"{float(x):,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+    st.append(tbl_header(['Estatística', 'Valor'], [
+        ['Nº de Amostras', str(_n)],
+        ['Valor Mínimo (R$/m²)', _num(_minimo)],
+        ['Valor Máximo (R$/m²)', _num(_maximo)],
+        ['Média Simples (R$/m²)', _num(_media)],
+        ['Desvio Padrão', _num(_desvio)],
+        ['Coeficiente de Variação (%)', _num(_cv) + '%'],
+        ['Limite Inferior (–10%)', _num(_li)],
+        ['Limite Superior (+10%)', _num(_ls)],
+        ['Amostras dentro da faixa', str(len(_dentro))],
+        ['Média Ponderada Final (R$/m²)', _num(_ponderada)],
+    ], [9.0 * cm, UTIL_W - 9.0 * cm], bold_last=True))
 
     # ── 8. Resultado ──
     st.append(PageBreak())
@@ -939,10 +972,60 @@ def build_story(ptam, page_map):
                               d.get('_doc_bytes'), d.get('content_type', 'image/jpeg')))
             st.append(Spacer(1, GAP))
 
-    # ── ANEXO II — Amostras Comparativas ──
+    # ── ANEXO II — Amostras Comparativas (galeria 2×2, 4 por página) ──
     st.append(PageBreak())
     st += sec('ANEXO II — AMOSTRAS COMPARATIVAS', 'anexo2')
-    st.append(Paragraph('Ver Seção 5 — Análise Mercadológica e Amostras.', sBody))
+    if amostras:
+        st.append(Paragraph(
+            f'Galeria comparativa das amostras de mercado — {len(amostras)} amostra(s), '
+            '4 por página.', sPag))
+        st.append(Spacer(1, 6))
+        _col_w = UTIL_W / 2
+        _img_w = _col_w - 0.4 * cm
+        _foto_h = 6.5 * cm
+        _sTitAm = ParagraphStyle('galtit', fontName='Helvetica-Bold', fontSize=9,
+                                 textColor=DOURADO, spaceAfter=3, alignment=TA_CENTER)
+
+        def _cel_galeria(idx, a):
+            local = (f"{a.get('address', '')} / {a.get('neighborhood', '')}".strip(' /')
+                     or a.get('nome_local') or '—')
+            elems = [Paragraph(f'Amostra {idx} — {local[:60]}', _sTitAm)]
+            raw = a.get('_image_bytes')
+            try:
+                if raw:
+                    elems.append(RLImage(BytesIO(bytes(raw)), width=_img_w,
+                                         height=_foto_h, kind='proportional'))
+                else:
+                    raise ValueError('sem imagem')
+            except Exception:
+                ph = Table([['Sem imagem']], colWidths=[_img_w], rowHeights=[_foto_h])
+                ph.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, -1), VERDE_CLR),
+                    ('TEXTCOLOR', (0, 0), (-1, -1), CINZA),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('FONTSIZE', (0, 0), (-1, -1), 9),
+                    ('BOX', (0, 0), (-1, -1), 0.4, CINZA_BRD),
+                ]))
+                elems.append(ph)
+            return elems
+
+        for r in range(0, len(amostras), 2):
+            par = amostras[r:r + 2]
+            row = [_cel_galeria(r + j + 1, par[j]) if j < len(par) else '' for j in range(2)]
+            gal = Table([row], colWidths=[_col_w, _col_w])
+            gal.setStyle(TableStyle([
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 4),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+                ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ]))
+            st.append(KeepTogether([gal]))
+            if (r + 2) % 4 == 0 and (r + 2) < len(amostras):
+                st.append(PageBreak())
+    else:
+        st.append(Paragraph('Nenhuma amostra cadastrada.', sBody))
 
     # ── ANEXO III — Base Legal ──
     st.append(PageBreak())
