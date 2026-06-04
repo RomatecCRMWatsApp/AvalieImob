@@ -1045,20 +1045,88 @@ def build_story(ptam, page_map):
     # ── ANEXO IV — Curriculo ──
     st.append(PageBreak())
     st += sec('ANEXO IV — CURRÍCULO DO AVALIADOR', 'anexo4')
-    st.append(tbl([
-        ('Nome', perfil.get('nome') or ptam.get('responsavel_nome')),
-        ('Cargo', perfil.get('cargo')),
-        ('CNAI', perfil.get('cnai')),
-        ('CRECI/MA', perfil.get('creci')),
-        ('CFT/MA', perfil.get('cft')),
-        ('CFT/BR', perfil.get('cft_br')),
-        ('INCRA', perfil.get('incra')),
-        ('Especialidade', perfil.get('especialidade') or perfil.get('especializacao')),
-        ('Endereço', perfil.get('endereco')),
-        ('Telefone', perfil.get('telefone')),
-        ('E-mail', perfil.get('email')),
-        ('Site', perfil.get('site')),
-    ]))
+    _sCurH = ParagraphStyle('curH', fontName='Helvetica-Bold', fontSize=16,
+                            textColor=VERDE, alignment=TA_CENTER, spaceAfter=10)
+    _sCurSec = ParagraphStyle('curSec', fontName='Helvetica-Bold', fontSize=10,
+                              textColor=VERDE, spaceBefore=8, spaceAfter=4)
+    _sCurBody = ParagraphStyle('curB', fontName='Helvetica', fontSize=10, textColor=PRETO,
+                               alignment=TA_JUSTIFY, leading=14, spaceAfter=3)
+    _sCurInd = ParagraphStyle('curInd', parent=_sCurBody, leftIndent=0.8 * cm)
+
+    def _cur_sep():
+        st.append(Spacer(1, 4))
+        st.append(HRFlowable(width='100%', thickness=0.5, color=CINZA_BRD))
+        st.append(Spacer(1, 4))
+
+    st.append(Paragraph('CURRICULUM DO AVALIADOR', _sCurH))
+
+    # DADOS PROFISSIONAIS
+    st.append(Paragraph('DADOS PROFISSIONAIS', _sCurSec))
+    if perfil.get('nome'):
+        st.append(Paragraph(f"Nome: {perfil['nome']}", _sCurBody))
+    if perfil.get('bio_resumo') or perfil.get('cargo'):
+        st.append(Paragraph(f"<b>{_txt(perfil.get('bio_resumo') or perfil.get('cargo'), '')}</b>", _sCurBody))
+    _cur_sep()
+
+    # QUALIFICAÇÕES E FORMAÇÃO PROFISSIONAL
+    st.append(Paragraph('<u>QUALIFICAÇÕES E FORMAÇÃO PROFISSIONAL</u>', _sCurSec))
+    for reg in (perfil.get('registros_linhas') or []):
+        st.append(Paragraph(f'• {reg}', _sCurBody))
+    for f in (perfil.get('formacoes') or []):
+        if not isinstance(f, dict):
+            continue
+        linha = ' '.join(x for x in [
+            f.get('tipo'), ('em' if f.get('curso') else ''), f.get('curso'),
+            (f"— {f.get('instituicao')}" if f.get('instituicao') else ''),
+            (f"({f.get('ano_conclusao')})" if f.get('ano_conclusao') else ''),
+        ] if x)
+        if linha:
+            st.append(Paragraph(f'• {linha}', _sCurBody))
+    _cur_sep()
+
+    # EXPERIÊNCIA PROFISSIONAL
+    _exps = [e for e in (perfil.get('experiencias') or []) if isinstance(e, dict)]
+    if _exps:
+        st.append(Paragraph('<u>EXPERIÊNCIA PROFISSIONAL</u>', _sCurSec))
+        for e in _exps:
+            periodo = ' – '.join(x for x in [e.get('periodo_inicio'), e.get('periodo_fim') or 'Atual'] if x)
+            cab = ' – '.join(x for x in [e.get('cargo'), e.get('empresa')] if x)
+            if periodo:
+                cab = f"{cab} ({periodo})"
+            if cab:
+                st.append(Paragraph(f'▪ <b>{cab}</b>', _sCurBody))
+            if e.get('descricao'):
+                st.append(Paragraph(limpar_texto_ia(e['descricao']), _sCurInd))
+        _cur_sep()
+
+    # COMPETÊNCIAS E ESPECIALIDADES
+    _comp = (list(perfil.get('especializacoes') or [])
+             + list(perfil.get('areas_atuacao') or [])
+             + list(perfil.get('habilitacoes') or []))
+    if _comp:
+        st.append(Paragraph('<u>COMPETÊNCIAS E ESPECIALIDADES</u>', _sCurSec))
+        for c in _comp:
+            st.append(Paragraph(f'• {_txt(c, "")}', _sCurBody))
+        _cur_sep()
+
+    # DADOS DE CONTATO
+    st.append(Paragraph('<u>DADOS DE CONTATO</u>', _sCurSec))
+    if perfil.get('endereco'):
+        st.append(Paragraph(f"Endereço: {perfil['endereco']}", _sCurBody))
+    _contato = ' // '.join(x for x in [
+        (f"Telefone: {perfil['telefone']}" if perfil.get('telefone') else ''),
+        (f"E-mail: {perfil['email']}" if perfil.get('email') else ''),
+    ] if x)
+    if _contato:
+        st.append(Paragraph(_contato, _sCurBody))
+    if perfil.get('site'):
+        st.append(Paragraph(f"Site: {perfil['site']}", _sCurBody))
+
+    # Fallback: perfil não cadastrado → orienta o avaliador
+    if not perfil.get('perfil_completo'):
+        st.append(Spacer(1, 6))
+        st.append(Paragraph('Complete seu perfil de avaliador no sistema para que o currículo '
+                            'seja preenchido automaticamente nos laudos.', sPag))
     return st
 
 
