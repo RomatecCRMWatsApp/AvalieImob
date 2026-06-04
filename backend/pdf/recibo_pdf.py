@@ -292,6 +292,28 @@ def gerar_recibo_pdf(
         for i, linha in enumerate(linhas_b[:2]):
             c.drawString(18 * mm, 10 * mm - i * 4 * mm, linha)
 
+    # ─── QR Code de verificação pública (/v/{hash}) ───────────────────
+    hash_v = recibo.get("hash_validacao")
+    if hash_v:
+        try:
+            import qrcode
+            from reportlab.lib.utils import ImageReader
+            url_verif = f"https://romatecavalieimob.com.br/v/{hash_v}"
+            qr_img = qrcode.make(url_verif)
+            qr_buf = io.BytesIO()
+            qr_img.save(qr_buf, format="PNG")
+            qr_buf.seek(0)
+            qr_size = 22 * mm
+            qx = page_w - 18 * mm - qr_size
+            qy = 24 * mm
+            c.drawImage(ImageReader(qr_buf), qx, qy, width=qr_size, height=qr_size, mask="auto")
+            c.setFont("Helvetica", 6.5)
+            c.setFillColor(colors.HexColor("#6B7280"))
+            c.drawCentredString(qx + qr_size / 2, qy - 3 * mm, f"Hash: {hash_v}")
+            c.drawCentredString(qx + qr_size / 2, qy - 6 * mm, "Verifique em romatecavalieimob.com.br")
+        except Exception:
+            pass
+
     c.showPage()
     c.save()
     buf.seek(0)

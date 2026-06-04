@@ -240,16 +240,22 @@ async def emitir_recibo(
         return {"ok": True, "numero": doc["numero"], "ja_emitido": True}
     tipo = doc.get("tipo", "personalizado")
     numero, seq = await _next_recibo_numero(db, tipo)
+    _emit = datetime.utcnow()
+    # Hash de validação (SHA-256, 16 hex) p/ a página pública /v/{hash}.
+    import hashlib
+    _base = f"{numero}|{doc.get('destinatario_cpf_cnpj') or ''}|{doc.get('valor') or 0}|{_emit.isoformat()}"
+    _hash = hashlib.sha256(_base.encode("utf-8")).hexdigest()[:16]
     await db.recibos.update_one(
         {"id": rid},
         {"$set": {
             "numero": numero,
             "sequencia": seq,
             "status": "emitido",
-            "updated_at": datetime.utcnow(),
+            "hash_validacao": _hash,
+            "updated_at": _emit,
         }},
     )
-    return {"ok": True, "numero": numero}
+    return {"ok": True, "numero": numero, "hash_validacao": _hash}
 
 
 # ── GET /recibos/{id}/pdf ───────────────────────────────────────────────────

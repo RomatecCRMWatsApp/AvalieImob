@@ -83,6 +83,114 @@ async def root():
 
 app.include_router(api)
 
+# ── Verificação pública de Recibo (/v/{hash}) — sem autenticação ─────
+from fastapi import Depends, HTTPException
+from fastapi.responses import Response as _Response
+
+
+def _rec_fmt_brl(v):
+    return "R$ " + f"{float(v or 0):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def _rec_status_label(s):
+    return {
+        "rascunho": ("Rascunho", "#6b7280"), "emitido": ("Emitido", "#0B6E4F"),
+        "gerado": ("Gerado", "#0B6E4F"), "enviado": ("Enviado", "#2563eb"),
+        "confirmado": ("Confirmado", "#0B6E4F"), "cancelado": ("Cancelado", "#CC0000"),
+        "pendente_manual": ("Pendente", "#ff9500"),
+    }.get(s or "emitido", ("Emitido", "#0B6E4F"))
+
+
+@app.get("/v/{hash_validacao}", response_class=HTMLResponse)
+async def verificar_recibo_publico(hash_validacao: str, db=Depends(get_db)):
+    doc = await db.recibos.find_one({"hash_validacao": hash_validacao})
+    if not doc:
+        html404 = (
+            "<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'>"
+            "<meta name='viewport' content='width=device-width, initial-scale=1'>"
+            "<title>Recibo não encontrado</title></head>"
+            "<body style='font-family:Arial,sans-serif;background:#f3f4f6;text-align:center;padding:60px'>"
+            "<h1 style='color:#CC0000'>Recibo não encontrado</h1>"
+            "<p style='color:#374151'>O código de verificação é inválido ou o recibo foi removido.</p>"
+            "</body></html>"
+        )
+        return HTMLResponse(html404, status_code=404)
+
+    numero = doc.get("numero") or "—"
+    nome = doc.get("destinatario_nome") or "—"
+    emitente = doc.get("emitente_nome") or "ROMATEC CONSULTORIA TOTAL"
+    valor = _rec_fmt_brl(doc.get("valor"))
+    descricao = (doc.get("descricao") or "").strip() or "—"
+    st_label, st_color = _rec_status_label(doc.get("status"))
+    dt = doc.get("created_at")
+    try:
+        data_e = dt.strftime("%d/%m/%Y") if hasattr(dt, "strftime") else str(dt or "")[:10]
+    except Exception:
+        data_e = ""
+
+    og_title = f"Recibo {numero} — {emitente}"
+    og_desc = f"Recibo no valor de {valor} para {nome}. Verifique a autenticidade."
+    pdf_url = f"/v/{hash_validacao}/pdf"
+    html = f"""<!doctype html><html lang='pt-BR'><head>
+<meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<title>{og_title}</title>
+<meta property='og:title' content='{og_title}'>
+<meta property='og:description' content='{og_desc}'>
+<meta property='og:type' content='website'>
+<meta name='robots' content='noindex'>
+<style>
+ body{{font-family:Arial,Helvetica,sans-serif;background:#f3f4f6;margin:0;padding:24px;color:#1A1A1A}}
+ .card{{max-width:560px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.08)}}
+ .top{{height:6px;background:#0B6E4F}}.top2{{height:3px;background:#B8860B}}
+ .hd{{padding:20px 24px;border-bottom:1px solid #eee}}
+ .hd .num{{color:#0B6E4F;font-weight:700;font-size:18px}}.hd .em{{color:#666;font-size:13px}}
+ .badge{{display:inline-block;color:#fff;border-radius:20px;padding:3px 12px;font-size:12px;font-weight:700;background:{st_color}}}
+ .bd{{padding:20px 24px}} .row{{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f3f4f6;font-size:14px}}
+ .row .l{{color:#666}}.row .v{{font-weight:600;text-align:right}}
+ .valor{{font-size:26px;font-weight:800;color:#0B6E4F;margin:10px 0}}
+ .btn{{display:block;text-align:center;background:#0B6E4F;color:#fff;text-decoration:none;padding:13px;border-radius:10px;font-weight:700;margin-top:16px}}
+ .ft{{padding:14px 24px;color:#888;font-size:11px;text-align:center;border-top:1px solid #eee}}
+</style></head><body>
+<div class='card'><div class='top'></div><div class='top2'></div>
+ <div class='hd'><div class='num'>Recibo {numero}</div><div class='em'>{emitente}</div>
+  <div style='margin-top:8px'><span class='badge'>{st_label}</span></div></div>
+ <div class='bd'>
+  <div class='valor'>{valor}</div>
+  <div class='row'><span class='l'>Destinatário</span><span class='v'>{nome}</span></div>
+  <div class='row'><span class='l'>Data de emissão</span><span class='v'>{data_e}</span></div>
+  <div class='row'><span class='l'>Referente a</span><span class='v'>{descricao}</span></div>
+  <div class='row'><span class='l'>Código de verificação</span><span class='v' style='font-family:monospace'>{hash_validacao}</span></div>
+  <a class='btn' href='{pdf_url}'>Baixar PDF do recibo</a>
+ </div>
+ <div class='ft'>Documento verificado · RomaTec Consultoria Total · romatecavalieimob.com.br</div>
+</div></body></html>"""
+    return HTMLResponse(html)
+
+
+@app.get("/v/{hash_validacao}/pdf")
+async def baixar_recibo_publico(hash_validacao: str, db=Depends(get_db)):
+    doc = await db.recibos.find_one({"hash_validacao": hash_validacao})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Recibo não encontrado")
+    from pdf.recibo_pdf import gerar_recibo_pdf
+    import base64 as _b64
+    uid = doc.get("user_id")
+    user = await db.users.find_one({"id": uid}) or {}
+    perfil = await db.perfis_avaliador.find_one({"user_id": uid}) or {}
+    logo_bytes = None
+    logo_id = doc.get("emitente_logo_id") or user.get("company_logo")
+    if logo_id:
+        img = await db.images.find_one({"id": logo_id})
+        if img and img.get("data_b64"):
+            try:
+                logo_bytes = _b64.b64decode(img["data_b64"])
+            except Exception:
+                logo_bytes = None
+    pdf_bytes = gerar_recibo_pdf(recibo=doc, user=user, perfil=perfil, logo_bytes=logo_bytes)
+    filename = f"{doc.get('numero') or 'RECIBO'}.pdf".replace("/", "-")
+    return _Response(content=pdf_bytes, media_type="application/pdf",
+                     headers={"Content-Disposition": f'inline; filename="{filename}"'})
+
 # ── Play Store TWA: assetlinks.json ──────────────────────────────────
 from fastapi.responses import JSONResponse
 import json

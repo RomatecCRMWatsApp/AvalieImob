@@ -73,6 +73,7 @@ class Recibo(ReciboBase):
     user_id: str
     numero: Optional[str] = None  # REC-HON-2026-0001 (preenchido ao emitir)
     sequencia: Optional[int] = None
+    hash_validacao: Optional[str] = None  # SHA-256 (16 hex) p/ verificação pública /v/{hash}
     enviado_em: Optional[datetime] = None
     enviado_via: Optional[str] = None  # whatsapp | telegram | email
     created_at: datetime = Field(default_factory=_now)
