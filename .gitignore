@@ -120,3 +120,4 @@ credentials.json
 *.key
 .credentials
 frontend/package-lock.json 
+PR_pdf_unificado.md
