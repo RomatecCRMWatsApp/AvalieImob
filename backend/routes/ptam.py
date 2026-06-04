@@ -605,24 +605,31 @@ async def download_ptam_pdf(pid: str, uid: str = Depends(get_active_subscriber),
             ("doc_itr", "ITR — Imposto Territorial Rural"),
             ("doc_car", "CAR — Cadastro Ambiental Rural"),
         ]
+        _rurais_add = 0
         for _campo, _rotulo in GRUPOS_RURAIS:
             _arquivos = doc.get(_campo) or []
             _total = len(_arquivos)
             for _k, _item in enumerate(_arquivos, 1):
                 if isinstance(_item, dict):
-                    _url = _item.get("url") or _item.get("image_id", "")
+                    _url = _item.get("url") or _item.get("image_id") or _item.get("id", "")
                 else:
                     _url = str(_item)
-                _img_id = str(_url).replace("/api/upload/image/", "").split("/")[-1]
-                if len(_img_id) > 30 and "-" in _img_id:
-                    _img_db = await db.images.find_one({"id": _img_id})
-                    if _img_db and _img_db.get("data_b64"):
-                        _nome = _rotulo if _total <= 1 else f"{_rotulo} ({_k}/{_total})"
-                        doc["documentos_resolvidos"].append({
-                            "name": _nome,
-                            "_doc_bytes": base64.b64decode(_img_db["data_b64"]),
-                            "content_type": _img_db.get("content_type", "image/jpeg"),
-                        })
+                _img_id = str(_url).replace("/api/upload/image/", "").strip("/").split("/")[-1]
+                if not _img_id:
+                    continue
+                _img_db = await db.images.find_one({"id": _img_id})
+                if _img_db and _img_db.get("data_b64"):
+                    _nome = _rotulo if _total <= 1 else f"{_rotulo} ({_k}/{_total})"
+                    doc["documentos_resolvidos"].append({
+                        "name": _nome,
+                        "_doc_bytes": base64.b64decode(_img_db["data_b64"]),
+                        "content_type": _img_db.get("content_type", "image/jpeg"),
+                    })
+                    _rurais_add += 1
+                else:
+                    logger.warning("PTAM %s: doc rural '%s' id=%s não resolvido", pid, _campo, _img_id)
+        logger.info("PTAM %s: docs rurais anexados=%d | campos: %s", pid, _rurais_add,
+                    {c: len(doc.get(c) or []) for c, _ in GRUPOS_RURAIS})
         # Fotos do imóvel: garante dicts com legenda (v2 espera dict, não string).
         fotos_fix = []
         for i, f in enumerate(doc.get("fotos_imovel") or [], 1):
