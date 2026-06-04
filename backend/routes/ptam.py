@@ -635,6 +635,27 @@ async def download_ptam_pdf(pid: str, uid: str = Depends(get_active_subscriber),
         doc["fotos_imovel"] = fotos_fix
         doc["cnd_consultas"] = cnd_consultas  # disponível ao v2 (forward-compat)
 
+        # Downscale das imagens (reduz drasticamente o tamanho do PDF).
+        # PDFs e arquivos não-imagem passam intactos (downscale_image faz fallback).
+        from services.img_util import downscale_image as _downscale
+
+        def _ds(b):
+            try:
+                return _downscale(b) if b else b
+            except Exception:
+                return b
+
+        for _f in (doc.get("fotos_imovel") or []):
+            if isinstance(_f, dict) and _f.get("_image_bytes"):
+                _f["_image_bytes"] = _ds(_f["_image_bytes"])
+        for _s in (doc.get("market_samples") or []):
+            if isinstance(_s, dict) and _s.get("_image_bytes"):
+                _s["_image_bytes"] = _ds(_s["_image_bytes"])
+        for _d in (doc.get("documentos_resolvidos") or []):
+            if isinstance(_d, dict) and _d.get("_doc_bytes") and \
+                    'pdf' not in (_d.get("content_type") or '').lower():
+                _d["_doc_bytes"] = _ds(_d["_doc_bytes"])
+
         # Gerador v2: layout aprovado, com sumário numerado e clicável.
         data = generate_ptam_pdf_v2(doc, perfil_avaliador)
     except Exception as e:

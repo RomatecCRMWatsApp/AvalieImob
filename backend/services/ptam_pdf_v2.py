@@ -600,12 +600,54 @@ sTitulo = ParagraphStyle('t', fontName='Helvetica-Bold', fontSize=20, textColor=
                          alignment=TA_CENTER)
 
 
+class TituloSecao(Flowable):
+    """Título de seção Modelo 3: círculo numerado verde + título + linha tracejada dourada."""
+    def __init__(self, texto, width):
+        super().__init__()
+        m = re.match(r'^(\d+)\.\s*(.+)$', (texto or '').strip())
+        if m:
+            self.num, self.titulo = m.group(1), m.group(2)
+        else:
+            self.num, self.titulo = None, (texto or '').strip()
+        self.width = width
+        self.height = 0.85 * cm
+
+    def wrap(self, aw, ah):
+        return (self.width, self.height)
+
+    def draw(self):
+        c = self.canv
+        w, h = self.width, self.height
+        cy = h * 0.5
+        x = 0.0
+        if self.num is not None:
+            r = 0.32 * cm
+            c.setFillColor(VERDE)
+            c.circle(r, cy, r, stroke=0, fill=1)
+            c.setFillColor(DOURADO)
+            c.setFont('Helvetica-Bold', 10.5)
+            c.drawCentredString(r, cy - 0.13 * cm, self.num)
+            x = 2 * r + 0.25 * cm
+        titulo = self.titulo.upper()
+        c.setFillColor(VERDE)
+        c.setFont('Helvetica-Bold', 10.5)
+        c.drawString(x, cy - 0.13 * cm, titulo)
+        tw = c.stringWidth(titulo, 'Helvetica-Bold', 10.5)
+        lx = x + tw + 0.3 * cm
+        if lx < w:
+            c.setStrokeColor(DOURADO)
+            c.setLineWidth(1.0)
+            c.setDash(2, 2)
+            c.line(lx, cy, w, cy)
+            c.setDash()
+
+
 def sec(texto, ancora=None):
     out = []
     if ancora:
         out.append(Paragraph(f'<a name="{ancora}"/>', sNormal))
-    out.append(Paragraph(texto, sSec))
-    out.append(HRFlowable(width='100%', thickness=1.2, color=DOURADO, spaceAfter=8))
+    out.append(TituloSecao(texto, UTIL_W))
+    out.append(Spacer(1, 6))
     return out
 
 
