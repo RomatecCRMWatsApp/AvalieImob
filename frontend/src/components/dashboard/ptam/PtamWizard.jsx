@@ -403,6 +403,12 @@ const PtamWizard = () => {
         </Button>
 
         <div className="flex items-center gap-2">
+          <Button variant="outline" className="border-red-300 text-red-700 hover:bg-red-50" onClick={handleDownloadPdf}>
+            <Download className="w-4 h-4 mr-1" />Baixar PDF
+          </Button>
+          <Button variant="outline" className="border-emerald-300 text-emerald-700 hover:bg-emerald-50" onClick={handleDownload}>
+            <Download className="w-4 h-4 mr-1" />Baixar DOCX
+          </Button>
           <Button variant="outline" onClick={() => save(false)} disabled={saving}>
             <Save className="w-4 h-4 mr-1" />{saving ? 'Salvando...' : 'Salvar'}
           </Button>
