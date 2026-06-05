@@ -403,6 +403,9 @@ const PtamWizard = () => {
         </Button>
 
         <div className="flex items-center gap-2">
+          {lastSaved && (
+            <span className="text-xs text-gray-500 mr-1">Salvo {lastSaved.toLocaleTimeString('pt-BR')}</span>
+          )}
           <Button variant="outline" className="border-red-300 text-red-700 hover:bg-red-50" onClick={handleDownloadPdf}>
             <Download className="w-4 h-4 mr-1" />Baixar PDF
           </Button>

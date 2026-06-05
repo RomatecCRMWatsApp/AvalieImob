@@ -27,6 +27,9 @@ export const StepCaracterizacao = ({ form, setForm, onAi, aiLoading }) => (
         tipoImovel={form.property_type}
         value={Number(form.imovel_area_a_considerar) || 0}
         onChange={(m2) => setForm((f) => ({ ...f, imovel_area_a_considerar: m2 > 0 ? m2 : null }))}
+        onOpcaoChange={(op) => {
+          if (op === 'soma') setForm((f) => ({ ...f, methodology: 'Método Evolutivo' }));
+        }}
       />
       <AreaResumoPanel
         value={Number(form.imovel_area_a_considerar) || 0}

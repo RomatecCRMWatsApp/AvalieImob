@@ -27,7 +27,7 @@ const LABELS = {
  * @param {number} props.value         área considerada (sempre em m²)
  * @param {(m2:number)=>void} props.onChange
  */
-export function AreaConsideradaSelector({ terrenoM2, construidaM2, tipoImovel, value, onChange }) {
+export function AreaConsideradaSelector({ terrenoM2, construidaM2, tipoImovel, value, onChange, onOpcaoChange }) {
   const [opcao, setOpcao] = useState(defaultOpcao(tipoImovel));
   const [customVal, setCustomVal] = useState('');
   const [customUnit, setCustomUnit] = useState(defaultUnidade(tipoImovel));
@@ -71,6 +71,7 @@ export function AreaConsideradaSelector({ terrenoM2, construidaM2, tipoImovel, v
   function handleSelect(op) {
     setOpcao(op);
     setAutoApplied(false);
+    if (onOpcaoChange) onOpcaoChange(op);
     if (op === 'terreno') onChange(Number(terrenoM2) || 0);
     if (op === 'construida') onChange(Number(construidaM2) || 0);
     if (op === 'soma') onChange((Number(terrenoM2) || 0) + (Number(construidaM2) || 0));
@@ -137,6 +138,14 @@ export function AreaConsideradaSelector({ terrenoM2, construidaM2, tipoImovel, v
           );
         })}
       </div>
+
+      {opcao === 'soma' && (
+        <div className="mt-2 text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2">
+          Valor final pelo <strong>Método Evolutivo</strong> (NBR 14653): valor do lote + valor da
+          edificação. Defina os valores do <strong>terreno</strong> e da <strong>edificação</strong> na
+          etapa <strong>8. Cálculos</strong> (painel Evolutivo, ativado automaticamente).
+        </div>
+      )}
 
       {opcao === 'personalizada' && (
         <div className="mt-3 flex gap-2">
