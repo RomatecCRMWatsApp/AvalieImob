@@ -7,6 +7,7 @@ import { Field, SectionHeader } from '../shared/primitives';
 import ProprietariosSection from '../shared/ProprietariosSection';
 import RuralDocSection, { isRural } from '../shared/RuralDocSection';
 import ImageUploader from '../ImageUploader';
+import FotosLaudo from '../FotosLaudo';
 import ImovelMap from '../../../maps/ImovelMap';
 import StreetView from '../../../maps/StreetView';
 import { ConsultaSIGEF } from '../ConsultaSIGEF';
@@ -184,12 +185,14 @@ export const StepImovelId = ({ form, setForm }) => {
     </div>
 
     <div className="mt-8 space-y-6 border-t border-gray-100 pt-6">
-      <ImageUploader
-        label="Fotos do Imóvel (máx 50)"
-        images={form.fotos_imovel || []}
-        onImagesChange={(ids) => setForm({ ...form, fotos_imovel: ids })}
-        maxImages={50}
-      />
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Fotos do Imóvel — com legenda por foto (máx 50)</label>
+        <FotosLaudo
+          value={form.fotos_imovel || []}
+          onChange={(v) => setForm({ ...form, fotos_imovel: v })}
+          maxImages={50}
+        />
+      </div>
       <ImageUploader
         label="Documentos do Imóvel — matrícula, IPTU, escritura (máx 50)"
         images={form.fotos_documentos || []}

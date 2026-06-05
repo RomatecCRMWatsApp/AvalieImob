@@ -1,0 +1,23 @@
+# ============================================================
+#  Conexao do banco para a migracao de PDFs
+#  Abra este arquivo no Bloco de Notas, cole os valores REAIS
+#  (do servico AvalieImob no Railway -> aba Variables) e salve.
+#  NAO use aspas. NAO deixe espacos antes/depois do = .
+# ============================================================
+#
+#  Onde achar:
+#   - MONGO_URL : variavel MONGO_URL do servico AvalieImob (o app),
+#                 NAO a do servico MongoDB. Clique no olho e copie.
+#                 Costuma comecar com mongodb+srv://  (Atlas)
+#                 ou mongodb://  (host com porta).
+#   - DB_NAME   : variavel DB_NAME do mesmo servico (ex.: avalieimob).
+#
+#  Depois rode (na pasta backend):
+#     diag_mongo.bat        (ver os bancos e contagens)
+#     migrar_pdfs.bat       (dry-run)
+#     migrar_pdfs.bat --apply
+#
+#  Apague o "COLE_AQUI" e ponha o valor real:
+
+MONGO_URL=mongodb://mongo:idloigTvMHIjmROjEbBrxERWnselaWQE@mongodb.railway.internal:27017
+DB_NAME=avalieimob

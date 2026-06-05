@@ -426,6 +426,7 @@ async def download_ptam_docx(pid: str, uid: str = Depends(get_active_subscriber)
                         "_image_bytes": _raw,
                         "gps": _gps or _gps_prev,
                         "data_hora": _dh or _dh_prev,
+                        "legenda": (foto.get("legenda") if isinstance(foto, dict) else "") or "",
                         "description": (foto.get("description") or foto.get("descricao") or f"Foto {i+1}") if isinstance(foto, dict) else f"Foto {i+1}",
                     }
         doc["fotos_imovel"] = fotos_imovel
@@ -544,6 +545,7 @@ async def download_ptam_pdf(pid: str, uid: str = Depends(get_active_subscriber),
                         "_image_bytes": _raw,
                         "gps": _gps or _gps_prev,
                         "data_hora": _dh or _dh_prev,
+                        "legenda": (foto.get("legenda") if isinstance(foto, dict) else "") or "",
                         "description": (foto.get("description") or foto.get("descricao") or f"Foto {i+1}") if isinstance(foto, dict) else f"Foto {i+1}",
                     }
         doc["fotos_imovel"] = fotos_imovel

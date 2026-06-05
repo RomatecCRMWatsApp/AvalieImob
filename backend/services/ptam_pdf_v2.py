@@ -24,6 +24,7 @@ from reportlab.lib.utils import ImageReader
 from utils.extenso import valor_por_extenso
 from utils.avaliador import resolver_dados_avaliador, formata_doc, cpf_solicitante
 from utils.texto_ia import limpar_texto_ia
+from utils.html_render import html_para_blocks
 
 logger = logging.getLogger("romatec")
 
@@ -825,16 +826,22 @@ def _bloco_conclusao(st, titulo, texto):
     if titulo:
         st.append(Paragraph(titulo, ParagraphStyle('c9t', fontName='Helvetica-Bold',
                                                    fontSize=10, textColor=VERDE, spaceAfter=4)))
-    for linha in txt.split('\n'):
-        l = linha.strip()
-        if not l:
-            st.append(Spacer(1, 4))
-        elif re.match(r'^\d+\.\d+[\s\.]', l):
-            st.append(Paragraph(_esc_xml(l), ParagraphStyle('c9s', fontName='Helvetica-Bold',
-                                                            fontSize=10, textColor=VERDE,
-                                                            spaceBefore=4, spaceAfter=3)))
+    # Aceita texto puro OU HTML do RichTextEditor (negrito/itálico/listas/alinhamento).
+    for blk in html_para_blocks(txt):
+        markup = blk['markup']
+        if not markup:
+            continue
+        plano = re.sub(r'<[^>]+>', '', markup).strip()
+        if re.match(r'^\d+\.\d+[\s\.]', plano):
+            st.append(Paragraph(markup, ParagraphStyle('c9s', fontName='Helvetica-Bold',
+                                                       fontSize=10, textColor=VERDE,
+                                                       spaceBefore=4, spaceAfter=3)))
         else:
-            st.append(Paragraph(_esc_xml(l), sBody))
+            _al = {'left': 0, 'center': 1, 'right': 2, 'justify': 4}.get(blk['align'], 4)
+            _extra = {'alignment': _al}
+            if blk['bullet']:
+                _extra['leftIndent'] = 0.5 * cm
+            st.append(Paragraph(markup, ParagraphStyle('c9b', parent=sBody, **_extra)))
 
 
 def build_story(ptam, page_map):

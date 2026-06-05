@@ -149,7 +149,8 @@ class PtamBase(BaseModel):
     imovel_caracteristicas_adicionais: Optional[str] = ""
 
     # Fotos e Documentos
-    fotos_imovel: List[str] = Field(default_factory=list)
+    # fotos_imovel: aceita IDs (str, legado) OU objetos {image_id, legenda, gps}.
+    fotos_imovel: List[Any] = Field(default_factory=list)
     fotos_documentos: List[str] = Field(default_factory=list)
 
     # Seção 6 — Amostras de Mercado

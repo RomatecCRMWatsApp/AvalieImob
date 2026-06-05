@@ -1,0 +1,332 @@
+/* src/components/dashboard/ptam/PhotoGrid.css */
+/* AvalieImob — Galeria de fotos com legendas */
+
+/* ── root ─────────────────────────────────────────────────────────── */
+.pg-root {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ── barra de ações em lote ──────────────────────────────────────── */
+.pg-batch-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: #f0faf5;
+  border: 1px solid #d1fae5;
+  border-radius: 7px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pg-batch-count {
+  font-size: 0.78rem;
+  color: #374151;
+  font-weight: 500;
+}
+
+.pg-batch-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.pg-batch-btn {
+  font-size: 0.73rem;
+  padding: 4px 10px;
+  border-radius: 5px;
+  border: 1px solid #d1fae5;
+  background: #fff;
+  color: #0B6E4F;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 500;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.pg-batch-btn:hover {
+  background: #d1fae5;
+  border-color: #0B6E4F;
+}
+
+.pg-batch-btn--danger {
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
+.pg-batch-btn--danger:hover {
+  background: #fef2f2;
+  border-color: #dc2626;
+}
+
+/* ── grid ────────────────────────────────────────────────────────── */
+.pg-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+/* ── item ────────────────────────────────────────────────────────── */
+.pg-item {
+  display: flex;
+  flex-direction: column;
+  border-radius: 8px;
+  overflow: visible;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.pg-item:hover {
+  box-shadow: 0 4px 12px rgba(11,110,79,0.12), 0 2px 4px rgba(0,0,0,0.06);
+  transform: translateY(-1px);
+}
+
+.pg-item--sel {
+  outline: 2.5px solid #0B6E4F;
+  outline-offset: 1px;
+}
+
+/* ── wrapper da imagem ───────────────────────────────────────────── */
+.pg-img-wrap {
+  position: relative;
+  aspect-ratio: 4/3;
+  overflow: hidden;
+  border-radius: 8px 8px 0 0;
+  cursor: pointer;
+  background: #f3f4f6;
+}
+
+.pg-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.2s ease;
+}
+
+.pg-item:hover .pg-img {
+  transform: scale(1.02);
+}
+
+/* ── badge GPS ───────────────────────────────────────────────────── */
+.pg-badge-gps {
+  position: absolute;
+  bottom: 6px;
+  left: 6px;
+  background: rgba(11, 110, 79, 0.88);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  backdrop-filter: blur(2px);
+}
+
+/* ── overlay seleção ─────────────────────────────────────────────── */
+.pg-sel-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(11, 110, 79, 0.35);
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 8px;
+}
+
+/* ── botão remover ───────────────────────────────────────────────── */
+.pg-btn-remove {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(220, 38, 38, 0.85);
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.12s;
+  z-index: 2;
+  backdrop-filter: blur(2px);
+}
+
+.pg-img-wrap:hover .pg-btn-remove {
+  opacity: 1;
+}
+
+.pg-btn-remove:hover {
+  background: #dc2626;
+}
+
+/* ── campo de legenda ────────────────────────────────────────────── */
+.pg-legend-wrap {
+  position: relative;
+  padding: 5px 6px 6px;
+  background: #fff;
+  border-radius: 0 0 8px 8px;
+}
+
+.pg-legend-field {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: #f9fafb;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 4px 8px;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+
+.pg-legend-field--focus {
+  border-color: #0B6E4F;
+  background: #fff;
+  box-shadow: 0 0 0 2.5px rgba(11,110,79,0.10);
+}
+
+.pg-legend-icon {
+  color: #9ca3af;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+
+.pg-legend-field--focus .pg-legend-icon {
+  color: #0B6E4F;
+}
+
+.pg-legend-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 0.78rem;
+  color: #111827;
+  outline: none;
+  min-width: 0;
+  padding: 0;
+  font-family: inherit;
+}
+
+.pg-legend-input::placeholder {
+  color: #c4c9d4;
+  font-size: 0.75rem;
+}
+
+.pg-legend-clear {
+  width: 16px;
+  height: 16px;
+  border: none;
+  background: #e5e7eb;
+  border-radius: 50%;
+  color: #6b7280;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+  transition: background 0.12s, color 0.12s;
+}
+
+.pg-legend-clear:hover {
+  background: #dc2626;
+  color: #fff;
+}
+
+/* ── dropdown de sugestões ───────────────────────────────────────── */
+.pg-sugestoes {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  top: calc(100% - 4px);
+  background: #fff;
+  border: 1.5px solid #d1fae5;
+  border-radius: 7px;
+  box-shadow: 0 8px 24px rgba(11,110,79,0.12), 0 2px 8px rgba(0,0,0,0.08);
+  z-index: 50;
+  overflow: hidden;
+  animation: pg-sug-in 0.12s ease;
+}
+
+@keyframes pg-sug-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.pg-sug-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  color: #1f2937;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+  font-family: inherit;
+}
+
+.pg-sug-item:hover {
+  background: #f0faf5;
+  color: #0B6E4F;
+  font-weight: 500;
+}
+
+.pg-sug-item + .pg-sug-item {
+  border-top: 1px solid #f3f4f6;
+}
+
+/* ── card de upload ──────────────────────────────────────────────── */
+.pg-upload-card {
+  aspect-ratio: 4/3;
+  border: 2px dashed #d1fae5;
+  border-radius: 8px;
+  background: #f9fffe;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  color: #0B6E4F;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: background 0.15s, border-color 0.15s;
+  text-align: center;
+  padding: 16px;
+}
+
+.pg-upload-card:hover {
+  background: #ecfdf5;
+  border-color: #0B6E4F;
+}
+
+.pg-upload-card small {
+  font-size: 0.7rem;
+  color: #9ca3af;
+  font-weight: 400;
+}
+
+/* ── responsivo ──────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .pg-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .pg-batch-bar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
