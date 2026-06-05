@@ -170,6 +170,49 @@ def convert_pdf_to_tiff_pages(
     return resultado
 
 
+def convert_pdf_to_page_pngs(pdf_data: bytes) -> list[bytes]:
+    """
+    Rasteriza cada página do PDF em um PNG 300 DPI (lossless) — em memória, sem
+    filesystem. PNG é viewável no navegador e embutível no laudo (reportlab), com
+    fidelidade de arquivo (300 DPI). Uma entrada por página.
+
+    Raises:
+        PdfConversionError: PDF inválido/vazio/protegido (mapear para HTTP 422).
+        RuntimeError:       Falha de render de página (mapear para HTTP 500).
+    """
+    doc = _open_doc(pdf_data)
+    pages: list[bytes] = []
+    page_index = 0
+    try:
+        for page_index in range(doc.page_count):
+            page = doc.load_page(page_index)
+            pixmap = page.get_pixmap(matrix=_MATRIX, colorspace=fitz.csRGB, alpha=False)
+            img = Image.frombytes("RGB", (pixmap.width, pixmap.height), pixmap.samples)
+            buf = BytesIO()
+            img.save(buf, format="PNG", optimize=True, dpi=(_DPI, _DPI))
+            pages.append(buf.getvalue())
+    except PdfConversionError:
+        raise
+    except Exception as exc:
+        raise RuntimeError(f"Falha na conversão da página {page_index + 1}: {exc}") from exc
+    finally:
+        doc.close()
+
+    logger.info("PDF rasterizado: %d página(s) @ %d DPI", len(pages), _DPI)
+    return pages
+
+
+def image_bytes_to_tiff(data: bytes) -> bytes:
+    """Converte bytes de uma imagem (PNG/JPEG/etc.) em TIFF 300 DPI LZW (lossless),
+    em memória. Usado para download de arquivo no formato TIFF sob demanda."""
+    img = Image.open(BytesIO(data))
+    if img.mode not in ("RGB", "L"):
+        img = img.convert("RGB")
+    out = BytesIO()
+    img.save(out, format="TIFF", compression="tiff_lzw", dpi=(_DPI, _DPI))
+    return out.getvalue()
+
+
 def render_pdf_first_page_jpeg(pdf_data: bytes, max_side: int = 1600) -> bytes:
     """Render leve da 1ª página em JPEG (thumbnail). Usado para preview rápido.
     Levanta PdfConversionError se o PDF for inválido."""

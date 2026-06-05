@@ -30,7 +30,6 @@ from routes.contratos import router as contratos_router
 from routes.certificados import router as certificados_router
 from routes.integracoes import router as integracoes_router
 from routes.recibos import router as recibos_router
-from routes.documentos_upload import router as documentos_upload_router
 
 all_routers = [
     auth_router, users_router, ptam_router, locacao_router,
@@ -41,5 +40,5 @@ all_routers = [
     tvi_router, maps_router, cnd_router, scraper_router,
     search_router, assinatura_router, samples_router, cub_router,
     sigef_router, zonas_router, contratos_router, certificados_router,
-    integracoes_router, recibos_router, documentos_upload_router,
+    integracoes_router, recibos_router,
 ]

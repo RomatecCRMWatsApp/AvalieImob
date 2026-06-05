@@ -10,6 +10,11 @@ from fastapi.responses import Response
 from db import get_db
 from dependencies import get_active_subscriber
 from services.upload_security import detect_content_type, normalize_filename
+from services.pdf_converter import (
+    PdfConversionError,
+    convert_pdf_to_page_pngs,
+    image_bytes_to_tiff,
+)
 
 router = APIRouter(tags=["uploads"])
 logger = logging.getLogger("romatec")
@@ -33,19 +38,97 @@ async def upload_image(file: UploadFile = File(...), uid: str = Depends(get_acti
         raise HTTPException(status_code=400, detail="Conteúdo do arquivo inválido ou não suportado")
     if detected_content_type == "application/pdf" and declared_content_type != "application/pdf":
         raise HTTPException(status_code=400, detail="PDF deve ser enviado com content type application/pdf")
+
+    nome = normalize_filename(file.filename)
+    agora = datetime.utcnow()
+
+    # ── PDF: rasteriza cada página em PNG 300 DPI (1 imagem/id por página) ──────
+    # Persiste no MongoDB (db.images), igual às fotos — sobrevive a redeploys do
+    # Railway (filesystem é efêmero). O PDF original é guardado para auditoria.
+    # Cada página vira um card no uploader e é embutida no laudo (DocCard renderiza
+    # a imagem; antes, PDF aparecia só como placeholder cinza).
+    if detected_content_type == "application/pdf":
+        try:
+            page_pngs = convert_pdf_to_page_pngs(data)
+        except PdfConversionError as exc:
+            raise HTTPException(status_code=422, detail=str(exc))
+        except RuntimeError as exc:
+            logger.exception("Falha na conversão PDF→PNG (user=%s)", uid)
+            raise HTTPException(status_code=500, detail=str(exc))
+
+        # PDF original (auditoria) — não entra na lista de cards.
+        original_id = str(uuid.uuid4())
+        await db.images.insert_one({
+            "id": original_id,
+            "user_id": uid,
+            "filename": nome,
+            "content_type": "application/pdf",
+            "data_b64": base64.b64encode(data).decode("utf-8"),
+            "size_bytes": len(data),
+            "created_at": agora,
+            "is_original_pdf": True,
+            "pdf_pages_total": len(page_pngs),
+        })
+
+        total = len(page_pngs)
+        base_nome = nome[:-4] if nome.lower().endswith(".pdf") else nome
+        pages = []
+        for idx, png in enumerate(page_pngs, start=1):
+            pid = str(uuid.uuid4())
+            await db.images.insert_one({
+                "id": pid,
+                "user_id": uid,
+                "filename": f"{base_nome} (p. {idx}/{total}).png",
+                "content_type": "image/png",
+                "data_b64": base64.b64encode(png).decode("utf-8"),
+                "size_bytes": len(png),
+                "created_at": agora,
+                "convertido_de_pdf": True,
+                "source_pdf_id": original_id,
+                "pdf_page": idx,
+                "pdf_pages_total": total,
+                "dpi": 300,
+            })
+            pages.append({
+                "id": pid,
+                "url": f"/api/upload/image/{pid}",
+                "content_type": "image/png",
+                "page": idx,
+            })
+        logger.info("PDF convertido: user=%s paginas=%d original=%s size=%d", uid, total, original_id, len(data))
+        first = pages[0]
+        return {
+            "id": first["id"],
+            "url": first["url"],
+            "content_type": "image/png",
+            "convertido": True,
+            "page_count": total,
+            "source_pdf_id": original_id,
+            "pages": pages,
+        }
+
+    # ── Imagem direta (JPG/PNG/WebP): armazena sem transformação ────────────────
     image_id = str(uuid.uuid4())
     doc = {
         "id": image_id,
         "user_id": uid,
-        "filename": normalize_filename(file.filename),
+        "filename": nome,
         "content_type": detected_content_type,
         "data_b64": base64.b64encode(data).decode("utf-8"),
         "size_bytes": len(data),
-        "created_at": datetime.utcnow(),
+        "created_at": agora,
     }
     await db.images.insert_one(doc)
     logger.info("Image uploaded: id=%s user=%s size=%d", image_id, uid, len(data))
-    return {"id": image_id, "url": f"/api/upload/image/{image_id}", "content_type": detected_content_type}
+    url = f"/api/upload/image/{image_id}"
+    return {
+        "id": image_id,
+        "url": url,
+        "content_type": detected_content_type,
+        "convertido": False,
+        "page_count": 1,
+        "pages": [{"id": image_id, "url": url, "content_type": detected_content_type, "page": 1}],
+    }
 
 
 @router.get("/upload/image/{image_id}")
@@ -66,6 +149,32 @@ async def get_image(image_id: str, db=Depends(get_db)):
         content=raw,
         media_type=doc.get("content_type", "image/jpeg"),
         headers={"Cache-Control": "private, max-age=86400"},
+    )
+
+
+@router.get("/upload/image/{image_id}/tiff")
+async def get_image_tiff(image_id: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    """Baixa a imagem como TIFF 300 DPI LZW (lossless), gerado sob demanda — sem
+    duplicar storage no Mongo. Útil para arquivamento de páginas de documento."""
+    doc = await db.images.find_one({"id": image_id, "user_id": uid})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Imagem não encontrada")
+    ct = (doc.get("content_type") or "").lower()
+    if ct == "application/pdf":
+        raise HTTPException(status_code=422, detail="Use uma página convertida (PNG) para gerar TIFF.")
+    try:
+        raw = base64.b64decode(doc["data_b64"])
+        tiff = image_bytes_to_tiff(raw)
+    except Exception:
+        raise HTTPException(status_code=422, detail="Falha ao gerar TIFF.")
+    base = (doc.get("filename") or image_id).rsplit(".", 1)[0]
+    return Response(
+        content=tiff,
+        media_type="image/tiff",
+        headers={
+            "Cache-Control": "private, max-age=86400",
+            "Content-Disposition": f'attachment; filename="{base}.tiff"',
+        },
     )
 
 

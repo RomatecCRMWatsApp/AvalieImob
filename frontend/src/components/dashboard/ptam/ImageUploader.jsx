@@ -78,8 +78,19 @@ const ImageUploader = ({
       }
       try {
         const res = await uploadAPI.uploadImage(file);
-        newIds.push(res.id);
-        if (res.content_type) newTypes[res.id] = res.content_type;
+        // PDF é convertido no backend em N páginas (1 imagem por página). Para
+        // imagem única, `pages` tem 1 item. Empilha todos os ids retornados.
+        const pages = Array.isArray(res.pages) && res.pages.length
+          ? res.pages
+          : [{ id: res.id, content_type: res.content_type }];
+        for (const p of pages) {
+          if (!p?.id) continue;
+          newIds.push(p.id);
+          if (p.content_type) newTypes[p.id] = p.content_type;
+        }
+        if (res.convertido && res.page_count > 1) {
+          toast({ title: `PDF convertido em ${res.page_count} páginas (300 DPI)` });
+        }
       } catch (err) {
         toast({ title: err.response?.data?.detail || 'Erro ao enviar imagem', variant: 'destructive' });
       }
