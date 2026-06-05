@@ -238,7 +238,7 @@ async def remover_documento(
     documento_id: str,
     uid: str = Depends(get_active_subscriber),
     db=Depends(get_db),
-) -> None:
+):
     imovel = await _carregar_imovel(db, imovel_id, uid)
     documentos = (imovel.get("documentos") or {}).get(tipo.value) or []
     alvo = next((d for d in documentos if d.get("id") == documento_id), None)
