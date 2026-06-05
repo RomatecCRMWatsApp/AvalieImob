@@ -8,6 +8,7 @@ import ProprietariosSection from '../shared/ProprietariosSection';
 import RuralDocSection, { isRural } from '../shared/RuralDocSection';
 import ImageUploader from '../ImageUploader';
 import FotosLaudo from '../FotosLaudo';
+import RichField from '../../../ui/RichField';
 import ImovelMap from '../../../maps/ImovelMap';
 import StreetView from '../../../maps/StreetView';
 import { ConsultaSIGEF } from '../ConsultaSIGEF';
@@ -175,10 +176,10 @@ export const StepImovelId = ({ form, setForm }) => {
         </>
       )}
       <Field label="Confrontações / Limites" full>
-        <Textarea value={form.property_confrontations} onChange={(e) => setForm({ ...form, property_confrontations: e.target.value })} rows={3} placeholder="Norte: ..., Sul: ..., Leste: ..., Oeste: ..." />
+        <RichField form={form} setForm={setForm} field="property_confrontations" minHeight={80} placeholder="Norte: ..., Sul: ..., Leste: ..., Oeste: ..." />
       </Field>
       <Field label="Descrição geral do imóvel" full>
-        <Textarea value={form.property_description} onChange={(e) => setForm({ ...form, property_description: e.target.value })} rows={4} />
+        <RichField form={form} setForm={setForm} field="property_description" minHeight={120} placeholder="Descrição literal do imóvel conforme a matrícula / SIGEF..." />
       </Field>
 
       <RuralDocSection form={form} setForm={setForm} />
@@ -212,7 +213,19 @@ export const StepImovelId = ({ form, setForm }) => {
           { id: 'escritura', label: 'Escritura / Contrato' },
           { id: 'fotos', label: 'Fotografias do imóvel' },
           { id: 'habite_se', label: 'Habite-se / Auto de conclusão' },
-          { id: 'geo_rural', label: 'Georreferenciamento (rural)' },
+          { id: 'geo_rural', label: 'Georreferenciamento (SIGEF/INCRA)' },
+          { id: 'ccir', label: 'CCIR — Cadastro de Imóvel Rural' },
+          { id: 'itr', label: 'ITR — Imposto Territorial Rural' },
+          { id: 'car', label: 'CAR — Cadastro Ambiental Rural' },
+          { id: 'nirf', label: 'NIRF / CIB (Receita Federal)' },
+          { id: 'certidoes', label: 'Certidões negativas (débitos/ônus)' },
+          { id: 'onus_reais', label: 'Certidão de ônus reais' },
+          { id: 'bci', label: 'BCI — Boletim de Cadastro Imobiliário' },
+          { id: 'memorial', label: 'Memorial descritivo' },
+          { id: 'patologia', label: 'Patologia das construções' },
+          { id: 'art_trt', label: 'ART / TRT' },
+          { id: 'licenca_ambiental', label: 'Licença ambiental' },
+          { id: 'valor_venal', label: 'Certidão de valor venal' },
           { id: 'outros_docs', label: 'Outros documentos' },
         ].map(({ id, label }) => {
           const checked = (form.documentos_analisados || []).includes(id);

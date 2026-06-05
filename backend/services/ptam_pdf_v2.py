@@ -798,6 +798,38 @@ def _fotocard(f, n, total):
     return FotoCard(n, _leg(f, n), total, b, g, dh)
 
 
+# Rótulos legíveis dos documentos analisados (Seção 2) — corrige IDs crus no PDF.
+DOCUMENTO_LABELS = {
+    'matricula': 'Certidão de Matrícula do Imóvel',
+    'iptu': 'Carnê de IPTU',
+    'planta': 'Planta / Projeto Aprovado',
+    'escritura': 'Escritura Pública / Contrato',
+    'fotos': 'Relatório Fotográfico do Imóvel',
+    'habite_se': 'Habite-se / Auto de Conclusão de Obra',
+    'geo_rural': 'Georreferenciamento (SIGEF / INCRA)',
+    'geo_sigef': 'Certificado SIGEF',
+    'ccir': 'CCIR — Certificado de Cadastro de Imóvel Rural',
+    'itr': 'ITR — Imposto Territorial Rural',
+    'car': 'CAR — Cadastro Ambiental Rural',
+    'nirf': 'NIRF / CIB — Cadastro do Imóvel na Receita Federal',
+    'cib': 'CIB — Cadastro Imobiliário Brasileiro',
+    'certidoes': 'Certidões Negativas (débitos e ônus)',
+    'onus_reais': 'Certidão de Ônus Reais',
+    'bci': 'BCI — Boletim de Cadastro Imobiliário',
+    'memorial': 'Memorial Descritivo',
+    'patologia': 'Laudo de Patologia das Construções',
+    'art_trt': 'ART / TRT — Responsabilidade Técnica',
+    'licenca_ambiental': 'Licença Ambiental',
+    'valor_venal': 'Certidão de Valor Venal',
+    'outros_docs': 'Outros Documentos',
+}
+
+
+def _doc_label(d):
+    k = str(d or '').strip()
+    return DOCUMENTO_LABELS.get(k) or DOCUMENTO_LABELS.get(k.lower()) or k
+
+
 _MESES_PT = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
              'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
 
@@ -877,7 +909,7 @@ def build_story(ptam, page_map):
     docs_scan = ptam.get('fotos_documentos') or []
     if docs_analisados:
         st += subsec('Documentos Analisados')
-        linhas_doc = [[str(i), _txt(d)] for i, d in enumerate(docs_analisados, 1)]
+        linhas_doc = [[str(i), _doc_label(d)] for i, d in enumerate(docs_analisados, 1)]
         st.append(tbl_header(['Nº', 'Documento'], linhas_doc, [1.4 * cm, UTIL_W - 1.4 * cm]))
         st.append(Spacer(1, 8))
     else:
