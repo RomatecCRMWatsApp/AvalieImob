@@ -47,3 +47,5 @@ num2words>=0.5.13
 # ── OCR do overlay de GPS/data das fotos (Tesseract instalado no Dockerfile) ──
 pytesseract>=0.3.10
 Pillow>=10.0.0
+# ── Conversão PDF→TIFF 300 DPI dos documentos (PyMuPDF puro, sem deps de sistema) ──
+PyMuPDF==1.24.5
