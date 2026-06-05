@@ -108,3 +108,9 @@ def html_para_blocks(texto):
     conv.feed(s)
     conv.close()
     return conv.blocks
+
+
+def html_to_inline(texto):
+    """Converte HTML (ou texto puro) em UMA string com markup inline do reportlab
+    (blocos separados por <br/>). Útil para células de tabela / campos curtos."""
+    return "<br/>".join(b["markup"] for b in html_para_blocks(texto) if b["markup"])

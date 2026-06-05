@@ -1,8 +1,8 @@
 // @module ptam/steps/StepRegiao — Step 4: Caracterização da Região (zoneamento, infraestrutura, mercado)
 import React from 'react';
-import { Textarea } from '../../../ui/textarea';
 import { SectionHeader, AiButton } from '../shared/primitives';
 import { SelectZoneamento } from '../../../common/SelectZoneamento';
+import RichField from '../../../ui/RichField';
 
 const REGION_FIELDS = [
   { key: 'regiao_infraestrutura',    label: 'Infraestrutura Urbana', placeholder: 'Pavimentação, iluminação, calçadas, drenagem pluvial...' },
@@ -38,12 +38,7 @@ export const StepRegiao = ({ form, setForm, onAi, aiLoading }) => (
       {REGION_FIELDS.map((f) => (
         <div key={f.key}>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">{f.label}</label>
-          <Textarea
-            value={form[f.key] || ''}
-            onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
-            rows={3}
-            placeholder={f.placeholder}
-          />
+          <RichField form={form} setForm={setForm} field={f.key} placeholder={f.placeholder} minHeight={90} />
           <div className="mt-1 flex justify-end">
             <AiButton onClick={() => onAi(f.key)} loading={aiLoading === f.key} />
           </div>

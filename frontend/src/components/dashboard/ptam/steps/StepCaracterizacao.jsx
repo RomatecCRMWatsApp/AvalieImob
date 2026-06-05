@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Field, SectionHeader, AiButton } from '../shared/primitives';
 import { AreaConsideradaSelector } from '../shared/AreaConsideradaSelector';
 import { AreaResumoPanel } from '../shared/AreaResumoPanel';
+import RichField from '../../../ui/RichField';
 
 export const StepCaracterizacao = ({ form, setForm, onAi, aiLoading }) => (
   <div>
@@ -83,12 +84,8 @@ export const StepCaracterizacao = ({ form, setForm, onAi, aiLoading }) => (
         </Select>
       </Field>
       <Field label="Características adicionais / benfeitorias" full>
-        <Textarea
-          value={form.imovel_caracteristicas_adicionais || ''}
-          onChange={(e) => setForm({ ...form, imovel_caracteristicas_adicionais: e.target.value })}
-          rows={4}
-          placeholder="Descreva acabamentos, instalações, reformas, itens diferenciados..."
-        />
+        <RichField form={form} setForm={setForm} field="imovel_caracteristicas_adicionais" minHeight={100}
+          placeholder="Descreva acabamentos, instalações, reformas, itens diferenciados..." />
         <div className="mt-1 flex justify-end">
           <AiButton onClick={() => onAi('imovel_caracteristicas_adicionais')} loading={aiLoading === 'imovel_caracteristicas_adicionais'} />
         </div>

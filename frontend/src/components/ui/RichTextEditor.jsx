@@ -70,15 +70,19 @@ export default function RichTextEditor({
   const [activeCmd, setActiveCmd] = useState({});
   const isInitRef  = useRef(false);
 
-  // ── inicializa conteúdo sem sobrescrever cursor ────────────────
+  // ── inicializa / re-sincroniza conteúdo sem sobrescrever cursor ──
+  // Re-sincroniza quando o valor muda EXTERNAMENTE (ex.: botão IA) e o
+  // editor não está focado — durante a digitação não sobrescreve.
   useEffect(() => {
     const el = editorRef.current;
     if (!el) return;
     if (!isInitRef.current) {
       el.innerHTML = value || "";
       isInitRef.current = true;
+    } else if (!focused && (value || "") !== el.innerHTML) {
+      el.innerHTML = value || "";
     }
-  }, [value]);
+  }, [value, focused]);
 
   // ── atualiza estado dos botões ao selecionar ───────────────────
   const updateActiveState = useCallback(() => {

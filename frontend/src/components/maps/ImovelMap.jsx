@@ -41,7 +41,12 @@ const ImovelMap = ({ endereco, lat, lng, height = 280 }) => {
   useEffect(() => {
     setGeocodeFailed(false);
     if (lat && lng) {
-      setCoords({ lat: parseFloat(lat), lng: parseFloat(lng) });
+      const la = parseFloat(lat);
+      const ln = parseFloat(lng);
+      // Valida coordenadas dentro do território brasileiro antes de centralizar.
+      if (!isNaN(la) && !isNaN(ln) && la >= -33.8 && la <= 5.3 && ln >= -73.9 && ln <= -34.7) {
+        setCoords({ lat: la, lng: ln });
+      }
       return;
     }
     if (!endereco || endereco.trim().length < 10) return;
@@ -99,6 +104,14 @@ const ImovelMap = ({ endereco, lat, lng, height = 280 }) => {
           .openPopup();
       }
     }
+    // FIX: o container passa de altura 0 -> height; o Leaflet precisa remedir e
+    // re-centralizar, senão o mapa fica em branco ou descentralizado.
+    setTimeout(() => {
+      if (mapInstance.current) {
+        mapInstance.current.invalidateSize();
+        mapInstance.current.setView([coords.lat, coords.lng], zoom, { animate: false });
+      }
+    }, 150);
     return () => {};
   }, [coords, endereco, geocodeFailed]);
 

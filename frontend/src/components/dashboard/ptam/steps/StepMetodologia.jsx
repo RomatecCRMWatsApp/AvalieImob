@@ -1,8 +1,8 @@
 // @module ptam/steps/StepMetodologia — Step 7: Metodologia (método avaliativo ABNT NBR 14653)
 import React from 'react';
-import { Textarea } from '../../../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
 import { SectionHeader, AiButton } from '../shared/primitives';
+import RichField from '../../../ui/RichField';
 
 export const StepMetodologia = ({ form, setForm, onAi, aiLoading }) => (
   <div>
@@ -26,12 +26,8 @@ export const StepMetodologia = ({ form, setForm, onAi, aiLoading }) => (
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1.5">Justificativa e fundamentação do método</label>
-        <Textarea
-          value={form.methodology_justification || ''}
-          onChange={(e) => setForm({ ...form, methodology_justification: e.target.value })}
-          rows={6}
-          placeholder="Justifique tecnicamente a escolha do método conforme as características do imóvel e disponibilidade de dados..."
-        />
+        <RichField form={form} setForm={setForm} field="methodology_justification" minHeight={130}
+          placeholder="Justifique tecnicamente a escolha do método conforme as características do imóvel e disponibilidade de dados..." />
         <div className="mt-1 flex justify-end">
           <AiButton onClick={() => onAi('methodology_justification')} loading={aiLoading === 'methodology_justification'} />
         </div>

@@ -4,6 +4,7 @@ import { Input } from '../../../ui/input';
 import { Textarea } from '../../../ui/textarea';
 import { ChevronDown, Check } from 'lucide-react';
 import { Field, SectionHeader, AiButton } from '../shared/primitives';
+import RichField from '../../../ui/RichField';
 
 const FINALIDADES_JUDICIAIS = new Set([
   'judicial_partilha', 'judicial_desapropriacao', 'judicial_indenizacao',
@@ -200,12 +201,8 @@ export const StepObjetivo = ({ form, setForm, onAi, aiLoading }) => {
           </Field>
         )}
         <Field label="Descrição do objetivo" full>
-          <Textarea
-            value={form.purpose}
-            onChange={(e) => setForm({ ...form, purpose: e.target.value })}
-            rows={4}
-            placeholder="Descreva o objetivo da avaliação de forma técnica..."
-          />
+          <RichField form={form} setForm={setForm} field="purpose" minHeight={100}
+            placeholder="Descreva o objetivo da avaliação de forma técnica..." />
           <div className="mt-1 flex justify-end">
             <AiButton onClick={() => onAi('purpose')} loading={aiLoading === 'purpose'} />
           </div>

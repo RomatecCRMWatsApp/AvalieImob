@@ -6,6 +6,7 @@ import { computeStatsNBR } from '../ptamHelpers';
 import { AlertTriangle, CheckCircle, Info } from 'lucide-react';
 import MetodoEvolutivo from '../MetodoEvolutivo';
 import { ResumoArea } from '../shared/ResumoArea';
+import RichField from '../../../ui/RichField';
 
 const fmtBRL = (v) =>
   Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -438,12 +439,8 @@ export const StepCalculos = ({ form, setForm, onAi, aiLoading }) => {
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
               Fatores de Homogeneização aplicados
             </label>
-            <Textarea
-              value={form.calc_fatores_homogeneizacao || ''}
-              onChange={(e) => setForm({ ...form, calc_fatores_homogeneizacao: e.target.value })}
-              rows={3}
-              placeholder="Descreva os fatores aplicados: localização, área, padrão construtivo, etc."
-            />
+            <RichField form={form} setForm={setForm} field="calc_fatores_homogeneizacao" minHeight={90}
+              placeholder="Descreva os fatores aplicados: localização, área, padrão construtivo, etc." />
             <div className="mt-1 flex justify-end">
               <AiButton
                 onClick={() => onAi('calc_fatores_homogeneizacao')}
@@ -456,12 +453,8 @@ export const StepCalculos = ({ form, setForm, onAi, aiLoading }) => {
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
               Observações sobre os cálculos
             </label>
-            <Textarea
-              value={form.calc_observacoes || ''}
-              onChange={(e) => setForm({ ...form, calc_observacoes: e.target.value })}
-              rows={3}
-              placeholder="Outliers descartados, ajustes realizados, limitações dos dados..."
-            />
+            <RichField form={form} setForm={setForm} field="calc_observacoes" minHeight={90}
+              placeholder="Outliers descartados, ajustes realizados, limitações dos dados..." />
             <div className="mt-1 flex justify-end">
               <AiButton
                 onClick={() => onAi('calc_observacoes')}

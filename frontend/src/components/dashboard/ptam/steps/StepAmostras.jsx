@@ -8,6 +8,7 @@ import { SectionHeader, AiButton } from '../shared/primitives';
 import { emptyMarketSample, computeStatsNBR } from '../ptamHelpers';
 import ImageUploader from '../ImageUploader';
 import { BuscaAmostras } from '../BuscaAmostras';
+import RichField from '../../../ui/RichField';
 import {
   amostraCategoria,
   isRuralImovel,
@@ -493,12 +494,8 @@ export const StepAmostras = ({ form, setForm, onAi, aiLoading }) => {
 
       <div className="mt-6">
         <label className="block text-sm font-medium text-gray-700 mb-1.5">Análise de mercado (texto descritivo)</label>
-        <Textarea
-          value={form.market_analysis || ''}
-          onChange={(e) => setForm({ ...form, market_analysis: e.target.value })}
-          rows={4}
-          placeholder="Descreva o comportamento do mercado imobiliário local, oferta, demanda, liquidez..."
-        />
+        <RichField form={form} setForm={setForm} field="market_analysis" minHeight={110}
+          placeholder="Descreva o comportamento do mercado imobiliário local, oferta, demanda, liquidez..." />
         <div className="mt-1 flex justify-end">
           <AiButton onClick={() => onAi('market_analysis')} loading={aiLoading === 'market_analysis'} />
         </div>

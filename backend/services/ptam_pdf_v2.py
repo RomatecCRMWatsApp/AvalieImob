@@ -24,7 +24,7 @@ from reportlab.lib.utils import ImageReader
 from utils.extenso import valor_por_extenso
 from utils.avaliador import resolver_dados_avaliador, formata_doc, cpf_solicitante
 from utils.texto_ia import limpar_texto_ia
-from utils.html_render import html_para_blocks
+from utils.html_render import html_para_blocks, html_to_inline
 
 logger = logging.getLogger("romatec")
 
@@ -920,12 +920,12 @@ def build_story(ptam, page_map):
     st.append(PageBreak())
     st += sec('4. CONTEXTO URBANO / ANÁLISE DA REGIÃO', 'sec4')
     dados4 = [
-        ('Zoneamento', limpar_texto_ia(ptam.get('zoneamento'))),
-        ('Padrão Construtivo', limpar_texto_ia(ptam.get('regiao_padrao_construtivo'))),
-        ('Tendência de Mercado', limpar_texto_ia(ptam.get('regiao_tendencia_mercado'))),
-        ('Uso Predominante', limpar_texto_ia(ptam.get('regiao_uso_predominante'))),
-        ('Infraestrutura', limpar_texto_ia(ptam.get('regiao_infraestrutura'))),
-        ('Serviços Públicos', limpar_texto_ia(ptam.get('regiao_servicos_publicos'))),
+        ('Zoneamento', html_to_inline(limpar_texto_ia(ptam.get('zoneamento')))),
+        ('Padrão Construtivo', html_to_inline(limpar_texto_ia(ptam.get('regiao_padrao_construtivo')))),
+        ('Tendência de Mercado', html_to_inline(limpar_texto_ia(ptam.get('regiao_tendencia_mercado')))),
+        ('Uso Predominante', html_to_inline(limpar_texto_ia(ptam.get('regiao_uso_predominante')))),
+        ('Infraestrutura', html_to_inline(limpar_texto_ia(ptam.get('regiao_infraestrutura')))),
+        ('Serviços Públicos', html_to_inline(limpar_texto_ia(ptam.get('regiao_servicos_publicos')))),
     ]
     dados4 = [(lb, vl) for lb, vl in dados4 if vl not in (None, '')]
     st.append(tbl(dados4 or [('Observações', ptam.get('regiao_observacoes'))]))
@@ -934,7 +934,7 @@ def build_story(ptam, page_map):
     st.append(PageBreak())
     st += sec('5. ANÁLISE MERCADOLÓGICA E AMOSTRAS', 'sec5')
     if ptam.get('market_analysis'):
-        st.append(Paragraph(_txt(limpar_texto_ia(ptam.get('market_analysis'))), sBody))
+        st.append(Paragraph(_txt(html_to_inline(limpar_texto_ia(ptam.get('market_analysis')))), sBody))
         st.append(Spacer(1, 6))
     if amostras:
         for i, a in enumerate(amostras, 1):
@@ -949,7 +949,7 @@ def build_story(ptam, page_map):
     st.append(tbl([
         ('Método Utilizado', ptam.get('methodology') or 'Método Comparativo Direto de Dados de Mercado'),
         ('Norma', 'NBR 14653-1:2001 (item 8.2) e NBR 14653-2:2011 (item 8.2.1)'),
-        ('Tratamento', limpar_texto_ia(ptam.get('methodology_justification')) or 'Média ponderada com peso igualitário (1/N)'),
+        ('Tratamento', html_to_inline(limpar_texto_ia(ptam.get('methodology_justification'))) or 'Média ponderada com peso igualitário (1/N)'),
         ('Grau de Fundamentação', ptam.get('calc_grau_fundamentacao') or ptam.get('fundamentacao_grau')),
         ('Saneamento', 'Eliminação de outliers ±10% da média'),
     ]))

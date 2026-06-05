@@ -6,6 +6,7 @@ import { Textarea } from '../../../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
 import { Field, SectionHeader, AiButton } from '../shared/primitives';
 import AssinaturaDigital from '../AssinaturaDigital';
+import RichField from '../../../ui/RichField';
 
 const CONCLUSION_FIELDS = [
   { key: 'consideracoes_ressalvas',    label: 'Ressalvas e Limitações',       placeholder: 'Fatores limitantes da avaliação, dados não disponíveis, restrições à vistoria...' },
@@ -36,12 +37,7 @@ export const StepConclusao = ({ form, setForm, onAi, aiLoading, onSolicitarAssin
         {CONCLUSION_FIELDS.map(({ key, label, placeholder }) => (
           <div key={key}>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
-            <Textarea
-              value={form[key] || ''}
-              onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-              rows={4}
-              placeholder={placeholder}
-            />
+            <RichField form={form} setForm={setForm} field={key} minHeight={100} placeholder={placeholder} />
             <div className="mt-1 flex justify-end">
               <AiButton onClick={() => onAi(key)} loading={aiLoading === key} />
             </div>

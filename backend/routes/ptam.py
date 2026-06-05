@@ -954,6 +954,13 @@ async def preview_ptam_pdf(body: dict, uid: str = Depends(get_active_subscriber)
         fotos_norm = []
         for i, foto in enumerate(doc.get("fotos_imovel") or [], 1):
             if isinstance(foto, dict):
+                # Objeto {image_id, legenda} (PhotoGrid): resolve os bytes da imagem.
+                if not foto.get("_image_bytes"):
+                    _fid = str(foto.get("image_id") or foto.get("url") or "").replace('/api/upload/image/', '').split('/')[-1]
+                    if len(_fid) > 30 and '-' in _fid:
+                        _fimg = await db.images.find_one({"id": _fid})
+                        if _fimg and _fimg.get("data_b64"):
+                            foto["_image_bytes"] = base64.b64decode(_fimg["data_b64"])
                 if not foto.get("legenda"):
                     foto["legenda"] = foto.get("description") or foto.get("caption") or f"Foto {i}"
                 fotos_norm.append(foto)
