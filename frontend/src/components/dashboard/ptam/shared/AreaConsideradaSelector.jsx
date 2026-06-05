@@ -11,10 +11,11 @@ function defaultUnidade(tipo) {
   return isRural(tipo) ? 'ha' : 'm2';
 }
 
-const OPCOES = ['terreno', 'construida', 'personalizada'];
+const OPCOES = ['terreno', 'construida', 'soma', 'personalizada'];
 const LABELS = {
   terreno: 'Área do terreno',
   construida: 'Área construída',
+  soma: 'Terreno + Construída',
   personalizada: 'Personalizada',
 };
 
@@ -63,6 +64,7 @@ export function AreaConsideradaSelector({ terrenoM2, construidaM2, tipoImovel, v
   useEffect(() => {
     if (opcao === 'terreno') onChange(Number(terrenoM2) || 0);
     if (opcao === 'construida') onChange(Number(construidaM2) || 0);
+    if (opcao === 'soma') onChange((Number(terrenoM2) || 0) + (Number(construidaM2) || 0));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [terrenoM2, construidaM2]);
 
@@ -71,6 +73,7 @@ export function AreaConsideradaSelector({ terrenoM2, construidaM2, tipoImovel, v
     setAutoApplied(false);
     if (op === 'terreno') onChange(Number(terrenoM2) || 0);
     if (op === 'construida') onChange(Number(construidaM2) || 0);
+    if (op === 'soma') onChange((Number(terrenoM2) || 0) + (Number(construidaM2) || 0));
     if (op === 'personalizada') {
       const num = parseFloat(String(customVal).replace(',', '.')) || 0;
       onChange(toM2(num, customUnit));
@@ -102,15 +105,16 @@ export function AreaConsideradaSelector({ terrenoM2, construidaM2, tipoImovel, v
         </p>
       )}
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {OPCOES.map((op) => {
           const selected = opcao === op;
+          const somaM2 = (Number(terrenoM2) || 0) + (Number(construidaM2) || 0);
           const v =
             op === 'personalizada'
-              ? selected
-                ? dispVal(value)
-                : '—'
-              : dispVal(op === 'terreno' ? terrenoM2 : construidaM2);
+              ? (selected ? dispVal(value) : '—')
+              : op === 'soma'
+                ? dispVal(somaM2)
+                : dispVal(op === 'terreno' ? terrenoM2 : construidaM2);
           return (
             <button
               key={op}

@@ -1,6 +1,6 @@
 // @module ptam/shared/AreaResumoPanel — Resumo dinâmico da área considerada
 // Input grande + toggle m²/ha + 3 boxes (m² / hectares / alqueires mineiros) atualizados em tempo real.
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Info } from 'lucide-react';
 import { M2_PER_HA, M2_PER_ALQ, toM2, fromM2, fmtBR } from '@/utils/areaConversao';
 import { isRural } from './RuralDocSection';
@@ -15,28 +15,26 @@ export function AreaResumoPanel({ value, onChange, tipoImovel }) {
   const rural = isRural(tipoImovel);
   const defaultUnit = rural ? 'ha' : 'm2';
   const [unit, setUnit] = useState(defaultUnit);
+  const [focused, setFocused] = useState(false);
   const [raw, setRaw] = useState(
     Number(value) > 0 ? fmtBR(fromM2(value, defaultUnit), defaultUnit === 'ha' ? 6 : 2) : ''
   );
 
-  // Reflete alterações externas do value (ex.: vindas do AreaConsideradaSelector) no input.
-  const lastEmitted = useRef(value);
+  // Mantém o input sincronizado com o value (ex.: vindo da opção "Personalizada"
+  // ou "Soma" do seletor) sempre que NÃO está sendo digitado. Corrige o painel
+  // mostrar 0 enquanto o valor real existe.
   useEffect(() => {
-    if (Number(value) === Number(lastEmitted.current)) return;
-    lastEmitted.current = value;
+    if (focused) return;
     setRaw(Number(value) > 0 ? fmtBR(fromM2(value, unit), unit === 'ha' ? 6 : 2) : '');
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
+  }, [value, unit, focused]);
 
   function handleInput(v) {
     setRaw(v);
     const num = parseFloat(String(v).replace(',', '.'));
     if (!isNaN(num) && num >= 0) {
-      const m2 = toM2(num, unit);
-      lastEmitted.current = m2;
-      onChange(m2);
+      onChange(toM2(num, unit));
     } else if (v === '') {
-      lastEmitted.current = 0;
       onChange(0);
     }
   }
@@ -89,6 +87,8 @@ export function AreaResumoPanel({ value, onChange, tipoImovel }) {
             placeholder="0"
             value={raw}
             onChange={(e) => handleInput(e.target.value)}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
             className="w-full bg-transparent border-none outline-none text-2xl font-medium text-gray-900 leading-tight placeholder:text-gray-300"
           />
         </div>
