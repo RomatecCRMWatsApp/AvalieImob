@@ -898,6 +898,26 @@ def build_story(ptam, page_map):
         ('Cartório', ptam.get('property_cartorio')),
         ('Cidade/UF', f"{_txt(ptam.get('property_city'), '')} — {_txt(ptam.get('property_state'), '')}"),
     ]))
+    # Áreas adicionais (quando informadas)
+    _areas_extra = []
+    if ptam.get('property_area_sqm'):
+        _areas_extra.append(('Área Total (m²)', fmt_area(ptam.get('property_area_sqm'))))
+    if ptam.get('property_area_ha'):
+        _areas_extra.append(('Área (hectares)', f"{_txt(ptam.get('property_area_ha'))} ha"))
+    if _areas_extra:
+        st.append(tbl(_areas_extra))
+    # Descrição Geral do Imóvel (texto livre da matrícula) — íntegra.
+    _desc = html_to_inline(limpar_texto_ia(ptam.get('property_description')))
+    if _desc:
+        st.append(Spacer(1, 8))
+        st += subsec('Descrição Geral do Imóvel')
+        st.append(Paragraph(_desc, sBody))
+    # Confrontações / Limites
+    _conf = html_to_inline(limpar_texto_ia(ptam.get('property_confrontations')))
+    if _conf:
+        st.append(Spacer(1, 6))
+        st += subsec('Confrontações / Limites')
+        st.append(Paragraph(_conf, sBody))
     props = [p for p in (ptam.get('proprietarios') or []) if isinstance(p, dict) and p.get('nome')]
     if props:
         st.append(Spacer(1, 8))
@@ -914,6 +934,12 @@ def build_story(ptam, page_map):
         ('Idade Aproximada', f"{ptam.get('imovel_idade')} anos" if ptam.get('imovel_idade') else '—'),
         ('Estado de Conservação', ptam.get('imovel_estado_conservacao')),
         ('Padrão de Acabamento', ptam.get('imovel_padrao_acabamento')),
+        ('Nº de Quartos', _txt(ptam.get('imovel_num_quartos'))),
+        ('Nº de Banheiros', _txt(ptam.get('imovel_num_banheiros'))),
+        ('Vagas de Garagem', _txt(ptam.get('imovel_num_vagas'))),
+        ('Piscina', 'Sim' if ptam.get('imovel_piscina') else 'Não'),
+        ('Características Adicionais / Benfeitorias',
+         html_to_inline(limpar_texto_ia(ptam.get('imovel_caracteristicas_adicionais')))),
     ]))
 
     # ── 4. Contexto Urbano ──
@@ -926,9 +952,10 @@ def build_story(ptam, page_map):
         ('Uso Predominante', html_to_inline(limpar_texto_ia(ptam.get('regiao_uso_predominante')))),
         ('Infraestrutura', html_to_inline(limpar_texto_ia(ptam.get('regiao_infraestrutura')))),
         ('Serviços Públicos', html_to_inline(limpar_texto_ia(ptam.get('regiao_servicos_publicos')))),
+        ('Observações Complementares', html_to_inline(limpar_texto_ia(ptam.get('regiao_observacoes')))),
     ]
     dados4 = [(lb, vl) for lb, vl in dados4 if vl not in (None, '')]
-    st.append(tbl(dados4 or [('Observações', ptam.get('regiao_observacoes'))]))
+    st.append(tbl(dados4 or [('Observações', '—')]))
 
     # ── 5. Analise Mercadologica e Amostras ──
     st.append(PageBreak())
@@ -1007,6 +1034,17 @@ def build_story(ptam, page_map):
         ['Amostras dentro da faixa', str(len(_dentro))],
         ['Média Ponderada Final (R$/m²)', _num(_ponderada)],
     ], [9.0 * cm, UTIL_W - 9.0 * cm], bold_last=True))
+    # Fatores de homogeneização + observações dos cálculos (texto do avaliador).
+    _fat = html_to_inline(limpar_texto_ia(ptam.get('calc_fatores_homogeneizacao')))
+    if _fat:
+        st.append(Spacer(1, 6))
+        st += subsec('Fatores de Homogeneização Aplicados')
+        st.append(Paragraph(_fat, sBody))
+    _obs_calc = html_to_inline(limpar_texto_ia(ptam.get('calc_observacoes')))
+    if _obs_calc:
+        st.append(Spacer(1, 6))
+        st += subsec('Observações sobre os Cálculos')
+        st.append(Paragraph(_obs_calc, sBody))
 
     # ── 8. Resultado ──
     st.append(PageBreak())
