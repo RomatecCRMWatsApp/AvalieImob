@@ -24,7 +24,7 @@ from reportlab.lib.utils import ImageReader
 from utils.extenso import valor_por_extenso
 from utils.avaliador import resolver_dados_avaliador, formata_doc, cpf_solicitante
 from utils.texto_ia import limpar_texto_ia
-from utils.html_render import html_para_blocks, html_to_inline
+from utils.html_render import html_para_blocks, html_to_inline, html_to_plain
 
 logger = logging.getLogger("romatec")
 
@@ -257,8 +257,9 @@ def make_hf(ptam):
 def make_capa(ptam):
     num = _ptam_num(ptam)
     tipo = _txt(ptam.get('property_label') or ptam.get('property_type'), '')
-    finalidade = (ptam.get('finalidade_outros') or ptam.get('purpose')
-                  or ptam.get('finalidade') or '')
+    finalidade = html_to_plain(limpar_texto_ia(
+        ptam.get('finalidade_outros') or ptam.get('purpose')
+        or ptam.get('finalidade') or ''))
     cidade = _txt(ptam.get('conclusion_city') or ptam.get('property_city'), '')
     data = _txt(ptam.get('conclusion_date') or ptam.get('vistoria_date'), '')
 

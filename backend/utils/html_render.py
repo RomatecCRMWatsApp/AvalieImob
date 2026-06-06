@@ -8,8 +8,11 @@
 from __future__ import annotations
 
 import re
+from html import unescape  # resolve entidades HTML nomeadas (&eacute;, &ccedil;, ...)
 from html.parser import HTMLParser
 from xml.sax.saxutils import escape
+
+_TAG_RE = re.compile(r"<[^>]+>")
 
 # Tags inline → tag equivalente no reportlab
 _INLINE = {"b": "b", "strong": "b", "i": "i", "em": "i", "u": "u",
@@ -114,3 +117,23 @@ def html_to_inline(texto):
     """Converte HTML (ou texto puro) em UMA string com markup inline do reportlab
     (blocos separados por <br/>). Útil para células de tabela / campos curtos."""
     return "<br/>".join(b["markup"] for b in html_para_blocks(texto) if b["markup"])
+
+
+def html_to_plain(texto) -> str:
+    """Converte HTML (ou texto puro) em TEXTO PURO: sem tags, entidades resolvidas,
+    parágrafos/itens separados por quebra de linha. Use com canvas.drawString e
+    qualquer lugar que NÃO entenda markup (a capa do laudo, por exemplo)."""
+    if texto is None:
+        return ""
+    s = str(texto)
+    if not s.strip():
+        return ""
+    if not is_html(s):
+        return s.strip()
+    # quebras de bloco viram newline; <br> também
+    s = re.sub(r"(?i)<br\s*/?>", "\n", s)
+    s = re.sub(r"(?i)</(p|div|li|ul|ol|h[1-6]|tr)>", "\n", s)
+    s = _TAG_RE.sub("", s)        # remove todas as tags restantes
+    s = unescape(s)              # &amp; -> & ; &lt; -> < ; etc.
+    linhas = [re.sub(r"[ \t ]+", " ", ln).strip() for ln in s.split("\n")]
+    return "\n".join(ln for ln in linhas if ln)
