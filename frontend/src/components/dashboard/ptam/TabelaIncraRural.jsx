@@ -5,10 +5,25 @@ import React, { useEffect, useState } from 'react';
 import { incraAPI } from '@/lib/api';
 import { getFaixaMatch, faixaContemMedia } from '@/utils/incraFaixa';
 
-const fmtHa = (v) =>
-  Number(v || 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 });
+// Valor exato (sem arredondar): inteiro sem casas; mantém 2 casas se houver decimais.
+const fmtHa = (v) => {
+  const n = Number(v || 0);
+  return n % 1 === 0
+    ? n.toLocaleString('pt-BR', { maximumFractionDigits: 0 })
+    : n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
 const fmtBRL = (v) =>
   Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+// Nota técnica padrão (RAMT-MA) — usada quando a tabela não traz notas próprias.
+const NOTAS_PADRAO =
+  '(1) VTI = Valor Total do Imóvel (inclui benfeitorias); para obter VTN deduzir benfeitorias ' +
+  'conforme laudo de vistoria. (2) Faixas mín/máx estimadas pelo perito aplicando ±30% sobre a ' +
+  'média amostral, conforme metodologia INCRA PPR. (3) Atualização monetária obrigatória via ' +
+  'IPCA-E entre data-base jul/2022 e data da avaliação (NBR 14653-3, item 8.2.1). (4) Dados de ' +
+  'pesquisa primária do avaliador devem complementar e prevalecer sobre os referenciais do RAMT ' +
+  'quando disponíveis (NBR 14653-3, item 8.1). (5) Fonte: INCRA/SR-21-MA — RAMT-MA 2022, ' +
+  'SEI n.º 15897588 / PPR SR(MA) 15854957.';
 
 function Card({ label, value }) {
   return (
@@ -129,12 +144,10 @@ export default function TabelaIncraRural({ mediaAvaliacaoHa = 0, municipio, regi
         </div>
       )}
 
-      {/* Notas técnicas */}
-      {tabela.notas && (
-        <div className="border-t border-gray-100 px-4 py-2.5 text-[11px] text-gray-500 leading-relaxed bg-gray-50">
-          <span className="font-semibold text-gray-600">Notas técnicas: </span>{tabela.notas}
-        </div>
-      )}
+      {/* Notas técnicas (da tabela; se não houver, usa a nota padrão RAMT) */}
+      <div className="border-t border-gray-100 px-4 py-2.5 text-[11px] text-gray-500 leading-relaxed bg-gray-50">
+        <span className="font-semibold text-gray-600">Notas técnicas: </span>{tabela.notas || NOTAS_PADRAO}
+      </div>
     </div>
   );
 }

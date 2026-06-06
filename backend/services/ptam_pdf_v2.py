@@ -704,10 +704,14 @@ def subsec(texto, ancora=None):
 
 def tbl(dados, cw=None):
     cw = cw or [5.0 * cm, UTIL_W - 5.0 * cm]
+    # Label (1ª coluna) como Paragraph branco/negrito → quebra a linha em vez de cortar o texto.
+    _sLbl = ParagraphStyle('tblLbl', fontName='Helvetica-Bold', fontSize=9,
+                           textColor=BRANCO, leading=11)
     # FIX 3: valor com >80 chars é justificado; curto fica à esquerda.
-    linhas = [[lb, Paragraph(_txt(vl), sCellJ if len(_txt(vl)) > 80 else sCell)] for lb, vl in dados]
+    linhas = [[Paragraph(_esc_xml(_txt(lb)), _sLbl),
+               Paragraph(_txt(vl), sCellJ if len(_txt(vl)) > 80 else sCell)] for lb, vl in dados]
     if not linhas:
-        linhas = [["—", Paragraph("—", sCell)]]
+        linhas = [[Paragraph("—", _sLbl), Paragraph("—", sCell)]]
     t = Table(linhas, colWidths=cw)
     style = TableStyle([
         ('BACKGROUND', (0, 0), (0, -1), VERDE),
@@ -758,6 +762,18 @@ VERM_FAIXA = HexColor('#FFCDD2')
 VERM_TEXTO = HexColor('#C62828')
 
 
+# Nota técnica padrão (RAMT-MA) — usada quando a tabela não traz notas próprias.
+_INCRA_NOTAS_PADRAO = (
+    "(1) VTI = Valor Total do Imóvel (inclui benfeitorias); para obter VTN deduzir benfeitorias "
+    "conforme laudo de vistoria. (2) Faixas mín/máx estimadas pelo perito aplicando ±30% sobre a "
+    "média amostral, conforme metodologia INCRA PPR. (3) Atualização monetária obrigatória via "
+    "IPCA-E entre data-base jul/2022 e data da avaliação (NBR 14653-3, item 8.2.1). (4) Dados de "
+    "pesquisa primária do avaliador devem complementar e prevalecer sobre os referenciais do RAMT "
+    "quando disponíveis (NBR 14653-3, item 8.1). (5) Fonte: INCRA/SR-21-MA — RAMT-MA 2022, "
+    "SEI n.º 15897588 / PPR SR(MA) 15854957."
+)
+
+
 def _incra_faixa_match(faixas, media_ha):
     """(índice, dentro) — faixa onde vr_min<=media<=vr_max; senão a mais próxima."""
     lista = faixas or []
@@ -791,7 +807,16 @@ def incra_section(ptam, media_ha):
         out.append(Spacer(1, 8))
         return out
     idx, dentro = _incra_faixa_match(faixas, media_ha)
-    _milhar = lambda v: f"{int(round(float(v or 0))):,}".replace(',', '.')
+
+    def _milhar(v):
+        # Valor exato (sem arredondar): inteiro com milhar; mantém decimais se houver.
+        try:
+            n = float(v)
+        except (TypeError, ValueError):
+            return '—'
+        if n == int(n):
+            return f"{int(n):,}".replace(',', '.')
+        return f"{n:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
     _sCard = ParagraphStyle('incraCard', fontName='Helvetica', fontSize=7.5, leading=9, textColor=PRETO)
     _sCellL = ParagraphStyle('incraCellL', fontName='Helvetica', fontSize=8, leading=10)
     _sHd = ParagraphStyle('incraHd', fontName='Helvetica-Bold', fontSize=7.5, leading=9,
@@ -892,8 +917,8 @@ def incra_section(ptam, media_ha):
         ]))
         out.append(ft_tbl)
 
-    # Notas técnicas
-    _notas = limpar_texto_ia(tab.get('notas')) if tab.get('notas') else ''
+    # Notas técnicas (usa as da tabela; se não houver, aplica a nota padrão RAMT).
+    _notas = limpar_texto_ia(tab.get('notas')) if tab.get('notas') else _INCRA_NOTAS_PADRAO
     if _notas:
         out.append(Spacer(1, 4))
         out.append(Paragraph(f"<b>Notas técnicas:</b> {_esc_xml(_notas)}",
