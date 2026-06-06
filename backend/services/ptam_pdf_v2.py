@@ -934,15 +934,21 @@ def build_story(ptam, page_map):
     # ── 3. Identificacao do Imovel ──
     st.append(PageBreak())
     st += sec('3. IDENTIFICAÇÃO DO IMÓVEL', 'sec3')
-    st.append(tbl([
+    _cidade_uf = ' — '.join(x for x in [
+        _txt(ptam.get('property_city'), ''), _txt(ptam.get('property_state'), '')
+    ] if x)
+    _ident_rows = [
         ('Tipo', ptam.get('property_type')),
         ('Endereço', ptam.get('property_address')),
         ('Bairro', ptam.get('property_neighborhood')),
         ('CEP', ptam.get('property_cep')),
         ('Matrícula', ptam.get('property_matricula')),
         ('Cartório', ptam.get('property_cartorio')),
-        ('Cidade/UF', f"{_txt(ptam.get('property_city'), '')} — {_txt(ptam.get('property_state'), '')}"),
-    ]))
+        ('Cidade/UF', _cidade_uf),
+    ]
+    # Linhas vazias (ex.: Bairro em imóvel rural) não vão ao laudo.
+    _ident_rows = [(lb, _txt(vl)) for lb, vl in _ident_rows if _preenchido(vl)]
+    st.append(tbl(_ident_rows or [('Identificação', 'Não informada')]))
     # Áreas adicionais (quando informadas)
     _areas_extra = []
     if ptam.get('property_area_sqm'):
