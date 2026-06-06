@@ -90,17 +90,40 @@ export default function AdminIncra() {
     }
   };
 
+  const inserirExemplo = async () => {
+    setMsg(null);
+    try {
+      const r = await incraAPI.seedExemplo();
+      setMsg({
+        tipo: 'ok',
+        txt: r?.ja_existia
+          ? 'A tabela de exemplo já estava cadastrada.'
+          : 'Tabela de EXEMPLO inserida — abra um laudo rural para ver a seção. Lembre de substituir pelos valores oficiais.',
+      });
+      carregar();
+    } catch (e) {
+      const detail = e?.response?.data?.detail || 'Erro ao inserir exemplo.';
+      setMsg({ tipo: 'erro', txt: typeof detail === 'string' ? detail : 'Erro ao inserir exemplo.' });
+    }
+  };
+
   const inputCls =
     'w-full h-9 rounded-md border border-gray-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500';
 
   return (
     <div className="max-w-5xl mx-auto p-4 space-y-6">
-      <div>
-        <h1 className="text-xl font-bold text-gray-900">Tabelas INCRA — Valores de Terra Nua</h1>
-        <p className="text-sm text-gray-500">
-          Cadastre as tabelas publicadas pelo INCRA. A mais recente por região/município é usada
-          automaticamente nos laudos rurais.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">Tabelas INCRA — Valores de Terra Nua</h1>
+          <p className="text-sm text-gray-500">
+            Cadastre as tabelas publicadas pelo INCRA. A mais recente por região/município é usada
+            automaticamente nos laudos rurais.
+          </p>
+        </div>
+        <button type="button" onClick={inserirExemplo}
+          className="shrink-0 text-xs font-medium text-emerald-700 border border-emerald-300 hover:bg-emerald-50 rounded-lg px-3 py-2">
+          Inserir tabela de exemplo
+        </button>
       </div>
 
       {msg && (

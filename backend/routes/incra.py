@@ -75,3 +75,37 @@ async def remover_tabela(tid: str, uid: str = Depends(get_admin_user), db=Depend
     if res.matched_count == 0:
         raise HTTPException(status_code=404, detail="Tabela não encontrada")
     return {"ok": True, "id": tid}
+
+
+@router.post("/incra/seed-exemplo")
+async def seed_exemplo(uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    """Insere uma tabela INCRA de EXEMPLO (para testar o visual). Idempotente.
+    Valores fictícios — substituir pela tabela oficial depois."""
+    import uuid as _uuid
+    from datetime import datetime as _dt
+    regiao = "Sudoeste Maranhense / Imperatriz - MA"
+    vigencia = "Jan/2025"
+    existe = await db.incra_tabelas.find_one({"regiao": regiao, "vigencia": vigencia, "ativo": True})
+    if existe:
+        return {"ok": True, "ja_existia": True, "id": existe.get("id")}
+    tabela = {
+        "id": str(_uuid.uuid4()),
+        "regiao": regiao,
+        "municipio": "Açailândia",
+        "ano": 2025,
+        "mes": 1,
+        "vigencia": vigencia,
+        "fonte": "INCRA/SR-26/MA — VALORES DE EXEMPLO (substituir pela tabela oficial)",
+        "faixas": [
+            {"faixa": "Lavoura — aptidão boa", "vr_min": 18000.0, "vr_max": 28000.0, "vr_medio": 23000.0},
+            {"faixa": "Lavoura — aptidão regular/restrita", "vr_min": 12000.0, "vr_max": 18000.0, "vr_medio": 15000.0},
+            {"faixa": "Pastagem plantada", "vr_min": 8000.0, "vr_max": 12000.0, "vr_medio": 10000.0},
+            {"faixa": "Pastagem natural", "vr_min": 5000.0, "vr_max": 8000.0, "vr_medio": 6500.0},
+            {"faixa": "Preservação / Reserva Legal", "vr_min": 2500.0, "vr_max": 5000.0, "vr_medio": 3750.0},
+        ],
+        "user_id": uid,
+        "ativo": True,
+        "created_at": _dt.utcnow(),
+    }
+    await db.incra_tabelas.insert_one(tabela)
+    return serialize_doc(tabela)
