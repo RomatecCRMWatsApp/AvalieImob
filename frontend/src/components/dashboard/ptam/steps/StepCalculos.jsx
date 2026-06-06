@@ -6,6 +6,8 @@ import { computeStatsNBR } from '../ptamHelpers';
 import { AlertTriangle, CheckCircle, Info } from 'lucide-react';
 import MetodoEvolutivo from '../MetodoEvolutivo';
 import { ResumoArea } from '../shared/ResumoArea';
+import { isRural } from '../shared/RuralDocSection';
+import { M2_PER_HA, fmtBR } from '@/utils/areaConversao';
 import RichField from '../../../ui/RichField';
 
 const fmtBRL = (v) =>
@@ -42,6 +44,17 @@ export const StepCalculos = ({ form, setForm, onAi, aiLoading }) => {
   // Detecta se metodologia inclui evolutivo
   const isEvolutivo = (form.methodology || '').toLowerCase().includes('evolutivo');
   const [activeTab, setActiveTab] = useState(isEvolutivo ? 'evolutivo' : 'comparativo');
+
+  // ── Apresentação rural: valor unitário em R$/ha (R$/m² × 10.000), área em ha ──
+  // Internamente tudo permanece em m² / R$/m². Estes helpers só convertem na exibição.
+  const rural = isRural(form.property_type);
+  const VU = rural ? '/ha' : '/m²';
+  const vConv = (vM2) => (rural ? (Number(vM2) || 0) * M2_PER_HA : (Number(vM2) || 0));
+  const vu = (vM2) => fmtBRL(vConv(vM2));        // valor unitário formatado (sem sufixo)
+  const vuU = (vM2) => vu(vM2) + VU;            // com sufixo /ha ou /m²
+  const vM2sec = (vM2) => fmtBRL(Number(vM2) || 0) + '/m²'; // referência secundária
+  const areaU = rural ? 'ha' : 'm²';
+  const areaDisp = (m2) => (rural ? fmtBR((Number(m2) || 0) / M2_PER_HA, 2) : fmtNum(m2));
 
   // Estado local para área a considerar
   const [areaInput, setAreaInput] = useState(form.imovel_area_a_considerar || '');
@@ -175,15 +188,15 @@ export const StepCalculos = ({ form, setForm, onAi, aiLoading }) => {
           <div className="grid grid-cols-3 gap-4 mb-4">
             <div className="text-center p-3 bg-gray-50 rounded-lg">
               <div className="text-xs text-gray-500 mb-1">Média Inicial</div>
-              <div className="text-lg font-semibold text-gray-800">{fmtBRL(stats.media_inicial)}/m²</div>
+              <div className="text-lg font-semibold text-gray-800">{vuU(stats.media_inicial)}</div>
             </div>
             <div className="text-center p-3 bg-red-50 rounded-lg border border-red-100">
               <div className="text-xs text-red-600 mb-1">Limite Inferior (-10%)</div>
-              <div className="text-lg font-semibold text-red-700">{fmtBRL(stats.limite_inf_saneamento)}/m²</div>
+              <div className="text-lg font-semibold text-red-700">{vuU(stats.limite_inf_saneamento)}</div>
             </div>
             <div className="text-center p-3 bg-red-50 rounded-lg border border-red-100">
               <div className="text-xs text-red-600 mb-1">Limite Superior (+10%)</div>
-              <div className="text-lg font-semibold text-red-700">{fmtBRL(stats.limite_sup_saneamento)}/m²</div>
+              <div className="text-lg font-semibold text-red-700">{vuU(stats.limite_sup_saneamento)}</div>
             </div>
           </div>
 
@@ -236,18 +249,19 @@ export const StepCalculos = ({ form, setForm, onAi, aiLoading }) => {
 
             <div className="text-center p-4 bg-emerald-50 rounded-lg border border-emerald-100">
               <div className="text-xs text-emerald-600 mb-1 uppercase tracking-wider">Média Final</div>
-              <div className="text-2xl font-bold text-emerald-800">{fmtBRL(stats.media_final)}/m²</div>
-              <div className="text-xs text-emerald-600 mt-1">Valor adotado base</div>
+              <div className="text-2xl font-bold text-emerald-800">{vuU(stats.media_final)}</div>
+              <div className="text-xs text-emerald-600 mt-1">{rural ? vM2sec(stats.media_final) : 'Valor adotado base'}</div>
             </div>
 
             <div className="text-center p-4 bg-blue-50 rounded-lg border border-blue-100">
               <div className="text-xs text-blue-600 mb-1 uppercase tracking-wider">Mediana</div>
-              <div className="text-2xl font-bold text-blue-800">{fmtBRL(stats.mediana)}/m²</div>
+              <div className="text-2xl font-bold text-blue-800">{vuU(stats.mediana)}</div>
+              {rural && <div className="text-xs text-blue-600 mt-1">{vM2sec(stats.mediana)}</div>}
             </div>
 
             <div className="text-center p-4 bg-gray-50 rounded-lg border border-gray-100">
               <div className="text-xs text-gray-500 mb-1 uppercase tracking-wider">Desvio Padrão</div>
-              <div className="text-xl font-bold text-gray-800">{fmtBRL(stats.desvio_padrao)}</div>
+              <div className="text-xl font-bold text-gray-800">{vu(stats.desvio_padrao)}</div>
               <div className="text-xs text-gray-400 mt-1">amostral (n-1)</div>
             </div>
 
@@ -260,7 +274,7 @@ export const StepCalculos = ({ form, setForm, onAi, aiLoading }) => {
             <div className="text-center p-4 bg-gray-50 rounded-lg border border-gray-100">
               <div className="text-xs text-gray-500 mb-1 uppercase tracking-wider">Intervalo PTAM</div>
               <div className="text-sm font-bold text-gray-800">±5% da média</div>
-              <div className="text-xs text-gray-400 mt-1">{fmtBRL(stats.limite_inf_ptam)} a {fmtBRL(stats.limite_sup_ptam)}</div>
+              <div className="text-xs text-gray-400 mt-1">{vu(stats.limite_inf_ptam)} a {vu(stats.limite_sup_ptam)}</div>
             </div>
           </div>
         </div>
@@ -274,19 +288,19 @@ export const StepCalculos = ({ form, setForm, onAi, aiLoading }) => {
           <div className="grid grid-cols-3 gap-6">
             <div className="text-center">
               <div className="text-xs text-emerald-300 mb-1">Limite Inferior</div>
-              <div className="text-xl font-bold text-white">{fmtBRL(stats.limite_inf_ptam)}/m²</div>
+              <div className="text-xl font-bold text-white">{vuU(stats.limite_inf_ptam)}</div>
               <div className="text-xs text-emerald-400 mt-1">-5%</div>
             </div>
 
             <div className="text-center bg-emerald-800 rounded-lg py-3">
               <div className="text-xs text-emerald-200 mb-1">Valor Adotado</div>
-              <div className="text-2xl font-bold text-white">{fmtBRL(stats.media_final)}/m²</div>
-              <div className="text-xs text-emerald-300 mt-1">Média final pós-saneamento</div>
+              <div className="text-2xl font-bold text-white">{vuU(stats.media_final)}</div>
+              <div className="text-xs text-emerald-300 mt-1">{rural ? vM2sec(stats.media_final) : 'Média final pós-saneamento'}</div>
             </div>
 
             <div className="text-center">
               <div className="text-xs text-emerald-300 mb-1">Limite Superior</div>
-              <div className="text-xl font-bold text-white">{fmtBRL(stats.limite_sup_ptam)}/m²</div>
+              <div className="text-xl font-bold text-white">{vuU(stats.limite_sup_ptam)}</div>
               <div className="text-xs text-emerald-400 mt-1">+5%</div>
             </div>
           </div>
@@ -372,6 +386,9 @@ export const StepCalculos = ({ form, setForm, onAi, aiLoading }) => {
               />
               <p className="mt-1 text-xs text-gray-400">
                 Área efetiva utilizada para o cálculo do valor total
+                {rural && areaConsiderar > 0 && (
+                  <span className="text-emerald-600 font-medium"> · = {fmtBR(areaConsiderar / M2_PER_HA, 2)} ha</span>
+                )}
               </p>
             </div>
 
@@ -381,9 +398,9 @@ export const StepCalculos = ({ form, setForm, onAi, aiLoading }) => {
                 <div className="text-sm text-gray-700">
                   {valorUnitario > 0 && areaConsiderar > 0 ? (
                     <span>
-                      <span className="font-semibold text-emerald-800">{fmtBRL(valorUnitario)}/m²</span>
+                      <span className="font-semibold text-emerald-800">{vuU(valorUnitario)}</span>
                       {' × '}
-                      <span className="font-semibold text-emerald-800">{fmtNum(areaConsiderar)} m²</span>
+                      <span className="font-semibold text-emerald-800">{areaDisp(areaConsiderar)} {areaU}</span>
                       {' = '}
                       <span className="font-bold text-emerald-900 text-lg">{fmtBRL(valorTotal)}</span>
                     </span>
@@ -405,7 +422,8 @@ export const StepCalculos = ({ form, setForm, onAi, aiLoading }) => {
                   {fmtBRL(valorTotal)}
                 </div>
                 <div className="text-xs text-emerald-600 mt-1">
-                  {fmtBRL(valorUnitario)}/m² × {fmtNum(areaConsiderar)} m²
+                  {vuU(valorUnitario)} × {areaDisp(areaConsiderar)} {areaU}
+                  {rural && <span className="text-emerald-500"> · {vM2sec(valorUnitario)}</span>}
                 </div>
               </div>
               

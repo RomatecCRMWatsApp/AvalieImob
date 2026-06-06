@@ -2,6 +2,8 @@
 import React from 'react';
 import { Input } from '../../../ui/input';
 import { Field, SectionHeader, StatBox } from '../shared/primitives';
+import { isRural } from '../shared/RuralDocSection';
+import { M2_PER_HA, fmtBR } from '@/utils/areaConversao';
 
 const fmtBRL = (v) =>
   Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -18,6 +20,10 @@ export const StepResultado = ({ form, setForm }) => {
     form.property_area_sqm || 0
   );
   const vuCalc = area > 0 ? val / area : 0;
+  // Rural: valor unitário em R$/ha (R$/m² × 10.000) e área em ha como grandeza principal.
+  const rural = isRural(form.property_type);
+  const vuM2 = Number(form.resultado_valor_unitario || vuCalc);
+  const areaHa = area / M2_PER_HA;
 
   return (
     <div>
@@ -28,9 +34,19 @@ export const StepResultado = ({ form, setForm }) => {
 
       {val > 0 && (
         <div className="grid grid-cols-3 gap-4 mb-6">
-          <StatBox label="Valor Unitário (R$/m²)" value={fmtBRL(form.resultado_valor_unitario || vuCalc)} />
-          <StatBox label="Valor Total" value={fmtBRL(val)} />
-          <StatBox label="Área Considerada (m²)" value={area || '—'} unit="m²" />
+          {rural ? (
+            <>
+              <StatBox label="Valor Unitário (R$/ha)" value={fmtBRL(vuM2 * M2_PER_HA)} unit={`${fmtBRL(vuM2)}/m²`} />
+              <StatBox label="Valor Total" value={fmtBRL(val)} />
+              <StatBox label="Área Considerada (ha)" value={fmtBR(areaHa, 2)} unit={`${area.toLocaleString('pt-BR')} m²`} />
+            </>
+          ) : (
+            <>
+              <StatBox label="Valor Unitário (R$/m²)" value={fmtBRL(vuM2)} />
+              <StatBox label="Valor Total" value={fmtBRL(val)} />
+              <StatBox label="Área Considerada (m²)" value={area || '—'} unit="m²" />
+            </>
+          )}
         </div>
       )}
 
@@ -42,6 +58,11 @@ export const StepResultado = ({ form, setForm }) => {
             onChange={(e) => setForm({ ...form, resultado_valor_unitario: Number(e.target.value) })}
             placeholder="0,00"
           />
+          {rural && Number(form.resultado_valor_unitario) > 0 && (
+            <p className="mt-1 text-xs text-emerald-600 font-medium">
+              = {fmtBRL(Number(form.resultado_valor_unitario) * M2_PER_HA)}/ha
+            </p>
+          )}
         </Field>
         <Field label="Valor Total (R$)">
           <Input

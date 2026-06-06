@@ -82,6 +82,41 @@ def fmt_area(v) -> str:
     return f"{n:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.') + " m²"
 
 
+# ── Apresentação rural (hectare como grandeza principal) ───────────────────
+# O sistema sempre armazena área em m² e valor unitário em R$/m². Estas funções
+# convertem apenas na exibição do laudo quando o imóvel é rural.
+_RURAL_TYPES = {'rural', 'fazenda', 'sitio', 'chacara', 'terreno_rural', 'gleba', 'area_rural'}
+
+
+def _is_rural(ptam) -> bool:
+    return str((ptam or {}).get('property_type') or '').strip().lower() in _RURAL_TYPES
+
+
+def fmt_area_dual(v) -> str:
+    """Rural: 'XX,XX ha (XXX.XXX m²)'. Inválido → '—'."""
+    try:
+        n = float(v)
+    except (TypeError, ValueError):
+        return "—"
+    ha = f"{n / 10000:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+    m2 = f"{n:,.0f}".replace(',', '.')
+    return f"{ha} ha ({m2} m²)"
+
+
+def fmt_area_rural(v, rural) -> str:
+    """Área no formato dual (ha + m²) quando rural; senão m²."""
+    return fmt_area_dual(v) if rural else fmt_area(v)
+
+
+def fmt_rs_unit(v, rural) -> str:
+    """Valor unitário: R$/ha (R$/m² × 10.000) quando rural; senão R$/m²."""
+    try:
+        n = float(v)
+    except (TypeError, ValueError):
+        n = 0.0
+    return (fmt_moeda(n * 10000) + "/ha") if rural else (fmt_moeda(n) + "/m²")
+
+
 def fmt_data(d) -> str:
     if not d:
         return "—"
@@ -433,10 +468,11 @@ def _campos_dir(c, dx, top_y, titulo, campos, dy=0.60 * cm, val_x=1.85 * cm):
 class AmostraCard(Flowable):
     CH = 9.2 * cm
 
-    def __init__(self, numero, amostra):
+    def __init__(self, numero, amostra, rural=False):
         super().__init__()
         self.numero = numero
         self.a = amostra or {}
+        self.rural = rural
         self.width = UTIL_W
         self.height = self.CH
 
@@ -471,11 +507,14 @@ class AmostraCard(Flowable):
         dx = FX + FW + 0.42 * cm
         area = a.get('area')
         vpm = a.get('value_per_sqm')
+        _ru = self.rural
+        _vu_lbl = 'R$/ha:' if _ru else 'R$/m²:'
+        _vu_val = (fmt_rs_unit(vpm, _ru) if vpm else '—')
         campos = [
             ('Tipo:', a.get('tipo') or a.get('tipo_amostra') or 'Não informado'),
-            ('Área:', fmt_area(area)),
+            ('Área:', fmt_area_rural(area, _ru)),
             ('Valor:', fmt_moeda(a.get('value'))),
-            ('R$/m²:', (fmt_moeda(vpm) + '/m²') if vpm else '—'),
+            (_vu_lbl, _vu_val),
             ('Fonte:', a.get('source')),
             ('Data:', a.get('collection_date')),
             ('Telefone:', a.get('contact_phone')),
@@ -978,10 +1017,11 @@ def build_story(ptam, page_map):
                              [7.0 * cm, 4.0 * cm, UTIL_W - 11.0 * cm]))
     st.append(Spacer(1, 8))
     st += subsec('Caracterização do Imóvel', 'sec3carac')
+    _rural3 = _is_rural(ptam)
     _carac_rows = [
-        ('Área do Terreno', fmt_area(ptam.get('imovel_area_terreno'))),
+        ('Área do Terreno', fmt_area_rural(ptam.get('imovel_area_terreno'), _rural3)),
         ('Área Construída', fmt_area(ptam.get('imovel_area_construida'))),
-        ('Área Considerada', fmt_area(ptam.get('imovel_area_a_considerar'))),
+        ('Área Considerada', fmt_area_rural(ptam.get('imovel_area_a_considerar'), _rural3)),
         ('Idade Aproximada', f"{ptam.get('imovel_idade')} anos" if ptam.get('imovel_idade') else ''),
         ('Estado de Conservação', ptam.get('imovel_estado_conservacao')),
         ('Padrão de Acabamento', ptam.get('imovel_padrao_acabamento')),
@@ -1019,8 +1059,9 @@ def build_story(ptam, page_map):
         st.append(Paragraph(_txt(html_to_inline(limpar_texto_ia(ptam.get('market_analysis')))), sBody))
         st.append(Spacer(1, 6))
     if amostras:
+        _rural5 = _is_rural(ptam)
         for i, a in enumerate(amostras, 1):
-            st.append(KeepTogether([AmostraCard(i, a)]))
+            st.append(KeepTogether([AmostraCard(i, a, rural=_rural5)]))
             st.append(Spacer(1, GAP))
     else:
         st.append(Paragraph('Nenhuma amostra cadastrada.', sBody))
@@ -1040,7 +1081,11 @@ def build_story(ptam, page_map):
     st.append(PageBreak())
     st += sec('7. CÁLCULOS E TRATAMENTO ESTATÍSTICO', 'sec7')
     st += subsec('Quadro de Amostras com Classificação', 'sec7quadro')
-    # Estatísticas descritivas das amostras (R$/m²) — NBR 14653-2
+    _rural = _is_rural(ptam)
+    _uv = 'R$/ha' if _rural else 'R$/m²'   # rótulo da unidade de valor
+    _fa = 1.0  # fator de área para exibição: m² → (m² ou ha)
+    _vfac = 10000 if _rural else 1         # R$/m² → R$/ha
+    # Estatísticas descritivas das amostras (sempre calculadas em R$/m²) — NBR 14653-2
     _vals = [v for v in (float(a.get('value_per_sqm') or 0) for a in amostras) if v > 0]
     _n = len(_vals)
     if _n:
@@ -1056,19 +1101,23 @@ def build_story(ptam, page_map):
         _dentro = []
 
     # Quadro de amostras (coluna "Local" com quebra de linha — evita sobreposição)
+    _num_br = lambda x: f"{float(x):,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
     linhas7 = []
     for i, a in enumerate(amostras, 1):
         local = f"{a.get('address', '')} / {a.get('neighborhood', '')}".strip(' /')
         _vpm = float(a.get('value_per_sqm') or 0)
         _sit = ('Dentro' if _li <= _vpm <= _ls else 'Fora') if _n else '—'
+        _area_cell = (_num_br(float(a.get('area') or 0) / 10000) if _rural
+                      else fmt_area(a.get('area')).replace(' m²', ''))
         linhas7.append([
             str(i), Paragraph(local[:90] or '—', sCell),
-            fmt_area(a.get('area')).replace(' m²', ''),
+            _area_cell,
             fmt_moeda(a.get('value')).replace('R$ ', ''),
-            fmt_moeda(a.get('value_per_sqm')).replace('R$ ', ''),
+            _num_br(_vpm * _vfac),
             _sit,
         ])
-    st.append(tbl_header(['Nº', 'Bairro / Local', 'Área (m²)', 'Valor (R$)', 'R$/m²', 'Situação'],
+    st.append(tbl_header(['Nº', 'Bairro / Local', f'Área ({"ha" if _rural else "m²"})',
+                          'Valor (R$)', _uv, 'Situação'],
                          linhas7, [1.0 * cm, 6.5 * cm, 2.3 * cm, 3.0 * cm, 2.3 * cm, 1.7 * cm]))
     st.append(Spacer(1, 8))
     st += subsec('8B. Cálculo de Ponderância')
@@ -1077,18 +1126,23 @@ def build_story(ptam, page_map):
                         'As amostras dentro da faixa compõem a média ponderada final.', sBody))
     st.append(Spacer(1, 6))
     _num = lambda x: f"{float(x):,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
-    st.append(tbl_header(['Estatística', 'Valor'], [
+    _nv = lambda x: _num(float(x) * _vfac)  # valor unitário na unidade de exibição (R$/ha ou R$/m²)
+    _stats_rows = [
         ['Nº de Amostras', str(_n)],
-        ['Valor Mínimo (R$/m²)', _num(_minimo)],
-        ['Valor Máximo (R$/m²)', _num(_maximo)],
-        ['Média Simples (R$/m²)', _num(_media)],
-        ['Desvio Padrão', _num(_desvio)],
+        [f'Valor Mínimo ({_uv})', _nv(_minimo)],
+        [f'Valor Máximo ({_uv})', _nv(_maximo)],
+        [f'Média Simples ({_uv})', _nv(_media)],
+        [f'Desvio Padrão ({_uv})', _nv(_desvio)],
         ['Coeficiente de Variação (%)', _num(_cv) + '%'],
-        ['Limite Inferior (–10%)', _num(_li)],
-        ['Limite Superior (+10%)', _num(_ls)],
+        [f'Limite Inferior (–10%) ({_uv})', _nv(_li)],
+        [f'Limite Superior (+10%) ({_uv})', _nv(_ls)],
         ['Amostras dentro da faixa', str(len(_dentro))],
-        ['Média Ponderada Final (R$/m²)', _num(_ponderada)],
-    ], [9.0 * cm, UTIL_W - 9.0 * cm], bold_last=True))
+        [f'Média Ponderada Final ({_uv})', _nv(_ponderada)],
+    ]
+    if _rural:
+        _stats_rows.append(['Média Ponderada Final (R$/m²) — referência', _num(_ponderada)])
+    st.append(tbl_header(['Estatística', 'Valor'], _stats_rows,
+                         [9.0 * cm, UTIL_W - 9.0 * cm], bold_last=True))
     # Fatores de homogeneização + observações dos cálculos (texto do avaliador).
     _fat = html_to_inline(limpar_texto_ia(ptam.get('calc_fatores_homogeneizacao')))
     if _fat:
@@ -1111,23 +1165,38 @@ def build_story(ptam, page_map):
         f"Com fundamento na vistoria realizada, na documentação fundiária analisada (Matrícula nº "
         f"{_txt(ptam.get('property_matricula'), '—')}) e no tratamento estatístico das amostras de "
         f"mercado coletadas, conclui-se que o valor de mercado do imóvel é:", sBody))
+    _rural8 = _is_rural(ptam)
     st += subsec('Cálculo do Valor Final', 'sec8calc')
-    st.append(tbl_header(['Componente', 'Valor'], [
-        ['Média Ponderada Final', f"{fmt_moeda(vu)}/m²"],
-        ['Área do Imóvel Avaliando', fmt_area(area_av)],
-        [f"Valor Final = {fmt_moeda(vu)}/m² × {fmt_area(area_av)}", fmt_moeda(vtotal)],
-    ], [UTIL_W - 4.5 * cm, 4.5 * cm], bold_last=True))
+    _calc_rows = [
+        ['Média Ponderada Final', fmt_rs_unit(vu, _rural8)],
+        ['Área do Imóvel Avaliando', fmt_area_rural(area_av, _rural8)],
+        [f"Valor Final = {fmt_rs_unit(vu, _rural8)} × {fmt_area_rural(area_av, _rural8)}", fmt_moeda(vtotal)],
+    ]
+    if _rural8:
+        _calc_rows.insert(1, ['Valor unitário de referência', f"{fmt_moeda(vu)}/m²"])
+    st.append(tbl_header(['Componente', 'Valor'], _calc_rows,
+                         [UTIL_W - 4.5 * cm, 4.5 * cm], bold_last=True))
     st.append(Spacer(1, 10))
     st.append(caixa_valor(vtotal, ptam.get('total_indemnity_words') or valor_por_extenso(vtotal)))
     st.append(Spacer(1, 10))
-    st.append(tbl([
-        ('Valor Unitário R$/m²', fmt_moeda(vu)),
+    _res_rows = []
+    if _rural8:
+        try:
+            _vu_f = float(vu)
+        except (TypeError, ValueError):
+            _vu_f = 0.0
+        _res_rows.append(('Valor Unitário R$/ha', fmt_moeda(_vu_f * 10000)))
+        _res_rows.append(('Valor Unitário R$/m² (referência)', fmt_moeda(_vu_f)))
+    else:
+        _res_rows.append(('Valor Unitário R$/m²', fmt_moeda(vu)))
+    _res_rows += [
         ('Intervalo de Confiança',
          f"{fmt_moeda(ptam.get('resultado_intervalo_inf'))} a {fmt_moeda(ptam.get('resultado_intervalo_sup'))}"),
         ('Grau de Precisão', ptam.get('grau_precisao') or ptam.get('precisao_grau')),
         ('Data de Referência', ptam.get('resultado_data_referencia')),
         ('Prazo de Validade', ptam.get('resultado_prazo_validade') or '180 dias'),
-    ]))
+    ]
+    st.append(tbl(_res_rows))
 
     # ── 9. Conclusao ──
     st.append(PageBreak())
