@@ -1,5 +1,5 @@
 # @module models.ptam — Modelos Pydantic para PTAM, IA, pagamentos e perfil avaliador
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List, Any
 from datetime import datetime
 from models.common import _id, _now
@@ -49,8 +49,13 @@ class PtamImpactArea(BaseModel):
 
 
 class PtamMarketSample(BaseModel):
+    # extra="allow": preserva qualquer campo novo enviado pelo form sem precisar alterar o modelo.
+    model_config = ConfigDict(extra="allow")
+
     address: Optional[str] = ""
     neighborhood: Optional[str] = ""
+    municipio: Optional[str] = ""
+    uf: Optional[str] = ""
     area: Optional[float] = 0
     value: Optional[float] = 0
     value_per_sqm: Optional[float] = 0
@@ -60,6 +65,30 @@ class PtamMarketSample(BaseModel):
     notes: Optional[str] = ""
     foto: Optional[str] = None
     tipo_amostra: Optional[str] = "oferta"
+
+    # Características rurais
+    topografia: Optional[str] = ""
+    solo: Optional[str] = ""
+    recursos_hidricos: Optional[str] = ""
+    vegetacao: Optional[str] = ""
+    atividade: Optional[str] = ""
+    lotacao_ua_ha: Optional[float] = 0
+    benfeitorias: Optional[str] = ""
+    sede: Optional[str] = ""
+
+    # Características urbanas / construtivas
+    testada_m: Optional[float] = 0
+    zoneamento: Optional[str] = ""
+    uso_permitido: Optional[str] = ""
+    area_construida_m2: Optional[float] = 0
+    area_terreno_m2: Optional[float] = 0
+    quartos: Optional[int] = 0
+    banheiros: Optional[int] = 0
+    vagas: Optional[int] = 0
+    idade_anos: Optional[int] = 0
+    pe_direito_m: Optional[float] = 0
+    vao_livre_m: Optional[float] = 0
+    docas: Optional[int] = 0
 
 
 class PtamBase(BaseModel):
