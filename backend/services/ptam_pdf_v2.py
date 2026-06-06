@@ -830,6 +830,19 @@ def _doc_label(d):
     return DOCUMENTO_LABELS.get(k) or DOCUMENTO_LABELS.get(k.lower()) or k
 
 
+def _preenchido(v):
+    """True se o valor é relevante para o laudo. 0 / vazio / '—' / 'Não' são omitidos."""
+    if v is None:
+        return False
+    s = str(v).strip()
+    if s.lower() in ('', '0', '0.0', '0,00', '0,0', '—', '-', 'não', 'nao', 'r$ 0,00', '0 m²'):
+        return False
+    try:
+        return float(s.replace('.', '').replace(',', '.').split()[0]) != 0
+    except (ValueError, TypeError, IndexError):
+        return bool(s)
+
+
 _MESES_PT = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
              'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
 
@@ -959,20 +972,24 @@ def build_story(ptam, page_map):
                              [7.0 * cm, 4.0 * cm, UTIL_W - 11.0 * cm]))
     st.append(Spacer(1, 8))
     st += subsec('Caracterização do Imóvel', 'sec3carac')
-    st.append(tbl([
+    _carac_rows = [
         ('Área do Terreno', fmt_area(ptam.get('imovel_area_terreno'))),
         ('Área Construída', fmt_area(ptam.get('imovel_area_construida'))),
         ('Área Considerada', fmt_area(ptam.get('imovel_area_a_considerar'))),
-        ('Idade Aproximada', f"{ptam.get('imovel_idade')} anos" if ptam.get('imovel_idade') else '—'),
+        ('Idade Aproximada', f"{ptam.get('imovel_idade')} anos" if ptam.get('imovel_idade') else ''),
         ('Estado de Conservação', ptam.get('imovel_estado_conservacao')),
         ('Padrão de Acabamento', ptam.get('imovel_padrao_acabamento')),
-        ('Nº de Quartos', _txt(ptam.get('imovel_num_quartos'))),
-        ('Nº de Banheiros', _txt(ptam.get('imovel_num_banheiros'))),
-        ('Vagas de Garagem', _txt(ptam.get('imovel_num_vagas'))),
-        ('Piscina', 'Sim' if ptam.get('imovel_piscina') else 'Não'),
+        ('Nº de Quartos', ptam.get('imovel_num_quartos')),
+        ('Nº de Banheiros', ptam.get('imovel_num_banheiros')),
+        ('Vagas de Garagem', ptam.get('imovel_num_vagas')),
         ('Características Adicionais / Benfeitorias',
          html_to_inline(limpar_texto_ia(ptam.get('imovel_caracteristicas_adicionais')))),
-    ]))
+    ]
+    # Regra: valor 0 / vazio / "Não" NÃO vai para o laudo.
+    _carac_rows = [(lb, _txt(vl)) for lb, vl in _carac_rows if _preenchido(vl)]
+    if ptam.get('imovel_piscina'):
+        _carac_rows.append(('Piscina', 'Sim'))
+    st.append(tbl(_carac_rows or [('Caracterização', 'Não informada')]))
 
     # ── 4. Contexto Urbano ──
     st.append(PageBreak())
