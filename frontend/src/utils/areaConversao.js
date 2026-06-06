@@ -52,12 +52,14 @@ export function fmtBR(n, dec) {
 // Estas funções apenas convertem para exibição quando o imóvel é rural.
 
 /**
- * Formata área em hectares: "XX,XX ha".
+ * Formata área em hectares com 4 casas decimais por padrão: "XX,XXXX ha".
+ * 4 casas = nomenclatura agronômica (hectare.are.centiare): 2ª/3ª casa = ares,
+ * 3ª/4ª casa = centiares (1 ha = 100 a = 10.000 ca).
  * @param {number} areaM2  área em m²
- * @param {number} [decimals=2]
+ * @param {number} [decimals=4]
  * @returns {string}
  */
-export function formatHa(areaM2, decimals = 2) {
+export function formatHa(areaM2, decimals = 4) {
   return fmtBR((Number(areaM2) || 0) / M2_PER_HA, decimals) + ' ha';
 }
 
@@ -93,14 +95,14 @@ export function formatRsM2(vrUnitM2) {
 }
 
 /**
- * Área dupla para exibição rural: "XX,XX ha (XXX.XXX m²)".
+ * Área dupla para exibição rural com 4 casas: "XX,XXXX ha  (XXX.XXX m²)".
  * @param {number} areaM2
- * @param {number} [decimals=2]
+ * @param {number} [decimals=4]
  * @returns {string}
  */
-export function formatAreaRural(areaM2, decimals = 2) {
+export function formatAreaRural(areaM2, decimals = 4) {
   const a = Number(areaM2) || 0;
   const ha = fmtBR(a / M2_PER_HA, decimals);
   const m2 = a.toLocaleString('pt-BR', { maximumFractionDigits: 0 });
-  return `${ha} ha (${m2} m²)`;
+  return `${ha} ha  (${m2} m²)`;
 }

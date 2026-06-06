@@ -654,6 +654,7 @@ async def download_ptam_pdf(pid: str, uid: str = Depends(get_active_subscriber),
                 _d["_doc_bytes"] = _ds(_d["_doc_bytes"])
 
         # Gerador v2: layout aprovado, com sumário numerado e clicável.
+        await _attach_incra(db, doc)
         data = generate_ptam_pdf_v2(doc, perfil_avaliador)
     except Exception as e:
         logger.exception("PDF generation error")
@@ -814,6 +815,33 @@ GRUPOS_DOCS_RURAIS = [
 ]
 
 
+_RURAL_TYPES_PTAM = {'rural', 'fazenda', 'sitio', 'chacara', 'terreno_rural', 'gleba', 'area_rural'}
+
+
+async def _attach_incra(db, doc):
+    """Injeta a tabela INCRA vigente em doc['incra_tabela'] quando o imóvel é rural.
+    Preferência: município (property_city) → região (regiao_incra) → mais recente."""
+    if str((doc or {}).get('property_type') or '').strip().lower() not in _RURAL_TYPES_PTAM:
+        return
+    municipio = str(doc.get('property_city') or '').strip()
+    regiao = str(doc.get('regiao_incra') or '').strip()
+    queries = []
+    if municipio:
+        queries.append({"ativo": True, "municipio": {"$regex": f"^{municipio}$", "$options": "i"}})
+    if regiao:
+        queries.append({"ativo": True, "regiao": {"$regex": f"^{regiao}$", "$options": "i"}})
+    queries.append({"ativo": True})
+    for q in queries:
+        try:
+            tab = await db.incra_tabelas.find_one(q, sort=[("ano", -1), ("mes", -1)])
+        except Exception:
+            tab = None
+        if tab:
+            tab.pop("_id", None)
+            doc['incra_tabela'] = tab
+            return
+
+
 async def _merge_docs_rurais(db, doc, docs_res):
     """Anexa os documentos rurais (SIGEF, Memorial, CCIR, ITR, CAR) à lista
     'Documentos do Imóvel' do laudo. Fonte única — chamada por toda rota que
@@ -916,6 +944,7 @@ async def download_ptam_pdf_v2(pid: str, uid: str = Depends(get_active_subscribe
         perfil = await db.perfil_avaliador.find_one({"user_id": uid})
         if perfil:
             perfil.pop("_id", None)
+        await _attach_incra(db, doc)
         data = generate_ptam_pdf_v2(doc, perfil)
     except Exception as e:
         logger.exception("PDF v2 generation error")
@@ -989,6 +1018,7 @@ async def preview_ptam_pdf(body: dict, uid: str = Depends(get_active_subscriber)
         perfil = await db.perfil_avaliador.find_one({"user_id": uid})
         if perfil:
             perfil.pop("_id", None)
+        await _attach_incra(db, doc)
         data = generate_ptam_pdf_v2(doc, perfil)
     except Exception as e:
         logger.exception("PTAM preview error")
@@ -1635,6 +1665,7 @@ async def _melhor_pdf_ptam(db, ptam: dict) -> tuple[bytes, str]:
         perfil = await db.perfil_avaliador.find_one({"user_id": ptam.get("user_id")})
         if perfil:
             perfil.pop("_id", None)
+        await _attach_incra(db, ptam)
         pdf_bytes = generate_ptam_pdf_v2(ptam, perfil)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao gerar PDF: {e}")

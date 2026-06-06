@@ -93,12 +93,12 @@ def _is_rural(ptam) -> bool:
 
 
 def fmt_area_dual(v) -> str:
-    """Rural: 'XX,XX ha (XXX.XXX m²)'. Inválido → '—'."""
+    """Rural: 'XX,XXXX ha (XXX.XXX m²)' — 4 casas (ha.are.centiare). Inválido → '—'."""
     try:
         n = float(v)
     except (TypeError, ValueError):
         return "—"
-    ha = f"{n / 10000:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+    ha = f"{n / 10000:,.4f}".replace(',', 'X').replace('.', ',').replace('X', '.')
     m2 = f"{n:,.0f}".replace(',', '.')
     return f"{ha} ha ({m2} m²)"
 
@@ -751,6 +751,96 @@ def tbl_header(header, linhas, cw, bold_last=False):
     return t
 
 
+# Cores do destaque da faixa INCRA (azul = dentro / vermelho = fora-mais-próxima).
+AZUL_FAIXA = HexColor('#BBDEFB')
+AZUL_TEXTO = HexColor('#1565C0')
+VERM_FAIXA = HexColor('#FFCDD2')
+VERM_TEXTO = HexColor('#C62828')
+
+
+def _incra_faixa_match(faixas, media_ha):
+    """(índice, dentro) — faixa onde vr_min<=media<=vr_max; senão a mais próxima."""
+    lista = faixas or []
+    m = float(media_ha or 0)
+    ci, cd = 0, float('inf')
+    for i, f in enumerate(lista):
+        mn = float((f or {}).get('vr_min') or 0)
+        mx = float((f or {}).get('vr_max') or 0)
+        if mn <= m <= mx:
+            return i, True
+        d = min(abs(m - mn), abs(m - mx))
+        if d < cd:
+            cd, ci = d, i
+    return ci, False
+
+
+def incra_section(ptam, media_ha):
+    """Seção 'REFERÊNCIA INCRA — Valores de Terra Nua' (somente laudo rural).
+    Retorna lista de flowables; vazia se não houver tabela injetada em ptam['incra_tabela']."""
+    tab = (ptam or {}).get('incra_tabela') or {}
+    faixas = tab.get('faixas') or []
+    if not faixas:
+        return []
+    idx, dentro = _incra_faixa_match(faixas, media_ha)
+    _sSubt = ParagraphStyle('incraSub', fontName='Helvetica', fontSize=8,
+                            textColor=CINZA, leading=10)
+    _sCellL = ParagraphStyle('incraCellL', fontName='Helvetica', fontSize=8.5, leading=10)
+    out = []
+    out += subsec('REFERÊNCIA INCRA — Valores de Terra Nua', 'sec7incra')
+    _sub = (f"Região: {tab.get('regiao', '—')}"
+            + (f" · Município: {tab.get('municipio')}" if tab.get('municipio') else '')
+            + f" · Vigência: {tab.get('vigencia', '—')} · Fonte: {tab.get('fonte', '—')}")
+    out.append(Paragraph(_sub, _sSubt))
+    out.append(Spacer(1, 4))
+
+    header = ['Faixa', 'Mín (R$/ha)', 'Máx (R$/ha)', 'Médio (R$/ha)']
+    data = [header]
+    for f in faixas:
+        data.append([
+            Paragraph(_txt(f.get('faixa'), '—'), _sCellL),
+            fmt_moeda(f.get('vr_min')),
+            fmt_moeda(f.get('vr_max')),
+            fmt_moeda(f.get('vr_medio')),
+        ])
+    cw = [UTIL_W - 3 * 3.4 * cm, 3.4 * cm, 3.4 * cm, 3.4 * cm]
+    t = Table(data, colWidths=cw, repeatRows=1)
+    style = TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), VERDE),
+        ('TEXTCOLOR', (0, 0), (-1, 0), BRANCO),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 8.5),
+        ('GRID', (0, 0), (-1, -1), 0.4, CINZA_BRD),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [BRANCO, VERDE_CLR]),
+    ])
+    r = idx + 1  # +1 por causa do cabeçalho
+    _fundo = AZUL_FAIXA if dentro else VERM_FAIXA
+    _texto = AZUL_TEXTO if dentro else VERM_TEXTO
+    style.add('BACKGROUND', (0, r), (-1, r), _fundo)
+    style.add('TEXTCOLOR', (0, r), (-1, r), _texto)
+    style.add('FONTNAME', (3, r), (3, r), 'Helvetica-Bold')
+    style.add('LINEBEFORE', (0, r), (0, r), 3, _texto)
+    t.setStyle(style)
+    out.append(t)
+
+    _leg = ParagraphStyle('incraLeg', fontName='Helvetica-Bold', fontSize=8.5,
+                          textColor=(AZUL_TEXTO if dentro else VERM_TEXTO), leading=11)
+    _faixa_nome = _esc_xml(_txt((faixas[idx] or {}).get('faixa'), '—'))
+    _msg = (f"&#9658; Valor da avaliação: {fmt_moeda(media_ha)}/ha &#8212; "
+            + (f'dentro da faixa: &#8220;{_faixa_nome}&#8221;' if dentro
+               else f'faixa mais próxima: &#8220;{_faixa_nome}&#8221;'))
+    out.append(Spacer(1, 3))
+    out.append(Paragraph(_msg, _leg))
+    out.append(Spacer(1, 8))
+    return out
+
+
 def caixa_valor(valor_total, extenso):
     body = [
         [Paragraph(f'Valor de Mercado Avaliado: {fmt_moeda(valor_total)}',
@@ -1102,12 +1192,13 @@ def build_story(ptam, page_map):
 
     # Quadro de amostras (coluna "Local" com quebra de linha — evita sobreposição)
     _num_br = lambda x: f"{float(x):,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+    _num_ha = lambda x: f"{float(x):,.4f}".replace(',', 'X').replace('.', ',').replace('X', '.')  # área: 4 casas
     linhas7 = []
     for i, a in enumerate(amostras, 1):
         local = f"{a.get('address', '')} / {a.get('neighborhood', '')}".strip(' /')
         _vpm = float(a.get('value_per_sqm') or 0)
         _sit = ('Dentro' if _li <= _vpm <= _ls else 'Fora') if _n else '—'
-        _area_cell = (_num_br(float(a.get('area') or 0) / 10000) if _rural
+        _area_cell = (_num_ha(float(a.get('area') or 0) / 10000) if _rural
                       else fmt_area(a.get('area')).replace(' m²', ''))
         linhas7.append([
             str(i), Paragraph(local[:90] or '—', sCell),
@@ -1143,6 +1234,10 @@ def build_story(ptam, page_map):
         _stats_rows.append(['Média Ponderada Final (R$/m²) — referência', _num(_ponderada)])
     st.append(tbl_header(['Estatística', 'Valor'], _stats_rows,
                          [9.0 * cm, UTIL_W - 9.0 * cm], bold_last=True))
+    # Referência INCRA (Valores de Terra Nua) — somente laudo rural, abaixo da ponderação.
+    if _rural:
+        st.append(Spacer(1, 8))
+        st += incra_section(ptam, _ponderada * 10000)
     # Fatores de homogeneização + observações dos cálculos (texto do avaliador).
     _fat = html_to_inline(limpar_texto_ia(ptam.get('calc_fatores_homogeneizacao')))
     if _fat:

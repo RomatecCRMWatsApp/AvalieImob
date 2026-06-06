@@ -53,6 +53,15 @@ export const authAPI = {
   updateMe: (data) => api.put('/auth/me', data).then(r => r.data),
 };
 
+// ---- INCRA (tabelas de valores de terra nua — imóveis rurais)
+export const incraAPI = {
+  tabelaVigente: (params = {}) =>
+    api.get('/incra/tabela-vigente', { params }).then((r) => r.data),
+  listar: () => api.get('/incra/tabelas').then((r) => r.data),
+  criar: (data) => api.post('/incra/tabela', data).then((r) => r.data),
+  remover: (id) => api.delete(`/incra/tabela/${id}`).then((r) => r.data),
+};
+
 // ---- Clients
 export const clientsAPI = {
   list: () => api.get('/clients').then(r => r.data),

@@ -32,21 +32,28 @@ describe('areaConversao', () => {
   // \s em JS casa espaço insecável (U+00A0) e fino (U+202F) que o Intl insere antes do número.
   const norm = (s) => s.replace(/\s/g, ' ');
 
-  describe('apresentação rural (ha / R$/ha)', () => {
-    it('formatHa: 48.400 m² → 4,84 ha', () => {
-      expect(formatHa(48400)).toBe('4,84 ha');
+  describe('apresentação rural (ha 4 casas / R$/ha 2 casas)', () => {
+    // 4 casas decimais = ares (2ª/3ª) e centiares (3ª/4ª) — nomenclatura agronômica.
+    it('formatHa: 294.315 m² → 29,4315 ha', () => {
+      expect(formatHa(294315)).toBe('29,4315 ha');
     });
-    it('formatHa: 484.000 m² → 48,40 ha', () => {
-      expect(formatHa(484000)).toBe('48,40 ha');
+    it('formatHa: 10.000 m² → 1,0000 ha', () => {
+      expect(formatHa(10000)).toBe('1,0000 ha');
     });
-    it('formatHa: decimais customizados', () => {
-      expect(formatHa(48400, 4)).toBe('4,8400 ha');
+    it('formatHa: 48.400 m² → 4,8400 ha', () => {
+      expect(formatHa(48400)).toBe('4,8400 ha');
     });
-    it('formatHa: entrada inválida → 0,00 ha', () => {
-      expect(formatHa(undefined)).toBe('0,00 ha');
+    it('formatHa: 484.000 m² → 48,4000 ha', () => {
+      expect(formatHa(484000)).toBe('48,4000 ha');
+    });
+    it('formatHa: decimais customizados (2)', () => {
+      expect(formatHa(48400, 2)).toBe('4,84 ha');
+    });
+    it('formatHa: entrada inválida → 0,0000 ha', () => {
+      expect(formatHa(undefined)).toBe('0,0000 ha');
     });
 
-    it('formatRsHa: R$/m² 2 → R$ 20.000,00/ha (×10.000)', () => {
+    it('formatRsHa: R$/m² 2 → R$ 20.000,00/ha (2 casas, ×10.000)', () => {
       expect(norm(formatRsHa(2))).toBe('R$ 20.000,00/ha');
     });
     it('formatRsHa: R$/m² 0,5 → R$ 5.000,00/ha', () => {
@@ -57,11 +64,14 @@ describe('areaConversao', () => {
       expect(norm(formatRsM2(12.34))).toBe('R$ 12,34/m²');
     });
 
-    it('formatAreaRural: 484.000 m² → "48,40 ha (484.000 m²)"', () => {
-      expect(formatAreaRural(484000)).toBe('48,40 ha (484.000 m²)');
+    it('formatAreaRural: 294.315 m² → "29,4315 ha  (294.315 m²)"', () => {
+      expect(formatAreaRural(294315)).toBe('29,4315 ha  (294.315 m²)');
+    });
+    it('formatAreaRural: 484.000 m² → "48,4000 ha  (484.000 m²)"', () => {
+      expect(formatAreaRural(484000)).toBe('48,4000 ha  (484.000 m²)');
     });
     it('formatAreaRural: 132.114 m²', () => {
-      expect(formatAreaRural(132114)).toBe('13,21 ha (132.114 m²)');
+      expect(formatAreaRural(132114)).toBe('13,2114 ha  (132.114 m²)');
     });
 
     it('formatBRL: 1234567.89 → R$ 1.234.567,89', () => {

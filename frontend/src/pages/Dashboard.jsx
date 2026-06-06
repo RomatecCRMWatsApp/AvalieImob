@@ -25,6 +25,7 @@ import AIAssistant from '../components/dashboard/AIAssistant';
 import SubscriptionPage from '../components/dashboard/SubscriptionPage';
 import SettingsPage from '../components/dashboard/SettingsPage';
 import PerfilAvaliador from '../components/dashboard/PerfilAvaliador';
+import AdminIncra from '../components/dashboard/incra/AdminIncra';
 import PtamList from '../components/dashboard/ptam/PtamList';
 import PtamWizard from '../components/dashboard/ptam/PtamWizard';
 import GarantiasList from '../components/dashboard/garantias/GarantiasList';
@@ -87,6 +88,7 @@ const NAV_GROUPS = [
     items: [
       { to: '/dashboard/ia',        custom: 'roma_ia', label: 'Roma_IA' },
       { to: '/dashboard/cnd',       icon: FileSearch,  label: 'Certidões CND' },
+      { to: '/dashboard/admin/incra', icon: BarChart3, label: 'Tabelas INCRA' },
     ],
   },
   {
@@ -442,6 +444,7 @@ const Dashboard = () => {
             <Route path="curriculo"   element={<PerfilAvaliador />} />
             <Route path="assinatura"  element={<SubscriptionPage />} />
             <Route path="config"      element={<SettingsPage />} />
+            <Route path="admin/incra" element={<AdminIncra />} />
             <Route path="*"            element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </div>

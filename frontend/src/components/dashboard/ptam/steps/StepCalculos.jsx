@@ -5,6 +5,7 @@ import { SectionHeader, AiButton } from '../shared/primitives';
 import { computeStatsNBR } from '../ptamHelpers';
 import { AlertTriangle, CheckCircle, Info } from 'lucide-react';
 import MetodoEvolutivo from '../MetodoEvolutivo';
+import TabelaIncraRural from '../TabelaIncraRural';
 import { ResumoArea } from '../shared/ResumoArea';
 import { isRural } from '../shared/RuralDocSection';
 import { M2_PER_HA, fmtBR } from '@/utils/areaConversao';
@@ -54,7 +55,8 @@ export const StepCalculos = ({ form, setForm, onAi, aiLoading }) => {
   const vuU = (vM2) => vu(vM2) + VU;            // com sufixo /ha ou /m²
   const vM2sec = (vM2) => fmtBRL(Number(vM2) || 0) + '/m²'; // referência secundária
   const areaU = rural ? 'ha' : 'm²';
-  const areaDisp = (m2) => (rural ? fmtBR((Number(m2) || 0) / M2_PER_HA, 2) : fmtNum(m2));
+  // Área rural com 4 casas decimais (ha.are.centiare).
+  const areaDisp = (m2) => (rural ? fmtBR((Number(m2) || 0) / M2_PER_HA, 4) : fmtNum(m2));
 
   // Estado local para área a considerar
   const [areaInput, setAreaInput] = useState(form.imovel_area_a_considerar || '');
@@ -307,6 +309,15 @@ export const StepCalculos = ({ form, setForm, onAi, aiLoading }) => {
         </div>
       </div>
 
+      {/* Referência INCRA — só para imóveis rurais, abaixo da ponderação */}
+      {rural && stats.media_final > 0 && (
+        <TabelaIncraRural
+          mediaAvaliacaoHa={stats.media_final * M2_PER_HA}
+          municipio={form.property_city}
+          regiao={form.regiao_incra}
+        />
+      )}
+
       {/* Bloco D — Graus de Fundamentação e Precisão */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
@@ -387,7 +398,7 @@ export const StepCalculos = ({ form, setForm, onAi, aiLoading }) => {
               <p className="mt-1 text-xs text-gray-400">
                 Área efetiva utilizada para o cálculo do valor total
                 {rural && areaConsiderar > 0 && (
-                  <span className="text-emerald-600 font-medium"> · = {fmtBR(areaConsiderar / M2_PER_HA, 2)} ha</span>
+                  <span className="text-emerald-600 font-medium"> · = {fmtBR(areaConsiderar / M2_PER_HA, 4)} ha</span>
                 )}
               </p>
             </div>

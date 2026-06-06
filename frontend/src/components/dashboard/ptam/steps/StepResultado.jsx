@@ -38,7 +38,7 @@ export const StepResultado = ({ form, setForm }) => {
             <>
               <StatBox label="Valor Unitário (R$/ha)" value={fmtBRL(vuM2 * M2_PER_HA)} unit={`${fmtBRL(vuM2)}/m²`} />
               <StatBox label="Valor Total" value={fmtBRL(val)} />
-              <StatBox label="Área Considerada (ha)" value={fmtBR(areaHa, 2)} unit={`${area.toLocaleString('pt-BR')} m²`} />
+              <StatBox label="Área Considerada (ha)" value={fmtBR(areaHa, 4)} unit={`${area.toLocaleString('pt-BR')} m²`} />
             </>
           ) : (
             <>
