@@ -465,30 +465,33 @@ def _campos_dir(c, dx, top_y, titulo, campos, dy=0.60 * cm, val_x=1.85 * cm):
         y -= dy
 
 
-def _campos_dir_multi(c, dx, top_y, titulo, campos, area_w=9.1 * cm):
-    """Lista campos da amostra; usa 2 colunas automaticamente quando há muitos campos."""
-    c.setFillColor(VERDE_MED)
-    c.setFont('Helvetica-Bold', 8.5)
-    c.drawString(dx, top_y, titulo)
-    n = len(campos)
-    duas = n > 9
-    col_w = (area_w / 2.0) if duas else area_w
-    val_x = 1.65 * cm if duas else 2.05 * cm
-    val_max = 22 if duas else 58
-    fsize = 7.5 if duas else 8
-    dy = 0.50 * cm
-    per_col = (n + 1) // 2 if duas else n
-    y0 = top_y - 0.55 * cm
+def _amostra_linhas(c, dx, y, campos, val_x=2.0 * cm, dy=0.48 * cm, val_max=60, fsize=8):
+    """Renderiza campos em 1 coluna (largura cheia); valores alinhados em val_x. Retorna y final."""
+    for label, valor in campos:
+        c.setFillColor(PRETO)
+        c.setFont('Helvetica-Bold', fsize)
+        c.drawString(dx, y, label)
+        c.setFont('Helvetica', fsize)
+        c.drawString(dx + val_x, y, _txt(valor)[:val_max])
+        y -= dy
+    return y
+
+
+def _amostra_linhas_2col(c, dx, y, campos, col_w=4.55 * cm, val_x=1.95 * cm,
+                         dy=0.48 * cm, val_max=20, fsize=7.5):
+    """Renderiza campos curtos em 2 colunas, rótulos e valores alinhados. Retorna y final."""
+    per_col = (len(campos) + 1) // 2
     for i, (label, valor) in enumerate(campos):
         col = 0 if i < per_col else 1
         row = i if col == 0 else i - per_col
         cx = dx + col * col_w
-        cy = y0 - row * dy
+        cy = y - row * dy
         c.setFillColor(PRETO)
         c.setFont('Helvetica-Bold', fsize)
         c.drawString(cx, cy, label)
         c.setFont('Helvetica', fsize)
         c.drawString(cx + val_x, cy, _txt(valor)[:val_max])
+    return y - per_col * dy
 
 
 class AmostraCard(Flowable):
@@ -529,8 +532,9 @@ class AmostraCard(Flowable):
         FW, FH, FX, FY = 7.0 * cm, h - 0.90 * cm, 0.22 * cm, 0.12 * cm
         img = _load_image_reader(a.get('_image_bytes') or a.get('foto_url'))
         _draw_foto_box(c, FX, FY, FW, FH, img, 'Fotografia')
-        # Dados direita
+        # Dados à direita da foto
         dx = FX + FW + 0.42 * cm
+        area_dir = w - 0.20 * cm - dx  # largura útil dos dados
         area = a.get('area')
         vpm = a.get('value_per_sqm')
         _ru = self.rural
@@ -540,44 +544,58 @@ class AmostraCard(Flowable):
         def _tem(x):
             return x not in (None, '', 0, '0', 0.0)
 
-        campos = [
+        # Bloco A — principais (largura cheia; valores podem ser longos).
+        principais = [
             ('Tipo:', a.get('tipo') or a.get('tipo_amostra') or 'Não informado'),
             ('Área:', fmt_area_rural(area, _ru)),
             ('Valor:', fmt_moeda(a.get('value'))),
             (_vu_lbl, _vu_val),
         ]
+        # Bloco B — características (curtas; 2 colunas).
+        caracteristicas = []
         if _ru:
-            # Características rurais (somente as preenchidas).
-            _rurais = [
-                ('Topografia:', 'topografia', None),
-                ('Solo:', 'solo', None),
-                ('Rec. hídricos:', 'recursos_hidricos', None),
-                ('Vegetação:', 'vegetacao', None),
-                ('Atividade:', 'atividade', None),
-                ('Lotação:', 'lotacao_ua_ha', ' UA/ha'),
-                ('Benfeitorias:', 'benfeitorias', None),
-                ('Sede/casa:', 'sede', None),
-            ]
-            for _lbl, _k, _sfx in _rurais:
+            for _lbl, _k, _sfx in [
+                ('Topografia:', 'topografia', None), ('Solo:', 'solo', None),
+                ('Rec. hídricos:', 'recursos_hidricos', None), ('Vegetação:', 'vegetacao', None),
+                ('Atividade:', 'atividade', None), ('Lotação:', 'lotacao_ua_ha', ' UA/ha'),
+                ('Benfeitorias:', 'benfeitorias', None), ('Sede/casa:', 'sede', None),
+            ]:
                 if _tem(a.get(_k)):
-                    _val = f"{a.get(_k)}{_sfx}" if _sfx else a.get(_k)
-                    campos.append((_lbl, _val))
+                    caracteristicas.append((_lbl, f"{a.get(_k)}{_sfx}" if _sfx else a.get(_k)))
         else:
-            # Características urbanas/construtivas (somente as preenchidas).
             for _lbl, _k in [('Área constr.:', 'area_construida_m2'), ('Quartos:', 'quartos'),
                              ('Banheiros:', 'banheiros'), ('Vagas:', 'vagas'),
                              ('Idade (anos):', 'idade_anos'), ('Zoneamento:', 'zoneamento')]:
                 if _tem(a.get(_k)):
-                    campos.append((_lbl, a.get(_k)))
+                    caracteristicas.append((_lbl, a.get(_k)))
+        # Bloco C — localização/contato (largura cheia).
+        contato = []
         if a.get('municipio') or a.get('uf'):
             _muf = (a.get('municipio') or '') + (f"/{a.get('uf')}" if a.get('uf') else '')
-            campos.append(('Município:', _muf.strip('/')))
-        campos += [
+            contato.append(('Município:', _muf.strip('/')))
+        contato += [
             ('Fonte:', a.get('source')),
             ('Data:', a.get('collection_date')),
             ('Telefone:', a.get('contact_phone')),
         ]
-        _campos_dir_multi(c, dx, h - 1.05 * cm, '1. Identificação e Caracterização', campos)
+
+        # Título
+        c.setFillColor(VERDE_MED)
+        c.setFont('Helvetica-Bold', 8.5)
+        y = h - 1.05 * cm
+        c.drawString(dx, y, '1. Identificação e Caracterização')
+        y -= 0.52 * cm
+
+        # Espaçamento adaptativo: distribui as linhas para preencher a altura do card.
+        _rows = len(principais) + ((len(caracteristicas) + 1) // 2) + len(contato)
+        _dy = (y - 0.40 * cm) / max(_rows, 1)
+        _dy = max(0.46 * cm, min(_dy, 0.74 * cm))
+        _colw = area_dir / 2.0
+
+        y = _amostra_linhas(c, dx, y, principais, dy=_dy)
+        if caracteristicas:
+            y = _amostra_linhas_2col(c, dx, y, caracteristicas, col_w=_colw, dy=_dy)
+        _amostra_linhas(c, dx, y, contato, dy=_dy)
 
 
 class FotoCard(Flowable):
