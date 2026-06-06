@@ -36,9 +36,11 @@ async def get_tabela_vigente(
     Ordena por ano/mês desc. 404 se não houver nenhuma cadastrada."""
     candidatos = []
     if municipio:
-        candidatos.append({"ativo": True, "municipio": {"$regex": f"^{municipio}$", "$options": "i"}})
+        _rx = {"$regex": f"^{municipio.strip()}$", "$options": "i"}
+        # casa o município principal OU a lista de municípios cobertos pelo polo
+        candidatos.append({"ativo": True, "$or": [{"municipio": _rx}, {"municipios": _rx}]})
     if regiao:
-        candidatos.append({"ativo": True, "regiao": {"$regex": f"^{regiao}$", "$options": "i"}})
+        candidatos.append({"ativo": True, "regiao": {"$regex": f"^{regiao.strip()}$", "$options": "i"}})
     candidatos.append({"ativo": True})  # fallback: tabela mais recente de qualquer região
 
     for q in candidatos:
@@ -93,33 +95,90 @@ async def remover_tabela(tid: str, uid: str = Depends(get_active_subscriber), db
     return {"ok": True, "id": tid}
 
 
+# ── Dados oficiais RAMT-MA 2022 (INCRA/SR-21-MA) — fonte da carga padrão ──────
+_FATORES_RAMT = [
+    {"fator": "Localização / acesso", "variavel": "Distância BR/MA, proximidade polo", "faixa_ajuste": "0,70 – 1,30"},
+    {"fator": "Aptidão agrícola", "variavel": "Classe I–VI (Ramalho Filho & Beek)", "faixa_ajuste": "0,60 – 1,40"},
+    {"fator": "Topografia / relevo", "variavel": "Plano a suave-ondulado / acidentado", "faixa_ajuste": "0,80 – 1,20"},
+    {"fator": "Dimensão do imóvel", "variavel": "Área total em ha (fator escala)", "faixa_ajuste": "0,80 – 1,10"},
+    {"fator": "Disponibilidade hídrica", "variavel": "Presença de cursos d'água, açude", "faixa_ajuste": "0,90 – 1,15"},
+    {"fator": "Contemporaneidade", "variavel": "Atualização IPCA (base: jul/2022)", "faixa_ajuste": "Ver IPCA acumulado"},
+]
+_NOTAS_RAMT = (
+    "(1) VTI = Valor Total do Imóvel (inclui benfeitorias); para obter VTN deduzir benfeitorias "
+    "conforme laudo de vistoria. (2) Faixas mín/máx estimadas pelo perito aplicando ±30% sobre a "
+    "média amostral, conforme metodologia INCRA PPR. (3) Atualização monetária obrigatória via "
+    "IPCA-E entre data-base jul/2022 e data da avaliação (NBR 14653-3, item 8.2.1). (4) Dados de "
+    "pesquisa primária do avaliador devem complementar e prevalecer sobre os referenciais do RAMT "
+    "quando disponíveis (NBR 14653-3, item 8.1). (5) Fonte: INCRA/SR-21-MA — RAMT-MA 2022, "
+    "SEI n.º 15897588 / PPR SR(MA) 15854957."
+)
+
+
+def _tabelas_ramt_ma_2022(uid=None):
+    """As duas tabelas RAMT-MA 2022 (polos Imperatriz e Buriticupu) prontas para inserção."""
+    import uuid as _uuid
+    base = dict(regiao="MRT Pré-Amazônico", norma="NBR 14653-3:2019", ano=2022, mes=7,
+                vigencia="RAMT-MA 2022", fonte="INCRA/SR-21-MA — RAMT-MA 2022",
+                fatores=_FATORES_RAMT, notas=_NOTAS_RAMT, ativo=True)
+    imperatriz = {
+        **base, "id": str(_uuid.uuid4()), "municipio": "Açailândia",
+        "municipios": ["Açailândia", "Cidelândia", "Itinga", "Imperatriz", "São Francisco do Brejão",
+                       "Buritirana", "Amarante do Maranhão", "Montes Altos"],
+        "polo_regional": "Imperatriz / Açailândia",
+        "faixas": [
+            {"faixa": "Pastagem formada — cap. alta (pecuária bovina)", "vr_min": 11230.0, "vr_max": 20857.0, "vr_medio": 16044.0, "n_amostras": 32},
+            {"faixa": "Pastagem nativa/formada — cap. baixa (pecuária extensiva)", "vr_min": 6961.0, "vr_max": 12927.0, "vr_medio": 9944.0, "n_amostras": 11},
+            {"faixa": "Vegetação nativa — floresta amazônica / transição / capoeira", "vr_min": 2640.0, "vr_max": 4903.0, "vr_medio": 3771.0, "n_amostras": 3},
+            {"faixa": "Uso indefinido / misto (geral MRT-1)", "vr_min": 1800.0, "vr_max": 250000.0, "vr_medio": 11360.0, "n_amostras": 131},
+        ],
+        "user_id": uid, "created_at": datetime.utcnow(),
+    }
+    buriticupu = {
+        **base, "id": str(_uuid.uuid4()), "municipio": "Buriticupu",
+        "municipios": ["Buriticupu", "Santa Luzia", "Bom Jardim", "Bom Jesus das Selvas"],
+        "polo_regional": "Buriticupu",
+        "faixas": [
+            {"faixa": "Agrícola — grãos diversos — cap. alta (soja/milho/algodão)", "vr_min": 29674.0, "vr_max": 55110.0, "vr_medio": 42392.0, "n_amostras": 3},
+            {"faixa": "Agrícola — grãos diversos — cap. média", "vr_min": 13812.0, "vr_max": 25651.0, "vr_medio": 19732.0, "n_amostras": 11},
+            {"faixa": "Pastagem formada — cap. alta", "vr_min": 8834.0, "vr_max": 16406.0, "vr_medio": 12620.0, "n_amostras": 16},
+            {"faixa": "Pastagem nativa/formada — cap. baixa", "vr_min": 4811.0, "vr_max": 8934.0, "vr_medio": 6872.0, "n_amostras": 24},
+            {"faixa": "Vegetação nativa — floresta amazônica / capoeira", "vr_min": 1505.0, "vr_max": 2795.0, "vr_medio": 2150.0, "n_amostras": 2},
+        ],
+        "user_id": uid, "created_at": datetime.utcnow(),
+    }
+    return [imperatriz, buriticupu]
+
+
+async def seed_incra_default(db):
+    """Carga padrão das tabelas RAMT-MA 2022 (idempotente) — chamada na inicialização."""
+    inseridas = 0
+    for tab in _tabelas_ramt_ma_2022(uid=None):
+        existe = await db.incra_tabelas.find_one(
+            {"regiao": tab["regiao"], "polo_regional": tab["polo_regional"], "vigencia": tab["vigencia"]}
+        )
+        if not existe:
+            await db.incra_tabelas.insert_one(dict(tab))
+            inseridas += 1
+    if inseridas:
+        logger.info("INCRA: carga padrão RAMT-MA 2022 — %d tabela(s) inserida(s)", inseridas)
+    return inseridas
+
+
 @router.post("/incra/seed-exemplo")
 async def seed_exemplo(uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
-    """Insere uma tabela INCRA de EXEMPLO (para testar o visual). Idempotente.
-    Valores fictícios — substituir pela tabela oficial depois."""
-    import uuid as _uuid
-    regiao = "MRT Pré-Amazônico — Polo Imperatriz/Açailândia"
-    vigencia = "RAMT-MA 2022"
-    existe = await db.incra_tabelas.find_one({"regiao": regiao, "vigencia": vigencia, "ativo": True})
-    if existe:
-        return {"ok": True, "ja_existia": True, "id": existe.get("id")}
-    tabela = {
-        "id": str(_uuid.uuid4()),
-        "regiao": regiao,
-        "municipio": "Açailândia",
-        "ano": 2022,
-        "mes": 7,
-        "vigencia": vigencia,
-        "fonte": "INCRA/SR-21-MA — RAMT-MA 2022 (VTI R$/ha — atualizar por IPCA-E)",
-        "faixas": [
-            {"faixa": "Pastagem formada — cap. alta (pecuária bovina)", "vr_min": 11230.0, "vr_max": 20857.0, "vr_medio": 16044.0},
-            {"faixa": "Pastagem nativa/formada — cap. baixa (pecuária extensiva)", "vr_min": 6961.0, "vr_max": 12927.0, "vr_medio": 9944.0},
-            {"faixa": "Vegetação nativa — floresta amazônica/transição/capoeira", "vr_min": 2640.0, "vr_max": 4903.0, "vr_medio": 3771.0},
-            {"faixa": "Uso indefinido / misto (geral MRT-1)", "vr_min": 1800.0, "vr_max": 250000.0, "vr_medio": 11360.0},
-        ],
-        "user_id": uid,
-        "ativo": True,
-        "created_at": datetime.utcnow(),
-    }
-    await db.incra_tabelas.insert_one(tabela)
-    return serialize_doc(tabela)
+    """Insere as tabelas RAMT-MA 2022 (polos Imperatriz e Buriticupu) com tipologias,
+    fatores de homogeneização e notas técnicas. Idempotente."""
+    inseridas = 0
+    ids = []
+    for tab in _tabelas_ramt_ma_2022(uid=uid):
+        existe = await db.incra_tabelas.find_one(
+            {"regiao": tab["regiao"], "polo_regional": tab["polo_regional"], "vigencia": tab["vigencia"], "ativo": True}
+        )
+        if existe:
+            ids.append(existe.get("id"))
+            continue
+        await db.incra_tabelas.insert_one(dict(tab))
+        ids.append(tab["id"])
+        inseridas += 1
+    return {"ok": True, "inseridas": inseridas, "ja_existia": inseridas == 0, "ids": ids}

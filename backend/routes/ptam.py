@@ -827,7 +827,8 @@ async def _attach_incra(db, doc):
     regiao = str(doc.get('regiao_incra') or '').strip()
     queries = []
     if municipio:
-        queries.append({"ativo": True, "municipio": {"$regex": f"^{municipio}$", "$options": "i"}})
+        _rx = {"$regex": f"^{municipio}$", "$options": "i"}
+        queries.append({"ativo": True, "$or": [{"municipio": _rx}, {"municipios": _rx}]})
     if regiao:
         queries.append({"ativo": True, "regiao": {"$regex": f"^{regiao}$", "$options": "i"}})
     queries.append({"ativo": True})

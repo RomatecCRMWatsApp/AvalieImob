@@ -478,6 +478,12 @@ app.add_middleware(
 async def startup():
     init_db()
     logger.info("MongoDB conectado")
+    # Carga padrão das tabelas INCRA/RAMT-MA 2022 (idempotente — só insere se faltar).
+    try:
+        from routes.incra import seed_incra_default
+        await seed_incra_default(get_db())
+    except Exception as e:
+        logger.error(f"Erro no auto-seed INCRA: {e}")
     # Auto-seed TVI é opcional e deve ser explicitamente habilitado.
     enable_tvi_autoseed = os.getenv("ENABLE_TVI_AUTOSEED", "").strip().lower() in {"1", "true", "yes", "on"}
     if not enable_tvi_autoseed:

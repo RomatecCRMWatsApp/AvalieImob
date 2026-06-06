@@ -791,61 +791,114 @@ def incra_section(ptam, media_ha):
         out.append(Spacer(1, 8))
         return out
     idx, dentro = _incra_faixa_match(faixas, media_ha)
-    _sSubt = ParagraphStyle('incraSub', fontName='Helvetica', fontSize=8,
-                            textColor=CINZA, leading=10)
-    _sCellL = ParagraphStyle('incraCellL', fontName='Helvetica', fontSize=8.5, leading=10)
+    _milhar = lambda v: f"{int(round(float(v or 0))):,}".replace(',', '.')
+    _sCard = ParagraphStyle('incraCard', fontName='Helvetica', fontSize=7.5, leading=9, textColor=PRETO)
+    _sCellL = ParagraphStyle('incraCellL', fontName='Helvetica', fontSize=8, leading=10)
+    _sHd = ParagraphStyle('incraHd', fontName='Helvetica-Bold', fontSize=7.5, leading=9,
+                          textColor=BRANCO, alignment=TA_CENTER)
+    _sHdR = ParagraphStyle('incraHdR', parent=_sHd, alignment=2)  # right
     out = []
-    out += subsec('REFERÊNCIA INCRA — Valores de Terra Nua', 'sec7incra')
-    _sub = (f"Região: {tab.get('regiao', '—')}"
-            + (f" · Município: {tab.get('municipio')}" if tab.get('municipio') else '')
-            + f" · Vigência: {tab.get('vigencia', '—')} · Fonte: {tab.get('fonte', '—')}")
-    out.append(Paragraph(_sub, _sSubt))
-    out.append(Spacer(1, 4))
+    out += subsec('REFERÊNCIA INCRA — Valores de Terra (RAMT)', 'sec7incra')
 
-    header = ['Faixa', 'Mín (R$/ha)', 'Máx (R$/ha)', 'Médio (R$/ha)']
+    # Cabeçalho — 4 cards (Região / Polo regional / Fonte / Norma)
+    def _card(lbl, val):
+        return Paragraph(f'<font size=6 color="#999999">{_esc_xml(lbl)}</font><br/>'
+                         f'<b>{_esc_xml(_txt(val, "—"))}</b>', _sCard)
+    _fonte_v = f"{tab.get('fonte', '—')}" + (f" · {tab.get('vigencia')}" if tab.get('vigencia') else '')
+    cards = [[_card('REGIÃO', tab.get('regiao')),
+              _card('POLO REGIONAL', tab.get('polo_regional') or tab.get('municipio')),
+              _card('FONTE', _fonte_v),
+              _card('NORMA', tab.get('norma') or 'NBR 14653-3:2019')]]
+    tc = Table(cards, colWidths=[UTIL_W / 4.0] * 4)
+    tc.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), HexColor('#F5F5F5')),
+        ('BOX', (0, 0), (-1, -1), 0.4, CINZA_BRD),
+        ('INNERGRID', (0, 0), (-1, -1), 0.4, CINZA_BRD),
+        ('TOPPADDING', (0, 0), (-1, -1), 5), ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6), ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+    ]))
+    out.append(tc)
+    out.append(Spacer(1, 6))
+
+    # Tabela de tipologias (VTI mín / médio / máx + N amostras)
+    header = [Paragraph('Tipologia de uso', _sHd),
+              Paragraph('VTI mín.<br/>(R$/ha)', _sHdR), Paragraph('VTI médio<br/>(R$/ha)', _sHdR),
+              Paragraph('VTI máx.<br/>(R$/ha)', _sHdR), Paragraph('N<br/>amostras', _sHdR)]
     data = [header]
     for f in faixas:
         data.append([
             Paragraph(_txt(f.get('faixa'), '—'), _sCellL),
-            fmt_moeda(f.get('vr_min')),
-            fmt_moeda(f.get('vr_max')),
-            fmt_moeda(f.get('vr_medio')),
+            _milhar(f.get('vr_min')), _milhar(f.get('vr_medio')), _milhar(f.get('vr_max')),
+            (str(f.get('n_amostras')) if f.get('n_amostras') is not None else '—'),
         ])
-    cw = [UTIL_W - 3 * 3.4 * cm, 3.4 * cm, 3.4 * cm, 3.4 * cm]
+    cw = [UTIL_W - (3 * 2.55 + 1.9) * cm, 2.55 * cm, 2.55 * cm, 2.55 * cm, 1.9 * cm]
     t = Table(data, colWidths=cw, repeatRows=1)
     style = TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), VERDE),
-        ('TEXTCOLOR', (0, 0), (-1, 0), BRANCO),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 0), (-1, -1), 8.5),
+        ('FONTSIZE', (0, 1), (-1, -1), 8),
         ('GRID', (0, 0), (-1, -1), 0.4, CINZA_BRD),
-        ('TOPPADDING', (0, 0), (-1, -1), 5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-        ('LEFTPADDING', (0, 0), (-1, -1), 6),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-        ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),
+        ('TOPPADDING', (0, 0), (-1, -1), 4), ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6), ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('ALIGN', (1, 1), (-1, -1), 'RIGHT'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('ROWBACKGROUNDS', (0, 1), (-1, -1), [BRANCO, VERDE_CLR]),
+        ('FONTNAME', (2, 1), (2, -1), 'Helvetica-Bold'),  # VTI médio em negrito
     ])
-    r = idx + 1  # +1 por causa do cabeçalho
+    r = idx + 1
     _fundo = AZUL_FAIXA if dentro else VERM_FAIXA
     _texto = AZUL_TEXTO if dentro else VERM_TEXTO
     style.add('BACKGROUND', (0, r), (-1, r), _fundo)
     style.add('TEXTCOLOR', (0, r), (-1, r), _texto)
-    style.add('FONTNAME', (3, r), (3, r), 'Helvetica-Bold')
     style.add('LINEBEFORE', (0, r), (0, r), 3, _texto)
     t.setStyle(style)
     out.append(t)
 
+    # Legenda do valor avaliando
     _leg = ParagraphStyle('incraLeg', fontName='Helvetica-Bold', fontSize=8.5,
-                          textColor=(AZUL_TEXTO if dentro else VERM_TEXTO), leading=11)
+                          textColor=_texto, leading=11)
     _faixa_nome = _esc_xml(_txt((faixas[idx] or {}).get('faixa'), '—'))
     _msg = (f"&#9658; Valor da avaliação: {fmt_moeda(media_ha)}/ha &#8212; "
             + (f'dentro da faixa: &#8220;{_faixa_nome}&#8221;' if dentro
                else f'faixa mais próxima: &#8220;{_faixa_nome}&#8221;'))
     out.append(Spacer(1, 3))
     out.append(Paragraph(_msg, _leg))
+
+    # Fatores de homogeneização (NBR 14653-3)
+    fatores = tab.get('fatores') or []
+    if fatores:
+        out.append(Spacer(1, 6))
+        out.append(Paragraph(f"<b>Fatores de homogeneização sugeridos — {_esc_xml(tab.get('norma') or 'NBR 14653-3')}</b>",
+                             ParagraphStyle('incraFatT', fontName='Helvetica-Bold', fontSize=8, textColor=VERDE)))
+        out.append(Spacer(1, 2))
+        fdata = [[Paragraph('Fator', _sHd), Paragraph('Variável', _sHd), Paragraph('Faixa de ajuste', _sHdR)]]
+        for ft in fatores:
+            fdata.append([
+                Paragraph(_txt(ft.get('fator'), '—'), _sCellL),
+                Paragraph(_txt(ft.get('variavel'), ''), _sCellL),
+                _txt(ft.get('faixa_ajuste'), '—'),
+            ])
+        ft_tbl = Table(fdata, colWidths=[4.6 * cm, UTIL_W - 4.6 * cm - 3.4 * cm, 3.4 * cm], repeatRows=1)
+        ft_tbl.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), VERDE),
+            ('FONTSIZE', (0, 1), (-1, -1), 8),
+            ('GRID', (0, 0), (-1, -1), 0.4, CINZA_BRD),
+            ('TOPPADDING', (0, 0), (-1, -1), 3), ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6), ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+            ('ALIGN', (2, 1), (2, -1), 'RIGHT'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [BRANCO, VERDE_CLR]),
+        ]))
+        out.append(ft_tbl)
+
+    # Notas técnicas
+    _notas = limpar_texto_ia(tab.get('notas')) if tab.get('notas') else ''
+    if _notas:
+        out.append(Spacer(1, 4))
+        out.append(Paragraph(f"<b>Notas técnicas:</b> {_esc_xml(_notas)}",
+                             ParagraphStyle('incraNotas', fontName='Helvetica', fontSize=7,
+                                            textColor=CINZA, leading=9, alignment=TA_JUSTIFY)))
     out.append(Spacer(1, 8))
     return out
 
