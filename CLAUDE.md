@@ -17,7 +17,7 @@
    (opcional — o Railway regenera no prebuild).
 6. Registrar a atualização também no Obsidian (ver seção abaixo), nota de releases/changelog.
 
-**Estado atual: v1.1.394** (MAJOR=1, MINOR=1).
+**Estado atual: v1.1.395** (MAJOR=1, MINOR=1).
 
 ## Obsidian MCP — Sincronização automática
 

@@ -776,10 +776,15 @@ def _map_ptam_to_spec_v2(doc: dict, perfil: dict | None) -> dict:
 
 
 async def _gps_data_foto(db, img_doc, raw_bytes):
-    """(gps, data_hora) da foto: cache em db.images > EXIF > OCR (cacheia o resultado)."""
+    """(gps, data_hora) da foto: cache em db.images > EXIF > OCR.
+    PERF: cacheia SEMPRE (mesmo sem achar GPS) e marca meta_ocr_done, para o OCR
+    (lento) NÃO reprocessar a cada geração de PDF. Era o gargalo do Visualizar/PDF."""
     g = (img_doc.get("meta_gps") or "").strip()
     d = (img_doc.get("meta_data_hora") or "").strip()
     if g or d:
+        return g, d
+    # Já processado antes (inclusive sem GPS) → não reexecuta EXIF/OCR.
+    if img_doc.get("meta_ocr_done"):
         return g, d
     try:
         from services.ptam_pdf_v2 import _exif_gps_data
@@ -793,14 +798,14 @@ async def _gps_data_foto(db, img_doc, raw_bytes):
             g, d = await _aio.to_thread(extrair_gps_data_ocr, raw_bytes)
         except Exception:
             g, d = "", ""
-    if g or d:
-        try:
-            await db.images.update_one(
-                {"id": img_doc.get("id")},
-                {"$set": {"meta_gps": g, "meta_data_hora": d}},
-            )
-        except Exception:
-            pass
+    # Cacheia o resultado (inclusive vazio) + marca como processado.
+    try:
+        await db.images.update_one(
+            {"id": img_doc.get("id")},
+            {"$set": {"meta_gps": g, "meta_data_hora": d, "meta_ocr_done": True}},
+        )
+    except Exception:
+        pass
     return g, d
 
 
