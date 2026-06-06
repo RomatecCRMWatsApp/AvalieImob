@@ -780,7 +780,16 @@ def incra_section(ptam, media_ha):
     tab = (ptam or {}).get('incra_tabela') or {}
     faixas = tab.get('faixas') or []
     if not faixas:
-        return []
+        # Sem tabela cadastrada: mostra a seção com aviso discreto (não silencia).
+        _sAviso = ParagraphStyle('incraAviso', fontName='Helvetica-Oblique', fontSize=8.5,
+                                 textColor=CINZA, leading=11)
+        out = subsec('REFERÊNCIA INCRA — Valores de Terra Nua', 'sec7incra')
+        out.append(Paragraph(
+            'Tabela INCRA de Valores de Terra Nua não cadastrada para esta região. '
+            'Cadastre em Ferramentas &#8594; Tabelas INCRA para que a referência apareça no laudo.',
+            _sAviso))
+        out.append(Spacer(1, 8))
+        return out
     idx, dentro = _incra_faixa_match(faixas, media_ha)
     _sSubt = ParagraphStyle('incraSub', fontName='Helvetica', fontSize=8,
                             textColor=CINZA, leading=10)
