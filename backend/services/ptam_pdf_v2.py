@@ -465,6 +465,32 @@ def _campos_dir(c, dx, top_y, titulo, campos, dy=0.60 * cm, val_x=1.85 * cm):
         y -= dy
 
 
+def _campos_dir_multi(c, dx, top_y, titulo, campos, area_w=9.1 * cm):
+    """Lista campos da amostra; usa 2 colunas automaticamente quando há muitos campos."""
+    c.setFillColor(VERDE_MED)
+    c.setFont('Helvetica-Bold', 8.5)
+    c.drawString(dx, top_y, titulo)
+    n = len(campos)
+    duas = n > 9
+    col_w = (area_w / 2.0) if duas else area_w
+    val_x = 1.65 * cm if duas else 2.05 * cm
+    val_max = 22 if duas else 58
+    fsize = 7.5 if duas else 8
+    dy = 0.50 * cm
+    per_col = (n + 1) // 2 if duas else n
+    y0 = top_y - 0.55 * cm
+    for i, (label, valor) in enumerate(campos):
+        col = 0 if i < per_col else 1
+        row = i if col == 0 else i - per_col
+        cx = dx + col * col_w
+        cy = y0 - row * dy
+        c.setFillColor(PRETO)
+        c.setFont('Helvetica-Bold', fsize)
+        c.drawString(cx, cy, label)
+        c.setFont('Helvetica', fsize)
+        c.drawString(cx + val_x, cy, _txt(valor)[:val_max])
+
+
 class AmostraCard(Flowable):
     CH = 9.2 * cm
 
@@ -510,16 +536,48 @@ class AmostraCard(Flowable):
         _ru = self.rural
         _vu_lbl = 'R$/ha:' if _ru else 'R$/m²:'
         _vu_val = (fmt_rs_unit(vpm, _ru) if vpm else '—')
+
+        def _tem(x):
+            return x not in (None, '', 0, '0', 0.0)
+
         campos = [
             ('Tipo:', a.get('tipo') or a.get('tipo_amostra') or 'Não informado'),
             ('Área:', fmt_area_rural(area, _ru)),
             ('Valor:', fmt_moeda(a.get('value'))),
             (_vu_lbl, _vu_val),
+        ]
+        if _ru:
+            # Características rurais (somente as preenchidas).
+            _rurais = [
+                ('Topografia:', 'topografia', None),
+                ('Solo:', 'solo', None),
+                ('Rec. hídricos:', 'recursos_hidricos', None),
+                ('Vegetação:', 'vegetacao', None),
+                ('Atividade:', 'atividade', None),
+                ('Lotação:', 'lotacao_ua_ha', ' UA/ha'),
+                ('Benfeitorias:', 'benfeitorias', None),
+                ('Sede/casa:', 'sede', None),
+            ]
+            for _lbl, _k, _sfx in _rurais:
+                if _tem(a.get(_k)):
+                    _val = f"{a.get(_k)}{_sfx}" if _sfx else a.get(_k)
+                    campos.append((_lbl, _val))
+        else:
+            # Características urbanas/construtivas (somente as preenchidas).
+            for _lbl, _k in [('Área constr.:', 'area_construida_m2'), ('Quartos:', 'quartos'),
+                             ('Banheiros:', 'banheiros'), ('Vagas:', 'vagas'),
+                             ('Idade (anos):', 'idade_anos'), ('Zoneamento:', 'zoneamento')]:
+                if _tem(a.get(_k)):
+                    campos.append((_lbl, a.get(_k)))
+        if a.get('municipio') or a.get('uf'):
+            _muf = (a.get('municipio') or '') + (f"/{a.get('uf')}" if a.get('uf') else '')
+            campos.append(('Município:', _muf.strip('/')))
+        campos += [
             ('Fonte:', a.get('source')),
             ('Data:', a.get('collection_date')),
             ('Telefone:', a.get('contact_phone')),
         ]
-        _campos_dir(c, dx, h - 1.05 * cm, '1. Identificação e Caracterização', campos)
+        _campos_dir_multi(c, dx, h - 1.05 * cm, '1. Identificação e Caracterização', campos)
 
 
 class FotoCard(Flowable):
