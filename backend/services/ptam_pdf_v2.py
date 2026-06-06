@@ -1243,10 +1243,14 @@ def build_story(ptam, page_map):
         _stats_rows.append(['Média Ponderada Final (R$/m²) — referência', _num(_ponderada)])
     st.append(tbl_header(['Estatística', 'Valor'], _stats_rows,
                          [9.0 * cm, UTIL_W - 9.0 * cm], bold_last=True))
-    # Referência INCRA (Valores de Terra Nua) — somente laudo rural, abaixo da ponderação.
-    if _rural:
+    # Referência INCRA (Valores de Terra Nua) — só rural e se marcado para o laudo.
+    if _rural and ptam.get('incra_incluir_laudo', True):
+        try:
+            _vu_inc = float(ptam.get('resultado_valor_unitario') or ptam.get('ponderancia_media') or _ponderada or 0)
+        except (TypeError, ValueError):
+            _vu_inc = float(_ponderada or 0)
         st.append(Spacer(1, 8))
-        st += incra_section(ptam, _ponderada * 10000)
+        st += incra_section(ptam, _vu_inc * 10000)
     # Fatores de homogeneização + observações dos cálculos (texto do avaliador).
     _fat = html_to_inline(limpar_texto_ia(ptam.get('calc_fatores_homogeneizacao')))
     if _fat:

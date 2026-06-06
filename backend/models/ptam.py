@@ -281,6 +281,10 @@ class PtamBase(BaseModel):
     ponderancia_eliminadas: Optional[List[int]] = []
     ponderancia_valor_final: Optional[float] = None
 
+    # Referência INCRA (Valores de Terra Nua) — laudo rural
+    incra_incluir_laudo: Optional[bool] = True
+    regiao_incra: Optional[str] = None
+
     # Método de Avaliação / Depreciação
     metodo_avaliacao: Optional[str] = None
     metodo_params: Optional[dict] = {}

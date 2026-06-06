@@ -5,7 +5,6 @@ import { SectionHeader, AiButton } from '../shared/primitives';
 import { computeStatsNBR } from '../ptamHelpers';
 import { AlertTriangle, CheckCircle, Info } from 'lucide-react';
 import MetodoEvolutivo from '../MetodoEvolutivo';
-import TabelaIncraRural from '../TabelaIncraRural';
 import { ResumoArea } from '../shared/ResumoArea';
 import { isRural } from '../shared/RuralDocSection';
 import { M2_PER_HA, fmtBR } from '@/utils/areaConversao';
@@ -308,15 +307,6 @@ export const StepCalculos = ({ form, setForm, onAi, aiLoading }) => {
           </div>
         </div>
       </div>
-
-      {/* Referência INCRA — só para imóveis rurais, abaixo da ponderação */}
-      {rural && stats.media_final > 0 && (
-        <TabelaIncraRural
-          mediaAvaliacaoHa={stats.media_final * M2_PER_HA}
-          municipio={form.property_city}
-          regiao={form.regiao_incra}
-        />
-      )}
 
       {/* Bloco D — Graus de Fundamentação e Precisão */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">

@@ -2,6 +2,9 @@
 import React from 'react';
 import { Button } from '../../../ui/button';
 import { SectionHeader } from '../shared/primitives';
+import TabelaIncraRural from '../TabelaIncraRural';
+import { isRural } from '../shared/RuralDocSection';
+import { M2_PER_HA } from '@/utils/areaConversao';
 
 const fmtBrl = (v) =>
   Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -12,6 +15,7 @@ const fmtBrlM2 = (v) =>
 const fmt2 = (v) => Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export const StepPonderancia = ({ form, setForm }) => {
+  const rural = isRural(form.property_type);
   const samples = (form.market_samples || []).filter((s) => Number(s.area || 0) > 0 && Number(s.value || 0) > 0);
 
   const samplesWithVpm = samples.map((s) => ({
@@ -259,6 +263,33 @@ export const StepPonderancia = ({ form, setForm }) => {
                     </div>
                   )}
                 </div>
+
+                {/* Referência INCRA — somente imóvel rural */}
+                {rural && Number(form.ponderancia_media) > 0 && (
+                  <div className="border-t border-gray-100 pt-4">
+                    <label className="flex items-center gap-2 mb-1 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={form.incra_incluir_laudo !== false}
+                        onChange={(e) => setForm((f) => ({ ...f, incra_incluir_laudo: e.target.checked }))}
+                        className="w-4 h-4 accent-emerald-600"
+                      />
+                      <span className="text-sm font-medium text-gray-700">
+                        Incluir tabela de referência INCRA no laudo
+                      </span>
+                    </label>
+                    <p className="text-xs text-gray-400 ml-6 mb-2">
+                      Compara a média ponderada ({`R$ ${fmt2(form.ponderancia_media)}/m²`} = R$ {fmt2(Number(form.ponderancia_media) * M2_PER_HA)}/ha) com as faixas da tabela INCRA vigente.
+                    </p>
+                    {form.incra_incluir_laudo !== false && (
+                      <TabelaIncraRural
+                        mediaAvaliacaoHa={Number(form.ponderancia_media) * M2_PER_HA}
+                        municipio={form.property_city}
+                        regiao={form.regiao_incra}
+                      />
+                    )}
+                  </div>
+                )}
 
                 <div className="flex justify-end">
                   <Button
