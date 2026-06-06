@@ -54,6 +54,7 @@ const MENU = [
   { section: 'Ferramentas', items: [
     { id: 'ia', label: 'Roma_IA', icon: Sparkles, route: '/dashboard/ia' },
     { id: 'cnd', label: 'Certidões CND', icon: FileSearch, route: '/dashboard/cnd' },
+    { id: 'incra', label: 'Tabelas INCRA', icon: BarChart3, route: '/dashboard/admin/incra' },
   ]},
   { section: 'Conta', items: [
     { id: 'curriculo', label: 'Meu Currículo', icon: Award, route: '/dashboard/curriculo' },
