@@ -2,7 +2,7 @@
 // Acesso restrito a admin (a rota POST/DELETE exige papel admin no backend).
 import React, { useEffect, useState } from 'react';
 import { incraAPI } from '@/lib/api';
-import { Plus, Trash2, Save, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Save, Loader2, Pencil, X } from 'lucide-react';
 
 const fmtBRL = (v) =>
   Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -17,6 +17,7 @@ export default function AdminIncra() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState(null);
+  const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({
     regiao: '',
     municipio: '',
@@ -58,19 +59,25 @@ export default function AdminIncra() {
       }));
     if (!form.regiao.trim()) return setMsg({ tipo: 'erro', txt: 'Informe a região.' });
     if (!faixas.length) return setMsg({ tipo: 'erro', txt: 'Informe ao menos uma faixa válida.' });
+    const payload = {
+      regiao: form.regiao.trim(),
+      municipio: form.municipio.trim() || null,
+      ano: Number(form.ano),
+      mes: Number(form.mes),
+      vigencia: form.vigencia.trim(),
+      fonte: form.fonte.trim(),
+      faixas,
+    };
     setSaving(true);
     try {
-      await incraAPI.criar({
-        regiao: form.regiao.trim(),
-        municipio: form.municipio.trim() || null,
-        ano: Number(form.ano),
-        mes: Number(form.mes),
-        vigencia: form.vigencia.trim(),
-        fonte: form.fonte.trim(),
-        faixas,
-      });
-      setMsg({ tipo: 'ok', txt: 'Tabela INCRA cadastrada.' });
-      setForm((f) => ({ ...f, faixas: [faixaVazia()] }));
+      if (editingId) {
+        await incraAPI.editar(editingId, payload);
+        setMsg({ tipo: 'ok', txt: 'Tabela INCRA atualizada.' });
+      } else {
+        await incraAPI.criar(payload);
+        setMsg({ tipo: 'ok', txt: 'Tabela INCRA cadastrada.' });
+      }
+      cancelarEdicao();
       carregar();
     } catch (e) {
       const detail = e?.response?.data?.detail || 'Erro ao salvar.';
@@ -78,6 +85,41 @@ export default function AdminIncra() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const editar = (t) => {
+    setEditingId(t.id);
+    setMsg(null);
+    setForm({
+      regiao: t.regiao || '',
+      municipio: t.municipio || '',
+      ano: t.ano || hoje.getFullYear(),
+      mes: t.mes || hoje.getMonth() + 1,
+      vigencia: t.vigencia || '',
+      fonte: t.fonte || '',
+      faixas: (t.faixas && t.faixas.length
+        ? t.faixas.map((f) => ({
+            faixa: f.faixa || '',
+            vr_min: f.vr_min ?? '',
+            vr_max: f.vr_max ?? '',
+            vr_medio: f.vr_medio ?? '',
+          }))
+        : [faixaVazia()]),
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const cancelarEdicao = () => {
+    setEditingId(null);
+    setForm({
+      regiao: '',
+      municipio: '',
+      ano: hoje.getFullYear(),
+      mes: hoje.getMonth() + 1,
+      vigencia: `${MESES[hoje.getMonth()]}/${hoje.getFullYear()}`,
+      fonte: 'INCRA/SR-26/MA',
+      faixas: [faixaVazia()],
+    });
   };
 
   const remover = async (id) => {
@@ -97,8 +139,8 @@ export default function AdminIncra() {
       setMsg({
         tipo: 'ok',
         txt: r?.ja_existia
-          ? 'A tabela de exemplo já estava cadastrada.'
-          : 'Tabela de EXEMPLO inserida — abra um laudo rural para ver a seção. Lembre de substituir pelos valores oficiais.',
+          ? 'A tabela RAMT-MA 2022 (Polo Imperatriz) já estava cadastrada.'
+          : 'Tabela RAMT-MA 2022 (Polo Imperatriz) inserida. Valores VTI R$/ha — atualize por IPCA-E até a data-base da avaliação.',
       });
       carregar();
     } catch (e) {
@@ -122,7 +164,7 @@ export default function AdminIncra() {
         </div>
         <button type="button" onClick={inserirExemplo}
           className="shrink-0 text-xs font-medium text-emerald-700 border border-emerald-300 hover:bg-emerald-50 rounded-lg px-3 py-2">
-          Inserir tabela de exemplo
+          Inserir RAMT-MA 2022 (Polo Imperatriz)
         </button>
       </div>
 
@@ -139,8 +181,18 @@ export default function AdminIncra() {
       )}
 
       {/* Formulário */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-4">
-        <h2 className="text-sm font-semibold text-gray-700">Nova tabela</h2>
+      <div className={`bg-white rounded-xl border p-4 space-y-4 ${editingId ? 'border-emerald-400 ring-1 ring-emerald-200' : 'border-gray-200'}`}>
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-gray-700">
+            {editingId ? 'Editando tabela' : 'Nova tabela'}
+          </h2>
+          {editingId && (
+            <button type="button" onClick={cancelarEdicao}
+              className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700">
+              <X className="w-3.5 h-3.5" /> Cancelar edição
+            </button>
+          )}
+        </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <div className="col-span-2">
             <label className="block text-xs text-gray-500 mb-1">Região *</label>
@@ -216,7 +268,7 @@ export default function AdminIncra() {
           <button type="button" onClick={salvar} disabled={saving}
             className="inline-flex items-center gap-2 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-60 text-white text-sm font-semibold px-5 py-2.5 rounded-lg">
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            Salvar tabela
+            {editingId ? 'Salvar alterações' : 'Salvar tabela'}
           </button>
         </div>
       </div>
@@ -245,10 +297,16 @@ export default function AdminIncra() {
                     ))}
                   </div>
                 </div>
-                <button type="button" onClick={() => remover(t.id)}
-                  className="text-red-500 hover:text-red-700 ml-3" title="Remover">
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-2 ml-3 shrink-0">
+                  <button type="button" onClick={() => editar(t)}
+                    className="text-emerald-600 hover:text-emerald-800" title="Editar">
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                  <button type="button" onClick={() => remover(t.id)}
+                    className="text-red-500 hover:text-red-700" title="Excluir">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>

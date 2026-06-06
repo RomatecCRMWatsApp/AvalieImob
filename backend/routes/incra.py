@@ -1,10 +1,11 @@
 # @module routes.incra — Tabelas de referência INCRA (Valores de Terra Nua) para laudos rurais
 import logging
+from datetime import datetime
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 
 from db import get_db
-from dependencies import get_active_subscriber, get_admin_user, serialize_doc
+from dependencies import get_active_subscriber, serialize_doc
 from models.incra import IncraTabela, IncraTabelaBase
 
 router = APIRouter(tags=["incra"])
@@ -55,24 +56,39 @@ async def listar_tabelas(uid: str = Depends(get_active_subscriber), db=Depends(g
 
 
 @router.post("/incra/tabela")
-async def criar_tabela(data: IncraTabelaBase, uid: str = Depends(get_admin_user), db=Depends(get_db)):
-    """Cadastra nova tabela INCRA (somente admin)."""
+async def criar_tabela(data: IncraTabelaBase, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    """Cadastra nova tabela INCRA."""
     if not data.faixas:
         raise HTTPException(status_code=400, detail="Informe ao menos uma faixa de valor")
     tabela = IncraTabela(**data.model_dump(), user_id=uid)
     doc = tabela.model_dump(mode="json")
     doc["faixas"] = _normaliza_faixas(data.faixas)
     await db.incra_tabelas.insert_one(doc)
-    logger.info("INCRA: admin %s cadastrou tabela %s/%s (%s-%s)", uid, data.regiao,
+    logger.info("INCRA: %s cadastrou tabela %s/%s (%s-%s)", uid, data.regiao,
                 data.municipio or "—", data.ano, data.mes)
     return serialize_doc(doc)
 
 
-@router.delete("/incra/tabela/{tid}")
-async def remover_tabela(tid: str, uid: str = Depends(get_admin_user), db=Depends(get_db)):
-    """Remove (desativa) uma tabela INCRA (somente admin)."""
-    res = await db.incra_tabelas.update_one({"id": tid}, {"$set": {"ativo": False}})
+@router.put("/incra/tabela/{tid}")
+async def editar_tabela(tid: str, data: IncraTabelaBase, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    """Edita uma tabela INCRA existente."""
+    if not data.faixas:
+        raise HTTPException(status_code=400, detail="Informe ao menos uma faixa de valor")
+    upd = data.model_dump()
+    upd["faixas"] = _normaliza_faixas(data.faixas)
+    upd["updated_at"] = datetime.utcnow()
+    res = await db.incra_tabelas.update_one({"id": tid}, {"$set": upd})
     if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Tabela não encontrada")
+    doc = await db.incra_tabelas.find_one({"id": tid})
+    return serialize_doc(doc)
+
+
+@router.delete("/incra/tabela/{tid}")
+async def remover_tabela(tid: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    """Exclui definitivamente uma tabela INCRA."""
+    res = await db.incra_tabelas.delete_one({"id": tid})
+    if res.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Tabela não encontrada")
     return {"ok": True, "id": tid}
 
@@ -82,9 +98,8 @@ async def seed_exemplo(uid: str = Depends(get_active_subscriber), db=Depends(get
     """Insere uma tabela INCRA de EXEMPLO (para testar o visual). Idempotente.
     Valores fictícios — substituir pela tabela oficial depois."""
     import uuid as _uuid
-    from datetime import datetime as _dt
-    regiao = "Sudoeste Maranhense / Imperatriz - MA"
-    vigencia = "Jan/2025"
+    regiao = "MRT Pré-Amazônico — Polo Imperatriz/Açailândia"
+    vigencia = "RAMT-MA 2022"
     existe = await db.incra_tabelas.find_one({"regiao": regiao, "vigencia": vigencia, "ativo": True})
     if existe:
         return {"ok": True, "ja_existia": True, "id": existe.get("id")}
@@ -92,20 +107,19 @@ async def seed_exemplo(uid: str = Depends(get_active_subscriber), db=Depends(get
         "id": str(_uuid.uuid4()),
         "regiao": regiao,
         "municipio": "Açailândia",
-        "ano": 2025,
-        "mes": 1,
+        "ano": 2022,
+        "mes": 7,
         "vigencia": vigencia,
-        "fonte": "INCRA/SR-26/MA — VALORES DE EXEMPLO (substituir pela tabela oficial)",
+        "fonte": "INCRA/SR-21-MA — RAMT-MA 2022 (VTI R$/ha — atualizar por IPCA-E)",
         "faixas": [
-            {"faixa": "Lavoura — aptidão boa", "vr_min": 18000.0, "vr_max": 28000.0, "vr_medio": 23000.0},
-            {"faixa": "Lavoura — aptidão regular/restrita", "vr_min": 12000.0, "vr_max": 18000.0, "vr_medio": 15000.0},
-            {"faixa": "Pastagem plantada", "vr_min": 8000.0, "vr_max": 12000.0, "vr_medio": 10000.0},
-            {"faixa": "Pastagem natural", "vr_min": 5000.0, "vr_max": 8000.0, "vr_medio": 6500.0},
-            {"faixa": "Preservação / Reserva Legal", "vr_min": 2500.0, "vr_max": 5000.0, "vr_medio": 3750.0},
+            {"faixa": "Pastagem formada — cap. alta (pecuária bovina)", "vr_min": 11230.0, "vr_max": 20857.0, "vr_medio": 16044.0},
+            {"faixa": "Pastagem nativa/formada — cap. baixa (pecuária extensiva)", "vr_min": 6961.0, "vr_max": 12927.0, "vr_medio": 9944.0},
+            {"faixa": "Vegetação nativa — floresta amazônica/transição/capoeira", "vr_min": 2640.0, "vr_max": 4903.0, "vr_medio": 3771.0},
+            {"faixa": "Uso indefinido / misto (geral MRT-1)", "vr_min": 1800.0, "vr_max": 250000.0, "vr_medio": 11360.0},
         ],
         "user_id": uid,
         "ativo": True,
-        "created_at": _dt.utcnow(),
+        "created_at": datetime.utcnow(),
     }
     await db.incra_tabelas.insert_one(tabela)
     return serialize_doc(tabela)
