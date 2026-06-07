@@ -606,8 +606,11 @@ def _render_caracterizacao(doc: Document, ptam: dict) -> None:
     """Seção 4 — Caracterização do Imóvel (campos físicos/construtivos)."""
     keys = ["imovel_area_terreno", "imovel_area_construida", "imovel_area_a_considerar",
             "imovel_idade", "imovel_estado_conservacao", "imovel_padrao_acabamento",
-            "imovel_num_quartos", "imovel_num_banheiros", "imovel_num_vagas",
-            "imovel_piscina", "imovel_caracteristicas_adicionais"]
+            "imovel_sala_estar", "imovel_sala_jantar", "imovel_cozinha", "imovel_quarto_social",
+            "imovel_suite_simples", "imovel_suite_master", "imovel_banheiro_social", "imovel_lavabo",
+            "imovel_area_servico", "imovel_varanda", "imovel_varanda_gourmet", "imovel_escritorio",
+            "imovel_despensa", "imovel_num_piscinas", "imovel_num_vagas",
+            "imovel_caracteristicas_adicionais"]
     if not any(ptam.get(k) for k in keys):
         return
 
@@ -639,18 +642,30 @@ def _render_caracterizacao(doc: Document, ptam: dict) -> None:
         padrao_label = padrao_map.get(ptam["imovel_padrao_acabamento"], ptam["imovel_padrao_acabamento"])
         _add_label_value(doc, "Padrão de Acabamento", padrao_label)
 
+    # Ambientes (quantidade) — mesmos campos das amostras; só > 0 vai ao laudo.
     comodos = []
-    if ptam.get("imovel_num_quartos"):
-        comodos.append(f"{ptam['imovel_num_quartos']} quarto(s)")
-    if ptam.get("imovel_num_banheiros"):
-        comodos.append(f"{ptam['imovel_num_banheiros']} banheiro(s)")
-    if ptam.get("imovel_num_vagas"):
-        comodos.append(f"{ptam['imovel_num_vagas']} vaga(s) de garagem")
+    for _lbl, _k in [
+        ("sala(s) de estar", "imovel_sala_estar"),
+        ("sala(s) de jantar/copa", "imovel_sala_jantar"),
+        ("cozinha(s)", "imovel_cozinha"),
+        ("quarto(s) social(is)", "imovel_quarto_social"),
+        ("suíte(s) simples", "imovel_suite_simples"),
+        ("suíte(s) master", "imovel_suite_master"),
+        ("banheiro(s) social(is)", "imovel_banheiro_social"),
+        ("lavabo(s)", "imovel_lavabo"),
+        ("área(s) de serviço", "imovel_area_servico"),
+        ("varanda(s)/sacada(s)", "imovel_varanda"),
+        ("varanda(s) gourmet", "imovel_varanda_gourmet"),
+        ("escritório(s)", "imovel_escritorio"),
+        ("despensa(s)", "imovel_despensa"),
+        ("piscina(s)", "imovel_num_piscinas"),
+        ("vaga(s) de garagem", "imovel_num_vagas"),
+    ]:
+        _v = ptam.get(_k)
+        if _v:
+            comodos.append(f"{_v} {_lbl}")
     if comodos:
-        _add_label_value(doc, "Cômodos / Dependências", " | ".join(comodos))
-
-    if ptam.get("imovel_piscina"):
-        _add_label_value(doc, "Piscina", "Sim")
+        _add_label_value(doc, "Cômodos / Ambientes", " | ".join(comodos))
 
     if ptam.get("imovel_caracteristicas_adicionais"):
         _add_label_value(doc, "Características Adicionais", ptam["imovel_caracteristicas_adicionais"])
