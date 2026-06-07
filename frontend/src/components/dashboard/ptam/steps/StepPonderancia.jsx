@@ -95,8 +95,20 @@ export const StepPonderancia = ({ form, setForm }) => {
     }));
   };
 
+  // REGRA: o método selecionado (form.methodology) manda no valor final.
+  // A Ponderância só DEFINE o valor total quando o método é o Comparativo.
+  // Evolutivo/Involutivo/Renda/Custo definem o próprio total — a ponderância aqui
+  // vira só referência de R$/m² e NUNCA sobrescreve o total.
+  const isComparativo = !String(form.methodology || '').trim()
+    || /comparativo/i.test(String(form.methodology || ''));
+
   const usarNoLaudo = () => {
     if (!form.ponderancia_media) return;
+    if (!isComparativo) {
+      // Não toca no total — preserva o valor do método selecionado.
+      setForm((f) => ({ ...f, resultado_valor_unitario: form.ponderancia_media }));
+      return;
+    }
     const area = Number(form.imovel_area_a_considerar || form.imovel_area_construida || form.imovel_area_terreno || form.property_area_sqm || 0);
     // Sempre recalcula com a área atual — nunca reaproveita o valor salvo (que pode
     // estar com a área antiga).
@@ -297,7 +309,21 @@ export const StepPonderancia = ({ form, setForm }) => {
                     </span>
                   </div>
 
-                  {area > 0 && (
+                  {!isComparativo && (
+                    <div className="bg-purple-50 border-2 border-purple-300 rounded-xl p-5 mb-3">
+                      <div className="text-xs text-purple-700 uppercase tracking-wider mb-1">
+                        Valor definido pelo {form.methodology} (etapa 8. Cálculos)
+                      </div>
+                      <div className="text-3xl font-bold text-purple-800">
+                        Valor do Imóvel: {fmtBrl(Number(form.resultado_valor_total || form.total_indemnity || form.valor_total_metodo || 0))}
+                      </div>
+                      <p className="text-xs text-purple-600 mt-2">
+                        A ponderância abaixo é apenas a média de referência (R$/m²) — não altera o valor final deste método.
+                      </p>
+                    </div>
+                  )}
+
+                  {area > 0 && isComparativo && (
                     <div className="bg-gradient-to-r from-amber-50 to-yellow-50 border-2 border-amber-400 rounded-xl p-5">
                       <div className="text-xs text-amber-700 uppercase tracking-wider mb-1">
                         Valor Final = {fmtBrlM2(form.ponderancia_media)} × {area.toLocaleString('pt-BR')} m²
