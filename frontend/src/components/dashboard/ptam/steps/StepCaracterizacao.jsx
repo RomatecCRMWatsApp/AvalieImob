@@ -68,24 +68,35 @@ export const StepCaracterizacao = ({ form, setForm, onAi, aiLoading }) => (
           </SelectContent>
         </Select>
       </Field>
-      <Field label="Número de quartos">
-        <Input type="number" min="0" value={form.imovel_num_quartos} onChange={(e) => setForm({ ...form, imovel_num_quartos: Number(e.target.value) })} />
-      </Field>
-      <Field label="Número de banheiros">
-        <Input type="number" min="0" value={form.imovel_num_banheiros} onChange={(e) => setForm({ ...form, imovel_num_banheiros: Number(e.target.value) })} />
-      </Field>
-      <Field label="Vagas de garagem">
-        <Input type="number" min="0" value={form.imovel_num_vagas} onChange={(e) => setForm({ ...form, imovel_num_vagas: Number(e.target.value) })} />
-      </Field>
-      <Field label="Piscina">
-        <Select value={form.imovel_piscina ? 'sim' : 'nao'} onValueChange={(v) => setForm({ ...form, imovel_piscina: v === 'sim' })}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="nao">Não</SelectItem>
-            <SelectItem value="sim">Sim</SelectItem>
-          </SelectContent>
-        </Select>
-      </Field>
+      {/* Ambientes (quantidade) — mesmos campos das amostras; só vão ao laudo se > 0 */}
+      <div className="col-span-2 mt-1">
+        <span className="block text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-2">
+          Ambientes (quantidade — só vai ao laudo se maior que 0)
+        </span>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          {[
+            ['imovel_sala_estar', 'Sala de estar'],
+            ['imovel_sala_jantar', 'Sala de jantar/copa'],
+            ['imovel_cozinha', 'Cozinha'],
+            ['imovel_quarto_social', 'Quarto social'],
+            ['imovel_suite_simples', 'Suíte simples'],
+            ['imovel_suite_master', 'Suíte master'],
+            ['imovel_banheiro_social', 'Banheiro social'],
+            ['imovel_lavabo', 'Lavabo'],
+            ['imovel_area_servico', 'Área de serviço'],
+            ['imovel_varanda', 'Varanda/sacada'],
+            ['imovel_varanda_gourmet', 'Varanda gourmet'],
+            ['imovel_escritorio', 'Escritório'],
+            ['imovel_despensa', 'Despensa'],
+            ['imovel_num_piscinas', 'Piscina'],
+            ['imovel_num_vagas', 'Garagem'],
+          ].map(([k, lbl]) => (
+            <Field key={k} label={lbl}>
+              <Input type="number" min="0" value={form[k] || ''} onChange={(e) => setForm({ ...form, [k]: Number(e.target.value) })} />
+            </Field>
+          ))}
+        </div>
+      </div>
       <Field label="Características adicionais / benfeitorias" full>
         <RichField form={form} setForm={setForm} field="imovel_caracteristicas_adicionais" minHeight={100}
           placeholder="Descreva acabamentos, instalações, reformas, itens diferenciados..." />

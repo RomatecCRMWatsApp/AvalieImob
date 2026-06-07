@@ -1344,16 +1344,27 @@ def build_story(ptam, page_map):
         ('Idade Aproximada', f"{ptam.get('imovel_idade')} anos" if ptam.get('imovel_idade') else ''),
         ('Estado de Conservação', ptam.get('imovel_estado_conservacao')),
         ('Padrão de Acabamento', ptam.get('imovel_padrao_acabamento')),
-        ('Nº de Quartos', ptam.get('imovel_num_quartos')),
-        ('Nº de Banheiros', ptam.get('imovel_num_banheiros')),
-        ('Vagas de Garagem', ptam.get('imovel_num_vagas')),
+        # Ambientes (quantidade) — mesmos campos das amostras; regra: só > 0 vai ao laudo.
+        ('Sala de Estar', ptam.get('imovel_sala_estar')),
+        ('Sala de Jantar/Copa', ptam.get('imovel_sala_jantar')),
+        ('Cozinha', ptam.get('imovel_cozinha')),
+        ('Quarto Social', ptam.get('imovel_quarto_social')),
+        ('Suíte Simples', ptam.get('imovel_suite_simples')),
+        ('Suíte Master', ptam.get('imovel_suite_master')),
+        ('Banheiro Social', ptam.get('imovel_banheiro_social')),
+        ('Lavabo', ptam.get('imovel_lavabo')),
+        ('Área de Serviço', ptam.get('imovel_area_servico')),
+        ('Varanda/Sacada', ptam.get('imovel_varanda')),
+        ('Varanda Gourmet', ptam.get('imovel_varanda_gourmet')),
+        ('Escritório', ptam.get('imovel_escritorio')),
+        ('Despensa', ptam.get('imovel_despensa')),
+        ('Piscina', ptam.get('imovel_num_piscinas')),
+        ('Garagem', ptam.get('imovel_num_vagas')),
         ('Características Adicionais / Benfeitorias',
          html_to_inline(limpar_texto_ia(ptam.get('imovel_caracteristicas_adicionais')))),
     ]
     # Regra: valor 0 / vazio / "Não" NÃO vai para o laudo.
     _carac_rows = [(lb, _txt(vl)) for lb, vl in _carac_rows if _preenchido(vl)]
-    if ptam.get('imovel_piscina'):
-        _carac_rows.append(('Piscina', 'Sim'))
     st.append(tbl(_carac_rows or [('Caracterização', 'Não informada')]))
 
     # ── 4. Contexto Urbano ──
