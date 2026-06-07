@@ -171,6 +171,20 @@ const PtamWizard = () => {
     return () => debounceRef.current && clearTimeout(debounceRef.current);
   }, [form, ptamId, save]);
 
+  // Marca/desmarca uma etapa como concluída, carimba data/hora e salva na hora.
+  const toggleEtapaConcluida = useCallback((stepIndex, checked) => {
+    setForm((prev) => ({
+      ...prev,
+      etapas_concluidas: { ...(prev.etapas_concluidas || {}), [stepIndex]: checked },
+      etapas_concluidas_em: {
+        ...(prev.etapas_concluidas_em || {}),
+        [stepIndex]: checked ? new Date().toISOString() : null,
+      },
+    }));
+    // Salva logo após o estado atualizar (formRef garante o payload mais novo).
+    setTimeout(() => save(false), 60);
+  }, [save]);
+
   const handleAi = async (fieldKey) => {
     const currentValue = form[fieldKey] || '';
     const prompt = `Aperfeiçoe tecnicamente este texto para um PTAM (Parecer Técnico de Avaliação Mercadológica) conforme NBR 14.653. Mantenha tom formal, técnico, profissional em português-BR. Retorne APENAS o texto aperfeiçoado, sem explicações.\n\nCampo: ${fieldKey}\nTexto atual:\n${currentValue || '(vazio - gere um texto inicial técnico e padronizado adequado a este campo)'}`;
@@ -266,20 +280,6 @@ const PtamWizard = () => {
   );
 
   const stepProps = { form, setForm, onAi: handleAi, aiLoading, onSolicitarAssinatura: () => setShowAssinatura(true), onSave: () => setTimeout(() => save(false), 60) };
-
-  // Marca/desmarca uma etapa como concluída, carimba data/hora e salva na hora.
-  const toggleEtapaConcluida = useCallback((stepIndex, checked) => {
-    setForm((prev) => ({
-      ...prev,
-      etapas_concluidas: { ...(prev.etapas_concluidas || {}), [stepIndex]: checked },
-      etapas_concluidas_em: {
-        ...(prev.etapas_concluidas_em || {}),
-        [stepIndex]: checked ? new Date().toISOString() : null,
-      },
-    }));
-    // Salva logo após o estado atualizar (formRef garante o payload mais novo).
-    setTimeout(() => save(false), 60);
-  }, [save]);
 
   const renderStepInner = () => {
     switch (step) {
