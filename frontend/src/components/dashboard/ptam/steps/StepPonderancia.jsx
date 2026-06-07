@@ -98,17 +98,23 @@ export const StepPonderancia = ({ form, setForm }) => {
   const usarNoLaudo = () => {
     if (!form.ponderancia_media) return;
     const area = Number(form.imovel_area_a_considerar || form.imovel_area_construida || form.imovel_area_terreno || form.property_area_sqm || 0);
-    const valorFinal = form.ponderancia_valor_final || form.ponderancia_media * area;
+    // Sempre recalcula com a área atual — nunca reaproveita o valor salvo (que pode
+    // estar com a área antiga).
+    const valorFinal = Math.round((Number(form.ponderancia_media) || 0) * area * 100) / 100;
     setForm((f) => ({
       ...f,
       resultado_valor_unitario: form.ponderancia_media,
-      resultado_valor_total: Math.round(valorFinal * 100) / 100,
-      total_indemnity: Math.round(valorFinal * 100) / 100,
+      resultado_valor_total: valorFinal,
+      total_indemnity: valorFinal,
+      ponderancia_valor_final: valorFinal,
     }));
   };
 
   const area = Number(form.imovel_area_a_considerar || form.imovel_area_construida || form.imovel_area_terreno || form.property_area_sqm || 0);
   const calculado = form.ponderancia_media != null && form.ponderancia_media > 0;
+  // Valor do imóvel SEMPRE derivado de média × área atual (evita ficar preso no
+  // ponderancia_valor_final salvo com área antiga).
+  const valorImovel = Math.round((Number(form.ponderancia_media) || 0) * area * 100) / 100;
   const restantesCount = samplesWithVpm.length - eliminadas.length;
 
   return (
@@ -297,7 +303,7 @@ export const StepPonderancia = ({ form, setForm }) => {
                         Valor Final = {fmtBrlM2(form.ponderancia_media)} × {area.toLocaleString('pt-BR')} m²
                       </div>
                       <div className="text-3xl font-bold text-amber-800">
-                        Valor do Imóvel: {fmtBrl(form.ponderancia_valor_final)}
+                        Valor do Imóvel: {fmtBrl(valorImovel)}
                       </div>
                     </div>
                   )}
