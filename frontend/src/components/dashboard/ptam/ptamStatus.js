@@ -48,9 +48,17 @@ function preenchido(v) {
   return true;
 }
 
-/** % de seções preenchidas (0-100), usado no círculo âmbar do rascunho. */
+/** % de andamento (0-100) usado no círculo âmbar do rascunho.
+ *  Preferência: etapas marcadas como concluídas pelo avaliador (12 etapas);
+ *  fallback legado: seções preenchidas automaticamente. */
 export function calcularProgressoPtam(p) {
   const d = p || {};
+  const ec = d.etapas_concluidas;
+  if (ec && typeof ec === 'object') {
+    let count = Object.keys(ec).filter((k) => ec[k]).length; // etapas 1–11
+    if (d.concluido_manual === true) count += 1;              // etapa 12 (conclusão)
+    return Math.min(100, Math.round((count / 12) * 100));
+  }
   const total = SECOES.length;
   const preenchidas = SECOES.reduce(
     (acc, campos) => acc + (campos.some((c) => preenchido(d[c])) ? 1 : 0),

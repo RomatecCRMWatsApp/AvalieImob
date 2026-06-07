@@ -21,6 +21,7 @@ import { StepConclusao } from './steps/StepConclusao';
 import PtamPreviewAoVivo from './PtamPreviewAoVivo';
 import { HistoricoVersoes } from './HistoricoVersoes';
 import AssinaturaDigital from './AssinaturaDigital';
+import EtapaConcluidaBox from './EtapaConcluidaBox';
 
 const getStepClasses = (active, done) => {
   if (active) return 'bg-emerald-900 text-white';
@@ -117,7 +118,16 @@ const PtamWizard = () => {
         total_indemnity: form.total_indemnity || form.resultado_valor_total || sumIndemnity(form.impact_areas),
       };
       if (isValidPtamId(ptamId)) {
-        await ptamAPI.update(ptamId, payload);
+        const updated = await ptamAPI.update(ptamId, payload);
+        // Reflete no wizard se o backend invalidou a assinatura por edição de conteúdo.
+        if (updated) {
+          setForm((f) => ({
+            ...f,
+            icp_status: updated.icp_status ?? null,
+            d4sign_status: updated.d4sign_status ?? null,
+            status_calculado: updated.status_calculado,
+          }));
+        }
       } else {
         const created = await ptamAPI.create(payload);
         if (!isValidPtamId(created?.id)) {
@@ -252,7 +262,7 @@ const PtamWizard = () => {
 
   const stepProps = { form, setForm, onAi: handleAi, aiLoading, onSolicitarAssinatura: () => setShowAssinatura(true) };
 
-  const renderStep = () => {
+  const renderStepInner = () => {
     switch (step) {
       case 0:  return <StepSolicitante {...stepProps} />;
       case 1:  return <StepObjetivo {...stepProps} />;
@@ -269,6 +279,22 @@ const PtamWizard = () => {
       default: return null;
     }
   };
+
+  const renderStep = () => (
+    <>
+      {renderStepInner()}
+      {/* Caixa "etapa concluída" ao final de cada etapa (exceto a 12, que tem a
+          própria caixa de CONCLUÍDO). Alimenta o andamento do laudo. */}
+      {step < 11 && (
+        <EtapaConcluidaBox
+          stepIndex={step}
+          label={PTAM_STEPS[step]?.label}
+          form={form}
+          setForm={setForm}
+        />
+      )}
+    </>
+  );
 
   const totalSteps = PTAM_STEPS.length;
 

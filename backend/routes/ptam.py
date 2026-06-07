@@ -199,7 +199,47 @@ async def update_ptam(
     # Preparar novos dados
     updates = data.model_dump()
     updates["updated_at"] = datetime.utcnow()
-    
+
+    # ── REGRA: editar um PTAM assinado invalida a assinatura ──────────────────
+    # O PDF assinado deixa de corresponder ao conteúdo, então a assinatura é
+    # removida, o status volta para Concluído/Rascunho e o botão volta a "Assinar".
+    # Vale para qualquer tipo de imóvel (urbano ou rural).
+    _was_signed = doc.get("icp_status") == "assinado" or doc.get("d4sign_status") == "assinado"
+    if _was_signed:
+        _SIG_FIELDS = {
+            "d4sign_document_uuid", "d4sign_status", "d4sign_enviado_em", "d4sign_assinado_em",
+            "d4sign_signatarios", "d4sign_pdf_assinado_url",
+            "icp_status", "icp_signed_at", "icp_cert_id", "icp_titular", "icp_documento",
+            "icp_emissor", "icp_hash", "icp_pdf_url", "icp_verificacao_url",
+        }
+        _META_FIELDS = {
+            "updated_at", "created_at", "status_calculado", "concluido_em",
+            "concluido_manual", "etapas_concluidas", "assinatura_invalidada_em",
+            "link_publico_token", "link_publico_ativo", "link_publico_criado_em",
+            "visualizacoes", "numero_versao", "versao_lacrada", "lacrado", "id",
+            "impact_areas",  # estrutura recomputada no autosave — não é sinal de edição
+        }
+
+        def _norm(v):
+            if v is None:
+                return None
+            if isinstance(v, str):
+                s = v.strip()
+                return s or None
+            return v
+
+        _conteudo_mudou = any(
+            _norm(nv) != _norm(doc.get(k))
+            for k, nv in updates.items()
+            if k not in _SIG_FIELDS and k not in _META_FIELDS
+        )
+        if _conteudo_mudou:
+            for _k in _SIG_FIELDS:
+                updates[_k] = None
+            updates["d4sign_signatarios"] = []
+            updates["assinatura_invalidada_em"] = datetime.utcnow()
+            logger.info("PTAM %s: assinatura invalidada por edição de conteúdo", pid)
+
     # Criar versão automática
     ip = request.headers.get("x-forwarded-for", request.client.host if request.client else None)
     user_agent = request.headers.get("user-agent")
