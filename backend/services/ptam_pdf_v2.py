@@ -486,6 +486,11 @@ def _amostra_linhas_2col(c, dx, y, campos, col_w=4.55 * cm, val_x=1.95 * cm,
                          dy=0.48 * cm, val_max=20, fsize=7.5):
     """Renderiza campos curtos em 2 colunas, rótulos e valores alinhados. Retorna y final."""
     per_col = (len(campos) + 1) // 2
+    # Alinha os valores numa coluna logo após o rótulo MAIS LARGO do bloco — evita
+    # colar/sobrepor em rótulos longos ("Sala jantar/copa:", "Banheiro social:").
+    # Clamp p/ o valor não invadir a 2ª coluna.
+    _maxlbl = max((c.stringWidth(l, 'Helvetica-Bold', fsize) for l, _ in campos), default=0)
+    _vx = min(max(val_x, _maxlbl + 0.15 * cm), col_w - 0.45 * cm)
     for i, (label, valor) in enumerate(campos):
         col = 0 if i < per_col else 1
         row = i if col == 0 else i - per_col
@@ -495,7 +500,7 @@ def _amostra_linhas_2col(c, dx, y, campos, col_w=4.55 * cm, val_x=1.95 * cm,
         c.setFont('Helvetica-Bold', fsize)
         c.drawString(cx, cy, label)
         c.setFont('Helvetica', fsize)
-        c.drawString(cx + val_x, cy, _txt(valor)[:val_max])
+        c.drawString(cx + _vx, cy, _txt(valor)[:val_max])
     return y - per_col * dy
 
 
