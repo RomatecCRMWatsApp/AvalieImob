@@ -25,6 +25,7 @@ from utils.extenso import valor_por_extenso
 from utils.avaliador import resolver_dados_avaliador, formata_doc, cpf_solicitante
 from utils.texto_ia import limpar_texto_ia
 from utils.html_render import html_para_blocks, html_to_inline, html_to_plain
+from pdf.ptam_pdf import _FINALIDADE_MAP  # fonte única do mapa finalidade-chave → rótulo
 
 logger = logging.getLogger("romatec")
 
@@ -257,9 +258,12 @@ def make_hf(ptam):
 def make_capa(ptam):
     num = _ptam_num(ptam)
     tipo = _txt(ptam.get('property_label') or ptam.get('property_type'), '')
+    # Finalidade = texto livre (quando "outros") OU rótulo legível da chave do dropdown.
+    # NÃO usar 'purpose' aqui: é a descrição longa do objetivo e estourava sobre o "Data:".
+    _fin_key = ptam.get('finalidade') or ''
     finalidade = html_to_plain(limpar_texto_ia(
-        ptam.get('finalidade_outros') or ptam.get('purpose')
-        or ptam.get('finalidade') or ''))
+        ptam.get('finalidade_outros')
+        or _FINALIDADE_MAP.get(_fin_key, _fin_key) or ''))
     cidade = _txt(ptam.get('conclusion_city') or ptam.get('property_city'), '')
     data = _txt(ptam.get('conclusion_date') or ptam.get('vistoria_date'), '')
 
@@ -1229,7 +1233,8 @@ def build_story(ptam, page_map):
     st += sec('1. IDENTIFICAÇÃO E OBJETIVO', 'sec1')
     dados1 = [
         ('Número do PTAM', num),
-        ('Finalidade', ptam.get('finalidade')),
+        ('Finalidade', ptam.get('finalidade_outros')
+            or _FINALIDADE_MAP.get(ptam.get('finalidade') or '', ptam.get('finalidade'))),
         ('Solicitante', ptam.get('solicitante_nome') or ptam.get('solicitante')),
         ('CPF/CNPJ', cpf_solicitante(ptam)),
         ('Endereço', ptam.get('solicitante_endereco')),
@@ -1241,6 +1246,13 @@ def build_story(ptam, page_map):
         if _g(ptam, campo):
             dados1.append((lb, ptam.get(campo)))
     st.append(tbl(dados1))
+    # Objetivo da avaliação (descrição livre 'purpose') — íntegra, justificada.
+    # Antes só aparecia (errado) na capa; agora vive na seção 1, seu lugar correto.
+    _obj = html_to_inline(limpar_texto_ia(ptam.get('purpose')))
+    if _obj:
+        st.append(Spacer(1, 8))
+        st += subsec('Objetivo da Avaliação')
+        st.append(Paragraph(_obj, sBody))
 
     # ── 2. Documentacao Analisada ──
     st.append(PageBreak())
