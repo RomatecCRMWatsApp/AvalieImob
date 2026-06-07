@@ -1930,52 +1930,7 @@ def build_story(ptam, page_map):
 
     st.append(tbl_header(['Componente', 'Valor'], _calc_rows,
                          [UTIL_W - 4.5 * cm, 4.5 * cm], bold_last=True))
-    st.append(Spacer(1, 10))
-    st.append(caixa_valor(vtotal, ptam.get('total_indemnity_words') or valor_por_extenso(vtotal)))
-    st.append(Spacer(1, 10))
-    _res_rows = []
-    if _rural8:
-        try:
-            _vu_f = float(vu)
-        except (TypeError, ValueError):
-            _vu_f = 0.0
-        _res_rows.append(('Valor Unitário R$/ha', fmt_moeda(_vu_f * 10000)))
-        _res_rows.append(('Valor Unitário R$/m² (referência)', fmt_moeda(_vu_f)))
-    else:
-        _res_rows.append(('Valor Unitário R$/m²', fmt_moeda(vu)))
-    _res_rows += [
-        ('Intervalo de Confiança',
-         f"{fmt_moeda(ptam.get('resultado_intervalo_inf'))} a {fmt_moeda(ptam.get('resultado_intervalo_sup'))}"),
-        ('Grau de Precisão', ptam.get('grau_precisao') or ptam.get('precisao_grau')),
-        ('Data de Referência', ptam.get('resultado_data_referencia')),
-        ('Prazo de Validade', ptam.get('resultado_prazo_validade') or '180 dias'),
-    ]
-    st.append(tbl(_res_rows))
-
-    # ── E. Área considerada — conversões e valor unitário ──
-    try:
-        _avm2 = float(area_av or 0)
-    except (TypeError, ValueError):
-        _avm2 = 0.0
-    if _avm2 > 0:
-        try:
-            _vuf = float(vu or 0)
-        except (TypeError, ValueError):
-            _vuf = 0.0
-        _ha = _avm2 / 10000.0
-        _alq = _ha / 4.84
-        st.append(Spacer(1, 8))
-        st += subsec('Área Considerada — Conversões e Valor Unitário')
-        st.append(tbl([
-            ('Área (m²)', f"{_num(_avm2)} m²"),
-            ('Área (hectares)', f"{('%.4f' % _ha).replace('.', ',')} ha"),
-            ('Área (alqueires mineiros)', f"{('%.4f' % _alq).replace('.', ',')} alq  (1 alq = 4,84 ha)"),
-            ('Valor Unitário (R$/m²)', fmt_moeda(_vuf)),
-            ('Valor Unitário (R$/ha)', fmt_moeda(_vuf * 10000)),
-            ('Valor Unitário (R$/alqueire mineiro)', fmt_moeda(_vuf * 48400)),
-        ]))
-
-    # ── 8.2 Método de Avaliação — Depreciação/Valorização (espelha a etapa 8c) ──
+    # ── Método de Avaliação — Depreciação/Valorização (planilha, ANTES do valor) ──
     if _metodo8 and _metodo8 != 'nao_aplicado':
         _p8 = ptam.get('metodo_params') or {}
         st.append(Spacer(1, 8))
@@ -2009,6 +1964,52 @@ def build_story(ptam, page_map):
         if _preenchido(_val_met8):
             _met_rows.append(('Valor Apurado pelo Método', fmt_moeda(_val_met8)))
         st.append(tbl(_met_rows))
+
+    # ── E. Área considerada — conversões e valor unitário (planilha, ANTES do valor) ──
+    try:
+        _avm2 = float(area_av or 0)
+    except (TypeError, ValueError):
+        _avm2 = 0.0
+    if _avm2 > 0:
+        try:
+            _vuf = float(vu or 0)
+        except (TypeError, ValueError):
+            _vuf = 0.0
+        _ha = _avm2 / 10000.0
+        _alq = _ha / 4.84
+        st.append(Spacer(1, 8))
+        st += subsec('Área Considerada — Conversões e Valor Unitário')
+        st.append(tbl([
+            ('Área (m²)', f"{_num(_avm2)} m²"),
+            ('Área (hectares)', f"{('%.4f' % _ha).replace('.', ',')} ha"),
+            ('Área (alqueires mineiros)', f"{('%.4f' % _alq).replace('.', ',')} alq  (1 alq = 4,84 ha)"),
+            ('Valor Unitário (R$/m²)', fmt_moeda(_vuf)),
+            ('Valor Unitário (R$/ha)', fmt_moeda(_vuf * 10000)),
+            ('Valor Unitário (R$/alqueire mineiro)', fmt_moeda(_vuf * 48400)),
+        ]))
+
+    # ── Valor de Mercado (caixa destacada) + quadro-resumo da conclusão ──
+    st.append(Spacer(1, 10))
+    st.append(caixa_valor(vtotal, ptam.get('total_indemnity_words') or valor_por_extenso(vtotal)))
+    st.append(Spacer(1, 10))
+    _res_rows = []
+    if _rural8:
+        try:
+            _vu_f = float(vu)
+        except (TypeError, ValueError):
+            _vu_f = 0.0
+        _res_rows.append(('Valor Unitário R$/ha', fmt_moeda(_vu_f * 10000)))
+        _res_rows.append(('Valor Unitário R$/m² (referência)', fmt_moeda(_vu_f)))
+    else:
+        _res_rows.append(('Valor Unitário R$/m²', fmt_moeda(vu)))
+    _res_rows += [
+        ('Intervalo de Confiança',
+         f"{fmt_moeda(ptam.get('resultado_intervalo_inf'))} a {fmt_moeda(ptam.get('resultado_intervalo_sup'))}"),
+        ('Grau de Precisão', ptam.get('grau_precisao') or ptam.get('precisao_grau')),
+        ('Data de Referência', ptam.get('resultado_data_referencia')),
+        ('Prazo de Validade', ptam.get('resultado_prazo_validade') or '180 dias'),
+    ]
+    st.append(tbl(_res_rows))
 
     # ── Justificativa técnico-jurídica do método/depreciação (após o valor, antes da conclusão) ──
     _justif = _justificativa_metodo(ptam)
