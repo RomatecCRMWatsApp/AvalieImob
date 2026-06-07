@@ -93,6 +93,32 @@ def _is_rural(ptam) -> bool:
     return str((ptam or {}).get('property_type') or '').strip().lower() in _RURAL_TYPES
 
 
+def _area_avaliando_str(ptam, area_av, rural) -> str:
+    """String da 'Área do Imóvel Avaliando'. No urbano, mostra a composição
+    AE (área edificada) + AT (área do terreno) quando a área considerada é a soma,
+    ou rotula qual área foi considerada — para o leitor ver o valor exato."""
+    if rural:
+        return fmt_area_rural(area_av, True)
+
+    def _f(v):
+        try:
+            return float(v or 0)
+        except (TypeError, ValueError):
+            return 0.0
+
+    av = _f(area_av)
+    ae = _f((ptam or {}).get('imovel_area_construida'))   # área edificada/construída
+    at = _f((ptam or {}).get('imovel_area_terreno'))      # área do terreno
+    base = fmt_area(av)
+    if ae > 0 and at > 0 and abs(av - (ae + at)) < 0.01:
+        return f"{base} (AE {fmt_area(ae)} + AT {fmt_area(at)})"
+    if ae > 0 and at > 0 and abs(av - at) < 0.01:
+        return f"{base} (AT — área do terreno)"
+    if ae > 0 and at > 0 and abs(av - ae) < 0.01:
+        return f"{base} (AE — área edificada)"
+    return base
+
+
 _CUF_CLASSES = {
     '1.00': ('Classe I', 'aptidão boa'),
     '0.90': ('Classe II', 'aptidão regular'),
@@ -1706,7 +1732,7 @@ def build_story(ptam, page_map):
     st += subsec('Cálculo do Valor Final', 'sec8calc')
     _calc_rows = [
         ['Média Ponderada Final', fmt_rs_unit(vu, _rural8)],
-        ['Área do Imóvel Avaliando', fmt_area_rural(area_av, _rural8)],
+        ['Área do Imóvel Avaliando', _area_avaliando_str(ptam, area_av, _rural8)],
         [f"Valor Final = {fmt_rs_unit(vu, _rural8)} × {fmt_area_rural(area_av, _rural8)}", fmt_moeda(vtotal)],
     ]
     if _rural8:
