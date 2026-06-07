@@ -15,7 +15,7 @@ const CONCLUSION_FIELDS = [
   { key: 'conclusion_text',            label: 'Texto de Conclusão do Laudo',  placeholder: 'Redija o parágrafo final de conclusão do laudo técnico...' },
 ];
 
-export const StepConclusao = ({ form, setForm, onAi, aiLoading, onSolicitarAssinatura }) => {
+export const StepConclusao = ({ form, setForm, onAi, aiLoading, onSolicitarAssinatura, onSave }) => {
   const [showAssinatura, setShowAssinatura] = useState(false);
   const ptamId = form?.id || null;
 
@@ -42,11 +42,14 @@ export const StepConclusao = ({ form, setForm, onAi, aiLoading, onSolicitarAssin
           <input
             type="checkbox"
             checked={form.concluido_manual === true}
-            onChange={(e) => setForm((f) => ({
-              ...f,
-              concluido_manual: e.target.checked,
-              concluido_em: e.target.checked ? new Date().toISOString() : null,
-            }))}
+            onChange={(e) => {
+              setForm((f) => ({
+                ...f,
+                concluido_manual: e.target.checked,
+                concluido_em: e.target.checked ? new Date().toISOString() : null,
+              }));
+              if (onSave) onSave();
+            }}
             className="mt-0.5 w-5 h-5 accent-emerald-600"
           />
           <div>

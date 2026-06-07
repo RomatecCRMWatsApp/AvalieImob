@@ -214,7 +214,7 @@ async def update_ptam(
         }
         _META_FIELDS = {
             "updated_at", "created_at", "status_calculado", "concluido_em",
-            "concluido_manual", "etapas_concluidas", "assinatura_invalidada_em",
+            "concluido_manual", "etapas_concluidas", "etapas_concluidas_em", "assinatura_invalidada_em",
             "link_publico_token", "link_publico_ativo", "link_publico_criado_em",
             "visualizacoes", "numero_versao", "versao_lacrada", "lacrado", "id",
             "impact_areas",  # estrutura recomputada no autosave — não é sinal de edição

@@ -252,6 +252,8 @@ class PtamBase(BaseModel):
     # Etapas marcadas como concluídas pelo avaliador ({"0": true, "1": true, ...}).
     # Alimenta o % de andamento (rascunho) no card.
     etapas_concluidas: Optional[dict] = None
+    # Data/hora (ISO) em que cada etapa foi confirmada ({"0": "2026-06-07T...", ...}).
+    etapas_concluidas_em: Optional[dict] = None
 
     # Campos normatizados adicionais NBR 14653
     documentos_analisados: List[str] = Field(default_factory=list)

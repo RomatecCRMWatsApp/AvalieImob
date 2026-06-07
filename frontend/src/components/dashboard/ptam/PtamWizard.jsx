@@ -59,6 +59,10 @@ const PtamWizard = () => {
   const [showAssinatura, setShowAssinatura] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const debounceRef = useRef(null);
+  // Espelho do form sempre atualizado — garante que o save use o estado mais novo
+  // (ex.: salvar imediatamente ao confirmar uma etapa).
+  const formRef = useRef(form);
+  useEffect(() => { formRef.current = form; }, [form]);
 
   const load = useCallback(async () => {
     if (!isValidPtamId(ptamId)) return;
@@ -111,11 +115,12 @@ const PtamWizard = () => {
   const save = useCallback(async (silent = false) => {
     setSaving(true);
     try {
+      const f = formRef.current; // estado mais novo (cobre saves disparados logo após setForm)
       const payload = {
-        ...form,
+        ...f,
         // keep legacy totals synced
-        impact_areas: computeImpactTotals(form.impact_areas),
-        total_indemnity: form.total_indemnity || form.resultado_valor_total || sumIndemnity(form.impact_areas),
+        impact_areas: computeImpactTotals(f.impact_areas),
+        total_indemnity: f.total_indemnity || f.resultado_valor_total || sumIndemnity(f.impact_areas),
       };
       if (isValidPtamId(ptamId)) {
         const updated = await ptamAPI.update(ptamId, payload);
@@ -260,7 +265,21 @@ const PtamWizard = () => {
     </div>
   );
 
-  const stepProps = { form, setForm, onAi: handleAi, aiLoading, onSolicitarAssinatura: () => setShowAssinatura(true) };
+  const stepProps = { form, setForm, onAi: handleAi, aiLoading, onSolicitarAssinatura: () => setShowAssinatura(true), onSave: () => setTimeout(() => save(false), 60) };
+
+  // Marca/desmarca uma etapa como concluída, carimba data/hora e salva na hora.
+  const toggleEtapaConcluida = useCallback((stepIndex, checked) => {
+    setForm((prev) => ({
+      ...prev,
+      etapas_concluidas: { ...(prev.etapas_concluidas || {}), [stepIndex]: checked },
+      etapas_concluidas_em: {
+        ...(prev.etapas_concluidas_em || {}),
+        [stepIndex]: checked ? new Date().toISOString() : null,
+      },
+    }));
+    // Salva logo após o estado atualizar (formRef garante o payload mais novo).
+    setTimeout(() => save(false), 60);
+  }, [save]);
 
   const renderStepInner = () => {
     switch (step) {
@@ -290,7 +309,7 @@ const PtamWizard = () => {
           stepIndex={step}
           label={PTAM_STEPS[step]?.label}
           form={form}
-          setForm={setForm}
+          onToggle={toggleEtapaConcluida}
         />
       )}
     </>
