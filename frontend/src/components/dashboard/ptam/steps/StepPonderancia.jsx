@@ -1,10 +1,12 @@
 // @module ptam/steps/StepPonderancia — Step 8b: Cálculo de Ponderância (filtragem 50%/150% da média)
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '../../../ui/button';
 import { SectionHeader } from '../shared/primitives';
 import TabelaIncraRural from '../TabelaIncraRural';
+import IncraTabelaSelector from '../IncraTabelaSelector';
 import { isRural } from '../shared/RuralDocSection';
 import { M2_PER_HA } from '@/utils/areaConversao';
+import { getFaixaMatch, faixaContemMedia } from '@/utils/incraFaixa';
 
 const fmtBrl = (v) =>
   Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -16,6 +18,43 @@ const fmt2 = (v) => Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigi
 
 export const StepPonderancia = ({ form, setForm }) => {
   const rural = isRural(form.property_type);
+  const [mostrarSelector, setMostrarSelector] = useState(false);
+
+  // Aplica a tabela escolhida no seletor: congela o snapshot (tipologia + valor de referência).
+  const aplicarTabelaIncra = (tabela) => {
+    const mediaHa = Number(form.ponderancia_media) * M2_PER_HA || 0;
+    const faixas = Array.isArray(tabela.faixas) ? tabela.faixas : [];
+    const idx = getFaixaMatch(faixas, mediaHa);
+    const dentro = faixaContemMedia(faixas, idx, mediaHa);
+    const faixaSel = faixas[idx] || {};
+    const snapshot = {
+      tabela_id: tabela.id,
+      regiao: tabela.regiao,
+      municipio: tabela.municipio,
+      municipios: tabela.municipios || [],
+      polo_regional: tabela.polo_regional,
+      fonte: tabela.fonte,
+      norma: tabela.norma,
+      vigencia: tabela.vigencia,
+      ano: tabela.ano,
+      mes: tabela.mes,
+      faixas,
+      fatores: tabela.fatores || [],
+      notas: tabela.notas,
+      tipologia_aplicada: faixaSel.faixa || null,
+      valor_referencia_ha: faixaSel.vr_medio ?? null,
+      media_avaliacao_ha: Math.round(mediaHa * 100) / 100,
+      dentro_faixa: dentro,
+    };
+    setForm((f) => ({
+      ...f,
+      incra_incluir_laudo: true,
+      tabela_incra_id: tabela.id,
+      tabela_incra_snapshot: snapshot,
+    }));
+    setMostrarSelector(false);
+  };
+
   const samples = (form.market_samples || []).filter((s) => Number(s.area || 0) > 0 && Number(s.value || 0) > 0);
 
   const samplesWithVpm = samples.map((s) => ({
@@ -286,6 +325,16 @@ export const StepPonderancia = ({ form, setForm }) => {
                         mediaAvaliacaoHa={Number(form.ponderancia_media) * M2_PER_HA}
                         municipio={form.property_city}
                         regiao={form.regiao_incra}
+                        tabelaOverride={form.tabela_incra_snapshot || null}
+                        onTrocar={() => setMostrarSelector(true)}
+                      />
+                    )}
+                    {mostrarSelector && (
+                      <IncraTabelaSelector
+                        open={mostrarSelector}
+                        currentId={form.tabela_incra_id || null}
+                        onClose={() => setMostrarSelector(false)}
+                        onUsar={aplicarTabelaIncra}
                       />
                     )}
                   </div>

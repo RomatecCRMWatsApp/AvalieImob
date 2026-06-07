@@ -34,11 +34,23 @@ function Card({ label, value }) {
   );
 }
 
-export default function TabelaIncraRural({ mediaAvaliacaoHa = 0, municipio, regiao }) {
+export default function TabelaIncraRural({
+  mediaAvaliacaoHa = 0,
+  municipio,
+  regiao,
+  tabelaOverride = null,   // tabela escolhida manualmente (sobrepõe a vigente)
+  onTrocar = null,         // callback p/ abrir o seletor de tabela
+}) {
   const [tabela, setTabela] = useState(null);
   const [status, setStatus] = useState('loading'); // loading | ok | empty | error
 
   useEffect(() => {
+    // Se o avaliador escolheu uma tabela, usa ela direto (sem buscar a vigente).
+    if (tabelaOverride && Array.isArray(tabelaOverride.faixas)) {
+      setTabela(tabelaOverride);
+      setStatus('ok');
+      return;
+    }
     let vivo = true;
     setStatus('loading');
     incraAPI
@@ -46,16 +58,34 @@ export default function TabelaIncraRural({ mediaAvaliacaoHa = 0, municipio, regi
       .then((data) => { if (vivo) { setTabela(data); setStatus('ok'); } })
       .catch((err) => { if (vivo) setStatus(err?.response?.status === 404 ? 'empty' : 'error'); });
     return () => { vivo = false; };
-  }, [municipio, regiao]);
+  }, [municipio, regiao, tabelaOverride]);
 
   if (status === 'loading') {
     return <div className="mt-4 p-4 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-500">Carregando referência INCRA…</div>;
   }
   if (status === 'empty') {
-    return <div className="mt-4 p-3 rounded-lg border border-amber-200 bg-amber-50 text-xs text-amber-700">Tabela INCRA não cadastrada para esta região.</div>;
+    return (
+      <div className="mt-4 p-3 rounded-lg border border-amber-200 bg-amber-50 text-xs text-amber-700 flex items-center justify-between gap-2">
+        <span>Tabela INCRA não cadastrada para esta região.</span>
+        {onTrocar && (
+          <button type="button" onClick={onTrocar} className="font-semibold underline underline-offset-2 shrink-0">
+            Escolher tabela
+          </button>
+        )}
+      </div>
+    );
   }
   if (status === 'error' || !tabela) {
-    return <div className="mt-4 p-3 rounded-lg border border-gray-200 bg-gray-50 text-xs text-gray-500">Não foi possível carregar a referência INCRA.</div>;
+    return (
+      <div className="mt-4 p-3 rounded-lg border border-gray-200 bg-gray-50 text-xs text-gray-500 flex items-center justify-between gap-2">
+        <span>Não foi possível carregar a referência INCRA.</span>
+        {onTrocar && (
+          <button type="button" onClick={onTrocar} className="font-semibold text-emerald-700 underline underline-offset-2 shrink-0">
+            Escolher tabela
+          </button>
+        )}
+      </div>
+    );
   }
 
   const faixas = Array.isArray(tabela.faixas) ? tabela.faixas : [];
@@ -66,9 +96,24 @@ export default function TabelaIncraRural({ mediaAvaliacaoHa = 0, municipio, regi
 
   return (
     <div className="mt-5 rounded-xl border border-gray-200 overflow-hidden bg-white">
-      <div className="bg-[#0B6E4F] px-4 py-2.5">
+      <div className="bg-[#0B6E4F] px-4 py-2.5 flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-white">REFERÊNCIA INCRA — Valores de Terra (RAMT)</h3>
+        {onTrocar && (
+          <button
+            type="button"
+            onClick={onTrocar}
+            className="text-xs font-medium text-white/90 hover:text-white underline underline-offset-2 shrink-0"
+          >
+            Trocar tabela
+          </button>
+        )}
       </div>
+      {tabelaOverride && (
+        <div className="px-4 py-1.5 text-[11px] text-emerald-800 bg-emerald-50 border-b border-emerald-100">
+          Tabela em uso: <strong>{tabela?.regiao}{(tabela?.polo_regional || tabela?.municipio) ? ` / ${tabela.polo_regional || tabela.municipio}` : ''}</strong>
+          {tabela?.vigencia ? ` · ${tabela.vigencia}` : ''}
+        </div>
+      )}
 
       {/* Cabeçalho — cards */}
       <div className="flex flex-wrap gap-2 p-3 border-b border-gray-100">

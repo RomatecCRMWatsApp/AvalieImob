@@ -328,6 +328,10 @@ class PtamBase(BaseModel):
     # Referência INCRA (Valores de Terra Nua) — laudo rural
     incra_incluir_laudo: Optional[bool] = True
     regiao_incra: Optional[str] = None
+    # Tabela INCRA escolhida pelo avaliador (sobrepõe a seleção automática por município/região).
+    tabela_incra_id: Optional[str] = None
+    # Snapshot dos dados da tabela no momento da avaliação (vigência/valores não mudam depois).
+    tabela_incra_snapshot: Optional[dict] = None
 
     # Método de Avaliação / Depreciação
     metodo_avaliacao: Optional[str] = None

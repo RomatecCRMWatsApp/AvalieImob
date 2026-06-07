@@ -57,6 +57,15 @@ async def listar_tabelas(uid: str = Depends(get_active_subscriber), db=Depends(g
     return [serialize_doc(d) for d in docs]
 
 
+@router.get("/incra/tabela/{tid}")
+async def buscar_tabela(tid: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    """Busca uma tabela INCRA específica pelo id."""
+    doc = await db.incra_tabelas.find_one({"id": tid})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Tabela não encontrada")
+    return serialize_doc(doc)
+
+
 @router.post("/incra/tabela")
 async def criar_tabela(data: IncraTabelaBase, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
     """Cadastra nova tabela INCRA."""

@@ -855,10 +855,28 @@ _RURAL_TYPES_PTAM = {'rural', 'fazenda', 'sitio', 'chacara', 'terreno_rural', 'g
 
 
 async def _attach_incra(db, doc):
-    """Injeta a tabela INCRA vigente em doc['incra_tabela'] quando o imóvel é rural.
-    Preferência: município (property_city) → região (regiao_incra) → mais recente."""
+    """Injeta a tabela INCRA em doc['incra_tabela'] quando o imóvel é rural.
+    Preferência: (1) snapshot salvo no PTAM → (2) tabela escolhida por id →
+    (3) automática por município (property_city) → região (regiao_incra) → mais recente."""
     if str((doc or {}).get('property_type') or '').strip().lower() not in _RURAL_TYPES_PTAM:
         return
+    # (1) Snapshot explícito salvo no PTAM (vigência congelada na data da avaliação).
+    snap = doc.get('tabela_incra_snapshot')
+    if isinstance(snap, dict) and snap.get('faixas'):
+        doc['incra_tabela'] = snap
+        return
+    # (2) Tabela escolhida pelo avaliador (por id) — busca atual no banco.
+    tab_id = doc.get('tabela_incra_id')
+    if tab_id:
+        try:
+            tab = await db.incra_tabelas.find_one({"id": tab_id})
+        except Exception:
+            tab = None
+        if tab:
+            tab.pop("_id", None)
+            doc['incra_tabela'] = tab
+            return
+    # (3) Seleção automática (comportamento legado).
     municipio = str(doc.get('property_city') or '').strip()
     regiao = str(doc.get('regiao_incra') or '').strip()
     queries = []
@@ -877,6 +895,90 @@ async def _attach_incra(db, doc):
             tab.pop("_id", None)
             doc['incra_tabela'] = tab
             return
+
+
+def _incra_match_faixa(faixas: list, media_ha: float):
+    """Índice da faixa que contém media_ha (vr_min..vr_max); senão a mais próxima.
+    Retorna (idx, dentro). Espelha utils/incraFaixa.js do frontend e o PDF."""
+    lista = faixas or []
+    m = float(media_ha or 0)
+    melhor_idx, melhor_dist = 0, float("inf")
+    for i, f in enumerate(lista):
+        vmin = float((f or {}).get("vr_min") or 0)
+        vmax = float((f or {}).get("vr_max") or 0)
+        if vmin <= m <= vmax:
+            return i, True
+        dist = min(abs(m - vmin), abs(m - vmax))
+        if dist < melhor_dist:
+            melhor_dist, melhor_idx = dist, i
+    return melhor_idx, False
+
+
+def _build_incra_snapshot(tab: dict, media_ha: float) -> dict:
+    """Monta o snapshot da tabela INCRA congelando vigência/valores + tipologia aplicada."""
+    faixas = tab.get("faixas") or []
+    idx, dentro = _incra_match_faixa(faixas, media_ha)
+    faixa_sel = faixas[idx] if faixas else {}
+    return {
+        "tabela_id": tab.get("id"),
+        "regiao": tab.get("regiao"),
+        "municipio": tab.get("municipio"),
+        "municipios": tab.get("municipios") or [],
+        "polo_regional": tab.get("polo_regional"),
+        "fonte": tab.get("fonte"),
+        "norma": tab.get("norma"),
+        "vigencia": tab.get("vigencia"),
+        "ano": tab.get("ano"),
+        "mes": tab.get("mes"),
+        "faixas": faixas,
+        "fatores": tab.get("fatores") or [],
+        "notas": tab.get("notas"),
+        "tipologia_aplicada": (faixa_sel or {}).get("faixa"),
+        "valor_referencia_ha": (faixa_sel or {}).get("vr_medio"),
+        "media_avaliacao_ha": round(float(media_ha or 0), 2),
+        "dentro_faixa": dentro,
+        "snapshot_em": datetime.utcnow().isoformat(),
+    }
+
+
+class VincularTabelaIncraBody(BaseModel):
+    tabela_incra_id: str
+    usar_no_laudo: bool = True
+
+
+@router.patch("/ptam/{pid}/tabela-incra")
+async def vincular_tabela_incra(
+    pid: str,
+    body: VincularTabelaIncraBody,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db),
+):
+    """Vincula uma tabela INCRA ao PTAM e congela um snapshot dos valores.
+    O valor de referência usa a média ponderada do laudo (R$/m² → R$/ha)."""
+    ptam = await db.ptam_documents.find_one({"id": pid, "user_id": uid})
+    if not ptam:
+        raise HTTPException(status_code=404, detail="PTAM não encontrado")
+
+    tab = await db.incra_tabelas.find_one({"id": body.tabela_incra_id})
+    if not tab:
+        raise HTTPException(status_code=404, detail="Tabela INCRA não encontrada")
+    tab.pop("_id", None)
+
+    try:
+        media_m2 = float(ptam.get("resultado_valor_unitario") or ptam.get("ponderancia_media") or 0)
+    except (TypeError, ValueError):
+        media_m2 = 0.0
+    media_ha = media_m2 * 10000.0
+
+    snapshot = _build_incra_snapshot(tab, media_ha)
+    updates = {
+        "tabela_incra_id": body.tabela_incra_id,
+        "tabela_incra_snapshot": snapshot,
+        "incra_incluir_laudo": bool(body.usar_no_laudo),
+        "updated_at": datetime.utcnow(),
+    }
+    await db.ptam_documents.update_one({"id": pid}, {"$set": updates})
+    return {"ok": True, "tabela_incra_id": body.tabela_incra_id, "snapshot": snapshot}
 
 
 async def _merge_docs_rurais(db, doc, docs_res):
