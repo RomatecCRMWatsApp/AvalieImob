@@ -175,6 +175,21 @@ class PtamBase(BaseModel):
     imovel_num_banheiros: Optional[int] = 0
     imovel_num_vagas: Optional[int] = 0
     imovel_piscina: Optional[bool] = False
+    # Ambientes (quantidade) — mesmos campos das amostras; vão ao laudo se > 0.
+    imovel_sala_estar: Optional[int] = 0
+    imovel_sala_jantar: Optional[int] = 0
+    imovel_cozinha: Optional[int] = 0
+    imovel_quarto_social: Optional[int] = 0
+    imovel_suite_simples: Optional[int] = 0
+    imovel_suite_master: Optional[int] = 0
+    imovel_banheiro_social: Optional[int] = 0
+    imovel_lavabo: Optional[int] = 0
+    imovel_area_servico: Optional[int] = 0
+    imovel_varanda: Optional[int] = 0
+    imovel_varanda_gourmet: Optional[int] = 0
+    imovel_escritorio: Optional[int] = 0
+    imovel_despensa: Optional[int] = 0
+    imovel_num_piscinas: Optional[int] = 0
     imovel_caracteristicas_adicionais: Optional[str] = ""
 
     # Fotos e Documentos
