@@ -16,10 +16,12 @@ Normative references:
 from __future__ import annotations
 
 import io
+import logging
 import urllib.request
 from datetime import datetime
 from typing import Any
 from xml.sax.saxutils import escape as _xml_escape
+from zoneinfo import ZoneInfo
 
 from utils.extenso import valor_por_extenso
 from utils.avaliador import resolver_dados_avaliador, formata_doc, cpf_solicitante
@@ -29,6 +31,7 @@ from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT, TA_RIGHT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm
+from reportlab.lib.utils import ImageReader
 from reportlab.platypus import (
     BaseDocTemplate,
     Frame,
@@ -40,6 +43,88 @@ from reportlab.platypus import (
     Table,
     TableStyle,
 )
+
+_pdf_logger = logging.getLogger(__name__)
+
+# Timezone oficial da RomaTec — Açailândia/MA (UTC-3). Evita datar a peça com
+# o dia seguinte quando o PDF é gerado à noite (utcnow rolava a data).
+_TZ_ROMATEC = ZoneInfo("America/Fortaleza")
+
+
+def _hoje_local() -> str:
+    """Data corrente no fuso de Açailândia/MA, formato dd/mm/aaaa."""
+    return datetime.now(_TZ_ROMATEC).strftime("%d/%m/%Y")
+
+
+# ── mapa de finalidades (NBR 14653) — constante de módulo ─────────────────────
+_FINALIDADE_MAP = {
+    # Compra e Venda
+    "cv_alienacao": "Compra e Venda — Alienação",
+    "cv_aquisicao": "Compra e Venda — Aquisição",
+    "cv_oferta": "Compra e Venda — Oferta Pública",
+    "cv_dacao": "Compra e Venda — Dação em Pagamento",
+    # Garantia Bancária
+    "gar_sfh": "Garantia Bancária — Financiamento SFH",
+    "gar_sfi": "Garantia Bancária — Financiamento SFI",
+    "gar_credito_rural": "Garantia Bancária — Crédito Rural (Penhor Rural)",
+    "gar_refinanciamento": "Garantia Bancária — Refinanciamento",
+    "gar_lci_cri": "Garantia Bancária — LCI / CRI",
+    "gar_ccb": "Garantia Bancária — CCB Imobiliária",
+    # Judicial / Pericial
+    "judicial_partilha": "Judicial — Partilha de Bens (Inventário / Divórcio)",
+    "judicial_desapropriacao": "Judicial — Desapropriação",
+    "judicial_indenizacao": "Judicial — Ação de Indenização",
+    "judicial_execucao": "Judicial — Execução de Sentença",
+    "judicial_usucapiao": "Judicial — Usucapião",
+    "judicial_pericia": "Perícia Judicial (CPC art. 156)",
+    # Locação
+    "loc_fixacao": "Locação — Fixação de Aluguel",
+    "loc_revisao": "Locação — Revisão de Aluguel (Lei 8.245/91)",
+    "loc_renovatoria": "Locação — Ação Renovatória",
+    # Seguros
+    "seg_reposicao": "Seguros — Valor de Reposição",
+    "seg_sinistro": "Seguros — Sinistro",
+    "seg_risco": "Seguros — Valor em Risco",
+    # Tributário / Fiscal
+    "trib_itbi": "Tributário — Base de Cálculo ITBI",
+    "trib_itcmd": "Tributário — Base de Cálculo ITCMD (Herança / Doação)",
+    "trib_ir": "Tributário — Imposto de Renda (Ganho de Capital)",
+    "trib_iptu_itr": "Tributário — IPTU / ITR Progressivo",
+    # Incorporação e Registro
+    "inc_registro": "Incorporação — Registro (Lei 4.591/64)",
+    "inc_afetacao": "Incorporação — Patrimônio de Afetação (Lei 13.786/2018)",
+    "inc_permuta": "Incorporação — Permuta",
+    # Execução de Garantia
+    "exec_fid_1": "Execução de Garantia — Alienação Fiduciária 1º Leilão (Lei 9.514/97 art. 27)",
+    "exec_fid_2": "Execução de Garantia — Alienação Fiduciária 2º Leilão",
+    "exec_hipoteca": "Execução de Garantia — Execução Hipotecária",
+    "exec_consolidacao": "Execução de Garantia — Consolidação da Propriedade",
+    # Desapropriação
+    "desap_utilidade": "Desapropriação por Utilidade Pública (Dec.-Lei 3.365/41)",
+    "desap_interesse_social": "Desapropriação por Interesse Social (Lei 4.132/62)",
+    "desap_reforma_agraria": "Desapropriação — Reforma Agrária (LC 76/93)",
+    # Regularização Fundiária
+    "reurb_s_e": "Regularização Fundiária — REURB-S / REURB-E (Lei 13.465/2017)",
+    "reurb_demarcacao": "Regularização Fundiária — Demarcação Urbanística",
+    # Outros
+    "outros_contab": "Contabilidade / Balanço Patrimonial (CPC 28 / IFRS 13)",
+    "outros_fii": "Fundo de Investimento Imobiliário (FII)",
+    "outros_ma": "Fusão e Aquisição (M&A)",
+    "outros_bts": "Locação Built to Suit",
+    "outros_diligencia": "Due Diligence Imobiliária",
+    # Legacy values
+    "compra_venda": "Compra e Venda",
+    "financiamento": "Financiamento / Garantia Bancária",
+    "judicial": "Uso Judicial / Inventário",
+    "inventario": "Inventário / Partilha",
+    "locacao": "Locação",
+    "garantia": "Garantia de Crédito",
+    "permuta": "Permuta",
+    "outros": "Outros",
+    # Wizard "Especulação de Mercado Imobiliário 2026 — Oferta e Venda"
+    "especulacao_mercado_2026": "Especulação de Mercado Imobiliário 2026 — Oferta e Venda",
+}
+
 
 # ── brand colours ────────────────────────────────────────────────────────────
 GREEN = colors.HexColor("#1B4D1B")
@@ -497,16 +582,20 @@ def _build_toc(styles: dict) -> list:
 def _build_cover(ptam: dict, logo_bytes: bytes | None, styles: dict) -> list:
     story = []
 
-    # large logo centred
+    # large logo centred — preserva proporção (não força quadrado)
     if logo_bytes:
         try:
             logo_buf = io.BytesIO(logo_bytes)
-            img = Image(logo_buf, width=5 * cm, height=5 * cm)
+            iw, ih = ImageReader(logo_buf).getSize()
+            logo_h = 3.5 * cm  # menor: preserva espaço vertical p/ bloco de finalidade
+            logo_w = logo_h * (iw / ih) if ih else logo_h
+            logo_buf.seek(0)
+            img = Image(logo_buf, width=logo_w, height=logo_h)
             img.hAlign = "CENTER"
             story.append(img)
-            story.append(_spacer(0.6))
+            story.append(_spacer(0.3))
         except Exception:
-            pass
+            _pdf_logger.warning("Falha ao renderizar logo na capa do PTAM", exc_info=True)
 
     # green banner with title
     title_data = [[
@@ -546,13 +635,13 @@ def _build_cover(ptam: dict, logo_bytes: bytes | None, styles: dict) -> list:
     if ptam.get("solicitante"):
         meta_rows.append(["Solicitante:", ptam["solicitante"]])
     city = ptam.get("conclusion_city") or ptam.get("property_city") or ""
-    date_str = ptam.get("conclusion_date") or datetime.utcnow().strftime("%d/%m/%Y")
+    date_str = ptam.get("conclusion_date") or _hoje_local()
     if city:
         meta_rows.append(["Cidade:", city])
     meta_rows.append(["Data:", date_str])
 
     if meta_rows:
-        meta_tbl = Table(meta_rows, colWidths=[4 * cm, 12 * cm])
+        meta_tbl = Table(meta_rows, colWidths=[4 * cm, 12.5 * cm])  # total 16,5 cm
         meta_tbl.setStyle(TableStyle([
             ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
             ("FONTNAME", (1, 0), (1, -1), "Helvetica"),
@@ -564,7 +653,50 @@ def _build_cover(ptam: dict, logo_bytes: bytes | None, styles: dict) -> list:
         ]))
         story.append(meta_tbl)
 
-    story.append(_spacer(1.0))
+    story.append(_spacer(0.4))
+
+    # ── bloco da finalidade / objetivo — justificado, quebra automática ──────
+    finalidade_val = ptam.get("finalidade", "")
+    finalidade_str = _FINALIDADE_MAP.get(finalidade_val, finalidade_val) or ptam.get("purpose", "")
+    objetivo_desc = ptam.get("objetivo_descricao") or ptam.get("description") or ptam.get("notes") or ""
+
+    _cover_body_style = ParagraphStyle(
+        "cover_body", fontName="Helvetica", fontSize=10, leading=15,
+        textColor=DARK, alignment=TA_JUSTIFY, spaceAfter=6,
+    )
+    if finalidade_str or objetivo_desc:
+        capa_rows = []
+        if finalidade_str:
+            capa_rows.append([
+                Paragraph("<b>Finalidade:</b>", _cover_body_style),
+                Paragraph(_xml_escape(str(finalidade_str)), _cover_body_style),
+            ])
+        if ptam.get("finalidade_outros"):
+            capa_rows.append([
+                Paragraph("<b>Especificação:</b>", _cover_body_style),
+                Paragraph(_xml_escape(str(ptam["finalidade_outros"])), _cover_body_style),
+            ])
+        if objetivo_desc:
+            safe_desc = _xml_escape(str(objetivo_desc)).replace("\n", "<br/>")
+            capa_rows.append([
+                Paragraph("<b>Objetivo:</b>", _cover_body_style),
+                Paragraph(safe_desc, _cover_body_style),
+            ])
+        if capa_rows:
+            finalidade_tbl = Table(capa_rows, colWidths=[3.5 * cm, 13.0 * cm])  # total 16,5 cm
+            finalidade_tbl.setStyle(TableStyle([
+                ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+                ("FONTSIZE", (0, 0), (-1, -1), 10),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F9FBF9")),
+                ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#C8E6C9")),
+                ("LINEBELOW", (0, 0), (-1, -2), 0.3, colors.HexColor("#E0E0E0")),
+            ]))
+            story.append(finalidade_tbl)
+            story.append(_spacer(0.4))
 
     # gold rule
     rule_data = [[""]]
@@ -606,74 +738,9 @@ def _build_identification(ptam: dict, styles: dict) -> list:
     if num_ptam:
         story += _lv(styles, "Número do PTAM", num_ptam)
 
-    # Tipo de avaliação / finalidade
-    finalidade_map = {
-        # Compra e Venda
-        "cv_alienacao": "Compra e Venda — Alienação",
-        "cv_aquisicao": "Compra e Venda — Aquisição",
-        "cv_oferta": "Compra e Venda — Oferta Pública",
-        "cv_dacao": "Compra e Venda — Dação em Pagamento",
-        # Garantia Bancária
-        "gar_sfh": "Garantia Bancária — Financiamento SFH",
-        "gar_sfi": "Garantia Bancária — Financiamento SFI",
-        "gar_credito_rural": "Garantia Bancária — Crédito Rural (Penhor Rural)",
-        "gar_refinanciamento": "Garantia Bancária — Refinanciamento",
-        "gar_lci_cri": "Garantia Bancária — LCI / CRI",
-        "gar_ccb": "Garantia Bancária — CCB Imobiliária",
-        # Judicial / Pericial
-        "judicial_partilha": "Judicial — Partilha de Bens (Inventário / Divórcio)",
-        "judicial_desapropriacao": "Judicial — Desapropriação",
-        "judicial_indenizacao": "Judicial — Ação de Indenização",
-        "judicial_execucao": "Judicial — Execução de Sentença",
-        "judicial_usucapiao": "Judicial — Usucapião",
-        "judicial_pericia": "Perícia Judicial (CPC art. 156)",
-        # Locação
-        "loc_fixacao": "Locação — Fixação de Aluguel",
-        "loc_revisao": "Locação — Revisão de Aluguel (Lei 8.245/91)",
-        "loc_renovatoria": "Locação — Ação Renovatória",
-        # Seguros
-        "seg_reposicao": "Seguros — Valor de Reposição",
-        "seg_sinistro": "Seguros — Sinistro",
-        "seg_risco": "Seguros — Valor em Risco",
-        # Tributário / Fiscal
-        "trib_itbi": "Tributário — Base de Cálculo ITBI",
-        "trib_itcmd": "Tributário — Base de Cálculo ITCMD (Herança / Doação)",
-        "trib_ir": "Tributário — Imposto de Renda (Ganho de Capital)",
-        "trib_iptu_itr": "Tributário — IPTU / ITR Progressivo",
-        # Incorporação e Registro
-        "inc_registro": "Incorporação — Registro (Lei 4.591/64)",
-        "inc_afetacao": "Incorporação — Patrimônio de Afetação (Lei 13.786/2018)",
-        "inc_permuta": "Incorporação — Permuta",
-        # Execução de Garantia
-        "exec_fid_1": "Execução de Garantia — Alienação Fiduciária 1º Leilão (Lei 9.514/97 art. 27)",
-        "exec_fid_2": "Execução de Garantia — Alienação Fiduciária 2º Leilão",
-        "exec_hipoteca": "Execução de Garantia — Execução Hipotecária",
-        "exec_consolidacao": "Execução de Garantia — Consolidação da Propriedade",
-        # Desapropriação
-        "desap_utilidade": "Desapropriação por Utilidade Pública (Dec.-Lei 3.365/41)",
-        "desap_interesse_social": "Desapropriação por Interesse Social (Lei 4.132/62)",
-        "desap_reforma_agraria": "Desapropriação — Reforma Agrária (LC 76/93)",
-        # Regularização Fundiária
-        "reurb_s_e": "Regularização Fundiária — REURB-S / REURB-E (Lei 13.465/2017)",
-        "reurb_demarcacao": "Regularização Fundiária — Demarcação Urbanística",
-        # Outros
-        "outros_contab": "Contabilidade / Balanço Patrimonial (CPC 28 / IFRS 13)",
-        "outros_fii": "Fundo de Investimento Imobiliário (FII)",
-        "outros_ma": "Fusão e Aquisição (M&A)",
-        "outros_bts": "Locação Built to Suit",
-        "outros_diligencia": "Due Diligence Imobiliária",
-        # Legacy values
-        "compra_venda": "Compra e Venda",
-        "financiamento": "Financiamento / Garantia Bancária",
-        "judicial": "Uso Judicial / Inventário",
-        "inventario": "Inventário / Partilha",
-        "locacao": "Locação",
-        "garantia": "Garantia de Crédito",
-        "permuta": "Permuta",
-        "outros": "Outros",
-    }
+    # Tipo de avaliação / finalidade (mapa em constante de módulo — _FINALIDADE_MAP)
     finalidade_val = ptam.get("finalidade", "")
-    finalidade_str = finalidade_map.get(finalidade_val, finalidade_val) or ptam.get("purpose", "")
+    finalidade_str = _FINALIDADE_MAP.get(finalidade_val, finalidade_val) or ptam.get("purpose", "")
     if finalidade_str:
         story += _lv(styles, "Finalidade", finalidade_str)
     if ptam.get("finalidade_outros"):
@@ -1639,7 +1706,7 @@ def _build_conclusion(ptam: dict, user: dict, styles: dict, perfil: dict | None 
 
     # ── Location and date ──────────────────────────────────────────────────────
     city = ptam.get("conclusion_city", "")
-    date_str = ptam.get("conclusion_date", datetime.utcnow().strftime("%d/%m/%Y"))
+    date_str = ptam.get("conclusion_date", _hoje_local())
     if city or date_str:
         story.append(_spacer(0.6))
         loc_text = f"{city}, {date_str}." if city else date_str
