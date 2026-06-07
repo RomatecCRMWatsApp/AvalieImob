@@ -41,6 +41,41 @@ CINZA_BRD = HexColor('#CCCCCC')
 PRETO = HexColor('#1A1A1A')
 BRANCO = colors.white
 
+# ── Cards estilo "dashboard" para o tratamento estatístico no PDF ──────────────
+_sCardP = ParagraphStyle('cardP', fontName='Helvetica', fontSize=9, leading=12, alignment=TA_CENTER)
+
+
+def _pdf_card(label, valor, sub='', cor='#0B6E4F', size_val=13, label_cor='#8A8A8A'):
+    """Card: rótulo pequeno em cima, valor grande/colorido no meio, sub embaixo."""
+    _l = [
+        f'<font size=7 color="{label_cor}">{_esc_xml((label or "").upper())}</font>',
+        f'<font size={size_val} color="{cor}"><b>{_esc_xml(str(valor))}</b></font>',
+    ]
+    if sub:
+        _l.append(f'<font size=7 color="{label_cor}">{_esc_xml(str(sub))}</font>')
+    return Paragraph('<br/>'.join(_l), _sCardP)
+
+
+def _pdf_cards_row(cells, bgs, cw=None):
+    """Linha de cards (Table). 'bgs' = lista de cores de fundo (HexColor) por card."""
+    n = len(cells)
+    if cw is None:
+        cw = [UTIL_W / n] * n
+    t = Table([cells], colWidths=cw)
+    sty = [
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 9),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 9),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('GRID', (0, 0), (-1, -1), 2.5, BRANCO),  # respiro branco entre os cards
+    ]
+    for _i, _bg in enumerate(bgs):
+        if _bg is not None:
+            sty.append(('BACKGROUND', (_i, 0), (_i, 0), _bg))
+    t.setStyle(TableStyle(sty))
+    return t
+
 # ── Dimensoes ─────────────────────────────────────────────────────────────────
 W, H = A4
 ML = 2.2 * cm
@@ -1703,42 +1738,60 @@ def build_story(ptam, page_map):
         _mediana = 0.0
     _ptam_inf = _ponderada * 0.95
     _ptam_sup = _ponderada * 1.05
-    _cw_ab = [9.0 * cm, UTIL_W - 9.0 * cm]
+    _un = 'ha' if _rural else 'm²'
+    _cval = lambda x: f'R$ {_nv(x)}/{_un}'
+
+    # Desvio padrão amostral (n-1) e CV sobre as válidas — espelha o sistema.
+    _nvd = len(_dentro)
+    if _nvd > 1:
+        _media_vd = sum(_dentro) / _nvd
+        _desvio_am = (sum((x - _media_vd) ** 2 for x in _dentro) / (_nvd - 1)) ** 0.5
+    else:
+        _desvio_am = 0.0
+    _cv_final = (_desvio_am / _ponderada * 100) if _ponderada else 0.0
+    _cv_lbl = ('Excelente' if _cv_final <= 10 else 'Bom' if _cv_final <= 15
+               else 'Regular' if _cv_final <= 30 else 'Alto')
+
+    _BG_NEU, _BG_RED, _BG_BLU, _BG_GRN = (HexColor('#F4F6F8'), HexColor('#FEECEC'),
+                                          HexColor('#E8F1FE'), VERDE_CLR)
 
     # A. Saneamento das amostras (faixa ±10% em torno da média simples)
     st += subsec('A. Saneamento das Amostras')
-    st.append(tbl_header(['Saneamento (ABNT NBR 14653-2)', 'Valor'], [
-        [f'Média Inicial ({_uv})', _nv(_media)],
-        [f'Limite Inferior (–10%) ({_uv})', _nv(_li)],
-        [f'Limite Superior (+10%) ({_uv})', _nv(_ls)],
-        ['Total de Amostras', str(_n)],
-        ['Válidas após Saneamento', str(_validas)],
-        ['Eliminadas', str(_eliminadas)],
-    ], _cw_ab))
-    st.append(Spacer(1, 6))
+    st.append(_pdf_cards_row([
+        _pdf_card('Média Inicial', _cval(_media), '', '#1A1A1A'),
+        _pdf_card('Limite Inferior (–10%)', _cval(_li), '', '#B91C1C'),
+        _pdf_card('Limite Superior (+10%)', _cval(_ls), '', '#B91C1C'),
+    ], [_BG_NEU, _BG_RED, _BG_RED]))
+    st.append(Spacer(1, 4))
+    st.append(_pdf_cards_row([
+        _pdf_card('Total de Amostras', str(_n), '', '#1A1A1A', 12),
+        _pdf_card('Válidas após Saneamento', str(_validas), '', '#0B6E4F', 12),
+        _pdf_card('Eliminadas', str(_eliminadas), '', '#B91C1C', 12),
+    ], [_BG_NEU, _BG_GRN, _BG_RED]))
+    st.append(Spacer(1, 8))
 
     # B. Estatísticas finais (sobre as amostras válidas)
     st += subsec('B. Estatísticas Finais (pós-saneamento)')
-    _rowsB = [
-        ['Amostras Válidas', str(_validas)],
-        [f'Média Final — Valor Adotado ({_uv})', _nv(_ponderada)],
-        [f'Mediana ({_uv})', _nv(_mediana)],
-        [f'Desvio Padrão ({_uv})', _nv(_desvio)],
-        ['Coeficiente de Variação', _num(_cv) + '%'],
-        [f'Intervalo PTAM ±5% ({_uv})', f'{_nv(_ptam_inf)} a {_nv(_ptam_sup)}'],
-    ]
-    if _rural:
-        _rowsB.append(['Média Final (R$/m²) — referência', _num(_ponderada)])
-    st.append(tbl_header(['Estatística', 'Valor'], _rowsB, _cw_ab))
-    st.append(Spacer(1, 6))
+    st.append(_pdf_cards_row([
+        _pdf_card('Amostras Válidas', str(_validas), f'de {_n} inseridas', '#0B6E4F'),
+        _pdf_card('Média Final', _cval(_ponderada), 'Valor adotado base', '#0B6E4F'),
+        _pdf_card('Mediana', _cval(_mediana), '', '#1565C0'),
+    ], [_BG_GRN, _BG_GRN, _BG_BLU]))
+    st.append(Spacer(1, 4))
+    st.append(_pdf_cards_row([
+        _pdf_card('Desvio Padrão', _cval(_desvio_am), 'amostral (n-1)', '#1A1A1A'),
+        _pdf_card('Coef. Variação', f'{_num(_cv_final)}%', _cv_lbl, '#0B6E4F'),
+        _pdf_card('Intervalo PTAM ±5%', _cval(_ptam_inf), f'a {_cval(_ptam_sup)}', '#1A1A1A', 10),
+    ], [_BG_NEU, _BG_GRN, _BG_NEU]))
+    st.append(Spacer(1, 8))
 
-    # C. Intervalo de valores do PTAM (±5% sobre a média final)
+    # C. Intervalo de valores do PTAM (±5%) — faixa em verde (Valor Adotado destacado)
     st += subsec('C. Intervalo de Valores do PTAM (±5%)')
-    st.append(tbl_header([f'Intervalo de Valores', f'Valor ({_uv})'], [
-        ['Limite Inferior (–5%)', _nv(_ptam_inf)],
-        ['Valor Adotado (Média Final pós-saneamento)', _nv(_ponderada)],
-        ['Limite Superior (+5%)', _nv(_ptam_sup)],
-    ], _cw_ab))
+    st.append(_pdf_cards_row([
+        _pdf_card('Limite Inferior (–5%)', _cval(_ptam_inf), '', '#FFFFFF', 13, '#A7D7C5'),
+        _pdf_card('Valor Adotado', _cval(_ponderada), 'Média final pós-saneamento', '#FFFFFF', 15, '#A7D7C5'),
+        _pdf_card('Limite Superior (+5%)', _cval(_ptam_sup), '', '#FFFFFF', 13, '#A7D7C5'),
+    ], [VERDE, HexColor('#0A5F44'), VERDE]))
     # Referência INCRA (Valores de Terra Nua) — só rural e se marcado para o laudo.
     if _rural and ptam.get('incra_incluir_laudo', True):
         try:
