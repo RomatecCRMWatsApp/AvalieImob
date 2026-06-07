@@ -79,7 +79,7 @@ for router in all_routers:
 # Root health check
 @api.get("/")
 async def root():
-    return {"app": "RomaTec AvalieImob API", "version": "1.4.4"}
+    return {"app": "RomaTec AvalieImob API", "version": "1.4.5"}
 
 app.include_router(api)
 
