@@ -136,17 +136,12 @@ def calcular_status_ptam(ptam: Mapping[str, Any]) -> str:
     """
     if not isinstance(ptam, Mapping):
         return STATUS_RASCUNHO
+    # Assinatura sempre prevalece.
     if _tem_assinatura(ptam):
         return STATUS_ASSINADO
-    cm = ptam.get("concluido_manual")
-    if cm is True:
-        return STATUS_CONCLUIDO
-    if cm is False:
-        return STATUS_RASCUNHO
-    # Legado (PTAMs antigos sem o flag): mantém o cálculo automático.
-    if _valor_final(ptam) <= 0:
-        return STATUS_RASCUNHO
-    if not _secoes_faltando(ptam):
+    # Conclusão é EXCLUSIVAMENTE manual: o avaliador decide na etapa 12.
+    # O sistema nunca conclui sozinho — sem o flag, segue rascunho.
+    if ptam.get("concluido_manual") is True:
         return STATUS_CONCLUIDO
     return STATUS_RASCUNHO
 

@@ -2,18 +2,12 @@
 // concluido = anel verde completo · assinado = anel azul completo · rascunho = anel âmbar
 // proporcional ao progresso (%). Texto central: rótulo + status + sub (data/hora ou %).
 import React from 'react';
+import { fmtDataHoraCurta } from '../../../utils/datasServidor';
 
 const RAIO = 40;
 const CIRCUNFERENCIA = 2 * Math.PI * RAIO; // ~251.3
 
-function formatarDataCurta(iso) {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  const data = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-  const hora = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-  return `${data} · ${hora}`;
-}
+const formatarDataCurta = (iso) => fmtDataHoraCurta(iso);
 
 export default function PTAMStatusCircle({ status, dataAtualizacao, progressoPercent = 0 }) {
   const calcOffset = (pct) => CIRCUNFERENCIA - (Math.max(0, Math.min(100, pct)) / 100) * CIRCUNFERENCIA;

@@ -1,6 +1,7 @@
-// @module ptam/ptamStatus — Config visual + resolução do status automático do PTAM.
-// Espelha utils/ptam_status.py do backend. O backend já envia `status_calculado`
-// na listagem; o cálculo client-side abaixo é só fallback (itens em cache antigos).
+// @module ptam/ptamStatus — Config visual + resolução do status do PTAM.
+// Espelha utils/ptam_status.py do backend. A conclusão é EXCLUSIVAMENTE manual:
+// o avaliador marca `concluido_manual` na etapa 12. O sistema nunca conclui sozinho.
+//   Prioridade: assinado > concluido (manual) > rascunho.
 
 export const STATUS_CONFIG = {
   rascunho: {
@@ -17,12 +18,8 @@ export const STATUS_CONFIG = {
   },
 };
 
-const CAMPOS_VALOR = [
-  'resultado_valor_total', 'total_indemnity', 'ponderancia_valor_final',
-  'valor_total_metodo', 'resultado_valor_unitario',
-];
-
-// 12 seções (rótulo → campos alternativos) — espelho do backend.
+// 12 seções (rótulo → campos alternativos) — espelho do backend. Usadas só para
+// a barra de progresso (% de andamento) no círculo âmbar dos rascunhos.
 const SECOES = [
   ['solicitante', 'solicitante_nome'],
   ['purpose', 'finalidade'],
@@ -41,23 +38,6 @@ const SECOES = [
   ['conclusion_text', 'consideracoes_ressalvas', 'consideracoes_limitacoes', 'total_indemnity_words'],
 ];
 
-function toFloat(v) {
-  if (v == null || typeof v === 'boolean') return 0;
-  if (typeof v === 'number') return v;
-  if (typeof v === 'string') {
-    let s = v.trim().replace(/R\$/g, '').replace(/[\s ]/g, '');
-    if (!s) return 0;
-    if (s.includes(',') && s.includes('.')) {
-      s = s.lastIndexOf(',') > s.lastIndexOf('.') ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
-    } else if (s.includes(',')) {
-      s = s.replace(/\./g, '').replace(',', '.');
-    }
-    const n = parseFloat(s);
-    return Number.isNaN(n) ? 0 : n;
-  }
-  return 0;
-}
-
 function preenchido(v) {
   if (v == null) return false;
   if (typeof v === 'boolean') return v;
@@ -68,18 +48,7 @@ function preenchido(v) {
   return true;
 }
 
-function calcular(p) {
-  if (p.icp_status === 'assinado' || p.d4sign_status === 'assinado') return 'assinado';
-  // Conclusão manual (etapa 12) tem prioridade sobre o cálculo automático.
-  if (p.concluido_manual === true) return 'concluido';
-  if (p.concluido_manual === false) return 'rascunho';
-  const valor = CAMPOS_VALOR.some((c) => toFloat(p[c]) > 0);
-  if (!valor) return 'rascunho';
-  const completo = SECOES.every((campos) => campos.some((c) => preenchido(p[c])));
-  return completo ? 'concluido' : 'rascunho';
-}
-
-/** % de seções preenchidas (0-100), usando as mesmas 12 seções do status. */
+/** % de seções preenchidas (0-100), usado no círculo âmbar do rascunho. */
 export function calcularProgressoPtam(p) {
   const d = p || {};
   const total = SECOES.length;
@@ -90,16 +59,16 @@ export function calcularProgressoPtam(p) {
   return Math.round((preenchidas / total) * 100);
 }
 
-/** Resolve o status para o badge: usa status_calculado do backend, com fallback local. */
+/**
+ * Resolve o status do badge/círculo. Conclusão é exclusivamente manual:
+ *   - assinado            → assinatura ICP/D4Sign (sempre prevalece)
+ *   - concluido_manual=true → concluído (decisão do avaliador na etapa 12)
+ *   - qualquer outro caso  → rascunho
+ */
 export function resolvePtamStatus(p) {
   const d = p || {};
-  // Assinatura é o sinal mais forte e mais "fresco" no estado local (ex.: logo
-  // após assinar, antes de um reload), então tem prioridade sobre status_calculado.
   if (d.icp_status === 'assinado' || d.d4sign_status === 'assinado') return 'assinado';
-  // Decisão manual do avaliador prevalece sobre o status calculado em cache.
+  if (String(d.status_calculado ?? '').toLowerCase().trim() === 'assinado') return 'assinado';
   if (d.concluido_manual === true) return 'concluido';
-  if (d.concluido_manual === false) return 'rascunho';
-  const raw = String(d.status_calculado ?? '').toLowerCase().trim();
-  if (raw === 'concluido' || raw === 'rascunho' || raw === 'assinado') return raw;
-  return calcular(d);
+  return 'rascunho';
 }
