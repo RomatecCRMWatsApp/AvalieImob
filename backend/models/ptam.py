@@ -354,6 +354,8 @@ class PtamBase(BaseModel):
     valor_benfeitoria: Optional[float] = None
     valor_terreno_calc: Optional[float] = None
     valor_total_metodo: Optional[float] = None
+    # Override opcional da justificativa técnico-jurídica do método (se vazio, o PDF gera automático).
+    justificativa_metodo: Optional[str] = None
 
     # Legacy — Impact areas
     impact_areas: List[PtamImpactArea] = Field(default_factory=list)

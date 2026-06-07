@@ -93,6 +93,142 @@ def _is_rural(ptam) -> bool:
     return str((ptam or {}).get('property_type') or '').strip().lower() in _RURAL_TYPES
 
 
+_CUF_CLASSES = {
+    '1.00': ('Classe I', 'aptidão boa'),
+    '0.90': ('Classe II', 'aptidão regular'),
+    '0.75': ('Classe III', 'aptidão restrita'),
+    '0.60': ('Classe IV', 'aptidão marginal'),
+    '0.40': ('Classes V a VII', 'sem aptidão agrícola relevante'),
+}
+
+
+def _justificativa_metodo(ptam) -> str:
+    """Texto técnico-jurídico AUTOMÁTICO que justifica o método de depreciação/valorização
+    aplicado (ou a ausência dele). Cobre todos os tipos. Retorna string (com tags <b>) ou ''."""
+    p = (ptam or {})
+    # Override manual do avaliador, se houver.
+    manual = str(p.get('justificativa_metodo') or '').strip()
+    if manual:
+        return manual
+
+    metodo = str(p.get('metodo_avaliacao') or '').strip().lower()
+    par = p.get('metodo_params') or {}
+
+    def _n(v, casas=2):
+        try:
+            x = float(v)
+        except (TypeError, ValueError):
+            return ''
+        s = f"{x:,.{casas}f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+        return s
+
+    if metodo == 'nbr_rural':
+        cuf = par.get('classe_uso') or '1.00'
+        try:
+            cuf_f = float(cuf)
+        except (TypeError, ValueError):
+            cuf_f = 1.0
+        classe, aptidao = _CUF_CLASSES.get(str(cuf), (f'CUF {_n(cuf_f)}', 'aptidão conforme classificação'))
+        ajuste_pct = abs(round((1 - cuf_f) * 100, 2))
+        vtn = fmt_moeda(par.get('vtn_hectare'))
+        area = _n(par.get('area_ha'), 4)
+        benf = par.get('benfeitorias_rurais')
+        cperm = par.get('cultura_permanente')
+        ctemp = par.get('cultura_temporaria')
+        t = (
+            "A avaliação do imóvel rural observou a metodologia da <b>ABNT NBR 14653-3:2019</b> "
+            "(avaliação de imóveis rurais) e as diretrizes da Instrução Normativa do <b>INCRA</b>. "
+            f"O Valor da Terra Nua (VTN) foi apurado a partir do valor de mercado do hectare "
+            f"(<b>{vtn}/ha</b>) aplicado à área total de <b>{area} ha</b>, ajustado pelo Coeficiente "
+            f"de Uso/Aptidão (CUF) correspondente à <b>{classe} — {aptidao}</b> (CUF = <b>{_n(cuf_f)}</b>). "
+        )
+        if cuf_f < 1.0:
+            t += (
+                f"A aplicação do referido coeficiente importa <b>depreciação de {_n(ajuste_pct)}%</b> "
+                "sobre o valor pleno do hectare, justificada pelas características de relevo, drenagem, "
+                "fertilidade e capacidade de uso do solo apuradas em vistoria, que restringem a aptidão "
+                "agrícola da gleba. "
+            )
+        elif cuf_f > 1.0:
+            t += (
+                f"A aplicação do referido coeficiente importa <b>valorização de {_n(ajuste_pct)}%</b> "
+                "sobre o valor de referência do hectare, justificada pela elevada aptidão agrícola "
+                "verificada em vistoria. "
+            )
+        else:
+            t += "Não houve ajuste de aptidão, mantido o valor pleno do hectare (CUF = 1,00). "
+        t += (
+            "O ajuste decorre de critério técnico-normativo objetivo, em estrita observância à NBR 14653-3 "
+            "e à metodologia oficial do INCRA, não configurando depreciação arbitrária, mas a expressão "
+            "fidedigna do valor de mercado da terra nua segundo sua real capacidade produtiva. "
+        )
+        extras = []
+        if _preenchido(benf):
+            extras.append(f"benfeitorias ({fmt_moeda(benf)})")
+        if _preenchido(cperm):
+            extras.append(f"cultura permanente ({fmt_moeda(cperm)})")
+        if _preenchido(ctemp):
+            extras.append(f"cultura temporária ({fmt_moeda(ctemp)})")
+        if extras:
+            t += ("Ao Valor da Terra Nua foram acrescidos os valores de " + ", ".join(extras)
+                  + ", compondo o valor total do imóvel, em conformidade com o princípio da composição de valores.")
+        return t
+
+    if metodo == 'ross_heidecke':
+        idade = _n(par.get('idade_atual'), 0)
+        vida = _n(par.get('vida_util') or 60, 0)
+        estado = str(par.get('estado') or 'C')
+        dep = _n(p.get('depreciacao_percentual'))
+        return (
+            "A depreciação da edificação foi apurada pelo critério de <b>Ross-Heidecke</b>, consagrado na "
+            "engenharia de avaliações e referendado pela <b>ABNT NBR 14653-2</b>, o qual conjuga a "
+            f"depreciação física pela idade (<b>{idade} anos</b> sobre vida útil de <b>{vida} anos</b>) "
+            f"com o estado de conservação verificado em vistoria (classe <b>{estado}</b>), resultando em "
+            f"depreciação de <b>{dep}%</b> sobre o valor de reedição. O método é objetivo e amplamente "
+            "aceito, refletindo a perda de valor da benfeitoria por uso e idade, sem caráter arbitrário."
+        )
+
+    if metodo == 'linha_reta':
+        idade = _n(par.get('idade_atual'), 0)
+        vida = _n(par.get('vida_util') or 40, 0)
+        resid = _n(par.get('residual_pct') or 20, 0)
+        dep = _n(p.get('depreciacao_percentual'))
+        return (
+            "A depreciação foi apurada pelo método da <b>Linha Reta</b> (depreciação linear), em conformidade "
+            "com a <b>ABNT NBR 14653-2</b>, no qual a perda de valor é proporcional à idade da construção "
+            f"(<b>{idade} anos</b>) sobre a vida útil de referência (<b>{vida} anos</b>), respeitado o valor "
+            f"residual de <b>{resid}%</b>. Apurou-se depreciação de <b>{dep}%</b> sobre o valor de novo, "
+            "critério adequado a galpões e construções de perda de valor uniforme no tempo."
+        )
+
+    if metodo == 'fatores_terreno':
+        return (
+            "O valor do terreno foi apurado por <b>homogeneização por fatores</b>, em conformidade com a "
+            "<b>ABNT NBR 14653-2</b>, aplicando-se ao valor unitário de referência os fatores de localização, "
+            "topografia, testada/frente e infraestrutura, conforme as características do lote verificadas em "
+            "vistoria. Os ajustes têm fundamento técnico e objetivo, refletindo a influência de cada atributo "
+            "sobre o valor de mercado, sem caráter arbitrário."
+        )
+
+    if metodo == 'renda':
+        taxa = _n(par.get('taxa_cap') or 8)
+        return (
+            "A avaliação adotou o <b>Método da Renda</b> (capitalização da renda líquida), em conformidade com a "
+            "<b>ABNT NBR 14653-2</b>, segundo o qual o valor do imóvel corresponde ao valor presente da renda "
+            f"por ele produzida, à taxa de capitalização de mercado de <b>{taxa}% a.a.</b>. O critério é pertinente "
+            "a imóveis geradores de renda e reflete sua capacidade econômica de produção."
+        )
+
+    # Nenhum método específico (ou 'não aplicado'): justifica o Comparativo Direto.
+    return (
+        "Não foi aplicado método específico de depreciação ou valorização, decorrendo o valor de mercado "
+        "diretamente do <b>Método Comparativo Direto de Dados de Mercado</b> (<b>ABNT NBR 14653-2</b>), mediante "
+        "pesquisa e tratamento estatístico de elementos amostrais efetivamente comercializados ou ofertados, "
+        "homogeneizados às características do imóvel avaliando. O resultado expressa o valor de mercado conforme "
+        "o comportamento real do mercado imobiliário na data de referência."
+    )
+
+
 def fmt_area_dual(v) -> str:
     """Rural: 'XX,XXXX ha (XXX.XXX m²)' — 4 casas (ha.are.centiare). Inválido → '—'."""
     try:
@@ -1598,6 +1734,13 @@ def build_story(ptam, page_map):
         ('Prazo de Validade', ptam.get('resultado_prazo_validade') or '180 dias'),
     ]
     st.append(tbl(_res_rows))
+
+    # ── Justificativa técnico-jurídica do método/depreciação (após o valor, antes da conclusão) ──
+    _justif = _justificativa_metodo(ptam)
+    if _justif:
+        st.append(Spacer(1, 10))
+        st += subsec('Justificativa Técnica do Método e da Depreciação/Valorização', 'sec8justif')
+        st.append(Paragraph(_justif, sBody))
 
     # ── 9. Conclusao ──
     st.append(PageBreak())
