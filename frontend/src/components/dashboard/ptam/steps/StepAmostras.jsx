@@ -110,6 +110,32 @@ const ExtraFields = ({ categoria, s, set }) => {
               <Input type="number" min={0} value={s.idade_anos || ''} onChange={intHandler((v) => set('idade_anos', v))} className="h-9" placeholder="0" />
             </Labeled>
           </div>
+          {/* Ambientes (quantidade) — só vão ao laudo se > 0 */}
+          <div className="mt-1">
+            <span className="block text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-2">
+              Ambientes (quantidade — só vai ao laudo se maior que 0)
+            </span>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {[
+                ['sala_estar', 'Sala de estar'],
+                ['sala_jantar', 'Sala de jantar/copa'],
+                ['cozinha', 'Cozinha'],
+                ['quarto_social', 'Quarto social'],
+                ['suite_simples', 'Suíte simples'],
+                ['suite_master', 'Suíte master'],
+                ['banheiro_social', 'Banheiro social'],
+                ['lavabo', 'Lavabo'],
+                ['area_servico', 'Área de serviço'],
+                ['varanda', 'Varanda/sacada'],
+                ['escritorio', 'Escritório'],
+                ['despensa', 'Despensa'],
+              ].map(([k, lbl]) => (
+                <Labeled key={k} label={lbl}>
+                  <Input type="number" min={0} value={s[k] || ''} onChange={intHandler((v) => set(k, v))} className="h-9" placeholder="0" />
+                </Labeled>
+              ))}
+            </div>
+          </div>
         </>
       );
 
