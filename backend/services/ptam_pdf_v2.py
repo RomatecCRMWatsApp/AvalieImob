@@ -554,10 +554,17 @@ class AmostraCard(Flowable):
         def _tem(x):
             return x not in (None, '', 0, '0', 0.0)
 
+        # Área com justificativa da composição (AE = Área da Edificação + AT = Área do
+        # Terreno), exibida só quando ambas existirem (urbano).
+        _area_str = fmt_area_rural(area, _ru)
+        _ae, _at = a.get('area_construida_m2'), a.get('area_terreno_m2')
+        if not _ru and _tem(_ae) and _tem(_at):
+            _area_str = f"{_area_str} (AE {fmt_area(_ae)} + AT {fmt_area(_at)})"
+
         # Bloco A — principais (largura cheia; valores podem ser longos).
         principais = [
             ('Tipo:', a.get('tipo') or a.get('tipo_amostra') or 'Não informado'),
-            ('Área:', fmt_area_rural(area, _ru)),
+            ('Área:', _area_str),
             ('Valor:', fmt_moeda(a.get('value'))),
             (_vu_lbl, _vu_val),
         ]
