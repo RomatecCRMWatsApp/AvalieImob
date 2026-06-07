@@ -92,7 +92,7 @@ const LocacaoList = () => {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl font-bold text-gray-900">Avaliação de Locação</h1>
+          <h1 className="font-display text-3xl font-bold text-[#B8860B] dark:text-amber-400">Avaliação de Locação</h1>
           <p className="text-gray-500 text-sm mt-1">Pareceres técnicos de valor de aluguel (Lei 8.245/91)</p>
         </div>
         <Button

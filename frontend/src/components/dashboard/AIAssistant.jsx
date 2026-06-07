@@ -95,7 +95,7 @@ const AIAssistant = () => {
             </div>
           </div>
           <div>
-            <h1 className="font-display text-3xl font-bold text-gray-900 group-hover:text-emerald-700 transition-colors">Roma_IA</h1>
+            <h1 className="font-display text-3xl font-bold text-[#B8860B] dark:text-amber-400 group-hover:text-emerald-700 transition-colors">Roma_IA</h1>
             <p className="text-gray-600">Especialista NBR 14.653 · Groq / Gemini / Claude / OpenAI</p>
           </div>
         </div>

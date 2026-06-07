@@ -119,7 +119,7 @@ const GarantiasList = () => {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <Shield className="w-6 h-6 text-emerald-800" />
-            <h1 className="font-display text-3xl font-bold text-gray-900">Avaliação de Garantias</h1>
+            <h1 className="font-display text-3xl font-bold text-[#B8860B] dark:text-amber-400">Avaliação de Garantias</h1>
           </div>
           <p className="text-gray-600">
             Laudos conforme Res. CMN 4.676/2018 | NBR 14.653 — rurais, bancários, alienação fiduciária e mais.

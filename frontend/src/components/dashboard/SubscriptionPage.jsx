@@ -84,7 +84,7 @@ const SubscriptionPage = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-3xl font-bold text-gray-900">Assinatura</h1>
+        <h1 className="font-display text-3xl font-bold text-[#B8860B] dark:text-amber-400">Assinatura</h1>
         <p className="text-gray-600 mt-1">Gerencie seu plano e faturamento.</p>
       </div>
 

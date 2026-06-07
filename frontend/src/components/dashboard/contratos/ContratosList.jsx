@@ -234,7 +234,7 @@ const ContratosList = () => {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <FileSignature className="w-6 h-6 text-emerald-800" />
-            <h1 className="font-display text-3xl font-bold text-gray-900">Contratos</h1>
+            <h1 className="font-display text-3xl font-bold text-[#B8860B] dark:text-amber-400">Contratos</h1>
           </div>
           <p className="text-gray-600">
             Compra e venda, locação, arras, permuta, intermediação e mais — com IA jurídica e D4Sign.

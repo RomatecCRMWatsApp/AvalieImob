@@ -128,7 +128,7 @@ const RecibosList = () => {
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl font-bold text-gray-900 flex items-center gap-2">
+          <h1 className="font-display text-3xl font-bold text-[#B8860B] dark:text-amber-400 flex items-center gap-2">
             <Receipt className="w-7 h-7 text-amber-600" />
             Recibos
           </h1>

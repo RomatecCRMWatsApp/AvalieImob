@@ -42,7 +42,7 @@ const Samples = () => {
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div><h1 className="font-display text-3xl font-bold text-gray-900">Amostras de Mercado</h1><p className="text-gray-600 mt-1">Elementos comparativos para o Método Comparativo Direto.</p></div>
+        <div><h1 className="font-display text-3xl font-bold text-[#B8860B] dark:text-amber-400">Amostras de Mercado</h1><p className="text-gray-600 mt-1">Elementos comparativos para o Método Comparativo Direto.</p></div>
         <Button onClick={() => setOpen(true)} className="bg-emerald-900 hover:bg-emerald-800 text-white"><Plus className="w-4 h-4 mr-2" />Nova amostra</Button>
       </div>
 

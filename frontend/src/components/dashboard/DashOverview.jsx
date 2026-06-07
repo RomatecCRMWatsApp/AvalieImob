@@ -77,7 +77,7 @@ const DashOverview = () => {
       {/* Greeting */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl font-bold text-gray-900 leading-tight">Bom dia, {firstName}!</h1>
+          <h1 className="font-display text-3xl font-bold text-[#B8860B] dark:text-amber-400 leading-tight">Bom dia, {firstName}!</h1>
           <p className="text-gray-500 mt-1 text-sm">Aqui está o resumo da sua atividade hoje.</p>
         </div>
         <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-4 py-2.5 shadow-sm self-start sm:self-auto">

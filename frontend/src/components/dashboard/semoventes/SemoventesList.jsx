@@ -85,7 +85,7 @@ const SemoventesList = () => {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <Beef className="w-6 h-6 text-emerald-800" />
-            <h1 className="font-display text-3xl font-bold text-gray-900">Avaliação de Semoventes</h1>
+            <h1 className="font-display text-3xl font-bold text-[#B8860B] dark:text-amber-400">Avaliação de Semoventes</h1>
           </div>
           <p className="text-gray-600">
             Laudos para penhor rural bancário — Res. CMN 4.676/2018, Dec.-Lei 167/1967, CFMV Res. 722/2002.
