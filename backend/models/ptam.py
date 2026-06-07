@@ -399,6 +399,9 @@ class PtamBase(BaseModel):
 
     # Meta
     status: str = "Rascunho"
+    # Status automático derivado (rascunho|concluido|assinado) — calculado pelo
+    # backend via utils.ptam_status. Não substitui `status` (legado: Emitido/Em revisão).
+    status_calculado: Optional[str] = None
 
 
 class Ptam(PtamBase):

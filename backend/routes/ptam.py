@@ -16,6 +16,7 @@ from dependencies import get_active_subscriber, serialize_doc
 from services.auth_service import get_current_user_id
 from services.ptam_share import enviar_ptam_email
 from models import PtamBase, Ptam, PtamVersion, PtamVersionDiff
+from utils.ptam_status import calcular_status_ptam
 from pdf.ptam_pdf import generate_ptam_pdf
 from ptam_docx import generate_ptam_docx
 from services.ptam_pdf_v2 import generate_ptam_pdf_v2
@@ -35,7 +36,7 @@ class LacrarVersaoRequest(BaseModel):
 
 
 # Campos ignorados no diff (metadados)
-IGNORED_DIFF_FIELDS = {"id", "_id", "user_id", "created_at", "updated_at", "numero_ptam"}
+IGNORED_DIFF_FIELDS = {"id", "_id", "user_id", "created_at", "updated_at", "numero_ptam", "status_calculado"}
 
 
 def _calculate_hash(data: dict) -> str:
@@ -149,10 +150,17 @@ async def _next_ptam_numero(db) -> str:
     return f"{result['seq']:04d}/{ano}"
 
 
+def _with_status_calculado(doc: dict) -> dict:
+    """Serializa o doc e injeta o status automático (rascunho|concluido|assinado)."""
+    d = serialize_doc(doc)
+    d["status_calculado"] = calcular_status_ptam(d)
+    return d
+
+
 @router.get("/ptam", response_model=List[Ptam])
 async def list_ptam(uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
     items = await db.ptam_documents.find({"user_id": uid}).sort("updated_at", -1).to_list(1000)
-    return [Ptam(**serialize_doc(i)) for i in items]
+    return [Ptam(**_with_status_calculado(i)) for i in items]
 
 
 @router.get("/ptam/{pid}", response_model=Ptam)
@@ -160,7 +168,7 @@ async def get_ptam(pid: str, uid: str = Depends(get_active_subscriber), db=Depen
     doc = await db.ptam_documents.find_one({"id": pid, "user_id": uid})
     if not doc:
         raise HTTPException(status_code=404, detail="PTAM não encontrado")
-    return Ptam(**serialize_doc(doc))
+    return Ptam(**_with_status_calculado(doc))
 
 
 @router.post("/ptam", response_model=Ptam)
@@ -171,6 +179,7 @@ async def create_ptam(data: PtamBase, uid: str = Depends(get_active_subscriber),
     payload["numero_ptam"] = numero_ptam
     payload["number"] = number
     p = Ptam(user_id=uid, **payload)
+    p.status_calculado = calcular_status_ptam(p.model_dump())
     await db.ptam_documents.insert_one(p.model_dump())
     return p
 
@@ -206,10 +215,13 @@ async def update_ptam(
         user_agent=user_agent
     )
     
+    # Recalcula e persiste o status automático sobre o estado final mesclado.
+    updates["status_calculado"] = calcular_status_ptam({**doc, **updates})
+
     # Atualizar documento
     await db.ptam_documents.update_one({"id": pid}, {"$set": updates})
     new_doc = await db.ptam_documents.find_one({"id": pid})
-    return Ptam(**serialize_doc(new_doc))
+    return Ptam(**_with_status_calculado(new_doc))
 
 
 @router.delete("/ptam/{pid}")
