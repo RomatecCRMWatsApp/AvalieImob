@@ -1,5 +1,6 @@
 // @module ptam/steps/StepMetodoAvaliacao — Step 8c: Métodos de Depreciação e Valorização (Ross-Heidecke, Linha Reta, Fatores, Rural, Renda)
 import React, { useState } from 'react';
+import { BookOpen, ChevronDown } from 'lucide-react';
 import { Input } from '../../../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
 import { Field, SectionHeader } from '../shared/primitives';
@@ -232,6 +233,141 @@ const METODOS_AVAL = [
   { value: 'renda',           label: 'Método da Renda',      desc: 'Comercial/Renda',      icon: '💰' },
 ];
 
+// ── Folder didático por método (o que é, quando usar, como preencher, passo a passo) ──
+const GUIA = {
+  ross_heidecke: {
+    titulo: 'Ross-Heidecke',
+    quando: 'Edificações (casa/apartamento) em que você precisa depreciar a benfeitoria pela idade E pelo estado de conservação. É o método mais usado para construções urbanas com vida útil definida.',
+    como: 'Combina a depreciação física pela idade (sobre a vida útil) com o estado de conservação (tabela A–H). Gera o coeficiente Kd, o valor depreciado e o valor residual da construção.',
+    campos: [
+      'Valor de Novo (R$): custo de reconstruir a edificação hoje, NOVA — somente a construção, sem o terreno.',
+      'Idade Atual (anos): idade real ou aparente da construção.',
+      'Vida Útil (anos): vida útil de referência (padrão 60 para alvenaria).',
+      'Estado de Conservação (A–H): A = novo … H = demolição. Escolha conforme a vistoria.',
+    ],
+    passos: [
+      'Informe o Valor de Novo da construção (sem terreno).',
+      'Preencha a Idade Atual e a Vida Útil.',
+      'Selecione o Estado de Conservação (A–H) conforme a vistoria.',
+      'Confira o coeficiente Kd, a Depreciação e o Valor Residual calculados.',
+      "Clique em 'Aplicar Ross-Heidecke ao Laudo'.",
+    ],
+  },
+  linha_reta: {
+    titulo: 'Linha Reta',
+    quando: 'Galpões, barracões e construções simples/industriais, onde a perda de valor é uniforme (constante) ao longo do tempo.',
+    como: 'Depreciação linear: o valor cai proporcionalmente à idade sobre a vida útil, respeitando um valor residual mínimo (%).',
+    campos: [
+      'Valor de Novo (R$): custo de reconstruir a edificação nova.',
+      'Valor Residual (%): percentual que a construção mantém ao fim da vida útil (piso, ex.: 20%).',
+      'Vida Útil (anos): padrão 40 para galpões/estruturas simples.',
+      'Idade Atual (anos): idade da construção.',
+    ],
+    passos: [
+      'Informe o Valor de Novo.',
+      'Defina o Valor Residual (%) e a Vida Útil.',
+      'Informe a Idade Atual.',
+      'Confira a Depreciação Anual, Acumulada e o Valor Atual.',
+      "Clique em 'Aplicar Linha Reta ao Laudo'.",
+    ],
+  },
+  fatores_terreno: {
+    titulo: 'Fatores de Terreno',
+    quando: 'Avaliação de TERRENO urbano por homogeneização — quando você parte de um valor unitário (R$/m²) de referência e ajusta pelas características do lote.',
+    como: 'Aplica fatores de localização, topografia, testada/frente e infraestrutura sobre o valor unitário e multiplica pela área do terreno.',
+    campos: [
+      'Valor Unitário (R$/m²): geralmente o R$/m² obtido na ponderância (etapa 9).',
+      'Área do Terreno (m²): área a homogeneizar.',
+      'Fator Localização: esquina, meio de quadra ou fundos.',
+      'Fator Topografia: plano, aclive/declive, acentuado, irregular.',
+      'Testada (m): frente do lote (ajusta automaticamente o fator).',
+      'Fator Infraestrutura: completa, parcial ou básica.',
+    ],
+    passos: [
+      'Informe o Valor Unitário (R$/m²) de referência.',
+      'Informe a Área do Terreno.',
+      'Selecione os fatores (localização, topografia, infraestrutura) e a testada.',
+      'Confira o valor unitário ajustado e o valor total.',
+      "Clique em 'Aplicar Fatores ao Laudo'.",
+    ],
+  },
+  nbr_rural: {
+    titulo: 'NBR Rural',
+    quando: 'Imóvel RURAL — compõe o valor conforme a ABNT NBR 14653-3 e diretrizes do INCRA: terra nua + benfeitorias + culturas.',
+    como: 'VTN (valor da terra nua) = VTN/ha × área (ha), conforme a classe de uso/CUF; soma as benfeitorias e as culturas (permanente e temporária).',
+    campos: [
+      'Área Total (ha): área do imóvel em hectares.',
+      'VTN — Valor por Hectare (R$/ha): valor de mercado do hectare SEM benfeitorias.',
+      'Classe de Uso / CUF (NBR 14653-3): aptidão da terra (Classe I a VIII).',
+      'Benfeitorias Rurais (R$): valor das construções (casa, galpão, curral, etc.).',
+      'Cultura Permanente (R$): valor de pomares/culturas perenes.',
+      'Cultura Temporária (R$): valor de lavouras anuais.',
+    ],
+    passos: [
+      'Informe a Área Total (ha) e o VTN (R$/ha).',
+      'Selecione a Classe de Uso / CUF.',
+      'Some as Benfeitorias e as Culturas (permanente/temporária).',
+      'Confira o valor total composto.',
+      "Clique em 'Aplicar NBR Rural ao Laudo'.",
+    ],
+  },
+  renda: {
+    titulo: 'Método da Renda',
+    quando: 'Imóveis que geram RENDA (aluguel, comercial) — valor pela capitalização da renda líquida.',
+    como: 'Valor = renda líquida ÷ taxa de capitalização. Considera a renda do imóvel e a taxa de retorno praticada no mercado.',
+    campos: [
+      'Renda (mensal/anual): aluguel ou receita gerada pelo imóvel.',
+      'Taxa de capitalização (%): taxa de retorno de mercado para o tipo de imóvel.',
+      'Despesas/Vacância (se houver): para chegar à renda líquida.',
+    ],
+    passos: [
+      'Informe a renda do imóvel.',
+      'Informe a taxa de capitalização de mercado.',
+      'Desconte despesas/vacância para obter a renda líquida.',
+      'Confira o valor capitalizado.',
+      "Clique em 'Aplicar Método da Renda ao Laudo'.",
+    ],
+  },
+};
+
+const GuiaMetodo = ({ metodo }) => {
+  const [aberto, setAberto] = useState(false);
+  const g = GUIA[metodo];
+  if (!g) return null;
+  return (
+    <div className="mt-4 rounded-xl border border-sky-200 bg-sky-50/60 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setAberto((o) => !o)}
+        className="w-full flex items-center justify-between px-4 py-3 text-left"
+      >
+        <span className="flex items-center gap-2 text-sm font-semibold text-sky-800">
+          <BookOpen className="w-4 h-4" /> Como funciona e como preencher — {g.titulo}
+        </span>
+        <ChevronDown className={`w-4 h-4 text-sky-600 transition-transform ${aberto ? 'rotate-180' : ''}`} />
+      </button>
+      {aberto && (
+        <div className="px-4 pb-4 space-y-3 text-sm text-gray-700 border-t border-sky-100 pt-3">
+          <div><span className="font-semibold text-sky-800">Quando usar: </span>{g.quando}</div>
+          <div><span className="font-semibold text-sky-800">Como funciona: </span>{g.como}</div>
+          <div>
+            <div className="font-semibold text-sky-800 mb-1">Como preencher os campos:</div>
+            <ul className="list-disc pl-5 space-y-0.5">
+              {g.campos.map((c, i) => <li key={i}>{c}</li>)}
+            </ul>
+          </div>
+          <div>
+            <div className="font-semibold text-sky-800 mb-1">Passo a passo:</div>
+            <ol className="list-decimal pl-5 space-y-0.5">
+              {g.passos.map((p, i) => <li key={i}>{p}</li>)}
+            </ol>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const StepMetodoAvaliacao = ({ form, setForm }) => {
   const metodo = form.metodo_avaliacao || null;
   const [params, setParams] = useState(form.metodo_params || {});
@@ -363,6 +499,9 @@ export const StepMetodoAvaliacao = ({ form, setForm }) => {
           Selecione um método acima — ou marque "Não aplicar" para desconsiderar esta etapa.
         </div>
       )}
+
+      {/* Folder didático do método selecionado (entre o "Aplicar" e a etapa concluída) */}
+      {!naoAplicado && metodo && <GuiaMetodo metodo={metodo} />}
     </div>
   );
 };
