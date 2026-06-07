@@ -1591,20 +1591,18 @@ def build_story(ptam, page_map):
     st += sec('ANEXO II — AMOSTRAS COMPARATIVAS', 'anexo2')
     if amostras:
         st.append(Paragraph(
-            f'Galeria comparativa das amostras de mercado — {len(amostras)} amostra(s), '
-            '4 por página.', sPag))
+            f'Galeria comparativa das amostras de mercado — {len(amostras)} amostra(s). '
+            'Foto e planta baixa lado a lado.', sPag))
         st.append(Spacer(1, 6))
         _col_w = UTIL_W / 2
         _img_w = _col_w - 0.4 * cm
-        _foto_h = 6.5 * cm
+        _foto_h = 6.0 * cm
         _sTitAm = ParagraphStyle('galtit', fontName='Helvetica-Bold', fontSize=9,
                                  textColor=DOURADO, spaceAfter=3, alignment=TA_CENTER)
 
-        def _cel_galeria(idx, a):
-            local = (f"{a.get('address', '')} / {a.get('neighborhood', '')}".strip(' /')
-                     or a.get('nome_local') or '—')
-            elems = [Paragraph(f'Amostra {idx} — {local[:60]}', _sTitAm)]
-            raw = a.get('_image_bytes')
+        def _cel_imagem(titulo, raw, placeholder='Sem imagem'):
+            """Célula da galeria: título + imagem em miniatura (ou placeholder)."""
+            elems = [Paragraph(titulo, _sTitAm)]
             try:
                 if raw:
                     elems.append(RLImage(BytesIO(bytes(raw)), width=_img_w,
@@ -1612,7 +1610,7 @@ def build_story(ptam, page_map):
                 else:
                     raise ValueError('sem imagem')
             except Exception:
-                ph = Table([['Sem imagem']], colWidths=[_img_w], rowHeights=[_foto_h])
+                ph = Table([[placeholder]], colWidths=[_img_w], rowHeights=[_foto_h])
                 ph.setStyle(TableStyle([
                     ('BACKGROUND', (0, 0), (-1, -1), VERDE_CLR),
                     ('TEXTCOLOR', (0, 0), (-1, -1), CINZA),
@@ -1624,10 +1622,16 @@ def build_story(ptam, page_map):
                 elems.append(ph)
             return elems
 
-        for r in range(0, len(amostras), 2):
-            par = amostras[r:r + 2]
-            row = [_cel_galeria(r + j + 1, par[j]) if j < len(par) else '' for j in range(2)]
-            gal = Table([row], colWidths=[_col_w, _col_w])
+        # Uma amostra por linha: foto (esq.) + planta baixa em miniatura (dir.).
+        for idx, a in enumerate(amostras, 1):
+            local = (f"{a.get('address', '')} / {a.get('neighborhood', '')}".strip(' /')
+                     or a.get('nome_local') or '—')
+            foto_cell = _cel_imagem(f'Amostra {idx} — {local[:55]}', a.get('_image_bytes'))
+            planta_raw = a.get('_planta_baixa_bytes')
+            planta_cell = (_cel_imagem(f'Planta Baixa — Amostra {idx}', planta_raw,
+                                       placeholder='Sem planta')
+                           if planta_raw else '')
+            gal = Table([[foto_cell, planta_cell]], colWidths=[_col_w, _col_w])
             gal.setStyle(TableStyle([
                 ('VALIGN', (0, 0), (-1, -1), 'TOP'),
                 ('LEFTPADDING', (0, 0), (-1, -1), 4),
@@ -1636,8 +1640,6 @@ def build_story(ptam, page_map):
                 ('TOPPADDING', (0, 0), (-1, -1), 4),
             ]))
             st.append(KeepTogether([gal]))
-            if (r + 2) % 4 == 0 and (r + 2) < len(amostras):
-                st.append(PageBreak())
     else:
         st.append(Paragraph('Nenhuma amostra cadastrada.', sBody))
 

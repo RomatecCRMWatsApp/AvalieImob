@@ -121,8 +121,8 @@ _FINALIDADE_MAP = {
     "garantia": "Garantia de Crédito",
     "permuta": "Permuta",
     "outros": "Outros",
-    # Wizard "Especulação de Mercado Imobiliário 2026 — Oferta e Venda"
-    "especulacao_mercado_2026": "Especulação de Mercado Imobiliário 2026 — Oferta e Venda",
+    # Especulação de Mercado Imobiliário 2026 — chave real do wizard de finalidades (cv_*)
+    "cv_especulacao": "Especulação de Mercado Imobiliário 2026 — Oferta e Venda Direta",
 }
 
 
