@@ -10,7 +10,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft, Receipt, Save, Send, Loader2, Building2, User as UserIcon,
-  FileText, MessageCircle, Hourglass,
+  FileText, MessageCircle, Hourglass, Paperclip, X, Upload,
 } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -18,6 +18,12 @@ import { Textarea } from '../../ui/textarea';
 import { useToast } from '../../../hooks/use-toast';
 import { useAuth } from '../../../contexts/AuthContext';
 import { recibosAPI, perfilAPI } from '../../../lib/api';
+import { useCatalogoServicos } from './useCatalogoServicos';
+
+const ANEXO_TIPOS_OK = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+const ANEXO_MAX_BYTES = 10 * 1024 * 1024;
+const ANEXO_MAX = 5;
+const fmtTam = (b) => (b > 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.round(b / 1024)} KB`);
 
 const FORMAS_DEFAULT = ['PIX', 'Dinheiro', 'Transferência bancária', 'Boleto', 'Cartão de crédito', 'Cartão de débito', 'Cheque'];
 
@@ -63,6 +69,15 @@ const ReciboWizard = () => {
   const debounceRef = useRef(null);
   const lastBlobRef = useRef(null);
 
+  // Catálogo cascata categoria → serviço
+  const { categorias, servicosDe, buscarServico } = useCatalogoServicos();
+  const [catSel, setCatSel] = useState('');   // value da categoria selecionada
+  const [servSel, setServSel] = useState(''); // value do serviço selecionado
+
+  // Anexos: staged (File[] ainda não salvos) + existentes (na edição)
+  const [anexosStaged, setAnexosStaged] = useState([]);
+  const fileInputRef = useRef(null);
+
   // ── Carrega tipos disponíveis ──────────────────────────────────
   useEffect(() => {
     recibosAPI.tipos().then(d => {
@@ -107,9 +122,94 @@ const ReciboWizard = () => {
     }).finally(() => setLoading(false));
   }, [editing, id, nav, toast]);
 
+  // ── Reverse-map (edição): label salvo → value do select ────────
+  useEffect(() => {
+    if (!categorias.length) return;
+    if (catSel) return;
+    if (!form.categoria && !form.servico) return;
+    const cat = categorias.find(c => c.label === form.categoria);
+    if (cat) {
+      setCatSel(cat.value);
+      const serv = (cat.servicos || []).find(s => s.label === form.servico);
+      if (serv) setServSel(serv.value);
+    }
+  }, [categorias, form.categoria, form.servico, catSel]);
+
+  // ── Handlers cascata ───────────────────────────────────────────
+  const onCategoriaChange = (e) => {
+    const v = e.target.value;
+    setCatSel(v);
+    setServSel('');
+    const cat = categorias.find(c => c.value === v);
+    setForm(prev => ({ ...prev, categoria: cat?.label || '', servico: '' }));
+  };
+
+  const onServicoChange = (e) => {
+    const v = e.target.value;
+    setServSel(v);
+    const serv = buscarServico(catSel, v);
+    if (!serv) {
+      setForm(prev => ({ ...prev, servico: '' }));
+      return;
+    }
+    setForm(prev => ({
+      ...prev,
+      servico: serv.label,
+      tipo: serv.tipo || prev.tipo,
+      // Auto-preenche a descrição só se estiver vazia ou for um template anterior
+      descricao: (!prev.descricao || prev.descricao === prev._descTemplate)
+        ? serv.descricao
+        : prev.descricao,
+      _descTemplate: serv.descricao,
+    }));
+  };
+
+  // ── Handlers de anexos ─────────────────────────────────────────
+  const totalAnexos = (form.anexos?.length || 0) + anexosStaged.length;
+
+  const onPickAnexos = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (e.target) e.target.value = '';
+    let count = totalAnexos;  // saved + staged já existentes
+    const aceitos = [];
+    for (const f of files) {
+      if (count >= ANEXO_MAX) {
+        toast({ title: `Máximo de ${ANEXO_MAX} anexos`, variant: 'destructive' });
+        break;
+      }
+      const ct = (f.type || '').toLowerCase();
+      if (!ANEXO_TIPOS_OK.includes(ct)) {
+        toast({ title: `Tipo não permitido: ${f.name}`, variant: 'destructive' });
+        continue;
+      }
+      if (f.size > ANEXO_MAX_BYTES) {
+        toast({ title: `${f.name} excede 10MB`, variant: 'destructive' });
+        continue;
+      }
+      aceitos.push(f);
+      count += 1;
+    }
+    if (aceitos.length) setAnexosStaged(prev => [...prev, ...aceitos]);
+  };
+
+  const removerStaged = (idx) =>
+    setAnexosStaged(prev => prev.filter((_, i) => i !== idx));
+
+  const removerAnexoSalvo = async (anexoId) => {
+    if (!editing) return;
+    try {
+      await recibosAPI.removerAnexo(id, anexoId);
+      setForm(prev => ({ ...prev, anexos: (prev.anexos || []).filter(a => a.id !== anexoId) }));
+      toast({ title: 'Anexo removido' });
+    } catch {
+      toast({ title: 'Erro ao remover anexo', variant: 'destructive' });
+    }
+  };
+
   // ── Preview live (debounced) ───────────────────────────────────
   const buildPayload = useCallback(() => {
     const payload = { ...form };
+    delete payload._descTemplate;  // campo auxiliar de UI, não persiste
     payload.valor = parseFloat(String(form.valor).replace(',', '.')) || 0;
     payload.validade_dias = parseInt(form.validade_dias, 10) || 7;
     return payload;
@@ -180,6 +280,18 @@ const ReciboWizard = () => {
         saved = await recibosAPI.atualizar(id, payload);
       } else {
         saved = await recibosAPI.criar(payload);
+      }
+
+      // Faz upload dos anexos que ainda estavam só no navegador
+      if (anexosStaged.length && saved?.id) {
+        for (const f of anexosStaged) {
+          try {
+            await recibosAPI.adicionarAnexo(saved.id, f);
+          } catch (err) {
+            toast({ title: `Falha ao anexar ${f.name}`, variant: 'destructive' });
+          }
+        }
+        setAnexosStaged([]);
       }
 
       toast({ title: modo === 'rascunho' ? 'Rascunho salvo' : `Recibo ${saved.numero} emitido` });
@@ -279,12 +391,36 @@ const ReciboWizard = () => {
 
           <div className="grid grid-cols-2 gap-3">
             <Field label="Categoria de serviço">
-              <Input value={form.categoria} onChange={onChange('categoria')} placeholder="ex: Avaliação Imobiliária" />
+              <select
+                value={catSel}
+                onChange={onCategoriaChange}
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-amber-500 bg-white"
+              >
+                <option value="">— Selecione —</option>
+                {categorias.map(c => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
+              </select>
             </Field>
             <Field label="Serviço específico">
-              <Input value={form.servico} onChange={onChange('servico')} placeholder="ex: PTAM rural" />
+              <select
+                value={servSel}
+                onChange={onServicoChange}
+                disabled={!catSel}
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-amber-500 bg-white disabled:bg-gray-50 disabled:text-gray-400"
+              >
+                <option value="">{catSel ? '— Selecione —' : 'Escolha a categoria'}</option>
+                {servicosDe(catSel).map(s => (
+                  <option key={s.value} value={s.value}>{s.label}</option>
+                ))}
+              </select>
             </Field>
           </div>
+          {form.servico && (
+            <p className="text-xs text-amber-700 -mt-2">
+              Selecionado: <strong>{form.servico}</strong> — a descrição foi preenchida automaticamente (você pode editar).
+            </p>
+          )}
 
           {/* Destinatário */}
           <Field label="Destinatário *">
@@ -357,6 +493,52 @@ const ReciboWizard = () => {
               onChange={onChange('descricao')}
               placeholder="Ex: Mão de obra quinzena 06–20/maio, pagamento PIX"
             />
+          </Field>
+
+          {/* Anexos */}
+          <Field label={`Documentos anexos (até ${ANEXO_MAX} · PDF/JPG/PNG/WebP · 10MB cada)`}>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={onPickAnexos}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={totalAnexos >= ANEXO_MAX}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border border-dashed border-amber-300 text-amber-700 text-sm hover:bg-amber-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Upload className="w-4 h-4" />
+              {totalAnexos >= ANEXO_MAX ? 'Limite de anexos atingido' : 'Adicionar anexo'}
+            </button>
+
+            {(form.anexos?.length > 0 || anexosStaged.length > 0) && (
+              <ul className="mt-2 space-y-1.5">
+                {(form.anexos || []).map(a => (
+                  <li key={a.id} className="flex items-center gap-2 text-xs bg-gray-50 rounded-lg px-3 py-2">
+                    <Paperclip className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                    <span className="flex-1 truncate">{a.name}</span>
+                    {a.size_bytes ? <span className="text-gray-400">{fmtTam(a.size_bytes)}</span> : null}
+                    <button type="button" onClick={() => removerAnexoSalvo(a.id)} title="Remover">
+                      <X className="w-3.5 h-3.5 text-red-500 hover:text-red-700" />
+                    </button>
+                  </li>
+                ))}
+                {anexosStaged.map((f, i) => (
+                  <li key={`s-${i}`} className="flex items-center gap-2 text-xs bg-amber-50 rounded-lg px-3 py-2">
+                    <Paperclip className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                    <span className="flex-1 truncate">{f.name}</span>
+                    <span className="text-amber-600">{fmtTam(f.size)} · pendente</span>
+                    <button type="button" onClick={() => removerStaged(i)} title="Remover">
+                      <X className="w-3.5 h-3.5 text-red-500 hover:text-red-700" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </Field>
 
           <p className="text-xs text-gray-500 leading-relaxed pt-2 border-t border-gray-100">

@@ -17,7 +17,7 @@ import logging
 from datetime import datetime
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import Response
 from pydantic import BaseModel
 from pymongo import ReturnDocument
@@ -124,6 +124,15 @@ async def listar_tipos():
         ],
         "formas_pagamento": FORMAS_PAGAMENTO,
     }
+
+
+# ── GET /recibos/catalogo ────────────────────────────────────────────────────
+
+@router.get("/catalogo")
+async def listar_catalogo():
+    """Catálogo cascata Categoria → Serviço (com template de descrição e tipo sugerido)."""
+    from services.recibo_catalogo import listar_catalogo as _listar
+    return {"categorias": _listar()}
 
 
 # ── GET /recibos ────────────────────────────────────────────────────────────
@@ -331,6 +340,91 @@ async def preview_pdf(
     )
 
 
+# ── POST /recibos/{id}/clonar ───────────────────────────────────────────────
+
+@router.post("/{rid}/clonar", status_code=201)
+async def clonar_recibo(
+    rid: str,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db),
+):
+    """Cria uma cópia do recibo como novo rascunho (sem número/hash/envio)."""
+    doc = await db.recibos.find_one({"id": rid, "user_id": uid})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Recibo não encontrado")
+
+    base = ReciboBase(**{k: doc.get(k) for k in ReciboBase.model_fields if k in doc})
+    novo = Recibo(user_id=uid, **base.model_dump())
+    novo.status = "rascunho"
+    novo.numero = None
+    novo.sequencia = None
+    novo.hash_validacao = None
+    novo.enviado_em = None
+    novo.enviado_via = None
+    await db.recibos.insert_one(novo.model_dump())
+    return serialize_doc(novo.model_dump())
+
+
+# ── POST /recibos/{id}/anexos ───────────────────────────────────────────────
+
+@router.post("/{rid}/anexos", status_code=201)
+async def adicionar_anexo(
+    rid: str,
+    file: UploadFile = File(...),
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db),
+):
+    """Anexa um documento ao recibo (até 5; PDF/JPG/PNG/WebP, 10MB cada)."""
+    from services.recibo_anexos import salvar_anexo, MAX_ANEXOS
+
+    doc = await db.recibos.find_one({"id": rid, "user_id": uid})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Recibo não encontrado")
+
+    anexos = doc.get("anexos") or []
+    if len(anexos) >= MAX_ANEXOS:
+        raise HTTPException(status_code=400, detail=f"Máximo de {MAX_ANEXOS} anexos por recibo")
+
+    data = await file.read()
+    try:
+        meta = await salvar_anexo(
+            db, uid=uid, filename=file.filename or "anexo",
+            content_type=file.content_type or "", data=data,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    anexos.append(meta)
+    await db.recibos.update_one(
+        {"id": rid}, {"$set": {"anexos": anexos, "updated_at": datetime.utcnow()}}
+    )
+    return {"ok": True, "anexo": meta, "total": len(anexos)}
+
+
+# ── DELETE /recibos/{id}/anexos/{anexo_id} ──────────────────────────────────
+
+@router.delete("/{rid}/anexos/{anexo_id}")
+async def remover_anexo(
+    rid: str,
+    anexo_id: str,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db),
+):
+    doc = await db.recibos.find_one({"id": rid, "user_id": uid})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Recibo não encontrado")
+    anexos = [a for a in (doc.get("anexos") or []) if a.get("id") != anexo_id]
+    await db.recibos.update_one(
+        {"id": rid}, {"$set": {"anexos": anexos, "updated_at": datetime.utcnow()}}
+    )
+    # Remove os bytes da coleção de imagens (best-effort)
+    try:
+        await db.images.delete_one({"id": anexo_id, "user_id": uid})
+    except Exception:
+        pass
+    return {"ok": True, "total": len(anexos)}
+
+
 # ── POST /recibos/{id}/enviar-whatsapp ──────────────────────────────────────
 
 class EnviarWhatsAppRequest(BaseModel):
@@ -381,7 +475,11 @@ async def enviar_whatsapp(
 
     pdf_bytes = gerar_recibo_pdf(recibo=doc, user=user, perfil=perfil, logo_bytes=logo_bytes)
     filename = f"{doc['numero']}.pdf".replace("/", "-")
-    legenda = body.legenda or f"Segue o recibo {doc['numero']}"
+    if body.legenda:
+        legenda = body.legenda
+    else:
+        from services.recibo_whatsapp import legenda_recibo
+        legenda = legenda_recibo(doc)
 
     provider = (cfg.get("whatsapp_provider") or "zapi").lower()
     try:
@@ -402,6 +500,29 @@ async def enviar_whatsapp(
                 security_token=cfg.get("zapi_security_token"),
                 phone=phone, pdf_bytes=pdf_bytes, filename=filename, caption=legenda,
             )
+
+        # Envia os anexos logo após o recibo (best-effort; só via Z-API).
+        anexos = doc.get("anexos") or []
+        anexos_enviados = 0
+        if anexos and provider != "meta" and cfg.get("zapi_instance_id"):
+            from services.recibo_anexos import carregar_anexo_bytes
+            for ax in anexos:
+                carregado = await carregar_anexo_bytes(db, ax)
+                if not carregado:
+                    continue
+                ax_bytes, ax_name, ax_ct = carregado
+                try:
+                    await zapi_service.send_document(
+                        instance_id=cfg["zapi_instance_id"],
+                        token=cfg["zapi_token"],
+                        security_token=cfg.get("zapi_security_token"),
+                        phone=phone, file_bytes=ax_bytes, filename=ax_name,
+                        content_type=ax_ct, caption="",
+                    )
+                    anexos_enviados += 1
+                except Exception as e:
+                    logger.warning("Falha ao enviar anexo %s do recibo %s: %s", ax_name, rid, e)
+
         await db.recibos.update_one(
             {"id": rid},
             {"$set": {
@@ -411,7 +532,7 @@ async def enviar_whatsapp(
                 "updated_at": datetime.utcnow(),
             }},
         )
-        return {"ok": True, "provider": provider, "response": resp}
+        return {"ok": True, "provider": provider, "response": resp, "anexos_enviados": anexos_enviados}
     except HTTPException:
         raise
     except Exception as e:

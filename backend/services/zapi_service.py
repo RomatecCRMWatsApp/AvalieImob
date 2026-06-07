@@ -79,6 +79,49 @@ async def send_document_pdf(
         return r.json()
 
 
+_EXT_BY_CT = {
+    "application/pdf": "pdf",
+    "image/jpeg": "jpeg",
+    "image/jpg": "jpeg",
+    "image/png": "png",
+    "image/webp": "webp",
+}
+
+
+async def send_document(
+    *,
+    instance_id: str,
+    token: str,
+    security_token: Optional[str],
+    phone: str,
+    file_bytes: bytes,
+    filename: str,
+    content_type: str,
+    caption: str = "",
+) -> dict:
+    """Envia um documento/imagem genérico via Z-API (anexos de recibo)."""
+    phone_n = _normalize_phone(phone)
+    if not phone_n:
+        raise ValueError("Telefone inválido")
+
+    ct = (content_type or "application/octet-stream").lower()
+    ext = _EXT_BY_CT.get(ct, "pdf")
+    url = f"{ZAPI_BASE}/instances/{instance_id}/token/{token}/send-document/{ext}"
+
+    b64 = base64.b64encode(file_bytes).decode("ascii")
+    payload = {
+        "phone": phone_n,
+        "document": f"data:{ct};base64,{b64}",
+        "fileName": filename,
+        "caption": caption,
+    }
+    async with httpx.AsyncClient(timeout=60) as client:
+        r = await client.post(url, json=payload, headers=_headers(security_token))
+        if r.status_code >= 400:
+            raise RuntimeError(f"Z-API erro {r.status_code}: {r.text[:300]}")
+        return r.json()
+
+
 async def send_text(
     *,
     instance_id: str,

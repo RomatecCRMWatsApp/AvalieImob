@@ -351,4 +351,18 @@ export const recibosAPI = {
     api.post(`/recibos/${id}/enviar-whatsapp`, { phone, legenda }).then(r => r.data),
   // Tipos disponíveis (drives o select)
   tipos: () => api.get('/recibos/tipos').then(r => r.data),
+  // Catálogo cascata categoria → serviço
+  catalogo: () => api.get('/recibos/catalogo').then(r => r.data),
+  // Clonar recibo (cria novo rascunho)
+  clonar: (id) => api.post(`/recibos/${id}/clonar`).then(r => r.data),
+  // Anexos (até 5; PDF/JPG/PNG/WebP, 10MB)
+  adicionarAnexo: (id, file) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return api.post(`/recibos/${id}/anexos`, fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then(r => r.data);
+  },
+  removerAnexo: (id, anexoId) =>
+    api.delete(`/recibos/${id}/anexos/${anexoId}`).then(r => r.data),
 };

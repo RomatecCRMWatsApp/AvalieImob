@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Plus, Receipt, Loader2, Calendar, Trash2, FileDown, MessageCircle,
-  CheckCircle2, Clock, Send, Search, Edit3, Lock, ShieldCheck,
+  CheckCircle2, Clock, Send, Search, Edit3, Lock, ShieldCheck, Copy, BadgeCheck,
 } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Badge } from '../../ui/badge';
@@ -16,10 +16,11 @@ const formatBRL = (v) => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', {
 });
 
 const STATUS_CONFIG = {
-  rascunho: { label: 'Rascunho', cls: 'bg-gray-100 text-gray-700', icon: Clock },
-  emitido:  { label: 'Emitido',  cls: 'bg-amber-100 text-amber-800', icon: Receipt },
-  enviado:  { label: 'Enviado',  cls: 'bg-emerald-100 text-emerald-800', icon: CheckCircle2 },
-  cancelado:{ label: 'Cancelado',cls: 'bg-red-100 text-red-700', icon: Trash2 },
+  rascunho:  { label: 'Rascunho',  cls: 'bg-gray-100 text-gray-700', icon: Clock },
+  emitido:   { label: 'Emitido',   cls: 'bg-blue-100 text-blue-800', icon: Receipt },
+  enviado:   { label: 'Enviado',   cls: 'bg-emerald-100 text-emerald-800', icon: CheckCircle2 },
+  confirmado:{ label: 'Confirmado',cls: 'bg-purple-100 text-purple-700', icon: BadgeCheck },
+  cancelado: { label: 'Cancelado', cls: 'bg-red-100 text-red-700', icon: Trash2 },
 };
 
 const RecibosList = () => {
@@ -63,6 +64,16 @@ const RecibosList = () => {
       toast({ title: 'Recibo removido' });
     } catch (e) {
       toast({ title: 'Erro ao remover', variant: 'destructive' });
+    }
+  };
+
+  const clonar = async (r) => {
+    try {
+      const novo = await recibosAPI.clonar(r.id);
+      toast({ title: 'Recibo clonado como rascunho' });
+      nav(`/dashboard/recibos/${novo.id}`);
+    } catch (e) {
+      toast({ title: 'Erro ao clonar', variant: 'destructive' });
     }
   };
 
@@ -155,6 +166,7 @@ const RecibosList = () => {
           <option value="rascunho">Rascunho</option>
           <option value="emitido">Emitido</option>
           <option value="enviado">Enviado</option>
+          <option value="confirmado">Confirmado</option>
           <option value="cancelado">Cancelado</option>
         </select>
       </div>
@@ -208,6 +220,7 @@ const RecibosList = () => {
                     <Calendar className="w-3 h-3" />
                     {r.created_at ? new Date(r.created_at).toLocaleDateString('pt-BR') : '—'}
                     {r.forma_pagamento && <> · {r.forma_pagamento}</>}
+                    {r.anexos?.length > 0 && <> · {r.anexos.length} anexo{r.anexos.length > 1 ? 's' : ''}</>}
                   </div>
                 </div>
 
@@ -257,6 +270,15 @@ const RecibosList = () => {
                     ) : (
                       <MessageCircle className="w-3.5 h-3.5" />
                     )}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => clonar(r)}
+                    title="Clonar recibo"
+                    className="gap-1"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
                   </Button>
                   <Button
                     size="sm"

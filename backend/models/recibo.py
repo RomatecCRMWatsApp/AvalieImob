@@ -64,8 +64,12 @@ class ReciboBase(BaseModel):
     ptam_id: Optional[str] = None  # se gerado a partir de um PTAM
     cliente_id: Optional[str] = None
 
+    # ── Anexos (até 5; PDF/JPG/PNG/WebP, 10MB cada) ──────────────────────
+    # Cada item: {id, url, name, content_type, size_bytes}
+    anexos: List[dict] = Field(default_factory=list)
+
     # ── Status ───────────────────────────────────────────────────────────
-    status: str = "rascunho"  # rascunho | emitido | enviado | cancelado
+    status: str = "rascunho"  # rascunho | emitido | enviado | confirmado | cancelado
 
 
 class Recibo(ReciboBase):
@@ -110,3 +114,4 @@ class ReciboUpdate(BaseModel):
     status: Optional[str] = None
     ptam_id: Optional[str] = None
     cliente_id: Optional[str] = None
+    anexos: Optional[List[dict]] = None
