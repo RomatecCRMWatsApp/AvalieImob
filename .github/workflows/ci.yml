@@ -10,6 +10,10 @@ on:
       - main
       - master
 
+# Necessário para o passo de auto-bump conseguir commitar o build-number.txt de volta.
+permissions:
+  contents: write
+
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -17,6 +21,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # fetch-depth: 0 traz todo o histórico — sem isso, 'git rev-list --count HEAD'
+          # retornaria 1 (clone raso) e o número de versão ficaria errado.
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -40,3 +48,23 @@ jobs:
 
       - name: Validate backend syntax
         run: python -m compileall backend
+
+      # Auto-bump do número de versão: grava o total de commits em build-number.txt
+      # e commita de volta com [skip ci] (não dispara novo CI nem novo deploy). Roda só
+      # em push na main e só depois do build passar. continue-on-error: não bloqueia o
+      # deploy se o push do bump falhar (ex.: corrida de commits).
+      - name: Bump build number
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        run: |
+          COUNT=$(git rev-list --count HEAD)
+          echo "$COUNT" > frontend/build-number.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add frontend/build-number.txt
+          if git diff --cached --quiet; then
+            echo "build-number.txt ja esta em $COUNT - nada a commitar."
+            exit 0
+          fi
+          git commit -m "chore(build): build-number $COUNT [skip ci]"
+          git push origin HEAD:main
