@@ -362,6 +362,7 @@ const MarketSampleCard = ({ s, onChange, onRemove, idx, isSaneada, tipoImovel })
               maxImages={1}
               single
               label=""
+              previewClass="h-96"
             />
           </div>
         </div>

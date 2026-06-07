@@ -13,6 +13,7 @@ const ImageUploader = ({
   label = 'Fotos',
   accept = 'image/jpeg,image/jpg,image/png,image/webp,application/pdf',
   single = false,
+  previewClass = 'h-40',   // altura do preview no modo single (override p/ planta baixa)
 }) => {
   const { toast } = useToast();
   const inputRef = useRef(null);
@@ -190,7 +191,7 @@ const ImageUploader = ({
       {images.length > 0 && (
         <div className={`grid gap-2 ${single ? 'grid-cols-1' : 'grid-cols-3 sm:grid-cols-4 md:grid-cols-5'}`}>
           {images.map((id) => (
-            <div key={id} className={`relative group rounded-lg overflow-hidden border border-gray-200 bg-gray-50 ${single ? 'h-40' : 'aspect-square'}`}>
+            <div key={id} className={`relative group rounded-lg overflow-hidden border border-gray-200 bg-gray-50 ${single ? previewClass : 'aspect-square'}`}>
               {isPdf(id) ? (
                 <div className="w-full h-full flex flex-col items-center justify-center gap-1 bg-red-50">
                   <FileText className="w-8 h-8 text-red-500" /><span className="text-xs text-red-600 font-medium">PDF</span>
