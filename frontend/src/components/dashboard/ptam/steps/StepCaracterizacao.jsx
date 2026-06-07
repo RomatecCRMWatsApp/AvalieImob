@@ -7,6 +7,8 @@ import { Field, SectionHeader, AiButton } from '../shared/primitives';
 import { AreaConsideradaSelector } from '../shared/AreaConsideradaSelector';
 import { AreaResumoPanel } from '../shared/AreaResumoPanel';
 import RichField from '../../../ui/RichField';
+import { isRuralImovel } from '../shared/amostraCategoria';
+import BenfeitoriasRurais from '../BenfeitoriasRurais';
 
 export const StepCaracterizacao = ({ form, setForm, onAi, aiLoading }) => (
   <div>
@@ -104,6 +106,11 @@ export const StepCaracterizacao = ({ form, setForm, onAi, aiLoading }) => (
           <AiButton onClick={() => onAi('imovel_caracteristicas_adicionais')} loading={aiLoading === 'imovel_caracteristicas_adicionais'} />
         </div>
       </Field>
+
+      {/* Benfeitorias estruturadas — somente imóvel rural */}
+      {isRuralImovel(form.property_type) && (
+        <BenfeitoriasRurais form={form} setForm={setForm} />
+      )}
     </div>
   </div>
 );

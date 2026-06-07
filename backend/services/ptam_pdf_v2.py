@@ -1378,6 +1378,36 @@ def build_story(ptam, page_map):
     _carac_rows = [(lb, _txt(vl)) for lb, vl in _carac_rows if _preenchido(vl)]
     st.append(tbl(_carac_rows or [('Caracterização', 'Não informada')]))
 
+    # ── Benfeitorias estruturadas (somente imóvel rural) ──
+    _benf = ptam.get('benfeitorias_rurais') or []
+    if _rural3 and isinstance(_benf, list) and any(isinstance(b, dict) for b in _benf):
+        _sBenf = ParagraphStyle('benfCell', fontName='Helvetica', fontSize=8, leading=10)
+        _benf_rows = []
+        for _b in _benf:
+            if not isinstance(_b, dict):
+                continue
+            _tipo = _txt(_b.get('tipo'), '—')
+            _desc = _txt(html_to_inline(limpar_texto_ia(_b.get('descricao'))), '')
+            _area = _b.get('area_m2')
+            _estado = _txt(_b.get('estado'), '')
+            _valor = _b.get('valor')
+            if not (_preenchido(_tipo) or _preenchido(_desc)):
+                continue
+            _benf_rows.append([
+                Paragraph(_esc_xml(_tipo), _sBenf),
+                Paragraph(_esc_xml(_desc), _sBenf),
+                fmt_area(_area) if _preenchido(_area) else '',
+                _estado or '',
+                fmt_moeda(_valor) if _preenchido(_valor) else '',
+            ])
+        if _benf_rows:
+            st += subsec('Benfeitorias do Imóvel Rural', 'sec3benf')
+            _wT, _wA, _wE, _wV = 3.4 * cm, 1.9 * cm, 1.9 * cm, 2.6 * cm
+            _wD = UTIL_W - (_wT + _wA + _wE + _wV)
+            st.append(tbl_header(
+                ['Benfeitoria', 'Descrição', 'Área', 'Estado', 'Valor est.'],
+                _benf_rows, [_wT, _wD, _wA, _wE, _wV]))
+
     # ── 4. Contexto Urbano ──
     st.append(PageBreak())
     st += sec('4. CONTEXTO URBANO / ANÁLISE DA REGIÃO', 'sec4')

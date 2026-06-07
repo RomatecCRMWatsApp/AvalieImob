@@ -191,6 +191,9 @@ class PtamBase(BaseModel):
     imovel_despensa: Optional[int] = 0
     imovel_num_piscinas: Optional[int] = 0
     imovel_caracteristicas_adicionais: Optional[str] = ""
+    # Benfeitorias estruturadas (somente imóvel rural) — lista de
+    # {tipo, descricao, area_m2, estado, valor}. Vai ao PDF do laudo.
+    benfeitorias_rurais: List[dict] = Field(default_factory=list)
 
     # Fotos e Documentos
     # fotos_imovel: aceita IDs (str, legado) OU objetos {image_id, legenda, gps}.
