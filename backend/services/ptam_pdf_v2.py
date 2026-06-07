@@ -1029,7 +1029,17 @@ def tbl(dados, cw=None):
 
 
 def tbl_header(header, linhas, cw, bold_last=False):
-    data = [header] + (linhas or [["—"] * len(header)])
+    # Quebra automática de texto longo nas células do corpo (Paragraph), evitando
+    # que o conteúdo "vaze" da célula. Cabeçalho segue como string (estilo da tabela).
+    _sCellN = ParagraphStyle('hcellN', fontName='Helvetica', fontSize=8.5, leading=10.5)
+    _sCellB = ParagraphStyle('hcellB', fontName='Helvetica-Bold', fontSize=8.5, leading=10.5, textColor=VERDE)
+    linhas = linhas or [["—"] * len(header)]
+    _ult = len(linhas) - 1
+    _body = []
+    for _i, _row in enumerate(linhas):
+        _stl = _sCellB if (bold_last and _i == _ult) else _sCellN
+        _body.append([(Paragraph(_esc_xml(_c), _stl) if isinstance(_c, str) else _c) for _c in _row])
+    data = [header] + _body
     t = Table(data, colWidths=cw, repeatRows=1)
     style = TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), VERDE),
@@ -1730,13 +1740,49 @@ def build_story(ptam, page_map):
         f"mercado coletadas, conclui-se que o valor de mercado do imóvel é:", sBody))
     _rural8 = _is_rural(ptam)
     st += subsec('Cálculo do Valor Final', 'sec8calc')
-    _calc_rows = [
-        ['Média Ponderada Final', fmt_rs_unit(vu, _rural8)],
-        ['Área do Imóvel Avaliando', _area_avaliando_str(ptam, area_av, _rural8)],
-        [f"Valor Final = {fmt_rs_unit(vu, _rural8)} × {fmt_area_rural(area_av, _rural8)}", fmt_moeda(vtotal)],
-    ]
+
+    # Fluxo metodológico até o valor final — vale para TODOS os tipos de imóvel:
+    #   comparativo (média × área) → método/depreciação aplicada → valor final.
+    def _f8(v):
+        try:
+            return float(v or 0)
+        except (TypeError, ValueError):
+            return 0.0
+
+    _valor_base = round(_f8(vu) * _f8(area_av), 2)   # valor pelo comparativo direto
+    _metodo8 = str(ptam.get('metodo_avaliacao') or '').strip().lower()
+    _MET_NOMES = {
+        'ross_heidecke': 'Ross-Heidecke', 'linha_reta': 'Linha Reta',
+        'fatores_terreno': 'Fatores de Terreno', 'nbr_rural': 'NBR Rural (INCRA)',
+        'renda': 'Método da Renda',
+    }
+    _nome_met8 = _MET_NOMES.get(_metodo8, '')
+    _dep_pct8 = ptam.get('depreciacao_percentual')
+    _val_dep8 = ptam.get('valor_depreciacao')
+    _val_met8 = ptam.get('valor_total_metodo')
+
+    _calc_rows = [['Média Ponderada Final', fmt_rs_unit(vu, _rural8)]]
     if _rural8:
-        _calc_rows.insert(1, ['Valor unitário de referência', f"{fmt_moeda(vu)}/m²"])
+        _calc_rows.append(['Valor unitário de referência', f"{fmt_moeda(vu)}/m²"])
+    _calc_rows.append(['Área do Imóvel Avaliando', _area_avaliando_str(ptam, area_av, _rural8)])
+
+    if _metodo8 in ('ross_heidecke', 'linha_reta') and _preenchido(_val_dep8):
+        # Depreciação da benfeitoria: comparativo → (−) depreciação → valor final.
+        _calc_rows.append([
+            f"Valor de Referência (Comparativo) = {fmt_rs_unit(vu, _rural8)} × {fmt_area_rural(area_av, _rural8)}",
+            fmt_moeda(_valor_base)])
+        _pct8 = f" ({_num(_dep_pct8)}%)" if _preenchido(_dep_pct8) else ""
+        _calc_rows.append([f"(−) Depreciação — {_nome_met8}{_pct8}", fmt_moeda(_val_dep8)])
+        _calc_rows.append([f"Valor Final (após depreciação — {_nome_met8})", fmt_moeda(vtotal)])
+    elif _metodo8 in ('nbr_rural', 'fatores_terreno', 'renda') and _preenchido(_val_met8):
+        # Método que compõe/apura o próprio valor final.
+        _calc_rows.append([f"Valor Apurado pelo Método {_nome_met8}", fmt_moeda(vtotal)])
+    else:
+        # Sem método específico: valor pelo Comparativo Direto.
+        _calc_rows.append([
+            f"Valor Final = {fmt_rs_unit(vu, _rural8)} × {fmt_area_rural(area_av, _rural8)}",
+            fmt_moeda(vtotal)])
+
     st.append(tbl_header(['Componente', 'Valor'], _calc_rows,
                          [UTIL_W - 4.5 * cm, 4.5 * cm], bold_last=True))
     st.append(Spacer(1, 10))
