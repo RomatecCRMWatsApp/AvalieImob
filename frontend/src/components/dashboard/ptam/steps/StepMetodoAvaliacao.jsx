@@ -261,6 +261,22 @@ export const StepMetodoAvaliacao = ({ form, setForm }) => {
 
   const hasResult = form.valor_total_metodo != null && form.valor_total_metodo > 0;
 
+  const naoAplicado = metodo === 'nao_aplicado';
+  const toggleNaoAplicado = (checked) => {
+    if (checked) {
+      setParams({});
+      setForm((f) => ({
+        ...f,
+        metodo_avaliacao: 'nao_aplicado',
+        metodo_params: {},
+        depreciacao_percentual: null, valor_depreciacao: null,
+        valor_benfeitoria: null, valor_terreno_calc: null, valor_total_metodo: null,
+      }));
+    } else {
+      setForm((f) => ({ ...f, metodo_avaliacao: null }));
+    }
+  };
+
   return (
     <div>
       <SectionHeader
@@ -268,6 +284,26 @@ export const StepMetodoAvaliacao = ({ form, setForm }) => {
         subtitle="Selecione o método conforme o tipo de imóvel. Cálculos automáticos no frontend."
       />
 
+      {/* Caixa: não aplicar depreciação/valorização (urbano ou rural) */}
+      <div className={`mb-5 rounded-xl border-2 p-4 transition ${naoAplicado ? 'border-amber-300 bg-amber-50' : 'border-gray-200 bg-gray-50'}`}>
+        <label className="flex items-start gap-3 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={naoAplicado}
+            onChange={(e) => toggleNaoAplicado(e.target.checked)}
+            className="mt-0.5 w-5 h-5 accent-amber-600"
+          />
+          <div>
+            <div className="font-semibold text-gray-900">Não aplicar depreciação/valorização neste laudo</div>
+            <p className="text-xs text-gray-600 mt-1">
+              Marque quando não se aplica (urbano ou rural). O sistema desconsidera esta etapa — o valor final
+              permanece o do método principal (Comparativo / Evolutivo / etc.).
+            </p>
+          </div>
+        </label>
+      </div>
+
+      {!naoAplicado && (
       <div className="grid grid-cols-5 gap-3 mb-6">
         {METODOS_AVAL.map((m) => (
           <button key={m.value} type="button" onClick={() => selectMetodo(m.value)}
@@ -278,8 +314,16 @@ export const StepMetodoAvaliacao = ({ form, setForm }) => {
           </button>
         ))}
       </div>
+      )}
 
-      {metodo && (
+      {naoAplicado && (
+        <div className="rounded-xl border-2 border-amber-200 bg-amber-50 p-5 text-sm text-amber-800">
+          Depreciação/valorização <strong>desconsiderada</strong> neste laudo. O valor final permanece o do método
+          principal (Comparativo / Evolutivo). Você pode marcar a etapa como concluída abaixo.
+        </div>
+      )}
+
+      {!naoAplicado && metodo && (
         <div className="rounded-xl border-2 border-emerald-200 bg-white p-5 mb-6">
           <div className="text-sm font-semibold text-emerald-800 mb-4">{METODOS_AVAL.find((m) => m.value === metodo)?.label}</div>
           {metodo === 'ross_heidecke'   && <FormRossHeidecke params={params} setParams={updateParams} onCalc={handleCalc} />}
@@ -290,7 +334,7 @@ export const StepMetodoAvaliacao = ({ form, setForm }) => {
         </div>
       )}
 
-      {hasResult && (
+      {!naoAplicado && hasResult && (
         <div className="rounded-2xl border-2 border-amber-400 bg-gradient-to-br from-amber-50 to-yellow-50 p-6">
           <div className="text-xs font-bold text-amber-700 uppercase tracking-widest mb-3">Resultado Consolidado — {METODOS_AVAL.find((m) => m.value === metodo)?.label}</div>
           <div className="grid grid-cols-2 gap-3 mb-4">
@@ -314,9 +358,9 @@ export const StepMetodoAvaliacao = ({ form, setForm }) => {
         </div>
       )}
 
-      {!metodo && (
+      {!naoAplicado && !metodo && (
         <div className="text-center py-10 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200 text-gray-400 text-sm">
-          Selecione um método acima para iniciar o cálculo de depreciação ou valorização.
+          Selecione um método acima — ou marque "Não aplicar" para desconsiderar esta etapa.
         </div>
       )}
     </div>
