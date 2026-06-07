@@ -70,6 +70,9 @@ function preenchido(v) {
 
 function calcular(p) {
   if (p.icp_status === 'assinado' || p.d4sign_status === 'assinado') return 'assinado';
+  // Conclusão manual (etapa 12) tem prioridade sobre o cálculo automático.
+  if (p.concluido_manual === true) return 'concluido';
+  if (p.concluido_manual === false) return 'rascunho';
   const valor = CAMPOS_VALOR.some((c) => toFloat(p[c]) > 0);
   if (!valor) return 'rascunho';
   const completo = SECOES.every((campos) => campos.some((c) => preenchido(p[c])));
@@ -93,6 +96,9 @@ export function resolvePtamStatus(p) {
   // Assinatura é o sinal mais forte e mais "fresco" no estado local (ex.: logo
   // após assinar, antes de um reload), então tem prioridade sobre status_calculado.
   if (d.icp_status === 'assinado' || d.d4sign_status === 'assinado') return 'assinado';
+  // Decisão manual do avaliador prevalece sobre o status calculado em cache.
+  if (d.concluido_manual === true) return 'concluido';
+  if (d.concluido_manual === false) return 'rascunho';
   const raw = String(d.status_calculado ?? '').toLowerCase().trim();
   if (raw === 'concluido' || raw === 'rascunho' || raw === 'assinado') return raw;
   return calcular(d);

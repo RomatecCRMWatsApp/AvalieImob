@@ -1,6 +1,6 @@
 // @module ptam/steps/StepConclusao — Step 12: Conclusão do Laudo (considerações, responsável, assinatura)
 import React, { useState } from 'react';
-import { PenLine } from 'lucide-react';
+import { PenLine, CheckCircle2 } from 'lucide-react';
 import { Input } from '../../../ui/input';
 import { Textarea } from '../../../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
@@ -33,6 +33,38 @@ export const StepConclusao = ({ form, setForm, onAi, aiLoading, onSolicitarAssin
         title="12. Conclusão e Responsável Técnico"
         subtitle="Considerações finais e dados do profissional responsável pelo laudo."
       />
+
+      {/* ── Conclusão MANUAL do laudo ─────────────────────────────────── */}
+      <div className={`mb-6 rounded-xl border-2 p-4 transition ${
+        form.concluido_manual === true ? 'border-emerald-300 bg-emerald-50' : 'border-amber-200 bg-amber-50'
+      }`}>
+        <label className="flex items-start gap-3 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={form.concluido_manual === true}
+            onChange={(e) => setForm((f) => ({
+              ...f,
+              concluido_manual: e.target.checked,
+              concluido_em: e.target.checked ? new Date().toISOString() : null,
+            }))}
+            className="mt-0.5 w-5 h-5 accent-emerald-600"
+          />
+          <div>
+            <div className="font-semibold text-gray-900 flex items-center gap-2">
+              <CheckCircle2 className={`w-4 h-4 ${form.concluido_manual === true ? 'text-emerald-600' : 'text-amber-500'}`} />
+              Marcar laudo como CONCLUÍDO
+            </div>
+            <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+              Marque quando todos os ajustes estiverem prontos — o card passa a exibir o status
+              <strong> Concluído</strong>. A partir daí, o status só muda por assinatura digital.
+              {form.concluido_manual === true && form.concluido_em
+                ? ` Concluído em ${new Date(form.concluido_em).toLocaleString('pt-BR')}.`
+                : ''}
+            </p>
+          </div>
+        </label>
+      </div>
+
       <div className="space-y-5">
         {CONCLUSION_FIELDS.map(({ key, label, placeholder }) => (
           <div key={key}>

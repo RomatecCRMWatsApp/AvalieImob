@@ -126,11 +126,24 @@ def _secoes_faltando(p: Mapping[str, Any]) -> list[str]:
 
 # ── API pública ───────────────────────────────────────────────────────────────
 def calcular_status_ptam(ptam: Mapping[str, Any]) -> str:
-    """Calcula o status do PTAM. Prioridade: assinado > concluido > rascunho."""
+    """Calcula o status do PTAM. Prioridade: assinado > concluído > rascunho.
+
+    A conclusão é MANUAL: o avaliador marca `concluido_manual` na etapa 12.
+      - assinado            -> assinatura ICP/D4Sign (sempre prevalece)
+      - concluido_manual=True  -> concluído
+      - concluido_manual=False -> rascunho (avaliador reabriu)
+      - concluido_manual=None  -> legado: cai no cálculo automático (valor + 12 seções)
+    """
     if not isinstance(ptam, Mapping):
         return STATUS_RASCUNHO
     if _tem_assinatura(ptam):
         return STATUS_ASSINADO
+    cm = ptam.get("concluido_manual")
+    if cm is True:
+        return STATUS_CONCLUIDO
+    if cm is False:
+        return STATUS_RASCUNHO
+    # Legado (PTAMs antigos sem o flag): mantém o cálculo automático.
     if _valor_final(ptam) <= 0:
         return STATUS_RASCUNHO
     if not _secoes_faltando(ptam):

@@ -562,7 +562,10 @@ const PtamList = () => {
                     R$ {valorPtam(p).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </div>
                   <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-0.5">
-                    <Calendar className="w-3 h-3" />{p.updated_at ? new Date(p.updated_at).toLocaleDateString('pt-BR') : '—'}
+                    <Calendar className="w-3 h-3" />
+                    {p.updated_at
+                      ? `${new Date(p.updated_at).toLocaleDateString('pt-BR')} · ${new Date(p.updated_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+                      : '—'}
                   </div>
                 </div>
                 <CirculoLateral p={p} status={resolvePtamStatus(p)} />

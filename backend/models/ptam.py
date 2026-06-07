@@ -245,6 +245,11 @@ class PtamBase(BaseModel):
     conclusion_date: Optional[str] = ""
     conclusion_city: Optional[str] = ""
 
+    # Conclusão MANUAL (etapa 12) — o avaliador define quando o laudo está concluído.
+    # None = nunca definido (usa cálculo automático legado); True/False = decisão do avaliador.
+    concluido_manual: Optional[bool] = None
+    concluido_em: Optional[str] = None  # ISO datetime de quando foi marcado concluído
+
     # Campos normatizados adicionais NBR 14653
     documentos_analisados: List[str] = Field(default_factory=list)
     zoneamento: Optional[str] = ""
