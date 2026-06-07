@@ -1,7 +1,8 @@
 // @module ptam/steps/StepMetodoAvaliacao — Step 8c: Métodos de Depreciação e Valorização (Ross-Heidecke, Linha Reta, Fatores, Rural, Renda)
 import React, { useState } from 'react';
-import { BookOpen, ChevronDown } from 'lucide-react';
+import { BookOpen, ChevronDown, Sparkles } from 'lucide-react';
 import { Input } from '../../../ui/input';
+import { Textarea } from '../../../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
 import { Field, SectionHeader } from '../shared/primitives';
 
@@ -330,6 +331,55 @@ const GUIA = {
   },
 };
 
+// Gera a justificativa técnico-jurídica (texto editável; espelha o gerador do PDF).
+const CUF_CLASSES_JUST = {
+  '1.00': ['Classe I', 'aptidão boa'],
+  '0.90': ['Classe II', 'aptidão regular'],
+  '0.75': ['Classe III', 'aptidão restrita'],
+  '0.60': ['Classe IV', 'aptidão marginal'],
+  '0.40': ['Classes V a VII', 'sem aptidão agrícola relevante'],
+};
+const _nbr = (v, casas = 2) => {
+  const x = Number(v);
+  if (!Number.isFinite(x)) return '';
+  return x.toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: casas });
+};
+function gerarJustificativaMetodo(form) {
+  const metodo = String(form.metodo_avaliacao || '').toLowerCase();
+  const par = form.metodo_params || {};
+
+  if (metodo === 'nbr_rural') {
+    const cuf = par.classe_uso || '1.00';
+    const cufF = Number(cuf) || 1;
+    const [classe, aptidao] = CUF_CLASSES_JUST[String(cuf)] || [`CUF ${_nbr(cufF)}`, 'aptidão conforme classificação'];
+    const ajuste = Math.abs(Math.round((1 - cufF) * 10000) / 100);
+    let t = `A avaliação do imóvel rural observou a metodologia da ABNT NBR 14653-3:2019 (avaliação de imóveis rurais) e as diretrizes da Instrução Normativa do INCRA. O Valor da Terra Nua (VTN) foi apurado a partir do valor de mercado do hectare (${fmtBRL(par.vtn_hectare)}/ha) aplicado à área total de ${_nbr(par.area_ha, 4)} ha, ajustado pelo Coeficiente de Uso/Aptidão (CUF) correspondente à ${classe} — ${aptidao} (CUF = ${_nbr(cufF)}). `;
+    if (cufF < 1) t += `A aplicação do referido coeficiente importa depreciação de ${_nbr(ajuste)}% sobre o valor pleno do hectare, justificada pelas características de relevo, drenagem, fertilidade e capacidade de uso do solo apuradas em vistoria, que restringem a aptidão agrícola da gleba. `;
+    else if (cufF > 1) t += `A aplicação do referido coeficiente importa valorização de ${_nbr(ajuste)}% sobre o valor de referência do hectare, justificada pela elevada aptidão agrícola verificada em vistoria. `;
+    else t += 'Não houve ajuste de aptidão, mantido o valor pleno do hectare (CUF = 1,00). ';
+    t += 'O ajuste decorre de critério técnico-normativo objetivo, em estrita observância à NBR 14653-3 e à metodologia oficial do INCRA, não configurando depreciação arbitrária, mas a expressão fidedigna do valor de mercado da terra nua segundo sua real capacidade produtiva. ';
+    const extras = [];
+    if (Number(par.benfeitorias_rurais) > 0) extras.push(`benfeitorias (${fmtBRL(par.benfeitorias_rurais)})`);
+    if (Number(par.cultura_permanente) > 0) extras.push(`cultura permanente (${fmtBRL(par.cultura_permanente)})`);
+    if (Number(par.cultura_temporaria) > 0) extras.push(`cultura temporária (${fmtBRL(par.cultura_temporaria)})`);
+    if (extras.length) t += `Ao Valor da Terra Nua foram acrescidos os valores de ${extras.join(', ')}, compondo o valor total do imóvel, em conformidade com o princípio da composição de valores.`;
+    return t;
+  }
+  if (metodo === 'ross_heidecke') {
+    return `A depreciação da edificação foi apurada pelo critério de Ross-Heidecke, consagrado na engenharia de avaliações e referendado pela ABNT NBR 14653-2, o qual conjuga a depreciação física pela idade (${_nbr(par.idade_atual, 0)} anos sobre vida útil de ${_nbr(par.vida_util || 60, 0)} anos) com o estado de conservação verificado em vistoria (classe ${String(par.estado || 'C')}), resultando em depreciação de ${_nbr(form.depreciacao_percentual)}% sobre o valor de reedição. O método é objetivo e amplamente aceito, refletindo a perda de valor da benfeitoria por uso e idade, sem caráter arbitrário.`;
+  }
+  if (metodo === 'linha_reta') {
+    return `A depreciação foi apurada pelo método da Linha Reta (depreciação linear), em conformidade com a ABNT NBR 14653-2, no qual a perda de valor é proporcional à idade da construção (${_nbr(par.idade_atual, 0)} anos) sobre a vida útil de referência (${_nbr(par.vida_util || 40, 0)} anos), respeitado o valor residual de ${_nbr(par.residual_pct || 20, 0)}%. Apurou-se depreciação de ${_nbr(form.depreciacao_percentual)}% sobre o valor de novo, critério adequado a galpões e construções de perda de valor uniforme no tempo.`;
+  }
+  if (metodo === 'fatores_terreno') {
+    return 'O valor do terreno foi apurado por homogeneização por fatores, em conformidade com a ABNT NBR 14653-2, aplicando-se ao valor unitário de referência os fatores de localização, topografia, testada/frente e infraestrutura, conforme as características do lote verificadas em vistoria. Os ajustes têm fundamento técnico e objetivo, refletindo a influência de cada atributo sobre o valor de mercado, sem caráter arbitrário.';
+  }
+  if (metodo === 'renda') {
+    return `A avaliação adotou o Método da Renda (capitalização da renda líquida), em conformidade com a ABNT NBR 14653-2, segundo o qual o valor do imóvel corresponde ao valor presente da renda por ele produzida, à taxa de capitalização de mercado de ${_nbr(par.taxa_cap || 8)}% a.a.. O critério é pertinente a imóveis geradores de renda e reflete sua capacidade econômica de produção.`;
+  }
+  return 'Não foi aplicado método específico de depreciação ou valorização, decorrendo o valor de mercado diretamente do Método Comparativo Direto de Dados de Mercado (ABNT NBR 14653-2), mediante pesquisa e tratamento estatístico de elementos amostrais efetivamente comercializados ou ofertados, homogeneizados às características do imóvel avaliando. O resultado expressa o valor de mercado conforme o comportamento real do mercado imobiliário na data de referência.';
+}
+
 const GuiaMetodo = ({ metodo }) => {
   const [aberto, setAberto] = useState(false);
   const g = GUIA[metodo];
@@ -370,9 +420,11 @@ const GuiaMetodo = ({ metodo }) => {
 
 export const StepMetodoAvaliacao = ({ form, setForm }) => {
   const metodo = form.metodo_avaliacao || null;
-  const [params, setParams] = useState(form.metodo_params || {});
+  // Liga direto ao form (sem estado local) — garante que os dados do método persistam
+  // e reapareçam ao reabrir o PTAM (o estado local antigo só inicializava uma vez).
+  const params = form.metodo_params || {};
 
-  const updateParams = (p) => { setParams(p); setForm((f) => ({ ...f, metodo_params: p })); };
+  const updateParams = (p) => setForm((f) => ({ ...f, metodo_params: p }));
 
   const handleCalc = ({ depPct, valDep, valBenfeitoria, valTerreno, valTotal }) => {
     setForm((f) => ({
@@ -391,7 +443,6 @@ export const StepMetodoAvaliacao = ({ form, setForm }) => {
   };
 
   const selectMetodo = (v) => {
-    setParams({});
     setForm((f) => ({ ...f, metodo_avaliacao: v, metodo_params: {}, depreciacao_percentual: null, valor_depreciacao: null, valor_benfeitoria: null, valor_terreno_calc: null, valor_total_metodo: null }));
   };
 
@@ -400,7 +451,6 @@ export const StepMetodoAvaliacao = ({ form, setForm }) => {
   const naoAplicado = metodo === 'nao_aplicado';
   const toggleNaoAplicado = (checked) => {
     if (checked) {
-      setParams({});
       setForm((f) => ({
         ...f,
         metodo_avaliacao: 'nao_aplicado',
@@ -502,6 +552,31 @@ export const StepMetodoAvaliacao = ({ form, setForm }) => {
 
       {/* Folder didático do método selecionado (entre o "Aplicar" e a etapa concluída) */}
       {!naoAplicado && metodo && <GuiaMetodo metodo={metodo} />}
+
+      {/* Justificativa técnico-jurídica editável (vai ao PDF, entre o valor e a conclusão) */}
+      <div className="mt-4 rounded-xl border border-gray-200 p-4">
+        <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+          <label className="text-sm font-semibold text-gray-800">
+            Justificativa técnico-jurídica <span className="font-normal text-gray-500">(vai ao PDF, entre o valor e a conclusão)</span>
+          </label>
+          <button
+            type="button"
+            onClick={() => setForm((f) => ({ ...f, justificativa_metodo: gerarJustificativaMetodo(f) }))}
+            className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 hover:text-emerald-900 border border-emerald-200 hover:bg-emerald-50 rounded-lg px-3 py-1.5"
+          >
+            <Sparkles className="w-3.5 h-3.5" /> Gerar texto automático
+          </button>
+        </div>
+        <Textarea
+          rows={6}
+          value={form.justificativa_metodo || ''}
+          onChange={(e) => setForm((f) => ({ ...f, justificativa_metodo: e.target.value }))}
+          placeholder="Deixe vazio para o sistema gerar a justificativa automaticamente no PDF, ou clique em 'Gerar texto automático' para preencher e editar."
+        />
+        <p className="text-xs text-gray-500 mt-1">
+          Se vazio, o PDF gera a justificativa automaticamente. Se você preencher/editar aqui, o PDF usa o seu texto.
+        </p>
+      </div>
     </div>
   );
 };

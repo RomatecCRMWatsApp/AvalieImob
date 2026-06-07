@@ -1,6 +1,6 @@
 {
   "name": "avaliemob",
-  "version": "1.8.0",
+  "version": "1.8.2",
   "private": true,
   "description": "Romatec Avaliação Imobiliária - PTAM + Laudos com Transcrição de Áudio",
   "scripts": {
