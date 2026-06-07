@@ -1692,22 +1692,53 @@ def build_story(ptam, page_map):
     st.append(Spacer(1, 6))
     _num = lambda x: f"{float(x):,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
     _nv = lambda x: _num(float(x) * _vfac)  # valor unitário na unidade de exibição (R$/ha ou R$/m²)
-    _stats_rows = [
-        ['Nº de Amostras', str(_n)],
-        [f'Valor Mínimo ({_uv})', _nv(_minimo)],
-        [f'Valor Máximo ({_uv})', _nv(_maximo)],
-        [f'Média Simples ({_uv})', _nv(_media)],
-        [f'Desvio Padrão ({_uv})', _nv(_desvio)],
-        ['Coeficiente de Variação (%)', _num(_cv) + '%'],
+    _validas = len(_dentro)
+    _eliminadas = max(_n - _validas, 0)
+    # Mediana das amostras válidas (pós-saneamento)
+    _ord = sorted(_dentro)
+    if _ord:
+        _mm = len(_ord)
+        _mediana = _ord[_mm // 2] if _mm % 2 else (_ord[_mm // 2 - 1] + _ord[_mm // 2]) / 2.0
+    else:
+        _mediana = 0.0
+    _ptam_inf = _ponderada * 0.95
+    _ptam_sup = _ponderada * 1.05
+    _cw_ab = [9.0 * cm, UTIL_W - 9.0 * cm]
+
+    # A. Saneamento das amostras (faixa ±10% em torno da média simples)
+    st += subsec('A. Saneamento das Amostras')
+    st.append(tbl_header(['Saneamento (ABNT NBR 14653-2)', 'Valor'], [
+        [f'Média Inicial ({_uv})', _nv(_media)],
         [f'Limite Inferior (–10%) ({_uv})', _nv(_li)],
         [f'Limite Superior (+10%) ({_uv})', _nv(_ls)],
-        ['Amostras dentro da faixa', str(len(_dentro))],
-        [f'Média Ponderada Final ({_uv})', _nv(_ponderada)],
+        ['Total de Amostras', str(_n)],
+        ['Válidas após Saneamento', str(_validas)],
+        ['Eliminadas', str(_eliminadas)],
+    ], _cw_ab))
+    st.append(Spacer(1, 6))
+
+    # B. Estatísticas finais (sobre as amostras válidas)
+    st += subsec('B. Estatísticas Finais (pós-saneamento)')
+    _rowsB = [
+        ['Amostras Válidas', str(_validas)],
+        [f'Média Final — Valor Adotado ({_uv})', _nv(_ponderada)],
+        [f'Mediana ({_uv})', _nv(_mediana)],
+        [f'Desvio Padrão ({_uv})', _nv(_desvio)],
+        ['Coeficiente de Variação', _num(_cv) + '%'],
+        [f'Intervalo PTAM ±5% ({_uv})', f'{_nv(_ptam_inf)} a {_nv(_ptam_sup)}'],
     ]
     if _rural:
-        _stats_rows.append(['Média Ponderada Final (R$/m²) — referência', _num(_ponderada)])
-    st.append(tbl_header(['Estatística', 'Valor'], _stats_rows,
-                         [9.0 * cm, UTIL_W - 9.0 * cm], bold_last=True))
+        _rowsB.append(['Média Final (R$/m²) — referência', _num(_ponderada)])
+    st.append(tbl_header(['Estatística', 'Valor'], _rowsB, _cw_ab))
+    st.append(Spacer(1, 6))
+
+    # C. Intervalo de valores do PTAM (±5% sobre a média final)
+    st += subsec('C. Intervalo de Valores do PTAM (±5%)')
+    st.append(tbl_header([f'Intervalo de Valores', f'Valor ({_uv})'], [
+        ['Limite Inferior (–5%)', _nv(_ptam_inf)],
+        ['Valor Adotado (Média Final pós-saneamento)', _nv(_ponderada)],
+        ['Limite Superior (+5%)', _nv(_ptam_sup)],
+    ], _cw_ab))
     # Referência INCRA (Valores de Terra Nua) — só rural e se marcado para o laudo.
     if _rural and ptam.get('incra_incluir_laudo', True):
         try:
