@@ -568,14 +568,15 @@ class AmostraCard(Flowable):
                 if _tem(a.get(_k)):
                     caracteristicas.append((_lbl, f"{a.get(_k)}{_sfx}" if _sfx else a.get(_k)))
         else:
-            for _lbl, _k in [('Área constr.:', 'area_construida_m2'), ('Quartos:', 'quartos'),
-                             ('Banheiros:', 'banheiros'), ('Vagas:', 'vagas'),
+            for _lbl, _k in [('Área constr.:', 'area_construida_m2'),
                              ('Sala de estar:', 'sala_estar'), ('Sala jantar/copa:', 'sala_jantar'),
                              ('Cozinha:', 'cozinha'), ('Quarto social:', 'quarto_social'),
                              ('Suíte simples:', 'suite_simples'), ('Suíte master:', 'suite_master'),
                              ('Banheiro social:', 'banheiro_social'), ('Lavabo:', 'lavabo'),
                              ('Área de serviço:', 'area_servico'), ('Varanda/sacada:', 'varanda'),
-                             ('Escritório:', 'escritorio'), ('Despensa:', 'despensa'),
+                             ('Varanda gourmet:', 'varanda_gourmet'), ('Escritório:', 'escritorio'),
+                             ('Despensa:', 'despensa'), ('Piscina:', 'piscina'),
+                             ('Garagem:', 'vagas'),
                              ('Idade (anos):', 'idade_anos'), ('Zoneamento:', 'zoneamento')]:
                 if _tem(a.get(_k)):
                     caracteristicas.append((_lbl, a.get(_k)))

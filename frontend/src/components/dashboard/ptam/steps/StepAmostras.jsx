@@ -93,17 +93,6 @@ const ExtraFields = ({ categoria, s, set }) => {
             </Labeled>
           </div>
           <div className="grid grid-cols-3 gap-3">
-            <Labeled label="Quartos">
-              <Input type="number" min={0} value={s.quartos || ''} onChange={intHandler((v) => set('quartos', v))} className="h-9" placeholder="0" />
-            </Labeled>
-            <Labeled label="Banheiros">
-              <Input type="number" min={0} value={s.banheiros || ''} onChange={intHandler((v) => set('banheiros', v))} className="h-9" placeholder="0" />
-            </Labeled>
-            <Labeled label="Vagas">
-              <Input type="number" min={0} value={s.vagas || ''} onChange={intHandler((v) => set('vagas', v))} className="h-9" placeholder="0" />
-            </Labeled>
-          </div>
-          <div className="grid grid-cols-3 gap-3">
             <SelectField label="Padrão" value={s.padrao} onChange={(v) => set('padrao', v)} options={[{ value: 'baixo', label: 'Baixo' }, { value: 'normal', label: 'Normal' }, { value: 'alto', label: 'Alto' }, { value: 'luxo', label: 'Luxo' }]} />
             <SelectField label="Conservação" value={s.conservacao} onChange={(v) => set('conservacao', v)} options={[{ value: 'novo', label: 'Novo' }, { value: 'bom', label: 'Bom' }, { value: 'regular', label: 'Regular' }, { value: 'ruim', label: 'Ruim' }]} />
             <Labeled label="Idade (anos)">
@@ -127,8 +116,11 @@ const ExtraFields = ({ categoria, s, set }) => {
                 ['lavabo', 'Lavabo'],
                 ['area_servico', 'Área de serviço'],
                 ['varanda', 'Varanda/sacada'],
+                ['varanda_gourmet', 'Varanda gourmet'],
                 ['escritorio', 'Escritório'],
                 ['despensa', 'Despensa'],
+                ['piscina', 'Piscina'],
+                ['vagas', 'Garagem'],
               ].map(([k, lbl]) => (
                 <Labeled key={k} label={lbl}>
                   <Input type="number" min={0} value={s[k] || ''} onChange={intHandler((v) => set(k, v))} className="h-9" placeholder="0" />
