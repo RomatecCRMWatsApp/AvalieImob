@@ -533,8 +533,12 @@ ITENS_SUM = [
     ('6', 'Metodologia', 'sec6', 0),
     ('7', 'Cálculos e Tratamento Estatístico', 'sec7', 0),
     ('7.1', 'Quadro de Amostras com Classificação', 'sec7quadro', 1),
+    ('7.2', 'Saneamento e Estatísticas Finais', 'sec7stats', 1),
+    ('7.3', 'Cálculo de Ponderância', 'sec7pond', 1),
+    ('7.4', 'Graus de Fundamentação e Precisão', 'sec7graus', 1),
     ('8', 'Resultado da Avaliação', 'sec8', 0),
     ('8.1', 'Cálculo do Valor Final', 'sec8calc', 1),
+    ('8.2', 'Método de Avaliação — Depreciação/Valorização', 'sec8metodo', 1),
     ('9', 'Conclusão e Responsabilidade Técnica', 'sec9', 0),
     ('A.1', 'Anexo I — Ficha do Imóvel, Fotos e Documentos', 'anexo1', 0),
     ('•', 'Documentos do Imóvel (Certidões, IPTU, BCI)', 'anexo1b', 1),
@@ -551,7 +555,8 @@ class Sumario(Flowable):
         self.width = UTIL_W
         self.hh = 0.60 * cm
         self.rh = 0.68 * cm
-        self.height = self.hh + len(ITENS_SUM) * self.rh + 0.1 * cm
+        self.title_h = 1.0 * cm
+        self.height = self.title_h + self.hh + len(ITENS_SUM) * self.rh + 0.1 * cm
 
     def wrap(self, aw, ah):
         return (self.width, self.height)
@@ -559,6 +564,14 @@ class Sumario(Flowable):
     def draw(self):
         c = self.canv
         w, h = self.width, self.height
+        # Título "Sumário"
+        c.setFillColor(VERDE)
+        c.setFont('Helvetica-Bold', 17)
+        c.drawString(0, h - 0.62 * cm, 'Sumário')
+        c.setStrokeColor(DOURADO)
+        c.setLineWidth(1.2)
+        c.line(0, h - self.title_h + 0.20 * cm, w, h - self.title_h + 0.20 * cm)
+        h = h - self.title_h
         # Header
         c.setFillColor(VERDE)
         c.rect(0, h - self.hh, w, self.hh, stroke=0, fill=1)
@@ -1756,7 +1769,7 @@ def build_story(ptam, page_map):
                                           HexColor('#E8F1FE'), VERDE_CLR)
 
     # A. Saneamento das amostras (faixa ±10% em torno da média simples)
-    st += subsec('A. Saneamento das Amostras')
+    st += subsec('A. Saneamento das Amostras', 'sec7stats')
     st.append(_pdf_cards_row([
         _pdf_card('Média Inicial', _cval(_media), '', '#1A1A1A'),
         _pdf_card('Limite Inferior (–10%)', _cval(_li), '', '#B91C1C'),
@@ -1792,6 +1805,48 @@ def build_story(ptam, page_map):
         _pdf_card('Valor Adotado', _cval(_ponderada), 'Média final pós-saneamento', '#FFFFFF', 15, '#A7D7C5'),
         _pdf_card('Limite Superior (+5%)', _cval(_ptam_sup), '', '#FFFFFF', 13, '#A7D7C5'),
     ], [VERDE, HexColor('#0A5F44'), VERDE]))
+
+    # Cálculo de Ponderância — Ponderação dos Valores (peso igualitário 1/N)
+    _valid_am = [a for a in amostras if _li <= float(a.get('value_per_sqm') or 0) <= _ls] if amostras else []
+    _nvp = len(_valid_am)
+    if _nvp > 0:
+        st.append(Spacer(1, 8))
+        st += subsec('Cálculo de Ponderância — Ponderação dos Valores', 'sec7pond')
+        st.append(Paragraph(
+            f'Fórmula: Média Ponderada Final = Σ (valor unitário × peso), com peso igualitário '
+            f'1/{_nvp} sobre as {_nvp} amostras válidas (ABNT NBR 14653-2).', sBody))
+        st.append(Spacer(1, 4))
+        _peso = 1.0 / _nvp
+        _rs = lambda x: 'R$ ' + _nv(x)
+        _pond_rows = []
+        _soma = 0.0
+        for _ip, _ap in enumerate(_valid_am, 1):
+            _vpm = float(_ap.get('value_per_sqm') or 0)
+            _vp = _vpm * _peso
+            _soma += _vp
+            _bairro = str(_ap.get('neighborhood') or _ap.get('address') or '—')[:48]
+            _pond_rows.append([str(_ip), _bairro, _rs(_vpm),
+                               f'{_peso * 100:.2f}'.replace('.', ',') + '%', _rs(_vp)])
+        _pond_rows.append(['', 'SOMA — Média Ponderada Final', '', '100,00%', _rs(_soma)])
+        _wN, _wVu, _wP, _wVp = 1.0 * cm, 3.0 * cm, 2.2 * cm, 3.0 * cm
+        _wB = UTIL_W - (_wN + _wVu + _wP + _wVp)
+        st.append(tbl_header(['Nº', 'Bairro / Local', f'Valor ({_uv})', 'Peso (1/N)',
+                              f'Valor Ponderado ({_uv})'],
+                             _pond_rows, [_wN, _wB, _wVu, _wP, _wVp], bold_last=True))
+
+    # D. Graus de Fundamentação e Precisão (NBR 14653-2)
+    _grau_fund = str(ptam.get('calc_grau_fundamentacao') or ptam.get('fundamentacao_grau') or '').strip()
+    _grau_prec = str(ptam.get('grau_precisao') or ptam.get('precisao_grau')
+                     or ptam.get('calc_grau_precisao') or '').strip()
+    if not _grau_prec:
+        _grau_prec = 'III' if _cv_final <= 15 else ('II' if _cv_final <= 30 else 'I')
+    st.append(Spacer(1, 8))
+    st += subsec('D. Graus de Fundamentação e Precisão (NBR 14653-2)', 'sec7graus')
+    st.append(_pdf_cards_row([
+        _pdf_card('Grau de Fundamentação', _grau_fund or '—', 'ABNT NBR 14653-2', '#B8860B', 16),
+        _pdf_card('Grau de Precisão', _grau_prec or '—', f'Coef. de variação {_num(_cv_final)}%', '#0B6E4F', 16),
+    ], [HexColor('#FFF8E6'), VERDE_CLR]))
+
     # Referência INCRA (Valores de Terra Nua) — só rural e se marcado para o laudo.
     if _rural and ptam.get('incra_incluir_laudo', True):
         try:
@@ -1890,6 +1945,64 @@ def build_story(ptam, page_map):
         ('Prazo de Validade', ptam.get('resultado_prazo_validade') or '180 dias'),
     ]
     st.append(tbl(_res_rows))
+
+    # ── E. Área considerada — conversões e valor unitário ──
+    try:
+        _avm2 = float(area_av or 0)
+    except (TypeError, ValueError):
+        _avm2 = 0.0
+    if _avm2 > 0:
+        try:
+            _vuf = float(vu or 0)
+        except (TypeError, ValueError):
+            _vuf = 0.0
+        _ha = _avm2 / 10000.0
+        _alq = _ha / 4.84
+        st.append(Spacer(1, 8))
+        st += subsec('Área Considerada — Conversões e Valor Unitário')
+        st.append(tbl([
+            ('Área (m²)', f"{_num(_avm2)} m²"),
+            ('Área (hectares)', f"{('%.4f' % _ha).replace('.', ',')} ha"),
+            ('Área (alqueires mineiros)', f"{('%.4f' % _alq).replace('.', ',')} alq  (1 alq = 4,84 ha)"),
+            ('Valor Unitário (R$/m²)', fmt_moeda(_vuf)),
+            ('Valor Unitário (R$/ha)', fmt_moeda(_vuf * 10000)),
+            ('Valor Unitário (R$/alqueire mineiro)', fmt_moeda(_vuf * 48400)),
+        ]))
+
+    # ── 8.2 Método de Avaliação — Depreciação/Valorização (espelha a etapa 8c) ──
+    if _metodo8 and _metodo8 != 'nao_aplicado':
+        _p8 = ptam.get('metodo_params') or {}
+        st.append(Spacer(1, 8))
+        st += subsec('Método de Avaliação — Depreciação/Valorização', 'sec8metodo')
+        _met_rows = [('Método Aplicado', _nome_met8 or _metodo8)]
+        if _metodo8 in ('ross_heidecke', 'linha_reta'):
+            if _preenchido(_p8.get('valor_novo')):
+                _met_rows.append(('Valor de Novo', fmt_moeda(_p8.get('valor_novo'))))
+            if _preenchido(_p8.get('idade_atual')):
+                _met_rows.append(('Idade Atual', f"{_num(_p8.get('idade_atual'))} anos"))
+            if _preenchido(_p8.get('vida_util')):
+                _met_rows.append(('Vida Útil', f"{_num(_p8.get('vida_util'))} anos"))
+            if _metodo8 == 'ross_heidecke' and _p8.get('estado'):
+                _met_rows.append(('Estado de Conservação', str(_p8.get('estado'))))
+            if _preenchido(_dep_pct8):
+                _met_rows.append(('Depreciação', f"{_num(_dep_pct8)}%"))
+            if _preenchido(_val_dep8):
+                _met_rows.append(('Valor da Depreciação', fmt_moeda(_val_dep8)))
+        elif _metodo8 == 'nbr_rural':
+            if _preenchido(_p8.get('vtn_hectare')):
+                _met_rows.append(('VTN — Valor por Hectare', f"{fmt_moeda(_p8.get('vtn_hectare'))}/ha"))
+            if _preenchido(_p8.get('area_ha')):
+                _met_rows.append(('Área Total', f"{_num(_p8.get('area_ha'))} ha"))
+            if _preenchido(_p8.get('classe_uso')):
+                _met_rows.append(('Classe de Uso / CUF', _num(_p8.get('classe_uso'))))
+        elif _metodo8 == 'renda':
+            if _preenchido(_p8.get('renda_mensal')):
+                _met_rows.append(('Renda Mensal', fmt_moeda(_p8.get('renda_mensal'))))
+            if _preenchido(_p8.get('taxa_cap')):
+                _met_rows.append(('Taxa de Capitalização', f"{_num(_p8.get('taxa_cap'))}% a.a."))
+        if _preenchido(_val_met8):
+            _met_rows.append(('Valor Apurado pelo Método', fmt_moeda(_val_met8)))
+        st.append(tbl(_met_rows))
 
     # ── Justificativa técnico-jurídica do método/depreciação (após o valor, antes da conclusão) ──
     _justif = _justificativa_metodo(ptam)
