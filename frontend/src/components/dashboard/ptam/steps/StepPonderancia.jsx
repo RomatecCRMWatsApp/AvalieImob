@@ -82,7 +82,7 @@ export const StepPonderancia = ({ form, setForm }) => {
         ? restantes.reduce((a, s) => a + s._vpm, 0) / restantes.length
         : 0;
 
-    const area = Number(form.imovel_area_construida || form.imovel_area_terreno || form.property_area_sqm || 0);
+    const area = Number(form.imovel_area_a_considerar || form.imovel_area_construida || form.imovel_area_terreno || form.property_area_sqm || 0);
     const valorFinal = mediaFinal * area;
 
     setForm((f) => ({
@@ -97,7 +97,7 @@ export const StepPonderancia = ({ form, setForm }) => {
 
   const usarNoLaudo = () => {
     if (!form.ponderancia_media) return;
-    const area = Number(form.imovel_area_construida || form.imovel_area_terreno || form.property_area_sqm || 0);
+    const area = Number(form.imovel_area_a_considerar || form.imovel_area_construida || form.imovel_area_terreno || form.property_area_sqm || 0);
     const valorFinal = form.ponderancia_valor_final || form.ponderancia_media * area;
     setForm((f) => ({
       ...f,
@@ -107,7 +107,7 @@ export const StepPonderancia = ({ form, setForm }) => {
     }));
   };
 
-  const area = Number(form.imovel_area_construida || form.imovel_area_terreno || form.property_area_sqm || 0);
+  const area = Number(form.imovel_area_a_considerar || form.imovel_area_construida || form.imovel_area_terreno || form.property_area_sqm || 0);
   const calculado = form.ponderancia_media != null && form.ponderancia_media > 0;
   const restantesCount = samplesWithVpm.length - eliminadas.length;
 
