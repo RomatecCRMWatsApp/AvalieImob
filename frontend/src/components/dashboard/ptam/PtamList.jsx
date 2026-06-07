@@ -1,14 +1,60 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, FileText, Download, Trash2, Loader2, Calendar, DollarSign, FileDown, Mail, X, Send, Lock, Link2, Eye, Check, Copy, ExternalLink, PenLine, Copy as CopyIcon, Receipt, MessageCircle, Edit3, ShieldCheck, RefreshCw, MapPin, Ruler, User } from 'lucide-react';
+import { Plus, FileText, Download, Trash2, Loader2, Calendar, FileDown, Mail, X, Send, Lock, Link2, Eye, Check, Copy, ExternalLink, Copy as CopyIcon, Receipt, MessageCircle, Edit3, ShieldCheck, RefreshCw, MapPin, Ruler, User } from 'lucide-react';
 import { Button } from '../../ui/button';
-import { Badge } from '../../ui/badge';
 import { useToast } from '../../../hooks/use-toast';
 import { ptamAPI, ptamExtrasAPI } from '../../../lib/api';
 import AssinaturaDigital from './AssinaturaDigital';
 import { fromM2, fmtBR } from '../../../utils/areaConversao';
 import { isRuralImovel } from './shared/amostraCategoria';
-import { STATUS_CONFIG, resolvePtamStatus } from './ptamStatus';
+import { resolvePtamStatus, calcularProgressoPtam } from './ptamStatus';
+import PTAMStatusCircle from './PTAMStatusCircle';
+import PTAMGaugeHectare from './PTAMGaugeHectare';
+import PTAMStatusBadge from './PTAMStatusBadge';
+
+// Resolve a URL da primeira foto do imóvel (itens podem ser string-id, url ou dict).
+function primeiraFotoUrl(p) {
+  const arr = Array.isArray(p.fotos_imovel) ? p.fotos_imovel : [];
+  const item = arr[0];
+  if (!item) return null;
+  let u = typeof item === 'string' ? item : (item.url || item.image_id || item.id || '');
+  if (!u) return null;
+  u = String(u);
+  return u.startsWith('http') || u.startsWith('/') ? u : `/api/upload/image/${u}`;
+}
+
+// Valor total do imóvel (mesma prioridade do badge de status).
+function valorPtam(p) {
+  return Number(
+    p.resultado_valor_total || p.total_indemnity || p.ponderancia_valor_final ||
+    p.valor_total_metodo || 0,
+  );
+}
+
+// Elemento à direita do valor: gauge (rural concluído) ou círculo de status.
+function CirculoLateral({ p, status }) {
+  if (status === 'assinado') {
+    return <PTAMStatusCircle status="assinado" dataAtualizacao={p.icp_signed_at || p.d4sign_assinado_em || p.updated_at} />;
+  }
+  const rural = isRuralImovel(p.property_type);
+  const valor = valorPtam(p);
+  const areaM2 = Number(p.imovel_area_a_considerar || p.imovel_area_construida || p.imovel_area_terreno || 0);
+  if (status === 'concluido' && rural && valor > 0 && areaM2 > 0) {
+    return (
+      <PTAMGaugeHectare
+        valorTotal={valor}
+        areaHa={fromM2(areaM2, 'ha')}
+        valorReferencia={p.tabela_incra_snapshot?.valor_referencia_ha}
+      />
+    );
+  }
+  if (status === 'concluido') {
+    return <PTAMStatusCircle status="concluido" dataAtualizacao={p.updated_at} />;
+  }
+  const prog = calcularProgressoPtam(p);
+  if (prog > 0) return <PTAMStatusCircle status="rascunho" progressoPercent={prog} />;
+  return null;
+}
 
 // Resumo de campos do imóvel para o card da lista.
 function resumoImovel(p) {
@@ -449,50 +495,77 @@ const PtamList = () => {
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
           {items.map((p) => (
-            <div key={p.id} className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition">
-              <div className="flex items-start justify-between mb-3">
-                <div className="w-10 h-10 rounded-lg bg-emerald-900/10 flex items-center justify-center"><FileText className="w-5 h-5 text-emerald-900" /></div>
-                <div className="flex gap-1.5 flex-wrap justify-end">
-                  {(() => {
-                    const cfg = STATUS_CONFIG[resolvePtamStatus(p)] || STATUS_CONFIG.rascunho;
-                    return <Badge className={cfg.className}>{cfg.label}</Badge>;
-                  })()}
-                  {p.lacrado && (
-                    <Badge className="bg-blue-100 text-blue-800 border border-blue-200" title={p.versao_lacrada || 'Versão lacrada'}>
-                      <Lock className="w-3 h-3 mr-1 inline" />Lacrado
-                    </Badge>
-                  )}
-                  {p.d4sign_status === 'aguardando' && p.icp_status !== 'assinado' && (
-                    <Badge className="bg-amber-100 text-amber-800 border border-amber-200">
-                      Aguardando
-                    </Badge>
-                  )}
+            <div key={p.id} className="bg-[#0f1420] rounded-xl border border-white/10 overflow-hidden hover:shadow-lg hover:shadow-black/30 transition flex flex-col">
+              {/* Banner de foto do imóvel */}
+              <div className="relative h-[100px] bg-[#141824]">
+                {primeiraFotoUrl(p) ? (
+                  <img
+                    src={primeiraFotoUrl(p)}
+                    alt={p.property_label || 'Imóvel'}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-[#2d3348]">
+                    <MapPin className="w-8 h-8" />
+                  </div>
+                )}
+                <div className="absolute top-2 right-2">
+                  <PTAMStatusBadge status={resolvePtamStatus(p)} />
                 </div>
+                {(p.fotos_imovel?.length || 0) > 1 && (
+                  <div className="absolute bottom-1.5 right-2 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded">
+                    {p.fotos_imovel.length} fotos
+                  </div>
+                )}
+                {(p.lacrado || (p.d4sign_status === 'aguardando' && p.icp_status !== 'assinado')) && (
+                  <div className="absolute top-2 left-2 flex gap-1">
+                    {p.lacrado && (
+                      <span className="bg-blue-500/85 text-white text-[10px] px-1.5 py-0.5 rounded inline-flex items-center gap-0.5" title={p.versao_lacrada || 'Versão lacrada'}>
+                        <Lock className="w-2.5 h-2.5" />Lacrado
+                      </span>
+                    )}
+                    {p.d4sign_status === 'aguardando' && p.icp_status !== 'assinado' && (
+                      <span className="bg-amber-500/85 text-white text-[10px] px-1.5 py-0.5 rounded">Aguardando</span>
+                    )}
+                  </div>
+                )}
               </div>
-              <div className="text-xs font-semibold text-emerald-700 tracking-wider">PTAM {p.number}</div>
-              <div className="font-semibold text-gray-900 mt-1 line-clamp-1">{p.property_label || p.property_address || '(sem título)'}</div>
+
+              {/* Corpo do card */}
+              <div className="p-4 flex flex-col flex-1">
+              <div className="text-xs font-semibold text-emerald-400 tracking-wider">PTAM {p.number}</div>
+              <div className="font-semibold text-white mt-1 line-clamp-1">{p.property_label || p.property_address || '(sem título)'}</div>
               {(() => {
                 const r = resumoImovel(p);
                 return (
                   <div className="mt-2 space-y-1">
                     {r.proprietario && (
-                      <div className="flex items-center gap-1.5 text-xs text-gray-600 line-clamp-1"><User className="w-3 h-3 shrink-0 text-gray-400" />{r.proprietario}</div>
+                      <div className="flex items-center gap-1.5 text-xs text-slate-300 line-clamp-1"><User className="w-3 h-3 shrink-0 text-slate-500" />{r.proprietario}</div>
                     )}
                     {r.endereco && (
-                      <div className="flex items-start gap-1.5 text-xs text-gray-500 line-clamp-2"><MapPin className="w-3 h-3 shrink-0 mt-0.5 text-gray-400" /><span>{r.endereco}{r.matricula ? ` · Matrícula ${r.matricula}` : ''}</span></div>
+                      <div className="flex items-start gap-1.5 text-xs text-slate-400 line-clamp-2"><MapPin className="w-3 h-3 shrink-0 mt-0.5 text-slate-500" /><span>{r.endereco}{r.matricula ? ` · Matrícula ${r.matricula}` : ''}</span></div>
                     )}
                     {!r.endereco && r.matricula && (
-                      <div className="flex items-center gap-1.5 text-xs text-gray-500 line-clamp-1"><FileText className="w-3 h-3 shrink-0 text-gray-400" />Matrícula {r.matricula}</div>
+                      <div className="flex items-center gap-1.5 text-xs text-slate-400 line-clamp-1"><FileText className="w-3 h-3 shrink-0 text-slate-500" />Matrícula {r.matricula}</div>
                     )}
                     {r.areaTxt && (
-                      <div className="flex items-center gap-1.5 text-xs text-gray-600"><Ruler className="w-3 h-3 shrink-0 text-gray-400" />Área: {r.areaTxt}</div>
+                      <div className="flex items-center gap-1.5 text-xs text-slate-300"><Ruler className="w-3 h-3 shrink-0 text-slate-500" />Área: {r.areaTxt}</div>
                     )}
                   </div>
                 );
               })()}
-              <div className="mt-4 pt-4 border-t border-gray-100 space-y-1.5">
-                <div className="flex items-center gap-1.5 text-xs text-gray-600"><DollarSign className="w-3 h-3" />R$ {Number(p.total_indemnity || 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}</div>
-                <div className="flex items-center gap-1.5 text-xs text-gray-500"><Calendar className="w-3 h-3" />{p.updated_at ? new Date(p.updated_at).toLocaleDateString('pt-BR') : '—'}</div>
+              <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-xl font-bold text-white tabular-nums">
+                    R$ {valorPtam(p).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-0.5">
+                    <Calendar className="w-3 h-3" />{p.updated_at ? new Date(p.updated_at).toLocaleDateString('pt-BR') : '—'}
+                  </div>
+                </div>
+                <CirculoLateral p={p} status={resolvePtamStatus(p)} />
               </div>
               {/* Linha 1: ações principais */}
               <div className="flex gap-2 mt-4 flex-wrap">
@@ -638,6 +711,7 @@ const PtamList = () => {
                 <Button size="sm" variant="outline" className="text-red-600 hover:bg-red-50" onClick={() => remove(p.id)} title="Excluir">
                   <Trash2 className="w-3.5 h-3.5" />
                 </Button>
+              </div>
               </div>
             </div>
           ))}

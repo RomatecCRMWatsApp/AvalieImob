@@ -76,6 +76,17 @@ function calcular(p) {
   return completo ? 'concluido' : 'rascunho';
 }
 
+/** % de seções preenchidas (0-100), usando as mesmas 12 seções do status. */
+export function calcularProgressoPtam(p) {
+  const d = p || {};
+  const total = SECOES.length;
+  const preenchidas = SECOES.reduce(
+    (acc, campos) => acc + (campos.some((c) => preenchido(d[c])) ? 1 : 0),
+    0,
+  );
+  return Math.round((preenchidas / total) * 100);
+}
+
 /** Resolve o status para o badge: usa status_calculado do backend, com fallback local. */
 export function resolvePtamStatus(p) {
   const d = p || {};
