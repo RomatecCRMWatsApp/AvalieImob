@@ -41,12 +41,16 @@ function CirculoLateral({ p, status }) {
   const valor = valorPtam(p);
   const areaM2 = Number(p.imovel_area_a_considerar || p.imovel_area_construida || p.imovel_area_terreno || 0);
   if (status === 'concluido' && rural && valor > 0 && areaM2 > 0) {
+    // Rural concluído: status (CONCLUÍDO + última atualização) E gauge valor/ha, empilhados.
     return (
-      <PTAMGaugeHectare
-        valorTotal={valor}
-        areaHa={fromM2(areaM2, 'ha')}
-        valorReferencia={p.tabela_incra_snapshot?.valor_referencia_ha}
-      />
+      <div className="flex flex-col items-center gap-2 shrink-0">
+        <PTAMStatusCircle status="concluido" dataAtualizacao={p.updated_at} />
+        <PTAMGaugeHectare
+          valorTotal={valor}
+          areaHa={fromM2(areaM2, 'ha')}
+          valorReferencia={p.tabela_incra_snapshot?.valor_referencia_ha}
+        />
+      </div>
     );
   }
   if (status === 'concluido') {
