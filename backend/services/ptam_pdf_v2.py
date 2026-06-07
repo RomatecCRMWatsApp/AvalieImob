@@ -1834,18 +1834,24 @@ def build_story(ptam, page_map):
                               f'Valor Ponderado ({_uv})'],
                              _pond_rows, [_wN, _wB, _wVu, _wP, _wVp], bold_last=True))
 
-    # D. Graus de Fundamentação e Precisão (NBR 14653-2)
-    _grau_fund = str(ptam.get('calc_grau_fundamentacao') or ptam.get('fundamentacao_grau') or '').strip()
-    _grau_prec = str(ptam.get('grau_precisao') or ptam.get('precisao_grau')
-                     or ptam.get('calc_grau_precisao') or '').strip()
-    if not _grau_prec:
-        _grau_prec = 'III' if _cv_final <= 15 else ('II' if _cv_final <= 30 else 'I')
+    # D. Graus de Fundamentação e Precisão (NBR 14653-2) — enquadramento do imóvel avaliando.
+    # Fundamentação pelo nº de dados de mercado; Precisão pelo coeficiente de variação.
+    _ndados = _nvp or _validas or _n
+    _gf = 'III' if _ndados >= 12 else ('II' if _ndados >= 6 else ('I' if _ndados >= 3 else '—'))
+    _gp = 'III' if _cv_final <= 10 else ('II' if _cv_final <= 20 else ('I' if _cv_final <= 30 else '—'))
+    _gf_lbl = {'III': 'Máximo', 'II': 'Intermediário', 'I': 'Mínimo'}.get(_gf, 'Insuficiente')
+    _gp_lbl = {'III': 'Máxima', 'II': 'Intermediária', 'I': 'Mínima'}.get(_gp, 'Fora dos limites')
     st.append(Spacer(1, 8))
     st += subsec('D. Graus de Fundamentação e Precisão (NBR 14653-2)', 'sec7graus')
     st.append(_pdf_cards_row([
-        _pdf_card('Grau de Fundamentação', _grau_fund or '—', 'ABNT NBR 14653-2', '#B8860B', 16),
-        _pdf_card('Grau de Precisão', _grau_prec or '—', f'Coef. de variação {_num(_cv_final)}%', '#0B6E4F', 16),
+        _pdf_card('Grau de Fundamentação', f'Grau {_gf}', f'{_gf_lbl} · {_ndados} dados de mercado', '#B8860B', 15),
+        _pdf_card('Grau de Precisão', f'Grau {_gp}', f'{_gp_lbl} · CV {_num(_cv_final)}%', '#0B6E4F', 15),
     ], [HexColor('#FFF8E6'), VERDE_CLR]))
+    st.append(Spacer(1, 4))
+    st.append(Paragraph(
+        f'Conforme a ABNT NBR 14653-2, o imóvel avaliando <b>enquadra-se no Grau {_gf} de Fundamentação</b> '
+        f'(Método Comparativo Direto de Dados de Mercado, com {_ndados} dados) <b>e no Grau {_gp} de '
+        f'Precisão</b> (coeficiente de variação de {_num(_cv_final)}%).', sBody))
 
     # Referência INCRA (Valores de Terra Nua) — só rural e se marcado para o laudo.
     if _rural and ptam.get('incra_incluir_laudo', True):
