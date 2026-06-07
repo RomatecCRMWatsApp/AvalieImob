@@ -1816,7 +1816,7 @@ def build_story(ptam, page_map):
         st.append(_pdf_cards_row([
             _pdf_card('Média Ponderada Final', f'R$ {_nv(_ponderada)}/{_un}',
                       f'Σ valores ponderados · peso 1/{_nvp} · {_nvp} amostras válidas',
-                      '#FFFFFF', 17, '#A7D7C5'),
+                      '#FFFFFF', 17, '#EAF7F0'),
         ], [VERDE]))
         st.append(Spacer(1, 6))
         st.append(Paragraph(
