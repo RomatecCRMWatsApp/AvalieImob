@@ -1,0 +1,170 @@
+/* ============================================================================
+   Dark / Light mode — AvalieImob
+   - Toggle pill flutuante (lua/sol) com brilho pulsante.
+   - Tokens de cor em CSS variables.
+   - Camada html.dark: escurece as superfícies neutras do Tailwind. OPT-IN:
+     sem a classe .dark nada muda — o tema claro padrão fica intacto.
+   ============================================================================ */
+
+/* ===== TOGGLE PILL ===== */
+.theme-toggle-pill {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 50;
+  width: 72px;
+  height: 36px;
+  border-radius: 9999px;
+  cursor: pointer;
+  border: none;
+  padding: 0;
+  overflow: hidden;
+  transition: box-shadow 0.3s ease;
+}
+
+.theme-toggle-pill.light {
+  background: linear-gradient(135deg, #f0f4ff 0%, #dce8ff 100%);
+  animation: sunGlow 3s ease-in-out infinite;
+}
+
+.theme-toggle-pill.dark {
+  background: linear-gradient(135deg, #1a1f35 0%, #0d1020 100%);
+  animation: moonGlow 3s ease-in-out infinite;
+}
+
+/* Indicador interno deslizante (sol/lua) */
+.theme-toggle-pill .toggle-indicator {
+  position: absolute;
+  top: 4px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  line-height: 1;
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+              background 0.3s ease;
+}
+
+.theme-toggle-pill.light .toggle-indicator {
+  transform: translateX(40px);
+  background: rgba(255, 200, 50, 0.25);
+}
+
+.theme-toggle-pill.dark .toggle-indicator {
+  transform: translateX(4px);
+  background: rgba(150, 170, 255, 0.2);
+}
+
+@keyframes moonGlow {
+  0%, 100% { box-shadow: 0 4px 20px 4px rgba(100, 130, 255, 0.30); }
+  50%      { box-shadow: 0 4px 32px 8px rgba(100, 130, 255, 0.50); }
+}
+
+@keyframes sunGlow {
+  0%, 100% { box-shadow: 0 4px 20px 4px rgba(255, 180, 50, 0.30); }
+  50%      { box-shadow: 0 4px 32px 8px rgba(255, 180, 50, 0.50); }
+}
+
+/* No mobile, sobe o pill pra não cobrir botões de ação flutuantes na base. */
+@media (max-width: 640px) {
+  .theme-toggle-pill {
+    bottom: 5rem;
+    right: 1rem;
+  }
+}
+
+/* ===== TOKENS — TEMA LIGHT (default) ===== */
+:root {
+  --bg-primary:     #ffffff;
+  --bg-secondary:   #f8fafc;
+  --bg-card:        #ffffff;
+  --text-primary:   #1e293b;
+  --text-secondary: #64748b;
+  --border-color:   #e2e8f0;
+  --accent:         #2563eb;
+  --accent-hover:   #1d4ed8;
+  --shadow:         rgba(0, 0, 0, 0.08);
+}
+
+/* ===== TOKENS — TEMA DARK ===== */
+html.dark {
+  --bg-primary:     #0f172a;
+  --bg-secondary:   #1e293b;
+  --bg-card:        #1e293b;
+  --text-primary:   #f1f5f9;
+  --text-secondary: #94a3b8;
+  --border-color:   #334155;
+  --accent:         #3b82f6;
+  --accent-hover:   #60a5fa;
+  --shadow:         rgba(0, 0, 0, 0.40);
+}
+
+/* ============================================================================
+   Camada html.dark — escurece as superfícies neutras do Tailwind.
+   Só vale com a classe .dark ativa (opt-in). Cores de marca/acento (emerald,
+   amber, red, etc.) NÃO são tocadas de propósito.
+   ============================================================================ */
+
+/* Transição suave global ao alternar tema. */
+html.dark,
+html.dark body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+html.dark body,
+html.dark .transition-colors,
+html.dark * {
+  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease;
+}
+
+/* Superfícies / fundos neutros */
+html.dark .bg-white { background-color: var(--bg-card) !important; }
+html.dark .bg-gray-50,
+html.dark .bg-gray-100,
+html.dark .bg-slate-50,
+html.dark .bg-slate-100,
+html.dark .bg-neutral-50,
+html.dark .bg-neutral-100 { background-color: var(--bg-primary) !important; }
+
+/* Texto neutro */
+html.dark .text-gray-900,
+html.dark .text-gray-800,
+html.dark .text-slate-900,
+html.dark .text-slate-800,
+html.dark .text-black { color: var(--text-primary) !important; }
+html.dark .text-gray-700,
+html.dark .text-gray-600,
+html.dark .text-gray-500,
+html.dark .text-slate-700,
+html.dark .text-slate-600,
+html.dark .text-slate-500 { color: var(--text-secondary) !important; }
+
+/* Bordas neutras */
+html.dark .border-gray-100,
+html.dark .border-gray-200,
+html.dark .border-gray-300,
+html.dark .border-slate-100,
+html.dark .border-slate-200,
+html.dark .border-slate-300 { border-color: var(--border-color) !important; }
+
+/* Campos de formulário */
+html.dark input,
+html.dark textarea,
+html.dark select {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+html.dark input::placeholder,
+html.dark textarea::placeholder { color: #64748b; }
+
+/* Divisores e sombras */
+html.dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]),
+html.dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]) { border-color: var(--border-color) !important; }
+html.dark .shadow,
+html.dark .shadow-sm,
+html.dark .shadow-md,
+html.dark .shadow-lg { box-shadow: 0 4px 16px var(--shadow) !important; }

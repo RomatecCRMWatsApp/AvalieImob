@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Toaster } from './components/ui/toaster';
 import InstallPrompt from './components/common/InstallPrompt';
 import RomaIAWidget from './components/common/RomaIAWidget';
+import DarkModeToggle from './components/DarkModeToggle';
 
 import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
@@ -140,6 +141,7 @@ function App() {
             <Toaster />
             <InstallPrompt />
             <RomaIAWidget />
+            <DarkModeToggle />
           </BrowserRouter>
         </AuthProvider>
       </HelmetProvider>

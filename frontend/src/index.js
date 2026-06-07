@@ -1,6 +1,7 @@
 import React from "react";
 import { hydrateRoot, createRoot } from "react-dom/client";
 import "@/index.css";
+import "@/styles/darkmode.css";
 import App from "@/App";
 import { register as registerSW } from "@/serviceWorkerRegistration";
 
