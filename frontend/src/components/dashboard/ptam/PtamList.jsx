@@ -496,9 +496,9 @@ const PtamList = () => {
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
           {items.map((p) => (
-            <div key={p.id} className="bg-[#0f1420] rounded-xl border border-white/10 overflow-hidden hover:shadow-lg hover:shadow-black/30 transition flex flex-col">
+            <div key={p.id} className="bg-white border-gray-200 dark:bg-[#0f1420] dark:border-white/10 rounded-xl border overflow-hidden hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/30 transition flex flex-col">
               {/* Banner de foto do imóvel */}
-              <div className="relative h-[100px] bg-[#141824]">
+              <div className="relative h-[100px] bg-gray-100 dark:bg-[#141824]">
                 {primeiraFotoUrl(p) ? (
                   <img
                     src={primeiraFotoUrl(p)}
@@ -508,7 +508,7 @@ const PtamList = () => {
                     onError={(e) => { e.currentTarget.style.display = 'none'; }}
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-[#2d3348]">
+                  <div className="w-full h-full flex items-center justify-center text-gray-300 dark:text-[#2d3348]">
                     <MapPin className="w-8 h-8" />
                   </div>
                 )}
@@ -536,33 +536,33 @@ const PtamList = () => {
 
               {/* Corpo do card */}
               <div className="p-4 flex flex-col flex-1">
-              <div className="text-xs font-semibold text-emerald-400 tracking-wider">PTAM {p.number}</div>
-              <div className="font-semibold text-white mt-1 line-clamp-1">{p.property_label || p.property_address || '(sem título)'}</div>
+              <div className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 tracking-wider">PTAM {p.number}</div>
+              <div className="font-semibold text-gray-900 dark:text-white mt-1 line-clamp-1">{p.property_label || p.property_address || '(sem título)'}</div>
               {(() => {
                 const r = resumoImovel(p);
                 return (
                   <div className="mt-2 space-y-1">
                     {r.proprietario && (
-                      <div className="flex items-center gap-1.5 text-xs text-slate-300 line-clamp-1"><User className="w-3 h-3 shrink-0 text-slate-500" />{r.proprietario}</div>
+                      <div className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-slate-300 line-clamp-1"><User className="w-3 h-3 shrink-0 text-gray-400 dark:text-slate-500" />{r.proprietario}</div>
                     )}
                     {r.endereco && (
-                      <div className="flex items-start gap-1.5 text-xs text-slate-400 line-clamp-2"><MapPin className="w-3 h-3 shrink-0 mt-0.5 text-slate-500" /><span>{r.endereco}{r.matricula ? ` · Matrícula ${r.matricula}` : ''}</span></div>
+                      <div className="flex items-start gap-1.5 text-xs text-gray-500 dark:text-slate-400 line-clamp-2"><MapPin className="w-3 h-3 shrink-0 mt-0.5 text-gray-400 dark:text-slate-500" /><span>{r.endereco}{r.matricula ? ` · Matrícula ${r.matricula}` : ''}</span></div>
                     )}
                     {!r.endereco && r.matricula && (
-                      <div className="flex items-center gap-1.5 text-xs text-slate-400 line-clamp-1"><FileText className="w-3 h-3 shrink-0 text-slate-500" />Matrícula {r.matricula}</div>
+                      <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-slate-400 line-clamp-1"><FileText className="w-3 h-3 shrink-0 text-gray-400 dark:text-slate-500" />Matrícula {r.matricula}</div>
                     )}
                     {r.areaTxt && (
-                      <div className="flex items-center gap-1.5 text-xs text-slate-300"><Ruler className="w-3 h-3 shrink-0 text-slate-500" />Área: {r.areaTxt}</div>
+                      <div className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-slate-300"><Ruler className="w-3 h-3 shrink-0 text-gray-400 dark:text-slate-500" />Área: {r.areaTxt}</div>
                     )}
                   </div>
                 );
               })()}
-              <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between gap-3">
+              <div className="mt-4 pt-4 border-t border-gray-100 dark:border-white/10 flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="text-xl font-bold text-white tabular-nums">
+                  <div className="text-xl font-bold text-gray-900 dark:text-white tabular-nums">
                     R$ {valorPtam(p).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </div>
-                  <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-0.5">
+                  <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-slate-400 mt-0.5">
                     <Calendar className="w-3 h-3" />
                     {fmtDataHora(p.updated_at) || '—'}
                   </div>
