@@ -1331,7 +1331,18 @@ def build_story(ptam, page_map):
     if props:
         st.append(Spacer(1, 8))
         st += subsec('Proprietário(s) do Imóvel')
-        linhas = [[p.get('nome', ''), formata_doc(p.get('cpf_cnpj', '')), p.get('percentual', '')] for p in props]
+        # Células em Paragraph para QUEBRAR o texto (nome longo) e não sobrepor o CPF.
+        _pcell = ParagraphStyle('propcell', fontName='Helvetica', fontSize=8.5,
+                                leading=10.5, textColor=PRETO)
+
+        def _pp(v):
+            return Paragraph(
+                _txt(v).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;'),
+                _pcell,
+            )
+
+        linhas = [[_pp(p.get('nome', '')), _pp(formata_doc(p.get('cpf_cnpj', ''))),
+                   _pp(p.get('percentual', ''))] for p in props]
         st.append(tbl_header(['Nome / Razão Social', 'CPF / CNPJ', 'Fração'], linhas,
                              [7.0 * cm, 4.0 * cm, UTIL_W - 11.0 * cm]))
     st.append(Spacer(1, 8))
