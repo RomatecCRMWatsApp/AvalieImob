@@ -48,7 +48,7 @@ const Navbar = () => {
 
         <div className="hidden lg:flex items-center gap-3">
           {isLoggedIn ? (
-            <Link to="/dashboard"><Button className="bg-emerald-900 hover:bg-emerald-800 text-white">Meu Dashboard</Button></Link>
+            <Link to="/dashboard"><Button className="bg-emerald-900 hover:bg-emerald-800 text-white">Meu Escritório AvalieImob</Button></Link>
           ) : (
             <>
               <Link to="/login"><Button variant="ghost" className="text-emerald-900 hover:text-emerald-900 hover:bg-emerald-50">Entrar</Button></Link>
@@ -78,7 +78,7 @@ const Navbar = () => {
             ))}
             <div className="flex gap-3 pt-4 border-t border-gray-100">
               {isLoggedIn ? (
-                <Link to="/dashboard" className="flex-1"><Button className="w-full bg-emerald-900 hover:bg-emerald-800 text-white">Meu Dashboard</Button></Link>
+                <Link to="/dashboard" className="flex-1"><Button className="w-full bg-emerald-900 hover:bg-emerald-800 text-white">Meu Escritório AvalieImob</Button></Link>
               ) : (
                 <>
                   <Link to="/login" className="flex-1"><Button variant="outline" className="w-full border-emerald-900 text-emerald-900">Entrar</Button></Link>

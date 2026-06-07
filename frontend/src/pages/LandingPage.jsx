@@ -34,7 +34,7 @@ const WelcomeBanner = () => {
           <p className="text-emerald-200 text-sm">Confira nossos serviços abaixo ou acesse seu painel de controle.</p>
         </div>
         <Link to="/dashboard" className="flex items-center gap-2 bg-white text-emerald-900 px-5 py-2.5 rounded-lg font-semibold text-sm hover:bg-emerald-50 transition-colors">
-          Meu Dashboard <ArrowRight className="w-4 h-4" />
+          Meu Escritório AvalieImob <ArrowRight className="w-4 h-4" />
         </Link>
       </div>
     </div>
