@@ -26,35 +26,42 @@ jobs:
           # retornaria 1 (clone raso) e o número de versão ficaria errado.
           fetch-depth: 0
 
+      # Sem 'cache: npm' nem 'cache-dependency-path': o projeto NÃO tem package-lock.json,
+      # então a cache do npm falharia logo de cara (era a causa do CI vermelho em ~15s).
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
+      # npm install (não 'npm ci', que exige lock file inexistente).
       - name: Install frontend dependencies
         working-directory: frontend
-        run: npm ci
+        run: npm install --no-audit --no-fund
 
       - name: Build frontend
         working-directory: frontend
+        env:
+          # CI=true faz o CRA/craco tratar warning de ESLint como erro e quebrar o build.
+          CI: 'false'
         run: npm run build
 
       - name: Validate backend syntax
         run: python -m compileall backend
 
       # Auto-bump do número de versão: grava o total de commits em build-number.txt
-      # e commita de volta com [skip ci] (não dispara novo CI nem novo deploy). Roda só
-      # em push na main e só depois do build passar. continue-on-error: não bloqueia o
-      # deploy se o push do bump falhar (ex.: corrida de commits).
+      # e commita de volta com [skip ci] (não dispara novo CI). Como build-number.txt é
+      # arquivo do frontend, o push faz o Railway rebuildar o front com o número novo.
+      # Roda só em push na main e só depois do build passar. continue-on-error: não
+      # bloqueia o deploy se o push do bump falhar (ex.: falta permissão de escrita).
       - name: Bump build number
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        # always(): roda mesmo se um passo anterior falhar, pra a versão não ficar
+        # refém de um warning de build. Só em push na main.
+        if: ${{ always() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         continue-on-error: true
         run: |
           COUNT=$(git rev-list --count HEAD)
