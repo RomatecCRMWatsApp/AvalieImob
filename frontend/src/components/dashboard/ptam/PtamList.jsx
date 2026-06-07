@@ -9,7 +9,6 @@ import { fromM2, fmtBR } from '../../../utils/areaConversao';
 import { isRuralImovel } from './shared/amostraCategoria';
 import { resolvePtamStatus, calcularProgressoPtam } from './ptamStatus';
 import PTAMStatusCircle from './PTAMStatusCircle';
-import PTAMGaugeHectare from './PTAMGaugeHectare';
 import PTAMStatusBadge from './PTAMStatusBadge';
 import { fmtDataHora } from '../../../utils/datasServidor';
 
@@ -36,22 +35,6 @@ function valorPtam(p) {
 function CirculoLateral({ p, status }) {
   if (status === 'assinado') {
     return <PTAMStatusCircle status="assinado" dataAtualizacao={p.icp_signed_at || p.d4sign_assinado_em || p.updated_at} />;
-  }
-  const rural = isRuralImovel(p.property_type);
-  const valor = valorPtam(p);
-  const areaM2 = Number(p.imovel_area_a_considerar || p.imovel_area_construida || p.imovel_area_terreno || 0);
-  if (status === 'concluido' && rural && valor > 0 && areaM2 > 0) {
-    // Rural concluído: status (CONCLUÍDO + última atualização) E gauge valor/ha, empilhados.
-    return (
-      <div className="flex flex-col items-center gap-2 shrink-0">
-        <PTAMStatusCircle status="concluido" dataAtualizacao={p.updated_at} />
-        <PTAMGaugeHectare
-          valorTotal={valor}
-          areaHa={fromM2(areaM2, 'ha')}
-          valorReferencia={p.tabela_incra_snapshot?.valor_referencia_ha}
-        />
-      </div>
-    );
   }
   if (status === 'concluido') {
     return <PTAMStatusCircle status="concluido" dataAtualizacao={p.updated_at} />;
