@@ -537,8 +537,8 @@ ITENS_SUM = [
     ('7.3', 'Cálculo de Ponderância', 'sec7pond', 1),
     ('7.4', 'Graus de Fundamentação e Precisão', 'sec7graus', 1),
     ('8', 'Resultado da Avaliação', 'sec8', 0),
-    ('8.1', 'Cálculo do Valor Final', 'sec8calc', 1),
-    ('8.2', 'Método de Avaliação — Depreciação/Valorização', 'sec8metodo', 1),
+    ('8.1', 'Método de Avaliação — Depreciação/Valorização', 'sec8metodo', 1),
+    ('8.2', 'Cálculo do Valor Final', 'sec8calc', 1),
     ('9', 'Conclusão e Responsabilidade Técnica', 'sec9', 0),
     ('A.1', 'Anexo I — Ficha do Imóvel, Fotos e Documentos', 'anexo1', 0),
     ('•', 'Documentos do Imóvel (Certidões, IPTU, BCI)', 'anexo1b', 1),
@@ -1812,6 +1812,13 @@ def build_story(ptam, page_map):
     if _nvp > 0:
         st.append(Spacer(1, 8))
         st += subsec('Cálculo de Ponderância — Ponderação dos Valores', 'sec7pond')
+        # Card destaque (dashboard): Média Ponderada Final
+        st.append(_pdf_cards_row([
+            _pdf_card('Média Ponderada Final', f'R$ {_nv(_ponderada)}/{_un}',
+                      f'Σ valores ponderados · peso 1/{_nvp} · {_nvp} amostras válidas',
+                      '#FFFFFF', 17, '#A7D7C5'),
+        ], [VERDE]))
+        st.append(Spacer(1, 6))
         st.append(Paragraph(
             f'Fórmula: Média Ponderada Final = Σ (valor unitário × peso), com peso igualitário '
             f'1/{_nvp} sobre as {_nvp} amostras válidas (ABNT NBR 14653-2).', sBody))
@@ -1884,10 +1891,7 @@ def build_story(ptam, page_map):
         f"{_txt(ptam.get('property_matricula'), '—')}) e no tratamento estatístico das amostras de "
         f"mercado coletadas, conclui-se que o valor de mercado do imóvel é:", sBody))
     _rural8 = _is_rural(ptam)
-    st += subsec('Cálculo do Valor Final', 'sec8calc')
 
-    # Fluxo metodológico até o valor final — vale para TODOS os tipos de imóvel:
-    #   comparativo (média × área) → método/depreciação aplicada → valor final.
     def _f8(v):
         try:
             return float(v or 0)
@@ -1906,34 +1910,9 @@ def build_story(ptam, page_map):
     _val_dep8 = ptam.get('valor_depreciacao')
     _val_met8 = ptam.get('valor_total_metodo')
 
-    _calc_rows = [['Média Ponderada Final', fmt_rs_unit(vu, _rural8)]]
-    if _rural8:
-        _calc_rows.append(['Valor unitário de referência', f"{fmt_moeda(vu)}/m²"])
-    _calc_rows.append(['Área do Imóvel Avaliando', _area_avaliando_str(ptam, area_av, _rural8)])
-
-    if _metodo8 in ('ross_heidecke', 'linha_reta') and _preenchido(_val_dep8):
-        # Depreciação da benfeitoria: comparativo → (−) depreciação → valor final.
-        _calc_rows.append([
-            f"Valor de Referência (Comparativo) = {fmt_rs_unit(vu, _rural8)} × {fmt_area_rural(area_av, _rural8)}",
-            fmt_moeda(_valor_base)])
-        _pct8 = f" ({_num(_dep_pct8)}%)" if _preenchido(_dep_pct8) else ""
-        _calc_rows.append([f"(−) Depreciação — {_nome_met8}{_pct8}", fmt_moeda(_val_dep8)])
-        _calc_rows.append([f"Valor Final (após depreciação — {_nome_met8})", fmt_moeda(vtotal)])
-    elif _metodo8 in ('nbr_rural', 'fatores_terreno', 'renda') and _preenchido(_val_met8):
-        # Método que compõe/apura o próprio valor final.
-        _calc_rows.append([f"Valor Apurado pelo Método {_nome_met8}", fmt_moeda(vtotal)])
-    else:
-        # Sem método específico: valor pelo Comparativo Direto.
-        _calc_rows.append([
-            f"Valor Final = {fmt_rs_unit(vu, _rural8)} × {fmt_area_rural(area_av, _rural8)}",
-            fmt_moeda(vtotal)])
-
-    st.append(tbl_header(['Componente', 'Valor'], _calc_rows,
-                         [UTIL_W - 4.5 * cm, 4.5 * cm], bold_last=True))
-    # ── Método de Avaliação — Depreciação/Valorização (planilha, ANTES do valor) ──
+    # ── Método de Avaliação — Depreciação/Valorização (DASHBOARD, antes do resultado) ──
     if _metodo8 and _metodo8 != 'nao_aplicado':
         _p8 = ptam.get('metodo_params') or {}
-        st.append(Spacer(1, 8))
         st += subsec('Método de Avaliação — Depreciação/Valorização', 'sec8metodo')
         _met_rows = [('Método Aplicado', _nome_met8 or _metodo8)]
         if _metodo8 in ('ross_heidecke', 'linha_reta'):
@@ -1945,10 +1924,6 @@ def build_story(ptam, page_map):
                 _met_rows.append(('Vida Útil', f"{_num(_p8.get('vida_util'))} anos"))
             if _metodo8 == 'ross_heidecke' and _p8.get('estado'):
                 _met_rows.append(('Estado de Conservação', str(_p8.get('estado'))))
-            if _preenchido(_dep_pct8):
-                _met_rows.append(('Depreciação', f"{_num(_dep_pct8)}%"))
-            if _preenchido(_val_dep8):
-                _met_rows.append(('Valor da Depreciação', fmt_moeda(_val_dep8)))
         elif _metodo8 == 'nbr_rural':
             if _preenchido(_p8.get('vtn_hectare')):
                 _met_rows.append(('VTN — Valor por Hectare', f"{fmt_moeda(_p8.get('vtn_hectare'))}/ha"))
@@ -1961,23 +1936,36 @@ def build_story(ptam, page_map):
                 _met_rows.append(('Renda Mensal', fmt_moeda(_p8.get('renda_mensal'))))
             if _preenchido(_p8.get('taxa_cap')):
                 _met_rows.append(('Taxa de Capitalização', f"{_num(_p8.get('taxa_cap'))}% a.a."))
-        if _preenchido(_val_met8):
-            _met_rows.append(('Valor Apurado pelo Método', fmt_moeda(_val_met8)))
         st.append(tbl(_met_rows))
+        st.append(Spacer(1, 6))
+        # Cards de resultado do método (dashboard)
+        if _metodo8 in ('ross_heidecke', 'linha_reta'):
+            _kd = _f8(_dep_pct8) / 100.0
+            st.append(_pdf_cards_row([
+                _pdf_card('Coeficiente Kd', f'{_kd:.4f}'.replace('.', ','), f'{_num(_dep_pct8)}% depreciado', '#B8860B', 15),
+                _pdf_card('Depreciação', fmt_moeda(_val_dep8), 'sobre o valor de novo', '#B91C1C', 14),
+                _pdf_card('Valor Residual', fmt_moeda(vtotal), 'após depreciação', '#0B6E4F', 14),
+            ], [HexColor('#FFF8E6'), HexColor('#FEECEC'), VERDE_CLR]))
+        elif _metodo8 == 'nbr_rural':
+            _vterra = _f8(_p8.get('vtn_hectare')) * _f8(_p8.get('area_ha')) * (_f8(_p8.get('classe_uso')) or 1)
+            st.append(_pdf_cards_row([
+                _pdf_card('Valor da Terra Nua', fmt_moeda(_vterra), 'VTN × área × CUF', '#0B6E4F', 14),
+                _pdf_card('Valor Total Rural', fmt_moeda(_val_met8), 'terra + benfeitorias + culturas', '#0B6E4F', 14),
+            ], [VERDE_CLR, VERDE_CLR]))
+        elif _metodo8 == 'renda':
+            st.append(_pdf_cards_row([
+                _pdf_card('Renda Anual', fmt_moeda(_f8(_p8.get('renda_mensal')) * 12), '', '#1A1A1A', 14),
+                _pdf_card('Taxa de Capitalização', f"{_num(_p8.get('taxa_cap') or 8)}% a.a.", '', '#1565C0', 14),
+                _pdf_card('Valor Capitalizado', fmt_moeda(_val_met8), '', '#0B6E4F', 14),
+            ], [HexColor('#F4F6F8'), HexColor('#E8F1FE'), VERDE_CLR]))
+        st.append(Spacer(1, 8))
 
-    # ── E. Área considerada — conversões e valor unitário (planilha, ANTES do valor) ──
-    try:
-        _avm2 = float(area_av or 0)
-    except (TypeError, ValueError):
-        _avm2 = 0.0
+    # ── E. Área considerada — conversões e valor unitário (planilha, antes do resultado) ──
+    _avm2 = _f8(area_av)
     if _avm2 > 0:
-        try:
-            _vuf = float(vu or 0)
-        except (TypeError, ValueError):
-            _vuf = 0.0
+        _vuf = _f8(vu)
         _ha = _avm2 / 10000.0
         _alq = _ha / 4.84
-        st.append(Spacer(1, 8))
         st += subsec('Área Considerada — Conversões e Valor Unitário')
         st.append(tbl([
             ('Área (m²)', f"{_num(_avm2)} m²"),
@@ -1987,17 +1975,30 @@ def build_story(ptam, page_map):
             ('Valor Unitário (R$/ha)', fmt_moeda(_vuf * 10000)),
             ('Valor Unitário (R$/alqueire mineiro)', fmt_moeda(_vuf * 48400)),
         ]))
+        st.append(Spacer(1, 8))
 
-    # ── Valor de Mercado (caixa destacada) + quadro-resumo da conclusão ──
-    st.append(Spacer(1, 10))
-    st.append(caixa_valor(vtotal, ptam.get('total_indemnity_words') or valor_por_extenso(vtotal)))
-    st.append(Spacer(1, 10))
+    # ── RESULTADO: Cálculo do Valor Final + Valor de Mercado — MANTIDO NA MESMA PÁGINA ──
+    _calc_rows = [['Média Ponderada Final', fmt_rs_unit(vu, _rural8)]]
+    if _rural8:
+        _calc_rows.append(['Valor unitário de referência', f"{fmt_moeda(vu)}/m²"])
+    _calc_rows.append(['Área do Imóvel Avaliando', _area_avaliando_str(ptam, area_av, _rural8)])
+    if _metodo8 in ('ross_heidecke', 'linha_reta') and _preenchido(_val_dep8):
+        _calc_rows.append([
+            f"Valor de Referência (Comparativo) = {fmt_rs_unit(vu, _rural8)} × {fmt_area_rural(area_av, _rural8)}",
+            fmt_moeda(_valor_base)])
+        _pct8 = f" ({_num(_dep_pct8)}%)" if _preenchido(_dep_pct8) else ""
+        _calc_rows.append([f"(−) Depreciação — {_nome_met8}{_pct8}", fmt_moeda(_val_dep8)])
+        _calc_rows.append([f"Valor Final (após depreciação — {_nome_met8})", fmt_moeda(vtotal)])
+    elif _metodo8 in ('nbr_rural', 'fatores_terreno', 'renda') and _preenchido(_val_met8):
+        _calc_rows.append([f"Valor Apurado pelo Método {_nome_met8}", fmt_moeda(vtotal)])
+    else:
+        _calc_rows.append([
+            f"Valor Final = {fmt_rs_unit(vu, _rural8)} × {fmt_area_rural(area_av, _rural8)}",
+            fmt_moeda(vtotal)])
+
     _res_rows = []
     if _rural8:
-        try:
-            _vu_f = float(vu)
-        except (TypeError, ValueError):
-            _vu_f = 0.0
+        _vu_f = _f8(vu)
         _res_rows.append(('Valor Unitário R$/ha', fmt_moeda(_vu_f * 10000)))
         _res_rows.append(('Valor Unitário R$/m² (referência)', fmt_moeda(_vu_f)))
     else:
@@ -2009,7 +2010,16 @@ def build_story(ptam, page_map):
         ('Data de Referência', ptam.get('resultado_data_referencia')),
         ('Prazo de Validade', ptam.get('resultado_prazo_validade') or '180 dias'),
     ]
-    st.append(tbl(_res_rows))
+
+    _resultado = []
+    _resultado += subsec('Cálculo do Valor Final', 'sec8calc')
+    _resultado.append(tbl_header(['Componente', 'Valor'], _calc_rows,
+                                 [UTIL_W - 4.5 * cm, 4.5 * cm], bold_last=True))
+    _resultado.append(Spacer(1, 10))
+    _resultado.append(caixa_valor(vtotal, ptam.get('total_indemnity_words') or valor_por_extenso(vtotal)))
+    _resultado.append(Spacer(1, 10))
+    _resultado.append(tbl(_res_rows))
+    st.append(KeepTogether(_resultado))
 
     # ── Justificativa técnico-jurídica do método/depreciação (após o valor, antes da conclusão) ──
     _justif = _justificativa_metodo(ptam)
