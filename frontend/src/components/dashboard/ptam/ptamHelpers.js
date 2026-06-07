@@ -218,6 +218,7 @@ export const emptyMarketSample = () => ({
   contact_phone: '',
   notes: '',
   foto: null,
+  planta_baixa: null,
   tipo_amostra: 'oferta',
 });
 

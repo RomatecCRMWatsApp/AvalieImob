@@ -340,16 +340,30 @@ const MarketSampleCard = ({ s, onChange, onRemove, idx, isSaneada, tipoImovel })
           </div>
         </div>
 
-        {/* Foto da amostra */}
-        <div className="lg:w-56 shrink-0">
-          <FieldLabel>Foto da amostra</FieldLabel>
-          <ImageUploader
-            images={s.foto ? [s.foto] : []}
-            onImagesChange={(ids) => onChange({ ...s, foto: ids[0] || null })}
-            maxImages={1}
-            single
-            label=""
-          />
+        {/* Foto da amostra + Planta baixa */}
+        <div className="lg:w-56 shrink-0 space-y-4">
+          <div>
+            <FieldLabel>Foto da amostra</FieldLabel>
+            <ImageUploader
+              images={s.foto ? [s.foto] : []}
+              onImagesChange={(ids) => onChange({ ...s, foto: ids[0] || null })}
+              maxImages={1}
+              single
+              label=""
+            />
+          </div>
+
+          {/* Planta baixa — aceita PDF (convertido p/ PNG 300 DPI no upload) */}
+          <div>
+            <FieldLabel>Planta baixa (PDF/imagem)</FieldLabel>
+            <ImageUploader
+              images={s.planta_baixa ? [s.planta_baixa] : []}
+              onImagesChange={(ids) => onChange({ ...s, planta_baixa: ids[0] || null })}
+              maxImages={1}
+              single
+              label=""
+            />
+          </div>
         </div>
       </div>
     </div>

@@ -475,6 +475,7 @@ async def download_ptam_docx(pid: str, uid: str = Depends(get_active_subscriber)
                         "_image_bytes": base64.b64decode(sample_img_doc["data_b64"]),
                     }
         doc["market_samples"] = market_samples
+        await _resolve_plantas_amostras(db, doc.get("market_samples"))
 
         # ── Buscar consultas CND vinculadas ao PTAM ────────────────────────
         cnd_consultas = []
@@ -594,6 +595,7 @@ async def download_ptam_pdf(pid: str, uid: str = Depends(get_active_subscriber),
                         "_image_bytes": base64.b64decode(sample_img_doc["data_b64"]),
                     }
         doc["market_samples"] = market_samples
+        await _resolve_plantas_amostras(db, doc.get("market_samples"))
 
         # Busca consultas CND vinculadas ao PTAM para incluir no PDF
         cnd_consultas = []
@@ -775,6 +777,23 @@ def _map_ptam_to_spec_v2(doc: dict, perfil: dict | None) -> dict:
     }
 
 
+async def _resolve_plantas_amostras(db, samples):
+    """Resolve a planta baixa de cada amostra (id/URL -> bytes) in-place,
+    gravando _planta_baixa_bytes. Mesma origem das fotos (db.images), então
+    PDF (PNG 300 DPI convertido no upload) e imagens diretas funcionam igual."""
+    for s in (samples or []):
+        if not isinstance(s, dict):
+            continue
+        pb = s.get("planta_baixa") or s.get("planta_baixa_url") or ""
+        if not pb:
+            continue
+        pid = str(pb).replace('/api/upload/image/', '').split('/')[-1]
+        if len(pid) > 30 and '-' in pid:
+            pimg = await db.images.find_one({"id": pid})
+            if pimg and pimg.get("data_b64"):
+                s["_planta_baixa_bytes"] = base64.b64decode(pimg["data_b64"])
+
+
 async def _gps_data_foto(db, img_doc, raw_bytes):
     """(gps, data_hora) da foto: cache em db.images > EXIF > OCR.
     PERF: cacheia SEMPRE (mesmo sem achar GPS) e marca meta_ocr_done, para o OCR
@@ -926,6 +945,7 @@ async def download_ptam_pdf_v2(pid: str, uid: str = Depends(get_active_subscribe
                 simg = await db.images.find_one({"id": sample_image_id})
                 if simg and simg.get("data_b64"):
                     sample["_image_bytes"] = base64.b64decode(simg["data_b64"])
+        await _resolve_plantas_amostras(db, doc.get("market_samples"))
         # Resolve documentos digitalizados (fotos_documentos: IDs -> bytes + nome)
         docs_resolvidos = []
         for kdoc, ditem in enumerate(doc.get("fotos_documentos") or [], 1):
@@ -1005,6 +1025,7 @@ async def preview_ptam_pdf(body: dict, uid: str = Depends(get_active_subscriber)
                 simg = await db.images.find_one({"id": sid})
                 if simg and simg.get("data_b64"):
                     s["_image_bytes"] = base64.b64decode(simg["data_b64"])
+        await _resolve_plantas_amostras(db, doc.get("market_samples"))
         # Documentos digitalizados
         docs_res = []
         for kd, di in enumerate(doc.get("fotos_documentos") or [], 1):
@@ -1653,6 +1674,7 @@ async def _melhor_pdf_ptam(db, ptam: dict) -> tuple[bytes, str]:
                 simg = await db.images.find_one({"id": sid})
                 if simg and simg.get("data_b64"):
                     s["_image_bytes"] = base64.b64decode(simg["data_b64"])
+        await _resolve_plantas_amostras(db, ptam.get("market_samples"))
         docs_res = []
         for kd, di in enumerate(ptam.get("fotos_documentos") or [], 1):
             du = (di.get("url") or di.get("doc_id") or di.get("image_id", "")) if isinstance(di, dict) else str(di)

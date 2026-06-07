@@ -599,6 +599,40 @@ class AmostraCard(Flowable):
         _amostra_linhas(c, dx, y, contato, dy=_dy)
 
 
+class PlantaBaixaCard(Flowable):
+    """Planta baixa da amostra — ocupa o espaço abaixo do AmostraCard na mesma
+    página (mantidos juntos via KeepTogether). A imagem vem do upload já como
+    PNG 300 DPI (PDF convertido em /upload/image)."""
+    CH = 12.0 * cm
+
+    def __init__(self, numero, img):
+        super().__init__()
+        self.numero = numero
+        self.img = img
+        self.width = UTIL_W
+        self.height = self.CH
+
+    def wrap(self, aw, ah):
+        return (self.width, self.height)
+
+    def draw(self):
+        c = self.canv
+        w, h = self.width, self.height
+        c.setFillColor(BRANCO)
+        c.setStrokeColor(CINZA_BRD)
+        c.setLineWidth(0.5)
+        c.roundRect(0, 0, w, h, 0.18 * cm, stroke=1, fill=1)
+        c.setFillColor(VERDE_MED)
+        c.setFont('Helvetica-Bold', 10)
+        c.drawString(0.3 * cm, h - 0.52 * cm, f'Planta Baixa — Amostra {self.numero}')
+        c.setStrokeColor(CINZA_BRD)
+        c.setLineWidth(0.3)
+        c.line(0.2 * cm, h - 0.68 * cm, w - 0.2 * cm, h - 0.68 * cm)
+        fx, fy = 0.3 * cm, 0.3 * cm
+        fw, fh = w - 0.6 * cm, h - 1.05 * cm
+        _draw_foto_box(c, fx, fy, fw, fh, _load_image_reader(self.img), 'Planta Baixa')
+
+
 class FotoCard(Flowable):
     CH = 10.5 * cm
 
@@ -1315,7 +1349,12 @@ def build_story(ptam, page_map):
     if amostras:
         _rural5 = _is_rural(ptam)
         for i, a in enumerate(amostras, 1):
-            st.append(KeepTogether([AmostraCard(i, a, rural=_rural5)]))
+            _grupo = [AmostraCard(i, a, rural=_rural5)]
+            _planta = a.get('_planta_baixa_bytes') or a.get('planta_baixa_url')
+            if _planta:
+                _grupo.append(Spacer(1, GAP))
+                _grupo.append(PlantaBaixaCard(i, _planta))
+            st.append(KeepTogether(_grupo))
             st.append(Spacer(1, GAP))
     else:
         st.append(Paragraph('Nenhuma amostra cadastrada.', sBody))

@@ -889,23 +889,34 @@ def _render_mercado(doc: Document, ptam: dict) -> None:
             elif grau_precisao.lower() == "fora":
                 _add_styled_paragraph(doc, "Atenção: Coeficiente de variação > 30% — fora dos limites da NBR 14653-2.", size=10, color=RGBColor(220, 38, 38))
 
-        # Fotos das amostras
-        amostras_com_foto = [s for s in market_samples if s.get("_image_bytes")]
-        if amostras_com_foto:
-            _add_subsection_heading(doc, "Fotografias das Amostras")
+        # Fotos e plantas baixas das amostras
+        amostras_com_imagem = [s for s in market_samples if s.get("_image_bytes") or s.get("_planta_baixa_bytes")]
+        if amostras_com_imagem:
+            _add_subsection_heading(doc, "Fotografias e Plantas das Amostras")
             for idx, s in enumerate(market_samples, start=1):
                 img_bytes = s.get("_image_bytes")
-                if not img_bytes:
+                planta_bytes = s.get("_planta_baixa_bytes")
+                if not img_bytes and not planta_bytes:
                     continue
                 endereco = f"{s.get('address', '')} / {s.get('neighborhood', '')}".strip(" /")
                 _add_styled_paragraph(doc, f"Amostra {idx} — {endereco or ''}", bold=True)
-                try:
-                    p = doc.add_paragraph()
-                    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                    p.add_run().add_picture(io.BytesIO(img_bytes), width=Inches(5))
-                    doc.add_paragraph()
-                except Exception:
-                    _add_styled_paragraph(doc, f"[Foto amostra {idx} — erro ao carregar]")
+                if img_bytes:
+                    try:
+                        p = doc.add_paragraph()
+                        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                        p.add_run().add_picture(io.BytesIO(img_bytes), width=Inches(5))
+                        doc.add_paragraph()
+                    except Exception:
+                        _add_styled_paragraph(doc, f"[Foto amostra {idx} — erro ao carregar]")
+                if planta_bytes:
+                    _add_styled_paragraph(doc, f"Planta Baixa — Amostra {idx}", bold=True)
+                    try:
+                        p = doc.add_paragraph()
+                        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                        p.add_run().add_picture(io.BytesIO(planta_bytes), width=Inches(6))
+                        doc.add_paragraph()
+                    except Exception:
+                        _add_styled_paragraph(doc, f"[Planta baixa amostra {idx} — erro ao carregar]")
 
 
 def _render_metodologia(doc: Document, ptam: dict) -> None:
