@@ -157,3 +157,105 @@ def gerar_pdf_cnpj(dados: dict, perfil: dict | None = None) -> bytes:
 
     doc.build(story)
     return buf.getvalue()
+
+
+def _cabecalho_emitente(story, perfil, sSub):
+    """Bloco de cabeçalho com nome/registros do avaliador (reutilizado nos PDFs)."""
+    nome_emit = (perfil.get("empresa_nome") or perfil.get("nome_completo")
+                 or "ROMATEC CONSULTORIA TOTAL")
+    regs = perfil.get("registros") or []
+    reg_txt = "  |  ".join(
+        f"{r.get('tipo', '')} {r.get('numero', '')}".strip()
+        for r in regs if isinstance(r, dict) and r.get("numero")
+    )
+    story.append(Paragraph(_esc(nome_emit), ParagraphStyle(
+        "emit", fontName="Helvetica-Bold", fontSize=10, textColor=PRETO)))
+    if reg_txt:
+        story.append(Paragraph(_esc(reg_txt), sSub))
+    story.append(Spacer(1, 8))
+    return nome_emit
+
+
+def gerar_pdf_cpf(dados: dict, perfil: dict | None = None) -> bytes:
+    """Recebe o dict da validação de CPF e retorna os bytes do PDF."""
+    dados = dados or {}
+    perfil = perfil or {}
+    cpf = (dados.get("cpf") or "").strip()
+    valido = bool(dados.get("valido"))
+    buf = BytesIO()
+    doc = SimpleDocTemplate(
+        buf, pagesize=A4,
+        leftMargin=2 * cm, rightMargin=2 * cm,
+        topMargin=1.6 * cm, bottomMargin=1.6 * cm,
+        title=f"Validação CPF {cpf}",
+    )
+    base = getSampleStyleSheet()
+    sTitulo = ParagraphStyle("t", parent=base["Title"], fontName="Helvetica-Bold",
+                             fontSize=15, textColor=VERDE, spaceAfter=2)
+    sSub = ParagraphStyle("s", parent=base["Normal"], fontName="Helvetica",
+                          fontSize=9, textColor=CINZA, spaceAfter=2)
+    sLabel = ParagraphStyle("lbl", fontName="Helvetica-Bold", fontSize=9,
+                            textColor=colors.white, leading=11)
+    sCell = ParagraphStyle("cell", fontName="Helvetica", fontSize=9,
+                           textColor=PRETO, leading=12)
+    sFoot = ParagraphStyle("ft", fontName="Helvetica", fontSize=7.5,
+                           textColor=CINZA, leading=10)
+
+    story = []
+    nome_emit = _cabecalho_emitente(story, perfil, sSub)
+
+    story.append(Paragraph("Validação de CPF", sTitulo))
+    story.append(Paragraph("Cadastro de Pessoas Físicas — verificação dos dígitos verificadores", sSub))
+    story.append(Spacer(1, 10))
+
+    sit_hex = "#0B6E4F" if valido else "#C62828"
+    sit_label = "✓ VÁLIDO" if valido else "✗ INVÁLIDO"
+    cabec = [[
+        Paragraph(f"<b>{_esc(cpf) or '—'}</b>", ParagraphStyle(
+            "rz", fontName="Courier-Bold", fontSize=14, textColor=PRETO, leading=17)),
+        Paragraph(f'<b><font color="{sit_hex}">{sit_label}</font></b>', ParagraphStyle(
+            "st", fontName="Helvetica-Bold", fontSize=11, alignment=2, leading=15)),
+    ]]
+    tcab = Table(cabec, colWidths=[12.4 * cm, 4.6 * cm])
+    tcab.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                              ("BOTTOMPADDING", (0, 0), (-1, -1), 2)]))
+    story.append(tcab)
+    story.append(Spacer(1, 10))
+
+    nasc = (dados.get("data_nascimento_informada") or "").strip()
+    nasc_fmt = nasc
+    if nasc and len(nasc) == 10 and nasc[4] == "-":
+        nasc_fmt = f"{nasc[8:10]}/{nasc[5:7]}/{nasc[0:4]}"
+    linhas = [
+        ("Situação", dados.get("mensagem")),
+        ("Data de Nascimento", nasc_fmt),
+        ("Observação", dados.get("observacao")),
+    ]
+    linhas = [(lb, str(vl).strip()) for lb, vl in linhas if vl and str(vl).strip()]
+    data = [[Paragraph(_esc(lb), sLabel), Paragraph(_esc(vl), sCell)] for lb, vl in linhas]
+    if data:
+        t = Table(data, colWidths=[4.8 * cm, 12.2 * cm])
+        style = TableStyle([
+            ("BACKGROUND", (0, 0), (0, -1), VERDE),
+            ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#D1D5DB")),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("TOPPADDING", (0, 0), (-1, -1), 5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ("LEFTPADDING", (0, 0), (-1, -1), 7),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 7),
+        ])
+        for i in range(len(data)):
+            style.add("BACKGROUND", (1, i), (1, i), VERDE_CLR if i % 2 else colors.white)
+        t.setStyle(style)
+        story.append(t)
+
+    story.append(Spacer(1, 14))
+    agora = datetime.now().strftime("%d/%m/%Y às %H:%M")
+    story.append(Paragraph(
+        f"Validação matemática local dos dígitos verificadores (não consulta base nominal da Receita Federal).<br/>"
+        f"Documento gerado por {_esc(nome_emit)} via AvalieImob em {agora}.",
+        sFoot,
+    ))
+
+    doc.build(story)
+    return buf.getvalue()

@@ -34,6 +34,140 @@ function StatusBadge({ situacao }) {
   );
 }
 
+// Barra de ações (visualizar / baixar / enviar) reutilizada nas abas CNPJ e CPF.
+function AcoesConsulta({ tipo, dados }) {
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [enviarOpen, setEnviarOpen] = useState(false);
+  const [phone, setPhone] = useState('');
+  const [chatId, setChatId] = useState('');
+  const [envLoading, setEnvLoading] = useState('');
+  const [envMsg, setEnvMsg] = useState(null);
+
+  const ehCnpj = tipo === 'cnpj';
+  const apiPdf = ehCnpj ? consultaAPI.pdf : consultaAPI.cpfPdf;
+  const apiWpp = ehCnpj ? consultaAPI.whatsapp : consultaAPI.cpfWhatsapp;
+  const apiTg = ehCnpj ? consultaAPI.telegram : consultaAPI.cpfTelegram;
+  const docNum = ((ehCnpj ? dados.cnpj : dados.cpf) || '').replace(/\D/g, '') || 'consulta';
+  const fileBase = ehCnpj ? 'CNPJ' : 'CPF';
+
+  const blobUrl = async () => URL.createObjectURL(await apiPdf(dados));
+
+  const visualizar = async () => {
+    setPdfLoading(true);
+    setEnvMsg(null);
+    try {
+      const url = await blobUrl();
+      window.open(url, '_blank', 'noopener,noreferrer');
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch {
+      setEnvMsg({ tipo: 'erro', texto: 'Erro ao gerar o PDF.' });
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
+  const baixar = async () => {
+    setPdfLoading(true);
+    setEnvMsg(null);
+    try {
+      const url = await blobUrl();
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${fileBase}_${docNum}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch {
+      setEnvMsg({ tipo: 'erro', texto: 'Erro ao baixar o PDF.' });
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
+  const enviarWhatsApp = async () => {
+    const tel = phone.replace(/\D/g, '');
+    if (tel.length < 10) {
+      setEnvMsg({ tipo: 'erro', texto: 'Informe o telefone com DDD (ex: 99 99999-9999).' });
+      return;
+    }
+    setEnvLoading('whatsapp');
+    setEnvMsg(null);
+    try {
+      await apiWpp(dados, tel);
+      setEnvMsg({ tipo: 'ok', texto: 'PDF enviado por WhatsApp ✓' });
+    } catch (err) {
+      setEnvMsg({ tipo: 'erro', texto: err?.response?.data?.detail || 'Falha ao enviar por WhatsApp.' });
+    } finally {
+      setEnvLoading('');
+    }
+  };
+
+  const enviarTelegram = async () => {
+    setEnvLoading('telegram');
+    setEnvMsg(null);
+    try {
+      await apiTg(dados, chatId);
+      setEnvMsg({ tipo: 'ok', texto: 'PDF enviado por Telegram ✓' });
+    } catch (err) {
+      setEnvMsg({ tipo: 'erro', texto: err?.response?.data?.detail || 'Falha ao enviar por Telegram.' });
+    } finally {
+      setEnvLoading('');
+    }
+  };
+
+  return (
+    <>
+      <div className="consulta-acoes">
+        <button className="acao-btn" onClick={visualizar} disabled={pdfLoading}>
+          {pdfLoading ? <span className="consulta-spinner dark" /> : '👁'} Visualizar
+        </button>
+        <button className="acao-btn" onClick={baixar} disabled={pdfLoading}>
+          ⬇ Baixar PDF
+        </button>
+        <button
+          className={`acao-btn enviar ${enviarOpen ? 'aberto' : ''}`}
+          onClick={() => setEnviarOpen((o) => !o)}
+        >
+          📤 Enviar
+        </button>
+      </div>
+
+      {enviarOpen && (
+        <div className="consulta-enviar">
+          <div className="enviar-linha">
+            <input
+              type="text"
+              placeholder="WhatsApp: DDD + número"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+            />
+            <button className="enviar-btn wpp" onClick={enviarWhatsApp} disabled={envLoading === 'whatsapp'}>
+              {envLoading === 'whatsapp' ? '...' : 'WhatsApp'}
+            </button>
+          </div>
+          <div className="enviar-linha">
+            <input
+              type="text"
+              placeholder="Telegram: chat_id (vazio = padrão)"
+              value={chatId}
+              onChange={(e) => setChatId(e.target.value)}
+            />
+            <button className="enviar-btn tg" onClick={enviarTelegram} disabled={envLoading === 'telegram'}>
+              {envLoading === 'telegram' ? '...' : 'Telegram'}
+            </button>
+          </div>
+          <div className="enviar-nota">
+            Usa as integrações do seu perfil (Configurações → Integrações).
+          </div>
+        </div>
+      )}
+
+      {envMsg && <div className={`enviar-msg ${envMsg.tipo}`}>{envMsg.texto}</div>}
+    </>
+  );
+}
+
 export default function ConsultaModal({ onClose }) {
   const [aba, setAba] = useState('cnpj');
 
@@ -49,14 +183,6 @@ export default function ConsultaModal({ onClose }) {
   const [loadingCPF, setLoadingCPF] = useState(false);
   const [resultadoCPF, setResultadoCPF] = useState(null);
   const [erroCPF, setErroCPF] = useState('');
-
-  // Ações do PDF (visualizar / baixar / enviar) — aba CNPJ
-  const [pdfLoading, setPdfLoading] = useState(false);
-  const [enviarOpen, setEnviarOpen] = useState(false);
-  const [phone, setPhone] = useState('');
-  const [chatId, setChatId] = useState('');
-  const [envLoading, setEnvLoading] = useState('');
-  const [envMsg, setEnvMsg] = useState(null);
 
   // Fechar com ESC
   useEffect(() => {
@@ -74,8 +200,6 @@ export default function ConsultaModal({ onClose }) {
     setLoadingCNPJ(true);
     setErroCNPJ('');
     setResultadoCNPJ(null);
-    setEnvMsg(null);
-    setEnviarOpen(false);
     try {
       const data = await consultaAPI.cnpj(num);
       setResultadoCNPJ(data);
@@ -107,77 +231,6 @@ export default function ConsultaModal({ onClose }) {
       setLoadingCPF(false);
     }
   }, [cpf, dataNasc]);
-
-  const gerarBlob = useCallback(async () => {
-    const blob = await consultaAPI.pdf(resultadoCNPJ);
-    return URL.createObjectURL(blob);
-  }, [resultadoCNPJ]);
-
-  const visualizarPDF = useCallback(async () => {
-    if (!resultadoCNPJ) return;
-    setPdfLoading(true);
-    setEnvMsg(null);
-    try {
-      const url = await gerarBlob();
-      window.open(url, '_blank', 'noopener,noreferrer');
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
-    } catch {
-      setEnvMsg({ tipo: 'erro', texto: 'Erro ao gerar o PDF.' });
-    } finally {
-      setPdfLoading(false);
-    }
-  }, [resultadoCNPJ, gerarBlob]);
-
-  const baixarPDF = useCallback(async () => {
-    if (!resultadoCNPJ) return;
-    setPdfLoading(true);
-    setEnvMsg(null);
-    try {
-      const url = await gerarBlob();
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `CNPJ_${(resultadoCNPJ.cnpj || '').replace(/\D/g, '') || 'consulta'}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
-    } catch {
-      setEnvMsg({ tipo: 'erro', texto: 'Erro ao baixar o PDF.' });
-    } finally {
-      setPdfLoading(false);
-    }
-  }, [resultadoCNPJ, gerarBlob]);
-
-  const enviarWhatsApp = useCallback(async () => {
-    const tel = phone.replace(/\D/g, '');
-    if (tel.length < 10) {
-      setEnvMsg({ tipo: 'erro', texto: 'Informe o telefone com DDD (ex: 99 99999-9999).' });
-      return;
-    }
-    setEnvLoading('whatsapp');
-    setEnvMsg(null);
-    try {
-      await consultaAPI.whatsapp(resultadoCNPJ, tel);
-      setEnvMsg({ tipo: 'ok', texto: 'PDF enviado por WhatsApp ✓' });
-    } catch (err) {
-      setEnvMsg({ tipo: 'erro', texto: err?.response?.data?.detail || 'Falha ao enviar por WhatsApp.' });
-    } finally {
-      setEnvLoading('');
-    }
-  }, [resultadoCNPJ, phone]);
-
-  const enviarTelegram = useCallback(async () => {
-    setEnvLoading('telegram');
-    setEnvMsg(null);
-    try {
-      await consultaAPI.telegram(resultadoCNPJ, chatId);
-      setEnvMsg({ tipo: 'ok', texto: 'PDF enviado por Telegram ✓' });
-    } catch (err) {
-      setEnvMsg({ tipo: 'erro', texto: err?.response?.data?.detail || 'Falha ao enviar por Telegram.' });
-    } finally {
-      setEnvLoading('');
-    }
-  }, [resultadoCNPJ, chatId]);
 
   return (
     <div
@@ -307,60 +360,7 @@ export default function ConsultaModal({ onClose }) {
                   </div>
                 </div>
 
-                <div className="consulta-acoes">
-                  <button className="acao-btn" onClick={visualizarPDF} disabled={pdfLoading}>
-                    {pdfLoading ? <span className="consulta-spinner dark" /> : '👁'} Visualizar
-                  </button>
-                  <button className="acao-btn" onClick={baixarPDF} disabled={pdfLoading}>
-                    ⬇ Baixar PDF
-                  </button>
-                  <button
-                    className={`acao-btn enviar ${enviarOpen ? 'aberto' : ''}`}
-                    onClick={() => setEnviarOpen((o) => !o)}
-                  >
-                    📤 Enviar
-                  </button>
-                </div>
-
-                {enviarOpen && (
-                  <div className="consulta-enviar">
-                    <div className="enviar-linha">
-                      <input
-                        type="text"
-                        placeholder="WhatsApp: DDD + número"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                      />
-                      <button
-                        className="enviar-btn wpp"
-                        onClick={enviarWhatsApp}
-                        disabled={envLoading === 'whatsapp'}
-                      >
-                        {envLoading === 'whatsapp' ? '...' : 'WhatsApp'}
-                      </button>
-                    </div>
-                    <div className="enviar-linha">
-                      <input
-                        type="text"
-                        placeholder="Telegram: chat_id (vazio = padrão)"
-                        value={chatId}
-                        onChange={(e) => setChatId(e.target.value)}
-                      />
-                      <button
-                        className="enviar-btn tg"
-                        onClick={enviarTelegram}
-                        disabled={envLoading === 'telegram'}
-                      >
-                        {envLoading === 'telegram' ? '...' : 'Telegram'}
-                      </button>
-                    </div>
-                    <div className="enviar-nota">
-                      Usa as integrações do seu perfil (Configurações → Integrações).
-                    </div>
-                  </div>
-                )}
-
-                {envMsg && <div className={`enviar-msg ${envMsg.tipo}`}>{envMsg.texto}</div>}
+                <AcoesConsulta tipo="cnpj" dados={resultadoCNPJ} />
                 </>
               )}
             </div>
@@ -399,6 +399,7 @@ export default function ConsultaModal({ onClose }) {
               {erroCPF && <div className="consulta-erro">{erroCPF}</div>}
 
               {resultadoCPF && (
+                <>
                 <div className="consulta-resultado">
                   <div className="resultado-header">
                     <div>
@@ -428,6 +429,9 @@ export default function ConsultaModal({ onClose }) {
                     </div>
                   </div>
                 </div>
+
+                <AcoesConsulta tipo="cpf" dados={resultadoCPF} />
+                </>
               )}
             </div>
           )}

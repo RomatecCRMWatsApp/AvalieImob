@@ -22,7 +22,7 @@ from pydantic import BaseModel
 
 from db import get_db
 from dependencies import get_active_subscriber
-from services.consulta_pdf import gerar_pdf_cnpj
+from services.consulta_pdf import gerar_pdf_cnpj, gerar_pdf_cpf
 
 router = APIRouter(prefix="/consulta", tags=["Consulta"])
 logger = logging.getLogger("romatec")
@@ -388,3 +388,133 @@ async def cnpj_telegram(
     except httpx.HTTPError as e:
         logger.error("Erro ao enviar Telegram (consulta): %s", e)
         raise HTTPException(status_code=502, detail=f"Erro de rede ao enviar Telegram: {e}")
+
+
+# ------------------------------------------------------------------
+# Helpers de envio compartilhados (WhatsApp / Telegram) — usados pelo CPF
+# ------------------------------------------------------------------
+async def _enviar_whatsapp_pdf(db, uid: str, phone: str, pdf: bytes, nome: str, legenda: str):
+    from services import zapi_service
+    from services import meta_whatsapp_service as meta
+
+    cfg = await db.integracoes.find_one({"user_id": uid})
+    if not cfg:
+        raise HTTPException(status_code=400, detail="Nenhum provedor WhatsApp configurado. Cadastre Z-API ou Meta em Configurações → Integrações.")
+    provider = (cfg.get("whatsapp_provider") or "zapi").lower()
+    if provider == "meta":
+        if not cfg.get("meta_phone_number_id") or not cfg.get("meta_access_token"):
+            raise HTTPException(status_code=400, detail="Meta WhatsApp não configurada. Cadastre em Configurações → Integrações.")
+        try:
+            resp = await meta.send_pdf(
+                phone_number_id=cfg["meta_phone_number_id"], access_token=cfg["meta_access_token"],
+                phone=phone, pdf_bytes=pdf, filename=nome, caption=legenda,
+            )
+            return {"ok": True, "provider": "meta", "response": resp}
+        except Exception as e:
+            logger.error("Erro Meta WhatsApp (consulta): %s", e)
+            raise HTTPException(status_code=502, detail=f"Erro Meta WhatsApp: {e}")
+    if not cfg.get("zapi_instance_id") or not cfg.get("zapi_token"):
+        raise HTTPException(status_code=400, detail="Z-API não configurada. Cadastre em Configurações → Integrações.")
+    try:
+        resp = await zapi_service.send_document_pdf(
+            instance_id=cfg["zapi_instance_id"], token=cfg["zapi_token"],
+            security_token=cfg.get("zapi_security_token"),
+            phone=phone, pdf_bytes=pdf, filename=nome, caption=legenda,
+        )
+        return {"ok": True, "provider": "zapi", "response": resp}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error("Erro Z-API (consulta): %s", e)
+        raise HTTPException(status_code=502, detail=f"Erro Z-API: {e}")
+
+
+async def _enviar_telegram_pdf(db, uid: str, chat_id: str, pdf: bytes, nome: str, legenda: str):
+    cfg = await db.integracoes.find_one({"user_id": uid})
+    bot_token = (cfg or {}).get("telegram_bot_token")
+    if not bot_token:
+        raise HTTPException(status_code=400, detail="Telegram não configurado. Cadastre seu bot_token em Configurações → Integrações.")
+    chat = (chat_id or "").strip() or (cfg or {}).get("telegram_chat_id_default")
+    if not chat:
+        raise HTTPException(status_code=400, detail="Informe um chat_id ou configure um padrão em Configurações → Integrações.")
+    url = f"https://api.telegram.org/bot{bot_token}/sendDocument"
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            files = {"document": (nome, pdf, "application/pdf")}
+            data = {"chat_id": chat, "caption": legenda}
+            r = await client.post(url, data=data, files=files)
+            if r.status_code != 200:
+                raise HTTPException(status_code=502, detail=f"Telegram erro {r.status_code}: {r.text[:200]}")
+            return {"ok": True, "telegram_response": r.json()}
+    except httpx.HTTPError as e:
+        logger.error("Erro ao enviar Telegram (consulta): %s", e)
+        raise HTTPException(status_code=502, detail=f"Erro de rede ao enviar Telegram: {e}")
+
+
+# ------------------------------------------------------------------
+# PDF da validação de CPF — visualizar / baixar / enviar
+# ------------------------------------------------------------------
+class CpfPdfRequest(BaseModel):
+    dados: dict
+
+
+class CpfWhatsAppRequest(BaseModel):
+    dados: dict
+    phone: str
+    legenda: Optional[str] = ""
+
+
+class CpfTelegramRequest(BaseModel):
+    dados: dict
+    chat_id: Optional[str] = ""
+    legenda: Optional[str] = ""
+
+
+def _nome_arquivo_cpf(dados: dict) -> str:
+    c = limpar_digitos(dados.get("cpf", "") or "")
+    return f"CPF_{c or 'validacao'}.pdf"
+
+
+def _legenda_cpf(dados: dict) -> str:
+    cpf = (dados.get("cpf") or "").strip()
+    st = "válido" if dados.get("valido") else "inválido"
+    return f"Validação de CPF {cpf} — {st}".strip()
+
+
+@router.post("/cpf/pdf")
+async def cpf_pdf(
+    body: CpfPdfRequest,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db),
+):
+    perfil = await _perfil_avaliador(db, uid)
+    pdf = gerar_pdf_cpf(body.dados, perfil)
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{_nome_arquivo_cpf(body.dados)}"'},
+    )
+
+
+@router.post("/cpf/whatsapp")
+async def cpf_whatsapp(
+    body: CpfWhatsAppRequest,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db),
+):
+    perfil = await _perfil_avaliador(db, uid)
+    pdf = gerar_pdf_cpf(body.dados, perfil)
+    legenda = body.legenda or _legenda_cpf(body.dados)
+    return await _enviar_whatsapp_pdf(db, uid, body.phone, pdf, _nome_arquivo_cpf(body.dados), legenda)
+
+
+@router.post("/cpf/telegram")
+async def cpf_telegram(
+    body: CpfTelegramRequest,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db),
+):
+    perfil = await _perfil_avaliador(db, uid)
+    pdf = gerar_pdf_cpf(body.dados, perfil)
+    legenda = body.legenda or _legenda_cpf(body.dados)
+    return await _enviar_telegram_pdf(db, uid, body.chat_id, pdf, _nome_arquivo_cpf(body.dados), legenda)

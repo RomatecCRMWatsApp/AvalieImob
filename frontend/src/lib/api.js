@@ -351,6 +351,13 @@ export const consultaAPI = {
     api.post('/consulta/cnpj/whatsapp', { dados, phone, legenda }).then(r => r.data),
   telegram: (dados, chat_id = '', legenda = '') =>
     api.post('/consulta/cnpj/telegram', { dados, chat_id, legenda }).then(r => r.data),
+  // PDF da validação de CPF
+  cpfPdf: (dados) =>
+    api.post('/consulta/cpf/pdf', { dados }, { responseType: 'blob' }).then(r => r.data),
+  cpfWhatsapp: (dados, phone, legenda = '') =>
+    api.post('/consulta/cpf/whatsapp', { dados, phone, legenda }).then(r => r.data),
+  cpfTelegram: (dados, chat_id = '', legenda = '') =>
+    api.post('/consulta/cpf/telegram', { dados, chat_id, legenda }).then(r => r.data),
 };
 
 // ---- Recibos (independentes — honorários, serviços, mão de obra...)
