@@ -443,12 +443,13 @@ async def enviar_whatsapp(
     from pdf.recibo_pdf import gerar_recibo_pdf
     from services import zapi_service
     from services import meta_whatsapp_service as meta
+    from services.integracoes_util import carregar_integracoes
 
     doc = await db.recibos.find_one({"id": rid, "user_id": uid})
     if not doc:
         raise HTTPException(status_code=404, detail="Recibo não encontrado")
 
-    cfg = await db.integracoes.find_one({"user_id": uid})
+    cfg = await carregar_integracoes(db, uid)
     if not cfg:
         raise HTTPException(
             status_code=400,

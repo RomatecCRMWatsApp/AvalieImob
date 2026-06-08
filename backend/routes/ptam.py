@@ -20,6 +20,7 @@ from utils.ptam_status import calcular_status_ptam
 from pdf.ptam_pdf import generate_ptam_pdf
 from ptam_docx import generate_ptam_docx
 from services.ptam_pdf_v2 import generate_ptam_pdf_v2
+from services.integracoes_util import carregar_integracoes
 
 router = APIRouter(tags=["ptam"])
 logger = logging.getLogger("romatec")
@@ -1867,7 +1868,7 @@ async def enviar_telegram(
     """
     import httpx as _httpx
 
-    cfg = await db.integracoes.find_one({"user_id": uid})
+    cfg = await carregar_integracoes(db, uid)
     bot_token = (cfg or {}).get("telegram_bot_token")
     if not bot_token:
         raise HTTPException(
@@ -1929,7 +1930,7 @@ async def enviar_whatsapp(
     from services import zapi_service
     from services import meta_whatsapp_service as meta
 
-    cfg = await db.integracoes.find_one({"user_id": uid})
+    cfg = await carregar_integracoes(db, uid)
     if not cfg:
         raise HTTPException(
             status_code=400,

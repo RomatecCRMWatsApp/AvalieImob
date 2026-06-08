@@ -23,6 +23,7 @@ from pydantic import BaseModel
 from db import get_db
 from dependencies import get_active_subscriber
 from services.consulta_pdf import gerar_pdf_cnpj, gerar_pdf_cpf
+from services.integracoes_util import carregar_integracoes
 
 router = APIRouter(prefix="/consulta", tags=["Consulta"])
 logger = logging.getLogger("romatec")
@@ -314,7 +315,7 @@ async def cnpj_whatsapp(
     from services import zapi_service
     from services import meta_whatsapp_service as meta
 
-    cfg = await db.integracoes.find_one({"user_id": uid})
+    cfg = await carregar_integracoes(db, uid)
     if not cfg:
         raise HTTPException(
             status_code=400,
@@ -363,7 +364,7 @@ async def cnpj_telegram(
     db=Depends(get_db),
 ):
     """Envia o PDF da consulta CNPJ via bot Telegram do usuário."""
-    cfg = await db.integracoes.find_one({"user_id": uid})
+    cfg = await carregar_integracoes(db, uid)
     bot_token = (cfg or {}).get("telegram_bot_token")
     if not bot_token:
         raise HTTPException(status_code=400, detail="Telegram não configurado. Cadastre seu bot_token em Configurações → Integrações.")
@@ -397,7 +398,7 @@ async def _enviar_whatsapp_pdf(db, uid: str, phone: str, pdf: bytes, nome: str, 
     from services import zapi_service
     from services import meta_whatsapp_service as meta
 
-    cfg = await db.integracoes.find_one({"user_id": uid})
+    cfg = await carregar_integracoes(db, uid)
     if not cfg:
         raise HTTPException(status_code=400, detail="Nenhum provedor WhatsApp configurado. Cadastre Z-API ou Meta em Configurações → Integrações.")
     provider = (cfg.get("whatsapp_provider") or "zapi").lower()
@@ -430,7 +431,7 @@ async def _enviar_whatsapp_pdf(db, uid: str, phone: str, pdf: bytes, nome: str, 
 
 
 async def _enviar_telegram_pdf(db, uid: str, chat_id: str, pdf: bytes, nome: str, legenda: str):
-    cfg = await db.integracoes.find_one({"user_id": uid})
+    cfg = await carregar_integracoes(db, uid)
     bot_token = (cfg or {}).get("telegram_bot_token")
     if not bot_token:
         raise HTTPException(status_code=400, detail="Telegram não configurado. Cadastre seu bot_token em Configurações → Integrações.")

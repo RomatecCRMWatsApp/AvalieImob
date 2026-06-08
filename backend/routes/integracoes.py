@@ -17,6 +17,7 @@ from pydantic import BaseModel
 from db import get_db
 from dependencies import get_active_subscriber
 from models import Integracoes, IntegracoesBase, IntegracoesPublic, mascarar_token
+from services.integracoes_util import cifrar_update, decifrar_doc
 
 logger = logging.getLogger("romatec")
 router = APIRouter(tags=["integracoes"], prefix="/integracoes")
@@ -108,6 +109,8 @@ async def update_integracoes(
     if not update:
         raise HTTPException(status_code=400, detail="Nenhum campo válido para atualizar")
 
+    # Cifra os tokens sensíveis em repouso (AES-256-GCM) antes de persistir.
+    update = cifrar_update(update)
     update["updated_at"] = datetime.utcnow()
 
     existing = await db.integracoes.find_one({"user_id": uid})
@@ -129,7 +132,7 @@ async def testar_zapi(
     db=Depends(get_db),
 ):
     from services import zapi_service
-    cfg = await db.integracoes.find_one({"user_id": uid})
+    cfg = decifrar_doc(await db.integracoes.find_one({"user_id": uid}))
     if not cfg or not cfg.get("zapi_instance_id") or not cfg.get("zapi_token"):
         raise HTTPException(status_code=400, detail="Z-API não configurado")
     try:
@@ -151,7 +154,7 @@ async def testar_meta(
     db=Depends(get_db),
 ):
     from services import meta_whatsapp_service as meta
-    cfg = await db.integracoes.find_one({"user_id": uid})
+    cfg = decifrar_doc(await db.integracoes.find_one({"user_id": uid}))
     if not cfg or not cfg.get("meta_phone_number_id") or not cfg.get("meta_access_token"):
         raise HTTPException(status_code=400, detail="Meta WhatsApp não configurado")
     try:
@@ -183,7 +186,7 @@ async def whatsapp_enviar_teste(
     from services import zapi_service
     from services import meta_whatsapp_service as meta_svc
 
-    cfg = await db.integracoes.find_one({"user_id": uid})
+    cfg = decifrar_doc(await db.integracoes.find_one({"user_id": uid}))
     if not cfg:
         raise HTTPException(status_code=400, detail="Integração não configurada")
     provider = (cfg.get("whatsapp_provider") or "zapi").lower()
@@ -242,7 +245,7 @@ async def testar_telegram(
     uid: str = Depends(get_active_subscriber),
     db=Depends(get_db),
 ):
-    cfg = await db.integracoes.find_one({"user_id": uid})
+    cfg = decifrar_doc(await db.integracoes.find_one({"user_id": uid}))
     if not cfg or not cfg.get("telegram_bot_token"):
         raise HTTPException(status_code=400, detail="Telegram não configurado")
     chat_id = body.chat_id or cfg.get("telegram_chat_id_default")

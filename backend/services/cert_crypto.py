@@ -69,6 +69,38 @@ def decrypt_bytes(ciphertext: bytes, nonce: bytes) -> bytes:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Cifra de strings (tokens de integração) — token único autocontido (nonce embutido)
+# ─────────────────────────────────────────────────────────────────────────────
+_ENC_PREFIX = "enc:v1:"
+
+
+def encrypt_str(plaintext):
+    """Cifra uma string e retorna 'enc:v1:<urlsafe_b64(nonce+ct)>'.
+    None/'' passam direto; valor já cifrado não é cifrado de novo (idempotente)."""
+    if plaintext is None or plaintext == "":
+        return plaintext
+    s = str(plaintext)
+    if s.startswith(_ENC_PREFIX):
+        return s
+    ct, nonce = encrypt_bytes(s.encode("utf-8"))
+    return _ENC_PREFIX + base64.urlsafe_b64encode(nonce + ct).decode("ascii")
+
+
+def decrypt_str(value):
+    """Decifra uma string cifrada. Valor legado em texto puro (sem prefixo) é
+    retornado como está — permite migração sem downtime."""
+    if not isinstance(value, str) or not value.startswith(_ENC_PREFIX):
+        return value
+    try:
+        raw = base64.urlsafe_b64decode(value[len(_ENC_PREFIX):].encode("ascii"))
+        nonce, ct = raw[:12], raw[12:]
+        return decrypt_bytes(ct, nonce).decode("utf-8")
+    except Exception as e:
+        logger.error("Falha ao decifrar segredo de integração: %s", e)
+        return ""
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Parser .pfx — extrair metadados ICP-Brasil
 # ─────────────────────────────────────────────────────────────────────────────
 
