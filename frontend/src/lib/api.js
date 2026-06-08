@@ -337,6 +337,15 @@ export const contratosAPI = {
   excluir: (id) => api.delete(`/contratos/${id}`).then(r => r.data),
 };
 
+// ---- Consulta CNPJ/CPF (Receita Federal — fallback ProspectaBR → CNPJ.ws → ReceitaWS)
+export const consultaAPI = {
+  cnpj: (cnpj) => api.get(`/consulta/cnpj/${encodeURIComponent(cnpj)}`).then(r => r.data),
+  validarCpf: (cpf, dataNascimento) =>
+    api.get('/consulta/cpf/validar', {
+      params: { cpf, ...(dataNascimento ? { data_nascimento: dataNascimento } : {}) },
+    }).then(r => r.data),
+};
+
 // ---- Recibos (independentes — honorários, serviços, mão de obra...)
 export const recibosAPI = {
   listar: (params) => api.get('/recibos', { params }).then(r => r.data),

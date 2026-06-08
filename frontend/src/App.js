@@ -7,6 +7,7 @@ import { Toaster } from './components/ui/toaster';
 import InstallPrompt from './components/common/InstallPrompt';
 import RomaIAWidget from './components/common/RomaIAWidget';
 import DarkModeToggle from './components/DarkModeToggle';
+import ConsultaWidget from './components/consulta/ConsultaWidget';
 
 import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
@@ -141,6 +142,7 @@ function App() {
             <Toaster />
             <InstallPrompt />
             <RomaIAWidget />
+            <ConsultaWidget />
             <DarkModeToggle />
           </BrowserRouter>
         </AuthProvider>

@@ -1,0 +1,40 @@
+/* ==============================
+   FAB — Botão flutuante lateral
+   ============================== */
+.consulta-fab {
+  position: fixed;
+  right: -68px;
+  top: 38%;
+  transform: translateY(-50%) rotate(-90deg);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: linear-gradient(135deg, #1a3a5c, #0e6eb8);
+  color: #fff;
+  border: none;
+  border-radius: 8px 8px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  box-shadow: -2px 0 12px rgba(0, 0, 0, 0.25);
+  transition: right 0.25s ease, background 0.2s;
+  white-space: nowrap;
+}
+
+.consulta-fab:hover {
+  right: -54px;
+  background: linear-gradient(135deg, #0e6eb8, #0a5490);
+}
+
+.consulta-fab-icon {
+  font-size: 14px;
+}
+
+.consulta-fab-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}

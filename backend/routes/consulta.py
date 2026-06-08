@@ -1,0 +1,234 @@
+# @module routes.consulta — Consulta rápida CNPJ (Receita Federal) e validação de CPF
+"""
+Consulta CNPJ com fallback em cascata e validação matemática de CPF.
+
+CNPJ:  ProspectaBR (VPS própria) -> CNPJ.ws (público) -> ReceitaWS (público)
+CPF:   validação local dos dígitos verificadores (sem base nominal)
+
+O server.py registra todos os routers sob o prefixo /api, então os caminhos
+finais expostos são:
+    GET /api/consulta/cnpj/{cnpj}
+    GET /api/consulta/cpf/validar?cpf=...&data_nascimento=YYYY-MM-DD
+"""
+import os
+import re
+import logging
+
+import httpx
+from fastapi import APIRouter, HTTPException
+
+router = APIRouter(prefix="/consulta", tags=["Consulta"])
+logger = logging.getLogger("romatec")
+
+
+# ------------------------------------------------------------------
+# Utilidades
+# ------------------------------------------------------------------
+def limpar_digitos(valor: str) -> str:
+    return re.sub(r"[^\d]", "", valor or "")
+
+
+def formatar_cnpj(cnpj: str) -> str:
+    c = limpar_digitos(cnpj)
+    if len(c) != 14:
+        return cnpj
+    return f"{c[:2]}.{c[2:5]}.{c[5:8]}/{c[8:12]}-{c[12:]}"
+
+
+def validar_cnpj(cnpj: str) -> bool:
+    c = limpar_digitos(cnpj)
+    if len(c) != 14 or c == c[0] * 14:
+        return False
+
+    def calc(base: str, pesos: list[int]) -> int:
+        s = sum(int(base[i]) * pesos[i] for i in range(len(pesos)))
+        r = s % 11
+        return 0 if r < 2 else 11 - r
+
+    p1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+    p2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+    return calc(c, p1) == int(c[12]) and calc(c, p2) == int(c[13])
+
+
+def validar_cpf(cpf: str) -> bool:
+    c = limpar_digitos(cpf)
+    if len(c) != 11 or c == c[0] * 11:
+        return False
+
+    def calc(base: str, n: int) -> int:
+        s = sum(int(base[i]) * (n - i) for i in range(n - 1))
+        r = s % 11
+        return 0 if r < 2 else 11 - r
+
+    return calc(c, 10) == int(c[9]) and calc(c, 11) == int(c[10])
+
+
+def _float_safe(valor) -> float:
+    if valor is None:
+        return 0.0
+    if isinstance(valor, (int, float)):
+        return float(valor)
+    s = re.sub(r"[^\d,]", "", str(valor))  # "1.000.000,00" -> "1000000,00"
+    if not s:
+        return 0.0
+    s = s.replace(",", ".")
+    try:
+        return float(s)
+    except ValueError:
+        return 0.0
+
+
+# ------------------------------------------------------------------
+# Fontes CNPJ (fallback em cascata)
+# ------------------------------------------------------------------
+async def consultar_cnpj_prospectabr(cnpj: str) -> dict | None:
+    host = os.getenv("PROSPECTABR_HOST", "").strip()
+    if not host:
+        return None
+    token = os.getenv("PROSPECTABR_TOKEN", "").strip()
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            r = await client.get(
+                f"{host.rstrip('/')}/api/cnpj/{cnpj}",
+                headers={"Authorization": f"Bearer {token}"} if token else {},
+            )
+            if r.status_code != 200:
+                return None
+            d = r.json()
+            nat = d.get("natureza_juridica")
+            return {
+                "cnpj": cnpj,
+                "razao_social": d.get("razao_social", ""),
+                "nome_fantasia": d.get("nome_fantasia", ""),
+                "situacao": d.get("situacao_cadastral", ""),
+                "data_abertura": d.get("data_inicio_atividade", ""),
+                "natureza_juridica": nat.get("descricao", "") if isinstance(nat, dict) else str(nat or ""),
+                "atividade_principal": d.get("cnae_fiscal_descricao", ""),
+                "logradouro": d.get("logradouro", ""),
+                "numero": d.get("numero", ""),
+                "bairro": d.get("bairro", ""),
+                "municipio": d.get("municipio", ""),
+                "uf": d.get("uf", ""),
+                "cep": d.get("cep", ""),
+                "telefone": d.get("ddd_telefone_1", ""),
+                "email": d.get("email", ""),
+                "capital_social": _float_safe(d.get("capital_social")),
+                "porte": d.get("porte", ""),
+                "fonte": "prospectabr",
+            }
+    except Exception as e:
+        logger.warning("ProspectaBR falhou para %s: %s", cnpj, e)
+        return None
+
+
+async def consultar_cnpj_cnpjws(cnpj: str) -> dict | None:
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            r = await client.get(f"https://publica.cnpj.ws/cnpj/{cnpj}")
+            if r.status_code != 200:
+                return None
+            d = r.json()
+            est = d.get("estabelecimento", {}) or {}
+            ativ = est.get("atividade_principal", {})
+            ativ_desc = ativ.get("descricao", "") if isinstance(ativ, dict) else ""
+            nat = d.get("natureza_juridica")
+            cidade = est.get("cidade")
+            estado = est.get("estado")
+            tel = f"{est.get('ddd1', '')}{est.get('telefone1', '')}" if est.get("telefone1") else ""
+            return {
+                "cnpj": cnpj,
+                "razao_social": d.get("razao_social", ""),
+                "nome_fantasia": est.get("nome_fantasia", ""),
+                "situacao": est.get("situacao_cadastral", ""),
+                "data_abertura": est.get("data_inicio_atividade", ""),
+                "natureza_juridica": nat.get("descricao", "") if isinstance(nat, dict) else "",
+                "atividade_principal": ativ_desc,
+                "logradouro": est.get("logradouro", ""),
+                "numero": est.get("numero", ""),
+                "bairro": est.get("bairro", ""),
+                "municipio": cidade.get("nome", "") if isinstance(cidade, dict) else "",
+                "uf": estado.get("sigla", "") if isinstance(estado, dict) else "",
+                "cep": est.get("cep", ""),
+                "telefone": tel,
+                "email": est.get("email", ""),
+                "capital_social": _float_safe(d.get("capital_social")),
+                "porte": d.get("porte", {}).get("descricao", "") if isinstance(d.get("porte"), dict) else "",
+                "fonte": "cnpjws",
+            }
+    except Exception as e:
+        logger.warning("CNPJ.ws falhou para %s: %s", cnpj, e)
+        return None
+
+
+async def consultar_cnpj_receitaws(cnpj: str) -> dict | None:
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            r = await client.get(f"https://receitaws.com.br/v1/cnpj/{cnpj}")
+            if r.status_code != 200:
+                return None
+            d = r.json()
+            if d.get("status") == "ERROR":
+                return None
+            ativ = d.get("atividade_principal", [{}]) or [{}]
+            ativ_desc = ativ[0].get("text", "") if ativ else ""
+            return {
+                "cnpj": cnpj,
+                "razao_social": d.get("nome", ""),
+                "nome_fantasia": d.get("fantasia", ""),
+                "situacao": d.get("situacao", ""),
+                "data_abertura": d.get("abertura", ""),
+                "natureza_juridica": d.get("natureza_juridica", ""),
+                "atividade_principal": ativ_desc,
+                "logradouro": d.get("logradouro", ""),
+                "numero": d.get("numero", ""),
+                "bairro": d.get("bairro", ""),
+                "municipio": d.get("municipio", ""),
+                "uf": d.get("uf", ""),
+                "cep": d.get("cep", ""),
+                "telefone": d.get("telefone", ""),
+                "email": d.get("email", ""),
+                "capital_social": _float_safe(d.get("capital_social")),
+                "porte": d.get("porte", ""),
+                "fonte": "receitaws",
+            }
+    except Exception as e:
+        logger.warning("ReceitaWS falhou para %s: %s", cnpj, e)
+        return None
+
+
+# ------------------------------------------------------------------
+# Endpoints
+# ------------------------------------------------------------------
+@router.get("/cnpj/{cnpj}")
+async def get_cnpj(cnpj: str):
+    c = limpar_digitos(cnpj)
+    if not validar_cnpj(c):
+        raise HTTPException(status_code=400, detail="CNPJ inválido")
+
+    resultado = (
+        await consultar_cnpj_prospectabr(c)
+        or await consultar_cnpj_cnpjws(c)
+        or await consultar_cnpj_receitaws(c)
+    )
+
+    if not resultado:
+        raise HTTPException(status_code=404, detail="CNPJ não encontrado")
+
+    resultado["cnpj"] = formatar_cnpj(resultado.get("cnpj", c))
+    return resultado
+
+
+@router.get("/cpf/validar")
+async def validar_cpf_endpoint(cpf: str, data_nascimento: str | None = None):
+    """Valida CPF localmente (dígitos verificadores). Não consulta base nominal."""
+    c = limpar_digitos(cpf)
+    valido = validar_cpf(c)
+    formatado = f"{c[:3]}.{c[3:6]}.{c[6:9]}-{c[9:]}" if len(c) == 11 else cpf
+
+    return {
+        "cpf": formatado,
+        "valido": valido,
+        "mensagem": "CPF válido" if valido else "CPF inválido — dígitos verificadores incorretos",
+        "data_nascimento_informada": data_nascimento,
+        "observacao": "Validação matemática local. Para consulta nominal, integre com Serpro/GOV.BR.",
+    }

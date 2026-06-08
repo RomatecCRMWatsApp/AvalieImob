@@ -31,6 +31,7 @@ from routes.certificados import router as certificados_router
 from routes.integracoes import router as integracoes_router
 from routes.recibos import router as recibos_router
 from routes.incra import router as incra_router
+from routes.consulta import router as consulta_router
 
 all_routers = [
     auth_router, users_router, ptam_router, locacao_router,
@@ -42,4 +43,5 @@ all_routers = [
     search_router, assinatura_router, samples_router, cub_router,
     sigef_router, zonas_router, contratos_router, certificados_router,
     integracoes_router, recibos_router, incra_router,
+    consulta_router,
 ]
