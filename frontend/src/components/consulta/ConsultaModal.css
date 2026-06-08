@@ -39,6 +39,21 @@
   to { transform: translateX(0); opacity: 1; }
 }
 
+/* ==============================
+   Card da página integrada (dashboard)
+   ============================== */
+.consulta-page-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
 /* Header */
 .consulta-header {
   display: flex;

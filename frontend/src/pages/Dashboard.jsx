@@ -39,6 +39,7 @@ import TVINew from '../components/dashboard/tvi/TVINew';
 import TVIForm from '../components/dashboard/tvi/TVIForm';
 import CNDConsulta from '../components/dashboard/cnd/CNDConsulta';
 import CNDHistorico from '../components/dashboard/cnd/CNDHistorico';
+import ConsultaPage from '../components/dashboard/consulta/ConsultaPage';
 import GlobalSearch from '../components/common/GlobalSearch';
 import ContratosList from '../components/dashboard/contratos/ContratosList';
 import ContratoWizard from '../components/dashboard/contratos/ContratoWizard';
@@ -87,6 +88,7 @@ const NAV_GROUPS = [
     label: 'Ferramentas',
     items: [
       { to: '/dashboard/ia',        custom: 'roma_ia', label: 'Roma_IA' },
+      { to: '/dashboard/consulta',  icon: Building2,    label: 'Consulta CNPJ/CPF' },
       { to: '/dashboard/cnd',       icon: FileSearch,  label: 'Certidões CND' },
       { to: '/dashboard/admin/incra', icon: BarChart3, label: 'Tabelas INCRA' },
     ],
@@ -433,6 +435,7 @@ const Dashboard = () => {
             <Route path="tvi/:id"          element={<TVIForm />} />
             <Route path="cnd"              element={<CNDConsulta />} />
             <Route path="cnd/historico"    element={<CNDHistorico />} />
+            <Route path="consulta"         element={<ConsultaPage />} />
             <Route path="contratos"        element={<ContratosList />} />
             <Route path="contratos/novo"   element={<ContratoWizard />} />
             <Route path="contratos/:id"    element={<ContratoWizard />} />
