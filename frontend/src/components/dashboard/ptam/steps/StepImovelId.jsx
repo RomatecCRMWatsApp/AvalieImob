@@ -12,6 +12,7 @@ import RichField from '../../../ui/RichField';
 import ImovelMap from '../../../maps/ImovelMap';
 import StreetView from '../../../maps/StreetView';
 import { ConsultaSIGEF } from '../ConsultaSIGEF';
+import BciIptuSection from './BciIptuSection';
 
 export const StepImovelId = ({ form, setForm }) => {
   const rural = isRural(form.property_type);
@@ -184,6 +185,9 @@ export const StepImovelId = ({ form, setForm }) => {
 
       <RuralDocSection form={form} setForm={setForm} />
     </div>
+
+    {/* Cadastro Imobiliário Municipal (BCI / IPTU) — só imóvel urbano */}
+    <BciIptuSection form={form} setForm={setForm} />
 
     <div className="mt-8 space-y-6 border-t border-gray-100 pt-6">
       <div>

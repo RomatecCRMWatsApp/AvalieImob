@@ -91,6 +91,43 @@ class PtamMarketSample(BaseModel):
     docas: Optional[int] = 0
 
 
+class BCICadastral(BaseModel):
+    """Boletim do Cadastro Imobiliário (BCI) — Prefeitura Municipal. Imóvel urbano."""
+    model_config = ConfigDict(extra="allow")
+    codigo_imovel: Optional[str] = None
+    inscricao_cadastral: Optional[str] = None
+    setor: Optional[str] = None
+    quadra: Optional[str] = None
+    lote: Optional[str] = None
+    unidade: Optional[str] = None
+    situacao: Optional[str] = None
+    natureza: Optional[str] = None
+    data_cadastro: Optional[str] = None
+    data_construcao: Optional[str] = None
+    proprietario_nome: Optional[str] = None
+    proprietario_doc: Optional[str] = None
+    testada_principal: Optional[float] = None
+    prof_lote: Optional[float] = None
+    area_edificacao: Optional[float] = None
+    area_terreno: Optional[float] = None
+    area_total_edificacao: Optional[float] = None
+
+
+class IPTUDados(BaseModel):
+    """Situação do IPTU municipal (exercício, débitos, parcelamento)."""
+    model_config = ConfigDict(extra="allow")
+    inscricao_contribuinte: Optional[str] = None
+    exercicio: Optional[int] = None
+    valor_anual: Optional[float] = None
+    debito_total: Optional[float] = None
+    desconto: Optional[float] = None
+    valor_cobrado: Optional[float] = None
+    situacao: Optional[str] = None  # Em dia | Em aberto | Parcelado | Isento
+    acordo: Optional[str] = None
+    vencimento: Optional[str] = None
+    exercicios_debito: Optional[str] = None
+
+
 class PtamBase(BaseModel):
     # Seção 1 — Identificação do Solicitante
     numero_ptam: Optional[str] = None
@@ -131,6 +168,9 @@ class PtamBase(BaseModel):
     property_area_sqm: float = 0
     property_confrontations: Optional[str] = ""
     property_description: Optional[str] = ""
+    # Cadastro Imobiliário Municipal (BCI / IPTU) — somente imóvel urbano.
+    bci: Optional[BCICadastral] = None
+    iptu: Optional[IPTUDados] = None
 
     # Seção 4 — Caracterização da Região
     regiao_infraestrutura: Optional[str] = ""

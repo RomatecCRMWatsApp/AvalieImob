@@ -1109,6 +1109,83 @@ def tbl_header(header, linhas, cw, bold_last=False):
     return t
 
 
+def _bloco_bci_iptu(ptam):
+    """Seções 3.2 (Cadastro Imobiliário Municipal — BCI) e 3.3 (Situação do IPTU).
+    Somente imóvel urbano. Retorna lista de flowables; omite linhas vazias e não
+    renderiza nada (sem seção fantasma) se BCI e IPTU estiverem ambos vazios."""
+    if _is_rural(ptam):
+        return []
+    bci = ptam.get('bci') or {}
+    iptu = ptam.get('iptu') or {}
+    if not isinstance(bci, dict):
+        bci = {}
+    if not isinstance(iptu, dict):
+        iptu = {}
+
+    def _fa(v):
+        return fmt_area(v) if _preenchido(v) else None
+
+    def _fm(v):
+        return fmt_moeda(v) if _preenchido(v) else None
+
+    # ── 3.2 — BCI ──
+    _sql = ' / '.join(x for x in [
+        _txt(bci.get('setor'), ''), _txt(bci.get('quadra'), ''),
+        _txt(bci.get('lote'), ''), _txt(bci.get('unidade'), ''),
+    ] if x)
+    _bci_rows = [
+        ('Inscrição Cadastral', bci.get('inscricao_cadastral')),
+        ('Código do Imóvel (CTI)', bci.get('codigo_imovel')),
+        ('Setor / Quadra / Lote / Unidade', _sql or None),
+        ('Natureza', bci.get('natureza')),
+        ('Situação Cadastral', bci.get('situacao')),
+        ('Data de Cadastro', bci.get('data_cadastro')),
+        ('Data de Construção', bci.get('data_construcao')),
+        ('Proprietário / Detentor (BCI)', bci.get('proprietario_nome')),
+        ('CPF / CNPJ', formata_doc(bci.get('proprietario_doc')) if bci.get('proprietario_doc') else None),
+        ('Testada Principal', _fa(bci.get('testada_principal'))),
+        ('Profundidade do Lote', _fa(bci.get('prof_lote'))),
+        ('Área do Terreno', _fa(bci.get('area_terreno'))),
+        ('Área da Edificação', _fa(bci.get('area_edificacao'))),
+        ('Área Total da Edificação', _fa(bci.get('area_total_edificacao'))),
+    ]
+    _bci_rows = [(lb, _txt(vl)) for lb, vl in _bci_rows if _preenchido(vl)]
+
+    # ── 3.3 — IPTU ──
+    _sit = _txt(iptu.get('situacao'), '')
+    _sit_low = _sit.strip().lower()
+    _sit_fmt = _sit
+    if _sit_low in ('em aberto', 'parcelado'):
+        _sit_fmt = f'<b><font color="#C62828">{_esc_xml(_sit.upper())}</font></b>'
+    _exerc = iptu.get('exercicio')
+    _iptu_rows = [
+        ('Inscrição do Contribuinte', iptu.get('inscricao_contribuinte')),
+        ('Exercício de Referência', str(_exerc) if _exerc else None),
+        ('Valor Anual do IPTU', _fm(iptu.get('valor_anual'))),
+        ('Situação', _sit_fmt if _sit else None),
+        ('Nº do Acordo de Parcelamento', iptu.get('acordo') if _sit_low == 'parcelado' else None),
+        ('Vencimento', iptu.get('vencimento')),
+        ('Débito Total', _fm(iptu.get('debito_total'))),
+        ('Desconto Concedido', _fm(iptu.get('desconto'))),
+        ('Valor Cobrado / a Pagar', _fm(iptu.get('valor_cobrado'))),
+        ('Exercícios com Débito', iptu.get('exercicios_debito') if _sit_low in ('em aberto', 'parcelado') else None),
+    ]
+    # 'Situação' preserva o markup (negrito/vermelho); demais passam por _txt.
+    _iptu_rows = [(lb, vl if lb == 'Situação' else _txt(vl))
+                  for lb, vl in _iptu_rows if _preenchido(vl)]
+
+    out = []
+    if _bci_rows:
+        out.append(Spacer(1, 8))
+        out += subsec('3.2 Cadastro Imobiliário Municipal (BCI)')
+        out.append(tbl(_bci_rows))
+    if _iptu_rows:
+        out.append(Spacer(1, 8))
+        out += subsec('3.3 Situação do IPTU')
+        out.append(tbl(_iptu_rows))
+    return out
+
+
 # Cores do destaque da faixa INCRA (azul = dentro / vermelho = fora-mais-próxima).
 AZUL_FAIXA = HexColor('#BBDEFB')
 AZUL_TEXTO = HexColor('#1565C0')
@@ -1535,6 +1612,8 @@ def build_story(ptam, page_map):
         _areas_extra.append(('Área (hectares)', f"{_txt(ptam.get('property_area_ha'))} ha"))
     if _areas_extra:
         st.append(tbl(_areas_extra))
+    # 3.2 Cadastro Imobiliário Municipal (BCI) + 3.3 IPTU — só urbano, logo após a identificação.
+    st += _bloco_bci_iptu(ptam)
     # Descrição Geral do Imóvel (texto livre da matrícula) — íntegra.
     _desc = html_to_inline(limpar_texto_ia(ptam.get('property_description')))
     if _desc:
