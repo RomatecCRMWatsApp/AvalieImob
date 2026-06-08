@@ -64,14 +64,23 @@ def validar_cpf(cpf: str) -> bool:
 
 
 def _float_safe(valor) -> float:
+    """Converte capital_social para float, tolerando os 3 formatos das fontes:
+    número puro (120000000000.0), string BR ("1.000.000,00") e
+    string com ponto decimal ("120000000000.00")."""
     if valor is None:
         return 0.0
     if isinstance(valor, (int, float)):
         return float(valor)
-    s = re.sub(r"[^\d,]", "", str(valor))  # "1.000.000,00" -> "1000000,00"
+    s = re.sub(r"[^\d.,]", "", str(valor)).strip()  # mantém dígitos, ponto e vírgula
     if not s:
         return 0.0
-    s = s.replace(",", ".")
+    if "," in s and "." in s:
+        # formato BR: ponto = milhar, vírgula = decimal -> "1.000.000,00"
+        s = s.replace(".", "").replace(",", ".")
+    elif "," in s:
+        # só vírgula = separador decimal -> "1000000,00"
+        s = s.replace(",", ".")
+    # só ponto (ou só dígitos): ponto já é o decimal -> "120000000000.00"
     try:
         return float(s)
     except ValueError:
