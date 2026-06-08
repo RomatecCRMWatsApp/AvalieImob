@@ -22,7 +22,7 @@ from pydantic import BaseModel
 
 from db import get_db
 from dependencies import get_active_subscriber
-from services.consulta_pdf import gerar_pdf_cnpj, gerar_pdf_cpf
+from services.pdf_consulta import gerar_pdf_cnpj, gerar_pdf_cpf
 from services.integracoes_util import carregar_integracoes
 
 router = APIRouter(prefix="/consulta", tags=["Consulta"])
