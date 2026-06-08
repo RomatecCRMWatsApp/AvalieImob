@@ -13,9 +13,16 @@ finais expostos são:
 import os
 import re
 import logging
+from typing import Optional
 
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
+from fastapi.responses import Response
+from pydantic import BaseModel
+
+from db import get_db
+from dependencies import get_active_subscriber
+from services.consulta_pdf import gerar_pdf_cnpj
 
 router = APIRouter(prefix="/consulta", tags=["Consulta"])
 logger = logging.getLogger("romatec")
@@ -241,3 +248,143 @@ async def validar_cpf_endpoint(cpf: str, data_nascimento: str | None = None):
         "data_nascimento_informada": data_nascimento,
         "observacao": "Validação matemática local. Para consulta nominal, integre com Serpro/GOV.BR.",
     }
+
+
+# ------------------------------------------------------------------
+# PDF da consulta CNPJ — visualizar / baixar / enviar (WhatsApp, Telegram)
+# Recebem o `dados` já normalizado pelo frontend (evita refetch nas fontes).
+# ------------------------------------------------------------------
+class CnpjPdfRequest(BaseModel):
+    dados: dict
+
+
+class CnpjWhatsAppRequest(BaseModel):
+    dados: dict
+    phone: str
+    legenda: Optional[str] = ""
+
+
+class CnpjTelegramRequest(BaseModel):
+    dados: dict
+    chat_id: Optional[str] = ""
+    legenda: Optional[str] = ""
+
+
+async def _perfil_avaliador(db, uid: str) -> dict:
+    p = await db.perfil_avaliador.find_one({"user_id": uid})
+    if p:
+        p.pop("_id", None)
+    return p or {}
+
+
+def _nome_arquivo_cnpj(dados: dict) -> str:
+    c = limpar_digitos(dados.get("cnpj", "") or "")
+    return f"CNPJ_{c or 'consulta'}.pdf"
+
+
+def _legenda_padrao(dados: dict) -> str:
+    razao = (dados.get("razao_social") or "").strip()
+    cnpj = (dados.get("cnpj") or "").strip()
+    return f"Consulta CNPJ — {razao} ({cnpj})".strip(" —()")
+
+
+@router.post("/cnpj/pdf")
+async def cnpj_pdf(
+    body: CnpjPdfRequest,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db),
+):
+    """Gera o PDF do resultado da consulta CNPJ (inline para visualizar/baixar)."""
+    perfil = await _perfil_avaliador(db, uid)
+    pdf = gerar_pdf_cnpj(body.dados, perfil)
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{_nome_arquivo_cnpj(body.dados)}"'},
+    )
+
+
+@router.post("/cnpj/whatsapp")
+async def cnpj_whatsapp(
+    body: CnpjWhatsAppRequest,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db),
+):
+    """Envia o PDF da consulta CNPJ via WhatsApp do usuário (Z-API ou Meta)."""
+    from services import zapi_service
+    from services import meta_whatsapp_service as meta
+
+    cfg = await db.integracoes.find_one({"user_id": uid})
+    if not cfg:
+        raise HTTPException(
+            status_code=400,
+            detail="Nenhum provedor WhatsApp configurado. Cadastre Z-API ou Meta em Configurações → Integrações.",
+        )
+    perfil = await _perfil_avaliador(db, uid)
+    pdf = gerar_pdf_cnpj(body.dados, perfil)
+    nome = _nome_arquivo_cnpj(body.dados)
+    legenda = body.legenda or _legenda_padrao(body.dados)
+    provider = (cfg.get("whatsapp_provider") or "zapi").lower()
+
+    if provider == "meta":
+        if not cfg.get("meta_phone_number_id") or not cfg.get("meta_access_token"):
+            raise HTTPException(status_code=400, detail="Meta WhatsApp não configurada. Cadastre em Configurações → Integrações.")
+        try:
+            resp = await meta.send_pdf(
+                phone_number_id=cfg["meta_phone_number_id"],
+                access_token=cfg["meta_access_token"],
+                phone=body.phone, pdf_bytes=pdf, filename=nome, caption=legenda,
+            )
+            return {"ok": True, "provider": "meta", "response": resp}
+        except Exception as e:
+            logger.error("Erro Meta WhatsApp (consulta): %s", e)
+            raise HTTPException(status_code=502, detail=f"Erro Meta WhatsApp: {e}")
+
+    if not cfg.get("zapi_instance_id") or not cfg.get("zapi_token"):
+        raise HTTPException(status_code=400, detail="Z-API não configurada. Cadastre em Configurações → Integrações.")
+    try:
+        resp = await zapi_service.send_document_pdf(
+            instance_id=cfg["zapi_instance_id"], token=cfg["zapi_token"],
+            security_token=cfg.get("zapi_security_token"),
+            phone=body.phone, pdf_bytes=pdf, filename=nome, caption=legenda,
+        )
+        return {"ok": True, "provider": "zapi", "response": resp}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error("Erro Z-API (consulta): %s", e)
+        raise HTTPException(status_code=502, detail=f"Erro Z-API: {e}")
+
+
+@router.post("/cnpj/telegram")
+async def cnpj_telegram(
+    body: CnpjTelegramRequest,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db),
+):
+    """Envia o PDF da consulta CNPJ via bot Telegram do usuário."""
+    cfg = await db.integracoes.find_one({"user_id": uid})
+    bot_token = (cfg or {}).get("telegram_bot_token")
+    if not bot_token:
+        raise HTTPException(status_code=400, detail="Telegram não configurado. Cadastre seu bot_token em Configurações → Integrações.")
+    chat_id = (body.chat_id or "").strip() or (cfg or {}).get("telegram_chat_id_default")
+    if not chat_id:
+        raise HTTPException(status_code=400, detail="Informe um chat_id ou configure um padrão em Configurações → Integrações.")
+
+    perfil = await _perfil_avaliador(db, uid)
+    pdf = gerar_pdf_cnpj(body.dados, perfil)
+    nome = _nome_arquivo_cnpj(body.dados)
+    legenda = body.legenda or _legenda_padrao(body.dados)
+
+    url = f"https://api.telegram.org/bot{bot_token}/sendDocument"
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            files = {"document": (nome, pdf, "application/pdf")}
+            data = {"chat_id": chat_id, "caption": legenda}
+            r = await client.post(url, data=data, files=files)
+            if r.status_code != 200:
+                raise HTTPException(status_code=502, detail=f"Telegram erro {r.status_code}: {r.text[:200]}")
+            return {"ok": True, "telegram_response": r.json()}
+    except httpx.HTTPError as e:
+        logger.error("Erro ao enviar Telegram (consulta): %s", e)
+        raise HTTPException(status_code=502, detail=f"Erro de rede ao enviar Telegram: {e}")

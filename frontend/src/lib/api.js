@@ -344,6 +344,13 @@ export const consultaAPI = {
     api.get('/consulta/cpf/validar', {
       params: { cpf, ...(dataNascimento ? { data_nascimento: dataNascimento } : {}) },
     }).then(r => r.data),
+  // PDF do resultado da consulta CNPJ (blob para visualizar/baixar)
+  pdf: (dados) =>
+    api.post('/consulta/cnpj/pdf', { dados }, { responseType: 'blob' }).then(r => r.data),
+  whatsapp: (dados, phone, legenda = '') =>
+    api.post('/consulta/cnpj/whatsapp', { dados, phone, legenda }).then(r => r.data),
+  telegram: (dados, chat_id = '', legenda = '') =>
+    api.post('/consulta/cnpj/telegram', { dados, chat_id, legenda }).then(r => r.data),
 };
 
 // ---- Recibos (independentes — honorários, serviços, mão de obra...)
