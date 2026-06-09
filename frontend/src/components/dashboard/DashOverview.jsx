@@ -10,13 +10,7 @@ import { dashboardAPI, ptamAPI, paymentsAPI } from '../../lib/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { PLANS } from '../../mock/mock';
 import { StatCard, Shortcut, BarCol, GOLD, DARK_GREEN } from './overview/widgets';
-
-const EVAL_STATUS = {
-  'Emitido':      'bg-emerald-100 text-emerald-800',
-  'Em revisão':   'bg-amber-100 text-amber-800',
-  'Em andamento': 'bg-blue-100 text-blue-800',
-  'Rascunho':     'bg-gray-100 text-gray-600',
-};
+import { resolvePtamStatus, STATUS_CONFIG } from './ptam/ptamStatus';
 
 const SUB_STATUS = {
   active:   { label: 'Ativo',    bg: 'bg-emerald-100', text: 'text-emerald-800', Icon: CheckCircle },
@@ -144,8 +138,7 @@ const DashOverview = () => {
               <div className="absolute left-[17px] top-2 bottom-2 w-px bg-gray-100" />
               <div className="space-y-4">
                 {recent.map((e, i) => {
-                  const status = e.status || e.status_calculado || 'Rascunho';
-                  const statusCls = EVAL_STATUS[status] || 'bg-gray-100 text-gray-600';
+                  const stCfg = STATUS_CONFIG[resolvePtamStatus(e)] || STATUS_CONFIG.rascunho;
                   const code = e.numero_ptam || e.number || 'PTAM';
                   const cliente = e.solicitante_nome || e.solicitante || '—';
                   const data = e.created_at ? new Date(e.created_at).toLocaleDateString('pt-BR') : '';
@@ -157,7 +150,7 @@ const DashOverview = () => {
                       <div className="flex-1 min-w-0 pb-1">
                         <div className="flex items-center justify-between gap-2 flex-wrap">
                           <span className="text-sm font-semibold text-gray-900 truncate group-hover:underline">{code}</span>
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap capitalize ${statusCls}`}>{status}</span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${stCfg.className}`}>{stCfg.label}</span>
                         </div>
                         <div className="text-xs text-gray-500 truncate mt-0.5">{cliente}</div>
                         <div className="text-[10px] text-gray-400 mt-0.5">{data}</div>
