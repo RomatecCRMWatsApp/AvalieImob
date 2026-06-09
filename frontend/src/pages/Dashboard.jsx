@@ -4,7 +4,7 @@ import { Link, NavLink, Routes, Route, Navigate, useNavigate } from 'react-route
 import {
   LayoutDashboard, Users, Building2, BarChart3, FileText,
   CreditCard, Settings, LogOut, Menu, X, Bell, FileCheck2, Globe,
-  Search, ChevronDown, User, Shield, Beef, Award, Home, ClipboardCheck, FileSearch, FileSignature, Receipt, Palette
+  Search, ChevronDown, User, Shield, Beef, Award, Home, ClipboardCheck, FileSearch, FileSignature, Receipt, Palette, ShieldCheck
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { APP_VERSION, BUILD_DATE } from '../version';
@@ -46,6 +46,7 @@ import ContratoWizard from '../components/dashboard/contratos/ContratoWizard';
 import RecibosList from '../components/dashboard/recibos/RecibosList';
 import ReciboWizard from '../components/dashboard/recibos/ReciboWizard';
 import BrandingWizard from '../components/dashboard/branding/BrandingWizard';
+import PainelConformidade from '../components/dashboard/conformidade/PainelConformidade';
 import FotosWidget from '../components/common/FotosWidget';
 
 /* ─── Brand ─────────────────────────────────────────────── */
@@ -99,6 +100,7 @@ const NAV_GROUPS = [
     label: 'Conta',
     items: [
       { to: '/dashboard/curriculo',  icon: Award,      label: 'Meu Currículo' },
+      { to: '/dashboard/conformidade', icon: ShieldCheck, label: 'Conformidade', badge: 'NOVO' },
       { to: '/dashboard/marca',      icon: Palette,    label: 'Marca (White-label)', badge: 'NOVO' },
       { to: '/dashboard/assinatura', icon: CreditCard, label: 'Assinatura' },
       { to: '/dashboard/config',     icon: Settings,   label: 'Configurações' },
@@ -451,6 +453,7 @@ const Dashboard = () => {
             <Route path="assinatura"  element={<SubscriptionPage />} />
             <Route path="config"      element={<SettingsPage />} />
             <Route path="marca"       element={<BrandingWizard />} />
+            <Route path="conformidade" element={<PainelConformidade />} />
             <Route path="admin/incra" element={<AdminIncra />} />
             <Route path="*"            element={<Navigate to="/dashboard" replace />} />
           </Routes>

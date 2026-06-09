@@ -98,6 +98,23 @@ export const zayraAPI = {
     api.get(`/zayra/foto-preview/${id}`, { responseType: 'blob' }).then((r) => r.data),
 };
 
+// ---- Conformidade COFECI/CNAI (Feature 05)
+export const conformidadeAPI = {
+  dashboard: () => api.get('/conformidade/dashboard').then((r) => r.data),
+  listarAlertas: (naoLidos = false) =>
+    api.get('/conformidade/alertas', { params: { nao_lidos: naoLidos } }).then((r) => r.data),
+  marcarLido: (id) => api.patch(`/conformidade/alertas/${id}/lido`).then((r) => r.data),
+  verificarAgora: () => api.post('/conformidade/verificar-agora').then((r) => r.data),
+  listarCredenciais: () => api.get('/conformidade/credenciais').then((r) => r.data),
+  criarCredencial: (data) => api.post('/conformidade/credenciais', data).then((r) => r.data),
+  atualizarCredencial: (id, data) =>
+    api.put(`/conformidade/credenciais/${id}`, data).then((r) => r.data),
+  removerCredencial: (id) =>
+    api.delete(`/conformidade/credenciais/${id}`).then((r) => r.data),
+  obterConfig: () => api.get('/conformidade/config').then((r) => r.data),
+  salvarConfig: (data) => api.put('/conformidade/config', data).then((r) => r.data),
+};
+
 // ---- Assinatura ICP-Brasil POSICIONADA (arrastar o retângulo)
 export const assinaturaPosAPI = {
   // Certificados do usuário (pra escolher o e-CPF/e-CNPJ)

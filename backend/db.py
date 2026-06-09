@@ -48,6 +48,12 @@ async def setup_indexes():
     from services.branding_repository import ensure_indexes as _branding_indexes
     await _branding_indexes(_db)
 
+    # Conformidade COFECI/CNAI (Feature 05)
+    await _db.credenciais.create_index([("user_id", 1), ("ativo", 1)])
+    await _db.alertas_conformidade.create_index([("user_id", 1), ("lido", 1)])
+    await _db.alertas_conformidade.create_index([("user_id", 1), ("created_at", -1)])
+    await _db.config_conformidade.create_index("user_id", unique=True)
+
 
 def get_client() -> AsyncIOMotorClient:
     return _client
