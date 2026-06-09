@@ -2043,6 +2043,203 @@ async def enviar_whatsapp(
         raise HTTPException(status_code=502, detail=f"Erro Z-API: {e}")
 
 
+_MESES_PT = [
+    "", "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+    "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+]
+
+
+def _wa_br(n, casas: int = 2) -> str:
+    """Formata número no padrão BR (1.234,56)."""
+    try:
+        s = f"{float(n):,.{casas}f}"
+    except (TypeError, ValueError):
+        return ""
+    return s.replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def _wa_data_long(v) -> str:
+    """ISO/date -> '08 de junho de 2026'. Retorna '' se não parseável."""
+    from datetime import date, datetime as _dt
+    d = None
+    if isinstance(v, _dt):
+        d = v.date()
+    elif isinstance(v, date):
+        d = v
+    elif isinstance(v, str) and v.strip():
+        try:
+            d = date.fromisoformat(v.strip()[:10])
+        except ValueError:
+            return v.strip()
+    if not d:
+        return ""
+    return f"{d.day:02d} de {_MESES_PT[d.month]} de {d.year}"
+
+
+def _wa_add_meses(v, meses: int) -> str:
+    """Soma meses a uma data ISO/date e devolve no formato longo."""
+    from datetime import date, datetime as _dt
+    d = None
+    if isinstance(v, _dt):
+        d = v.date()
+    elif isinstance(v, date):
+        d = v
+    elif isinstance(v, str) and v.strip():
+        try:
+            d = date.fromisoformat(v.strip()[:10])
+        except ValueError:
+            return ""
+    if not d or not meses:
+        return ""
+    m = d.month - 1 + int(meses)
+    ano = d.year + m // 12
+    mes = m % 12 + 1
+    import calendar
+    dia = min(d.day, calendar.monthrange(ano, mes)[1])
+    return f"{dia:02d} de {_MESES_PT[mes]} de {ano}"
+
+
+def _montar_msg_laudo_whatsapp(ptam: dict, perfil: dict, link: str) -> str:
+    """Monta a mensagem profissional do laudo (padrão e-mail) para Z-API/WhatsApp."""
+    perfil = perfil or {}
+    L = "─────────────────────────────"
+    numero = ptam.get("numero_ptam") or ptam.get("number") or ""
+    solic = (ptam.get("solicitante_nome") or ptam.get("solicitante") or "").strip()
+    saud = f"Prezado(a) {solic}," if solic else "Prezado(a),"
+
+    tipo = ptam.get("property_type") or ptam.get("property_label") or "Imóvel"
+    endereco = ptam.get("property_address") or ""
+    lote = ptam.get("property_label") or ptam.get("denominacao") or ""
+    cidade = ptam.get("property_city") or ""
+    uf = ptam.get("property_state") or ""
+    cep = ptam.get("property_cep") or ""
+    matricula = ptam.get("property_matricula") or ""
+    cartorio = ptam.get("property_cartorio") or ""
+
+    a_terreno = ptam.get("imovel_area_terreno") or ptam.get("property_area_terreno")
+    a_const = ptam.get("imovel_area_construida") or ptam.get("property_area_construida")
+    a_cons = ptam.get("imovel_area_a_considerar")
+
+    valor = ptam.get("resultado_valor_total") or 0
+    unit = ptam.get("resultado_valor_unitario")
+    metodo = ptam.get("methodology") or "Comparativo Direto de Dados de Mercado"
+    g_fund = ptam.get("fundamentacao_grau")
+    g_prec = ptam.get("precisao_grau")
+    data_ref = ptam.get("resultado_data_referencia") or ptam.get("data_referencia")
+    prazo = ptam.get("prazo_validade_meses") or 6
+
+    try:
+        from utils.extenso import valor_por_extenso
+        extenso = valor_por_extenso(float(valor)) if valor else ""
+    except Exception:
+        extenso = ""
+
+    # Cidade/UF | CEP
+    cid_uf = " — ".join([p for p in [cidade, uf] if p])
+    if cep:
+        cid_uf = f"{cid_uf} | CEP {cep}" if cid_uf else f"CEP {cep}"
+
+    linhas = [
+        saud, "",
+        f"É com satisfação que comunicamos a *conclusão do Parecer Técnico de "
+        f"Avaliação Mercadológica — PTAM nº {numero}*, elaborado em estrita "
+        f"conformidade com a ABNT NBR 14.653-1 e NBR 14.653-2, referente ao imóvel "
+        f"identificado abaixo:", "",
+        L, "*DADOS DO IMÓVEL AVALIADO*", L,
+    ]
+    if tipo:
+        linhas.append(f"Tipo: {tipo}")
+    if endereco:
+        linhas.append(f"Endereço: {endereco}")
+    if lote:
+        linhas.append(f"Loteamento: {lote}")
+    if cid_uf:
+        linhas.append(f"Cidade/UF: {cid_uf}")
+    if matricula:
+        linhas.append(f"Matrícula: nº {matricula}")
+    if cartorio:
+        linhas.append(f"Cartório: {cartorio}")
+    if a_terreno:
+        linhas.append(f"Área do Terreno: {_wa_br(a_terreno)} m²")
+    if a_const:
+        linhas.append(f"Área Construída: {_wa_br(a_const)} m²")
+    if a_cons:
+        linhas.append(f"Área Considerada: {_wa_br(a_cons)} m²")
+
+    linhas += ["", L, "*RESULTADO DA AVALIAÇÃO*", L]
+    val_txt = f"Valor de Mercado: *R$ {_wa_br(valor)}*"
+    linhas.append(val_txt)
+    if extenso:
+        linhas.append(f"({extenso})")
+    if unit:
+        linhas.append(f"Valor Unitário: R$ {_wa_br(unit)}/m²")
+    linhas.append(f"Método Aplicado: {metodo}")
+    if g_fund or g_prec:
+        partes_grau = []
+        if g_fund:
+            partes_grau.append(f"Fundamentação: Grau {g_fund}")
+        if g_prec:
+            partes_grau.append(f"Precisão: Grau {g_prec}")
+        linhas.append("  |  ".join(partes_grau))
+    if data_ref:
+        dref = _wa_data_long(data_ref)
+        if dref:
+            linhas.append(f"Data de Referência: {dref}")
+        dval = _wa_add_meses(data_ref, prazo)
+        if dval:
+            linhas.append(f"Validade do Laudo: {dval} ({int(prazo) * 30} dias)")
+
+    linhas += [
+        "", L, "",
+        "O documento completo, com relatório fotográfico, amostras comparativas, "
+        "memorial descritivo e responsabilidade técnica assinada digitalmente "
+        "(ICP-Brasil/PAdES), está disponível para consulta e download no link abaixo:",
+        "",
+        f"🔗 {link}", "",
+        "Agradecemos a confiança depositada em nossos serviços e permanecemos "
+        "inteiramente à disposição para quaisquer esclarecimentos.", "",
+        "Atenciosamente,",
+    ]
+
+    # ── Assinatura (perfil do avaliador) ─────────────────────────────────────
+    nome = (perfil.get("nome_completo") or ptam.get("responsavel_nome") or "").strip()
+    if nome:
+        linhas.append(f"*{nome.upper()}*")
+    regs = perfil.get("registros") or []
+    reg_txt = " · ".join(
+        f"{r.get('tipo','')} {r.get('numero','')}" + (f"/{r.get('uf')}" if r.get("uf") else "")
+        for r in regs if r.get("tipo") and r.get("numero")
+    )
+    if not reg_txt:
+        partes = []
+        if ptam.get("responsavel_creci"):
+            partes.append(f"CRECI {ptam['responsavel_creci']}")
+        if ptam.get("responsavel_cnai"):
+            partes.append(f"CNAI {ptam['responsavel_cnai']}")
+        reg_txt = " · ".join(partes)
+    if reg_txt:
+        linhas.append(f"Avaliador | {reg_txt}")
+    empresa = perfil.get("empresa_nome") or "Romatec Consultoria Total — AvalieImob"
+    linhas.append(empresa)
+    end_assin = perfil.get("endereco_escritorio") or ""
+    loc_assin = " — ".join([p for p in [perfil.get("cidade"), perfil.get("uf")] if p])
+    if perfil.get("cep"):
+        loc_assin = f"{loc_assin} | CEP {perfil['cep']}" if loc_assin else f"CEP {perfil['cep']}"
+    if end_assin or loc_assin:
+        linhas.append(" — ".join([p for p in [end_assin, loc_assin] if p]))
+    contatos = []
+    if perfil.get("telefone"):
+        contatos.append(f"📞 {perfil['telefone']}")
+    if perfil.get("email_profissional"):
+        contatos.append(perfil["email_profissional"])
+    if contatos:
+        linhas.append(" · ".join(contatos))
+    if perfil.get("site"):
+        linhas.append(f"🌐 {perfil['site']}")
+
+    return "\n".join(linhas)
+
+
 @router.post("/ptam/{pid}/whatsapp-link")
 async def enviar_whatsapp_link(
     pid: str,
@@ -2069,17 +2266,9 @@ async def enviar_whatsapp_link(
 
     base = _os.getenv("PUBLIC_BASE_URL", "https://www.romatecavalieimob.com.br").rstrip("/")
     link = f"{base}/laudo/{token}"
-    numero = ptam.get("numero_ptam") or ptam.get("number") or ""
-    denom = ptam.get("property_label") or ptam.get("denominacao") or ptam.get("property_address") or "Imóvel"
-    msg = body.legenda or (
-        f"Prezado(a),\n\n"
-        f"É com satisfação que comunicamos a *conclusão do Laudo de Avaliação — PTAM nº {numero}*, "
-        f"referente ao imóvel *{denom}*, elaborado em conformidade com a ABNT NBR 14.653.\n\n"
-        f"O documento completo está disponível para consulta no link abaixo:\n{link}\n\n"
-        f"Agradecemos a confiança e a preferência por nossos serviços e permanecemos à "
-        f"disposição para quaisquer esclarecimentos.\n\n"
-        f"Atenciosamente,\n*Romatec Consultoria Total — AvalieImob*"
-    )
+
+    perfil = await db.perfil_avaliador.find_one({"user_id": uid}) or {}
+    msg = body.legenda or _montar_msg_laudo_whatsapp(ptam, perfil, link)
     try:
         resp = await zapi_service.send_text(
             instance_id=cfg["zapi_instance_id"],
