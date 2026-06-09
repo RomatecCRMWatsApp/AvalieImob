@@ -2099,6 +2099,23 @@ def _wa_add_meses(v, meses: int) -> str:
     return f"{dia:02d} de {_MESES_PT[mes]} de {ano}"
 
 
+_WA_RURAIS = {
+    "fazenda", "sitio", "sítio", "chacara", "chácara", "gleba",
+    "terreno_rural", "modulo_rural", "area_rural", "rural",
+}
+
+
+def _wa_eh_rural(tipo) -> bool:
+    return str(tipo or "").strip().lower() in _WA_RURAIS
+
+
+def _wa_to_float(v) -> float:
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def _wa_cidade_uf(cidade, uf, cep) -> str:
     """Monta 'Cidade — UF | CEP' sem duplicar a UF quando a cidade já a contém
     (ex.: 'AÇAILANDIA-MA' + 'MA' -> 'Açailândia — MA')."""
@@ -2172,12 +2189,21 @@ def _montar_msg_laudo_whatsapp(ptam: dict, perfil: dict, link: str) -> str:
         linhas.append(f"Matrícula: nº {matricula}")
     if cartorio:
         linhas.append(f"Cartório: {cartorio}")
+    rural = _wa_eh_rural(tipo) or _wa_eh_rural(ptam.get("property_subtype"))
     if a_terreno:
-        linhas.append(f"Área do Terreno: {_wa_br(a_terreno)} m²")
+        if rural:
+            linhas.append(f"Área do Terreno: {_wa_br(_wa_to_float(a_terreno) / 10000, 4)} ha")
+        else:
+            linhas.append(f"Área do Terreno: {_wa_br(a_terreno)} m²")
     if a_const:
-        linhas.append(f"Área Construída: {_wa_br(a_const)} m²")
+        # Casa sede / edificação sempre em m², mesmo em imóvel rural.
+        rotulo_const = "Área Construída (sede)" if rural else "Área Construída"
+        linhas.append(f"{rotulo_const}: {_wa_br(a_const)} m²")
     if a_cons:
-        linhas.append(f"Área Considerada: {_wa_br(a_cons)} m²")
+        if rural:
+            linhas.append(f"Área Considerada: {_wa_br(_wa_to_float(a_cons) / 10000, 4)} ha")
+        else:
+            linhas.append(f"Área Considerada: {_wa_br(a_cons)} m²")
 
     linhas += ["", L, "*RESULTADO DA AVALIAÇÃO*", L]
     val_txt = f"Valor de Mercado: *R$ {_wa_br(valor)}*"
@@ -2185,7 +2211,10 @@ def _montar_msg_laudo_whatsapp(ptam: dict, perfil: dict, link: str) -> str:
     if extenso:
         linhas.append(f"({extenso})")
     if unit:
-        linhas.append(f"Valor Unitário: R$ {_wa_br(unit)}/m²")
+        if rural:
+            linhas.append(f"Valor Unitário: R$ {_wa_br(_wa_to_float(unit) * 10000)}/ha")
+        else:
+            linhas.append(f"Valor Unitário: R$ {_wa_br(unit)}/m²")
     linhas.append(f"Método Aplicado: {metodo}")
     if g_fund or g_prec:
         partes_grau = []
