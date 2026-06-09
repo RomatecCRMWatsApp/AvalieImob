@@ -144,6 +144,13 @@ class BrandContext:
         data = self.logo_bytes()
         return io.BytesIO(data) if data else None
 
+    def custom_logo_bytes(self) -> Optional[bytes]:
+        """Bytes do logo APENAS se o usuário tem marca própria; None se for o padrão.
+        Usado pelos geradores para só substituir o logo quando há white-label real."""
+        if self.r.logo_is_default:
+            return None
+        return self.logo_bytes()
+
     def logo_image_reader(self):
         """reportlab.lib.utils.ImageReader pronto p/ canvas.drawImage. None se falhar."""
         data = self.logo_bytes()

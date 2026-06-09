@@ -73,6 +73,13 @@ export const brandingAPI = {
   reset: () => api.post('/branding/reset').then((r) => r.data),
 };
 
+// ---- ZAYRA (Feature 04: importar fotos de campo da Galeria ZAYRA)
+export const zayraAPI = {
+  galeria: (params = {}) => api.get('/zayra/galeria', { params }).then((r) => r.data),
+  importar: (ptamId, fotos) =>
+    api.post(`/zayra/importar/${ptamId}`, { fotos }).then((r) => r.data),
+};
+
 // ---- INCRA (tabelas de valores de terra nua — imóveis rurais)
 export const incraAPI = {
   tabelaVigente: (params = {}) =>

@@ -196,6 +196,7 @@ export const StepImovelId = ({ form, setForm }) => {
           value={form.fotos_imovel || []}
           onChange={(v) => setForm({ ...form, fotos_imovel: v })}
           maxImages={50}
+          ptamId={form.id || null}
         />
       </div>
       <ImageUploader

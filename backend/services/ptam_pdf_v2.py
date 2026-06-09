@@ -370,7 +370,18 @@ def _ptam_num(ptam):
     return num or f"0000/{ano}"
 
 
-def _draw_logo(canvas, x, y, w, h):
+def _draw_logo(canvas, x, y, w, h, logo_bytes=None):
+    # White-label: se o usuário enviou logo próprio (BrandingWizard → R2), usa-o;
+    # senão cai no logo padrão AvalieImob (LOGO_PATH). Fallback nunca quebra o PDF.
+    if logo_bytes:
+        try:
+            import io as _io
+            from reportlab.lib.utils import ImageReader as _ImageReader
+            canvas.drawImage(_ImageReader(_io.BytesIO(logo_bytes)), x, y, width=w, height=h,
+                             preserveAspectRatio=True, mask='auto')
+            return
+        except Exception:
+            pass
     try:
         if os.path.exists(LOGO_PATH):
             canvas.drawImage(LOGO_PATH, x, y, width=w, height=h,
@@ -387,6 +398,7 @@ def _draw_logo(canvas, x, y, w, h):
 # ║  CABECALHO / RODAPE / CAPA                                                 ║
 # ╚══════════════════════════════════════════════════════════════════════════╝
 def make_hf(ptam):
+    _brand_logo = ptam.get('_brand_logo_bytes')
     num = _ptam_num(ptam)
     badge_txt = f'PTAM Nº {num}'
     trt = (ptam.get('art_rrt_numero') or ptam.get('art_trt_numero') or '').strip()
@@ -411,7 +423,7 @@ def make_hf(ptam):
         # 2. Cabeçalho: logo (esq.) + badge PTAM (dir.) + linha TRT/cidade/data
         ly = H - MT + 0.25 * cm
         lh = 1.5 * cm
-        _draw_logo(canvas, ML, ly, 3.2 * cm, lh)
+        _draw_logo(canvas, ML, ly, 3.2 * cm, lh, logo_bytes=_brand_logo)
         canvas.setFont('Helvetica-Bold', 9.5)
         bw = canvas.stringWidth(badge_txt, 'Helvetica-Bold', 9.5) + 0.55 * cm
         bh = 0.52 * cm
@@ -453,6 +465,7 @@ def make_hf(ptam):
 
 
 def make_capa(ptam):
+    _brand_logo = ptam.get('_brand_logo_bytes')
     num = _ptam_num(ptam)
     tipo = _txt(ptam.get('property_label') or ptam.get('property_type'), '')
     # Finalidade = texto livre (quando "outros") OU rótulo legível da chave do dropdown.
@@ -467,7 +480,7 @@ def make_capa(ptam):
     def capa(canvas, doc):
         canvas.saveState()
         # 1. Logo grande centralizado
-        _draw_logo(canvas, W / 2 - 2.5 * cm, H - 9.0 * cm, 5.0 * cm, 5.0 * cm)
+        _draw_logo(canvas, W / 2 - 2.5 * cm, H - 9.0 * cm, 5.0 * cm, 5.0 * cm, logo_bytes=_brand_logo)
         # 2. Bloco verde
         by, bh = H - 14.2 * cm, 2.8 * cm
         canvas.setFillColor(VERDE)
