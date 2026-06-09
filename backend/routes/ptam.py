@@ -1493,6 +1493,10 @@ async def get_ptam_publico(token: str, db=Depends(get_db)):
         "property_area_ha": ptam.get("property_area_ha"),
         "property_area_terreno": ptam.get("property_area_terreno"),
         "property_area_construida": ptam.get("property_area_construida"),
+        # Áreas reais usadas no laudo (rural usa a total; o dashboard usa estes campos)
+        "imovel_area_a_considerar": ptam.get("imovel_area_a_considerar"),
+        "imovel_area_terreno": ptam.get("imovel_area_terreno"),
+        "imovel_area_construida": ptam.get("imovel_area_construida"),
         "resultado_valor_total": ptam.get("resultado_valor_total"),
         "resultado_valor_unitario": ptam.get("resultado_valor_unitario"),
         "resultado_intervalo_inf": ptam.get("resultado_intervalo_inf"),

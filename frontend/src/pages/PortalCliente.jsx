@@ -34,9 +34,15 @@ import { fromM2, fmtBR } from '../utils/areaConversao';
 const _RURAIS_PT = ['fazenda', 'sitio', 'sítio', 'chacara', 'chácara', 'gleba', 'terreno_rural', 'modulo_rural', 'area_rural', 'rural'];
 const _ehRural = (t) => _RURAIS_PT.includes(String(t || '').toLowerCase());
 const _areaImovel = (d) => {
-  const m2 = Number(d?.imovel_area_a_considerar || d?.imovel_area_construida || d?.imovel_area_terreno || d?.property_area_terreno || d?.property_area_sqm || 0);
-  if (!m2) return '—';
-  return _ehRural(d?.property_type) ? `${fmtBR(fromM2(m2, 'ha'), 4)} ha` : `${fmtBR(m2, 2)} m²`;
+  if (_ehRural(d?.property_type)) {
+    // Rural: área TOTAL/terreno (nunca a construída). Ordem espelha o dashboard.
+    const m2 = Number(d?.imovel_area_a_considerar || d?.imovel_area_terreno || 0);
+    if (m2 > 0) return `${fmtBR(fromM2(m2, 'ha'), 4)} ha`;
+    const ha = Number(d?.property_area_ha || 0);
+    return ha > 0 ? `${fmtBR(ha, 4)} ha` : '—';
+  }
+  const m2u = Number(d?.imovel_area_terreno || d?.property_area_terreno || d?.property_area_sqm || 0);
+  return m2u > 0 ? `${fmtBR(m2u, 2)} m²` : '—';
 };
 import { Badge } from '../components/ui/badge';
 import { valorExtenso } from '../utils/valorExtenso';
@@ -476,9 +482,7 @@ const PortalCliente = () => {
             {_ehRural(data?.property_type) ? (
               <div>
                 <p className="text-xs text-gray-500 uppercase">Área Total</p>
-                <p className="font-medium">
-                  {fmtBR(fromM2(Number(data?.imovel_area_a_considerar || data?.imovel_area_terreno || data?.property_area_terreno || data?.property_area_sqm || 0), 'ha'), 4)} ha
-                </p>
+                <p className="font-medium">{_areaImovel(data)}</p>
               </div>
             ) : (
               <>
