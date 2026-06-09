@@ -1151,11 +1151,12 @@ def tbl(dados, cw=None):
     return t
 
 
-def tbl_header(header, linhas, cw, bold_last=False):
+def tbl_header(header, linhas, cw, bold_last=False, fontsize=8.5):
     # Quebra automática de texto longo nas células do corpo (Paragraph), evitando
     # que o conteúdo "vaze" da célula. Cabeçalho segue como string (estilo da tabela).
-    _sCellN = ParagraphStyle('hcellN', fontName='Helvetica', fontSize=8.5, leading=10.5)
-    _sCellB = ParagraphStyle('hcellB', fontName='Helvetica-Bold', fontSize=8.5, leading=10.5, textColor=VERDE)
+    _lead = fontsize + 2
+    _sCellN = ParagraphStyle('hcellN', fontName='Helvetica', fontSize=fontsize, leading=_lead)
+    _sCellB = ParagraphStyle('hcellB', fontName='Helvetica-Bold', fontSize=fontsize, leading=_lead, textColor=VERDE)
     linhas = linhas or [["—"] * len(header)]
     _ult = len(linhas) - 1
     _body = []
@@ -1169,7 +1170,7 @@ def tbl_header(header, linhas, cw, bold_last=False):
         ('TEXTCOLOR', (0, 0), (-1, 0), BRANCO),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 0), (-1, -1), 8.5),
+        ('FONTSIZE', (0, 0), (-1, -1), fontsize),
         ('GRID', (0, 0), (-1, -1), 0.4, CINZA_BRD),
         ('TOPPADDING', (0, 0), (-1, -1), 5),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
@@ -1993,7 +1994,7 @@ def build_story(ptam, page_map):
         _wB = UTIL_W - (_wN + _wVu + _wP + _wVp)
         st.append(tbl_header(['Nº', 'Bairro / Local', f'Valor ({_uv})', 'Peso (1/N)',
                               f'Valor Ponderado ({_uv})'],
-                             _pond_rows, [_wN, _wB, _wVu, _wP, _wVp], bold_last=True))
+                             _pond_rows, [_wN, _wB, _wVu, _wP, _wVp], bold_last=True, fontsize=7.5))
 
     # D. Graus de Fundamentação e Precisão (NBR 14653-2) — enquadramento do imóvel avaliando.
     # Fundamentação pelo nº de dados de mercado; Precisão pelo coeficiente de variação.
