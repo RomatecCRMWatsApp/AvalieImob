@@ -415,6 +415,34 @@ def _render_index_html() -> str:
     _index_html_cache = raw
     return _index_html_cache
 
+
+def _og_escape(s) -> str:
+    return (str(s or "").replace("&", "&amp;").replace('"', "&quot;")
+            .replace("<", "&lt;").replace(">", "&gt;"))
+
+
+def _inject_og(html: str, title: str, desc: str, image: str = None) -> str:
+    """Substitui título/descrição OG/Twitter do index.html por valores dinâmicos
+    (o preview de link do WhatsApp/Telegram lê estas meta tags, não roda JS)."""
+    import re as _re
+    t, d = _og_escape(title), _og_escape(desc)
+    subs = [
+        (r'(<title[^>]*>)(.*?)(</title>)', t),
+        (r'(<meta\s+property=["\']og:title["\']\s+content=["\'])(.*?)(["\'])', t),
+        (r'(<meta\s+property=["\']og:description["\']\s+content=["\'])(.*?)(["\'])', d),
+        (r'(<meta\s+name=["\']twitter:title["\']\s+content=["\'])(.*?)(["\'])', t),
+        (r'(<meta\s+name=["\']twitter:description["\']\s+content=["\'])(.*?)(["\'])', d),
+        (r'(<meta\s+name=["\']description["\']\s+content=["\'])(.*?)(["\'])', d),
+    ]
+    for pat, val in subs:
+        html = _re.sub(pat, lambda m: m.group(1) + val + m.group(3), html, count=1, flags=_re.I | _re.S)
+    if image:
+        img = _og_escape(image)
+        html = _re.sub(r'(<meta\s+property=["\']og:image["\']\s+content=["\'])(.*?)(["\'])',
+                       lambda m: m.group(1) + img + m.group(3), html, count=1, flags=_re.I | _re.S)
+    return html
+
+
 if _frontend_build.exists():
     from fastapi.staticfiles import StaticFiles
     from starlette.responses import FileResponse, HTMLResponse, RedirectResponse
@@ -441,6 +469,37 @@ if _frontend_build.exists():
         "Expires": "0",
     }
     _NO_CACHE_FILES = {"service-worker.js", "manifest.json", "asset-manifest.json"}
+
+    @app.get("/laudo/{token}", response_class=HTMLResponse)
+    async def laudo_public_preview(token: str):
+        """Serve o SPA com OG dinâmico (PTAM nº + denominação + solicitante) para
+        o link público — o preview no WhatsApp/Telegram mostra a avaliação real."""
+        html = _render_index_html()
+        try:
+            from db import get_db
+            _db = get_db()
+            ptam = await _db.ptam_documents.find_one(
+                {"link_publico_token": token, "link_publico_ativo": True}
+            ) if _db is not None else None
+        except Exception:
+            ptam = None
+        if ptam:
+            numero = ptam.get("numero_ptam") or ptam.get("number") or ""
+            denom = (ptam.get("property_label") or ptam.get("denominacao")
+                     or ptam.get("property_address") or ptam.get("property_city") or "Imóvel avaliado")
+            solicitante = ptam.get("solicitante_nome") or ptam.get("solicitante") or ""
+            municipio = ptam.get("property_city") or ptam.get("conclusion_city") or ""
+            assinado = ptam.get("icp_status") == "assinado"
+            title = (f"PTAM nº {numero} — {denom}".strip(" —")) or "Laudo de Avaliação — AvalieImob"
+            partes = []
+            if solicitante:
+                partes.append(f"Solicitante: {solicitante}")
+            if municipio:
+                partes.append(municipio)
+            partes.append("Laudo assinado digitalmente (ICP-Brasil)" if assinado
+                          else "Parecer Técnico de Avaliação Mercadológica (NBR 14.653)")
+            html = _inject_og(html, title, " · ".join(partes))
+        return HTMLResponse(content=html, headers=dict(_NO_CACHE))
 
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
