@@ -8,6 +8,8 @@ import { SectionHeader, AiButton } from '../shared/primitives';
 import { emptyMarketSample, computeStatsNBR } from '../ptamHelpers';
 import ImageUploader from '../ImageUploader';
 import { BuscaAmostras } from '../BuscaAmostras';
+import BancoAmostrasPicker from '../BancoAmostrasPicker';
+import { Database } from 'lucide-react';
 import RichField from '../../../ui/RichField';
 import {
   amostraCategoria,
@@ -392,7 +394,9 @@ const MarketSampleCard = ({ s, onChange, onRemove, idx, isSaneada, tipoImovel })
 export const StepAmostras = ({ form, setForm, onAi, aiLoading }) => {
   const samples = useMemo(() => form.market_samples ?? [], [form.market_samples]);
   const [showBusca, setShowBusca] = useState(false);
+  const [showBanco, setShowBanco] = useState(false);
   const tipoImovel = form.property_type;
+  const categoriaBanco = isRuralImovel(tipoImovel) ? 'rural' : 'urbano';
   const add = () => setForm({ ...form, market_samples: [...samples, emptyMarketSample()] });
   const update = (i, ns) => setForm({ ...form, market_samples: samples.map((s, idx) => idx === i ? ns : s) });
   const remove = (i) => setForm({ ...form, market_samples: samples.filter((_, idx) => idx !== i) });
@@ -419,6 +423,12 @@ export const StepAmostras = ({ form, setForm, onAi, aiLoading }) => {
     setShowBusca(false);
   };
 
+  // Importar amostras já cadastradas no Banco Global (com foto/planta).
+  const handleImportBanco = (novas) => {
+    setForm({ ...form, market_samples: [...samples, ...novas] });
+    setShowBanco(false);
+  };
+
   const validCount = samples.filter((s) => (s.value_per_sqm || 0) > 0).length;
   const saneadasCount = stats.indices_saneadas.length;
 
@@ -443,7 +453,15 @@ export const StepAmostras = ({ form, setForm, onAi, aiLoading }) => {
             </span>
           )}
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setShowBanco(true)}
+            className="border-emerald-700 text-emerald-800 hover:bg-emerald-50 text-sm"
+          >
+            <Database className="w-4 h-4 mr-1" /> Banco de Amostras
+          </Button>
           <Button
             type="button"
             variant="outline"
@@ -499,6 +517,14 @@ export const StepAmostras = ({ form, setForm, onAi, aiLoading }) => {
         onImport={handleImport}
         cidadeDefault={form.property_city || ''}
         estadoDefault={form.property_state || ''}
+      />
+
+      <BancoAmostrasPicker
+        open={showBanco}
+        onClose={() => setShowBanco(false)}
+        onImport={handleImportBanco}
+        categoria={categoriaBanco}
+        municipioDefault={form.property_city || ''}
       />
 
       {samples.length === 0 ? (
