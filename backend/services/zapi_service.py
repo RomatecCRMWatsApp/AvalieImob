@@ -47,6 +47,7 @@ def _validar_resposta_zapi(data: dict) -> dict:
     Sucesso real traz zaapId/messageId/id. Falhas comuns (número sem WhatsApp,
     instância sem sessão) vêm como {"error": ...} ou {"value": false} com 200.
     """
+    logger.info("Z-API resposta: %s", str(data)[:400])
     if isinstance(data, dict):
         if data.get("error"):
             raise RuntimeError(f"Z-API recusou o envio: {data.get('error')}")
