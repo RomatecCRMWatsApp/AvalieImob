@@ -497,11 +497,11 @@ const PortalCliente = () => {
               <>
                 <div>
                   <p className="text-xs text-gray-500 uppercase">Área do Terreno</p>
-                  <p className="font-medium">{formatNumber(data?.property_area_terreno || data?.property_area_sqm)} m²</p>
+                  <p className="font-medium">{formatNumber(data?.imovel_area_terreno || data?.property_area_terreno || data?.property_area_sqm)} m²</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 uppercase">Área Construída</p>
-                  <p className="font-medium">{formatNumber(data?.property_area_construida)} m²</p>
+                  <p className="font-medium">{formatNumber(data?.imovel_area_construida || data?.property_area_construida)} m²</p>
                 </div>
               </>
             )}
