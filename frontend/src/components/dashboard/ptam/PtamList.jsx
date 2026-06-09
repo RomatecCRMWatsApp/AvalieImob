@@ -346,6 +346,20 @@ const PtamList = () => {
     }
   };
 
+  const zerarAssinatura = async (p) => {
+    if (!window.confirm(`Zerar a assinatura do PTAM ${p.numero_ptam || p.number}?\n\nO PDF assinado será removido e o laudo volta a "não assinado" para re-assinar.`)) return;
+    try {
+      await assinaturaAPI.resetarIcp('ptam', p.id);
+      setItems((prev) => prev.map((x) => x.id === p.id
+        ? { ...x, icp_status: undefined, icp_signed_at: undefined, icp_hash: undefined, icp_pdf_url: undefined }
+        : x));
+      toast({ title: 'Assinatura zerada', description: 'Pode re-assinar agora.' });
+    } catch (e) {
+      const detalhe = await extrairErroBlob(e);
+      toast({ title: 'Erro ao zerar assinatura', description: detalhe, variant: 'destructive' });
+    }
+  };
+
   const visualizarPdf = async (p) => {
     setPdfLoading((prev) => ({ ...prev, [p.id]: true }));
     try {
@@ -708,6 +722,18 @@ const PtamList = () => {
                   >
                     {pdfLoading[p.id] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5" />}
                     PDF Assinado
+                  </Button>
+                )}
+                {p.icp_status === 'assinado' && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    title="Zerar assinatura (remove o assinado para re-assinar)"
+                    onClick={() => zerarAssinatura(p)}
+                    className="gap-1 text-red-700 border-red-200 bg-red-50 hover:bg-red-100"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    Zerar assinatura
                   </Button>
                 )}
               </div>

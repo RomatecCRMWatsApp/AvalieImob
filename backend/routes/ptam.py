@@ -1539,14 +1539,15 @@ async def download_ptam_publico_pdf(token: str, db=Depends(get_db)):
     # Se o laudo está assinado com ICP-Brasil, o link público serve o PDF
     # ASSINADO (completo, com carimbo) em vez de regerar a versão sem assinatura.
     if ptam.get("icp_status") == "assinado":
-        assinatura = await db["assinaturas_pdf"].find_one(
-            {"doc_tipo": "ptam", "doc_id": ptam.get("id"), "metodo": "icp", "layout": "v2"}
-        )
-        _content = assinatura.get("content") if assinatura else None
-        if isinstance(_content, (bytes, bytearray)) and len(_content) > 100:
+        try:
+            from routes.assinatura import _load_assinatura_bytes
+            _signed, _ = await _load_assinatura_bytes(db, "ptam", ptam.get("id"), "v2")
+        except Exception:
+            _signed = None
+        if _signed and len(_signed) > 100:
             _fn = f"PTAM_{ptam.get('number', 'sem-numero').replace('/', '-')}_ASSINADO.pdf"
             return Response(
-                content=bytes(_content),
+                content=_signed,
                 media_type="application/pdf",
                 headers={"Content-Disposition": f'inline; filename="{_fn}"', "Cache-Control": "no-store"},
             )

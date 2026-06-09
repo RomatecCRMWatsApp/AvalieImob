@@ -285,6 +285,8 @@ export const assinaturaAPI = {
     api.post(`/assinatura/icp/${tipo}/${id}/assinar`, { cert_id: certId, layouts }).then(r => r.data),
   downloadIcp: (tipo, id, layout = 'v2') =>
     api.get(`/assinatura/icp/${tipo}/${id}/download`, { params: { layout }, responseType: 'blob' }).then(r => r.data),
+  resetarIcp: (tipo, id) =>
+    api.post(`/assinatura/icp/${tipo}/${id}/resetar`).then(r => r.data),
   verificarPublico: (hash) =>
     api.get(`/assinatura/v/laudo/v/${hash}`).then(r => r.data),
 };

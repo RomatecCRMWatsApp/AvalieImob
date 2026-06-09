@@ -710,32 +710,8 @@ async def assinar_icp_brasil(
             logger.exception("Falha ao assinar PDF ICP-Brasil (%s)", layout)
             raise HTTPException(status_code=500, detail=f"Falha ao assinar {layout}: {e}")
 
-        # 3) Salva o PDF assinado deste layout (substitui se ja existir)
-        existing = await db["assinaturas_pdf"].find_one(
-            {"doc_tipo": tipo, "doc_id": id, "metodo": "icp", "layout": layout}
-        )
-        if existing:
-            await db["assinaturas_pdf"].update_one(
-                {"id": existing["id"]},
-                {"$set": {
-                    "content": pdf_assinado,
-                    "hash_sha256": hash_final,
-                    "cert_id": body.cert_id,
-                    "updated_at": datetime.utcnow(),
-                }},
-            )
-        else:
-            await db["assinaturas_pdf"].insert_one({
-                "id": str(_uuid.uuid4()),
-                "doc_tipo": tipo,
-                "doc_id": id,
-                "metodo": "icp",
-                "layout": layout,
-                "cert_id": body.cert_id,
-                "hash_sha256": hash_final,
-                "content": pdf_assinado,
-                "created_at": datetime.utcnow(),
-            })
+        # 3) Salva o PDF assinado deste layout (no R2; só a chave no Mongo)
+        await _persist_assinatura(db, tipo, id, layout, body.cert_id, pdf_assinado, hash_final)
 
         assinados.append({"layout": layout, "hash": hash_final, "assinado_em": data_assinatura.isoformat()})
 
@@ -773,6 +749,69 @@ async def assinar_icp_brasil(
         "download_url": f"/api/assinatura/icp/{tipo}/{id}/download",
         "verificacao_url": f"/v/laudo/v/{hash_principal}",
     }
+
+
+async def _persist_assinatura(db, tipo, doc_id, layout, cert_id, pdf_bytes, hash_final, posicionado=False):
+    """Salva o PDF assinado. PDFs completos passam de 16MB (limite do Mongo),
+    então gravamos no R2 e guardamos só a chave; inline só como fallback pequeno."""
+    import uuid as _uuid
+    r2_key = None
+    try:
+        from services import r2_storage
+        r2_key = f"assinados/{tipo}/{doc_id}_{layout}.pdf"
+        await asyncio.to_thread(
+            r2_storage.upload_bytes, pdf_bytes, r2_key, "application/pdf", "private, max-age=0"
+        )
+    except Exception as e:
+        logger.warning("Falha ao subir PDF assinado ao R2: %s", e)
+        r2_key = None
+    if r2_key is None and len(pdf_bytes) >= 15_000_000:
+        raise HTTPException(
+            status_code=500,
+            detail="PDF assinado grande demais para o banco e R2 indisponível. Verifique R2_ENDPOINT/R2_BUCKET.",
+        )
+    base = {
+        "doc_tipo": tipo, "doc_id": doc_id, "metodo": "icp", "layout": layout,
+        "cert_id": cert_id, "hash_sha256": hash_final, "posicionado": posicionado,
+        "r2_key": r2_key, "size_bytes": len(pdf_bytes), "updated_at": datetime.utcnow(),
+    }
+    if not r2_key:
+        base["content"] = pdf_bytes
+    existing = await db["assinaturas_pdf"].find_one(
+        {"doc_tipo": tipo, "doc_id": doc_id, "metodo": "icp", "layout": layout}
+    )
+    if existing:
+        upd = {"$set": base}
+        if r2_key:
+            upd["$unset"] = {"content": ""}   # remove conteúdo inline antigo (foi pro R2)
+        await db["assinaturas_pdf"].update_one({"id": existing["id"]}, upd)
+    else:
+        await db["assinaturas_pdf"].insert_one(
+            {**base, "id": str(_uuid.uuid4()), "created_at": datetime.utcnow()}
+        )
+
+
+async def _load_assinatura_bytes(db, tipo, doc_id, layout="v2"):
+    """Retorna (pdf_bytes, assinatura_doc) do PDF assinado — do R2 ou inline."""
+    a = await db["assinaturas_pdf"].find_one(
+        {"doc_tipo": tipo, "doc_id": doc_id, "metodo": "icp", "layout": layout}
+    )
+    if not a:
+        a = await db["assinaturas_pdf"].find_one(
+            {"doc_tipo": tipo, "doc_id": doc_id, "metodo": "icp"}
+        )
+    if not a:
+        return None, None
+    if isinstance(a.get("content"), (bytes, bytearray)):
+        return bytes(a["content"]), a
+    if a.get("r2_key"):
+        try:
+            from services import r2_storage
+            return await asyncio.to_thread(r2_storage.download_bytes, a["r2_key"]), a
+        except Exception as e:
+            logger.warning("Falha ao baixar PDF assinado do R2: %s", e)
+            return None, a
+    return None, a
 
 
 # ── Assinatura POSICIONADA (usuário arrasta o retângulo) ─────────────────────
@@ -920,21 +959,7 @@ async def assinar_posicionado(
         raise HTTPException(status_code=500, detail=f"Falha ao assinar: {e}")
 
     layout = "v2"
-    existing = await db["assinaturas_pdf"].find_one(
-        {"doc_tipo": tipo, "doc_id": id, "metodo": "icp", "layout": layout}
-    )
-    if existing:
-        await db["assinaturas_pdf"].update_one(
-            {"id": existing["id"]},
-            {"$set": {"content": pdf_assinado, "hash_sha256": hash_final,
-                      "cert_id": body.cert_id, "posicionado": True, "updated_at": datetime.utcnow()}},
-        )
-    else:
-        await db["assinaturas_pdf"].insert_one({
-            "id": str(_uuid.uuid4()), "doc_tipo": tipo, "doc_id": id, "metodo": "icp",
-            "layout": layout, "cert_id": body.cert_id, "hash_sha256": hash_final,
-            "content": pdf_assinado, "posicionado": True, "created_at": datetime.utcnow(),
-        })
+    await _persist_assinatura(db, tipo, id, layout, body.cert_id, pdf_assinado, hash_final, posicionado=True)
 
     await db[_TIPO_COLECAO[tipo]].update_one(
         {"id": id},
@@ -968,6 +993,40 @@ async def assinar_posicionado(
     }
 
 
+@router.post("/icp/{tipo}/{id}/resetar")
+async def resetar_assinatura(
+    tipo: str,
+    id: str,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db),
+):
+    """Zera a assinatura ICP do documento: remove o(s) PDF(s) assinado(s) (R2 +
+    Mongo) e limpa os campos icp_*, voltando o laudo a 'não assinado' para re-assinar."""
+    await _get_doc(db, tipo, id, uid)  # valida posse
+
+    removidos = 0
+    cursor = db["assinaturas_pdf"].find({"doc_tipo": tipo, "doc_id": id, "metodo": "icp"})
+    async for a in cursor:
+        if a.get("r2_key"):
+            try:
+                from services import r2_storage
+                await asyncio.to_thread(r2_storage.delete_object, a["r2_key"])
+            except Exception:
+                pass
+        removidos += 1
+    await db["assinaturas_pdf"].delete_many({"doc_tipo": tipo, "doc_id": id, "metodo": "icp"})
+
+    await db[_TIPO_COLECAO[tipo]].update_one(
+        {"id": id, "user_id": uid},
+        {"$unset": {
+            "icp_status": "", "icp_signed_at": "", "icp_cert_id": "", "icp_titular": "",
+            "icp_documento": "", "icp_emissor": "", "icp_hash": "", "icp_layouts": "",
+            "icp_pdf_url": "", "icp_verificacao_url": "", "pdf_assinatura_key": "",
+        }, "$set": {"updated_at": datetime.utcnow()}},
+    )
+    return {"ok": True, "status": "nao_assinado", "removidos": removidos}
+
+
 @router.get("/icp/{tipo}/{id}/download")
 async def download_icp(
     tipo: str,
@@ -980,22 +1039,17 @@ async def download_icp(
     if doc.get("icp_status") != "assinado":
         raise HTTPException(status_code=404, detail="Documento ainda não assinado com ICP-Brasil")
 
-    # Tenta o layout pedido; cai para qualquer assinatura ICP (compat. com docs antigos)
-    assinatura = await db["assinaturas_pdf"].find_one(
-        {"doc_tipo": tipo, "doc_id": id, "metodo": "icp", "layout": layout}
-    )
-    if not assinatura:
-        assinatura = await db["assinaturas_pdf"].find_one(
-            {"doc_tipo": tipo, "doc_id": id, "metodo": "icp"}
-        )
-    if not assinatura or not assinatura.get("content"):
+    # Lê o PDF assinado (do R2 ou inline legado)
+    pdf_bytes, assinatura = await _load_assinatura_bytes(db, tipo, id, layout)
+    if not pdf_bytes:
         raise HTTPException(status_code=404, detail="PDF assinado não disponível")
 
     numero = doc.get("numero_ptam") or doc.get("numero_tvi") or doc.get("numero") or id
-    suffix = f"_{layout}" if (assinatura.get("layout") and assinatura.get("layout") != "v2") else ""
+    _lay = (assinatura or {}).get("layout")
+    suffix = f"_{_lay}" if (_lay and _lay != "v2") else ""
     filename = f"{tipo.upper()}_{numero}_ASSINADO_ICP{suffix}.pdf"
     return Response(
-        content=assinatura["content"],
+        content=pdf_bytes,
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
