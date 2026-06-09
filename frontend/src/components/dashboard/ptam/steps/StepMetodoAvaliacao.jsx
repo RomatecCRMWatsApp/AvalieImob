@@ -2,9 +2,9 @@
 import React, { useState } from 'react';
 import { BookOpen, ChevronDown, Sparkles } from 'lucide-react';
 import { Input } from '../../../ui/input';
-import { Textarea } from '../../../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
 import { Field, SectionHeader } from '../shared/primitives';
+import RichField from '../../../ui/RichField';
 
 const fmtBRL = (v) =>
   Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -567,14 +567,15 @@ export const StepMetodoAvaliacao = ({ form, setForm }) => {
             <Sparkles className="w-3.5 h-3.5" /> Gerar texto automático
           </button>
         </div>
-        <Textarea
-          rows={6}
-          value={form.justificativa_metodo || ''}
-          onChange={(e) => setForm((f) => ({ ...f, justificativa_metodo: e.target.value }))}
-          placeholder="Deixe vazio para o sistema gerar a justificativa automaticamente no PDF, ou clique em 'Gerar texto automático' para preencher e editar."
+        <RichField
+          form={form}
+          setForm={setForm}
+          field="justificativa_metodo"
+          minHeight={150}
+          placeholder="Deixe vazio para o sistema gerar a justificativa automaticamente no PDF, ou clique em 'Gerar texto automático' para preencher e editar com formatação (negrito, itálico, listas)."
         />
         <p className="text-xs text-gray-500 mt-1">
-          Se vazio, o PDF gera a justificativa automaticamente. Se você preencher/editar aqui, o PDF usa o seu texto.
+          Se vazio, o PDF gera a justificativa automaticamente. Se você preencher/editar aqui, o PDF usa o seu texto (com a formatação aplicada).
         </p>
       </div>
     </div>

@@ -2181,7 +2181,16 @@ def build_story(ptam, page_map):
     if _justif:
         st.append(Spacer(1, 10))
         st += subsec('Justificativa Técnica do Método e da Depreciação/Valorização', 'sec8justif')
-        st.append(Paragraph(_justif, sBody))
+        # Aceita texto puro/<b> (automático) OU HTML do RichTextEditor (negrito/itálico/listas/alinhamento).
+        for _blk in html_para_blocks(_justif):
+            _mk = _blk.get('markup')
+            if not _mk:
+                continue
+            _al = {'left': 0, 'center': 1, 'right': 2, 'justify': 4}.get(_blk.get('align'), 4)
+            _ex = {'alignment': _al}
+            if _blk.get('bullet'):
+                _ex['leftIndent'] = 0.5 * cm
+            st.append(Paragraph(_mk, ParagraphStyle('s8justifb', parent=sBody, **_ex)))
 
     # ── 9. Conclusao ──
     st.append(PageBreak())
