@@ -381,6 +381,7 @@ const PtamList = () => {
   const ShareModal = ({ ptam, onClose }) => {
     const url = `${window.location.origin}/laudo/${ptam.link_publico_token}`;
     const [copied, setCopied] = useState(false);
+    const [telefone, setTelefone] = useState('55');
 
     const copyLink = () => {
       navigator.clipboard.writeText(url);
@@ -389,8 +390,11 @@ const PtamList = () => {
     };
 
     const shareWhatsApp = () => {
-      const text = `Segue o laudo de avaliação do imóvel: ${url}`;
-      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+      const text = `Segue o laudo de avaliação do imóvel — PTAM ${ptam.number}:\n${url}`;
+      const num = (telefone || '').replace(/\D/g, '');
+      // Com número (DDI+DDD+telefone): envia direto pra pessoa. Sem: abre o seletor.
+      const base = num.length >= 12 ? `https://wa.me/${num}` : 'https://wa.me/';
+      window.open(`${base}?text=${encodeURIComponent(text)}`, '_blank');
     };
 
     return (
@@ -429,6 +433,18 @@ const PtamList = () => {
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <Eye className="w-4 h-4" />
               <span>{ptam.visualizacoes || 0} visualizações</span>
+            </div>
+
+            <div>
+              <p className="text-xs text-gray-500 mb-1">Enviar direto para um número (opcional)</p>
+              <input
+                type="tel"
+                value={telefone}
+                onChange={(e) => setTelefone(e.target.value)}
+                placeholder="55 99 99999-9999 (DDI + DDD)"
+                className="w-full bg-white border rounded px-3 py-2 text-sm"
+              />
+              <p className="text-[11px] text-gray-400 mt-1">Deixe só "55" para escolher o contato na hora do envio.</p>
             </div>
 
             <div className="flex gap-2">
