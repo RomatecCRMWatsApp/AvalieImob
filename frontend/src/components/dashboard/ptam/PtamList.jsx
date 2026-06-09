@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, FileText, Download, Trash2, Loader2, Calendar, FileDown, Mail, X, Send, Lock, Link2, Eye, Check, Copy, ExternalLink, Copy as CopyIcon, Receipt, MessageCircle, Edit3, ShieldCheck, RefreshCw, MapPin, Ruler, User } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { useToast } from '../../../hooks/use-toast';
-import { ptamAPI, ptamExtrasAPI } from '../../../lib/api';
+import { ptamAPI, ptamExtrasAPI, assinaturaAPI } from '../../../lib/api';
 import AssinaturaDigital from './AssinaturaDigital';
 import AssinaturaPosicionadaModal from '../assinatura/AssinaturaPosicionadaModal';
 import { fromM2, fmtBR } from '../../../utils/areaConversao';
@@ -322,6 +322,25 @@ const PtamList = () => {
     } catch (e) {
       const detalhe = await extrairErroBlob(e);
       toast({ title: 'Erro ao gerar PDF', description: detalhe, variant: 'destructive' });
+    } finally {
+      setPdfLoading((prev) => ({ ...prev, [p.id]: false }));
+    }
+  };
+
+  const baixarAssinado = async (p) => {
+    setPdfLoading((prev) => ({ ...prev, [p.id]: true }));
+    try {
+      const blob = await assinaturaAPI.downloadIcp('ptam', p.id);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `PTAM_${(p.number || 'sem-numero').replace(/\//g, '-')}_ASSINADO_ICP.pdf`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      toast({ title: 'PDF assinado baixado' });
+    } catch (e) {
+      const detalhe = await extrairErroBlob(e);
+      toast({ title: 'Erro ao baixar PDF assinado', description: detalhe, variant: 'destructive' });
     } finally {
       setPdfLoading((prev) => ({ ...prev, [p.id]: false }));
     }
@@ -678,6 +697,19 @@ const PtamList = () => {
                   <Receipt className="w-3.5 h-3.5" />
                   Recibo
                 </Button>
+                {p.icp_status === 'assinado' && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    title="Baixar PDF assinado (ICP-Brasil)"
+                    onClick={() => baixarAssinado(p)}
+                    disabled={pdfLoading[p.id]}
+                    className="gap-1 text-emerald-700 border-emerald-300 bg-emerald-50 hover:bg-emerald-100"
+                  >
+                    {pdfLoading[p.id] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5" />}
+                    PDF Assinado
+                  </Button>
+                )}
               </div>
 
               {/* Linha 3: envio */}

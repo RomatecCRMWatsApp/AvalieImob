@@ -148,6 +148,24 @@ async def _resolve_ptam_assets(db, doc: dict) -> None:
                 })
     doc["documentos_resolvidos"] = docs_res
 
+    # COMPLETUDE: o assinado deve ser idêntico ao /pdf. Anexa documentos rurais
+    # (SIGEF, Memorial, CCIR, ITR, CAR), tabela INCRA e consultas CND vinculadas.
+    try:
+        from routes.ptam import _merge_docs_rurais, _attach_incra
+        await _merge_docs_rurais(db, doc, doc["documentos_resolvidos"])
+        await _attach_incra(db, doc)
+    except Exception:
+        pass
+    try:
+        cnd = []
+        raw = await db.cnd_consultas.find({"ptam_id": doc.get("id")}).to_list(20)
+        for c in raw:
+            cs = await db.cnd_certidoes.find({"consulta_id": c.get("id", "")}).to_list(10)
+            cnd.append({"consulta": c, "certidoes": cs})
+        doc["cnd_consultas"] = cnd
+    except Exception:
+        pass
+
 
 async def _gerar_pdf(tipo: str, doc: dict, db=None, perfil: dict | None = None) -> bytes:
     """Gera PDF do documento conforme tipo. PTAM usa o layout v2 (aprovado)."""

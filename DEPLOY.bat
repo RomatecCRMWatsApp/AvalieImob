@@ -41,8 +41,22 @@ if errorlevel 1 (
 )
 
 echo.
+echo --- Integrando alteracoes do remoto (evita 'fetch first') ---
+REM Puxa o que houver no remoto (ex.: bump de build do CI) e resolve conflito
+REM automaticamente mantendo a NOSSA versao (-X ours). --no-edit evita abrir editor.
+git pull --no-rebase -X ours --no-edit origin main
+
+if errorlevel 1 (
+  echo.
+  echo [ERRO] Falha ao integrar o remoto. Copie a mensagem acima e me mande.
+  echo.
+  pause
+  exit /b 1
+)
+
+echo.
 echo --- Enviando para o repositorio remoto (push) ---
-git push
+git push origin main
 
 if errorlevel 1 (
   echo.

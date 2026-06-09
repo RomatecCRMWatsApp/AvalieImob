@@ -1535,7 +1535,22 @@ async def download_ptam_publico_pdf(token: str, db=Depends(get_db)):
     
     if not ptam:
         raise HTTPException(status_code=404, detail="Laudo não encontrado ou link inativo")
-    
+
+    # Se o laudo está assinado com ICP-Brasil, o link público serve o PDF
+    # ASSINADO (completo, com carimbo) em vez de regerar a versão sem assinatura.
+    if ptam.get("icp_status") == "assinado":
+        assinatura = await db["assinaturas_pdf"].find_one(
+            {"doc_tipo": "ptam", "doc_id": ptam.get("id"), "metodo": "icp", "layout": "v2"}
+        )
+        _content = assinatura.get("content") if assinatura else None
+        if isinstance(_content, (bytes, bytearray)) and len(_content) > 100:
+            _fn = f"PTAM_{ptam.get('number', 'sem-numero').replace('/', '-')}_ASSINADO.pdf"
+            return Response(
+                content=bytes(_content),
+                media_type="application/pdf",
+                headers={"Content-Disposition": f'inline; filename="{_fn}"', "Cache-Control": "no-store"},
+            )
+
     user = await db.users.find_one({"id": ptam.get("user_id")})
     if not user:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
