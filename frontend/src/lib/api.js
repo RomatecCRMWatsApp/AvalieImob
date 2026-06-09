@@ -83,6 +83,8 @@ export const galeriaAPI = {
     return api.post('/galeria/foto', fd, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data);
   },
   remover: (id) => api.delete(`/galeria/foto/${id}`).then((r) => r.data),
+  enviarWhatsApp: (id, phone) => api.post(`/galeria/foto/${id}/whatsapp`, { phone }).then((r) => r.data),
+  enviarTelegram: (id, chatId = '') => api.post(`/galeria/foto/${id}/telegram`, { chat_id: chatId }).then((r) => r.data),
 };
 
 // ---- ZAYRA (Feature 04: importar fotos de campo da Galeria ZAYRA)

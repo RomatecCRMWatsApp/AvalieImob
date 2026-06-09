@@ -7,6 +7,7 @@ import { uploadAPI } from '../../../lib/api';
 import { useToast } from '../../../hooks/use-toast';
 import PhotoGrid from './PhotoGrid';
 import ImportarZayraModal from './ImportarZayraModal';
+import GaleriaPickerModal from './GaleriaPickerModal';
 
 // IDs (string) OU objetos {image_id, legenda} -> dados base (sem gps).
 function baseList(list) {
@@ -26,6 +27,7 @@ function toStored(items) {
 export default function FotosLaudo({ value, onChange, maxImages = 50, ptamId = null }) {
   const { toast } = useToast();
   const [showZayra, setShowZayra] = useState(false);
+  const [showGaleria, setShowGaleria] = useState(false);
   const base = baseList(value);
   // gpsMap: image_id -> bool (tem GPS/EXIF). Display-only, não persiste.
   const [gpsMap, setGpsMap] = useState({});
@@ -107,9 +109,30 @@ export default function FotosLaudo({ value, onChange, maxImages = 50, ptamId = n
     }
   }, [value, onChange, maxImages]);
 
+  // Anexa fotos da galeria própria do AvalieImob (já são imagens locais → só referência).
+  const handleGaleria = useCallback((fotosNovas) => {
+    setShowGaleria(false);
+    const refs = (fotosNovas || [])
+      .map((f) => ({ image_id: f.id, legenda: f.legenda || '' }))
+      .filter((f) => f.image_id);
+    if (refs.length) {
+      const atuais = baseList(value);
+      const existentes = new Set(atuais.map((a) => a.image_id));
+      const novas = refs.filter((r) => !existentes.has(r.image_id));
+      onChange([...toStored(atuais), ...novas].slice(0, maxImages));
+    }
+  }, [value, onChange, maxImages]);
+
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <button
+          type="button"
+          onClick={() => setShowGaleria(true)}
+          className="flex items-center gap-2 border border-emerald-600 text-emerald-700 px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-emerald-50"
+        >
+          <Camera className="w-4 h-4" /> Da Galeria
+        </button>
         <button
           type="button"
           onClick={() => {
@@ -132,6 +155,13 @@ export default function FotosLaudo({ value, onChange, maxImages = 50, ptamId = n
           ptamId={ptamId}
           onImportado={handleZayraImportado}
           onFechar={() => setShowZayra(false)}
+        />
+      )}
+
+      {showGaleria && (
+        <GaleriaPickerModal
+          onSelecionar={handleGaleria}
+          onFechar={() => setShowGaleria(false)}
         />
       )}
     </div>

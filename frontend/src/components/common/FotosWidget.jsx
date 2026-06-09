@@ -1,11 +1,49 @@
-import React, { useState, useRef, useCallback } from 'react';
-import { X, Camera, Loader2, RefreshCw, Trash2, Eye, Download, MapPin } from 'lucide-react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { X, Camera, Loader2, RefreshCw, Trash2, Eye, Download, MapPin, MessageCircle, Send, CloudUpload, Wifi, WifiOff } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
 import { galeriaAPI, brandingAPI, API_BASE } from '../../lib/api';
 import { latLonToUTM } from '../../utils/latLonToUTM';
 import './FotosWidget.css';
 
 const fotoUrl = (id) => `${API_BASE}/upload/image/${id}`;
+
+// ── Fila offline (IndexedDB) — fotos capturadas sem rede ficam pendentes. ──
+const IDB_NAME = 'avalieimob_galeria';
+const IDB_STORE = 'pendentes';
+function _idb() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE, { keyPath: 'id' });
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function idbAdd(item) {
+  const db = await _idb();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).put(item);
+    tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error);
+  });
+}
+async function idbAll() {
+  const db = await _idb();
+  return new Promise((res, rej) => {
+    const r = db.transaction(IDB_STORE, 'readonly').objectStore(IDB_STORE).getAll();
+    r.onsuccess = () => res(r.result || []); r.onerror = () => rej(r.error);
+  });
+}
+async function idbDel(id) {
+  const db = await _idb();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).delete(id);
+    tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error);
+  });
+}
 
 function loadImg(src, crossOrigin = false) {
   return new Promise((resolve, reject) => {
@@ -51,7 +89,39 @@ export default function FotosWidget() {
   const [capturando, setCapturando] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
   const [viewUrl, setViewUrl] = useState(null);
+  const [online, setOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  const [pendentes, setPendentes] = useState(0);
+  const [sincronizando, setSincronizando] = useState(false);
   const fileRef = useRef(null);
+
+  const atualizarPendentes = useCallback(async () => {
+    try { setPendentes((await idbAll()).length); } catch { /* idb indisponível */ }
+  }, []);
+
+  useEffect(() => {
+    const on = () => setOnline(true);
+    const off = () => setOnline(false);
+    window.addEventListener('online', on);
+    window.addEventListener('offline', off);
+    atualizarPendentes();
+    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
+  }, [atualizarPendentes]);
+
+  const sincronizar = useCallback(async () => {
+    const itens = await idbAll();
+    if (!itens.length) { toast({ title: 'Nenhuma foto pendente' }); return; }
+    setSincronizando(true);
+    let ok = 0;
+    for (const it of itens) {
+      try { await galeriaAPI.salvar(it.blob, it.meta); await idbDel(it.id); ok += 1; }
+      catch { /* mantém na fila */ }
+    }
+    await atualizarPendentes();
+    setSincronizando(false);
+    toast({ title: `${ok} foto(s) sincronizada(s)` });
+    // recarrega a lista após sincronizar
+    try { const d = await galeriaAPI.listar({ limit: 200 }); setFotos(d.fotos || []); } catch { /* ignore */ }
+  }, [toast, atualizarPendentes]);
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -161,17 +231,47 @@ export default function FotosWidget() {
         logoImg, nome,
       );
       setStatusMsg('Salvando...');
-      await galeriaAPI.salvar(blob, {
+      const meta = {
         latitude: gps?.lat ?? '', longitude: gps?.lon ?? '', altitude: gps?.alt ?? '',
         utm: utmLabel, endereco, data_hora: dataHora,
-      });
-      toast({ title: 'Foto salva na galeria' + (gps ? ' com GPS' : ' (sem GPS)') });
-      await carregar();
+      };
+      try {
+        await galeriaAPI.salvar(blob, meta);
+        toast({ title: 'Foto salva na galeria' + (gps ? ' com GPS' : ' (sem GPS)') });
+        await carregar();
+      } catch (upErr) {
+        // Sem rede / falha de upload → guarda na fila offline (IndexedDB).
+        await idbAdd({ id: `p_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, blob, meta, criado: dataHora });
+        await atualizarPendentes();
+        toast({ title: 'Sem conexão — foto salva offline', description: 'Use “Sincronizar pendentes” quando tiver rede.' });
+      }
     } catch (err) {
-      toast({ title: 'Erro ao salvar foto', description: err.response?.data?.detail || String(err), variant: 'destructive' });
+      toast({ title: 'Erro ao processar foto', description: err.response?.data?.detail || String(err), variant: 'destructive' });
     } finally {
       setCapturando(false);
       setStatusMsg('');
+    }
+  };
+
+  const enviarWA = async (f) => {
+    const phone = window.prompt('WhatsApp do destinatário (DDI+DDD, só dígitos):', '55');
+    if (!phone) return;
+    try {
+      await galeriaAPI.enviarWhatsApp(f.id, phone.replace(/\D/g, ''));
+      toast({ title: 'Foto enviada via WhatsApp' });
+    } catch (e) {
+      toast({ title: 'Erro ao enviar', description: e.response?.data?.detail, variant: 'destructive' });
+    }
+  };
+
+  const enviarTG = async (f) => {
+    const chat = window.prompt('Chat ID do Telegram (deixe vazio p/ o padrão):', '');
+    if (chat === null) return;
+    try {
+      await galeriaAPI.enviarTelegram(f.id, chat.trim());
+      toast({ title: 'Foto enviada via Telegram' });
+    } catch (e) {
+      toast({ title: 'Erro ao enviar', description: e.response?.data?.detail, variant: 'destructive' });
     }
   };
 
@@ -220,6 +320,17 @@ export default function FotosWidget() {
               <button onClick={carregar} disabled={loading} className="flex items-center gap-2 border px-3 py-2 rounded-lg text-sm">
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />} Recarregar
               </button>
+              {pendentes > 0 && (
+                <button onClick={sincronizar} disabled={sincronizando || !online}
+                  className="flex items-center gap-2 border border-amber-300 bg-amber-50 text-amber-800 px-3 py-2 rounded-lg text-sm font-semibold disabled:opacity-50">
+                  {sincronizando ? <Loader2 className="w-4 h-4 animate-spin" /> : <CloudUpload className="w-4 h-4" />}
+                  Sincronizar pendentes ({pendentes})
+                </button>
+              )}
+              <span className={`ml-auto flex items-center gap-1 text-xs font-medium ${online ? 'text-emerald-600' : 'text-gray-400'}`}>
+                {online ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
+                {online ? 'Online' : 'Offline'}
+              </span>
               <input ref={fileRef} type="file" accept="image/*" capture="environment" hidden onChange={onArquivo} />
             </div>
 
@@ -243,9 +354,11 @@ export default function FotosWidget() {
                         {f.data_hora && <p className="text-gray-400 mt-0.5">{f.data_hora}</p>}
                       </div>
                       <div className="flex border-t divide-x text-xs">
-                        <button onClick={() => setViewUrl(fotoUrl(f.id))} className="flex-1 py-1.5 flex items-center justify-center gap-1 text-gray-600 hover:bg-gray-50"><Eye className="w-3.5 h-3.5" /></button>
-                        <a href={fotoUrl(f.id)} download={`foto_${f.numero}.jpg`} className="flex-1 py-1.5 flex items-center justify-center gap-1 text-gray-600 hover:bg-gray-50"><Download className="w-3.5 h-3.5" /></a>
-                        <button onClick={() => excluir(f)} className="flex-1 py-1.5 flex items-center justify-center gap-1 text-red-600 hover:bg-red-50"><Trash2 className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => setViewUrl(fotoUrl(f.id))} title="Ver" className="flex-1 py-1.5 flex items-center justify-center text-gray-600 hover:bg-gray-50"><Eye className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => enviarWA(f)} title="Enviar por WhatsApp" className="flex-1 py-1.5 flex items-center justify-center text-green-600 hover:bg-green-50"><MessageCircle className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => enviarTG(f)} title="Enviar por Telegram" className="flex-1 py-1.5 flex items-center justify-center text-sky-600 hover:bg-sky-50"><Send className="w-3.5 h-3.5" /></button>
+                        <a href={fotoUrl(f.id)} download={`foto_${f.numero}.jpg`} title="Baixar" className="flex-1 py-1.5 flex items-center justify-center text-gray-600 hover:bg-gray-50"><Download className="w-3.5 h-3.5" /></a>
+                        <button onClick={() => excluir(f)} title="Excluir" className="flex-1 py-1.5 flex items-center justify-center text-red-600 hover:bg-red-50"><Trash2 className="w-3.5 h-3.5" /></button>
                       </div>
                     </div>
                   ))}

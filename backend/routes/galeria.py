@@ -13,10 +13,11 @@ import uuid as _uuid
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from pydantic import BaseModel
 from pymongo import ReturnDocument
 
 from db import get_db
-from dependencies import get_active_subscriber, serialize_doc
+from dependencies import get_active_subscriber
 from services.upload_security import detect_content_type
 
 router = APIRouter(prefix="/galeria", tags=["galeria"])
@@ -139,3 +140,75 @@ async def remover_foto(
     if res.deleted_count == 0:
         raise HTTPException(404, "Foto não encontrada")
     return {"ok": True}
+
+
+# ── Envio de foto da galeria via WhatsApp (Z-API) / Telegram ────────────────
+
+class EnvioWppBody(BaseModel):
+    phone: str
+
+
+class EnvioTgBody(BaseModel):
+    chat_id: str = ""
+
+
+async def _carregar_foto(db, image_id: str, uid: str):
+    doc = await db.images.find_one({"id": image_id, "user_id": uid, "galeria": True})
+    if not doc:
+        raise HTTPException(404, "Foto não encontrada")
+    return doc, base64.b64decode(doc["data_b64"])
+
+
+@router.post("/foto/{image_id}/whatsapp")
+async def enviar_foto_whatsapp(
+    image_id: str, body: EnvioWppBody,
+    uid: str = Depends(get_active_subscriber), db=Depends(get_db),
+):
+    from services.integracoes_util import carregar_integracoes
+    from services import zapi_service
+    cfg = await carregar_integracoes(db, uid)
+    if not cfg or not cfg.get("zapi_instance_id") or not cfg.get("zapi_token"):
+        raise HTTPException(400, "Z-API não configurada. Cadastre em Configurações → Integrações.")
+    doc, raw = await _carregar_foto(db, image_id, uid)
+    try:
+        resp = await zapi_service.send_document(
+            instance_id=cfg["zapi_instance_id"], token=cfg["zapi_token"],
+            security_token=cfg.get("zapi_security_token"), phone=body.phone,
+            file_bytes=raw, filename=doc.get("filename") or f"foto_{doc.get('numero')}.jpg",
+            content_type=doc.get("content_type", "image/jpeg"),
+            caption=f"Foto #{doc.get('numero')} — Romatec/AvalieImob",
+        )
+        return {"ok": True, "provider": "zapi", "response": resp}
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        logger.error("Erro Z-API (galeria): %s", e)
+        raise HTTPException(502, f"Erro Z-API: {e}")
+
+
+@router.post("/foto/{image_id}/telegram")
+async def enviar_foto_telegram(
+    image_id: str, body: EnvioTgBody,
+    uid: str = Depends(get_active_subscriber), db=Depends(get_db),
+):
+    import httpx
+    from services.integracoes_util import carregar_integracoes
+    cfg = await carregar_integracoes(db, uid)
+    bot_token = (cfg or {}).get("telegram_bot_token")
+    if not bot_token:
+        raise HTTPException(400, "Telegram não configurado. Cadastre o bot_token em Configurações → Integrações.")
+    chat_id = (body.chat_id or "").strip() or (cfg or {}).get("telegram_chat_id_default")
+    if not chat_id:
+        raise HTTPException(400, "Informe um chat_id ou configure um padrão.")
+    doc, raw = await _carregar_foto(db, image_id, uid)
+    url = f"https://api.telegram.org/bot{bot_token}/sendPhoto"
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            files = {"photo": (doc.get("filename") or "foto.jpg", raw, doc.get("content_type", "image/jpeg"))}
+            data = {"chat_id": chat_id, "caption": f"Foto #{doc.get('numero')} — Romatec/AvalieImob"}
+            r = await client.post(url, data=data, files=files)
+            if r.status_code != 200:
+                raise HTTPException(502, f"Telegram erro {r.status_code}: {r.text[:200]}")
+            return {"ok": True, "telegram_response": r.json()}
+    except httpx.HTTPError as e:
+        raise HTTPException(502, f"Erro de rede ao enviar Telegram: {e}")
