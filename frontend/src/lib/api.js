@@ -78,6 +78,10 @@ export const zayraAPI = {
   galeria: (params = {}) => api.get('/zayra/galeria', { params }).then((r) => r.data),
   importar: (ptamId, fotos) =>
     api.post(`/zayra/importar/${ptamId}`, { fotos }).then((r) => r.data),
+  // Preview autenticado (Bearer) — retorna Blob; o componente cria o objectURL.
+  // É privado: o backend só serve a foto do avaliador logado.
+  preview: (id) =>
+    api.get(`/zayra/foto-preview/${id}`, { responseType: 'blob' }).then((r) => r.data),
 };
 
 // ---- INCRA (tabelas de valores de terra nua — imóveis rurais)

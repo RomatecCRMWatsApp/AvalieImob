@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { X, MapPin, Camera, Loader2, Check } from 'lucide-react';
 import { useToast } from '../../../hooks/use-toast';
 import { zayraAPI } from '../../../lib/api';
@@ -13,23 +13,48 @@ import { zayraAPI } from '../../../lib/api';
 export default function ImportarZayraModal({ ptamId, onImportado, onFechar }) {
   const { toast } = useToast();
   const [fotos, setFotos] = useState([]);
+  const [thumbs, setThumbs] = useState({});   // id -> objectURL (preview autenticado)
   const [selecionadas, setSelecionadas] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [importando, setImportando] = useState(false);
+  const urlsRef = useRef([]);
 
   useEffect(() => {
     let alive = true;
-    zayraAPI.galeria({ limit: 100 })
-      .then((d) => { if (alive) setFotos(d.fotos || []); })
-      .catch((err) => {
+    (async () => {
+      try {
+        const d = await zayraAPI.galeria({ limit: 100 });
+        if (!alive) return;
+        const lista = d.fotos || [];
+        setFotos(lista);
+        setLoading(false);
+        // Carrega as miniaturas autenticadas (Blob → objectURL), uma a uma.
+        for (const f of lista) {
+          try {
+            const blob = await zayraAPI.preview(f.id);
+            if (!alive) return;
+            const url = URL.createObjectURL(blob);
+            urlsRef.current.push(url);
+            setThumbs((prev) => ({ ...prev, [f.id]: url }));
+          } catch {
+            /* miniatura indisponível — mostra placeholder */
+          }
+        }
+      } catch (err) {
+        if (!alive) return;
+        setLoading(false);
         toast({
           title: 'Não foi possível carregar o ZAYRA',
           description: err.response?.data?.detail || 'Verifique a integração.',
           variant: 'destructive',
         });
-      })
-      .finally(() => { if (alive) setLoading(false); });
-    return () => { alive = false; };
+      }
+    })();
+    return () => {
+      alive = false;
+      urlsRef.current.forEach((u) => URL.revokeObjectURL(u));
+      urlsRef.current = [];
+    };
   }, [toast]);
 
   const toggle = (id) => {
@@ -106,7 +131,13 @@ export default function ImportarZayraModal({ ptamId, onImportado, onFechar }) {
                     className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all
                       ${sel ? 'border-emerald-500 ring-2 ring-emerald-300' : 'border-transparent'}`}
                   >
-                    <img src={foto.url} alt={`Foto #${foto.numero}`} className="w-full h-full object-cover" />
+                    {thumbs[foto.id] ? (
+                      <img src={thumbs[foto.id]} alt={`Foto #${foto.numero}`} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-300">
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      </div>
+                    )}
                     {sel && (
                       <div className="absolute inset-0 bg-emerald-500/20 flex items-center justify-center">
                         <span className="bg-emerald-500 text-white rounded-full w-7 h-7 flex items-center justify-center">

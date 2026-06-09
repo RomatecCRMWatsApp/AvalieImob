@@ -42,6 +42,10 @@ async def buscar_fotos_zayra(
     por `fotos_vistoria.colaborador` (LIKE), pois o schema de fotos não tem e-mail.
     """
     _ensure_config()
+    # PRIVACIDADE: sem identificador (nome do avaliador) não consultamos nada —
+    # impede listar fotos de todos. O nome vem do perfil do usuário logado.
+    if not (identificador or "").strip():
+        return []
     import httpx
 
     # ZAYRA casa a foto pelo NOME do colaborador (não há e-mail no schema de fotos).
@@ -70,18 +74,27 @@ async def buscar_fotos_zayra(
         raise HTTPException(502, "Resposta inválida do ZAYRA (esperado JSON).")
 
 
-async def baixar_foto_bytes(url: str) -> tuple[bytes, str]:
+async def baixar_foto_bytes(url: str, colaborador: str = "") -> tuple[bytes, str]:
     """
     Baixa os bytes de uma foto do ZAYRA. Aceita URL absoluta (storage próprio do
     ZAYRA) ou relativa ao ZAYRA_API_URL. Retorna (bytes, content_type).
+
+    PRIVACIDADE: `colaborador` (nome do avaliador logado) é propagado ao ZAYRA,
+    que só serve a foto se o nome for o dono. Sem ele, o ZAYRA recusa (400).
     """
     _ensure_config()
+    if not (colaborador or "").strip():
+        raise HTTPException(403, "Sem identidade do avaliador para acessar a foto.")
     import httpx
 
     full = url if url.startswith("http") else f"{ZAYRA_API_URL}/{url.lstrip('/')}"
     try:
         async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
-            resp = await client.get(full, headers={"X-API-Key": ZAYRA_API_KEY})
+            resp = await client.get(
+                full,
+                params={"colaborador": colaborador},
+                headers={"X-API-Key": ZAYRA_API_KEY},
+            )
     except httpx.RequestError as exc:
         raise HTTPException(502, f"Falha ao baixar foto do ZAYRA: {exc}")
 

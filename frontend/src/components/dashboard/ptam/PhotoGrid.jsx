@@ -2,7 +2,7 @@
 // AvalieImob — Galeria de fotos com legenda editável inline por foto
 // React 19 | sem dependências externas
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import "./PhotoGrid.css";
 
 // ─── sugestões de legenda rápida ─────────────────────────────────
@@ -15,7 +15,7 @@ const SUGESTOES = [
 ];
 
 // ─── item de foto individual ─────────────────────────────────────
-function PhotoItem({ photo, index, onLegendChange, onRemove, onSelect }) {
+function PhotoItem({ photo, index, onLegendChange, onRemove, onSelect, onView }) {
   const [editando, setEditando]   = useState(false);
   const [legenda,  setLegenda]    = useState(photo.legenda || "");
   const [showSug,  setShowSug]    = useState(false);
@@ -84,6 +84,23 @@ function PhotoItem({ photo, index, onLegendChange, onRemove, onSelect }) {
             </svg>
           </div>
         )}
+
+        {/* botão visualizar (lupa) */}
+        <button
+          type="button"
+          className="pg-btn-remove"
+          style={{ right: "auto", left: 6, background: "rgba(11,110,79,0.92)" }}
+          title="Visualizar foto"
+          onClick={e => { e.stopPropagation(); onView?.(index); }}
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="7"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            <line x1="11" y1="8" x2="11" y2="14"/>
+            <line x1="8" y1="11" x2="14" y2="11"/>
+          </svg>
+        </button>
 
         {/* botão remover */}
         <button
@@ -165,6 +182,27 @@ export default function PhotoGrid({
   multiSelect = false,
 }) {
   const fileRef = useRef(null);
+  const [viewIndex, setViewIndex] = useState(null);
+
+  const closeView = useCallback(() => setViewIndex(null), []);
+  const stepView = useCallback((delta) => {
+    setViewIndex((cur) => {
+      if (cur == null) return cur;
+      const n = cur + delta;
+      return n >= 0 && n < photos.length ? n : cur;
+    });
+  }, [photos.length]);
+
+  useEffect(() => {
+    if (viewIndex == null) return undefined;
+    const onKey = (e) => {
+      if (e.key === "Escape") closeView();
+      else if (e.key === "ArrowRight") stepView(1);
+      else if (e.key === "ArrowLeft") stepView(-1);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [viewIndex, closeView, stepView]);
 
   const updatePhoto = useCallback((index, patch) => {
     const next = photos.map((p, i) => i === index ? { ...p, ...patch } : p);
@@ -254,6 +292,7 @@ export default function PhotoGrid({
             onLegendChange={handleLegendChange}
             onRemove={handleRemove}
             onSelect={handleSelect}
+            onView={setViewIndex}
           />
         ))}
 
@@ -277,6 +316,39 @@ export default function PhotoGrid({
           />
         </div>
       </div>
+
+      {/* ── lightbox / visualizar ── */}
+      {viewIndex != null && photos[viewIndex] && (
+        <div
+          onClick={closeView}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+        >
+          <button onClick={closeView} title="Fechar (Esc)"
+            style={{ position: "absolute", top: 16, right: 20, background: "rgba(255,255,255,0.15)", color: "#fff", border: "none", borderRadius: "50%", width: 40, height: 40, fontSize: 22, cursor: "pointer" }}>✕</button>
+
+          {viewIndex > 0 && (
+            <button onClick={e => { e.stopPropagation(); stepView(-1); }} title="Anterior (←)"
+              style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", background: "rgba(255,255,255,0.15)", color: "#fff", border: "none", borderRadius: "50%", width: 44, height: 44, fontSize: 26, cursor: "pointer" }}>‹</button>
+          )}
+
+          <figure onClick={e => e.stopPropagation()}
+            style={{ margin: 0, maxWidth: "92vw", maxHeight: "92vh", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+            <img src={photos[viewIndex].url} alt={photos[viewIndex].legenda || `Foto ${viewIndex + 1}`}
+              style={{ maxWidth: "92vw", maxHeight: "80vh", objectFit: "contain", borderRadius: 8, boxShadow: "0 8px 40px rgba(0,0,0,0.5)" }} />
+            <figcaption style={{ color: "#fff", textAlign: "center", fontSize: 14 }}>
+              <div style={{ fontWeight: 600 }}>{photos[viewIndex].legenda || `Foto ${viewIndex + 1}`}</div>
+              <div style={{ opacity: 0.7, fontSize: 12, marginTop: 2 }}>
+                Foto {viewIndex + 1} de {photos.length}{photos[viewIndex].gps ? " · 📍 GPS" : ""}
+              </div>
+            </figcaption>
+          </figure>
+
+          {viewIndex < photos.length - 1 && (
+            <button onClick={e => { e.stopPropagation(); stepView(1); }} title="Próxima (→)"
+              style={{ position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)", background: "rgba(255,255,255,0.15)", color: "#fff", border: "none", borderRadius: "50%", width: 44, height: 44, fontSize: 26, cursor: "pointer" }}>›</button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

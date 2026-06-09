@@ -17,6 +17,7 @@ import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
 
 from db import get_db
 from dependencies import get_active_subscriber, get_authenticated_user
@@ -24,6 +25,19 @@ from services.zayra_galeria import baixar_foto_bytes, buscar_fotos_zayra
 
 router = APIRouter(prefix="/zayra", tags=["zayra"])
 logger = logging.getLogger("romatec")
+
+
+async def _avaliador_nome(db, uid: str) -> str:
+    """Nome do avaliador logado (perfil > users) — chave de isolamento no ZAYRA.
+    Derivado SEMPRE no servidor; o cliente nunca escolhe de quem são as fotos."""
+    perfil = await db.perfil_avaliador.find_one({"user_id": uid})
+    user = await db.users.find_one({"id": uid})
+    return (
+        (perfil or {}).get("nome")
+        or (perfil or {}).get("nome_completo")
+        or (user or {}).get("name")
+        or ""
+    ).strip()
 
 
 def _fmt_gps(lat, lon) -> str:
@@ -47,16 +61,31 @@ async def listar_galeria(
     O ZAYRA casa a foto pelo NOME do colaborador (não há e-mail no schema de fotos),
     então enviamos o nome do avaliador (perfil_avaliador.nome > users.name).
     """
-    perfil = await db.perfil_avaliador.find_one({"user_id": uid})
-    user = await db.users.find_one({"id": uid})
-    identificador = (
-        (perfil or {}).get("nome")
-        or (perfil or {}).get("nome_completo")
-        or (user or {}).get("name")
-        or ""
-    ).strip()
+    identificador = await _avaliador_nome(db, uid)
     fotos = await buscar_fotos_zayra(identificador, desde=desde, limit=limit)
     return {"fotos": fotos, "total": len(fotos), "filtro_colaborador": identificador}
+
+
+@router.get("/foto-preview/{zid}")
+async def foto_preview(
+    zid: int,
+    uid: str = Depends(get_authenticated_user),
+    db=Depends(get_db),
+):
+    """
+    Proxy de preview da miniatura. EXIGE login e fica TRAVADO no avaliador logado:
+    o ZAYRA só devolve a foto se o `colaborador` (derivado do perfil do usuário)
+    for o dono. Um usuário nunca vê a foto de outro, mesmo adivinhando o id.
+    """
+    colaborador = await _avaliador_nome(db, uid)
+    try:
+        content, ctype = await baixar_foto_bytes(
+            f"/api/galeria/foto/{int(zid)}", colaborador=colaborador
+        )
+    except HTTPException:
+        raise HTTPException(404, "preview indisponível")
+    return Response(content=content, media_type=ctype,
+                    headers={"Cache-Control": "private, max-age=300"})
 
 
 @router.post("/importar/{ptam_id}")
@@ -78,6 +107,9 @@ async def importar_para_ptam(
     if not selecionadas:
         raise HTTPException(422, "Nenhuma foto selecionada.")
 
+    # Isolamento: baixa cada foto travada no nome do avaliador logado.
+    colaborador = await _avaliador_nome(db, uid)
+
     novas = []
     falhas = 0
     for f in selecionadas:
@@ -86,7 +118,7 @@ async def importar_para_ptam(
             falhas += 1
             continue
         try:
-            content, ctype = await baixar_foto_bytes(url)
+            content, ctype = await baixar_foto_bytes(url, colaborador=colaborador)
         except HTTPException:
             falhas += 1
             logger.warning("Falha ao baixar foto ZAYRA (ptam=%s, foto=%s)", ptam_id, f.get("id"))
