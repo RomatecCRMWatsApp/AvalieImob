@@ -21,6 +21,7 @@ const Samples = () => {
   const [modalUrbano, setModalUrbano] = useState(false);
   const [modalRural, setModalRural] = useState(false);
   const [refSugerida, setRefSugerida] = useState('');
+  const [dedupLoading, setDedupLoading] = useState(false);
 
   const isRural = categoria === 'rural';
 
@@ -55,6 +56,18 @@ const Samples = () => {
   };
 
   const onSalvar = () => { load(); };
+
+  const removerDuplicadas = async () => {
+    if (!window.confirm('Remover amostras duplicadas (mesmo conteúdo)? Mantém 1 de cada e apaga as repetidas.')) return;
+    setDedupLoading(true);
+    try {
+      const res = await amostrasAPI.dedupe();
+      toast({ title: `${res.removidas} duplicada(s) removida(s)`, description: `${res.mantidas} amostras únicas mantidas.` });
+      load();
+    } catch (e) {
+      toast({ title: 'Erro ao remover duplicadas', description: e.response?.data?.detail, variant: 'destructive' });
+    } finally { setDedupLoading(false); }
+  };
 
   const remove = async (id) => {
     try {
@@ -91,6 +104,10 @@ const Samples = () => {
           <button onClick={() => abrirModal('rural')}
             className="flex items-center gap-2 px-5 py-3 bg-white border-2 border-amber-600 text-amber-600 rounded-xl hover:bg-amber-600 hover:text-white transition-all font-medium">
             <Wheat className="w-4 h-4" /> Imóvel Rural
+          </button>
+          <button onClick={removerDuplicadas} disabled={dedupLoading}
+            className="flex items-center gap-2 px-4 py-3 bg-white border-2 border-gray-300 text-gray-600 rounded-xl hover:bg-gray-100 transition-all font-medium" title="Remover amostras duplicadas">
+            {dedupLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />} Remover duplicadas
           </button>
         </div>
       </div>

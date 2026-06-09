@@ -6,7 +6,7 @@ import {
   Loader2, Plus, BarChart2, CreditCard, Calendar, CheckCircle,
   AlertCircle, Zap
 } from 'lucide-react';
-import { dashboardAPI, evaluationsAPI, clientsAPI, paymentsAPI } from '../../lib/api';
+import { dashboardAPI, ptamAPI, paymentsAPI } from '../../lib/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { PLANS } from '../../mock/mock';
 import { StatCard, Shortcut, BarCol, GOLD, DARK_GREEN } from './overview/widgets';
@@ -29,20 +29,17 @@ const DashOverview = () => {
   const { user } = useAuth();
   const [stats, setStats]         = useState(null);
   const [recent, setRecent]       = useState([]);
-  const [clients, setClients]     = useState([]);
   const [payStatus, setPayStatus] = useState(null);
   const [loading, setLoading]     = useState(true);
 
   const loadAll = useCallback(() => {
     Promise.all([
       dashboardAPI.stats(),
-      evaluationsAPI.list(),
-      clientsAPI.list(),
+      ptamAPI.list().catch(() => []),
       paymentsAPI.status().catch(() => null),
-    ]).then(([s, e, c, pay]) => {
+    ]).then(([s, e, pay]) => {
       setStats(s);
-      setRecent(e.slice(0, 5));
-      setClients(c);
+      setRecent((Array.isArray(e) ? e : []).slice(0, 5));
       setPayStatus(pay);
     })
     .catch(err => console.warn('Failed to load dashboard', err))
@@ -50,8 +47,6 @@ const DashOverview = () => {
   }, []);
 
   useEffect(() => { loadAll(); }, [loadAll]);
-
-  const getClient = (id) => clients.find(c => c.id === id)?.name || '—';
 
   if (loading || !stats) {
     return (
@@ -149,21 +144,25 @@ const DashOverview = () => {
               <div className="absolute left-[17px] top-2 bottom-2 w-px bg-gray-100" />
               <div className="space-y-4">
                 {recent.map((e, i) => {
-                  const statusCls = EVAL_STATUS[e.status] || 'bg-gray-100 text-gray-600';
+                  const status = e.status || e.status_calculado || 'Rascunho';
+                  const statusCls = EVAL_STATUS[status] || 'bg-gray-100 text-gray-600';
+                  const code = e.numero_ptam || e.number || 'PTAM';
+                  const cliente = e.solicitante_nome || e.solicitante || '—';
+                  const data = e.created_at ? new Date(e.created_at).toLocaleDateString('pt-BR') : '';
                   return (
-                    <div key={e.id} className="flex gap-3 relative">
+                    <Link to={`/dashboard/ptam/${e.id}`} key={e.id} className="flex gap-3 relative group">
                       <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 border-2 border-white shadow-sm z-10" style={{ background: i === 0 ? GOLD : '#f3f4f6' }}>
                         <Clock className={`w-3.5 h-3.5 ${i === 0 ? 'text-white' : 'text-gray-400'}`} />
                       </div>
                       <div className="flex-1 min-w-0 pb-1">
                         <div className="flex items-center justify-between gap-2 flex-wrap">
-                          <span className="text-sm font-semibold text-gray-900 truncate">{e.code}</span>
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${statusCls}`}>{e.status}</span>
+                          <span className="text-sm font-semibold text-gray-900 truncate group-hover:underline">{code}</span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap capitalize ${statusCls}`}>{status}</span>
                         </div>
-                        <div className="text-xs text-gray-500 truncate mt-0.5">{getClient(e.client_id)}</div>
-                        <div className="text-[10px] text-gray-400 mt-0.5">{e.date}</div>
+                        <div className="text-xs text-gray-500 truncate mt-0.5">{cliente}</div>
+                        <div className="text-[10px] text-gray-400 mt-0.5">{data}</div>
                       </div>
-                    </div>
+                    </Link>
                   );
                 })}
               </div>

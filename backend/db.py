@@ -58,6 +58,7 @@ async def setup_indexes():
     await _db.amostras_mercado.create_index([("user_id", 1), ("tipo_imovel", 1), ("ativo", 1)])
     await _db.amostras_mercado.create_index([("user_id", 1), ("rs_m2_calculado", 1)])
     await _db.amostras_mercado.create_index([("user_id", 1), ("rs_ha_calculado", 1)])
+    await _db.amostras_mercado.create_index([("user_id", 1), ("assinatura", 1)])
     await _db.amostras_mercado.create_index("id", sparse=True)
 
     # Cupons Promocionais (Kit de Captação)

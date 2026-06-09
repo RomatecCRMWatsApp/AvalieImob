@@ -89,6 +89,28 @@ def calcular_metricas(doc: dict) -> dict:
     return doc
 
 
+def _assinatura_amostra(d: dict) -> str:
+    """Assinatura de conteúdo para deduplicação. Duas amostras com a mesma assinatura
+    são consideradas a MESMA amostra (independente da referência ou do PTAM de origem)."""
+    cat = d.get("categoria", "urbano")
+    if cat == "rural":
+        area = d.get("area_m2")
+        local = d.get("bairro_localidade") or d.get("denominacao") or ""
+    else:
+        area = d.get("area_total_m2")
+        local = d.get("bairro") or ""
+    return "|".join([
+        cat,
+        str(d.get("tipo_imovel") or "").strip().lower(),
+        f"{_f(area):.2f}",
+        f"{_f(d.get('valor_rs')):.2f}",
+        str(d.get("municipio") or "").strip().lower(),
+        str(local).strip().lower(),
+        str(d.get("fonte") or "").strip().lower(),
+        str(d.get("data_coleta") or "")[:10],
+    ])
+
+
 def serialize_amostra(doc: dict) -> dict:
     doc = dict(doc)
     doc.pop("_id", None)
@@ -125,6 +147,16 @@ async def criar_amostra(payload: dict, uid: str = Depends(get_active_subscriber)
     if not str(doc.get("referencia") or "").strip():
         raise HTTPException(400, "Referência é obrigatória")
     doc = calcular_metricas(doc)
+    doc["assinatura"] = _assinatura_amostra(doc)
+
+    # Regra anti-duplicata: se já existe uma amostra com o mesmo conteúdo, devolve a
+    # existente em vez de criar outra (evita lixo no banco).
+    existente = await db.amostras_mercado.find_one(
+        {"user_id": uid, "assinatura": doc["assinatura"], "ativo": True}
+    )
+    if existente:
+        return serialize_amostra(existente)
+
     doc["id"] = _new_id()
     doc["criado_em"] = _now()
     doc["atualizado_em"] = _now()
@@ -387,17 +419,23 @@ async def sincronizar_amostras_ptam(ptam_id: str, uid: str, db) -> dict:
                 continue
             doc = _mapear_sample(sample, ptam, categoria, idx)
             doc["user_id"] = uid
-            doc["origem"] = "ptam"
-            doc["ptam_origem_id"] = ptam_id
-            doc["ptam_origem_numero"] = numero_ptam
             doc["ativo"] = True
             doc["atualizado_em"] = _now()
+            doc["assinatura"] = _assinatura_amostra(doc)
 
+            # Dedup por CONTEÚDO: a mesma amostra reaproveitada em vários PTAMs vira UM
+            # único registro no banco global. A origem (PTAM/ref) fica a do 1º que gravou.
             await db.amostras_mercado.update_one(
-                {"user_id": uid, "ptam_origem_id": ptam_id, "referencia": doc["referencia"]},
+                {"user_id": uid, "assinatura": doc["assinatura"]},
                 {
                     "$set": doc,
-                    "$setOnInsert": {"id": _new_id(), "criado_em": _now()},
+                    "$setOnInsert": {
+                        "id": _new_id(),
+                        "criado_em": _now(),
+                        "origem": "ptam",
+                        "ptam_origem_id": ptam_id,
+                        "ptam_origem_numero": numero_ptam,
+                    },
                 },
                 upsert=True,
             )
@@ -417,3 +455,34 @@ async def sincronizar_amostras_ptam(ptam_id: str, uid: str, db) -> dict:
 async def sync_ptam_endpoint(ptam_id: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
     """Dispara manualmente a sincronização das amostras de um PTAM para o banco global."""
     return await sincronizar_amostras_ptam(ptam_id, uid, db)
+
+
+@router.post("/dedupe")
+async def remover_duplicadas(uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    """Remove amostras duplicadas do usuário (mesmo conteúdo), mantendo 1 de cada.
+
+    Critério de preferência ao manter: amostra MANUAL antes de PTAM, e a mais antiga.
+    Remove fisicamente as demais para liberar espaço. Idempotente.
+    """
+    docs = await db.amostras_mercado.find({"user_id": uid}).to_list(100000)
+
+    def _prio(d):
+        return (0 if d.get("origem") == "manual" else 1, str(d.get("criado_em") or ""))
+
+    vistos: dict = {}
+    remover_ids: list = []
+    for d in sorted(docs, key=_prio):
+        sig = d.get("assinatura") or _assinatura_amostra(d)
+        if sig in vistos:
+            if d.get("id"):
+                remover_ids.append(d["id"])
+        else:
+            vistos[sig] = d.get("id")
+            # Backfill da assinatura nos registros antigos que não tinham.
+            if not d.get("assinatura") and d.get("id"):
+                await db.amostras_mercado.update_one({"id": d["id"], "user_id": uid}, {"$set": {"assinatura": sig}})
+
+    if remover_ids:
+        await db.amostras_mercado.delete_many({"user_id": uid, "id": {"$in": remover_ids}})
+
+    return {"removidas": len(remover_ids), "mantidas": len(vistos)}

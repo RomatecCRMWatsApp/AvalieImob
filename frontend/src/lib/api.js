@@ -177,6 +177,7 @@ export const amostrasAPI = {
   proximaReferencia: (categoria = 'urbano') =>
     api.get('/amostras-mercado/meta/proxima-referencia', { params: { categoria } }).then(r => r.data),
   syncPtam: (ptamId) => api.post(`/amostras-mercado/sync/ptam/${ptamId}`).then(r => r.data),
+  dedupe: () => api.post('/amostras-mercado/dedupe').then(r => r.data),
 };
 
 // ---- Cupons Promocionais (Kit de Captação — admin)
