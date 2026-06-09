@@ -53,6 +53,26 @@ export const authAPI = {
   updateMe: (data) => api.put('/auth/me', data).then(r => r.data),
 };
 
+// ---- Branding (white-label por usuário: logo, cores, rodapé)
+export const brandingAPI = {
+  get: () => api.get('/branding').then((r) => r.data),
+  // Preview retorna PNG (ou PDF) como Blob — o componente cria o objectURL.
+  preview: () => api.get('/branding/preview', { responseType: 'blob' }).then((r) => r.data),
+  uploadLogo: (file) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return api
+      .post('/branding/logo', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+      .then((r) => r.data);
+  },
+  deleteLogo: () => api.delete('/branding/logo').then((r) => r.data),
+  updateColors: (data) => api.put('/branding/colors', data).then((r) => r.data),
+  updateFooter: (data) => api.put('/branding/footer', data).then((r) => r.data),
+  updateTypography: (data) => api.put('/branding/typography', data).then((r) => r.data),
+  setUseDefault: (value) => api.put('/branding/use-default', { use_default: value }).then((r) => r.data),
+  reset: () => api.post('/branding/reset').then((r) => r.data),
+};
+
 // ---- INCRA (tabelas de valores de terra nua — imóveis rurais)
 export const incraAPI = {
   tabelaVigente: (params = {}) =>

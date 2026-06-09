@@ -1,0 +1,126 @@
+name: Backup diário MongoDB → Cloudflare R2
+
+# ─────────────────────────────────────────────────────────────────────────────
+# AvalieImob — Romatec Consultoria Total
+# Dump completo do MongoDB Atlas, compactado e enviado ao bucket Cloudflare R2.
+# Estratégia 3-2-1: esta é a 2ª cópia (offsite automatizada).
+#
+# Secrets necessários (Settings > Secrets and variables > Actions):
+#   MONGO_URI          mongodb+srv://user:pass@cluster/db?retryWrites=true&w=majority
+#   R2_ACCESS_KEY      Access Key ID do token R2
+#   R2_SECRET_KEY      Secret Access Key do token R2
+#   R2_ENDPOINT        https://<ACCOUNT_ID>.r2.cloudflarestorage.com
+#   R2_BUCKET          avalieimob-backups
+# Opcional (alerta de falha no Slack/Discord/WhatsApp via webhook):
+#   ALERT_WEBHOOK_URL  https://hooks.slack.com/services/...
+# ─────────────────────────────────────────────────────────────────────────────
+
+on:
+  schedule:
+    - cron: '0 6 * * *'      # 06:00 UTC = 03:00 America/Fortaleza (MA)
+  workflow_dispatch:          # permite rodar manualmente na aba Actions
+
+concurrency:
+  group: mongo-backup
+  cancel-in-progress: false
+
+env:
+  RETENTION_DAYS: 30          # backups mais antigos que isso são removidos do R2
+  TZ: America/Fortaleza
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Instalar mongodb-database-tools
+        run: |
+          set -euo pipefail
+          curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc \
+            | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg
+          echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" \
+            | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq mongodb-database-tools
+          mongodump --version | head -n 1
+
+      - name: Instalar rclone
+        run: |
+          set -euo pipefail
+          curl -fsSL https://rclone.org/install.sh | sudo bash
+          rclone version | head -n 1
+
+      - name: Gerar dump e enviar ao R2
+        env:
+          MONGO_URI: ${{ secrets.MONGO_URI }}
+          RCLONE_CONFIG_R2_TYPE: s3
+          RCLONE_CONFIG_R2_PROVIDER: Cloudflare
+          RCLONE_CONFIG_R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY }}
+          RCLONE_CONFIG_R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_KEY }}
+          RCLONE_CONFIG_R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          RCLONE_CONFIG_R2_ACL: private
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${MONGO_URI:-}" ]; then echo "::error::Secret MONGO_URI ausente"; exit 1; fi
+
+          STAMP="$(date +%Y%m%d_%H%M%S)"
+          NAME="avalieimob_${STAMP}"
+          WORK="$(mktemp -d)"
+
+          echo "→ Dump do MongoDB (${STAMP})"
+          mongodump --uri="${MONGO_URI}" --out="${WORK}/${NAME}" --gzip --quiet
+
+          echo "→ Compactando"
+          tar -czf "${WORK}/${NAME}.tar.gz" -C "${WORK}" "${NAME}"
+          SIZE="$(du -h "${WORK}/${NAME}.tar.gz" | cut -f1)"
+          echo "   pacote: ${NAME}.tar.gz (${SIZE})"
+
+          echo "→ Enviando para R2: ${R2_BUCKET}"
+          rclone copyto "${WORK}/${NAME}.tar.gz" "R2:${R2_BUCKET}/${NAME}.tar.gz" \
+            --s3-no-check-bucket --retries 3 --low-level-retries 5
+
+          echo "→ Verificando integridade no R2"
+          rclone lsf "R2:${R2_BUCKET}/${NAME}.tar.gz" | grep -q "${NAME}.tar.gz" \
+            && echo "   OK: ${NAME}.tar.gz presente no bucket"
+
+          echo "→ Limpando temporários"
+          rm -rf "${WORK}"
+
+          echo "BACKUP_NAME=${NAME}.tar.gz" >> "$GITHUB_ENV"
+          echo "BACKUP_SIZE=${SIZE}" >> "$GITHUB_ENV"
+
+      - name: Aplicar retenção (remover backups antigos no R2)
+        env:
+          RCLONE_CONFIG_R2_TYPE: s3
+          RCLONE_CONFIG_R2_PROVIDER: Cloudflare
+          RCLONE_CONFIG_R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY }}
+          RCLONE_CONFIG_R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_KEY }}
+          RCLONE_CONFIG_R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          set -euo pipefail
+          echo "→ Removendo backups com mais de ${RETENTION_DAYS} dias"
+          rclone delete "R2:${R2_BUCKET}/" \
+            --min-age "${RETENTION_DAYS}d" \
+            --include "avalieimob_*.tar.gz" \
+            --rmdirs || true
+          echo "→ Backups atuais no bucket:"
+          rclone lsl "R2:${R2_BUCKET}/" --include "avalieimob_*.tar.gz" | tail -n 10
+
+      - name: Notificar falha (opcional)
+        if: failure() && env.ALERT_WEBHOOK_URL != ''
+        env:
+          ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
+        run: |
+          curl -fsS -X POST -H 'Content-Type: application/json' \
+            -d "{\"text\":\"❌ Backup AvalieImob FALHOU no run ${GITHUB_RUN_ID}. Verificar Actions.\"}" \
+            "${ALERT_WEBHOOK_URL}" || true
+
+      - name: Resumo
+        if: success()
+        run: |
+          echo "### ✅ Backup concluído" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Arquivo: \`${BACKUP_NAME}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Tamanho: ${BACKUP_SIZE}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Retenção: ${RETENTION_DAYS} dias" >> "$GITHUB_STEP_SUMMARY"

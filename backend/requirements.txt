@@ -49,3 +49,6 @@ pytesseract>=0.3.10
 Pillow>=10.0.0
 # ── Conversão PDF→TIFF 300 DPI dos documentos (PyMuPDF puro, sem deps de sistema) ──
 PyMuPDF==1.24.5
+# ── White-label: detecção de MIME por magic bytes + rasterização de SVG ──
+python-magic>=0.4.27   # Debian/Ubuntu: apt-get install -y libmagic1
+cairosvg>=2.7.1        # Debian/Ubuntu: apt-get install -y libcairo2
