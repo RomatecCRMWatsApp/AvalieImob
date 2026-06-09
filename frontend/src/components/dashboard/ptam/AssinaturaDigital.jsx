@@ -339,29 +339,7 @@ const AssinaturaICP = ({ tipo, docId, docData, onUpdate, onClose, toast, nav }) 
             </div>
           </div>
 
-          {isPtam && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Em qual PDF inserir a assinatura?
-              </label>
-              <div className="space-y-2">
-                <label className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition ${layouts.includes('v2') ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 hover:bg-gray-50'}`}>
-                  <input type="checkbox" checked={layouts.includes('v2')} onChange={() => toggleLayout('v2')} className="w-4 h-4" />
-                  <div>
-                    <div className="font-semibold text-sm text-gray-900">Laudo completo (v2)</div>
-                    <div className="text-xs text-gray-500">Layout aprovado — sumário, fotos e currículo.</div>
-                  </div>
-                </label>
-                <label className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition ${layouts.includes('v1') ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 hover:bg-gray-50'}`}>
-                  <input type="checkbox" checked={layouts.includes('v1')} onChange={() => toggleLayout('v1')} className="w-4 h-4" />
-                  <div>
-                    <div className="font-semibold text-sm text-gray-900">Laudo clássico (v1)</div>
-                    <div className="text-xs text-gray-500">Layout antigo. Marque os dois para assinar e guardar ambos.</div>
-                  </div>
-                </label>
-              </div>
-            </div>
-          )}
+          {/* Modelo único consolidado (v2) — seletor de layout removido. */}
 
           <Button
             onClick={handleAssinar}

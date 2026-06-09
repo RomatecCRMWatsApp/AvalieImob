@@ -5,6 +5,7 @@ import { Button } from '../../ui/button';
 import { useToast } from '../../../hooks/use-toast';
 import { ptamAPI, ptamExtrasAPI } from '../../../lib/api';
 import AssinaturaDigital from './AssinaturaDigital';
+import AssinaturaPosicionadaModal from '../assinatura/AssinaturaPosicionadaModal';
 import { fromM2, fmtBR } from '../../../utils/areaConversao';
 import { isRuralImovel } from './shared/amostraCategoria';
 import { resolvePtamStatus, calcularProgressoPtam } from './ptamStatus';
@@ -185,6 +186,7 @@ const PtamList = () => {
   const [shareModal, setShareModal] = useState(null);
   const [shareLoading, setShareLoading] = useState({});
   const [assinaturaModal, setAssinaturaModal] = useState(null);
+  const [posicionarModal, setPosicionarModal] = useState(null);
   const [reciboModal, setReciboModal] = useState(null);
   const [telegramModal, setTelegramModal] = useState(null);
   const [cloneLoading, setCloneLoading] = useState({});
@@ -449,6 +451,19 @@ const PtamList = () => {
         />
       )}
 
+      {posicionarModal && (
+        <AssinaturaPosicionadaModal
+          tipo="ptam"
+          documentId={posicionarModal.id}
+          onAssinado={() => {
+            setItems(prev => prev.map(p => p.id === posicionarModal.id
+              ? { ...p, icp_status: 'assinado', icp_signed_at: new Date().toISOString() } : p));
+            setPosicionarModal(null);
+          }}
+          onFechar={() => setPosicionarModal(null)}
+        />
+      )}
+
       {reciboModal && (
         <ReciboModal
           ptam={reciboModal}
@@ -631,6 +646,15 @@ const PtamList = () => {
                 >
                   {p.icp_status === 'assinado' ? <ShieldCheck className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
                   {p.icp_status === 'assinado' || p.d4sign_status === 'assinado' ? 'Assinado' : 'Assinar'}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  title="Assinar ICP-Brasil posicionando o carimbo (arrastar na página)"
+                  onClick={() => setPosicionarModal(p)}
+                  className="gap-1 text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+                >
+                  <MapPin className="w-3.5 h-3.5" /> Posicionar
                 </Button>
                 {(p.icp_status === 'assinado' || p.d4sign_status === 'assinado') && (
                   <Button

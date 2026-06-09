@@ -195,7 +195,7 @@ async def _render_ptam_layout(db, doc: dict, uid: str, layout: str) -> bytes:
     if perfil:
         perfil.pop("_id", None)
 
-    if layout == "v1":
+    if False:  # layout v1 descontinuado — modelo canônico único é o v2
         from pdf.ptam_pdf import generate_ptam_pdf
         # Logo da empresa
         company_logo_id = user.get("company_logo")
@@ -638,10 +638,8 @@ async def assinar_icp_brasil(
 
     # Layouts a assinar. Para PTAM o usuario escolhe v2 (completo) e/ou v1 (classico);
     # demais tipos tem layout unico.
-    if tipo == "ptam":
-        layouts = [l for l in (body.layouts or ["v2"]) if l in ("v1", "v2")] or ["v2"]
-    else:
-        layouts = ["v2"]
+    # Modelo único consolidado: sempre v2 (layout clássico v1 descontinuado).
+    layouts = ["v2"]
 
     import uuid as _uuid
     import copy as _copy

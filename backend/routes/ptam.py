@@ -17,7 +17,6 @@ from services.auth_service import get_current_user_id
 from services.ptam_share import enviar_ptam_email
 from models import PtamBase, Ptam, PtamVersion, PtamVersionDiff
 from utils.ptam_status import calcular_status_ptam
-from pdf.ptam_pdf import generate_ptam_pdf
 from ptam_docx import generate_ptam_docx
 from services.ptam_pdf_v2 import generate_ptam_pdf_v2
 from services.integracoes_util import carregar_integracoes
@@ -1340,7 +1339,12 @@ async def send_ptam_email(
         if perfil_avaliador_email:
             perfil_avaliador_email.pop("_id", None)
 
-        pdf_bytes = generate_ptam_pdf(doc, user, cnd_consultas=cnd_consultas_email, perfil_avaliador=perfil_avaliador_email)
+        # Modelo único: e-mail também usa o gerador canônico v2.
+        from routes.assinatura import _resolve_ptam_assets
+        await _attach_incra(db, doc)
+        await _resolve_ptam_assets(db, doc)
+        await _inject_brand(db, uid, doc)
+        pdf_bytes = generate_ptam_pdf_v2(doc, perfil_avaliador_email)
     except Exception as e:
         logger.exception("Erro ao gerar PDF para envio por email")
         raise HTTPException(status_code=500, detail=f"Erro ao gerar PDF: {str(e)[:200]}")
@@ -1596,7 +1600,12 @@ async def download_ptam_publico_pdf(token: str, db=Depends(get_db)):
         if perfil_avaliador:
             perfil_avaliador.pop("_id", None)
         
-        pdf_bytes = generate_ptam_pdf(ptam, user, cnd_consultas=cnd_consultas, perfil_avaliador=perfil_avaliador)
+        # Modelo único: link público também usa o gerador canônico v2.
+        from routes.assinatura import _resolve_ptam_assets
+        await _attach_incra(db, ptam)
+        await _resolve_ptam_assets(db, ptam)
+        await _inject_brand(db, ptam.get("user_id"), ptam)
+        pdf_bytes = generate_ptam_pdf_v2(ptam, perfil_avaliador)
     except Exception as e:
         logger.exception("PDF generation error (public)")
         raise HTTPException(status_code=500, detail=f"Erro ao gerar PDF: {str(e)[:200]}")
