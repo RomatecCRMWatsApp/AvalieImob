@@ -25,7 +25,7 @@ from utils.extenso import valor_por_extenso
 from utils.avaliador import resolver_dados_avaliador, formata_doc, cpf_solicitante
 from utils.texto_ia import limpar_texto_ia
 from utils.html_render import html_para_blocks, html_to_inline, html_to_plain
-from pdf.ptam_pdf import _FINALIDADE_MAP  # fonte única do mapa finalidade-chave → rótulo
+from finalidades import _FINALIDADE_MAP  # fonte única do mapa finalidade-chave → rótulo
 
 logger = logging.getLogger("romatec")
 
