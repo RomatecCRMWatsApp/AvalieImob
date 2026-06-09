@@ -33,6 +33,15 @@ import { fromM2, fmtBR } from '../utils/areaConversao';
 // Tipos rurais → área em hectares; demais → m².
 const _RURAIS_PT = ['fazenda', 'sitio', 'sítio', 'chacara', 'chácara', 'gleba', 'terreno_rural', 'modulo_rural', 'area_rural', 'rural'];
 const _ehRural = (t) => _RURAIS_PT.includes(String(t || '').toLowerCase());
+// Foto do perfil: vem como image_id (UUID) → resolve pro endpoint público de imagem.
+// URL completa ou data-uri passam direto.
+const _fotoSrc = (v) => {
+  if (!v) return null;
+  const s = String(v);
+  if (/^(https?:|data:)/i.test(s) || s.startsWith('/')) return s;
+  return `/api/upload/image/${s}`;
+};
+
 const _areaImovel = (d) => {
   if (_ehRural(d?.property_type)) {
     // Rural: área TOTAL/terreno (nunca a construída). Ordem espelha o dashboard.
@@ -670,9 +679,9 @@ const PortalCliente = () => {
           </h3>
           
           <div className="flex items-start gap-4">
-            {data?.perfil_avaliador?.foto_perfil ? (
-              <img 
-                src={data.perfil_avaliador.foto_perfil} 
+            {_fotoSrc(data?.perfil_avaliador?.foto_perfil) ? (
+              <img
+                src={_fotoSrc(data.perfil_avaliador.foto_perfil)}
                 alt={data.responsavel_nome}
                 className="w-20 h-20 rounded-full object-cover border-2" style={{ borderColor: COLORS.gold }}
               />
