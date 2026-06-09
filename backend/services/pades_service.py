@@ -364,3 +364,154 @@ def assinar_pdf_icp(
     hash_final = hashlib.sha256(pdf_assinado).hexdigest()
 
     return pdf_assinado, hash_final, data_assinatura
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Assinatura POSICIONADA — usuário escolhe página + retângulo (x,y,w,h em pontos)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _gerar_carimbo_em_caixa(
+    *, page_w: float, page_h: float, x: float, y: float, largura: float, altura: float,
+    titular: str, documento: str, emissor: str, valido_ate: Optional[datetime],
+    data_assinatura: datetime, hash_autenticidade: str, url_verificacao: str,
+    registro_full: str = "",
+) -> bytes:
+    """Desenha o carimbo dentro da caixa (x,y,largura,altura) numa página
+    transparente do MESMO tamanho da página alvo, para overlay alinhado."""
+    from reportlab.lib import colors
+    from reportlab.pdfgen import canvas as _canvas
+    from reportlab.lib.utils import ImageReader
+
+    VERDE = colors.HexColor("#0B6E4F")
+    PRETO = colors.HexColor("#1A1A1A")
+    CINZA = colors.HexColor("#555555")
+
+    buf = io.BytesIO()
+    c = _canvas.Canvas(buf, pagesize=(page_w, page_h))
+    c.saveState()
+
+    # Caixa de fundo branca com borda verde
+    c.setFillColor(colors.white)
+    c.setStrokeColor(VERDE)
+    c.setLineWidth(1.1)
+    raio = min(5.0, altura / 4)
+    c.roundRect(x, y, largura, altura, raio, stroke=1, fill=1)
+
+    # QR à esquerda (se houver espaço)
+    text_x = x + 6
+    qr_size = min(altura - 8, largura * 0.30)
+    if qr_size >= 22:
+        try:
+            import qrcode
+            qr_img = qrcode.make(url_verificacao, box_size=6, border=1)
+            qb = io.BytesIO()
+            qr_img.save(qb, format="PNG")
+            qb.seek(0)
+            c.drawImage(ImageReader(qb), x + 5, y + (altura - qr_size) / 2,
+                        width=qr_size, height=qr_size, mask="auto")
+            text_x = x + 5 + qr_size + 6
+        except Exception:
+            pass
+
+    text_w = (x + largura) - text_x - 5
+    fs = max(5.0, min(8.5, altura / 7.0))
+    leading = fs * 1.18
+
+    def _fit(txt, font, size):
+        s = str(txt or "")
+        while s and c.stringWidth(s, font, size) > text_w:
+            s = s[:-1]
+        return s
+
+    linhas = [
+        ("ASSINADO DIGITALMENTE — ICP-Brasil (PAdES)", "Helvetica-Bold", fs, VERDE),
+        (titular or "", "Helvetica-Bold", fs, PRETO),
+    ]
+    if documento:
+        linhas.append((f"Doc.: {documento}", "Helvetica", fs - 0.5, CINZA))
+    if registro_full:
+        linhas.append((registro_full, "Helvetica", fs - 0.5, CINZA))
+    if emissor:
+        val = f"  · válido até {valido_ate.strftime('%d/%m/%Y')}" if isinstance(valido_ate, datetime) else ""
+        linhas.append((f"AC: {emissor}{val}", "Helvetica", fs - 0.5, CINZA))
+    linhas.append((f"Em {data_assinatura.strftime('%d/%m/%Y %H:%M')} UTC", "Helvetica", fs - 0.5, CINZA))
+    linhas.append((f"Hash: {hash_autenticidade[:16]}…", "Helvetica", fs - 0.5, CINZA))
+
+    ty = y + altura - fs - 3
+    min_y = y + 3
+    for txt, font, size, color in linhas:
+        if ty < min_y:
+            break
+        c.setFont(font, size)
+        c.setFillColor(color)
+        c.drawString(text_x, ty, _fit(txt, font, size))
+        ty -= leading
+
+    c.restoreState()
+    c.showPage()
+    c.save()
+    return buf.getvalue()
+
+
+def _aplicar_carimbo_em_pagina(pdf_bytes: bytes, carimbo_pdf: bytes, page_index: int) -> bytes:
+    """Sobrepõe o carimbo na página `page_index` (mesma dimensão → alinhamento exato)."""
+    from pypdf import PdfReader, PdfWriter
+
+    reader = PdfReader(io.BytesIO(pdf_bytes))
+    carimbo_page = PdfReader(io.BytesIO(carimbo_pdf)).pages[0]
+    writer = PdfWriter()
+    for i, p in enumerate(reader.pages):
+        if i == page_index:
+            try:
+                p.merge_page(carimbo_page)
+            except Exception as e:
+                logger.warning("Overlay posicionado falhou na página %s (%s)", i, e)
+        writer.add_page(p)
+    out = io.BytesIO()
+    writer.write(out)
+    return out.getvalue()
+
+
+def assinar_pdf_icp_posicionado(
+    *,
+    pdf_bytes: bytes,
+    pfx_bytes: bytes,
+    pfx_password: str,
+    pagina: int,
+    x: float,
+    y: float,
+    largura: float,
+    altura: float,
+    titular: str,
+    documento: str,
+    emissor: str,
+    valido_ate: Optional[datetime] = None,
+    registro_full: str = "",
+) -> Tuple[bytes, str, datetime]:
+    """Assina o PDF com PAdES, posicionando o carimbo visual na página/caixa
+    escolhidas pelo usuário (coordenadas em pontos PDF, origem bottom-left).
+    Retorna (pdf_assinado, hash_autenticidade, data_assinatura_utc)."""
+    from pypdf import PdfReader
+
+    data_assinatura = datetime.utcnow()
+    hash_provisorio = hashlib.sha256(pdf_bytes).hexdigest()
+    url_verificacao = f"{_public_base_url()}/v/laudo/v/{hash_provisorio}"
+
+    reader = PdfReader(io.BytesIO(pdf_bytes))
+    total = len(reader.pages)
+    if pagina < 0 or pagina >= total:
+        raise RuntimeError(f"página {pagina} fora do intervalo (0..{total - 1})")
+    mb = reader.pages[pagina].mediabox
+    page_w, page_h = float(mb.width), float(mb.height)
+
+    carimbo_pdf = _gerar_carimbo_em_caixa(
+        page_w=page_w, page_h=page_h, x=x, y=y, largura=largura, altura=altura,
+        titular=titular, documento=documento, emissor=emissor, valido_ate=valido_ate,
+        data_assinatura=data_assinatura, hash_autenticidade=hash_provisorio,
+        url_verificacao=url_verificacao, registro_full=registro_full,
+    )
+    pdf_com_carimbo = _aplicar_carimbo_em_pagina(pdf_bytes, carimbo_pdf, pagina)
+    pdf_assinado = _assinar_pades(pdf_com_carimbo, pfx_bytes, pfx_password)
+    hash_final = hashlib.sha256(pdf_assinado).hexdigest()
+
+    return pdf_assinado, hash_final, data_assinatura

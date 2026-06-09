@@ -748,6 +748,199 @@ async def assinar_icp_brasil(
     }
 
 
+# ── Assinatura POSICIONADA (usuário arrasta o retângulo) ─────────────────────
+
+class PrepararPosicionadoRequest(BaseModel):
+    layout: str = "v2"
+
+
+class AssinarPosicionadoRequest(BaseModel):
+    cert_id: str
+    pagina: int                 # 0-indexed
+    x_pt: float                 # coords em PONTOS PDF (origem bottom-left)
+    y_pt: float
+    largura_pt: float
+    altura_pt: float
+
+
+def _dados_carimbo(cert: dict, perfil: dict, user: dict):
+    """(titular, documento, emissor, registro_full) para o carimbo posicionado."""
+    registros = perfil.get("registros") or []
+    regs_fmt = " / ".join(
+        f"{(r.get('tipo') or '').strip()} nº {(r.get('numero') or '').strip()}".strip()
+        for r in registros if (r.get('numero') or '').strip()
+    )
+    registro_full = ("Avaliador " + regs_fmt).strip() if regs_fmt else ""
+    titular = cert.get("titular") or perfil.get("nome_completo") or user.get("name") or "Avaliador"
+    documento = cert.get("documento") or perfil.get("cpf") or ""
+    emissor = cert.get("emissor") or ""
+    return titular, documento, emissor, registro_full
+
+
+@router.post("/icp/{tipo}/{id}/preparar")
+async def preparar_assinatura_posicionada(
+    tipo: str,
+    id: str,
+    body: PrepararPosicionadoRequest,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db),
+):
+    """Gera o PDF (layout completo v2), guarda no R2 e devolve as páginas
+    renderizadas para o usuário posicionar a assinatura. Preview e assinatura
+    usam EXATAMENTE este arquivo."""
+    from services import r2_storage
+    from services.pdf_preview import renderizar_paginas
+
+    doc = await _get_doc(db, tipo, id, uid)
+    try:
+        if tipo == "ptam":
+            pdf_bytes = await _render_ptam_layout(db, doc, uid, "v2")
+        else:
+            perfil = await db.perfil_avaliador.find_one({"user_id": uid}) or {}
+            pdf_bytes = await _gerar_pdf(tipo, doc, db=db, perfil=perfil)
+    except Exception as e:
+        logger.exception("Erro ao gerar PDF para assinatura posicionada")
+        raise HTTPException(status_code=500, detail=f"Erro ao gerar PDF: {e}")
+
+    key = f"assinatura_tmp/{uid}/{tipo}_{id}.pdf"
+    try:
+        await asyncio.to_thread(
+            r2_storage.upload_bytes, pdf_bytes, key, "application/pdf", "private, max-age=0"
+        )
+    except Exception as e:
+        logger.exception("Falha ao subir PDF temporário ao R2")
+        raise HTTPException(status_code=502, detail=f"Falha ao preparar PDF: {e}")
+
+    await db[_TIPO_COLECAO[tipo]].update_one(
+        {"id": id, "user_id": uid},
+        {"$set": {"pdf_assinatura_key": key, "pdf_assinatura_prep_em": datetime.utcnow()}},
+    )
+
+    try:
+        paginas = await asyncio.to_thread(renderizar_paginas, pdf_bytes)
+    except Exception as e:
+        logger.exception("Erro ao renderizar páginas do PDF")
+        raise HTTPException(status_code=500, detail=f"Erro ao renderizar páginas: {e}")
+
+    return {"paginas": paginas, "total": len(paginas)}
+
+
+@router.post("/icp/{tipo}/{id}/posicionado")
+async def assinar_posicionado(
+    tipo: str,
+    id: str,
+    body: AssinarPosicionadoRequest,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db),
+):
+    """Assina o PDF preparado, posicionando o carimbo ICP-Brasil na página/caixa
+    escolhidas. Salva em assinaturas_pdf e atualiza os campos icp_* do documento."""
+    import uuid as _uuid
+    from services.cert_crypto import decrypt_bytes
+    from services.pades_service import assinar_pdf_icp_posicionado
+    from services import r2_storage
+
+    doc = await _get_doc(db, tipo, id, uid)
+    key = doc.get("pdf_assinatura_key")
+    if not key:
+        raise HTTPException(status_code=400, detail="Documento não preparado. Reabra o assinador.")
+
+    cert = await db.certificados.find_one({"id": body.cert_id, "user_id": uid})
+    if not cert:
+        raise HTTPException(status_code=404, detail="Certificado não encontrado")
+    if not cert.get("ativo", True):
+        raise HTTPException(status_code=400, detail="Certificado desativado")
+    valido_ate = cert.get("valido_ate")
+    if valido_ate and isinstance(valido_ate, datetime) and valido_ate < datetime.utcnow():
+        raise HTTPException(status_code=400, detail=f"Certificado expirado em {valido_ate.strftime('%d/%m/%Y')}")
+
+    try:
+        pfx_bytes = decrypt_bytes(cert["pfx_encrypted"], cert["nonce_pfx"])
+        pfx_password = decrypt_bytes(cert["password_encrypted"], cert["nonce_password"]).decode("utf-8")
+    except Exception as e:
+        logger.exception("Falha ao descriptografar certificado")
+        raise HTTPException(status_code=500, detail=f"Falha ao acessar certificado: {e}")
+
+    try:
+        pdf_bytes = await asyncio.to_thread(r2_storage.download_bytes, key)
+    except Exception as e:
+        logger.exception("Falha ao baixar PDF preparado do R2")
+        raise HTTPException(status_code=410, detail="PDF preparado expirou. Reabra o assinador.")
+
+    user = await db.users.find_one({"id": uid}) or {}
+    perfil = await db.perfil_avaliador.find_one({"user_id": uid}) or {}
+    titular, documento, emissor, registro_full = _dados_carimbo(cert, perfil, user)
+
+    try:
+        pdf_assinado, hash_final, data_assinatura = await asyncio.to_thread(
+            assinar_pdf_icp_posicionado,
+            pdf_bytes=pdf_bytes,
+            pfx_bytes=pfx_bytes,
+            pfx_password=pfx_password,
+            pagina=body.pagina,
+            x=body.x_pt,
+            y=body.y_pt,
+            largura=body.largura_pt,
+            altura=body.altura_pt,
+            titular=titular,
+            documento=documento,
+            emissor=emissor,
+            valido_ate=cert.get("valido_ate"),
+            registro_full=registro_full,
+        )
+    except Exception as e:
+        logger.exception("Falha ao assinar PDF posicionado")
+        raise HTTPException(status_code=500, detail=f"Falha ao assinar: {e}")
+
+    layout = "v2"
+    existing = await db["assinaturas_pdf"].find_one(
+        {"doc_tipo": tipo, "doc_id": id, "metodo": "icp", "layout": layout}
+    )
+    if existing:
+        await db["assinaturas_pdf"].update_one(
+            {"id": existing["id"]},
+            {"$set": {"content": pdf_assinado, "hash_sha256": hash_final,
+                      "cert_id": body.cert_id, "posicionado": True, "updated_at": datetime.utcnow()}},
+        )
+    else:
+        await db["assinaturas_pdf"].insert_one({
+            "id": str(_uuid.uuid4()), "doc_tipo": tipo, "doc_id": id, "metodo": "icp",
+            "layout": layout, "cert_id": body.cert_id, "hash_sha256": hash_final,
+            "content": pdf_assinado, "posicionado": True, "created_at": datetime.utcnow(),
+        })
+
+    await db[_TIPO_COLECAO[tipo]].update_one(
+        {"id": id},
+        {"$set": {
+            "icp_status": "assinado",
+            "icp_signed_at": data_assinatura,
+            "icp_cert_id": body.cert_id,
+            "icp_titular": cert.get("titular"),
+            "icp_documento": cert.get("documento"),
+            "icp_emissor": cert.get("emissor"),
+            "icp_hash": hash_final,
+            "icp_layouts": [layout],
+            "icp_pdf_url": f"/api/assinatura/icp/{tipo}/{id}/download",
+            "icp_verificacao_url": f"/v/laudo/v/{hash_final}",
+            "updated_at": datetime.utcnow(),
+        }, "$unset": {"pdf_assinatura_key": ""}},
+    )
+
+    try:
+        await asyncio.to_thread(r2_storage.delete_object, key)
+    except Exception:
+        pass
+
+    return {
+        "ok": True,
+        "status": "assinado",
+        "hash": hash_final,
+        "assinado_em": data_assinatura.isoformat(),
+        "download_url": f"/api/assinatura/icp/{tipo}/{id}/download",
+        "verificacao_url": f"/v/laudo/v/{hash_final}",
+    }
+
+
 @router.get("/icp/{tipo}/{id}/download")
 async def download_icp(
     tipo: str,

@@ -84,6 +84,18 @@ export const zayraAPI = {
     api.get(`/zayra/foto-preview/${id}`, { responseType: 'blob' }).then((r) => r.data),
 };
 
+// ---- Assinatura ICP-Brasil POSICIONADA (arrastar o retângulo)
+export const assinaturaPosAPI = {
+  // Certificados do usuário (pra escolher o e-CPF/e-CNPJ)
+  certificados: () => api.get('/certificados').then((r) => r.data),
+  // Gera o PDF, guarda no R2 e devolve as páginas renderizadas (base64 + dims em pontos)
+  preparar: (tipo, id) =>
+    api.post(`/assinatura/icp/${tipo}/${id}/preparar`, { layout: 'v2' }).then((r) => r.data),
+  // Assina na posição escolhida (coords em PONTOS PDF, origem bottom-left)
+  assinar: (tipo, id, body) =>
+    api.post(`/assinatura/icp/${tipo}/${id}/posicionado`, body).then((r) => r.data),
+};
+
 // ---- INCRA (tabelas de valores de terra nua — imóveis rurais)
 export const incraAPI = {
   tabelaVigente: (params = {}) =>

@@ -94,6 +94,18 @@ def upload_bytes(
     return public_url(key)
 
 
+def download_bytes(key_or_url: str) -> bytes:
+    """Baixa os bytes de um objeto do R2. Aceita a key ou a URL pública/assinada."""
+    key = _key_from_url(key_or_url)
+    if not key:
+        raise StorageError(f"key inválida para download: {key_or_url!r}")
+    try:
+        obj = _get_client().get_object(Bucket=_bucket(), Key=key)
+        return obj["Body"].read()
+    except _boto_errors() as exc:
+        raise StorageError(f"falha ao baixar objeto R2 ({key}): {exc}") from exc
+
+
 def delete_object(key_or_url: str) -> None:
     """Remove um objeto. Aceita a key ou a URL pública completa."""
     key = _key_from_url(key_or_url)
