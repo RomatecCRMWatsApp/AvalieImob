@@ -2,7 +2,7 @@
 .fotos-fab {
   position: fixed;
   right: 0;
-  top: 9%;                 /* acima da aba CNPJ/CPF (26%) e do Roma_IA (meio) */
+  top: 64%;                /* empilhada abaixo do Roma_IA (meio) e do CNPJ/CPF (26%) */
   z-index: 1000;
   display: flex;
   flex-direction: column;
@@ -32,6 +32,7 @@
   background: linear-gradient(135deg, #1a5c38, #0a5236);
 }
 @media (max-width: 640px) {
-  .fotos-fab { top: auto; bottom: 160px; padding: 11px 6px; }
+  /* Mobile: empilha acima da aba CNPJ/CPF (bottom 96px) */
+  .fotos-fab { top: auto; bottom: 250px; padding: 11px 6px; }
   .fotos-fab-label { font-size: 11px; letter-spacing: 1px; }
 }
