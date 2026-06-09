@@ -2099,6 +2099,21 @@ def _wa_add_meses(v, meses: int) -> str:
     return f"{dia:02d} de {_MESES_PT[mes]} de {ano}"
 
 
+def _wa_cidade_uf(cidade, uf, cep) -> str:
+    """Monta 'Cidade — UF | CEP' sem duplicar a UF quando a cidade já a contém
+    (ex.: 'AÇAILANDIA-MA' + 'MA' -> 'Açailândia — MA')."""
+    import re
+    cidade = (cidade or "").strip()
+    uf = (uf or "").strip()
+    if uf and cidade:
+        cidade = re.sub(rf"[\s/\-,]+{re.escape(uf)}\.?$", "", cidade, flags=re.IGNORECASE).strip()
+    loc = " — ".join([p for p in [cidade, uf] if p])
+    cep = (cep or "").strip()
+    if cep:
+        loc = f"{loc} | CEP {cep}" if loc else f"CEP {cep}"
+    return loc
+
+
 def _montar_msg_laudo_whatsapp(ptam: dict, perfil: dict, link: str) -> str:
     """Monta a mensagem profissional do laudo (padrão e-mail) para Z-API/WhatsApp."""
     perfil = perfil or {}
@@ -2134,10 +2149,8 @@ def _montar_msg_laudo_whatsapp(ptam: dict, perfil: dict, link: str) -> str:
     except Exception:
         extenso = ""
 
-    # Cidade/UF | CEP
-    cid_uf = " — ".join([p for p in [cidade, uf] if p])
-    if cep:
-        cid_uf = f"{cid_uf} | CEP {cep}" if cid_uf else f"CEP {cep}"
+    # Cidade/UF | CEP (sem duplicar UF)
+    cid_uf = _wa_cidade_uf(cidade, uf, cep)
 
     linhas = [
         saud, "",
@@ -2221,10 +2234,8 @@ def _montar_msg_laudo_whatsapp(ptam: dict, perfil: dict, link: str) -> str:
         linhas.append(f"Avaliador | {reg_txt}")
     empresa = perfil.get("empresa_nome") or "Romatec Consultoria Total — AvalieImob"
     linhas.append(empresa)
-    end_assin = perfil.get("endereco_escritorio") or ""
-    loc_assin = " — ".join([p for p in [perfil.get("cidade"), perfil.get("uf")] if p])
-    if perfil.get("cep"):
-        loc_assin = f"{loc_assin} | CEP {perfil['cep']}" if loc_assin else f"CEP {perfil['cep']}"
+    end_assin = (perfil.get("endereco_escritorio") or "").strip().rstrip("–—-,/ ").strip()
+    loc_assin = _wa_cidade_uf(perfil.get("cidade"), perfil.get("uf"), perfil.get("cep"))
     if end_assin or loc_assin:
         linhas.append(" — ".join([p for p in [end_assin, loc_assin] if p]))
     contatos = []
