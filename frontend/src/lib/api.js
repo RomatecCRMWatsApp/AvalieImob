@@ -148,6 +148,7 @@ export const clientsAPI = {
   create: (data) => api.post('/clients', data).then(r => r.data),
   update: (id, data) => api.put(`/clients/${id}`, data).then(r => r.data),
   remove: (id) => api.delete(`/clients/${id}`).then(r => r.data),
+  importarPtam: () => api.post('/clients/importar-ptam').then(r => r.data),
 };
 
 // ---- Properties

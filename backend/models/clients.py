@@ -6,18 +6,45 @@ from models.common import _id, _now
 
 
 class ClientBase(BaseModel):
+    # Identificação
     name: str
     type: str = "Pessoa Física"
-    doc: str
+    doc: Optional[str] = ""              # CPF (PF) ou CNPJ (PJ)
+    # Pessoa Física — qualificação (usada em contratos/laudos)
+    rg: Optional[str] = ""
+    orgao_emissor: Optional[str] = ""
+    nacionalidade: Optional[str] = ""
+    estado_civil: Optional[str] = ""
+    profissao: Optional[str] = ""
+    data_nascimento: Optional[str] = ""
+    # Pessoa Jurídica
+    nome_fantasia: Optional[str] = ""
+    inscricao_estadual: Optional[str] = ""
+    inscricao_municipal: Optional[str] = ""
+    representante_legal: Optional[str] = ""
+    representante_cpf: Optional[str] = ""
+    # Contato
     phone: Optional[str] = ""
+    phone2: Optional[str] = ""
     email: Optional[str] = ""
-    city: Optional[str] = ""
+    # Endereço
+    cep: Optional[str] = ""
+    endereco: Optional[str] = ""         # logradouro
+    numero: Optional[str] = ""
+    complemento: Optional[str] = ""
+    bairro: Optional[str] = ""
+    city: Optional[str] = ""             # cidade
+    uf: Optional[str] = ""
+    # Outros
+    observacoes: Optional[str] = ""
+    origem: Optional[str] = "manual"     # manual | ptam
 
 
 class Client(ClientBase):
     id: str = Field(default_factory=_id)
     user_id: str
     created_at: datetime = Field(default_factory=_now)
+    updated_at: datetime = Field(default_factory=_now)
 
 
 class PropertyBase(BaseModel):
