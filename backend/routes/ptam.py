@@ -26,17 +26,25 @@ router = APIRouter(tags=["ptam"])
 logger = logging.getLogger("romatec")
 
 
-async def _brand_logo_bytes(db, uid):
-    """Logo white-label do usuário (BrandingWizard → R2) para injetar no PDF/DOCX.
-    Retorna None quando o usuário usa o padrão AvalieImob — aí o gerador mantém o
-    logo padrão. Nunca propaga erro (branding é opcional)."""
+async def _inject_brand(db, uid, doc):
+    """Injeta o white-label do usuário no doc do PTAM antes de gerar o PDF:
+      - _brand_logo_bytes: logo próprio (None = mantém o logo padrão AvalieImob)
+      - _brand_primary/_brand_secondary: cores do tema, SÓ quando o usuário tem
+        marca própria (use_default=False). Sem isso, o PDF sai no verde/dourado padrão.
+    Nunca propaga erro (branding é opcional)."""
     try:
+        from services import branding_repository as repo
         from services.branding_context import BrandContext
-        brand = await BrandContext.for_user(db, uid)
-        return brand.custom_logo_bytes()
+        branding = await repo.get_branding(db, uid)
+        brand = BrandContext.from_branding(branding)
+        doc["_brand_logo_bytes"] = brand.custom_logo_bytes()
+        if not branding.use_default:
+            r = branding.resolved()
+            doc["_brand_primary"] = r.color_primary
+            doc["_brand_secondary"] = r.color_secondary
     except Exception:
-        logger.warning("Falha ao resolver logo de marca (uid=%s)", uid, exc_info=False)
-        return None
+        logger.warning("Falha ao resolver marca (uid=%s)", uid, exc_info=False)
+    return doc
 
 
 class PtamEmailRequest(BaseModel):
@@ -723,7 +731,7 @@ async def download_ptam_pdf(pid: str, uid: str = Depends(get_active_subscriber),
 
         # Gerador v2: layout aprovado, com sumário numerado e clicável.
         await _attach_incra(db, doc)
-        doc["_brand_logo_bytes"] = await _brand_logo_bytes(db, uid)
+        await _inject_brand(db, uid, doc)
         data = generate_ptam_pdf_v2(doc, perfil_avaliador)
     except Exception as e:
         logger.exception("PDF generation error")
@@ -1140,7 +1148,7 @@ async def download_ptam_pdf_v2(pid: str, uid: str = Depends(get_active_subscribe
         if perfil:
             perfil.pop("_id", None)
         await _attach_incra(db, doc)
-        doc["_brand_logo_bytes"] = await _brand_logo_bytes(db, uid)
+        await _inject_brand(db, uid, doc)
         data = generate_ptam_pdf_v2(doc, perfil)
     except Exception as e:
         logger.exception("PDF v2 generation error")
@@ -1216,7 +1224,7 @@ async def preview_ptam_pdf(body: dict, uid: str = Depends(get_active_subscriber)
         if perfil:
             perfil.pop("_id", None)
         await _attach_incra(db, doc)
-        doc["_brand_logo_bytes"] = await _brand_logo_bytes(db, uid)
+        await _inject_brand(db, uid, doc)
         data = generate_ptam_pdf_v2(doc, perfil)
     except Exception as e:
         logger.exception("PTAM preview error")

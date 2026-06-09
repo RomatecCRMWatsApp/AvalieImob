@@ -41,6 +41,68 @@ CINZA_BRD = HexColor('#CCCCCC')
 PRETO = HexColor('#1A1A1A')
 BRANCO = colors.white
 
+
+# ── White-label: tema de cores por cliente (override temporário) ───────────────
+# As constantes VERDE/DOURADO são usadas em ~100 pontos. Em vez de reescrever cada
+# um, aplicamos um override pontual no início da geração e restauramos no fim.
+# Seguro aqui porque generate_ptam_pdf_v2 roda como chamada SÍNCRONA bloqueante
+# dentro da rota async (uma geração por vez por worker). Multi-worker = globals
+# independentes por processo.
+_THEME_COLOR_KEYS = ('VERDE', 'VERDE_MED', 'VERDE_CLR', 'DOURADO', 'DOURADO_CLR')
+# Estilos de módulo cujo textColor foi fixado a uma cor de tema no import:
+_THEME_STYLE_BINDINGS = (('sSec', 'VERDE'), ('sSub', 'VERDE_MED'), ('sTitulo', 'VERDE'))
+
+
+def _shade(hex_str, toward, amount):
+    """Clareia ('white') ou escurece ('black') uma cor hex por `amount` (0..1)."""
+    from reportlab.lib.colors import Color
+    c = HexColor(hex_str)
+    r, g, b = c.red, c.green, c.blue
+    if toward == 'white':
+        r, g, b = r + (1 - r) * amount, g + (1 - g) * amount, b + (1 - b) * amount
+    else:
+        r, g, b = r * (1 - amount), g * (1 - amount), b * (1 - amount)
+    return Color(r, g, b)
+
+
+def _apply_brand_theme(primary_hex, secondary_hex):
+    """Aplica as cores do cliente às constantes + estilos de módulo. Devolve o
+    estado salvo para restaurar no finally. Retorna None se a cor for inválida."""
+    g = globals()
+    saved_colors = {k: g[k] for k in _THEME_COLOR_KEYS}
+    saved_styles = {}
+    try:
+        g['VERDE'] = HexColor(primary_hex)
+        g['VERDE_MED'] = _shade(primary_hex, 'black', 0.12)
+        g['VERDE_CLR'] = _shade(primary_hex, 'white', 0.90)
+        if secondary_hex:
+            g['DOURADO'] = HexColor(secondary_hex)
+            g['DOURADO_CLR'] = _shade(secondary_hex, 'white', 0.25)
+        for style_name, color_name in _THEME_STYLE_BINDINGS:
+            st = g.get(style_name)
+            if st is not None:
+                saved_styles[style_name] = st.textColor
+                st.textColor = g[color_name]
+    except Exception:
+        for k, v in saved_colors.items():
+            g[k] = v
+        for sname, col in saved_styles.items():
+            g[sname].textColor = col
+        return None
+    return (saved_colors, saved_styles)
+
+
+def _restore_theme(saved):
+    if not saved:
+        return
+    saved_colors, saved_styles = saved
+    g = globals()
+    for k, v in saved_colors.items():
+        g[k] = v
+    for sname, col in saved_styles.items():
+        if g.get(sname) is not None:
+            g[sname].textColor = col
+
 # ── Cards estilo "dashboard" para o tratamento estatístico no PDF ──────────────
 _sCardP = ParagraphStyle('cardP', fontName='Helvetica', fontSize=9, leading=12, alignment=TA_CENTER)
 
@@ -2381,8 +2443,20 @@ def build_ptam_pdf(ptam: dict) -> bytes:
 
 
 def generate_ptam_pdf_v2(ptam: dict, perfil: dict = None) -> bytes:
-    """Ponto de entrada: gera o PDF do PTAM (layout aprovado) e retorna bytes."""
+    """Ponto de entrada: gera o PDF do PTAM (layout aprovado) e retorna bytes.
+
+    White-label: se ptam trouxer _brand_primary/_brand_secondary (injetado pela
+    rota quando o usuário tem marca própria), as cores do tema são aplicadas só
+    durante esta geração e restauradas em seguida — PTAMs de quem usa o padrão
+    saem com o verde/dourado de sempre.
+    """
     ptam = dict(ptam or {})
     if perfil is not None:
         ptam['_perfil'] = perfil
-    return build_ptam_pdf(ptam)
+    primary = ptam.get('_brand_primary')
+    secondary = ptam.get('_brand_secondary')
+    saved = _apply_brand_theme(primary, secondary) if primary else None
+    try:
+        return build_ptam_pdf(ptam)
+    finally:
+        _restore_theme(saved)
