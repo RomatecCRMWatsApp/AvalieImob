@@ -4,7 +4,7 @@ import { Link, NavLink, Routes, Route, Navigate, useNavigate } from 'react-route
 import {
   LayoutDashboard, Users, Building2, BarChart3, FileText,
   CreditCard, Settings, LogOut, Menu, X, Bell, FileCheck2, Globe,
-  Search, ChevronDown, User, Shield, Beef, Award, Home, ClipboardCheck, FileSearch, FileSignature, Receipt
+  Search, ChevronDown, User, Shield, Beef, Award, Home, ClipboardCheck, FileSearch, FileSignature, Receipt, Palette
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { APP_VERSION, BUILD_DATE } from '../version';
@@ -45,6 +45,7 @@ import ContratosList from '../components/dashboard/contratos/ContratosList';
 import ContratoWizard from '../components/dashboard/contratos/ContratoWizard';
 import RecibosList from '../components/dashboard/recibos/RecibosList';
 import ReciboWizard from '../components/dashboard/recibos/ReciboWizard';
+import BrandingWizard from '../components/dashboard/branding/BrandingWizard';
 
 /* ─── Brand ─────────────────────────────────────────────── */
 const GOLD       = '#D4A830';
@@ -97,6 +98,7 @@ const NAV_GROUPS = [
     label: 'Conta',
     items: [
       { to: '/dashboard/curriculo',  icon: Award,      label: 'Meu Currículo' },
+      { to: '/dashboard/marca',      icon: Palette,    label: 'Marca (White-label)', badge: 'NOVO' },
       { to: '/dashboard/assinatura', icon: CreditCard, label: 'Assinatura' },
       { to: '/dashboard/config',     icon: Settings,   label: 'Configurações' },
     ],
@@ -447,6 +449,7 @@ const Dashboard = () => {
             <Route path="curriculo"   element={<PerfilAvaliador />} />
             <Route path="assinatura"  element={<SubscriptionPage />} />
             <Route path="config"      element={<SettingsPage />} />
+            <Route path="marca"       element={<BrandingWizard />} />
             <Route path="admin/incra" element={<AdminIncra />} />
             <Route path="*"            element={<Navigate to="/dashboard" replace />} />
           </Routes>

@@ -44,6 +44,9 @@ async def setup_indexes():
     await _db.contratos.create_index("link_publico_token", sparse=True)
     # Índices para contrato_versions
     await _db.contrato_versions.create_index([("contrato_id", 1), ("numero_versao", -1)])
+    # Índice único do white-label por usuário (tenant_branding)
+    from services.branding_repository import ensure_indexes as _branding_indexes
+    await _branding_indexes(_db)
 
 
 def get_client() -> AsyncIOMotorClient:

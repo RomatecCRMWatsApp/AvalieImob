@@ -8,7 +8,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Building2, BarChart3, FileCheck2, Shield, Beef, Home,
   ClipboardCheck, FileText, FileSignature, Receipt, Sparkles, FileSearch, Award,
-  CreditCard, Settings, LogOut, Globe, Search,
+  CreditCard, Settings, LogOut, Globe, Search, Palette,
 } from 'lucide-react';
 import { ptamAPI } from '../lib/api';
 
@@ -58,6 +58,7 @@ const MENU = [
   ]},
   { section: 'Conta', items: [
     { id: 'curriculo', label: 'Meu Currículo', icon: Award, route: '/dashboard/curriculo' },
+    { id: 'marca', label: 'Marca (White-label)', icon: Palette, route: '/dashboard/marca', tag: 'NOVO' },
     { id: 'assinatura', label: 'Assinatura', icon: CreditCard, route: '/dashboard/assinatura' },
     { id: 'config', label: 'Configurações', icon: Settings, route: '/dashboard/config' },
   ]},
