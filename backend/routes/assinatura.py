@@ -104,6 +104,17 @@ async def _resolve_ptam_assets(db, doc: dict) -> None:
                 foto["legenda"] = foto.get("description") or foto.get("caption") or f"Foto {i}"
             if isinstance(foto.get("_image_bytes"), (bytes, bytearray)):
                 foto["_image_bytes"] = downscale_image(bytes(foto["_image_bytes"]))
+            else:
+                # Foto-objeto {image_id, legenda}: resolve os bytes em db.images.
+                _fid = str(foto.get("image_id") or foto.get("url") or "").replace('/api/upload/image/', '').split('/')[-1]
+                if len(_fid) > 30 and '-' in _fid:
+                    _img = await db.images.find_one({"id": _fid})
+                    if _img and _img.get("data_b64"):
+                        foto["_image_bytes"] = downscale_image(base64.b64decode(_img["data_b64"]))
+                        if not foto.get("gps") and _img.get("meta_gps"):
+                            foto["gps"] = _img["meta_gps"]
+                        if not foto.get("data_hora") and _img.get("meta_data_hora"):
+                            foto["data_hora"] = _img["meta_data_hora"]
             fotos_norm.append(foto)
             continue
         image_id = str(foto).replace('/api/upload/image/', '').split('/')[-1]
