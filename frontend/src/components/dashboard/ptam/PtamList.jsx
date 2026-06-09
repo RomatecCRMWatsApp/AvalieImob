@@ -382,6 +382,7 @@ const PtamList = () => {
     const url = `${window.location.origin}/laudo/${ptam.link_publico_token}`;
     const [copied, setCopied] = useState(false);
     const [telefone, setTelefone] = useState('55');
+    const [enviando, setEnviando] = useState(false);
 
     const copyLink = () => {
       navigator.clipboard.writeText(url);
@@ -389,12 +390,31 @@ const PtamList = () => {
       setTimeout(() => setCopied(false), 2000);
     };
 
-    const shareWhatsApp = () => {
-      const text = `Segue o laudo de avaliação do imóvel — PTAM ${ptam.number}:\n${url}`;
+    // Envia o laudo via Z-API/Meta (integração configurada). Só cai pro WhatsApp
+    // Web manual se a integração não estiver configurada.
+    const shareWhatsApp = async () => {
       const num = (telefone || '').replace(/\D/g, '');
-      // Com número (DDI+DDD+telefone): envia direto pra pessoa. Sem: abre o seletor.
-      const base = num.length >= 12 ? `https://wa.me/${num}` : 'https://wa.me/';
-      window.open(`${base}?text=${encodeURIComponent(text)}`, '_blank');
+      if (num.length < 12) {
+        toast({ title: 'Informe o número com DDI + DDD', description: 'Ex.: 5599991811246', variant: 'destructive' });
+        return;
+      }
+      setEnviando(true);
+      try {
+        const res = await ptamExtrasAPI.enviarWhatsApp(ptam.id, num);
+        toast({ title: `Laudo enviado via ${res.provider === 'meta' ? 'Meta' : 'Z-API'}!` });
+        onClose();
+      } catch (e) {
+        const detail = e.response?.data?.detail || '';
+        if (detail.includes('não configurada') || detail.includes('Cadastre') || detail.includes('configurad')) {
+          const text = `Segue o laudo de avaliação do imóvel — PTAM ${ptam.number}:\n${url}`;
+          window.open(`https://wa.me/${num}?text=${encodeURIComponent(text)}`, '_blank');
+          toast({ title: 'Z-API/Meta não configurados', description: 'Abrindo no WhatsApp Web (modo manual).' });
+        } else {
+          toast({ title: detail || 'Erro ao enviar via WhatsApp', variant: 'destructive' });
+        }
+      } finally {
+        setEnviando(false);
+      }
     };
 
     return (
@@ -448,9 +468,9 @@ const PtamList = () => {
             </div>
 
             <div className="flex gap-2">
-              <Button className="flex-1 bg-green-600 hover:bg-green-700 text-white" onClick={shareWhatsApp}>
-                <Send className="w-4 h-4 mr-2" />
-                WhatsApp
+              <Button className="flex-1 bg-green-600 hover:bg-green-700 text-white" onClick={shareWhatsApp} disabled={enviando}>
+                {enviando ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+                {enviando ? 'Enviando...' : 'WhatsApp'}
               </Button>
               <Button variant="outline" className="flex-1" onClick={() => window.open(url, '_blank')}>
                 <ExternalLink className="w-4 h-4 mr-2" />
