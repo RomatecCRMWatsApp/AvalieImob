@@ -73,6 +73,18 @@ export const brandingAPI = {
   reset: () => api.post('/branding/reset').then((r) => r.data),
 };
 
+// ---- Galeria de Fotos própria do AvalieImob (independente; banco do AvalieImob)
+export const galeriaAPI = {
+  listar: (params = {}) => api.get('/galeria', { params }).then((r) => r.data),
+  salvar: (blob, meta = {}) => {
+    const fd = new FormData();
+    fd.append('file', blob, `galeria_${Date.now()}.jpg`);
+    Object.entries(meta).forEach(([k, v]) => fd.append(k, v == null ? '' : String(v)));
+    return api.post('/galeria/foto', fd, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data);
+  },
+  remover: (id) => api.delete(`/galeria/foto/${id}`).then((r) => r.data),
+};
+
 // ---- ZAYRA (Feature 04: importar fotos de campo da Galeria ZAYRA)
 export const zayraAPI = {
   galeria: (params = {}) => api.get('/zayra/galeria', { params }).then((r) => r.data),

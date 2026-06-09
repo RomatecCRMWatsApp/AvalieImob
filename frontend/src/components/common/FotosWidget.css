@@ -1,0 +1,37 @@
+/* Aba vertical fixa na borda direita — padrão do ConsultaWidget, cor verde. */
+.fotos-fab {
+  position: fixed;
+  right: 0;
+  top: 9%;                 /* acima da aba CNPJ/CPF (26%) e do Roma_IA (meio) */
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 7px;
+  background: linear-gradient(135deg, #0b6e4f, #1a5c38);
+  color: #fff;
+  border: none;
+  border-radius: 10px 0 0 10px;
+  cursor: pointer;
+  box-shadow: -2px 2px 12px rgba(0, 0, 0, 0.25);
+  transition: padding-right 0.2s ease, background 0.2s ease;
+}
+.fotos-fab-label {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  text-orientation: mixed;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+.fotos-fab-icon { font-size: 16px; line-height: 1; }
+.fotos-fab:hover {
+  padding-right: 12px;
+  background: linear-gradient(135deg, #1a5c38, #0a5236);
+}
+@media (max-width: 640px) {
+  .fotos-fab { top: auto; bottom: 160px; padding: 11px 6px; }
+  .fotos-fab-label { font-size: 11px; letter-spacing: 1px; }
+}

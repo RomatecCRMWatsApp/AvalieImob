@@ -46,6 +46,7 @@ import ContratoWizard from '../components/dashboard/contratos/ContratoWizard';
 import RecibosList from '../components/dashboard/recibos/RecibosList';
 import ReciboWizard from '../components/dashboard/recibos/ReciboWizard';
 import BrandingWizard from '../components/dashboard/branding/BrandingWizard';
+import FotosWidget from '../components/common/FotosWidget';
 
 /* ─── Brand ─────────────────────────────────────────────── */
 const GOLD       = '#D4A830';
@@ -455,6 +456,9 @@ const Dashboard = () => {
           </Routes>
         </div>
       </main>
+
+      {/* Aba lateral: Galeria de Fotos (câmera + GPS/UTM + overlay white-label) */}
+      <FotosWidget />
 
       {/* Modal de Boas-Vindas Roma_IA */}
       {showWelcomeModal && (
