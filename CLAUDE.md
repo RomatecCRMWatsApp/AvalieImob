@@ -17,7 +17,7 @@
    (opcional — o Railway regenera no prebuild).
 6. Registrar a atualização também no Obsidian (ver seção abaixo), nota de releases/changelog.
 
-**Estado atual: v1.2.623** (MAJOR=1, MINOR=2) — release: Módulo Amostras de Mercado v2 (banco global de paradigmas + sync automática PTAM).
+**Estado atual: v1.2.625** (MAJOR=1, MINOR=2) — release: Módulo Amostras de Mercado v2 (banco global de paradigmas + sync automática PTAM).
 
 ## Obsidian MCP — Sincronização automática
 
