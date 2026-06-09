@@ -2068,8 +2068,13 @@ async def enviar_whatsapp_link(
     numero = ptam.get("numero_ptam") or ptam.get("number") or ""
     denom = ptam.get("property_label") or ptam.get("denominacao") or ptam.get("property_address") or "Imóvel"
     msg = body.legenda or (
-        f"*Laudo de Avaliação — PTAM {numero}*\n{denom}\n\n"
-        f"Acesse o laudo completo:\n{link}"
+        f"Prezado(a),\n\n"
+        f"É com satisfação que comunicamos a *conclusão do Laudo de Avaliação — PTAM nº {numero}*, "
+        f"referente ao imóvel *{denom}*, elaborado em conformidade com a ABNT NBR 14.653.\n\n"
+        f"O documento completo está disponível para consulta no link abaixo:\n{link}\n\n"
+        f"Agradecemos a confiança e a preferência por nossos serviços e permanecemos à "
+        f"disposição para quaisquer esclarecimentos.\n\n"
+        f"Atenciosamente,\n*Romatec Consultoria Total — AvalieImob*"
     )
     try:
         resp = await zapi_service.send_text(

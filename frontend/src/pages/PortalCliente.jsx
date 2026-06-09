@@ -28,6 +28,16 @@ import {
   X
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
+import { fromM2, fmtBR } from '../utils/areaConversao';
+
+// Tipos rurais → área em hectares; demais → m².
+const _RURAIS_PT = ['fazenda', 'sitio', 'sítio', 'chacara', 'chácara', 'gleba', 'terreno_rural', 'modulo_rural', 'area_rural', 'rural'];
+const _ehRural = (t) => _RURAIS_PT.includes(String(t || '').toLowerCase());
+const _areaImovel = (d) => {
+  const m2 = Number(d?.imovel_area_a_considerar || d?.imovel_area_construida || d?.imovel_area_terreno || d?.property_area_terreno || d?.property_area_sqm || 0);
+  if (!m2) return '—';
+  return _ehRural(d?.property_type) ? `${fmtBR(fromM2(m2, 'ha'), 4)} ha` : `${fmtBR(m2, 2)} m²`;
+};
 import { Badge } from '../components/ui/badge';
 import { valorExtenso } from '../utils/valorExtenso';
 import axios from 'axios';
@@ -376,7 +386,7 @@ const PortalCliente = () => {
                   </Badge>
                   <Badge variant="outline" className="text-gray-600">
                     <Ruler className="w-3 h-3 mr-1" />
-                    {formatNumber(data?.property_area_sqm || data?.property_area_terreno)} m²
+                    {_areaImovel(data)}
                   </Badge>
                 </div>
               </div>
@@ -463,14 +473,25 @@ const PortalCliente = () => {
               </p>
             </div>
             
-            <div>
-              <p className="text-xs text-gray-500 uppercase">Área do Terreno</p>
-              <p className="font-medium">{formatNumber(data?.property_area_terreno || data?.property_area_sqm)} m²</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500 uppercase">Área Construída</p>
-              <p className="font-medium">{formatNumber(data?.property_area_construida)} m²</p>
-            </div>
+            {_ehRural(data?.property_type) ? (
+              <div>
+                <p className="text-xs text-gray-500 uppercase">Área Total</p>
+                <p className="font-medium">
+                  {fmtBR(fromM2(Number(data?.imovel_area_a_considerar || data?.imovel_area_terreno || data?.property_area_terreno || data?.property_area_sqm || 0), 'ha'), 4)} ha
+                </p>
+              </div>
+            ) : (
+              <>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">Área do Terreno</p>
+                  <p className="font-medium">{formatNumber(data?.property_area_terreno || data?.property_area_sqm)} m²</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">Área Construída</p>
+                  <p className="font-medium">{formatNumber(data?.property_area_construida)} m²</p>
+                </div>
+              </>
+            )}
           </div>
         </section>
 
