@@ -189,6 +189,7 @@ const PtamList = () => {
   const [posicionarModal, setPosicionarModal] = useState(null);
   const [reciboModal, setReciboModal] = useState(null);
   const [telegramModal, setTelegramModal] = useState(null);
+  const [eventosModal, setEventosModal] = useState(null);
   const [cloneLoading, setCloneLoading] = useState({});
 
   const load = useCallback(async () => {
@@ -548,6 +549,13 @@ const PtamList = () => {
         />
       )}
 
+      {eventosModal && (
+        <LinkEventosModal
+          ptam={eventosModal}
+          onClose={() => setEventosModal(null)}
+        />
+      )}
+
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="font-display text-3xl font-bold text-[#B8860B] dark:text-amber-400">PTAM — Pareceres Técnicos</h1>
@@ -819,6 +827,27 @@ const PtamList = () => {
                   <Trash2 className="w-3.5 h-3.5" />
                 </Button>
               </div>
+
+              {/* Controle do link: visualizações + envios + histórico */}
+              {(p.link_publico_ativo || p.link_views || p.link_sends) && (
+                <div className="flex items-center justify-between mt-2 px-1 text-xs text-gray-500">
+                  <div className="flex items-center gap-3">
+                    <span className="flex items-center gap-1" title="Visualizações do cliente">
+                      <Eye className="w-3.5 h-3.5 text-blue-500" /> {p.link_views || 0}
+                    </span>
+                    <span className="flex items-center gap-1" title="Envios realizados">
+                      <Send className="w-3.5 h-3.5 text-emerald-600" /> {p.link_sends || 0}
+                      {p.link_last_canal ? ` · ${p.link_last_canal}` : ''}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setEventosModal(p)}
+                    className="text-blue-600 hover:underline font-medium"
+                  >
+                    Histórico
+                  </button>
+                </div>
+              )}
               </div>
             </div>
           ))}
@@ -1109,5 +1138,93 @@ const TelegramModal = ({ ptam, onClose }) => {
   );
 };
 
+
+const _CANAL_LABEL = { whatsapp: 'WhatsApp', telegram: 'Telegram', email: 'E-mail', link: 'Link' };
+const _EVENTO_CFG = {
+  gerado: { icon: Link2, color: 'text-gray-500', bg: 'bg-gray-100', label: 'Link gerado' },
+  enviado: { icon: Send, color: 'text-emerald-600', bg: 'bg-emerald-100', label: 'Enviado' },
+  visualizado: { icon: Eye, color: 'text-blue-600', bg: 'bg-blue-100', label: 'Visualizado pelo cliente' },
+  desativado: { icon: X, color: 'text-red-500', bg: 'bg-red-100', label: 'Link desativado' },
+};
+
+const LinkEventosModal = ({ ptam, onClose }) => {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [dados, setDados] = useState(null);
+
+  useEffect(() => {
+    let alive = true;
+    ptamExtrasAPI.linkEventos(ptam.id)
+      .then((d) => { if (alive) setDados(d); })
+      .catch((e) => toast({ title: e.response?.data?.detail || 'Erro ao carregar histórico', variant: 'destructive' }))
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, [ptam.id, toast]);
+
+  const resumo = dados?.resumo || {};
+  const eventos = dados?.eventos || [];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 relative max-h-[88vh] flex flex-col">
+        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+          <X className="w-5 h-5" />
+        </button>
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
+            <Eye className="w-5 h-5 text-blue-600" />
+          </div>
+          <div>
+            <h2 className="font-semibold text-gray-900 text-base">Controle do Link</h2>
+            <p className="text-xs text-gray-500">PTAM {ptam.numero_ptam || ptam.number}</p>
+          </div>
+        </div>
+
+        {/* Resumo */}
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="rounded-xl bg-blue-50 border border-blue-100 p-3">
+            <p className="text-2xl font-bold text-blue-600">{resumo.views || 0}</p>
+            <p className="text-xs text-gray-500">Visualizações do cliente</p>
+            {resumo.views_last && <p className="text-[11px] text-gray-400 mt-1">Última: {fmtDataHora(resumo.views_last)}</p>}
+          </div>
+          <div className="rounded-xl bg-emerald-50 border border-emerald-100 p-3">
+            <p className="text-2xl font-bold text-emerald-600">{resumo.sends || 0}</p>
+            <p className="text-xs text-gray-500">Envios realizados</p>
+            {resumo.last_sent && (
+              <p className="text-[11px] text-gray-400 mt-1">
+                Último: {_CANAL_LABEL[resumo.last_canal] || resumo.last_canal || ''} · {fmtDataHora(resumo.last_sent)}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Timeline */}
+        <div className="flex-1 overflow-y-auto -mx-1 px-1">
+          {loading && <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-blue-600" /></div>}
+          {!loading && eventos.length === 0 && (
+            <div className="text-center py-10 text-gray-400 text-sm">Nenhum evento registrado ainda.</div>
+          )}
+          {!loading && eventos.map((ev) => {
+            const cfg = _EVENTO_CFG[ev.tipo] || _EVENTO_CFG.gerado;
+            const Icon = cfg.icon;
+            const canal = ev.canal && ev.tipo === 'enviado' ? ` via ${_CANAL_LABEL[ev.canal] || ev.canal}` : '';
+            return (
+              <div key={ev.id} className="flex items-start gap-3 py-2 border-b border-gray-50 last:border-0">
+                <div className={`w-8 h-8 rounded-lg ${cfg.bg} flex items-center justify-center shrink-0`}>
+                  <Icon className={`w-4 h-4 ${cfg.color}`} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-gray-800">{cfg.label}{canal}</p>
+                  {ev.destinatario && <p className="text-xs text-gray-500 truncate">Para: {ev.destinatario}</p>}
+                  <p className="text-[11px] text-gray-400">{fmtDataHora(ev.created_at)}{ev.ip ? ` · ${ev.ip}` : ''}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default PtamList;

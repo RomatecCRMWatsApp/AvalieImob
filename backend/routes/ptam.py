@@ -20,6 +20,7 @@ from utils.ptam_status import calcular_status_ptam
 from ptam_docx import generate_ptam_docx
 from services.ptam_pdf_v2 import generate_ptam_pdf_v2
 from services.integracoes_util import carregar_integracoes
+from services import link_tracking
 
 router = APIRouter(tags=["ptam"])
 logger = logging.getLogger("romatec")
@@ -1385,6 +1386,7 @@ async def send_ptam_email(
         "enviado_em": datetime.utcnow(),
     }
     await db.email_logs.insert_one(log)
+    await link_tracking.registrar_evento(db, doc, "enviado", canal="email", destinatario=body.destinatario)
 
     logger.info("PTAM %s enviado por email para %s", numero, body.destinatario)
     return {"ok": True, "mensagem": f"E-mail enviado para {body.destinatario}"}
@@ -1417,7 +1419,9 @@ async def compartilhar_ptam(
             }
         }
     )
-    
+
+    await link_tracking.registrar_evento(db, ptam, "gerado", canal="link")
+
     platform_url = "https://avalieimob-production.up.railway.app"  # Ajustar conforme variável de ambiente
     return {
         "ok": True,
@@ -1451,16 +1455,39 @@ async def desativar_compartilhamento(
     return {"ok": True, "message": "Link de compartilhamento desativado"}
 
 
+@router.get("/ptam/{pid}/link-eventos")
+async def listar_link_eventos(
+    pid: str,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db),
+):
+    """Histórico de auditoria do link público: gerações, envios (canal/destinatário)
+    e visualizações do cliente, com resumo para o badge do card."""
+    dados = await link_tracking.listar_eventos(db, pid, uid)
+    if not dados.get("encontrado"):
+        raise HTTPException(status_code=404, detail="PTAM não encontrado")
+    return dados
+
+
 @router.get("/ptam/public/{token}")
-async def get_ptam_publico(token: str, db=Depends(get_db)):
+async def get_ptam_publico(token: str, request: Request, db=Depends(get_db)):
     """Retorna dados públicos de um PTAM para o portal do cliente (SEM autenticação)."""
     ptam = await db.ptam_documents.find_one({
         "link_publico_token": token,
         "link_publico_ativo": True
     })
-    
+
     if not ptam:
         raise HTTPException(status_code=404, detail="Laudo não encontrado ou link inativo")
+
+    # Tracking de visualização (ignora bots de pré-visualização de link)
+    _ua = (request.headers.get("user-agent") or "").lower()
+    _bots = ("whatsapp", "facebookexternalhit", "telegrambot", "bot", "preview", "slackbot", "twitterbot")
+    if not any(b in _ua for b in _bots):
+        await link_tracking.registrar_evento(
+            db, ptam, "visualizado",
+            ip=link_tracking.client_ip(request), user_agent=_ua,
+        )
     
     # Incrementar contador de visualizações
     await db.ptam_documents.update_one(
@@ -1954,6 +1981,7 @@ async def enviar_telegram(
                     status_code=502,
                     detail=f"Telegram erro {r.status_code}: {r.text[:200]}",
                 )
+            await link_tracking.registrar_evento(db, ptam, "enviado", canal="telegram", destinatario=str(chat_id))
             return {"ok": True, "telegram_response": r.json()}
     except _httpx.HTTPError as e:
         logger.error("Erro ao enviar Telegram: %s", e)
@@ -2014,6 +2042,7 @@ async def enviar_whatsapp(
                 filename=nome_arquivo,
                 caption=legenda,
             )
+            await link_tracking.registrar_evento(db, ptam, "enviado", canal="whatsapp", destinatario=body.phone)
             return {"ok": True, "provider": "meta", "response": resp}
         except Exception as e:
             logger.error("Erro Meta WhatsApp: %s", e)
@@ -2035,6 +2064,7 @@ async def enviar_whatsapp(
             filename=nome_arquivo,
             caption=legenda,
         )
+        await link_tracking.registrar_evento(db, ptam, "enviado", canal="whatsapp", destinatario=body.phone)
         return {"ok": True, "provider": "zapi", "response": resp}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -2317,6 +2347,7 @@ async def enviar_whatsapp_link(
             phone=body.phone,
             message=msg,
         )
+        await link_tracking.registrar_evento(db, ptam, "enviado", canal="whatsapp", destinatario=body.phone)
         return {"ok": True, "provider": "zapi", "response": resp}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

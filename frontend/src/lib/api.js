@@ -354,6 +354,8 @@ export const ptamExtrasAPI = {
   // Envia só a MENSAGEM com o link público via Z-API (sem anexar o PDF)
   enviarWhatsAppLink: (id, phone) =>
     api.post(`/ptam/${id}/whatsapp-link`, { phone }).then(r => r.data),
+  // Auditoria do link público (envios + visualizações)
+  linkEventos: (id) => api.get(`/ptam/${id}/link-eventos`).then(r => r.data),
 };
 
 // ---- Integrações por usuário (Z-API + Meta WhatsApp + Telegram)

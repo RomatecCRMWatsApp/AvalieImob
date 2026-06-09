@@ -48,6 +48,10 @@ async def setup_indexes():
     from services.branding_repository import ensure_indexes as _branding_indexes
     await _branding_indexes(_db)
 
+    # Auditoria do link público do laudo (controle de envios/visualizações)
+    await _db.ptam_link_eventos.create_index([("ptam_id", 1), ("created_at", -1)])
+    await _db.ptam_link_eventos.create_index([("user_id", 1), ("created_at", -1)])
+
     # Conformidade COFECI/CNAI (Feature 05)
     await _db.credenciais.create_index([("user_id", 1), ("ativo", 1)])
     await _db.alertas_conformidade.create_index([("user_id", 1), ("lido", 1)])
