@@ -50,8 +50,13 @@ const _areaImovel = (d) => {
     const ha = Number(d?.property_area_ha || 0);
     return ha > 0 ? `${fmtBR(ha, 4)} ha` : '—';
   }
-  const m2u = Number(d?.imovel_area_terreno || d?.property_area_terreno || d?.property_area_sqm || 0);
-  return m2u > 0 ? `${fmtBR(m2u, 2)} m²` : '—';
+  // Urbano: Terreno na frente + Construída (casa) ao lado.
+  const terreno = Number(d?.imovel_area_terreno || d?.property_area_terreno || d?.property_area_sqm || 0);
+  const construida = Number(d?.imovel_area_construida || d?.property_area_construida || 0);
+  const partes = [];
+  if (terreno > 0) partes.push(`Terreno ${fmtBR(terreno, 2)} m²`);
+  if (construida > 0) partes.push(`Construída ${fmtBR(construida, 2)} m²`);
+  return partes.length ? partes.join(' · ') : '—';
 };
 import { Badge } from '../components/ui/badge';
 import { valorExtenso } from '../utils/valorExtenso';
