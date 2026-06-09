@@ -38,13 +38,14 @@ async def buscar_fotos_zayra(
 ) -> list:
     """
     Lista as fotos sincronizadas do avaliador no ZAYRA.
-    `identificador` é o e-mail (ou login) do avaliador, usado pelo ZAYRA para
-    resolver o user_id dele no MySQL.
+    `identificador` é o NOME do avaliador (colaborador) — o ZAYRA casa as fotos
+    por `fotos_vistoria.colaborador` (LIKE), pois o schema de fotos não tem e-mail.
     """
     _ensure_config()
     import httpx
 
-    params = {"limit": min(int(limit or 50), 200), "user": identificador}
+    # ZAYRA casa a foto pelo NOME do colaborador (não há e-mail no schema de fotos).
+    params = {"limit": min(int(limit or 50), 200), "colaborador": identificador}
     if desde:
         params["desde"] = desde
 

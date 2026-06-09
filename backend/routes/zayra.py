@@ -42,11 +42,21 @@ async def listar_galeria(
     uid: str = Depends(get_authenticated_user),
     db=Depends(get_db),
 ):
-    """Fotos do avaliador disponíveis no ZAYRA para importação (grid de seleção)."""
+    """Fotos do avaliador disponíveis no ZAYRA para importação (grid de seleção).
+
+    O ZAYRA casa a foto pelo NOME do colaborador (não há e-mail no schema de fotos),
+    então enviamos o nome do avaliador (perfil_avaliador.nome > users.name).
+    """
+    perfil = await db.perfil_avaliador.find_one({"user_id": uid})
     user = await db.users.find_one({"id": uid})
-    identificador = (user or {}).get("email") or uid
+    identificador = (
+        (perfil or {}).get("nome")
+        or (perfil or {}).get("nome_completo")
+        or (user or {}).get("name")
+        or ""
+    ).strip()
     fotos = await buscar_fotos_zayra(identificador, desde=desde, limit=limit)
-    return {"fotos": fotos, "total": len(fotos)}
+    return {"fotos": fotos, "total": len(fotos), "filtro_colaborador": identificador}
 
 
 @router.post("/importar/{ptam_id}")
