@@ -26,8 +26,35 @@ ZAPI_BASE = "https://api.z-api.io"
 
 
 def _normalize_phone(phone: str) -> str:
-    """Remove tudo que não for dígito. Z-API aceita 5599XXXXXXXXX."""
-    return "".join(c for c in (phone or "") if c.isdigit())
+    """Normaliza o telefone para o formato exigido pelo Z-API: 55 + DDD + número.
+
+    O Z-API exige o DDI. Sem ele, a API responde 200 mas NÃO entrega a mensagem.
+    Regra (Brasil): números com 10 ou 11 dígitos (DDD + fixo/celular) recebem o
+    prefixo 55. Números já com 12-13 dígitos iniciando em 55 passam direto.
+    Comprimentos fora desse padrão (internacionais) são mantidos como vieram.
+    """
+    digits = "".join(c for c in (phone or "") if c.isdigit())
+    # Remove zeros à esquerda de discagem (ex.: 0XX) que não fazem parte do número E.164.
+    if len(digits) in (10, 11):
+        # DDD + número local → falta o DDI do Brasil.
+        return "55" + digits
+    return digits
+
+
+def _validar_resposta_zapi(data: dict) -> dict:
+    """Levanta erro quando o Z-API responde 200 mas com falha no corpo.
+
+    Sucesso real traz zaapId/messageId/id. Falhas comuns (número sem WhatsApp,
+    instância sem sessão) vêm como {"error": ...} ou {"value": false} com 200.
+    """
+    if isinstance(data, dict):
+        if data.get("error"):
+            raise RuntimeError(f"Z-API recusou o envio: {data.get('error')}")
+        if data.get("value") is False:
+            raise RuntimeError("Z-API não entregou a mensagem (número pode não ter WhatsApp).")
+        if not (data.get("messageId") or data.get("zaapId") or data.get("id")):
+            raise RuntimeError(f"Z-API não confirmou o envio (resposta sem messageId): {str(data)[:200]}")
+    return data
 
 
 def _headers(security_token: Optional[str]) -> dict:
@@ -76,7 +103,7 @@ async def send_document_pdf(
         r = await client.post(url, json=payload, headers=_headers(security_token))
         if r.status_code >= 400:
             raise RuntimeError(f"Z-API erro {r.status_code}: {r.text[:300]}")
-        return r.json()
+        return _validar_resposta_zapi(r.json())
 
 
 _EXT_BY_CT = {
@@ -119,7 +146,7 @@ async def send_document(
         r = await client.post(url, json=payload, headers=_headers(security_token))
         if r.status_code >= 400:
             raise RuntimeError(f"Z-API erro {r.status_code}: {r.text[:300]}")
-        return r.json()
+        return _validar_resposta_zapi(r.json())
 
 
 async def send_text(
@@ -140,4 +167,4 @@ async def send_text(
         r = await client.post(url, json=payload, headers=_headers(security_token))
         if r.status_code >= 400:
             raise RuntimeError(f"Z-API erro {r.status_code}: {r.text[:300]}")
-        return r.json()
+        return _validar_resposta_zapi(r.json())
