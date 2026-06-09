@@ -1531,6 +1531,7 @@ async def get_ptam_publico(token: str, request: Request, db=Depends(get_db)):
         "property_cep": ptam.get("property_cep"),
         "property_type": ptam.get("property_type"),
         "property_label": ptam.get("property_label"),
+        "denominacao": ptam.get("denominacao"),
         "property_matricula": ptam.get("property_matricula"),
         "property_cartorio": ptam.get("property_cartorio"),
         "property_area_sqm": ptam.get("property_area_sqm"),
@@ -2228,7 +2229,14 @@ def _montar_msg_laudo_whatsapp(ptam: dict, perfil: dict, link: str) -> str:
         linhas.append(f"Tipo: {tipo}")
     if endereco:
         linhas.append(f"Endereço: {endereco}")
-    if lote:
+    # Rural: usa "Denominação" (nome da fazenda/sítio) em CAIXA ALTA.
+    # Urbano: mantém "Loteamento".
+    _eh_rural_label = _wa_eh_rural(tipo) or _wa_eh_rural(ptam.get("property_subtype"))
+    if _eh_rural_label:
+        denom = (ptam.get("denominacao") or ptam.get("property_label") or lote or "").strip()
+        if denom:
+            linhas.append(f"Denominação: {denom.upper()}")
+    elif lote:
         linhas.append(f"Loteamento: {lote}")
     if cid_uf:
         linhas.append(f"Cidade/UF: {cid_uf}")

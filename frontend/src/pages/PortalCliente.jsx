@@ -386,6 +386,11 @@ const PortalCliente = () => {
                   <h2 className="text-2xl md:text-3xl font-bold" style={{ color: COLORS.primary }}>
                     PTAM Nº {data?.number}
                   </h2>
+                  {_ehRural(data?.property_type) && (data?.denominacao || data?.property_label) && (
+                    <p className="mt-1 text-base md:text-lg font-bold uppercase tracking-wide text-gray-800">
+                      {String(data?.denominacao || data?.property_label).toUpperCase()}
+                    </p>
+                  )}
                 </div>
                 
                 <div className="flex items-start gap-2">
