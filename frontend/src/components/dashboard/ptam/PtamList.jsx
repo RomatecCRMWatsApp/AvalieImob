@@ -400,8 +400,8 @@ const PtamList = () => {
       }
       setEnviando(true);
       try {
-        const res = await ptamExtrasAPI.enviarWhatsApp(ptam.id, num);
-        toast({ title: `Laudo enviado via ${res.provider === 'meta' ? 'Meta' : 'Z-API'}!` });
+        const res = await ptamExtrasAPI.enviarWhatsAppLink(ptam.id, num);
+        toast({ title: `Link enviado via ${res.provider === 'meta' ? 'Meta' : 'Z-API'}!` });
         onClose();
       } catch (e) {
         const detail = e.response?.data?.detail || '';

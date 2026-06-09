@@ -2037,3 +2037,51 @@ async def enviar_whatsapp(
     except Exception as e:
         logger.error("Erro Z-API: %s", e)
         raise HTTPException(status_code=502, detail=f"Erro Z-API: {e}")
+
+
+@router.post("/ptam/{pid}/whatsapp-link")
+async def enviar_whatsapp_link(
+    pid: str,
+    body: WhatsAppSendRequest,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db),
+):
+    """Envia uma MENSAGEM DE TEXTO com o link público do laudo via Z-API
+    (não anexa o PDF — manda só a mensagem com o link)."""
+    import os as _os
+    from services import zapi_service
+
+    cfg = await carregar_integracoes(db, uid)
+    if not cfg or not cfg.get("zapi_instance_id") or not cfg.get("zapi_token"):
+        raise HTTPException(status_code=400, detail="Z-API não configurada. Cadastre em Configurações → Integrações.")
+
+    ptam = await db.ptam_documents.find_one({"id": pid, "user_id": uid})
+    if not ptam:
+        raise HTTPException(status_code=404, detail="PTAM não encontrado")
+
+    token = ptam.get("link_publico_token")
+    if not token or not ptam.get("link_publico_ativo"):
+        raise HTTPException(status_code=400, detail="Gere/ative o link público do laudo antes de enviar.")
+
+    base = _os.getenv("PUBLIC_BASE_URL", "https://www.romatecavalieimob.com.br").rstrip("/")
+    link = f"{base}/laudo/{token}"
+    numero = ptam.get("numero_ptam") or ptam.get("number") or ""
+    denom = ptam.get("property_label") or ptam.get("denominacao") or ptam.get("property_address") or "Imóvel"
+    msg = body.legenda or (
+        f"*Laudo de Avaliação — PTAM {numero}*\n{denom}\n\n"
+        f"Acesse o laudo completo:\n{link}"
+    )
+    try:
+        resp = await zapi_service.send_text(
+            instance_id=cfg["zapi_instance_id"],
+            token=cfg["zapi_token"],
+            security_token=cfg.get("zapi_security_token"),
+            phone=body.phone,
+            message=msg,
+        )
+        return {"ok": True, "provider": "zapi", "response": resp}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error("Erro Z-API (link): %s", e)
+        raise HTTPException(status_code=502, detail=f"Erro Z-API: {e}")

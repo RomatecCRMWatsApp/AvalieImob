@@ -320,6 +320,9 @@ export const ptamExtrasAPI = {
   // phone com DDI+DDD (Z-API normaliza)
   enviarWhatsApp: (id, phone, legenda = '') =>
     api.post(`/ptam/${id}/whatsapp`, { phone, legenda }).then(r => r.data),
+  // Envia só a MENSAGEM com o link público via Z-API (sem anexar o PDF)
+  enviarWhatsAppLink: (id, phone) =>
+    api.post(`/ptam/${id}/whatsapp-link`, { phone }).then(r => r.data),
 };
 
 // ---- Integrações por usuário (Z-API + Meta WhatsApp + Telegram)

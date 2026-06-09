@@ -139,6 +139,14 @@ async def _resolve_ptam_assets(db, doc: dict) -> None:
             simg = await db.images.find_one({"id": sid})
             if simg and simg.get("data_b64"):
                 s["_image_bytes"] = downscale_image(base64.b64decode(simg["data_b64"]))
+        # Planta baixa (mapa SIGEF) da amostra — Anexo II mostra foto + planta lado a lado.
+        if not s.get("_planta_baixa_bytes"):
+            pb = s.get("planta_baixa") or s.get("planta_baixa_url") or ""
+            pid_pb = str(pb).replace('/api/upload/image/', '').split('/')[-1]
+            if len(pid_pb) > 30 and '-' in pid_pb:
+                pimg = await db.images.find_one({"id": pid_pb})
+                if pimg and pimg.get("data_b64"):
+                    s["_planta_baixa_bytes"] = downscale_image(base64.b64decode(pimg["data_b64"]))
 
     docs_res = []
     for kd, di in enumerate(doc.get("fotos_documentos") or [], 1):
