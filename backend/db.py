@@ -60,6 +60,13 @@ async def setup_indexes():
     await _db.amostras_mercado.create_index([("user_id", 1), ("rs_ha_calculado", 1)])
     await _db.amostras_mercado.create_index("id", sparse=True)
 
+    # Cupons Promocionais (Kit de Captação)
+    await _db.cupons.create_index("id", unique=True, sparse=True)
+    await _db.cupons.create_index("codigo", unique=True, sparse=True)
+    await _db.cupons.create_index("slug_unico", unique=True, sparse=True)
+    await _db.cupons.create_index([("status", 1), ("validade", 1)])
+    await _db.cupons.create_index("telefone_destinatario")
+
     # Conformidade COFECI/CNAI (Feature 05)
     await _db.credenciais.create_index([("user_id", 1), ("ativo", 1)])
     await _db.alertas_conformidade.create_index([("user_id", 1), ("lido", 1)])

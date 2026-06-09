@@ -179,6 +179,18 @@ export const amostrasAPI = {
   syncPtam: (ptamId) => api.post(`/amostras-mercado/sync/ptam/${ptamId}`).then(r => r.data),
 };
 
+// ---- Cupons Promocionais (Kit de Captação — admin)
+export const cuponsAPI = {
+  list: (params = {}) => api.get('/cupons', { params }).then(r => r.data),
+  estatisticas: () => api.get('/cupons/estatisticas').then(r => r.data),
+  criar: (data) => api.post('/cupons', data).then(r => r.data),
+  cancelar: (id) => api.put(`/cupons/${id}/cancelar`).then(r => r.data),
+  enviarWhatsApp: (id, payload = {}) => api.post(`/cupons/${id}/enviar-whatsapp`, payload).then(r => r.data),
+  // Públicos (página de cadastro)
+  validarPublico: (slug) => api.get(`/cupons/publico/validar/${encodeURIComponent(slug)}`).then(r => r.data),
+  resgatarPublico: (slug, usuarioId) => api.post(`/cupons/publico/resgatar/${encodeURIComponent(slug)}`, { usuario_id: usuarioId }).then(r => r.data),
+};
+
 // ---- Evaluations
 export const evaluationsAPI = {
   list: () => api.get('/evaluations').then(r => r.data),

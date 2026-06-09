@@ -26,6 +26,7 @@ import SubscriptionPage from '../components/dashboard/SubscriptionPage';
 import SettingsPage from '../components/dashboard/SettingsPage';
 import PerfilAvaliador from '../components/dashboard/PerfilAvaliador';
 import AdminIncra from '../components/dashboard/incra/AdminIncra';
+import CuponsAdmin from './admin/CuponsAdmin';
 import PtamList from '../components/dashboard/ptam/PtamList';
 import PtamWizard from '../components/dashboard/ptam/PtamWizard';
 import GarantiasList from '../components/dashboard/garantias/GarantiasList';
@@ -455,6 +456,7 @@ const Dashboard = () => {
             <Route path="marca"       element={<BrandingWizard />} />
             <Route path="conformidade" element={<PainelConformidade />} />
             <Route path="admin/incra" element={<AdminIncra />} />
+            <Route path="admin/cupons" element={<CuponsAdmin />} />
             <Route path="*"            element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </div>

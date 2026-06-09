@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { cuponsAPI } from '../lib/api';
 import { User, Mail, Lock, Briefcase, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import SEO from '../components/common/SEO';
 import LgpdBadge from '../components/common/LgpdBadge';
@@ -18,6 +19,15 @@ const Register = () => {
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [promo, setPromo] = useState(null);
+
+  const promoSlug = new URLSearchParams(window.location.search).get('promo');
+  const fmtBRL = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+  useEffect(() => {
+    if (!promoSlug) return;
+    cuponsAPI.validarPublico(promoSlug).then(setPromo).catch(() => {});
+  }, [promoSlug]);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -45,7 +55,11 @@ const Register = () => {
         page_origin:  stored.page_origin || document.referrer || '/',
         referrer:     document.referrer || null,
       };
-      await register({ ...form, ...utm });
+      await register({ ...form, ...utm, promo_cupom: promoSlug || null });
+      // Marca o cupom como utilizado (best-effort — não bloqueia o cadastro).
+      if (promoSlug && promo?.valido) {
+        cuponsAPI.resgatarPublico(promoSlug).catch(() => {});
+      }
       nav('/dashboard', { replace: true });
     } catch (err) {
       const msg =
@@ -74,6 +88,22 @@ const Register = () => {
           </div>
           <h2 className="font-display text-3xl md:text-4xl font-bold text-gray-900 mb-2">Crie sua conta</h2>
           <p className="text-gray-600 mb-8">Comece a emitir laudos com IA em minutos.</p>
+
+          {promo?.valido && (
+            <div className="mb-6 rounded-xl border-2 border-emerald-300 bg-emerald-50 p-4">
+              <div className="text-xs font-bold text-emerald-700 uppercase tracking-wider">🏷️ Cupom aplicado: {promo.codigo}</div>
+              <div className="mt-1 text-sm text-gray-700">
+                1ª mensalidade: <span className="line-through text-gray-400">{fmtBRL(promo.valor_plano_normal)}</span>{' '}
+                <span className="font-bold text-emerald-700 text-base">{fmtBRL(promo.valor_com_desconto)}</span>
+              </div>
+              <div className="text-xs text-gray-500">A partir do 2º mês: {fmtBRL(promo.valor_plano_normal)}/mês</div>
+            </div>
+          )}
+          {promo && !promo.valido && (
+            <div className="mb-6 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+              Este cupom não está mais disponível{promo.motivo ? ` (${promo.motivo})` : ''}. Você pode se cadastrar pelo valor normal.
+            </div>
+          )}
 
           <form onSubmit={submit} className="space-y-4">
             <div>

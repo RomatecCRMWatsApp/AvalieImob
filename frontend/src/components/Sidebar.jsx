@@ -8,7 +8,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Building2, BarChart3, FileCheck2, Shield, Beef, Home,
   ClipboardCheck, FileText, FileSignature, Receipt, Sparkles, FileSearch, Award,
-  CreditCard, Settings, LogOut, Globe, Search, Palette,
+  CreditCard, Settings, LogOut, Globe, Search, Palette, Tag,
 } from 'lucide-react';
 import { ptamAPI } from '../lib/api';
 
@@ -148,6 +148,14 @@ export default function Sidebar({
 
   const go = (route) => { navigate(route); onNavigate(); };
 
+  // Item exclusivo de admin/CEO: Cupons Promocionais.
+  const isAdmin = user?.role === 'admin';
+  const menu = MENU.map((g) =>
+    g.section === 'Ferramentas' && isAdmin
+      ? { ...g, items: [...g.items, { id: 'cupons', label: 'Cupons Promo', icon: Tag, route: '/dashboard/admin/cupons' }] }
+      : g
+  );
+
   return (
     <nav aria-label="Menu principal" style={{
       width, minWidth: width, height: '100vh', background: T.bg, display: 'flex',
@@ -176,7 +184,7 @@ export default function Sidebar({
 
       {/* Menu */}
       <div style={{ flex: 1, paddingTop: 4 }}>
-        {MENU.map((group, gi) => (
+        {menu.map((group, gi) => (
           <div key={gi}>
             {group.section && (
               <>
