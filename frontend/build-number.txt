@@ -1,1 +1,5 @@
+<<<<<<< HEAD
 624
+=======
+623
+>>>>>>> cfe1932 (feat(amostras): Modulo Amostras de Mercado v2 - banco global + sync automatica PTAM (v1.2.623))

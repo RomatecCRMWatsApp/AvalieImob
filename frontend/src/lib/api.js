@@ -165,6 +165,19 @@ export const samplesAPI = {
   remove: (id) => api.delete(`/samples/${id}`).then(r => r.data),
 };
 
+// ---- Amostras de Mercado v2 (Banco Global de Paradigmas)
+export const amostrasAPI = {
+  list: (params = {}) => api.get('/amostras-mercado', { params }).then(r => r.data),
+  get: (id) => api.get(`/amostras-mercado/${id}`).then(r => r.data),
+  create: (data) => api.post('/amostras-mercado', data).then(r => r.data),
+  update: (id, data) => api.put(`/amostras-mercado/${id}`, data).then(r => r.data),
+  remove: (id) => api.delete(`/amostras-mercado/${id}`).then(r => r.data),
+  estatisticas: (params = {}) => api.get('/amostras-mercado/estatisticas', { params }).then(r => r.data),
+  proximaReferencia: (categoria = 'urbano') =>
+    api.get('/amostras-mercado/meta/proxima-referencia', { params: { categoria } }).then(r => r.data),
+  syncPtam: (ptamId) => api.post(`/amostras-mercado/sync/ptam/${ptamId}`).then(r => r.data),
+};
+
 // ---- Evaluations
 export const evaluationsAPI = {
   list: () => api.get('/evaluations').then(r => r.data),

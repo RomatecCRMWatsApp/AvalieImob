@@ -203,6 +203,14 @@ async def create_ptam(data: PtamBase, uid: str = Depends(get_active_subscriber),
     p = Ptam(user_id=uid, **payload)
     p.status_calculado = calcular_status_ptam(p.model_dump())
     await db.ptam_documents.insert_one(p.model_dump())
+
+    # Sincronização automática das amostras com o Banco Global (best-effort).
+    try:
+        from routes.amostras_mercado import sincronizar_amostras_ptam
+        await sincronizar_amostras_ptam(p.id, uid, db)
+    except Exception:
+        logger.warning("Sync amostras PTAM %s falhou (best-effort)", p.id, exc_info=True)
+
     return p
 
 
@@ -283,6 +291,15 @@ async def update_ptam(
     # Atualizar documento
     await db.ptam_documents.update_one({"id": pid}, {"$set": updates})
     new_doc = await db.ptam_documents.find_one({"id": pid})
+
+    # Sincronização automática das amostras com o Banco Global (best-effort).
+    # NUNCA pode derrubar o save do PTAM — qualquer falha é silenciosa.
+    try:
+        from routes.amostras_mercado import sincronizar_amostras_ptam
+        await sincronizar_amostras_ptam(pid, uid, db)
+    except Exception:
+        logger.warning("Sync amostras PTAM %s falhou (best-effort)", pid, exc_info=True)
+
     return Ptam(**_with_status_calculado(new_doc))
 
 

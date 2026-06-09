@@ -36,6 +36,7 @@ from routes.branding import router as branding_router
 from routes.zayra import router as zayra_router
 from routes.galeria import router as galeria_router
 from routes.conformidade import router as conformidade_router
+from routes.amostras_mercado import router as amostras_mercado_router
 
 all_routers = [
     auth_router, users_router, ptam_router, locacao_router,
@@ -48,5 +49,5 @@ all_routers = [
     sigef_router, zonas_router, contratos_router, certificados_router,
     integracoes_router, recibos_router, incra_router,
     consulta_router, branding_router, zayra_router, galeria_router,
-    conformidade_router,
+    conformidade_router, amostras_mercado_router,
 ]

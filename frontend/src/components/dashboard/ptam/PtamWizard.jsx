@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, Save, Download, ArrowLeft, Loader2, Check, H
 import { Button } from '../../ui/button';
 import { useToast } from '../../../hooks/use-toast';
 import { ptamAPI, aiAPI, perfilAPI } from '../../../lib/api';
+import { useSyncAmostras } from '../../../hooks/useSyncAmostras';
 import { EMPTY_PTAM, PTAM_STEPS, computeImpactTotals, sumIndemnity } from './ptamHelpers';
 import { StepSolicitante } from './steps/StepSolicitante';
 import { StepObjetivo } from './steps/StepObjetivo';
@@ -44,6 +45,7 @@ const PtamWizard = () => {
   const { id } = useParams();
   const nav = useNavigate();
   const { toast } = useToast();
+  const { syncAmostras } = useSyncAmostras();
   const [form, setForm] = useState(EMPTY_PTAM);
   const [ptamId, setPtamId] = useState(isValidPtamId(id) ? id : null);
   const [step, setStep] = useState(0);
@@ -124,6 +126,8 @@ const PtamWizard = () => {
       };
       if (isValidPtamId(ptamId)) {
         const updated = await ptamAPI.update(ptamId, payload);
+        // Sincroniza as amostras deste PTAM com o Banco Global (silencioso, não bloqueia).
+        syncAmostras(ptamId);
         // Reflete no wizard se o backend invalidou a assinatura por edição de conteúdo.
         if (updated) {
           setForm((f) => ({
@@ -139,6 +143,7 @@ const PtamWizard = () => {
           throw new Error('Falha ao criar PTAM: backend não retornou um id válido.');
         }
         setPtamId(created.id);
+        syncAmostras(created.id);
         setForm((f) => ({ ...f, number: created.number, numero_ptam: created.numero_ptam || '' }));
         nav(`/dashboard/ptam/${created.id}`, { replace: true });
       }
@@ -161,7 +166,7 @@ const PtamWizard = () => {
     } finally {
       setSaving(false);
     }
-  }, [form, ptamId, nav, toast]);
+  }, [form, ptamId, nav, toast, syncAmostras]);
 
   // Auto-save every 30s when there's an id
   useEffect(() => {

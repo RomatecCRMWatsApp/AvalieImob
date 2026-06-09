@@ -52,6 +52,14 @@ async def setup_indexes():
     await _db.ptam_link_eventos.create_index([("ptam_id", 1), ("created_at", -1)])
     await _db.ptam_link_eventos.create_index([("user_id", 1), ("created_at", -1)])
 
+    # Banco Global de Amostras de Mercado v2
+    await _db.amostras_mercado.create_index([("user_id", 1), ("categoria", 1), ("municipio", 1), ("data_coleta", -1)])
+    await _db.amostras_mercado.create_index([("user_id", 1), ("ptam_origem_id", 1), ("referencia", 1)])
+    await _db.amostras_mercado.create_index([("user_id", 1), ("tipo_imovel", 1), ("ativo", 1)])
+    await _db.amostras_mercado.create_index([("user_id", 1), ("rs_m2_calculado", 1)])
+    await _db.amostras_mercado.create_index([("user_id", 1), ("rs_ha_calculado", 1)])
+    await _db.amostras_mercado.create_index("id", sparse=True)
+
     # Conformidade COFECI/CNAI (Feature 05)
     await _db.credenciais.create_index([("user_id", 1), ("ativo", 1)])
     await _db.alertas_conformidade.create_index([("user_id", 1), ("lido", 1)])
