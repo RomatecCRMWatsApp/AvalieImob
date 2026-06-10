@@ -291,6 +291,9 @@ async def baixar_pdf(
         perfil=perfil,
         logo_bytes=logo_bytes,
     )
+    # Anexa os documentos do recibo (PDF/imagens) ao final do PDF baixado.
+    from services.recibo_anexos import anexar_anexos_ao_pdf
+    pdf_bytes = await anexar_anexos_ao_pdf(db, doc, pdf_bytes)
     filename = f"{doc.get('numero') or 'RECIBO_RASCUNHO'}.pdf".replace("/", "-")
     return Response(
         content=pdf_bytes,

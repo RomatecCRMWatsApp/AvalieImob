@@ -16,6 +16,13 @@ const formatBRL = (v) => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', {
   minimumFractionDigits: 2, maximumFractionDigits: 2,
 });
 
+// Remove tags HTML (a descrição pode vir do editor rich text) p/ exibir no card.
+const stripHtml = (s = '') => String(s)
+  .replace(/<[^>]+>/g, ' ')
+  .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
+  .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+  .replace(/\s+/g, ' ').trim();
+
 const STATUS_CONFIG = {
   rascunho:  { label: 'Rascunho',  cls: 'bg-gray-100 text-gray-700', icon: Clock },
   emitido:   { label: 'Emitido',   cls: 'bg-blue-100 text-blue-800', icon: Receipt },
@@ -97,14 +104,13 @@ const RecibosList = () => {
   };
 
   const enviarWA = async (r) => {
-    if (!r.destinatario_whatsapp) {
-      const phone = window.prompt('WhatsApp do destinatário (com DDI+DDD):', '55');
-      if (!phone) return;
-      r = { ...r, destinatario_whatsapp: phone };
-    }
+    // Sempre permite inserir/confirmar o número (pré-preenche o existente).
+    const atual = r.destinatario_whatsapp || '55';
+    const phone = window.prompt('WhatsApp do destinatário (com DDI+DDD):', atual);
+    if (!phone) return;
     setEnviando(prev => ({ ...prev, [r.id]: true }));
     try {
-      await recibosAPI.enviarWhatsApp(r.id, r.destinatario_whatsapp);
+      await recibosAPI.enviarWhatsApp(r.id, phone);
       toast({ title: 'Recibo enviado via WhatsApp!' });
       load();
     } catch (e) {
@@ -226,7 +232,7 @@ const RecibosList = () => {
                   {r.destinatario_nome || '(sem destinatário)'}
                 </div>
                 {r.descricao && (
-                  <div className="text-xs text-gray-500 mt-1 line-clamp-2">{r.descricao}</div>
+                  <div className="text-xs text-gray-500 mt-1 line-clamp-2">{stripHtml(r.descricao)}</div>
                 )}
 
                 <div className="mt-4 pt-4 border-t border-gray-100 space-y-1.5">

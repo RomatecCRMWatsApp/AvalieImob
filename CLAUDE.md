@@ -17,7 +17,9 @@
    (opcional — o Railway regenera no prebuild).
 6. Registrar a atualização também no Obsidian (ver seção abaixo), nota de releases/changelog.
 
-**Estado atual: v1.3.659** (MAJOR=1, MINOR=3) — release: link público do laudo vinculado ao recibo (3 pontos) — (1) gerar_recibo_ptam gera o link_publico do PTAM automaticamente se não existir e grava em recibo.ptam_link; (2) ReciboWizard mostra campo read-only "Link do laudo" com botão Copiar; (3) legenda_recibo (WhatsApp) inclui o ptam_link + faz strip de HTML do servico/descricao. Histórico abaixo:
+**Estado atual: v1.3.660** (MAJOR=1, MINOR=3) — release: 3 fixes no recibo — (1) PDF baixado (GET /recibos/{id}/pdf) agora mescla os anexos ao final via services.recibo_anexos.anexar_anexos_ao_pdf (PDF append + imagens viram página A4, usa pypdf+PIL); (2) RecibosList limpa HTML cru da descrição no card (stripHtml); (3) enviarWA sempre abre prompt pré-preenchido p/ inserir/confirmar o número de WhatsApp (antes só pedia se vazio). Histórico abaixo:
+
+**v1.3.659** (MAJOR=1, MINOR=3) — release: link público do laudo vinculado ao recibo (3 pontos) — (1) gerar_recibo_ptam gera o link_publico do PTAM automaticamente se não existir e grava em recibo.ptam_link; (2) ReciboWizard mostra campo read-only "Link do laudo" com botão Copiar; (3) legenda_recibo (WhatsApp) inclui o ptam_link + faz strip de HTML do servico/descricao. Histórico abaixo:
 
 **v1.3.658** (MAJOR=1, MINOR=3) — release: bloco de assinatura do recibo (recibo_pdf.py) passa a usar a qualificação COMPLETA do avaliador via utils.avaliador.resolver_dados_avaliador (mesma fonte do PTAM): nome em maiúsculas + "Avaliador — CRECI/MA · CNAI · CFT/MA · ..." + endereço completo + telefone (substitui o antigo cargo "Admin" + 1º registro). Histórico abaixo:
 
