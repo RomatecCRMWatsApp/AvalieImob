@@ -17,7 +17,7 @@
    (opcional — o Railway regenera no prebuild).
 6. Registrar a atualização também no Obsidian (ver seção abaixo), nota de releases/changelog.
 
-**Estado atual: v1.3.651** (MAJOR=1, MINOR=3) — release: Novo Dashboard (Visão Geral) design v4 — Hero blueprint, KPI strip, gráfico de produção (recharts), laudos recentes + bloco de volume, plan strip; hook useDashboard + tokens CSS (src/styles/dashboard-tokens.css). Sem rotas novas.
+**Estado atual: v1.3.652** (MAJOR=1, MINOR=3) — release: botão "Recibo" no card PTAM vira verde "✓ Recibo Emitido" quando `p.recibo_emitido` (PtamList.jsx). Módulo Recibos + modal + backend já existiam; só faltava o estado visual do botão no card. Release anterior (651): Novo Dashboard v4.
 
 ## Obsidian MCP — Sincronização automática
 

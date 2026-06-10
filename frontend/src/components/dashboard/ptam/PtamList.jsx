@@ -748,12 +748,16 @@ const PtamList = () => {
                 <Button
                   size="sm"
                   variant="outline"
-                  title="Recibo de honorários"
+                  title={p.recibo_emitido ? 'Recibo de honorários emitido' : 'Recibo de honorários'}
                   onClick={() => setReciboModal(p)}
-                  className="gap-1 text-amber-800 border-amber-200 bg-amber-50 hover:bg-amber-100"
+                  className={`gap-1 transition-colors ${
+                    p.recibo_emitido
+                      ? 'text-white border-transparent bg-green-600 hover:bg-green-700'
+                      : 'text-amber-800 border-amber-200 bg-amber-50 hover:bg-amber-100'
+                  }`}
                 >
                   <Receipt className="w-3.5 h-3.5" />
-                  Recibo
+                  {p.recibo_emitido ? '✓ Recibo Emitido' : 'Recibo'}
                 </Button>
                 {p.icp_status === 'assinado' && (
                   <Button
