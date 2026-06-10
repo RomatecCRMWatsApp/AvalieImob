@@ -1817,7 +1817,7 @@ async def gerar_recibo_ptam(
         data_pagamento=body.data_pagamento,
     )
 
-    # Salvar
+    # Salvar bytes do PDF inline (usado pelo download /api/ptam/{pid}/recibo)
     import uuid as _uuid
     recibo_id = str(_uuid.uuid4())
     await db.recibos_ptam.insert_one({
@@ -1830,21 +1830,76 @@ async def gerar_recibo_ptam(
         "created_at": datetime.utcnow(),
     })
 
-    # Marcar PTAM
+    # ── Persistir também na collection `recibos` (módulo Recibos) ─────────────
+    # Assim o recibo aparece na aba Recibos para edição/assinatura — mesma
+    # lógica do PTAM. Upsert por ptam_id: emitir de novo atualiza o existente.
+    from models import Recibo
+    from routes.recibos import _hidratar_emitente, _next_recibo_numero
+
+    agora = datetime.utcnow()
+    num_ptam = ptam.get("numero_ptam") or ptam.get("number") or ""
+    tipo_imovel = ptam.get("property_label") or ptam.get("property_type") or "imóvel"
+    descricao = (
+        f"Honorários técnicos referentes à avaliação imobiliária (PTAM nº {num_ptam}) "
+        f"do imóvel \"{tipo_imovel}\""
+        + (f", localizado em {ptam.get('property_address')}" if ptam.get("property_address") else "")
+        + ", em conformidade com a ABNT NBR 14653."
+    )
+    data_pag = body.data_pagamento or agora.date().isoformat()
+
+    existente = await db.recibos.find_one({"ptam_id": pid, "user_id": uid})
+    if existente:
+        update_rec = {
+            "valor": body.valor_honorarios,
+            "forma_pagamento": body.forma_pagamento or "PIX",
+            "data_pagamento": data_pag,
+            "descricao": descricao,
+            "updated_at": agora,
+        }
+        if not existente.get("numero"):
+            numero, seq = await _next_recibo_numero(db, "honorarios")
+            update_rec.update({"numero": numero, "sequencia": seq, "status": "emitido"})
+        await db.recibos.update_one({"id": existente["id"]}, {"$set": update_rec})
+        recibo_doc_id = existente["id"]
+    else:
+        emit = await _hidratar_emitente({}, user, perfil)
+        numero, seq = await _next_recibo_numero(db, "honorarios")
+        novo = Recibo(
+            user_id=uid,
+            tipo="honorarios",
+            ptam_id=pid,
+            destinatario_nome=(ptam.get("solicitante_nome") or ptam.get("solicitante") or "Cliente"),
+            destinatario_cpf_cnpj=(ptam.get("solicitante_cpf_cnpj") or ""),
+            destinatario_whatsapp=(ptam.get("solicitante_telefone") or ""),
+            valor=body.valor_honorarios,
+            forma_pagamento=body.forma_pagamento or "PIX",
+            data_pagamento=data_pag,
+            descricao=descricao,
+            status="emitido",
+            numero=numero,
+            sequencia=seq,
+            **emit,
+        )
+        await db.recibos.insert_one(novo.model_dump())
+        recibo_doc_id = novo.id
+
+    # Marcar PTAM (vincula o id do recibo na collection `recibos`)
     await db.ptam_documents.update_one(
         {"id": pid},
         {"$set": {
             "honorarios": body.valor_honorarios,
             "recibo_emitido": True,
-            "recibo_emitido_em": datetime.utcnow(),
+            "recibo_emitido_em": agora,
             "recibo_pdf_url": f"/api/ptam/{pid}/recibo",
-            "updated_at": datetime.utcnow(),
+            "recibo_id": recibo_doc_id,
+            "updated_at": agora,
         }},
     )
 
     return {
         "ok": True,
         "recibo_id": recibo_id,
+        "recibo_doc_id": recibo_doc_id,
         "download_url": f"/api/ptam/{pid}/recibo",
     }
 

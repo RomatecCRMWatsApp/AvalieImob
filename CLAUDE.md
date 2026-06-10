@@ -17,7 +17,7 @@
    (opcional — o Railway regenera no prebuild).
 6. Registrar a atualização também no Obsidian (ver seção abaixo), nota de releases/changelog.
 
-**Estado atual: v1.3.652** (MAJOR=1, MINOR=3) — release: botão "Recibo" no card PTAM vira verde "✓ Recibo Emitido" quando `p.recibo_emitido` (PtamList.jsx). Módulo Recibos + modal + backend já existiam; só faltava o estado visual do botão no card. Release anterior (651): Novo Dashboard v4.
+**Estado atual: v1.3.656** (MAJOR=1, MINOR=3) — release: recibo gerado pelo card PTAM agora também é persistido na collection `recibos` (upsert por `ptam_id`, número via counter `recibo_honorarios_{ano}`, status=emitido, emitente hidratado, destinatário do PTAM), aparecendo na aba Recibos para editar/assinar. `gerar_recibo_ptam` grava em `recibos` além de `recibos_ptam`; PTAM passa a guardar `recibo_id`. Releases anteriores: 655 botão verde "✓ Recibo Emitido" no card; 651 Dashboard v4.
 
 ## Obsidian MCP — Sincronização automática
 
