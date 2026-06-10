@@ -285,16 +285,30 @@ async def baixar_pdf(
     perfil = await db.perfis_avaliador.find_one({"user_id": uid}) or {}
     logo_bytes = await _carregar_logo_bytes(db, doc.get("emitente_logo_id") or user.get("company_logo"))
 
-    pdf_bytes = gerar_recibo_pdf(
-        recibo=doc,
-        user=user,
-        perfil=perfil,
-        logo_bytes=logo_bytes,
-    )
-    # Anexa os documentos do recibo (PDF/imagens) ao final do PDF baixado.
-    from services.recibo_anexos import anexar_anexos_ao_pdf
-    pdf_bytes = await anexar_anexos_ao_pdf(db, doc, pdf_bytes)
-    filename = f"{doc.get('numero') or 'RECIBO_RASCUNHO'}.pdf".replace("/", "-")
+    # Se o recibo está ASSINADO, serve o PDF assinado (já com os anexos embutidos).
+    pdf_bytes = None
+    usou_assinado = False
+    if doc.get("icp_status") == "assinado":
+        try:
+            from routes.assinatura import _load_assinatura_bytes
+            signed, _a = await _load_assinatura_bytes(db, "recibo", rid)
+            if signed:
+                pdf_bytes = signed
+                usou_assinado = True
+        except Exception as e:
+            logger.warning("Falha ao carregar PDF assinado do recibo %s: %s", rid, e)
+    if pdf_bytes is None:
+        pdf_bytes = gerar_recibo_pdf(
+            recibo=doc,
+            user=user,
+            perfil=perfil,
+            logo_bytes=logo_bytes,
+        )
+        # Anexa os documentos do recibo (PDF/imagens) ao final do PDF.
+        from services.recibo_anexos import anexar_anexos_ao_pdf
+        pdf_bytes = await anexar_anexos_ao_pdf(db, doc, pdf_bytes)
+    _suf = "_ASSINADO" if usou_assinado else ""
+    filename = f"{(doc.get('numero') or 'RECIBO_RASCUNHO')}{_suf}.pdf".replace("/", "-")
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",

@@ -2,8 +2,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Plus, Receipt, Loader2, Calendar, Trash2, FileDown, MessageCircle,
-  CheckCircle2, Clock, Send, Search, Edit3, Lock, ShieldCheck, Copy, BadgeCheck, MapPin,
+  Plus, Receipt, Loader2, Calendar, Trash2, MessageCircle,
+  CheckCircle2, Clock, Send, Search, Edit3, Lock, ShieldCheck, Copy, BadgeCheck, MapPin, Eye,
 } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Badge } from '../../ui/badge';
@@ -86,18 +86,16 @@ const RecibosList = () => {
     }
   };
 
-  const baixarPdf = async (r) => {
+  // Abre o PDF do recibo inline (assinado + anexos quando assinado; senão o recibo + anexos).
+  const visualizar = async (r) => {
     setPdfLoading(prev => ({ ...prev, [r.id]: true }));
     try {
       const blob = await recibosAPI.pdf(r.id);
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${(r.numero || 'RECIBO_RASCUNHO').replace(/\//g, '-')}.pdf`;
-      a.click();
-      window.URL.revokeObjectURL(url);
+      window.open(url, '_blank', 'noopener');
+      setTimeout(() => window.URL.revokeObjectURL(url), 60000);
     } catch (e) {
-      toast({ title: 'Erro ao baixar PDF', variant: 'destructive' });
+      toast({ title: 'Erro ao abrir o PDF', variant: 'destructive' });
     } finally {
       setPdfLoading(prev => ({ ...prev, [r.id]: false }));
     }
@@ -257,17 +255,17 @@ const RecibosList = () => {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => baixarPdf(r)}
+                    onClick={() => visualizar(r)}
                     disabled={pdfLoading[r.id]}
-                    title="Baixar PDF"
+                    title={r.icp_status === 'assinado' ? 'Visualizar recibo assinado (com anexos)' : 'Visualizar recibo (com anexos)'}
                     className="gap-1"
                   >
                     {pdfLoading[r.id] ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     ) : (
-                      <FileDown className="w-3.5 h-3.5" />
+                      <Eye className="w-3.5 h-3.5" />
                     )}
-                    PDF
+                    Visualizar
                   </Button>
                   <Button
                     size="sm"
