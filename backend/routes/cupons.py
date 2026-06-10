@@ -58,6 +58,10 @@ def montar_mensagem_whatsapp(cupom: dict) -> str:
     if val:
         validade_str = f"\n⏰ *Oferta válida até:* {val.strftime('%d/%m/%Y')}"
 
+    # Dica: usar o e-mail (já informado no cupom) no cadastro.
+    email = (cupom.get("email_destinatario") or "").strip()
+    email_str = f"📧 *No cadastro, use o seu e-mail:* {email}\n\n" if email else ""
+
     msg_custom = (cupom.get("mensagem_customizada") or "").strip()
     if msg_custom:
         return f"{saudacao}{msg_custom}\n\n🔗 *Acesse agora:*\n{link}"
@@ -74,10 +78,11 @@ def montar_mensagem_whatsapp(cupom: dict) -> str:
         f"✅ Laudos, contratos e muito mais\n\n"
         f"💰 *Plano normal:* R$ {vnorm:.2f}/mês\n".replace(".", ",")
         + f"🏷️ *Sua 1ª mensalidade:* ~R$ {vnorm:.2f}~ *R$ {vdesc:.2f}*\n".replace(".", ",")
-        + f"💚 *Economia na primeira cobrança!*\n"
-        f"(a partir do 2º mês volta ao valor normal){validade_str}\n\n"
+        + f"💚 *Economia de R$ {(vnorm - vdesc):.2f} na primeira cobrança!*\n".replace(".", ",")
+        + f"(a partir do 2º mês volta ao valor normal){validade_str}\n\n"
         f"👇 *Cadastre-se agora com seu desconto garantido:*\n"
         f"{link}\n\n"
+        f"{email_str}"
         f"_RomaTec Consultoria Total — Açailândia/MA_"
     )
 

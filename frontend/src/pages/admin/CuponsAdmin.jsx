@@ -33,6 +33,8 @@ const buildMensagem = (f) => {
   const vnorm = Number(f.valor_plano_normal || 89.9);
   const vdesc = Math.max(0, vnorm - Number(f.valor_desconto || 0));
   const val = f.validade ? `\n⏰ *Oferta válida até:* ${fmtData(f.validade)}` : '';
+  const email = (f.email_destinatario || '').trim();
+  const emailStr = email ? `📧 *No cadastro, use o seu e-mail:* ${email}\n\n` : '';
   if (!f.usar_padrao && (f.mensagem_customizada || '').trim()) {
     return `${saud}${f.mensagem_customizada.trim()}\n\n🔗 *Acesse agora:*\n${link}`;
   }
@@ -40,7 +42,7 @@ const buildMensagem = (f) => {
     `✅ Sistema profissional de avaliação de imóveis\n✅ Geração de PTAM em PDF\n✅ Banco de amostras de mercado\n✅ Laudos, contratos e muito mais\n\n` +
     `💰 *Plano normal:* ${fmtBRL(vnorm)}/mês\n🏷️ *Sua 1ª mensalidade:* ~${fmtBRL(vnorm)}~ *${fmtBRL(vdesc)}*\n` +
     `💚 *Economia de ${fmtBRL(f.valor_desconto)} na primeira cobrança!*\n(a partir do 2º mês volta ao valor normal)${val}\n\n` +
-    `👇 *Cadastre-se agora com seu desconto garantido:*\n${link}\n\n_RomaTec Consultoria Total — Açailândia/MA_`;
+    `👇 *Cadastre-se agora com seu desconto garantido:*\n${link}\n\n${emailStr}_RomaTec Consultoria Total — Açailândia/MA_`;
 };
 
 // Formata *negrito* e ~tachado~ + quebras para o balão.
