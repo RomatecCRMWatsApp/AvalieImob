@@ -444,6 +444,9 @@ class PtamBase(BaseModel):
     recibo_emitido: Optional[bool] = False
     recibo_emitido_em: Optional[datetime] = None
     recibo_pdf_url: Optional[str] = None
+    recibo_id: Optional[str] = None            # id do recibo na collection `recibos`
+    recibo_assinado: Optional[bool] = False
+    recibo_assinado_em: Optional[datetime] = None
 
     # Método Evolutivo (NBR 14.653-2:2011, item 8.2.1.2)
     metodo_evolutivo_tipo_cub: Optional[str] = None         # ex: "R1-N"

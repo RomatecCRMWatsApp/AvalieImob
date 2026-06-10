@@ -746,6 +746,9 @@ async def assinar_icp_brasil(
         }},
     )
 
+    # Recibo assinado → reflete no card do PTAM vinculado.
+    await _propagar_recibo_assinado(db, tipo, doc, data_principal)
+
     return {
         "ok": True,
         "status": "assinado",
@@ -757,6 +760,27 @@ async def assinar_icp_brasil(
         "download_url": f"/api/assinatura/icp/{tipo}/{id}/download",
         "verificacao_url": f"/v/laudo/v/{hash_principal}",
     }
+
+
+async def _propagar_recibo_assinado(db, tipo: str, doc: dict, quando=None) -> None:
+    """Quando um RECIBO vinculado a um PTAM é assinado, marca recibo_assinado=True
+       no PTAM — o card do PTAM passa a mostrar o botão verde 'Recibo Assinado'."""
+    if tipo != "recibo":
+        return
+    pid = (doc or {}).get("ptam_id")
+    if not pid:
+        return
+    try:
+        await db.ptam_documents.update_one(
+            {"id": pid},
+            {"$set": {
+                "recibo_assinado": True,
+                "recibo_assinado_em": quando or datetime.utcnow(),
+                "updated_at": datetime.utcnow(),
+            }},
+        )
+    except Exception as e:
+        logger.warning("Falha ao propagar recibo_assinado ao PTAM %s: %s", pid, e)
 
 
 async def _persist_assinatura(db, tipo, doc_id, layout, cert_id, pdf_bytes, hash_final, posicionado=False):
@@ -985,6 +1009,9 @@ async def assinar_posicionado(
             "updated_at": datetime.utcnow(),
         }, "$unset": {"pdf_assinatura_key": ""}},
     )
+
+    # Recibo assinado → reflete no card do PTAM vinculado.
+    await _propagar_recibo_assinado(db, tipo, doc, data_assinatura)
 
     try:
         await asyncio.to_thread(r2_storage.delete_object, key)

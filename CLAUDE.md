@@ -17,7 +17,9 @@
    (opcional — o Railway regenera no prebuild).
 6. Registrar a atualização também no Obsidian (ver seção abaixo), nota de releases/changelog.
 
-**Estado atual: v1.3.660** (MAJOR=1, MINOR=3) — release: 3 fixes no recibo — (1) PDF baixado (GET /recibos/{id}/pdf) agora mescla os anexos ao final via services.recibo_anexos.anexar_anexos_ao_pdf (PDF append + imagens viram página A4, usa pypdf+PIL); (2) RecibosList limpa HTML cru da descrição no card (stripHtml); (3) enviarWA sempre abre prompt pré-preenchido p/ inserir/confirmar o número de WhatsApp (antes só pedia se vazio). Histórico abaixo:
+**Estado atual: v1.3.661** (MAJOR=1, MINOR=3) — release: recibo assinado reflete no card do PTAM — backend assinatura.py (_propagar_recibo_assinado) seta recibo_assinado=True no PTAM vinculado (via recibo.ptam_id) ao concluir ICP nos endpoints /icp/{tipo}/{id}/assinar e /posicionado; model Ptam ganha recibo_id, recibo_assinado, recibo_assinado_em; PtamList mostra botão verde "✓ Recibo Assinado" (abre o recibo na aba Recibos). Release anterior abaixo:
+
+**v1.3.660** (MAJOR=1, MINOR=3) — release: 3 fixes no recibo — (1) PDF baixado (GET /recibos/{id}/pdf) agora mescla os anexos ao final via services.recibo_anexos.anexar_anexos_ao_pdf (PDF append + imagens viram página A4, usa pypdf+PIL); (2) RecibosList limpa HTML cru da descrição no card (stripHtml); (3) enviarWA sempre abre prompt pré-preenchido p/ inserir/confirmar o número de WhatsApp (antes só pedia se vazio). Histórico abaixo:
 
 **v1.3.659** (MAJOR=1, MINOR=3) — release: link público do laudo vinculado ao recibo (3 pontos) — (1) gerar_recibo_ptam gera o link_publico do PTAM automaticamente se não existir e grava em recibo.ptam_link; (2) ReciboWizard mostra campo read-only "Link do laudo" com botão Copiar; (3) legenda_recibo (WhatsApp) inclui o ptam_link + faz strip de HTML do servico/descricao. Histórico abaixo:
 

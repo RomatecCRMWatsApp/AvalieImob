@@ -759,6 +759,18 @@ const PtamList = () => {
                   <Receipt className="w-3.5 h-3.5" />
                   {p.recibo_emitido ? '✓ Recibo Emitido' : 'Recibo'}
                 </Button>
+                {p.recibo_assinado && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    title="Recibo assinado — abrir na aba Recibos"
+                    onClick={() => (p.recibo_id ? nav(`/dashboard/recibos/${p.recibo_id}`) : nav('/dashboard/recibos'))}
+                    className="gap-1 text-white border-transparent bg-green-700 hover:bg-green-800"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    ✓ Recibo Assinado
+                  </Button>
+                )}
                 {p.icp_status === 'assinado' && (
                   <Button
                     size="sm"
