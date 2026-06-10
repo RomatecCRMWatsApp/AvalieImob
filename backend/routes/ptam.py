@@ -1847,6 +1847,12 @@ async def gerar_recibo_ptam(
     )
     data_pag = body.data_pagamento or agora.date().isoformat()
 
+    # Link público do laudo (vai junto com o recibo), se já gerado/ativo no PTAM.
+    ptam_link = None
+    _tok = ptam.get("link_publico_token")
+    if _tok and ptam.get("link_publico_ativo"):
+        ptam_link = ptam.get("link_publico") or f"https://www.romatecavalieimob.com.br/laudo/{_tok}"
+
     existente = await db.recibos.find_one({"ptam_id": pid, "user_id": uid})
     if existente:
         update_rec = {
@@ -1854,6 +1860,7 @@ async def gerar_recibo_ptam(
             "forma_pagamento": body.forma_pagamento or "PIX",
             "data_pagamento": data_pag,
             "descricao": descricao,
+            "ptam_link": ptam_link,
             "updated_at": agora,
         }
         if not existente.get("numero"):
@@ -1868,6 +1875,7 @@ async def gerar_recibo_ptam(
             user_id=uid,
             tipo="honorarios",
             ptam_id=pid,
+            ptam_link=ptam_link,
             destinatario_nome=(ptam.get("solicitante_nome") or ptam.get("solicitante") or "Cliente"),
             destinatario_cpf_cnpj=(ptam.get("solicitante_cpf_cnpj") or ""),
             destinatario_whatsapp=(ptam.get("solicitante_telefone") or ""),

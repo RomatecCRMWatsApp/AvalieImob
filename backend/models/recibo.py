@@ -62,6 +62,7 @@ class ReciboBase(BaseModel):
 
     # ── Vínculos opcionais ───────────────────────────────────────────────
     ptam_id: Optional[str] = None  # se gerado a partir de um PTAM
+    ptam_link: Optional[str] = None  # link público do laudo (vai junto com o recibo)
     cliente_id: Optional[str] = None
 
     # ── Anexos (até 5; PDF/JPG/PNG/WebP, 10MB cada) ──────────────────────
@@ -113,5 +114,6 @@ class ReciboUpdate(BaseModel):
     descricao: Optional[str] = None
     status: Optional[str] = None
     ptam_id: Optional[str] = None
+    ptam_link: Optional[str] = None
     cliente_id: Optional[str] = None
     anexos: Optional[List[dict]] = None

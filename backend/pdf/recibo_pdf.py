@@ -26,6 +26,26 @@ from typing import Optional
 
 logger = logging.getLogger("romatec")
 
+import re as _re
+
+_BR_RE = _re.compile(r"(?i)<\s*br\s*/?\s*>|</\s*(p|div|li)\s*>")
+_TAG_RE = _re.compile(r"<[^>]+>")
+
+
+def _strip_html(s) -> str:
+    """Converte o HTML do editor rich text em texto puro p/ desenhar no PDF.
+       Mantém quebras de linha (br/p/div/li -> \\n) e remove demais tags/entidades."""
+    if not s:
+        return ""
+    txt = str(s)
+    txt = _BR_RE.sub("\n", txt)
+    txt = _TAG_RE.sub("", txt)
+    txt = (txt.replace("&nbsp;", " ").replace("&amp;", "&")
+              .replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", '"'))
+    # normaliza múltiplas quebras/espaços
+    txt = _re.sub(r"\n{3,}", "\n\n", txt)
+    return txt.strip()
+
 
 DARK_GREEN = "#1B4D1B"
 GOLD = "#D4A830"
@@ -190,7 +210,8 @@ def gerar_recibo_pdf(
     # ─── Texto do recibo (formal) ──────────────────────────────────────
     pagador = recibo.get("destinatario_nome", "—")
     pagador_doc = _format_documento(recibo.get("destinatario_cpf_cnpj", ""))
-    servico = recibo.get("servico") or recibo.get("descricao") or tipo_label
+    _descricao_txt = _strip_html(recibo.get("descricao"))
+    servico = recibo.get("servico") or _descricao_txt or tipo_label
 
     c.setFillColor(colors.HexColor("#374151"))
     c.setFont("Helvetica", 11)
@@ -218,16 +239,29 @@ def gerar_recibo_pdf(
         c.drawString(40 * mm, cursor_y, recibo["categoria"][:70])
         cursor_y -= 5 * mm
 
-    if recibo.get("descricao") and recibo["descricao"] != servico:
+    if _descricao_txt and _descricao_txt != servico:
         c.setFont("Helvetica-Bold", 10)
         c.drawString(18 * mm, cursor_y, "Descrição:")
         cursor_y -= 5 * mm
         c.setFont("Helvetica", 10)
-        for linha in wrap(recibo["descricao"], width=95):
-            c.drawString(18 * mm, cursor_y, linha)
-            cursor_y -= 4.5 * mm
+        for _par in _descricao_txt.split("\n"):
+            for linha in wrap(_par, width=95) or [""]:
+                c.drawString(18 * mm, cursor_y, linha)
+                cursor_y -= 4.5 * mm
 
     cursor_y -= 4 * mm
+
+    # ─── Link público do laudo (quando o recibo veio de um PTAM) ──────
+    _ptam_link = recibo.get("ptam_link")
+    if _ptam_link:
+        c.setFillColor(colors.HexColor(DARK_GREEN))
+        c.setFont("Helvetica-Bold", 9)
+        c.drawString(18 * mm, cursor_y, "Laudo (consulta pública):")
+        cursor_y -= 4.5 * mm
+        c.setFillColor(colors.HexColor("#374151"))
+        c.setFont("Helvetica", 8.5)
+        c.drawString(18 * mm, cursor_y, str(_ptam_link))
+        cursor_y -= 6 * mm
 
     # ─── Forma de pagamento ───────────────────────────────────────────
     forma = recibo.get("forma_pagamento", "PIX")

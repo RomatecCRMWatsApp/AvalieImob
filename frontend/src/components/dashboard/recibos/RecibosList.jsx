@@ -3,13 +3,14 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Plus, Receipt, Loader2, Calendar, Trash2, FileDown, MessageCircle,
-  CheckCircle2, Clock, Send, Search, Edit3, Lock, ShieldCheck, Copy, BadgeCheck,
+  CheckCircle2, Clock, Send, Search, Edit3, Lock, ShieldCheck, Copy, BadgeCheck, MapPin,
 } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Badge } from '../../ui/badge';
 import { useToast } from '../../../hooks/use-toast';
 import { recibosAPI } from '../../../lib/api';
 import AssinaturaDigital from '../ptam/AssinaturaDigital';
+import AssinaturaPosicionadaModal from '../assinatura/AssinaturaPosicionadaModal';
 
 const formatBRL = (v) => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', {
   minimumFractionDigits: 2, maximumFractionDigits: 2,
@@ -33,6 +34,7 @@ const RecibosList = () => {
   const [pdfLoading, setPdfLoading] = useState({});
   const [enviando, setEnviando] = useState({});
   const [assinaturaModal, setAssinaturaModal] = useState(null);
+  const [posicionarModal, setPosicionarModal] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -114,6 +116,19 @@ const RecibosList = () => {
 
   return (
     <div className="space-y-6">
+      {posicionarModal && (
+        <AssinaturaPosicionadaModal
+          tipo="recibo"
+          documentId={posicionarModal.id}
+          onAssinado={() => {
+            setItems((prev) => prev.map((x) => (x.id === posicionarModal.id
+              ? { ...x, icp_status: 'assinado', icp_signed_at: new Date().toISOString() } : x)));
+            setPosicionarModal(null);
+          }}
+          onFechar={() => setPosicionarModal(null)}
+        />
+      )}
+
       {assinaturaModal && (
         <AssinaturaDigital
           tipo="recibo"
@@ -257,6 +272,15 @@ const RecibosList = () => {
                   >
                     {r.icp_status === 'assinado' ? <ShieldCheck className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
                     {r.icp_status === 'assinado' ? 'Assinado' : 'Assinar'}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setPosicionarModal(r)}
+                    title="Assinar ICP-Brasil posicionando o carimbo (arrastar na página)"
+                    className="gap-1 text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+                  >
+                    <MapPin className="w-3.5 h-3.5" /> Posicionar
                   </Button>
                   <Button
                     size="sm"

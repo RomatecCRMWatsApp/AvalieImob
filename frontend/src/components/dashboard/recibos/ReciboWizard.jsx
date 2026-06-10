@@ -15,9 +15,12 @@ import {
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Textarea } from '../../ui/textarea';
+import RichTextEditor from '../../ui/RichTextEditor';
+import { paraEditorHtml } from '../../ui/RichField';
+import { AiButton } from '../ptam/shared/primitives';
 import { useToast } from '../../../hooks/use-toast';
 import { useAuth } from '../../../contexts/AuthContext';
-import { recibosAPI, perfilAPI } from '../../../lib/api';
+import { recibosAPI, perfilAPI, aiAPI } from '../../../lib/api';
 import { useCatalogoServicos } from './useCatalogoServicos';
 
 const ANEXO_TIPOS_OK = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
@@ -134,6 +137,35 @@ const ReciboWizard = () => {
       if (serv) setServSel(serv.value);
     }
   }, [categorias, form.categoria, form.servico, catSel]);
+
+  // ── Aperfeiçoar com IA (mesmo padrão do PTAM) ──────────────────
+  const [aiLoading, setAiLoading] = useState(false);
+
+  const handleAiDescricao = async () => {
+    const atual = form.descricao || '';
+    const prompt =
+      'Aperfeiçoe tecnicamente este texto de descrição de serviço para um RECIBO de honorários/serviços. ' +
+      'Mantenha tom formal, claro e profissional em português-BR. Seja conciso (2 a 4 frases). ' +
+      'Retorne APENAS o texto aperfeiçoado, sem explicações, sem títulos e sem rótulos.\n\n' +
+      `Tipo: ${form.servico || form.tipo || 'serviço'}\n` +
+      `Texto atual:\n${atual || '(vazio — gere uma descrição inicial adequada ao serviço)'}`;
+    setAiLoading(true);
+    try {
+      const session_id = `recibo_${id || 'draft'}_descricao_${Date.now()}`;
+      const res = await aiAPI.chat(session_id, prompt);
+      const texto = (res?.reply || '').trim();
+      if (texto) setForm((f) => ({ ...f, descricao: texto }));
+      toast({ title: 'Texto aperfeiçoado com IA' });
+    } catch (err) {
+      toast({
+        title: 'Erro na IA',
+        description: err.response?.data?.detail || 'Tente novamente',
+        variant: 'destructive',
+      });
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   // ── Handlers cascata ───────────────────────────────────────────
   const onCategoriaChange = (e) => {
@@ -487,12 +519,17 @@ const ReciboWizard = () => {
           </div>
 
           <Field label="Descrição do serviço/motivo (opcional)">
-            <Textarea
-              rows={3}
-              value={form.descricao}
-              onChange={onChange('descricao')}
+            <RichTextEditor
+              value={paraEditorHtml(form.descricao)}
+              onChange={(html) => setForm((f) => ({ ...f, descricao: html }))}
+              onBlurHtml={(html) => setForm((f) => ({ ...f, descricao: html }))}
               placeholder="Ex: Mão de obra quinzena 06–20/maio, pagamento PIX"
+              minHeight={96}
+              showAiButton={false}
             />
+            <div className="flex justify-end mt-1">
+              <AiButton onClick={handleAiDescricao} loading={aiLoading} />
+            </div>
           </Field>
 
           {/* Anexos */}
