@@ -152,7 +152,11 @@ export default function Sidebar({
   const isAdmin = ['admin', 'owner', 'ceo'].includes(String(user?.role || '').toLowerCase());
   const menu = MENU.map((g) =>
     g.section === 'Ferramentas' && isAdmin
-      ? { ...g, items: [...g.items, { id: 'cupons', label: 'Cupons Promo', icon: Tag, route: '/dashboard/admin/cupons' }] }
+      ? { ...g, items: [
+          ...g.items,
+          { id: 'cupons', label: 'Cupons Promo', icon: Tag, route: '/dashboard/admin/cupons' },
+          { id: 'usuarios', label: 'Usuários', icon: Users, route: '/dashboard/admin/usuarios' },
+        ] }
       : g
   );
 

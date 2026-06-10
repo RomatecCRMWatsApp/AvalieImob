@@ -27,6 +27,7 @@ import SettingsPage from '../components/dashboard/SettingsPage';
 import PerfilAvaliador from '../components/dashboard/PerfilAvaliador';
 import AdminIncra from '../components/dashboard/incra/AdminIncra';
 import CuponsAdmin from './admin/CuponsAdmin';
+import UsuariosAdmin from './admin/UsuariosAdmin';
 import PtamList from '../components/dashboard/ptam/PtamList';
 import PtamWizard from '../components/dashboard/ptam/PtamWizard';
 import GarantiasList from '../components/dashboard/garantias/GarantiasList';
@@ -457,6 +458,7 @@ const Dashboard = () => {
             <Route path="conformidade" element={<PainelConformidade />} />
             <Route path="admin/incra" element={<AdminIncra />} />
             <Route path="admin/cupons" element={<CuponsAdmin />} />
+            <Route path="admin/usuarios" element={<UsuariosAdmin />} />
             <Route path="*"            element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </div>

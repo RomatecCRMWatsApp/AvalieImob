@@ -195,6 +195,12 @@ export const cuponsAPI = {
   resgatarPublico: (slug, usuarioId) => api.post(`/cupons/publico/resgatar/${encodeURIComponent(slug)}`, { usuario_id: usuarioId }).then(r => r.data),
 };
 
+// ---- Admin (usuários cadastrados / assinaturas) — somente admin/owner/ceo
+export const adminAPI = {
+  listUsers: () => api.get('/admin/users').then(r => r.data),
+  createTestUser: (data) => api.post('/admin/create-test-user', data).then(r => r.data),
+};
+
 // ---- Evaluations
 export const evaluationsAPI = {
   list: () => api.get('/evaluations').then(r => r.data),

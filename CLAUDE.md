@@ -17,7 +17,9 @@
    (opcional — o Railway regenera no prebuild).
 6. Registrar a atualização também no Obsidian (ver seção abaixo), nota de releases/changelog.
 
-**Estado atual: v1.3.688** (MAJOR=1, MINOR=3) — release: mensagem do cupom (WhatsApp) — (1) volta o valor "Economia de R$ X,XX na primeira cobrança!" no template do backend (montar_mensagem_whatsapp), igual à prévia; (2) nova linha "📧 No cadastro, use o seu e-mail: {email}" quando o cupom tem email_destinatario — backend + prévia (buildMensagem) alinhados. Release anterior abaixo:
+**Estado atual: v1.3.689** (MAJOR=1, MINOR=3) — release: painel admin de Usuários — nova página /dashboard/admin/usuarios (UsuariosAdmin.jsx) consumindo GET /admin/users (já existia): resumo (cadastrados, assinaturas ativas, inativas, admins) + tabela com filtro/busca; adminAPI no api.js; link "Usuários" no Sidebar (admin/owner/ceo); DashboardHero ganha bloco só-admin com Usuários + Assinaturas ativas (clica e vai pra página). Release anterior abaixo:
+
+**v1.3.688** (MAJOR=1, MINOR=3) — release: mensagem do cupom (WhatsApp) — (1) volta o valor "Economia de R$ X,XX na primeira cobrança!" no template do backend (montar_mensagem_whatsapp), igual à prévia; (2) nova linha "📧 No cadastro, use o seu e-mail: {email}" quando o cupom tem email_destinatario — backend + prévia (buildMensagem) alinhados. Release anterior abaixo:
 
 **v1.3.687** (MAJOR=1, MINOR=3) — release: (1) white-label recibo_zayra.py — emitente do recibo do card PTAM agora vem 100% do perfil/user do avaliador logado (via resolver_dados_avaliador), com fallback Romatec SOMENTE para a conta OWNER_EMAIL (não vaza dados da Romatec p/ outros usuários); bloco bancário só renderiza se houver dados. (2) Cupons: botão WhatsApp agora abre prompt do número (pré-preenchido) p/ enviar a um nº de teste antes do cliente. (3) Cupons ganham Editar (PUT /cupons/{id}), Revalidar (PUT /cupons/{id}/revalidar, reativa+nova validade) e Excluir (DELETE /cupons/{id}); UI com Pencil/RefreshCw/Trash2. Release anterior abaixo:
 

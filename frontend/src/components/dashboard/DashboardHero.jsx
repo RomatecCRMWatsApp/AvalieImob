@@ -1,11 +1,54 @@
 // @module dashboard/DashboardHero — Hero do Dashboard (design v4).
 // Fundo verde escuro + textura blueprint + saudação dinâmica, credenciais,
 // stats à direita e botões de ação.
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FilePlus2, UserPlus, BarChart2 } from 'lucide-react';
+import { FilePlus2, UserPlus, BarChart2, Users, CheckCircle2 } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
+import { adminAPI } from '../../lib/api';
 
 const CREDENCIAIS = 'CNAI 031161 · CRECI/MA 4.705 · CFT/MA 01209185369';
+
+const isAdminRole = (role) => ['admin', 'owner', 'ceo'].includes(String(role || '').toLowerCase());
+
+// Bloco só-admin no hero: usuários cadastrados + assinaturas ativas.
+const AdminHeroStats = () => {
+  const { user } = useAuth();
+  const nav = useNavigate();
+  const [data, setData] = useState(null);
+
+  useEffect(() => {
+    if (!isAdminRole(user?.role)) return;
+    adminAPI.listUsers()
+      .then((us) => {
+        const arr = Array.isArray(us) ? us : [];
+        setData({ total: arr.length, ativas: arr.filter((u) => u.plan_status === 'active').length });
+      })
+      .catch(() => {});
+  }, [user]);
+
+  if (!isAdminRole(user?.role) || !data) return null;
+
+  const Card = ({ value, label, Icon, gold }) => (
+    <button
+      onClick={() => nav('/dashboard/admin/usuarios')}
+      className="flex items-center gap-2 rounded-lg px-3 py-2 transition-transform hover:-translate-y-0.5"
+      style={{ border: '1px solid rgba(201,168,76,0.25)', background: 'rgba(255,255,255,0.03)' }}
+      title="Ver usuários"
+    >
+      <Icon className="w-4 h-4" style={{ color: gold ? 'var(--dash-gold)' : '#fff' }} />
+      <span className="dash-display" style={{ fontSize: 20, color: gold ? 'var(--dash-gold)' : '#fff', lineHeight: 1 }}>{value}</span>
+      <span className="dash-eyebrow" style={{ fontSize: 8, color: 'rgba(255,255,255,0.5)' }}>{label}</span>
+    </button>
+  );
+
+  return (
+    <div className="ml-auto flex items-center gap-2">
+      <Card value={data.total} label="Usuários" Icon={Users} gold />
+      <Card value={data.ativas} label="Assinaturas ativas" Icon={CheckCircle2} />
+    </div>
+  );
+};
 
 const HeroStat = ({ value, label, gold }) => (
   <div
@@ -112,6 +155,9 @@ const DashboardHero = ({ greeting, firstName, today, rascunhos, kpis }) => {
         >
           <BarChart2 className="w-4 h-4" /> Nova Amostra
         </button>
+
+        {/* Indicadores admin (usuários + assinaturas ativas) */}
+        <AdminHeroStats />
       </div>
     </section>
   );
