@@ -10,7 +10,8 @@
       "Bash(mkdir -p 'C:/Users/Ronicley Pinto/Documents/ROMATEC_AVALIEIMOB_/ROMATECAVALIEIMOB/03-Frontend')",
       "Bash(mkdir -p 'C:/Users/Ronicley Pinto/Documents/ROMATEC_AVALIEIMOB_/ROMATECAVALIEIMOB/04-Roadmap')",
       "mcp__obsidian__str_replace",
-      "Bash(claude mcp *)"
+      "Bash(claude mcp *)",
+      "Bash(git rev-list *)"
     ]
   }
 }

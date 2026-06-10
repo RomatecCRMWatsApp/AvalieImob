@@ -1,6 +1,6 @@
 // Gerado automaticamente no build (prebuild). NAO editar manualmente.
-export const APP_VERSION = "v1.2.630";
-export const BUILD_NUMBER = 630;
-export const BUILD_SHA = "local";
-export const BUILD_DATE = "09/06/2026 00:00";
-export const APP_BUILD_LABEL = "v1.2.630 - 09/06/2026 00:00";
+export const APP_VERSION = "v1.3.651";
+export const BUILD_NUMBER = 651;
+export const BUILD_SHA = "629a31a";
+export const BUILD_DATE = "10/06/2026 08:48";
+export const APP_BUILD_LABEL = "v1.3.651 - 10/06/2026 08:48";

@@ -17,7 +17,7 @@
    (opcional — o Railway regenera no prebuild).
 6. Registrar a atualização também no Obsidian (ver seção abaixo), nota de releases/changelog.
 
-**Estado atual: v1.2.630** (MAJOR=1, MINOR=2) — release: Módulo Amostras de Mercado v2 + fix Z-API (DDI 55 automático no envio de WhatsApp + validação/log da resposta).
+**Estado atual: v1.3.651** (MAJOR=1, MINOR=3) — release: Novo Dashboard (Visão Geral) design v4 — Hero blueprint, KPI strip, gráfico de produção (recharts), laudos recentes + bloco de volume, plan strip; hook useDashboard + tokens CSS (src/styles/dashboard-tokens.css). Sem rotas novas.
 
 ## Obsidian MCP — Sincronização automática
 

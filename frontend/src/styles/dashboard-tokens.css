@@ -1,0 +1,71 @@
+/* ===========================================================================
+   dashboard-tokens.css — Design System v4 (Dashboard AvalieImob)
+   Paleta + tipografia aprovadas. Importado por DashOverview.
+   Fonts (Playfair Display + Inter) já carregadas em src/index.css.
+   =========================================================================== */
+
+:root {
+  /* Verdes */
+  --dash-green-hero:    #0C3320; /* fundo hero/topbar/plan strip */
+  --dash-green-mid:     #1E6B38; /* ações, barras                */
+  --dash-green-dark:    #145228; /* verde escuro alternativo     */
+  --dash-green-light:   #DFF0E6; /* fog / backgrounds suaves     */
+  --dash-green-soft:    #A8D5B5; /* credenciais sobre hero       */
+  --dash-bg:            #EBF5EF; /* fundo geral da página        */
+
+  /* Dourado / destaques */
+  --dash-gold:          #C9A84C;
+
+  /* Texto */
+  --dash-text:          #111A14; /* principal      */
+  --dash-muted:         #6B8072; /* secundário     */
+  --dash-white:         #FFFFFF;
+
+  /* Acentos KPI */
+  --dash-kpi-1:         #C9A84C; /* dourado     */
+  --dash-kpi-2:         #1E6B38; /* verde médio */
+  --dash-kpi-3:         #2E8B57;
+  --dash-kpi-4:         #3A9E6A;
+
+  /* Tipografia */
+  --dash-font-display:  'Playfair Display', Georgia, serif;
+  --dash-font-ui:       'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* ── Tipografia utilitária ───────────────────────────────────────────────── */
+.dash-display { font-family: var(--dash-font-display); }
+.dash-ui      { font-family: var(--dash-font-ui); }
+
+/* ── Eyebrow (rótulo uppercase com letter-spacing) ───────────────────────── */
+.dash-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-weight: 600;
+}
+
+/* ── Pills de status ─────────────────────────────────────────────────────── */
+.dash-pill-rascunho   { background: #FEF3E2; color: #A05C0A; }
+.dash-pill-finalizado { background: #EAF5EC; color: #1E6B38; }
+
+/* ── Badges de variação KPI ──────────────────────────────────────────────── */
+.dash-delta-up   { background: #EAF5EC; color: #1E6B38; }
+.dash-delta-down { background: #FDECEC; color: #B42318; }
+.dash-delta-flat { background: var(--dash-green-light); color: var(--dash-muted); }
+
+/* ── Hover de linha na tabela de laudos recentes ─────────────────────────── */
+.dash-row:hover { background: #FAFAF7; }
+
+/* ── Textura blueprint do hero (grid duplo) ──────────────────────────────── */
+.dash-blueprint {
+  background-image:
+    linear-gradient(to right,  rgba(201,168,76,0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(201,168,76,0.06) 1px, transparent 1px),
+    linear-gradient(to right,  rgba(201,168,76,0.25) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(201,168,76,0.25) 1px, transparent 1px);
+  background-size: 8px 8px, 8px 8px, 40px 40px, 40px 40px;
+}
+
+/* ── Barra de progresso de volume ────────────────────────────────────────── */
+.dash-progress-fill {
+  background: linear-gradient(90deg, var(--dash-green-dark), var(--dash-green-mid));
+}
