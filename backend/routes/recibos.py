@@ -477,8 +477,24 @@ async def enviar_whatsapp(
     perfil = await db.perfis_avaliador.find_one({"user_id": uid}) or {}
     logo_bytes = await _carregar_logo_bytes(db, doc.get("emitente_logo_id") or user.get("company_logo"))
 
-    pdf_bytes = gerar_recibo_pdf(recibo=doc, user=user, perfil=perfil, logo_bytes=logo_bytes)
-    filename = f"{doc['numero']}.pdf".replace("/", "-")
+    # Se o recibo já está ASSINADO, envia o PDF assinado (que já inclui os
+    # anexos embutidos). Caso contrário, gera o recibo na hora.
+    assinado = (doc.get("icp_status") == "assinado")
+    pdf_bytes = None
+    pdf_inclui_anexos = False
+    if assinado:
+        try:
+            from routes.assinatura import _load_assinatura_bytes
+            signed, _a = await _load_assinatura_bytes(db, "recibo", rid)
+            if signed:
+                pdf_bytes = signed
+                pdf_inclui_anexos = True
+        except Exception as e:
+            logger.warning("Falha ao carregar PDF assinado do recibo %s: %s", rid, e)
+    if pdf_bytes is None:
+        pdf_bytes = gerar_recibo_pdf(recibo=doc, user=user, perfil=perfil, logo_bytes=logo_bytes)
+    _sufixo = "_ASSINADO" if pdf_inclui_anexos else ""
+    filename = f"{doc['numero']}{_sufixo}.pdf".replace("/", "-")
     if body.legenda:
         legenda = body.legenda
     else:
@@ -508,7 +524,8 @@ async def enviar_whatsapp(
         # Envia os anexos logo após o recibo (best-effort; só via Z-API).
         anexos = doc.get("anexos") or []
         anexos_enviados = 0
-        if anexos and provider != "meta" and cfg.get("zapi_instance_id"):
+        # Se o PDF enviado é o assinado (já tem anexos embutidos), não reenvia avulso.
+        if anexos and not pdf_inclui_anexos and provider != "meta" and cfg.get("zapi_instance_id"):
             from services.recibo_anexos import carregar_anexo_bytes
             for ax in anexos:
                 carregado = await carregar_anexo_bytes(db, ax)

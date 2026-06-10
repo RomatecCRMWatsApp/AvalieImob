@@ -17,7 +17,9 @@
    (opcional — o Railway regenera no prebuild).
 6. Registrar a atualização também no Obsidian (ver seção abaixo), nota de releases/changelog.
 
-**Estado atual: v1.3.663** (MAJOR=1, MINOR=3) — release: diagnóstico do 502 no envio WhatsApp do recibo — enviar_whatsapp passa a logar tipo da exceção + traceback (exc_info) e o detalhe HTTP agora inclui o nome da exceção mesmo quando str(e) vem vazio (típico de timeout/conexão httpx com a Z-API). Release anterior abaixo:
+**Estado atual: v1.3.664** (MAJOR=1, MINOR=3) — release: WhatsApp do recibo envia o PDF ASSINADO quando o recibo está assinado (icp_status=assinado) — usa routes.assinatura._load_assinatura_bytes (R2/inline) em vez de gerar um PDF novo sem assinatura; como o assinado já embute os anexos, não reenvia os anexos avulsos. Release anterior abaixo:
+
+**v1.3.663** (MAJOR=1, MINOR=3) — release: diagnóstico do 502 no envio WhatsApp do recibo — enviar_whatsapp passa a logar tipo da exceção + traceback (exc_info) e o detalhe HTTP agora inclui o nome da exceção mesmo quando str(e) vem vazio (típico de timeout/conexão httpx com a Z-API). Release anterior abaixo:
 
 **v1.3.662** (MAJOR=1, MINOR=3) — release: PDF ASSINADO do recibo agora inclui os anexos — assinatura.py _gerar_pdf(tipo="recibo") mescla anexar_anexos_ao_pdf antes de assinar, então o preparar (páginas do posicionador) e o "Baixar PDF Assinado" já saem com os anexos. Release anterior abaixo:
 
