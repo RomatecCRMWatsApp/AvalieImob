@@ -1847,11 +1847,25 @@ async def gerar_recibo_ptam(
     )
     data_pag = body.data_pagamento or agora.date().isoformat()
 
-    # Link público do laudo (vai junto com o recibo), se já gerado/ativo no PTAM.
-    ptam_link = None
+    # Link público do laudo (vai junto com o recibo). Gera automaticamente se
+    # o PTAM ainda não tiver um link público ativo.
     _tok = ptam.get("link_publico_token")
-    if _tok and ptam.get("link_publico_ativo"):
-        ptam_link = ptam.get("link_publico") or f"https://www.romatecavalieimob.com.br/laudo/{_tok}"
+    if not (_tok and ptam.get("link_publico_ativo")):
+        _tok = str(_uuid.uuid4()).replace("-", "")
+        await db.ptam_documents.update_one(
+            {"id": pid},
+            {"$set": {
+                "link_publico_token": _tok,
+                "link_publico_ativo": True,
+                "link_publico_criado_em": agora,
+                "updated_at": agora,
+            }},
+        )
+        try:
+            await link_tracking.registrar_evento(db, ptam, "gerado", canal="link")
+        except Exception:
+            pass
+    ptam_link = ptam.get("link_publico") or f"https://www.romatecavalieimob.com.br/laudo/{_tok}"
 
     existente = await db.recibos.find_one({"ptam_id": pid, "user_id": uid})
     if existente:

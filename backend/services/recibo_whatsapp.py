@@ -3,9 +3,19 @@
 Templates de legenda/mensagem enviados junto ao PDF do recibo via Z-API.
 Portado do padrão ZAYRA (receboWhatsappTemplates.ts).
 """
+import re as _re
 from typing import Optional
 
 VALIDA_BASE = "https://romatecavalieimob.com.br/v/"
+
+
+def _plain(s) -> str:
+    """Remove tags HTML (caso a descrição venha do editor rich text)."""
+    if not s:
+        return ""
+    s = _re.sub(r"(?i)<\s*br\s*/?>|</\s*(p|div|li)\s*>", " ", str(s))
+    s = _re.sub(r"<[^>]+>", "", s)
+    return s.replace("&nbsp;", " ").replace("&amp;", "&").strip()
 
 
 def _brl(v) -> str:
@@ -22,8 +32,9 @@ def legenda_recibo(recibo: dict) -> str:
     numero = recibo.get("numero") or "—"
     valor = _brl(recibo.get("valor"))
     emitente = recibo.get("emitente_nome") or "Romatec Consultoria Total"
-    servico = recibo.get("servico") or recibo.get("descricao") or ""
+    servico = _plain(recibo.get("servico") or recibo.get("descricao") or "")
     hash_v = recibo.get("hash_validacao")
+    ptam_link = recibo.get("ptam_link")
 
     linhas = [
         f"Olá, {nome}! 👋",
@@ -40,6 +51,12 @@ def legenda_recibo(recibo: dict) -> str:
         linhas += [
             "Verifique a autenticidade em:",
             f"{VALIDA_BASE}{hash_v}",
+        ]
+    if ptam_link:
+        linhas += [
+            "",
+            "📄 Laudo (consulta pública):",
+            f"{ptam_link}",
         ]
     linhas += ["", "Qualquer dúvida, estou à disposição."]
     return "\n".join(linhas)

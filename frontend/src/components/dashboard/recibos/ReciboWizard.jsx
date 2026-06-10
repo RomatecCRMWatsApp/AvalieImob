@@ -532,6 +532,26 @@ const ReciboWizard = () => {
             </div>
           </Field>
 
+          {form.ptam_link && (
+            <Field label="Link do laudo (vinculado ao recibo)">
+              <div className="flex gap-2">
+                <Input value={form.ptam_link} readOnly className="text-xs" />
+                <Button
+                  type="button" variant="outline" size="sm"
+                  onClick={() => {
+                    navigator.clipboard?.writeText(form.ptam_link);
+                    toast({ title: 'Link copiado' });
+                  }}
+                >
+                  Copiar
+                </Button>
+              </div>
+              <p className="text-[11px] text-gray-400 mt-1">
+                Impresso no PDF e enviado na mensagem do WhatsApp do recibo.
+              </p>
+            </Field>
+          )}
+
           {/* Anexos */}
           <Field label={`Documentos anexos (até ${ANEXO_MAX} · PDF/JPG/PNG/WebP · 10MB cada)`}>
             <input
