@@ -44,3 +44,29 @@ async def admin_list_users(uid: str = Depends(get_admin_user), db=Depends(get_db
             plan_expires=d.get("plan_expires"), created_at=d.get("created_at"),
         ))
     return result
+
+
+@router.delete("/admin/users/{user_id}")
+async def admin_delete_user(user_id: str, uid: str = Depends(get_admin_user), db=Depends(get_db)):
+    """Exclui um usuário (admin). Não permite excluir a própria conta."""
+    if user_id == uid:
+        raise HTTPException(status_code=400, detail="Você não pode excluir a sua própria conta.")
+    res = await db.users.delete_one({"id": user_id})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    logger.info("Admin %s excluiu usuario %s", uid, user_id)
+    return {"ok": True}
+
+
+@router.post("/admin/users/excluir-inativos")
+async def admin_delete_inactive_users(uid: str = Depends(get_admin_user), db=Depends(get_db)):
+    """Exclui em massa os usuários SEM assinatura ativa (exceto a própria conta)."""
+    res = await db.users.delete_many({
+        "id": {"$ne": uid},
+        "$or": [
+            {"plan_status": {"$ne": "active"}},
+            {"plan_status": {"$exists": False}},
+        ],
+    })
+    logger.info("Admin %s excluiu %s usuarios inativos", uid, res.deleted_count)
+    return {"ok": True, "excluidos": res.deleted_count}

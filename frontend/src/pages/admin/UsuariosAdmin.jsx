@@ -1,9 +1,10 @@
 // @module pages/admin/UsuariosAdmin — Lista de usuários cadastrados + assinaturas (admin).
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Users, Loader2, Search, CheckCircle2, Clock, AlertCircle, ShieldCheck, RefreshCw } from 'lucide-react';
+import { Users, Loader2, Search, CheckCircle2, Clock, AlertCircle, ShieldCheck, RefreshCw, Trash2 } from 'lucide-react';
 import { Input } from '../../components/ui/input';
 import { Button } from '../../components/ui/button';
 import { useToast } from '../../hooks/use-toast';
+import { useAuth } from '../../contexts/AuthContext';
 import { adminAPI } from '../../lib/api';
 
 const fmtData = (v) => (v ? new Date(v).toLocaleDateString('pt-BR') : '—');
@@ -29,10 +30,13 @@ const StatCard = ({ label, value, accent, Icon }) => (
 
 const UsuariosAdmin = () => {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState('');
   const [filtro, setFiltro] = useState('todos');
+  const [deleting, setDeleting] = useState({});
+  const [bulkLoading, setBulkLoading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -44,6 +48,32 @@ const UsuariosAdmin = () => {
     } finally { setLoading(false); }
   }, [toast]);
   useEffect(() => { load(); }, [load]);
+
+  const excluir = async (u) => {
+    if (!window.confirm(`Excluir o usuário ${u.name || u.email}? Esta ação não pode ser desfeita.`)) return;
+    setDeleting((p) => ({ ...p, [u.id]: true }));
+    try {
+      await adminAPI.excluirUsuario(u.id);
+      setUsers((prev) => prev.filter((x) => x.id !== u.id));
+      toast({ title: 'Usuário excluído' });
+    } catch (e) {
+      toast({ title: 'Erro ao excluir', description: e.response?.data?.detail, variant: 'destructive' });
+    } finally {
+      setDeleting((p) => ({ ...p, [u.id]: false }));
+    }
+  };
+
+  const excluirInativos = async () => {
+    if (!window.confirm('Excluir TODOS os usuários sem assinatura ativa? (não inclui a sua conta)')) return;
+    setBulkLoading(true);
+    try {
+      const r = await adminAPI.excluirInativos();
+      toast({ title: `${r.excluidos ?? 0} usuário(s) inativo(s) excluído(s)` });
+      load();
+    } catch (e) {
+      toast({ title: 'Erro ao excluir inativos', description: e.response?.data?.detail, variant: 'destructive' });
+    } finally { setBulkLoading(false); }
+  };
 
   const stats = useMemo(() => {
     const total = users.length;
@@ -72,7 +102,17 @@ const UsuariosAdmin = () => {
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">Usuários cadastrados e status das assinaturas.</p>
         </div>
-        <Button variant="outline" onClick={load} className="gap-1 self-start"><RefreshCw className="w-4 h-4" /> Atualizar</Button>
+        <div className="flex items-center gap-2 self-start">
+          <Button variant="outline" onClick={load} className="gap-1"><RefreshCw className="w-4 h-4" /> Atualizar</Button>
+          <Button
+            onClick={excluirInativos}
+            disabled={bulkLoading}
+            className="gap-1 bg-red-600 hover:bg-red-700 text-white"
+            title="Excluir todos sem assinatura ativa (exceto a sua conta)"
+          >
+            {bulkLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />} Excluir inativos
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -107,6 +147,7 @@ const UsuariosAdmin = () => {
                 <th className="text-left py-3 px-4">Assinatura</th>
                 <th className="text-left py-3 px-4">Validade</th>
                 <th className="text-left py-3 px-4">Cadastro</th>
+                <th className="text-right py-3 px-4">Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -128,11 +169,25 @@ const UsuariosAdmin = () => {
                     </td>
                     <td className="py-3 px-4 text-xs text-gray-500">{fmtData(u.plan_expires)}</td>
                     <td className="py-3 px-4 text-xs text-gray-500">{fmtData(u.created_at)}</td>
+                    <td className="py-3 px-2 text-right">
+                      {u.id === user?.id ? (
+                        <span className="text-[10px] text-gray-300">você</span>
+                      ) : (
+                        <button
+                          onClick={() => excluir(u)}
+                          disabled={deleting[u.id]}
+                          title="Excluir usuário"
+                          className="p-1.5 hover:bg-red-50 rounded text-red-600"
+                        >
+                          {deleting[u.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 );
               })}
               {filtrados.length === 0 && (
-                <tr><td colSpan={6} className="text-center py-10 text-gray-400">Nenhum usuário encontrado</td></tr>
+                <tr><td colSpan={7} className="text-center py-10 text-gray-400">Nenhum usuário encontrado</td></tr>
               )}
             </tbody>
           </table>

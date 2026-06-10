@@ -199,6 +199,8 @@ export const cuponsAPI = {
 export const adminAPI = {
   listUsers: () => api.get('/admin/users').then(r => r.data),
   createTestUser: (data) => api.post('/admin/create-test-user', data).then(r => r.data),
+  excluirUsuario: (id) => api.delete(`/admin/users/${id}`).then(r => r.data),
+  excluirInativos: () => api.post('/admin/users/excluir-inativos').then(r => r.data),
 };
 
 // ---- Evaluations
