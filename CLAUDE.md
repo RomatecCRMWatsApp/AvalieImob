@@ -17,7 +17,9 @@
    (opcional — o Railway regenera no prebuild).
 6. Registrar a atualização também no Obsidian (ver seção abaixo), nota de releases/changelog.
 
-**Estado atual: v1.3.665** (MAJOR=1, MINOR=3) — release: botão "Visualizar" no card de recibo (abre o PDF inline) substitui o antigo "PDF" (download do recibo sem assinatura). Backend GET /recibos/{id}/pdf passa a servir o PDF ASSINADO (com anexos embutidos) quando icp_status=assinado, senão o recibo+anexos. Release anterior abaixo:
+**Estado atual: v1.3.666** (MAJOR=1, MINOR=3) — release: fix menu Cupons Promo — Sidebar.jsx isAdmin agora é case-insensitive e aceita admin/owner/ceo (antes exigia role==='admin' exato, e o CEO tem role "Admin", então o link ficava escondido). Rota /dashboard/admin/cupons já existia. Release anterior abaixo:
+
+**v1.3.665** (MAJOR=1, MINOR=3) — release: botão "Visualizar" no card de recibo (abre o PDF inline) substitui o antigo "PDF" (download do recibo sem assinatura). Backend GET /recibos/{id}/pdf passa a servir o PDF ASSINADO (com anexos embutidos) quando icp_status=assinado, senão o recibo+anexos. Release anterior abaixo:
 
 **v1.3.664** (MAJOR=1, MINOR=3) — release: WhatsApp do recibo envia o PDF ASSINADO quando o recibo está assinado (icp_status=assinado) — usa routes.assinatura._load_assinatura_bytes (R2/inline) em vez de gerar um PDF novo sem assinatura; como o assinado já embute os anexos, não reenvia os anexos avulsos. Release anterior abaixo:
 

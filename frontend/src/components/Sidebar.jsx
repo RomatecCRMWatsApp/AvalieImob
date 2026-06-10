@@ -149,7 +149,7 @@ export default function Sidebar({
   const go = (route) => { navigate(route); onNavigate(); };
 
   // Item exclusivo de admin/CEO: Cupons Promocionais.
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = ['admin', 'owner', 'ceo'].includes(String(user?.role || '').toLowerCase());
   const menu = MENU.map((g) =>
     g.section === 'Ferramentas' && isAdmin
       ? { ...g, items: [...g.items, { id: 'cupons', label: 'Cupons Promo', icon: Tag, route: '/dashboard/admin/cupons' }] }
