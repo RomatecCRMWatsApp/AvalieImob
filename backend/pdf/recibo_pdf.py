@@ -290,25 +290,33 @@ def gerar_recibo_pdf(
     c.line(60 * mm, cursor_y, page_w - 60 * mm, cursor_y)
     cursor_y -= 5 * mm
 
-    nome = perfil.get("nome_completo") or user.get("name") or emitente_nome or "Avaliador"
+    # Qualificação completa do avaliador — MESMA fonte do PTAM (utils.avaliador).
+    from utils.avaliador import resolver_dados_avaliador
+    dados = resolver_dados_avaliador(perfil=perfil, user=user)
+
+    nome = (dados.get("nome") or perfil.get("nome_completo")
+            or user.get("name") or emitente_nome or "Avaliador")
     c.setFont("Helvetica-Bold", 11)
     c.setFillColor(colors.HexColor("#111827"))
-    c.drawCentredString(page_w / 2, cursor_y, nome)
+    c.drawCentredString(page_w / 2, cursor_y, str(nome).upper())
+    cursor_y -= 4.5 * mm
+
+    # Linha 1: Avaliador — CRECI/MA · CNAI · CFT/MA · ...
+    regs = dados.get("registros_linhas") or []
+    linha_qualif = "Avaliador" + (" — " + " · ".join(regs) if regs else "")
+    c.setFont("Helvetica", 9)
+    c.setFillColor(colors.HexColor("#6B7280"))
+    c.drawCentredString(page_w / 2, cursor_y, linha_qualif)
     cursor_y -= 4 * mm
 
-    # Cargo + registro
-    cargo = user.get("role", "")
-    registros = perfil.get("registros") or []
-    sub_partes = []
-    if cargo:
-        sub_partes.append(cargo)
-    if registros:
-        r0 = registros[0]
-        sub_partes.append(f"{r0.get('tipo','')} {r0.get('numero','')}".strip())
-    if sub_partes:
-        c.setFont("Helvetica", 9)
+    # Linha 2: endereço completo + telefone
+    endereco = dados.get("endereco") or ""
+    tel = dados.get("telefone") or ""
+    linha_end = (endereco + (f" | {tel}" if tel else "")) if endereco else tel
+    if linha_end:
+        c.setFont("Helvetica", 8.5)
         c.setFillColor(colors.HexColor("#6B7280"))
-        c.drawCentredString(page_w / 2, cursor_y, " · ".join(sub_partes))
+        c.drawCentredString(page_w / 2, cursor_y, linha_end)
 
     # ─── Rodapé com dados bancários (se tiver) ────────────────────────
     bancarios = recibo.get("emitente_dados_bancarios", "")
