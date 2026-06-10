@@ -17,7 +17,9 @@
    (opcional — o Railway regenera no prebuild).
 6. Registrar a atualização também no Obsidian (ver seção abaixo), nota de releases/changelog.
 
-**Estado atual: v1.3.690** (MAJOR=1, MINOR=3) — release: exclusão de usuários no painel admin — backend admin.py ganha DELETE /admin/users/{id} (bloqueia excluir a própria conta) e POST /admin/users/excluir-inativos (apaga todos sem plan_status=active, exceto o próprio); adminAPI.excluirUsuario/excluirInativos; UsuariosAdmin.jsx com botão "Excluir inativos" + lixeira por linha (protege a própria conta). Release anterior abaixo:
+**Estado atual: v1.3.701** (MAJOR=1, MINOR=3) — release: abas laterais flutuantes uniformes — a aba "Roma_IA" (RomaIAWidget, estado oculto) agora usa o mesmo tamanho/tipografia das abas CNPJ/CPF (consulta-fab) e FOTOS (fotos-fab): text-xs/bold/uppercase, tracking 1.5px, padding 14px/7px, rounded-l-10px, rotate(180deg). Release anterior abaixo:
+
+**v1.3.690** (MAJOR=1, MINOR=3) — release: exclusão de usuários no painel admin — backend admin.py ganha DELETE /admin/users/{id} (bloqueia excluir a própria conta) e POST /admin/users/excluir-inativos (apaga todos sem plan_status=active, exceto o próprio); adminAPI.excluirUsuario/excluirInativos; UsuariosAdmin.jsx com botão "Excluir inativos" + lixeira por linha (protege a própria conta). Release anterior abaixo:
 
 **v1.3.689** (MAJOR=1, MINOR=3) — release: painel admin de Usuários — nova página /dashboard/admin/usuarios (UsuariosAdmin.jsx) consumindo GET /admin/users (já existia): resumo (cadastrados, assinaturas ativas, inativas, admins) + tabela com filtro/busca; adminAPI no api.js; link "Usuários" no Sidebar (admin/owner/ceo); DashboardHero ganha bloco só-admin com Usuários + Assinaturas ativas (clica e vai pra página). Release anterior abaixo:
 

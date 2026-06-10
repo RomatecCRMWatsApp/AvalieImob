@@ -100,9 +100,9 @@ const RomaIAWidget = () => {
       {hidden && !isOpen && (
         <button
           onClick={mostrar}
-          className="fixed top-1/2 -translate-y-1/2 right-0 z-[90] bg-emerald-900/90 hover:bg-emerald-800 text-white text-[10px] font-semibold px-1.5 py-3 rounded-l-lg shadow-lg"
+          className="fixed top-1/2 right-0 z-[90] bg-emerald-900/90 hover:bg-emerald-800 text-white text-xs font-bold uppercase tracking-[1.5px] px-[7px] py-[14px] rounded-l-[10px] shadow-lg"
           title="Mostrar Roma_IA"
-          style={{ writingMode: 'vertical-rl' }}
+          style={{ writingMode: 'vertical-rl', transform: 'translateY(-50%) rotate(180deg)' }}
         >
           Roma_IA
         </button>
