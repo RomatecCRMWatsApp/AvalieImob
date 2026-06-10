@@ -1,6 +1,6 @@
 // @module pages/admin/CuponsAdmin — Kit Promocional de Captação (cupons + WhatsApp Z-API).
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Tag, Plus, Loader2, Trash2, Copy, Send, Check, X, MessageCircle } from 'lucide-react';
+import { Tag, Plus, Loader2, Trash2, Copy, Send, Check, X, MessageCircle, Pencil, RefreshCw } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
@@ -94,6 +94,7 @@ const CuponsAdmin = () => {
   const [form, setForm] = useState(emptyForm());
   const [saving, setSaving] = useState(false);
   const [sendingId, setSendingId] = useState('');
+  const [editingId, setEditingId] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -133,17 +134,61 @@ const CuponsAdmin = () => {
         limite_usos: Number(form.limite_usos) || 1,
         mensagem_customizada: form.usar_padrao ? null : (form.mensagem_customizada || null),
       };
-      const novo = await cuponsAPI.criar(payload);
-      toast({ title: `Cupom ${novo.codigo} criado` });
-      if (enviar && novo.telefone_destinatario) {
-        await cuponsAPI.enviarWhatsApp(novo.id, {});
+      const salvo = editingId
+        ? await cuponsAPI.atualizar(editingId, payload)
+        : await cuponsAPI.criar(payload);
+      toast({ title: `Cupom ${salvo.codigo} ${editingId ? 'atualizado' : 'criado'}` });
+      if (enviar && salvo.telefone_destinatario) {
+        await cuponsAPI.enviarWhatsApp(salvo.id, {});
         toast({ title: 'WhatsApp enviado' });
       }
-      setOpen(false); setForm(emptyForm());
+      setOpen(false); setForm(emptyForm()); setEditingId(null);
       load();
     } catch (e) {
-      toast({ title: 'Erro ao criar cupom', description: e.response?.data?.detail, variant: 'destructive' });
+      toast({ title: editingId ? 'Erro ao atualizar cupom' : 'Erro ao criar cupom', description: e.response?.data?.detail, variant: 'destructive' });
     } finally { setSaving(false); }
+  };
+
+  const abrirEdicao = (c) => {
+    setForm({
+      codigo: c.codigo || '',
+      prefixo_codigo: c.prefixo_codigo || 'ROMATEC',
+      valor_desconto: c.valor_desconto ?? 20,
+      valor_plano_normal: c.valor_plano_normal ?? 89.9,
+      nome_destinatario: c.nome_destinatario || '',
+      telefone_destinatario: c.telefone_destinatario || '',
+      email_destinatario: c.email_destinatario || '',
+      validade: c.validade ? String(c.validade).slice(0, 10) : '',
+      limite_usos: c.limite_usos ?? 1,
+      usar_padrao: !c.mensagem_customizada,
+      mensagem_customizada: c.mensagem_customizada || '',
+    });
+    setEditingId(c.id);
+    setOpen(true);
+  };
+
+  const revalidar = async (c) => {
+    const def = new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10);
+    const nova = window.prompt('Revalidar até qual data? (AAAA-MM-DD)', def);
+    if (!nova) return;
+    try {
+      await cuponsAPI.revalidar(c.id, { validade: nova });
+      toast({ title: 'Cupom revalidado', description: `Válido até ${nova}` });
+      load();
+    } catch (e) {
+      toast({ title: 'Erro ao revalidar', description: e.response?.data?.detail, variant: 'destructive' });
+    }
+  };
+
+  const excluir = async (c) => {
+    if (!window.confirm(`Excluir o cupom ${c.codigo}? Esta ação não pode ser desfeita.`)) return;
+    try {
+      await cuponsAPI.excluir(c.id);
+      toast({ title: 'Cupom excluído' });
+      load();
+    } catch (e) {
+      toast({ title: 'Erro ao excluir', description: e.response?.data?.detail, variant: 'destructive' });
+    }
   };
 
   const copiarLink = (c) => {
@@ -153,22 +198,21 @@ const CuponsAdmin = () => {
   };
 
   const enviar = async (c) => {
-    if (!c.telefone_destinatario) { toast({ title: 'Cupom sem telefone', description: 'Edite o destinatário ou use Copiar Link.', variant: 'destructive' }); return; }
+    // Sempre pergunta o número (pré-preenche o do destinatário) — permite enviar
+    // para o SEU número e testar antes de mandar para o cliente.
+    const atual = c.telefone_destinatario || '55';
+    const phone = window.prompt('Enviar para qual WhatsApp? (DDI+DDD — use o SEU número para testar antes)', atual);
+    if (!phone) return;
     setSendingId(c.id);
     try {
-      await cuponsAPI.enviarWhatsApp(c.id, {});
-      toast({ title: 'WhatsApp enviado', description: c.telefone_destinatario });
+      await cuponsAPI.enviarWhatsApp(c.id, { telefone: phone });
+      toast({ title: 'WhatsApp enviado', description: phone });
       load();
     } catch (e) {
       toast({ title: 'Falha no envio', description: e.response?.data?.detail, variant: 'destructive' });
     } finally { setSendingId(''); }
   };
 
-  const cancelar = async (c) => {
-    if (!window.confirm(`Cancelar o cupom ${c.codigo}?`)) return;
-    try { await cuponsAPI.cancelar(c.id); toast({ title: 'Cupom cancelado' }); load(); }
-    catch (e) { toast({ title: 'Erro', description: e.response?.data?.detail, variant: 'destructive' }); }
-  };
 
   return (
     <div className="space-y-6">
@@ -177,7 +221,7 @@ const CuponsAdmin = () => {
           <h1 className="font-display text-3xl font-bold text-[#B8860B] flex items-center gap-2"><Tag className="w-7 h-7" /> Cupons Promocionais</h1>
           <p className="text-gray-600 mt-1">Gerencie descontos e links de captação.</p>
         </div>
-        <Button onClick={() => { setForm(emptyForm()); setOpen(true); }} className="bg-emerald-900 hover:bg-emerald-800 text-white">
+        <Button onClick={() => { setForm(emptyForm()); setEditingId(null); setOpen(true); }} className="bg-emerald-900 hover:bg-emerald-800 text-white">
           <Plus className="w-4 h-4 mr-2" /> Novo cupom
         </Button>
       </div>
@@ -233,9 +277,11 @@ const CuponsAdmin = () => {
                       {sendingId === c.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                     </button>
                     <button onClick={() => copiarLink(c)} title="Copiar link" className="p-1.5 hover:bg-blue-50 rounded text-blue-600"><Copy className="w-4 h-4" /></button>
-                    {c.status === 'ativo' && (
-                      <button onClick={() => cancelar(c)} title="Cancelar" className="p-1.5 hover:bg-red-50 rounded text-red-600"><Trash2 className="w-4 h-4" /></button>
+                    <button onClick={() => abrirEdicao(c)} title="Editar" className="p-1.5 hover:bg-amber-50 rounded text-amber-600"><Pencil className="w-4 h-4" /></button>
+                    {c.status !== 'ativo' && (
+                      <button onClick={() => revalidar(c)} title="Revalidar (reativar)" className="p-1.5 hover:bg-emerald-50 rounded text-emerald-700"><RefreshCw className="w-4 h-4" /></button>
                     )}
+                    <button onClick={() => excluir(c)} title="Excluir" className="p-1.5 hover:bg-red-50 rounded text-red-600"><Trash2 className="w-4 h-4" /></button>
                   </td>
                 </tr>
               ))}
@@ -245,9 +291,9 @@ const CuponsAdmin = () => {
         )}
       </div>
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setEditingId(null); }}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle className="text-emerald-900 flex items-center gap-2"><Tag className="w-5 h-5" /> Novo Cupom</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="text-emerald-900 flex items-center gap-2"><Tag className="w-5 h-5" /> {editingId ? 'Editar Cupom' : 'Novo Cupom'}</DialogTitle></DialogHeader>
           <div className="grid md:grid-cols-2 gap-5">
             {/* Form */}
             <div className="space-y-4">
@@ -317,9 +363,9 @@ const CuponsAdmin = () => {
 
           <DialogFooter className="mt-2 gap-2">
             <Button variant="outline" onClick={() => setOpen(false)}><X className="w-4 h-4 mr-1" /> Cancelar</Button>
-            <Button onClick={() => criar(false)} disabled={saving} className="bg-emerald-900 hover:bg-emerald-800 text-white">{saving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null} Criar cupom</Button>
+            <Button onClick={() => criar(false)} disabled={saving} className="bg-emerald-900 hover:bg-emerald-800 text-white">{saving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null} {editingId ? 'Salvar alterações' : 'Criar cupom'}</Button>
             {form.telefone_destinatario && (
-              <Button onClick={() => criar(true)} disabled={saving} className="bg-[#075E54] hover:bg-[#054c44] text-white"><Send className="w-4 h-4 mr-1" /> Criar e enviar</Button>
+              <Button onClick={() => criar(true)} disabled={saving} className="bg-[#075E54] hover:bg-[#054c44] text-white"><Send className="w-4 h-4 mr-1" /> {editingId ? 'Salvar e enviar' : 'Criar e enviar'}</Button>
             )}
           </DialogFooter>
         </DialogContent>

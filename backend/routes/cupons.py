@@ -6,7 +6,7 @@
 #   - id = uuid str (não ObjectId). Endpoints /publico/* SEM auth (usados no cadastro).
 import os
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -183,6 +183,69 @@ async def cancelar_cupom(cupom_id: str, uid: str = Depends(get_admin_user), db=D
     )
     if res.matched_count == 0:
         raise HTTPException(400, "Cupom não encontrado ou não está ativo")
+    return {"ok": True}
+
+
+def _parse_validade(v):
+    """Converte 'YYYY-MM-DD' ou ISO em datetime (ou None)."""
+    if not v:
+        return None
+    if isinstance(v, datetime):
+        return v
+    s = str(v).strip().replace("Z", "")
+    for fmt in (s, s[:19], s[:10]):
+        try:
+            return datetime.fromisoformat(fmt)
+        except Exception:
+            continue
+    return None
+
+
+@router.put("/{cupom_id}")
+async def atualizar_cupom(cupom_id: str, payload: dict, uid: str = Depends(get_admin_user), db=Depends(get_db)):
+    """Edita um cupom existente (admin)."""
+    doc = await db.cupons.find_one({"id": cupom_id})
+    if not doc:
+        raise HTTPException(404, "Cupom não encontrado")
+    campos = ("codigo", "prefixo_codigo", "valor_desconto", "valor_plano_normal",
+              "nome_destinatario", "telefone_destinatario", "email_destinatario",
+              "limite_usos", "mensagem_customizada")
+    update = {k: payload[k] for k in campos if k in payload}
+    if update.get("codigo"):
+        update["codigo"] = str(update["codigo"]).upper().strip()
+    if "validade" in payload:
+        update["validade"] = _parse_validade(payload.get("validade"))
+    vn = float(update.get("valor_plano_normal", doc.get("valor_plano_normal", 89.90)) or 0)
+    vd = float(update.get("valor_desconto", doc.get("valor_desconto", 20.0)) or 0)
+    update["valor_com_desconto"] = round(max(0.0, vn - vd), 2)
+    update["atualizado_em"] = datetime.utcnow()
+    await db.cupons.update_one({"id": cupom_id}, {"$set": update})
+    novo = await db.cupons.find_one({"id": cupom_id})
+    return serialize_cupom(novo)
+
+
+@router.put("/{cupom_id}/revalidar")
+async def revalidar_cupom(cupom_id: str, payload: dict = None, uid: str = Depends(get_admin_user), db=Depends(get_db)):
+    """Reativa um cupom expirado/cancelado com nova validade (default +30 dias)."""
+    payload = payload or {}
+    doc = await db.cupons.find_one({"id": cupom_id})
+    if not doc:
+        raise HTTPException(404, "Cupom não encontrado")
+    validade = _parse_validade(payload.get("validade")) or (datetime.utcnow() + timedelta(days=30))
+    await db.cupons.update_one(
+        {"id": cupom_id},
+        {"$set": {"status": "ativo", "validade": validade, "atualizado_em": datetime.utcnow()}},
+    )
+    novo = await db.cupons.find_one({"id": cupom_id})
+    return serialize_cupom(novo)
+
+
+@router.delete("/{cupom_id}")
+async def excluir_cupom(cupom_id: str, uid: str = Depends(get_admin_user), db=Depends(get_db)):
+    """Exclui o cupom definitivamente (admin)."""
+    res = await db.cupons.delete_one({"id": cupom_id})
+    if res.deleted_count == 0:
+        raise HTTPException(404, "Cupom não encontrado")
     return {"ok": True}
 
 

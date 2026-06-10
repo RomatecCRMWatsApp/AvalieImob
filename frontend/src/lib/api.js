@@ -185,6 +185,9 @@ export const cuponsAPI = {
   list: (params = {}) => api.get('/cupons', { params }).then(r => r.data),
   estatisticas: () => api.get('/cupons/estatisticas').then(r => r.data),
   criar: (data) => api.post('/cupons', data).then(r => r.data),
+  atualizar: (id, data) => api.put(`/cupons/${id}`, data).then(r => r.data),
+  revalidar: (id, payload = {}) => api.put(`/cupons/${id}/revalidar`, payload).then(r => r.data),
+  excluir: (id) => api.delete(`/cupons/${id}`).then(r => r.data),
   cancelar: (id) => api.put(`/cupons/${id}/cancelar`).then(r => r.data),
   enviarWhatsApp: (id, payload = {}) => api.post(`/cupons/${id}/enviar-whatsapp`, payload).then(r => r.data),
   // Públicos (página de cadastro)

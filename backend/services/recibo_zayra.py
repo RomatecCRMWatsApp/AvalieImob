@@ -31,6 +31,9 @@ EMIT_DEFAULT = {
     "banco_titular": "J R P BEZERRA LTDA",
     "pix": "romatec.cad@hotmail.com",
 }
+# Conta proprietária (Romatec/CEO). SÓ ela usa EMIT_DEFAULT como fallback —
+# nunca vaza esses dados para outros usuários.
+OWNER_EMAIL = "romateccrm@gmail.com"
 VALIDA_URL = "https://app.romatecavalieimob.com.br/v/"
 MESES = ["", "janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho",
          "agosto", "setembro", "outubro", "novembro", "dezembro"]
@@ -117,11 +120,30 @@ def gerar_recibo_pdf(*, ptam: dict, user: dict, perfil: dict, valor: float,
     perfil = perfil or {}
     valor = float(valor or 0)
 
-    emit = dict(EMIT_DEFAULT)
-    if perfil.get("empresa"):
-        emit["nome"] = perfil["empresa"]
-    if perfil.get("cnpj_empresa"):
-        emit["cnpj"] = perfil["cnpj_empresa"]
+    # Emitente vem 100% do PERFIL/USER do avaliador logado (isolado por usuário).
+    from utils.avaliador import resolver_dados_avaliador
+    dav = resolver_dados_avaliador(perfil=perfil, user=user)
+    emit = {
+        "nome": (perfil.get("empresa_nome") or perfil.get("empresa")
+                 or dav.get("nome") or user.get("name") or ""),
+        "cnpj": (perfil.get("empresa_cnpj") or perfil.get("cnpj_empresa")
+                 or dav.get("cpf") or ""),
+        "ie": (perfil.get("inscricao_estadual") or ""),
+        "razao": (perfil.get("empresa_razao_social") or perfil.get("razao_social")
+                  or perfil.get("empresa_nome") or ""),
+        "endereco": (dav.get("endereco") or perfil.get("endereco_escritorio") or ""),
+        "tel": (perfil.get("telefone") or user.get("phone") or ""),
+        "email": (perfil.get("email_profissional") or user.get("email") or ""),
+        "cidade_uf": ", ".join([p for p in [perfil.get("cidade"), perfil.get("uf")] if p]),
+        "banco": (perfil.get("dados_bancarios") or perfil.get("banco") or ""),
+        "banco_titular": (perfil.get("banco_titular") or ""),
+        "pix": (perfil.get("chave_pix") or perfil.get("pix") or ""),
+    }
+    # Fallback Romatec SOMENTE para a conta proprietária (nunca para outros).
+    if str(user.get("email") or "").lower() == OWNER_EMAIL:
+        for _k, _v in EMIT_DEFAULT.items():
+            if not emit.get(_k):
+                emit[_k] = _v
 
     pagador_nome = ptam.get("solicitante_nome") or ptam.get("solicitante") or "—"
     pagador_doc = _doc(ptam.get("solicitante_cpf_cnpj"))
@@ -250,16 +272,22 @@ def gerar_recibo_pdf(*, ptam: dict, user: dict, perfil: dict, valor: float,
     linha(f"Forma: {forma_pagamento or 'PIX'}", "Helvetica", 9)
     linha(f"Data de emissão: {dt_emissao.strftime('%d/%m/%Y')}", "Helvetica", 9)
     linha(f"Válido até: {dt_validade.strftime('%d/%m/%Y')}", "Helvetica", 9, dy=6)
-    setc(VERDE)
-    c.setFont("Helvetica-Bold", 8.5)
-    c.drawString(M, y, "Dados bancários para depósito/PIX:")
-    y -= 4.4 * mm
-    linha(f"{emit['banco']}", "Helvetica", 8, CINZA)
-    linha(f"Titular: {emit['banco_titular']}", "Helvetica", 8, CINZA)
-    setc(VERDE)
-    c.setFont("Helvetica-Bold", 8.5)
-    c.drawString(M, y, f"PIX (e-mail): {emit['pix']}")
-    y -= 10 * mm
+    # Bloco bancário só aparece se o avaliador tiver dados (evita label vazio).
+    if emit.get("banco") or emit.get("pix"):
+        setc(VERDE)
+        c.setFont("Helvetica-Bold", 8.5)
+        c.drawString(M, y, "Dados bancários para depósito/PIX:")
+        y -= 4.4 * mm
+        if emit.get("banco"):
+            linha(f"{emit['banco']}", "Helvetica", 8, CINZA)
+        if emit.get("banco_titular"):
+            linha(f"Titular: {emit['banco_titular']}", "Helvetica", 8, CINZA)
+        if emit.get("pix"):
+            setc(VERDE)
+            c.setFont("Helvetica-Bold", 8.5)
+            c.drawString(M, y, f"PIX: {emit['pix']}")
+            y -= 4.4 * mm
+        y -= 6 * mm
 
     # ── Cidade/Data + Assinatura ───────────────────────────────────────────
     cidade = emit["cidade_uf"]
