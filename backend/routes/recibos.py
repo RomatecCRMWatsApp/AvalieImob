@@ -540,5 +540,8 @@ async def enviar_whatsapp(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Erro ao enviar recibo WhatsApp: %s", e)
-        raise HTTPException(status_code=502, detail=f"Erro ao enviar: {e}")
+        # str(e) pode vir vazio (ex.: timeout/conexão httpx) — loga tipo + traceback
+        # e devolve um detalhe sempre informativo.
+        msg = str(e).strip() or e.__class__.__name__
+        logger.error("Erro ao enviar recibo WhatsApp: [%s] %r", e.__class__.__name__, e, exc_info=True)
+        raise HTTPException(status_code=502, detail=f"Erro ao enviar ({e.__class__.__name__}): {msg}")

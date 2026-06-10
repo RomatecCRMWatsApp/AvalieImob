@@ -219,7 +219,13 @@ async def _gerar_pdf(tipo: str, doc: dict, db=None, perfil: dict | None = None) 
                 if limg and limg.get("data_b64"):
                     import base64 as _b64
                     logo = _b64.b64decode(limg["data_b64"])
-        return gerar_recibo_pdf(recibo=doc, user=u, perfil=perfil or {}, logo_bytes=logo)
+        pdf_bytes = gerar_recibo_pdf(recibo=doc, user=u, perfil=perfil or {}, logo_bytes=logo)
+        # Anexa os documentos do recibo ANTES de assinar — assim o PDF assinado
+        # (e as páginas do posicionador) já incluem os anexos.
+        if db is not None:
+            from services.recibo_anexos import anexar_anexos_ao_pdf
+            pdf_bytes = await anexar_anexos_ao_pdf(db, doc, pdf_bytes)
+        return pdf_bytes
     raise HTTPException(status_code=400, detail=f"Geracao de PDF nao suportada para tipo: {tipo}")
 
 

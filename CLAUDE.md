@@ -17,7 +17,11 @@
    (opcional — o Railway regenera no prebuild).
 6. Registrar a atualização também no Obsidian (ver seção abaixo), nota de releases/changelog.
 
-**Estado atual: v1.3.661** (MAJOR=1, MINOR=3) — release: recibo assinado reflete no card do PTAM — backend assinatura.py (_propagar_recibo_assinado) seta recibo_assinado=True no PTAM vinculado (via recibo.ptam_id) ao concluir ICP nos endpoints /icp/{tipo}/{id}/assinar e /posicionado; model Ptam ganha recibo_id, recibo_assinado, recibo_assinado_em; PtamList mostra botão verde "✓ Recibo Assinado" (abre o recibo na aba Recibos). Release anterior abaixo:
+**Estado atual: v1.3.663** (MAJOR=1, MINOR=3) — release: diagnóstico do 502 no envio WhatsApp do recibo — enviar_whatsapp passa a logar tipo da exceção + traceback (exc_info) e o detalhe HTTP agora inclui o nome da exceção mesmo quando str(e) vem vazio (típico de timeout/conexão httpx com a Z-API). Release anterior abaixo:
+
+**v1.3.662** (MAJOR=1, MINOR=3) — release: PDF ASSINADO do recibo agora inclui os anexos — assinatura.py _gerar_pdf(tipo="recibo") mescla anexar_anexos_ao_pdf antes de assinar, então o preparar (páginas do posicionador) e o "Baixar PDF Assinado" já saem com os anexos. Release anterior abaixo:
+
+**v1.3.661** (MAJOR=1, MINOR=3) — release: recibo assinado reflete no card do PTAM — backend assinatura.py (_propagar_recibo_assinado) seta recibo_assinado=True no PTAM vinculado (via recibo.ptam_id) ao concluir ICP nos endpoints /icp/{tipo}/{id}/assinar e /posicionado; model Ptam ganha recibo_id, recibo_assinado, recibo_assinado_em; PtamList mostra botão verde "✓ Recibo Assinado" (abre o recibo na aba Recibos). Release anterior abaixo:
 
 **v1.3.660** (MAJOR=1, MINOR=3) — release: 3 fixes no recibo — (1) PDF baixado (GET /recibos/{id}/pdf) agora mescla os anexos ao final via services.recibo_anexos.anexar_anexos_ao_pdf (PDF append + imagens viram página A4, usa pypdf+PIL); (2) RecibosList limpa HTML cru da descrição no card (stripHtml); (3) enviarWA sempre abre prompt pré-preenchido p/ inserir/confirmar o número de WhatsApp (antes só pedia se vazio). Histórico abaixo:
 
