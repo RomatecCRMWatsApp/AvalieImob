@@ -10,8 +10,8 @@ async def get_active_subscriber(uid: str = Depends(get_current_user_id), db=Depe
     u = await db.users.find_one({"id": uid})
     if not u:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
-    role = u.get("role", "user")
-    if role == "admin":
+    role = str(u.get("role") or "user").lower()
+    if role in ("admin", "owner", "ceo"):
         return uid
     plan_status = u.get("plan_status", "inactive")
     plan_expires = u.get("plan_expires")
@@ -45,7 +45,7 @@ async def get_admin_user(uid: str = Depends(get_current_user_id), db=Depends(get
     u = await db.users.find_one({"id": uid})
     if not u:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
-    if u.get("role") != "admin":
+    if str(u.get("role") or "").lower() not in ("admin", "owner", "ceo"):
         raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
     return uid
 

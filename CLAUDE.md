@@ -17,7 +17,9 @@
    (opcional — o Railway regenera no prebuild).
 6. Registrar a atualização também no Obsidian (ver seção abaixo), nota de releases/changelog.
 
-**Estado atual: v1.3.666** (MAJOR=1, MINOR=3) — release: fix menu Cupons Promo — Sidebar.jsx isAdmin agora é case-insensitive e aceita admin/owner/ceo (antes exigia role==='admin' exato, e o CEO tem role "Admin", então o link ficava escondido). Rota /dashboard/admin/cupons já existia. Release anterior abaixo:
+**Estado atual: v1.3.686** (MAJOR=1, MINOR=3) — release: fix backend admin gate — dependencies.get_admin_user e o bypass de admin em get_active_subscriber agora são case-insensitive e aceitam admin/owner/ceo (antes role=="admin" exato barrava o CEO com role "Admin" → 403 "Acesso restrito" em Cupons). Release anterior abaixo:
+
+**v1.3.666** (MAJOR=1, MINOR=3) — release: fix menu Cupons Promo — Sidebar.jsx isAdmin agora é case-insensitive e aceita admin/owner/ceo (antes exigia role==='admin' exato, e o CEO tem role "Admin", então o link ficava escondido). Rota /dashboard/admin/cupons já existia. Release anterior abaixo:
 
 **v1.3.665** (MAJOR=1, MINOR=3) — release: botão "Visualizar" no card de recibo (abre o PDF inline) substitui o antigo "PDF" (download do recibo sem assinatura). Backend GET /recibos/{id}/pdf passa a servir o PDF ASSINADO (com anexos embutidos) quando icp_status=assinado, senão o recibo+anexos. Release anterior abaixo:
 
