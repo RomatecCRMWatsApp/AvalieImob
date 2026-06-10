@@ -64,4 +64,15 @@ const out =
   'export const APP_BUILD_LABEL = ' + JSON.stringify(label) + ';\n';
 
 fs.writeFileSync(path.join(__dirname, '..', 'src', 'version.js'), out, 'utf8');
+
+// Publica também um version.json estático (servido em /version.json) para o
+// front detectar atualização: compara o build publicado com o build carregado.
+try {
+  fs.writeFileSync(
+    path.join(__dirname, '..', 'public', 'version.json'),
+    JSON.stringify({ build: build, version: version, date: dataHora }) + '\n',
+    'utf8'
+  );
+} catch (e) { /* pasta public ausente em alguns contextos — ignora */ }
+
 console.log('[genversion] ' + label + ' (' + sha + ')');

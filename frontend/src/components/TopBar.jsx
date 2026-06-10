@@ -1,7 +1,46 @@
 // TopBar Dark Elegante — AvalieImob / Romatec (adaptado para React/CRA).
 // Relógio neon + pill dourada de localização (geolocalização via Nominatim).
 import React, { useEffect, useState, useRef } from 'react';
-import { Menu } from 'lucide-react';
+import { Menu, RefreshCw } from 'lucide-react';
+import { BUILD_NUMBER } from '../version';
+
+// Detecta nova versão publicada: consulta /version.json (sem cache) e compara
+// o build publicado com o build carregado nesta sessão.
+function useUpdateAvailable() {
+  const [disponivel, setDisponivel] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    const check = async () => {
+      try {
+        const r = await fetch(`/version.json?_=${Date.now()}`, { cache: 'no-store' });
+        if (!r.ok) return;
+        const data = await r.json();
+        if (alive && Number(data.build) > Number(BUILD_NUMBER)) setDisponivel(true);
+      } catch { /* offline/erro — ignora */ }
+    };
+    check();
+    const t = setInterval(check, 60000);
+    const onFocus = () => check();
+    window.addEventListener('focus', onFocus);
+    return () => { alive = false; clearInterval(t); window.removeEventListener('focus', onFocus); };
+  }, []);
+  return disponivel;
+}
+
+// Reload limpo: remove service worker + caches e recarrega na versão nova.
+async function aplicarAtualizacao() {
+  try {
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((r) => r.unregister()));
+    }
+    if (window.caches) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k)));
+    }
+  } catch { /* segue para o reload mesmo assim */ }
+  window.location.reload(true);
+}
 
 const T = {
   bg: '#0F1A10', bgSearch: 'rgba(255,255,255,0.05)', bgClock: '#0A1A0B', bgAvatar: '#1B5E20',
@@ -78,6 +117,7 @@ export default function TopBar({
   const [compacto, setCompacto] = useState(false);
   const menuRef = useRef(null);
   const localizacao = useLocalizacao();
+  const updateAvailable = useUpdateAvailable();
 
   // Mostra a faixa extra (data/local/versao) só abaixo de lg (1024px), espelhando
   // os utilitarios `lg:` da barra principal. Evita duplicacao no desktop.
@@ -157,8 +197,24 @@ export default function TopBar({
         </div>
       </div>
 
-      {/* Direita: versão + sino + avatar */}
+      {/* Direita: atualizar + versão + sino + avatar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+        {updateAvailable && (
+          <button
+            onClick={aplicarAtualizacao}
+            title="Nova versão disponível — clique para atualizar"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
+              fontSize: 11, fontWeight: 700, color: '#1A1A1A',
+              background: 'linear-gradient(135deg, #F0B429, #D4A017)',
+              border: '1px solid rgba(184,134,11,0.5)', borderRadius: 99,
+              padding: '4px 12px', whiteSpace: 'nowrap',
+              boxShadow: '0 0 0 1px rgba(184,134,11,0.15), 0 2px 8px rgba(212,160,23,0.35)',
+            }}
+          >
+            <RefreshCw size={13} /> Atualizar
+          </button>
+        )}
         <span className="hidden sm:inline" style={{
           fontSize: 11, fontWeight: 700, color: T.goldText, background: T.bgLoc, padding: '3px 10px',
           borderRadius: 99, border: `1px solid ${T.borderLoc}`, whiteSpace: 'nowrap', letterSpacing: '0.3px',
