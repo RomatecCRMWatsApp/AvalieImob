@@ -1363,6 +1363,16 @@ const Step10Revisao = ({ form, contratoId }) => {
 /* ═══════════════════════════════════════════════════════════
    STEP 11 — Exportar e Assinar
 ═══════════════════════════════════════════════════════════ */
+// Miniaturas dos templates via CSS (sem precisar de assets de imagem)
+const TEMPLATES_PDF = [
+  { id: 'prime1', nome: 'Prime I', desc: 'Editorial — preto & verde',
+    preview: 'linear-gradient(115deg,#0E0E0E 0 54%,#0C3320 54% 100%)' },
+  { id: 'prime2', nome: 'Prime II', desc: 'Institucional — verde & dourado',
+    preview: 'linear-gradient(#0C3320 0 72%,#C9A84C 72% 100%)' },
+  { id: 'tradicional', nome: 'Tradicional', desc: 'Clássico — cartório/impressão',
+    preview: 'repeating-linear-gradient(#fff,#fff 5px,#e7e5e0 5px,#e7e5e0 6px)' },
+];
+
 const Step11Exportar = ({ form, setForm, contratoId, user }) => {
   const { toast } = useToast();
   const [loadingDocx, setLoadingDocx] = useState(false);
@@ -1397,8 +1407,8 @@ const Step11Exportar = ({ form, setForm, contratoId, user }) => {
     if (!contratoId) return;
     setLoadingDocx(true);
     try {
-      const res = await contratosAPI.docx(contratoId);
-      downloadBlob(res.data, `contrato_${form.numero || contratoId}.docx`);
+      const blob = await contratosAPI.docx(contratoId);
+      downloadBlob(blob, `contrato_${form.numero || contratoId}.docx`);
     } catch {
       toast({ title: 'Erro ao gerar DOCX', variant: 'destructive' });
     } finally {
@@ -1410,8 +1420,8 @@ const Step11Exportar = ({ form, setForm, contratoId, user }) => {
     if (!contratoId) return;
     setLoadingPdf(true);
     try {
-      const res = await contratosAPI.pdf(contratoId);
-      downloadBlob(res.data, `contrato_${form.numero || contratoId}.pdf`);
+      const blob = await contratosAPI.pdf(contratoId, form.template_pdf || 'prime2');
+      downloadBlob(blob, `contrato_${form.numero || contratoId}.pdf`);
     } catch {
       toast({ title: 'Erro ao gerar PDF', variant: 'destructive' });
     } finally {
@@ -1423,8 +1433,8 @@ const Step11Exportar = ({ form, setForm, contratoId, user }) => {
     if (!contratoId) return;
     setLoadingArras(true);
     try {
-      const res = await contratosAPI.reciboArras(contratoId);
-      downloadBlob(res.data, `recibo_arras_${form.numero || contratoId}.docx`);
+      const blob = await contratosAPI.reciboArras(contratoId);
+      downloadBlob(blob, `recibo_arras_${form.numero || contratoId}.docx`);
     } catch {
       toast({ title: 'Erro ao gerar Recibo de Arras', variant: 'destructive' });
     } finally {
@@ -1577,6 +1587,32 @@ const Step11Exportar = ({ form, setForm, contratoId, user }) => {
             <div className="text-xs text-gray-500">Adiciona lista de documentos necessários ao final do contrato</div>
           </div>
         </label>
+      </div>
+
+      {/* Modelo do PDF (Prime I / Prime II / Tradicional) */}
+      <div className="bg-gray-50 rounded-xl p-5 space-y-3">
+        <div className="font-semibold text-gray-800 text-sm mb-1">Modelo do PDF</div>
+        <div className="grid grid-cols-3 gap-3">
+          {TEMPLATES_PDF.map((t) => {
+            const sel = (form.template_pdf || 'prime2') === t.id;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setForm({ ...form, template_pdf: t.id })}
+                className={`text-left rounded-xl border-2 p-3 transition bg-white ${sel ? 'border-[#0C3320] shadow' : 'border-gray-200 hover:border-gray-300'}`}
+              >
+                <div className="h-20 rounded-md mb-2 border border-gray-200" style={{ background: t.preview }} />
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-gray-800">{t.nome}</span>
+                  {sel && <Check className="w-4 h-4 text-emerald-800" />}
+                </div>
+                <div className="text-[11px] text-gray-500 leading-tight">{t.desc}</div>
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-[11px] text-gray-400">O modelo escolhido é salvo no contrato e usado ao gerar o PDF.</p>
       </div>
 
       {/* Downloads */}

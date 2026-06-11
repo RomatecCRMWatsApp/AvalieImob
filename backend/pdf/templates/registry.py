@@ -21,13 +21,19 @@ def _renderer_prime2():
     return r
 
 
+def _renderer_prime1():
+    from pdf.templates.contrato_prime1 import render as r
+    return r
+
+
 def get_renderer(nome: str):
-    """Retorna o callable render(doc, uid, empresa)->bytes do template pedido.
-    Prime I ainda não tem renderer dedicado → cai no tradicional (sem duplicar conteúdo)."""
+    """Retorna o callable render(doc, uid, empresa)->bytes do template pedido."""
     nome = (nome or TEMPLATE_PADRAO).lower().strip()
     if nome == "prime2":
         return _renderer_prime2()
-    # prime1 e tradicional usam o gerador clássico por enquanto
+    if nome == "prime1":
+        return _renderer_prime1()
+    # tradicional usa o gerador clássico já validado
     return _renderer_tradicional()
 
 

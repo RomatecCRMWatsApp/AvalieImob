@@ -479,6 +479,10 @@ export const contratosAPI = {
   }).then(r => r.data),
   docx: (id) => api.get(`/contratos/${id}/docx`, { responseType: 'blob' }).then(r => r.data),
   reciboArrasDocx: (id) => api.get(`/contratos/${id}/recibo-arras/docx`, { responseType: 'blob' }).then(r => r.data),
+  reciboArras: (id) => api.get(`/contratos/${id}/recibo-arras/docx`, { responseType: 'blob' }).then(r => r.data),
+  lacrar: (id, body = {}) => api.post(`/contratos/${id}/lacrar`, body).then(r => r.data),
+  // D4Sign via motor de assinatura compartilhado (tipo 'contrato' já habilitado)
+  assinarD4sign: (id, payload) => api.post(`/assinatura/contrato/${id}/iniciar`, payload).then(r => r.data),
   // PDF assinado (motor ICP compartilhado com o PTAM)
   pdfAssinado: (id, layout = 'v2') =>
     api.get(`/assinatura/icp/contrato/${id}/download`, { params: { layout }, responseType: 'blob' }).then(r => r.data),
