@@ -1,7 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ClipboardCheck, Plus, Search, Loader2, Trash2, Edit3 } from 'lucide-react';
-import { Button } from '../../ui/button';
+import { ClipboardCheck, Plus, Search, SearchX, Loader2, Trash2, Edit3 } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { useToast } from '../../../hooks/use-toast';
 import { tviAPI } from '../../../lib/api';
@@ -28,6 +27,7 @@ const TVIList = () => {
   const [activeTab, setActiveTab] = useState('Todos');
   const [modelSearch, setModelSearch] = useState('');
   const [creating, setCreating] = useState(false);
+  const catalogRef = useRef(null);
 
   const filtered = vistorias.filter(v => {
     const q = search.toLowerCase();
@@ -37,6 +37,7 @@ const TVIList = () => {
       || (v.modelo_nome || '').toLowerCase().includes(q);
   });
 
+  const total = (models || []).length;
   const modelosFiltrados = useMemo(() => {
     let list = models || [];
     if (activeTab !== 'Todos') {
@@ -49,6 +50,15 @@ const TVIList = () => {
     }
     return list;
   }, [models, activeTab, modelSearch]);
+
+  const countFor = (cat) => cat === 'Todos'
+    ? total
+    : (models || []).filter(m => (m.categoria || '').toLowerCase().startsWith(cat.toLowerCase())).length;
+
+  const filtroAtivo = activeTab !== 'Todos' || !!modelSearch;
+  const subtitulo = filtroAtivo
+    ? `${modelosFiltrados.length} de ${total} modelos`
+    : `${total || 45} modelos disponíveis`;
 
   const handleSelect = async (model) => {
     setCreating(true);
@@ -72,20 +82,23 @@ const TVIList = () => {
     }
   };
 
+  const scrollCatalogo = () => catalogRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="font-display text-3xl font-bold text-[#B8860B] dark:text-amber-400">Kit TVI</h1>
-          <p className="text-gray-500 text-sm mt-1">Termos de Vistoria de Imóvel — 45 modelos disponíveis</p>
-        </div>
+      {/* ── Header ── */}
+      <div>
+        <h1 className="font-display text-[34px] font-bold leading-tight text-[#C9A84C]">Kit TVI</h1>
+        <p className="text-sm mt-1 text-[#5B7466] dark:text-[#9FB5A6]">
+          Termos de Vistoria de Imóvel — {subtitulo}
+        </p>
       </div>
 
       {/* ── Minhas vistorias (só aparece se houver) ── */}
       {(loading || filtered.length > 0) && (
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-sm font-semibold text-gray-700">Minhas vistorias</h2>
+            <h2 className="text-sm font-semibold text-gray-700 dark:text-[#F2EFE6]">Minhas vistorias</h2>
             <div className="relative max-w-xs flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input type="text" placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)}
@@ -124,36 +137,90 @@ const TVIList = () => {
         </div>
       )}
 
-      {/* ── Modelos disponíveis (catálogo direto na página) ── */}
-      <div className="space-y-3 pt-2">
+      {/* ── Catálogo de modelos ── */}
+      <div ref={catalogRef} className="space-y-4 pt-2">
+        {/* Linha de ação: CTA dourado + busca dark */}
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2"><Plus className="w-4 h-4 text-emerald-700" /> Iniciar nova vistoria — escolha um modelo</h2>
-          <div className="relative max-w-xs flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input type="text" placeholder="Buscar modelo..." value={modelSearch} onChange={e => setModelSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-emerald-400" />
+          <button
+            type="button" onClick={scrollCatalogo}
+            className="inline-flex items-center gap-2 rounded-[10px] px-4 py-2.5 text-sm font-semibold
+                       bg-[#C9A84C] text-[#0C3320] hover:brightness-95 transition
+                       focus:outline-none focus-visible:ring-[3px] focus-visible:ring-[rgba(201,168,76,0.45)]"
+          >
+            <Plus className="w-4 h-4" /> Iniciar nova vistoria
+          </button>
+          <div className="relative w-full sm:w-80">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9FB5A6]" />
+            <input
+              type="text" placeholder="Buscar modelo..." value={modelSearch}
+              onChange={e => setModelSearch(e.target.value)}
+              className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm transition
+                         bg-white border border-[rgba(12,51,32,0.12)] text-[#15301F] placeholder:text-[#5B7466]
+                         focus:outline-none focus-visible:border-[#C9A84C] focus-visible:ring-[3px] focus-visible:ring-[rgba(201,168,76,0.16)]
+                         dark:bg-white/[0.04] dark:border-[rgba(201,168,76,0.22)] dark:text-[#F2EFE6] dark:placeholder:text-[#9FB5A6]"
+            />
           </div>
         </div>
 
-        <div className="flex gap-1.5 overflow-x-auto pb-1">
-          {CATEGORIES.map(cat => (
-            <button key={cat} onClick={() => setActiveTab(cat)}
-              className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition
-                ${activeTab === cat ? 'bg-emerald-900 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-              {cat}
-            </button>
-          ))}
+        {/* Pills de categoria com contador */}
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+          {CATEGORIES.map(cat => {
+            const ativo = activeTab === cat;
+            const n = countFor(cat);
+            return (
+              <button
+                key={cat} onClick={() => setActiveTab(cat)} aria-pressed={ativo}
+                className={`flex-shrink-0 inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-medium transition
+                  focus:outline-none focus-visible:ring-[3px] focus-visible:ring-[rgba(201,168,76,0.45)]
+                  ${ativo
+                    ? 'bg-[#C9A84C] text-[#0C3320] font-semibold'
+                    : 'bg-transparent border border-[rgba(201,168,76,0.25)] text-[#5B7466] hover:border-[#C9A84C] hover:text-[#15301F] dark:text-[#9FB5A6] dark:hover:text-[#F2EFE6]'}`}
+              >
+                {cat}<span className="opacity-65">· {n}</span>
+              </button>
+            );
+          })}
         </div>
 
+        {/* Grid / loading / empty */}
         {loadingModels || creating ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="w-7 h-7 animate-spin text-emerald-700" />
-            <span className="ml-3 text-gray-500">{creating ? 'Criando vistoria...' : 'Carregando modelos...'}</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="rounded-2xl p-[18px] bg-white border border-[rgba(12,51,32,0.10)] dark:bg-[#103B26] dark:border-[rgba(201,168,76,0.10)]">
+                <div className="flex items-start gap-3 animate-pulse">
+                  <div className="w-[38px] h-[38px] rounded-xl bg-[rgba(201,168,76,0.12)]" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-2.5 w-16 rounded bg-black/5 dark:bg-white/5" />
+                    <div className="h-3.5 w-full rounded bg-black/5 dark:bg-white/5" />
+                    <div className="h-3.5 w-2/3 rounded bg-black/5 dark:bg-white/5" />
+                  </div>
+                </div>
+              </div>
+            ))}
+            {creating && (
+              <div className="col-span-full flex items-center justify-center gap-2 text-[#5B7466] py-2">
+                <Loader2 className="w-5 h-5 animate-spin" /> Criando vistoria...
+              </div>
+            )}
           </div>
         ) : modelosFiltrados.length === 0 ? (
-          <div className="text-center py-12 text-gray-400">Nenhum modelo encontrado</div>
+          <div className="text-center py-16">
+            <SearchX className="w-8 h-8 mx-auto mb-3 text-[#9FB5A6]" />
+            <p className="text-sm text-[#5B7466] dark:text-[#9FB5A6]">
+              {modelSearch ? <>Nenhum modelo encontrado para “{modelSearch}”</> : 'Nenhum modelo nesta categoria'}
+            </p>
+            {(modelSearch || activeTab !== 'Todos') && (
+              <button
+                onClick={() => { setModelSearch(''); setActiveTab('Todos'); }}
+                className="mt-3 inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-semibold
+                           border border-[rgba(201,168,76,0.45)] text-[#C9A84C] hover:bg-[rgba(201,168,76,0.08)]"
+              >
+                Limpar busca
+              </button>
+            )}
+          </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {modelosFiltrados.map(m => (
               <ModelCard key={m.id} model={m} onSelect={handleSelect} />
             ))}

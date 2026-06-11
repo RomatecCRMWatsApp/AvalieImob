@@ -1,47 +1,54 @@
+// @module tvi/ModelCard — Card de modelo TVI no tema Romatec (verde-escuro + dourado).
 import React from 'react';
-import { ClipboardCheck } from 'lucide-react';
+import {
+  ShieldCheck, FileCheck2, HardHat, Scale, ClipboardList, KeyRound,
+  TreePine, Store, Wrench, Layers, ChevronRight,
+} from 'lucide-react';
 
+// Mapa de ícones por categoria (lucide, monocromático com tint dourado).
 const CATEGORY_ICONS = {
-  Geral: '🏠', Locação: '🔑', Rural: '🌾', Regularização: '📋',
-  Obras: '🔨', Judicial: '⚖️', Segurança: '🛡️', Comercial: '🏪',
-  Instalações: '⚡', Complementares: '📎',
+  'Segurança': ShieldCheck,
+  'Regularização': FileCheck2,
+  'Obras': HardHat,
+  'Judicial': Scale,
+  'Geral': ClipboardList,
+  'Locação': KeyRound,
+  'Rural': TreePine,
+  'Comercial': Store,
+  'Instalações': Wrench,
+  'Complementares': Layers,
 };
 
+export const iconForCategoria = (cat) => CATEGORY_ICONS[cat] || ClipboardList;
+
 const ModelCard = ({ model, onSelect }) => {
-  const icon = CATEGORY_ICONS[model.categoria] || '📄';
+  const Icon = iconForCategoria(model.categoria);
 
   return (
     <button
+      type="button"
       onClick={() => onSelect(model)}
-      className="group w-full text-left bg-white rounded-xl border border-gray-200
-                 p-4 hover:border-emerald-400 hover:shadow-md transition-all duration-150
-                 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+      aria-label={`Iniciar vistoria: ${model.nome}`}
+      className="group relative w-full h-full text-left rounded-2xl p-[18px] cursor-pointer
+                 transition-all duration-150 ease-out motion-reduce:transform-none
+                 bg-white border border-[rgba(12,51,32,0.12)]
+                 hover:-translate-y-0.5 hover:border-[rgba(201,168,76,0.55)] hover:shadow-[0_8px_24px_rgba(12,51,32,0.12)]
+                 focus:outline-none focus-visible:ring-[3px] focus-visible:ring-[rgba(201,168,76,0.45)]
+                 dark:bg-[#103B26] dark:border-[rgba(201,168,76,0.14)]
+                 dark:hover:border-[rgba(201,168,76,0.45)] dark:hover:shadow-[0_8px_24px_rgba(0,0,0,0.35)]"
     >
+      <ChevronRight className="absolute top-4 right-4 w-4 h-4 text-[#C9A84C] opacity-0 group-hover:opacity-100 transition-opacity" />
       <div className="flex items-start gap-3">
-        <div className="w-10 h-10 rounded-lg bg-emerald-900/8 flex items-center justify-center
-                        flex-shrink-0 group-hover:bg-emerald-900/15 transition-colors text-xl">
-          {icon}
+        <div className="w-[38px] h-[38px] rounded-xl flex items-center justify-center flex-shrink-0 bg-[rgba(201,168,76,0.16)]">
+          <Icon className="w-[18px] h-[18px] text-[#C9A84C]" />
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 mb-0.5">
-            <ClipboardCheck className="w-3 h-3 text-emerald-700 flex-shrink-0" />
-            <span className="text-[10px] font-semibold text-emerald-700 tracking-wide uppercase">
-              {model.categoria}
-            </span>
-          </div>
-          <div className="font-semibold text-gray-900 text-sm leading-snug line-clamp-2">
+        <div className="flex-1 min-w-0 pr-4">
+          <span className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[#5B7466] dark:text-[#9FB5A6]">
+            {model.categoria || 'Modelo'}
+          </span>
+          <div className="mt-1 font-semibold text-[15px] leading-[1.35] line-clamp-2 text-[#15301F] dark:text-[#F2EFE6]">
             {model.nome}
           </div>
-          {model.descricao && (
-            <div className="text-xs text-gray-500 mt-1 line-clamp-2">
-              {model.descricao}
-            </div>
-          )}
-          {model.campos_count != null && (
-            <div className="text-[10px] text-gray-400 mt-2">
-              {model.campos_count} campos
-            </div>
-          )}
         </div>
       </div>
     </button>

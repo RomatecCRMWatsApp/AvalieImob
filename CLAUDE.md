@@ -17,7 +17,9 @@
    (opcional — o Railway regenera no prebuild).
 6. Registrar a atualização também no Obsidian (ver seção abaixo), nota de releases/changelog.
 
-**Estado atual: v1.3.707** (MAJOR=1, MINOR=3) — release: fix contador de visualizações do link no card PTAM — model Ptam ganhou link_views/link_views_first/link_views_last/link_sends/link_last_sent/link_last_canal/link_last_destinatario/link_gerado_em (antes não declarados → response_model=Ptam os descartava e o card mostrava 👁 0 mesmo com views registradas; o modal Controle do Link lia o doc direto e mostrava o número certo). Release anterior abaixo:
+**Estado atual: v1.3.725** (MAJOR=1, MINOR=3) — release: restyle da página Kit TVI no tema Romatec (100% frontend, sem backend). ModelCard.jsx: ícones lucide monocromáticos por categoria (ShieldCheck/FileCheck2/HardHat/Scale/ClipboardList/KeyRound/TreePine/Store/Wrench/Layers, fallback ClipboardList), disco dourado #C9A84C, eyebrow categoria, título line-clamp-2, hover translateY + ChevronRight, focus ring, dark/light. TVIList.jsx: subtítulo dinâmico ({n} de {total}/{total} disponíveis), CTA dourado "Iniciar nova vistoria", busca dark/light com ring dourado, pills com contador por categoria e ativo dourado (aria-pressed), empty state (SearchX + Limpar busca), 8 skeletons com shimmer. Emojis removidos. Release anterior abaixo:
+
+**v1.3.707** (MAJOR=1, MINOR=3) — release: fix contador de visualizações do link no card PTAM — model Ptam ganhou link_views/link_views_first/link_views_last/link_sends/link_last_sent/link_last_canal/link_last_destinatario/link_gerado_em (antes não declarados → response_model=Ptam os descartava e o card mostrava 👁 0 mesmo com views registradas; o modal Controle do Link lia o doc direto e mostrava o número certo). Release anterior abaixo:
 
 **v1.3.706** (MAJOR=1, MINOR=3) — release: Kit TVI mostra o catálogo de modelos direto na página (TVIList.jsx incorpora useModels + ModelCard + tabs de categoria + busca de modelo + create on select), com "Minhas vistorias" acima quando houver. Antes os modelos só apareciam ao clicar em "Nova Vistoria" (removido o botão redundante; rota /tvi/nova mantida). Release anterior abaixo:
 
