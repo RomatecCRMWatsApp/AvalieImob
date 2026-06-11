@@ -48,6 +48,7 @@ const MENU = [
     { id: 'laudos', label: 'Avaliações', icon: FileText, route: '/dashboard/laudos' },
   ]},
   { section: 'Contratos', items: [
+    { id: 'propostas', label: 'Propostas', icon: FileText, route: '/dashboard/propostas', tag: 'NOVO' },
     { id: 'contratos', label: 'Contratos', icon: FileSignature, route: '/dashboard/contratos', tag: 'NOVO' },
     { id: 'recibos', label: 'Recibos', icon: Receipt, route: '/dashboard/recibos', tag: 'NOVO' },
   ]},

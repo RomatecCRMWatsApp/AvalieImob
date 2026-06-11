@@ -195,6 +195,17 @@ export const cuponsAPI = {
   resgatarPublico: (slug, usuarioId) => api.post(`/cupons/publico/resgatar/${encodeURIComponent(slug)}`, { usuario_id: usuarioId }).then(r => r.data),
 };
 
+// ---- Propostas de Consultoria (motor de cálculo port da ZAYRA)
+export const propostasAPI = {
+  catalogo: () => api.get('/propostas/catalogo').then(r => r.data),
+  preview: (subtipo, dados_imovel) => api.post('/propostas/preview', { subtipo, dados_imovel }).then(r => r.data),
+  criar: (data) => api.post('/propostas', data).then(r => r.data),
+  listar: (params = {}) => api.get('/propostas', { params }).then(r => r.data),
+  get: (id) => api.get(`/propostas/${id}`).then(r => r.data),
+  atualizar: (id, data) => api.put(`/propostas/${id}`, data).then(r => r.data),
+  excluir: (id) => api.delete(`/propostas/${id}`).then(r => r.data),
+};
+
 // ---- Admin (usuários cadastrados / assinaturas) — somente admin/owner/ceo
 export const adminAPI = {
   listUsers: () => api.get('/admin/users').then(r => r.data),

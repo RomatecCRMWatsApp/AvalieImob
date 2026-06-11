@@ -28,6 +28,8 @@ import PerfilAvaliador from '../components/dashboard/PerfilAvaliador';
 import AdminIncra from '../components/dashboard/incra/AdminIncra';
 import CuponsAdmin from './admin/CuponsAdmin';
 import UsuariosAdmin from './admin/UsuariosAdmin';
+import PropostasList from '../components/dashboard/propostas/PropostasList';
+import PropostaForm from '../components/dashboard/propostas/PropostaForm';
 import PtamList from '../components/dashboard/ptam/PtamList';
 import PtamWizard from '../components/dashboard/ptam/PtamWizard';
 import GarantiasList from '../components/dashboard/garantias/GarantiasList';
@@ -437,6 +439,9 @@ const Dashboard = () => {
             <Route path="locacao"           element={<LocacaoList />} />
             <Route path="locacao/nova"      element={<LocacaoWizard />} />
             <Route path="locacao/:id"       element={<LocacaoWizard />} />
+            <Route path="propostas"            element={<PropostasList />} />
+            <Route path="propostas/nova/:subtipo" element={<PropostaForm />} />
+            <Route path="propostas/:id"        element={<PropostaForm />} />
             <Route path="tvi"              element={<TVIList />} />
             <Route path="tvi/nova"         element={<TVINew />} />
             <Route path="tvi/:id"          element={<TVIForm />} />

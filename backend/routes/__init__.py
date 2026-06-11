@@ -38,6 +38,7 @@ from routes.galeria import router as galeria_router
 from routes.conformidade import router as conformidade_router
 from routes.amostras_mercado import router as amostras_mercado_router
 from routes.cupons import router as cupons_router
+from routes.propostas import router as propostas_router
 
 all_routers = [
     auth_router, users_router, ptam_router, locacao_router,
@@ -51,4 +52,5 @@ all_routers = [
     integracoes_router, recibos_router, incra_router,
     consulta_router, branding_router, zayra_router, galeria_router,
     conformidade_router, amostras_mercado_router, cupons_router,
+    propostas_router,
 ]
