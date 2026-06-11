@@ -394,6 +394,9 @@ export const ptamExtrasAPI = {
     api.post(`/ptam/${id}/whatsapp-link`, { phone }).then(r => r.data),
   // Auditoria do link público (envios + visualizações)
   linkEventos: (id) => api.get(`/ptam/${id}/link-eventos`).then(r => r.data),
+  // Importação de Vistoria → PTAM (memorial + fotos)
+  vistoriasCompativeis: (id) => api.get(`/ptam/${id}/vistorias-compativeis`).then(r => r.data),
+  importarVistoria: (id, vistoriaId, body) => api.post(`/ptam/${id}/importar-vistoria/${vistoriaId}`, body).then(r => r.data),
 };
 
 // ---- Integrações por usuário (Z-API + Meta WhatsApp + Telegram)
@@ -419,6 +422,7 @@ export const tviAPI = {
   create: (data) => api.post('/tvi/vistoria', data).then(r => r.data),
   update: (id, data) => api.put(`/tvi/vistoria/${id}`, data).then(r => r.data),
   remove: (id) => api.delete(`/tvi/vistoria/${id}`).then(r => r.data),
+  listPhotos: (id) => api.get(`/tvi/vistoria/${id}/photos`).then(r => r.data),
   uploadPhotos: (id, formData) => api.post(`/tvi/vistoria/${id}/photos`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   }).then(r => r.data),
@@ -428,6 +432,7 @@ export const tviAPI = {
   // Vistoria de Obra para Averbação
   catalogosAverbacao: () => api.get('/tvi/catalogos/averbacao').then(r => r.data),
   gerarRelatorio: (id) => api.post(`/tvi/vistoria/${id}/relatorio`).then(r => r.data),
+  gerarMemorial: (id) => api.post(`/tvi/vistoria/${id}/memorial`).then(r => r.data),
 };
 
 // ---- Zonas do Plano Diretor (personalizadas por usuário)

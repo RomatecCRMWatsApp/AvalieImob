@@ -10,6 +10,7 @@ import {
 import { Button } from '../../ui/button';
 import { useToast } from '../../../hooks/use-toast';
 import { tviAPI } from '../../../lib/api';
+import PhotoUploader from './components/PhotoUploader';
 
 /* ── primitivos ──────────────────────────────────────────────────────────── */
 const Chip = ({ active, onClick, children }) => (
@@ -74,8 +75,26 @@ export default function VistoriaAverbacaoForm({ id, vistoria, model }) {
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState(null);
   const [exporting, setExporting] = useState(false);
+  const [photos, setPhotos] = useState([]);
   const debRef = useRef(null);
   const firstLoad = useRef(true);
+
+  // Carrega as fotos da vistoria (todas as abas/ambientes).
+  useEffect(() => {
+    if (!id) return;
+    tviAPI.listPhotos(id).then((ps) => setPhotos(Array.isArray(ps) ? ps : [])).catch(() => {});
+  }, [id]);
+
+  const photosOf = useCallback(
+    (ambiente) => photos.filter((p) => (p.ambiente || '') === ambiente),
+    [photos],
+  );
+  const setPhotosFor = useCallback((ambiente, list) => {
+    setPhotos((prev) => [
+      ...prev.filter((p) => (p.ambiente || '') !== ambiente),
+      ...(list || []).map((x) => ({ ...x, ambiente })),
+    ]);
+  }, []);
 
   // Carrega catálogos e inicializa o subdoc averbacao se vazio.
   useEffect(() => {
@@ -301,6 +320,12 @@ export default function VistoriaAverbacaoForm({ id, vistoria, model }) {
               <textarea rows={3} className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-emerald-400"
                 value={conf.detalhe_pavimentos || ''} onChange={(e) => setConf('detalhe_pavimentos', e.target.value)} />
             </Field>
+            <div className="border-t border-gray-100 pt-4">
+              <div className="text-sm font-semibold text-emerald-800 mb-2">Fotos — Fachada e Medições</div>
+              <PhotoUploader vistoriaId={id} ambiente="Fachada e Medições"
+                photos={photosOf('Fachada e Medições')}
+                onUploaded={(list) => setPhotosFor('Fachada e Medições', list)} />
+            </div>
           </>
         )}
 
@@ -363,6 +388,9 @@ export default function VistoriaAverbacaoForm({ id, vistoria, model }) {
                       <Seg value={item.severidade} onChange={(v) => setSistema(s.id, { severidade: v })} options={sevOpts} />
                       <textarea rows={2} placeholder="Observação..." className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
                         value={item.observacao || ''} onChange={(e) => setSistema(s.id, { observacao: e.target.value })} />
+                      <PhotoUploader vistoriaId={id} ambiente={s.nome}
+                        photos={photosOf(s.nome)}
+                        onUploaded={(list) => setPhotosFor(s.nome, list)} />
                     </div>
                   )}
                 </div>

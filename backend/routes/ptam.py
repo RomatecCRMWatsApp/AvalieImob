@@ -1952,6 +1952,133 @@ async def download_recibo(
 
 
 # ════════════════════════════════════════════════════════════════════════════
+# IMPORTAÇÃO DE VISTORIA → PTAM (memorial de caracterização + fotos)
+# ════════════════════════════════════════════════════════════════════════════
+
+def _ptam_assinado(ptam: dict) -> bool:
+    return ptam.get("icp_status") == "assinado" or ptam.get("d4sign_status") == "assinado"
+
+
+@router.get("/ptam/{pid}/vistorias-compativeis")
+async def vistorias_compativeis(
+    pid: str,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db),
+):
+    """Lista vistorias do usuário; ordena coincidência de matrícula/endereço primeiro."""
+    ptam = await db.ptam_documents.find_one({"id": pid, "user_id": uid})
+    if not ptam:
+        raise HTTPException(status_code=404, detail="PTAM não encontrado")
+    matricula = (ptam.get("property_matricula") or "").strip()
+    endereco = (ptam.get("property_address") or "").strip().lower()
+    docs = await db.vistorias.find({"user_id": uid}).sort("updated_at", -1).to_list(300)
+    out = []
+    for v in docs:
+        v = serialize_doc(v)
+        n_fotos = await db.vistoria_photos.count_documents({"vistoria_id": v["id"]})
+        v_mat = (v.get("imovel_matricula") or "").strip()
+        v_end = (v.get("imovel_endereco") or "").strip().lower()
+        mesma_matricula = bool(matricula and v_mat and matricula == v_mat)
+        mesmo_endereco = bool(endereco and v_end and (endereco in v_end or v_end in endereco))
+        out.append({
+            "id": v["id"], "numero_tvi": v.get("numero_tvi"),
+            "modelo_nome": v.get("modelo_nome"), "categoria": v.get("categoria"),
+            "imovel_endereco": v.get("imovel_endereco"), "imovel_matricula": v.get("imovel_matricula"),
+            "data_vistoria": v.get("data_vistoria"), "updated_at": v.get("updated_at"),
+            "n_fotos": n_fotos, "tem_memorial": bool(v.get("memorial_vistoria")),
+            "mesma_matricula": mesma_matricula, "mesmo_endereco": mesmo_endereco,
+        })
+    out.sort(key=lambda x: (not x["mesma_matricula"], not x["mesmo_endereco"]))
+    return {"vistorias": out}
+
+
+class ImportarVistoriaRequest(BaseModel):
+    importar_memorial: bool = True
+    modo_memorial: str = "substituir"          # substituir | anexar
+    importar_fotos: bool = True
+    fotos_ids: Optional[List[str]] = None       # None = todas
+
+
+@router.post("/ptam/{pid}/importar-vistoria/{vistoria_id}")
+async def importar_vistoria(
+    pid: str,
+    vistoria_id: str,
+    body: ImportarVistoriaRequest,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db),
+):
+    ptam = await db.ptam_documents.find_one({"id": pid, "user_id": uid})
+    if not ptam:
+        raise HTTPException(status_code=404, detail="PTAM não encontrado")
+    if _ptam_assinado(ptam):
+        raise HTTPException(status_code=409, detail="PTAM assinado não pode ser editado. Zere a assinatura primeiro.")
+    vistoria = await db.vistorias.find_one({"id": vistoria_id, "user_id": uid})
+    if not vistoria:
+        raise HTTPException(status_code=404, detail="Vistoria não encontrada")
+    vistoria = serialize_doc(vistoria)
+
+    updates: dict = {}
+    memorial_aplicado = False
+    if body.importar_memorial:
+        memorial = vistoria.get("memorial_vistoria")
+        if not memorial:
+            from services.vistoria_memorial import gerar_memorial_vistoria
+            memorial = gerar_memorial_vistoria(vistoria)
+            await db.vistorias.update_one({"id": vistoria_id}, {"$set": {"memorial_vistoria": memorial}})
+        campo = "imovel_caracteristicas_adicionais"
+        atual = ptam.get(campo) or ""
+        if body.modo_memorial == "anexar" and str(atual).strip():
+            updates[campo] = str(atual) + memorial
+        else:
+            updates[campo] = memorial
+        memorial_aplicado = True
+
+    fotos_importadas = 0
+    if body.importar_fotos:
+        fotos = await db.vistoria_photos.find({"vistoria_id": vistoria_id}).to_list(500)
+        existentes = ptam.get("fotos_imovel") or []
+        ja = {f.get("origem_foto_id") for f in existentes if isinstance(f, dict)}
+        novas = list(existentes)
+        sel = set(body.fotos_ids) if body.fotos_ids else None
+        for fp in fotos:
+            fid = fp.get("id")
+            if sel is not None and fid not in sel:
+                continue
+            if fid in ja:
+                continue  # idempotente — não duplica
+            url = fp.get("url") or ""
+            image_id = url.rsplit("/", 1)[-1] if "/upload/image/" in url else None
+            novas.append({
+                "image_id": image_id, "url": url,
+                "legenda": fp.get("legenda") or fp.get("ambiente") or "",
+                "gps": fp.get("gps"), "origem_foto_id": fid,
+            })
+            fotos_importadas += 1
+        updates["fotos_imovel"] = novas
+
+    updates["vistoria_origem_id"] = vistoria_id
+    updates["updated_at"] = datetime.utcnow()
+    await db.ptam_documents.update_one({"id": pid}, {"$set": updates})
+
+    # Vínculo bidirecional na vistoria.
+    await db.vistorias.update_one(
+        {"id": vistoria_id},
+        {"$push": {"vinculos": {"tipo": "ptam", "id": pid, "numero": ptam.get("numero_ptam"), "em": datetime.utcnow()}}},
+    )
+    # Audit log (best-effort).
+    try:
+        await db.audit_logs.insert_one({
+            "event": "ptam.importou_vistoria", "user_id": uid, "ptam_id": pid,
+            "vistoria_id": vistoria_id, "fotos_importadas": fotos_importadas,
+            "memorial_aplicado": memorial_aplicado, "em": datetime.utcnow(),
+        })
+    except Exception:
+        pass
+
+    return {"ok": True, "memorial_aplicado": memorial_aplicado, "fotos_importadas": fotos_importadas}
+
+
+# ════════════════════════════════════════════════════════════════════════════
 # TELEGRAM — envio do PDF do laudo via bot configurado
 # ════════════════════════════════════════════════════════════════════════════
 

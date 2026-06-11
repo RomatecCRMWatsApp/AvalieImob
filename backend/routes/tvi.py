@@ -403,6 +403,24 @@ async def gerar_relatorio_endpoint(
     return {"relatorio": texto}
 
 
+# ── Memorial de Vistoria (caracterização p/ importar no PTAM) ───────────────
+@router.post("/tvi/vistoria/{vid}/memorial")
+async def gerar_memorial_endpoint(
+    vid: str,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db),
+):
+    doc = await db.vistorias.find_one({"id": vid, "user_id": uid})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Vistoria não encontrada")
+    from services.vistoria_memorial import gerar_memorial_vistoria
+    memorial = gerar_memorial_vistoria(serialize_doc(doc))
+    await db.vistorias.update_one(
+        {"id": vid}, {"$set": {"memorial_vistoria": memorial, "updated_at": datetime.utcnow()}}
+    )
+    return {"memorial_vistoria": memorial}
+
+
 # ── Export PDF ──────────────────────────────────────────────────────────────
 @router.post("/tvi/vistoria/{vid}/export/pdf")
 async def export_pdf(

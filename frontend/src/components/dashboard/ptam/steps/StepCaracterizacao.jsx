@@ -1,5 +1,9 @@
 // @module ptam/steps/StepCaracterizacao — Step 5: Caracterização do Imóvel (dados físicos/construtivos)
-import React from 'react';
+import React, { useState } from 'react';
+import { ClipboardCheck } from 'lucide-react';
+import { ptamAPI } from '../../../../lib/api';
+import ImportarVistoriaModal from '../ImportarVistoriaModal';
+import { Button } from '../../../ui/button';
 import { Input } from '../../../ui/input';
 import { Textarea } from '../../../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
@@ -10,12 +14,37 @@ import RichField from '../../../ui/RichField';
 import { isRuralImovel } from '../shared/amostraCategoria';
 import BenfeitoriasRurais from '../BenfeitoriasRurais';
 
-export const StepCaracterizacao = ({ form, setForm, onAi, aiLoading }) => (
+export const StepCaracterizacao = ({ form, setForm, onAi, aiLoading }) => {
+  const [importOpen, setImportOpen] = useState(false);
+  const recarregar = async () => {
+    if (!form.id) return;
+    try {
+      const fresh = await ptamAPI.get(form.id);
+      setForm((f) => ({ ...f, ...fresh }));
+    } catch { /* ignora */ }
+  };
+  return (
   <div>
-    <SectionHeader
-      title="5. Caracterização do Imóvel"
-      subtitle="Características físicas e construtivas do imóvel avaliando."
-    />
+    <div className="flex items-start justify-between gap-2">
+      <SectionHeader
+        title="5. Caracterização do Imóvel"
+        subtitle="Características físicas e construtivas do imóvel avaliando."
+      />
+      {form.id && (
+        <Button type="button" size="sm" variant="outline"
+          onClick={() => setImportOpen(true)}
+          className="gap-1 text-emerald-700 border-emerald-200 hover:bg-emerald-50 flex-shrink-0">
+          <ClipboardCheck className="w-4 h-4" /> Importar de Vistoria
+        </Button>
+      )}
+    </div>
+    {importOpen && form.id && (
+      <ImportarVistoriaModal
+        ptamId={form.id}
+        onClose={() => setImportOpen(false)}
+        onImported={recarregar}
+      />
+    )}
     <div className="grid grid-cols-2 gap-4">
       <Field label="Área do terreno (m²)">
         <Input type="number" step="0.01" value={form.imovel_area_terreno} onChange={(e) => setForm({ ...form, imovel_area_terreno: Number(e.target.value) })} />
@@ -113,4 +142,5 @@ export const StepCaracterizacao = ({ form, setForm, onAi, aiLoading }) => (
       )}
     </div>
   </div>
-);
+  );
+};
