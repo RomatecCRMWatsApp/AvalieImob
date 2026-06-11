@@ -9,6 +9,7 @@ import AmbienteBlock from './components/AmbienteBlock';
 import SignaturePad from './components/SignaturePad';
 import ExportBar from './components/ExportBar';
 import { useExport } from './hooks/useExport';
+import VistoriaAverbacaoForm from './VistoriaAverbacaoForm';
 
 const TABS = [
   { id: 'dados', label: 'Dados Gerais', icon: ClipboardCheck },
@@ -94,6 +95,13 @@ const TVIForm = () => {
       <Loader2 className="w-8 h-8 animate-spin text-emerald-700" />
     </div>
   );
+
+  // Modelo especial: Vistoria de Obra para Averbação → formulário próprio (6 abas).
+  const isAverbacao = model?.modelo_especial === 'averbacao'
+    || model?.id === 'TVI-AVERB' || model?.tipo === 'obra_averbacao';
+  if (isAverbacao) {
+    return <VistoriaAverbacaoForm id={id} vistoria={vistoria} model={model} />;
+  }
 
   const modelFields = model?.campos || [];
   const specificFields = model?.campos_especificos || [];
