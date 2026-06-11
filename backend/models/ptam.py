@@ -420,6 +420,18 @@ class PtamBase(BaseModel):
     link_publico_criado_em: Optional[datetime] = None
     visualizacoes: Optional[int] = 0
 
+    # Controle/auditoria do link público (contadores-resumo do card) — espelham
+    # services.link_tracking; sem estes campos declarados o response_model=Ptam
+    # os descartava e o card mostrava 0 mesmo com visualizações registradas.
+    link_views: Optional[int] = 0
+    link_views_first: Optional[datetime] = None
+    link_views_last: Optional[datetime] = None
+    link_sends: Optional[int] = 0
+    link_last_sent: Optional[datetime] = None
+    link_last_canal: Optional[str] = None
+    link_last_destinatario: Optional[str] = None
+    link_gerado_em: Optional[datetime] = None
+
     # D4Sign — Assinatura Digital com Validade Juridica (Lei 14.063/2020 + MP 2.200-2/2001)
     d4sign_document_uuid: Optional[str] = None
     d4sign_status: Optional[str] = None   # pendente|aguardando|assinado|cancelado
