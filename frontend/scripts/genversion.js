@@ -50,7 +50,7 @@ const data = p(br.getUTCDate()) + '/' + p(br.getUTCMonth() + 1) + '/' + br.getUT
 const hora = p(br.getUTCHours()) + ':' + p(br.getUTCMinutes());
 
 const MAJOR = 1;
-const MINOR = 3;
+const MINOR = 4;
 const version = 'v' + MAJOR + '.' + MINOR + '.' + build;     // ex.: v1.0.339
 const dataHora = data + ' ' + hora;                           // ex.: 30/05/2026 12:07
 const label = version + ' - ' + dataHora;

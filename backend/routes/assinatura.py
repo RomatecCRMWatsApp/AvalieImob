@@ -25,6 +25,7 @@ _TIPO_COLECAO = {
     "tvi": "vistorias",
     "garantia": "garantias",
     "recibo": "recibos",
+    "contrato": "contratos",
 }
 
 
@@ -226,6 +227,14 @@ async def _gerar_pdf(tipo: str, doc: dict, db=None, perfil: dict | None = None) 
             from services.recibo_anexos import anexar_anexos_ao_pdf
             pdf_bytes = await anexar_anexos_ao_pdf(db, doc, pdf_bytes)
         return pdf_bytes
+    elif tipo == "contrato":
+        from routes.contratos import _generate_contrato_pdf_bytes
+        uid = doc.get("user_id")
+        empresa = "AvalieImob"
+        if db is not None and uid:
+            u = await db.users.find_one({"id": uid}, {"company": 1, "name": 1}) or {}
+            empresa = u.get("company") or u.get("name") or "AvalieImob"
+        return _generate_contrato_pdf_bytes(doc=doc, uid=uid or "", empresa=empresa)
     raise HTTPException(status_code=400, detail=f"Geracao de PDF nao suportada para tipo: {tipo}")
 
 
@@ -769,24 +778,38 @@ async def assinar_icp_brasil(
 
 
 async def _propagar_recibo_assinado(db, tipo: str, doc: dict, quando=None) -> None:
-    """Quando um RECIBO vinculado a um PTAM é assinado, marca recibo_assinado=True
-       no PTAM — o card do PTAM passa a mostrar o botão verde 'Recibo Assinado'."""
+    """Quando um RECIBO vinculado a um PTAM/Contrato é assinado, marca
+       recibo_assinado=True no documento de origem — o card passa a mostrar o
+       botão verde 'Recibo Assinado'."""
     if tipo != "recibo":
         return
+    quando = quando or datetime.utcnow()
     pid = (doc or {}).get("ptam_id")
-    if not pid:
-        return
-    try:
-        await db.ptam_documents.update_one(
-            {"id": pid},
-            {"$set": {
-                "recibo_assinado": True,
-                "recibo_assinado_em": quando or datetime.utcnow(),
-                "updated_at": datetime.utcnow(),
-            }},
-        )
-    except Exception as e:
-        logger.warning("Falha ao propagar recibo_assinado ao PTAM %s: %s", pid, e)
+    if pid:
+        try:
+            await db.ptam_documents.update_one(
+                {"id": pid},
+                {"$set": {
+                    "recibo_assinado": True,
+                    "recibo_assinado_em": quando,
+                    "updated_at": datetime.utcnow(),
+                }},
+            )
+        except Exception as e:
+            logger.warning("Falha ao propagar recibo_assinado ao PTAM %s: %s", pid, e)
+    cid = (doc or {}).get("contrato_id")
+    if cid:
+        try:
+            await db.contratos.update_one(
+                {"id": cid},
+                {"$set": {
+                    "recibo_assinado": True,
+                    "recibo_assinado_em": quando,
+                    "updated_at": datetime.utcnow(),
+                }},
+            )
+        except Exception as e:
+            logger.warning("Falha ao propagar recibo_assinado ao Contrato %s: %s", cid, e)
 
 
 async def _persist_assinatura(db, tipo, doc_id, layout, cert_id, pdf_bytes, hash_final, posicionado=False):

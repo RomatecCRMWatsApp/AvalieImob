@@ -140,6 +140,59 @@ def _contrato_query_by_cid(cid: str, uid: str) -> dict:
     return query
 
 
+def _format_numero_cont(doc: dict) -> str:
+    """Exibe a numeração no padrão CONT NNNN/AAAA derivada do numero_contrato
+    armazenado (ex.: 'CV-2026-0001' -> 'CONT 0001/2026'). Não altera o dado salvo."""
+    numero = (doc.get("numero_contrato") or "").strip()
+    if not numero:
+        return ""
+    partes = numero.replace("CV-", "").replace("CONT-", "").split("-")
+    if len(partes) >= 2 and partes[0].isdigit():
+        ano, seq = partes[0], partes[1]
+        return f"CONT {seq}/{ano}"
+    if len(partes) >= 2 and partes[1].isdigit():
+        seq, ano = partes[0], partes[1]
+        return f"CONT {seq}/{ano}"
+    return f"CONT {numero}"
+
+
+def _parse_dt(value) -> Optional[datetime]:
+    if isinstance(value, datetime):
+        return value
+    if not value:
+        return None
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%Y-%m-%dT%H:%M:%S"):
+        try:
+            return datetime.strptime(str(value)[:len(fmt) + 2], fmt)
+        except Exception:
+            continue
+    return None
+
+
+def _compute_status_card(doc: dict) -> str:
+    """Status do círculo do card (espelha o ciclo de vida do PTAM/spec PR-4):
+    rascunho | concluido | assinado | ativo | denunciado | encerrado | rescindido.
+    Derivado dos campos existentes, sem mutar o status armazenado."""
+    status = (doc.get("status") or "").lower()
+    assinado = (
+        doc.get("icp_status") == "assinado"
+        or doc.get("d4sign_status") == "assinado"
+        or status == "assinado"
+    )
+    if doc.get("rescindido_em") or status in ("distratado", "rescindido"):
+        return "rescindido"
+    if assinado:
+        fim = _parse_dt(doc.get("data_vigencia_fim"))
+        if fim and datetime.utcnow() > fim:
+            return "encerrado"
+        if doc.get("denunciado_em"):
+            return "denunciado"
+        return "ativo" if fim else "assinado"
+    if status in ("definitivo", "concluido", "em_revisao"):
+        return "concluido"
+    return "rascunho"
+
+
 def _normalize_contrato_doc(doc: Optional[dict]) -> Optional[dict]:
     if not doc:
         return doc
@@ -147,6 +200,8 @@ def _normalize_contrato_doc(doc: Optional[dict]) -> Optional[dict]:
     payload = serialize_doc(doc)
     if not payload.get("id") and raw_id is not None:
         payload["id"] = str(raw_id)
+    payload["numero_display"] = _format_numero_cont(payload)
+    payload["status_card"] = _compute_status_card(payload)
     return payload
 
 
@@ -1466,6 +1521,7 @@ async def compartilhar_contrato(
 @router.get("/contratos/public/{token}")
 async def portal_publico(
     token: str,
+    request: Request,
     db=Depends(get_db),
 ):
     """Portal público para visualização de contrato (sem autenticação)."""
@@ -1477,13 +1533,22 @@ async def portal_publico(
     if not doc:
         raise HTTPException(status_code=404, detail="Contrato não encontrado ou link inválido")
     
+    # Conta a visualização (debounce por IP/24h) — alimenta o contador 👁 do card
+    await _registrar_evento_contrato(
+        db, doc, "visualizado", ip=_client_ip(request), user_agent=request.headers.get("user-agent")
+    )
+
     # Retornar apenas dados não sensíveis
     return {
         "numero_contrato": doc.get("numero_contrato"),
+        "numero_display": _format_numero_cont(doc),
         "tipo_contrato": doc.get("tipo_contrato"),
         "status": doc.get("status"),
+        "status_card": _compute_status_card(doc),
         "data_assinatura": doc.get("data_assinatura"),
         "cidade_assinatura": doc.get("cidade_assinatura"),
+        "assinado": doc.get("icp_status") == "assinado" or doc.get("d4sign_status") == "assinado",
+        "icp_verificacao_url": doc.get("icp_verificacao_url"),
         "vendedores": [
             {"nome": v.get("pf", {}).get("nome") or v.get("pj", {}).get("razao_social", "")}
             for v in doc.get("vendedores", [])
@@ -1498,3 +1563,196 @@ async def portal_publico(
             "uf": doc.get("objeto", {}).get("uf", ""),
         },
     }
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Auditoria do link público + contadores (espelha services.link_tracking do PTAM,
+# porém escopado à coleção `contratos` / `contrato_link_eventos`).
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _client_ip(request: Optional[Request]) -> Optional[str]:
+    if request is None:
+        return None
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.client.host if request.client else None
+
+
+async def _registrar_evento_contrato(
+    db, doc: dict, tipo: str, *,
+    canal: Optional[str] = None, destinatario: Optional[str] = None,
+    ip: Optional[str] = None, user_agent: Optional[str] = None,
+) -> None:
+    """Registra evento (gerado|enviado|visualizado|desativado) e atualiza os
+    contadores-resumo no contrato. Nunca propaga exceção."""
+    try:
+        cid = doc.get("id")
+        if not cid:
+            return
+        agora = datetime.utcnow()
+
+        if tipo == "visualizado":
+            # Debounce: ignora visualizações do mesmo IP nas últimas 24h
+            from datetime import timedelta
+            ja = await db.contrato_link_eventos.find_one({
+                "contrato_id": cid, "tipo": "visualizado", "ip": ip,
+                "created_at": {"$gte": agora - timedelta(hours=24)},
+            }) if ip else None
+            if ja:
+                return
+
+        await db.contrato_link_eventos.insert_one({
+            "id": str(_uuid_module.uuid4()),
+            "user_id": doc.get("user_id"),
+            "contrato_id": cid,
+            "tipo": tipo,
+            "canal": canal,
+            "destinatario": destinatario,
+            "ip": ip,
+            "user_agent": (user_agent or "")[:300] or None,
+            "created_at": agora,
+        })
+
+        set_fields, inc_fields = {}, {}
+        if tipo == "visualizado":
+            inc_fields["link_views"] = 1
+            set_fields["link_views_last"] = agora
+            await db.contratos.update_one(
+                {"id": cid, "link_views_first": {"$exists": False}},
+                {"$set": {"link_views_first": agora}},
+            )
+        elif tipo == "enviado":
+            inc_fields["link_sends"] = 1
+            set_fields["link_last_sent"] = agora
+            set_fields["link_last_canal"] = canal
+            if destinatario:
+                set_fields["link_last_destinatario"] = destinatario
+        elif tipo == "gerado":
+            set_fields["link_gerado_em"] = agora
+
+        if set_fields or inc_fields:
+            update = {}
+            if set_fields:
+                update["$set"] = set_fields
+            if inc_fields:
+                update["$inc"] = inc_fields
+            await db.contratos.update_one({"id": cid}, update)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Falha ao registrar evento de link do contrato (%s): %s", tipo, e)
+
+
+@router.get("/contratos/{cid}/link-eventos")
+async def listar_link_eventos(
+    cid: str,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db),
+):
+    """Histórico de eventos do link público + resumo (modal Histórico do card)."""
+    doc = await db.contratos.find_one(_contrato_query_by_cid(cid, uid))
+    if not doc:
+        raise HTTPException(status_code=404, detail="Contrato não encontrado")
+    real_id = doc.get("id") or cid
+    eventos = await db.contrato_link_eventos.find(
+        {"contrato_id": real_id, "user_id": uid}, {"_id": 0}
+    ).sort("created_at", -1).to_list(200)
+    return {
+        "encontrado": True,
+        "resumo": {
+            "views": doc.get("link_views", 0),
+            "views_first": doc.get("link_views_first"),
+            "views_last": doc.get("link_views_last"),
+            "sends": doc.get("link_sends", 0),
+            "last_sent": doc.get("link_last_sent"),
+            "last_canal": doc.get("link_last_canal"),
+            "last_destinatario": doc.get("link_last_destinatario"),
+            "gerado_em": doc.get("link_gerado_em"),
+            "ativo": doc.get("link_publico_ativo", False),
+        },
+        "eventos": eventos,
+    }
+
+
+@router.post("/contratos/{cid}/clonar")
+async def clonar_contrato(
+    cid: str,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db),
+):
+    """Duplica o contrato: novo número, status minuta, zera assinaturas,
+    contadores, link público, recibo e histórico."""
+    doc = await db.contratos.find_one(_contrato_query_by_cid(cid, uid))
+    if not doc:
+        raise HTTPException(status_code=404, detail="Contrato não encontrado")
+
+    ano = datetime.utcnow().year
+    numero = await _next_contrato_numero(db, ano)
+    agora = datetime.utcnow()
+
+    novo = {k: v for k, v in doc.items() if not k.startswith("_")}
+    # Campos que NÃO devem ser clonados (assinatura, link, recibo, contadores, auditoria)
+    for campo in (
+        "icp_status", "icp_signed_at", "icp_cert_id", "icp_titular", "icp_documento",
+        "icp_emissor", "icp_hash", "icp_pdf_url", "icp_verificacao_url", "icp_layouts",
+        "pdf_assinatura_key", "d4sign_document_uuid", "d4sign_status", "d4sign_enviado_em",
+        "d4sign_assinado_em", "d4sign_signatarios", "d4sign_pdf_assinado_url",
+        "link_publico_token", "link_publico_ativo", "link_publico_criado_em",
+        "link_views", "link_views_first", "link_views_last", "link_sends",
+        "link_last_sent", "link_last_canal", "link_last_destinatario", "link_gerado_em",
+        "contrato_link", "recibo_id", "recibo_emitido", "recibo_emitido_em",
+        "recibo_pdf_url", "recibo_assinado", "recibo_assinado_em",
+        "lacrado", "versao_lacrada", "hash_lacrado", "denunciado_em", "rescindido_em",
+    ):
+        novo.pop(campo, None)
+
+    novo["id"] = str(_uuid_module.uuid4())
+    novo["user_id"] = uid
+    novo["numero_contrato"] = numero
+    novo["status"] = "minuta"
+    novo["versao_atual"] = 1
+    novo["created_at"] = agora
+    novo["updated_at"] = agora
+
+    await db.contratos.insert_one(novo)
+    return _normalize_contrato_doc(novo)
+
+
+@router.post("/contratos/{cid}/zerar-assinatura")
+async def zerar_assinatura_contrato(
+    cid: str,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db),
+):
+    """Remove a(s) assinatura(s) ICP do contrato e regride o status para minuta.
+    Equivale ao /assinatura/icp/contrato/{id}/resetar, porém escopado ao contrato."""
+    doc = await db.contratos.find_one(_contrato_query_by_cid(cid, uid))
+    if not doc:
+        raise HTTPException(status_code=404, detail="Contrato não encontrado")
+    real_id = doc.get("id") or cid
+
+    removidos = 0
+    cursor = db.assinaturas_pdf.find({"doc_tipo": "contrato", "doc_id": real_id})
+    async for a in cursor:
+        r2_key = a.get("r2_key")
+        if r2_key:
+            try:
+                from services import r2_storage
+                import asyncio as _aio
+                await _aio.to_thread(r2_storage.delete_object, r2_key)
+            except Exception as e:
+                logger.warning("Falha ao apagar PDF assinado do R2 (%s): %s", r2_key, e)
+        await db.assinaturas_pdf.delete_one({"id": a["id"]})
+        removidos += 1
+
+    await db.contratos.update_one(
+        {"id": real_id},
+        {
+            "$unset": {
+                "icp_status": "", "icp_signed_at": "", "icp_cert_id": "", "icp_titular": "",
+                "icp_documento": "", "icp_emissor": "", "icp_hash": "", "icp_pdf_url": "",
+                "icp_verificacao_url": "", "icp_layouts": "", "pdf_assinatura_key": "",
+            },
+            "$set": {"status": "minuta", "updated_at": datetime.utcnow()},
+        },
+    )
+    return {"ok": True, "removidos": removidos, "status": "minuta"}

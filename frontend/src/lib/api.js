@@ -473,6 +473,29 @@ export const contratosAPI = {
   buscar: (id) => api.get(`/contratos/${id}`).then(r => normalizeContrato(r.data)),
   atualizar: (id, data) => api.put(`/contratos/${id}`, data).then(r => normalizeContrato(r.data)),
   excluir: (id) => api.delete(`/contratos/${id}`).then(r => r.data),
+  // PDF / DOCX (blobs)
+  pdf: (id) => api.get(`/contratos/${id}/pdf`, { responseType: 'blob' }).then(r => r.data),
+  docx: (id) => api.get(`/contratos/${id}/docx`, { responseType: 'blob' }).then(r => r.data),
+  reciboArrasDocx: (id) => api.get(`/contratos/${id}/recibo-arras/docx`, { responseType: 'blob' }).then(r => r.data),
+  // PDF assinado (motor ICP compartilhado com o PTAM)
+  pdfAssinado: (id, layout = 'v2') =>
+    api.get(`/assinatura/icp/contrato/${id}/download`, { params: { layout }, responseType: 'blob' }).then(r => r.data),
+  // Link público + histórico
+  compartilhar: (id) => api.post(`/contratos/${id}/compartilhar`).then(r => r.data),
+  linkEventos: (id) => api.get(`/contratos/${id}/link-eventos`).then(r => r.data),
+  // Clonar / Zerar assinatura
+  clonar: (id) => api.post(`/contratos/${id}/clonar`).then(r => normalizeContrato(r.data)),
+  zerarAssinatura: (id) => api.post(`/contratos/${id}/zerar-assinatura`).then(r => r.data),
+};
+
+// ---- Perfis de Corretor (autofill "Usar meus dados" no wizard de partes)
+export const perfisCorretorAPI = {
+  listar: () => api.get('/perfis-corretor').then(r => r.data || []),
+  criar: (data) => api.post('/perfis-corretor', data).then(r => r.data),
+  atualizar: (id, data) => api.put(`/perfis-corretor/${id}`, data).then(r => r.data),
+  marcarPadrao: (id) => api.put(`/perfis-corretor/${id}/padrao`).then(r => r.data),
+  excluir: (id) => api.delete(`/perfis-corretor/${id}`).then(r => r.data),
+  seedRomario: () => api.post('/perfis-corretor/seed-romario').then(r => r.data || []),
 };
 
 // ---- Consulta CNPJ/CPF (Receita Federal — fallback ProspectaBR → CNPJ.ws → ReceitaWS)

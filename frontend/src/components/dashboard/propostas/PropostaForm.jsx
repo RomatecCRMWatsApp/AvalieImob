@@ -72,6 +72,85 @@ const SCHEMAS = {
       { ...N('valor_outro', 'Valor customizado (R$)'), when: (d) => d.faixa_honorario === 'outro' },
     ],
   },
+  georreferenciamento_rural: {
+    titulo: 'Georreferenciamento Rural (INCRA/SIGEF)',
+    campos: [
+      N('area_hectares', 'Área (hectares)'),
+      N('numero_vertices', 'Nº de vértices (mín. 3)', 3),
+      N('numero_diarias', 'Diárias de campo'),
+      N('distancia_km', 'Deslocamento (km)'),
+      SEL('complexidade', 'Complexidade', [
+        { value: 'simples', label: 'Simples (1,0×)' }, { value: 'media', label: 'Média (1,3×)' },
+        { value: 'alta', label: 'Alta (1,6×)' }], 'media'),
+      SEL('finalidade', 'Finalidade', [
+        { value: 'CERTIFICACAO', label: 'Certificação' }, { value: 'DESMEMBRAMENTO', label: 'Desmembramento' },
+        { value: 'REMEMBRAMENTO', label: 'Remembramento' }, { value: 'RETIFICACAO', label: 'Retificação' }], 'CERTIFICACAO'),
+      BOOL('tem_matricula', 'Possui matrícula registrada?', true),
+      N('valor_outros_servicos', 'Outros serviços / despesas (R$)'),
+    ],
+  },
+  desmembramento: {
+    titulo: 'Desmembramento',
+    campos: [
+      N('numero_lotes_resultantes', 'Nº de lotes resultantes (≥ 2)', 2),
+      N('area_total_m2', 'Área total da matriz (m²)'),
+      N('valor_venal_total', 'Valor venal total (R$)'),
+      SEL('tipo_zona', 'Zona', [{ value: 'urbana', label: 'Urbana' }, { value: 'rural', label: 'Rural' }], 'urbana'),
+      SEL('honorario_projeto_sm', 'Pacote (honorário/lote)', [
+        { value: 0.5, label: 'Básico (0,5 SM/lote)' }, { value: 1, label: 'Completo (1 SM/lote)' }], 1),
+      BOOL('iptu_em_dia', 'IPTU em dia?', true),
+    ],
+  },
+  remembramento: {
+    titulo: 'Remembramento',
+    campos: [
+      N('numero_lotes_origem', 'Nº de matrículas a unificar (≥ 2)', 2),
+      N('area_total_m2', 'Área total (m²)'),
+      N('valor_venal_total', 'Valor venal total (R$)'),
+      SEL('tipo_zona', 'Zona', [{ value: 'urbana', label: 'Urbana' }, { value: 'rural', label: 'Rural' }], 'urbana'),
+      SEL('honorario_projeto_sm', 'Pacote (honorário/matrícula)', [
+        { value: 0.5, label: 'Básico (0,5 SM)' }, { value: 1, label: 'Completo (1 SM)' }], 1),
+      BOOL('iptu_em_dia', 'IPTU em dia?', true),
+    ],
+  },
+  demarcacao_urbana: {
+    titulo: 'Demarcação de Lote Urbano',
+    campos: [
+      N('area_m2', 'Área do lote (m²)'),
+      N('num_vertices', 'Nº de vértices (≥ 3)', 4),
+      N('diarias_equipe', 'Diárias de equipe (≥ 1)', 1),
+      N('km_deslocamento', 'Deslocamento (km)'),
+      SEL('complexidade', 'Complexidade', [
+        { value: 'simples', label: 'Simples (1,0×)' }, { value: 'media', label: 'Média (1,3×)' },
+        { value: 'alta', label: 'Alta (1,6×)' }], 'media'),
+      SEL('marco_tipo', 'Tipo de marco', [
+        { value: 'concreto', label: 'Concreto (R$120)' }, { value: 'tubo_galvanizado', label: 'Tubo galvanizado (R$85)' },
+        { value: 'madeira', label: 'Madeira (R$35)' }], 'concreto'),
+      N('marco_quantidade', 'Qtd. de marcos'),
+      N('adicional_campo_pct', 'Adicional de campo % (insal/peric, 0–40)'),
+      N('desconto_pct', 'Desconto % (0–30)'),
+      SEL('num_parcelas', 'Parcelamento', [{ value: 3, label: '3× (40/30/30)' }, { value: 2, label: '2× (50/50)' }], 3),
+    ],
+  },
+  demarcacao_rural: {
+    titulo: 'Demarcação de Imóvel Rural',
+    campos: [
+      N('area_hectares', 'Área (hectares)'),
+      N('num_vertices', 'Nº de vértices (≥ 3)', 4),
+      N('diarias_equipe', 'Diárias de equipe (≥ 1)', 1),
+      N('km_deslocamento', 'Deslocamento (km)'),
+      SEL('complexidade', 'Complexidade', [
+        { value: 'simples', label: 'Simples (1,0×)' }, { value: 'media', label: 'Média (1,3×)' },
+        { value: 'alta', label: 'Alta (1,6×)' }], 'media'),
+      SEL('marco_tipo', 'Tipo de marco', [
+        { value: 'concreto', label: 'Concreto (R$120)' }, { value: 'tubo_galvanizado', label: 'Tubo galvanizado (R$85)' },
+        { value: 'madeira', label: 'Madeira (R$35)' }], 'concreto'),
+      N('marco_quantidade', 'Qtd. de marcos'),
+      N('adicional_campo_pct', 'Adicional de campo % (insal/peric, 0–40)'),
+      N('desconto_pct', 'Desconto % (0–30)'),
+      SEL('num_parcelas', 'Parcelamento', [{ value: 3, label: '3× (40/30/30)' }, { value: 2, label: '2× (50/50)' }], 3),
+    ],
+  },
 };
 
 const defaultsDe = (schema) => {

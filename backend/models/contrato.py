@@ -291,6 +291,38 @@ class ContratoBase(BaseModel):
     d4sign_assinado_em: Optional[datetime] = None
     d4sign_signatarios: Optional[List[dict]] = Field(default_factory=list)
     d4sign_pdf_assinado_url: Optional[str] = None
+    # ICP-Brasil A1/PAdES — assinatura local com posicionamento (motor compartilhado com PTAM)
+    icp_status: Optional[str] = None  # None | assinado
+    icp_signed_at: Optional[datetime] = None
+    icp_cert_id: Optional[str] = None
+    icp_titular: Optional[str] = None
+    icp_documento: Optional[str] = None
+    icp_emissor: Optional[str] = None
+    icp_hash: Optional[str] = None  # SHA-256 (64 hex) do PDF assinado
+    icp_pdf_url: Optional[str] = None
+    icp_verificacao_url: Optional[str] = None
+    icp_layouts: Optional[List[str]] = None
+    pdf_assinatura_key: Optional[str] = None  # chave R2 temporária do /preparar
+    # Contadores de link público / envios (espelham o card do PTAM)
+    link_views: Optional[int] = 0
+    link_views_first: Optional[datetime] = None
+    link_views_last: Optional[datetime] = None
+    link_sends: Optional[int] = 0
+    link_last_sent: Optional[datetime] = None
+    link_last_canal: Optional[str] = None
+    link_last_destinatario: Optional[str] = None
+    link_gerado_em: Optional[datetime] = None
+    # Integração com módulo Recibos
+    recibo_id: Optional[str] = None
+    recibo_emitido: Optional[bool] = False
+    recibo_emitido_em: Optional[datetime] = None
+    recibo_pdf_url: Optional[str] = None
+    recibo_assinado: Optional[bool] = False
+    recibo_assinado_em: Optional[datetime] = None
+    contrato_link: Optional[str] = None  # URL pública do contrato (para legenda de envio)
+    # Ciclo de vida estendido (auto por data: ativo/encerrado; manual: rescindido)
+    denunciado_em: Optional[datetime] = None
+    rescindido_em: Optional[datetime] = None
 
 
 class Contrato(ContratoBase):

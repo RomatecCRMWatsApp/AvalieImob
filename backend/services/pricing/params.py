@@ -81,16 +81,31 @@ TJMA_EMOLUMENTOS_2026 = {
     "limite_maximo_total": 23946.65,
 }
 
-# Demarcação de Lotes (urbana e rural) — para o engine futuro.
+# Demarcação de Lotes (urbana e rural) — port fiel do bloco demarcacao_lotes_2026 (v3.40.0).
 DEMARCACAO_LOTES_2026 = {
     "valor_m2_urbano_default": 1.50,
     "valor_hectare_rural_default": 80.00,
     "fator_diaria_tecnico": 0.42,
+    "fator_diaria_tecnico_fonte": "CFT-MA Resolucao no 12/2025 art. 4o — diaria de tecnico em agrimensura: 0,42 SM por dia em campo",
     "valor_km_deslocamento": 3.50,
     "marcos": {
         "concreto": {"valor_unitario": 120.00, "rotulo": "Marco de Concreto Padrao INCRA", "codigo_funcao": "M", "codigo_material": "CC", "largura_numero": 4},
         "madeira": {"valor_unitario": 35.00, "rotulo": "Marco de Madeira de Lei", "codigo_funcao": "P", "codigo_material": "MD", "largura_numero": 3},
         "tubo_galvanizado": {"valor_unitario": 85.00, "rotulo": "Marco em Tubo Galvanizado", "codigo_funcao": "M", "codigo_material": "TG", "largura_numero": 4},
+    },
+    "vertices": {"codigo_funcao": "V", "largura_numero": 3},
+    "opcionais": {
+        "laudo_tecnico": {"rotulo": "Laudo Tecnico de Demarcacao", "valor_unitario_sm_multiplicador": 1.0},
+        "alinhamento_cerca": {"rotulo": "Alinhamento de Cerca", "valor_unitario": 0.42, "unidade": "metro"},
+        "croqui_assinado": {"rotulo": "Croqui Assinado em Cartorio", "valor_unitario": 180.00},
+        "acompanhamento_obra": {"rotulo": "Acompanhamento de Obra", "valor_unitario": 350.00, "unidade": "diaria"},
+        "consultoria_juridica": {"rotulo": "Consultoria Juridica", "valor": "sob_orcamento"},
+    },
+    "laudo_tecnico_direto": {"rotulo": "Laudo Tecnico de Demarcacao", "valor_unitario_sm_multiplicador": 1.0},
+    "locacao_kit_gnss": {
+        "rotulo": "Locacao de equipamentos — Kit GNSS",
+        "valor_unitario_diaria_default": 250.00,
+        "descritivo": "Receptor ComNav S6 (base); Receptor T30 Plus com laser (rover); tripe; base niveladora; bastao/bipe; coletora R80.",
     },
     "minimo_garantido_sm": 2,
     "complexidade_multiplicadores": {"simples": 1.0, "media": 1.3, "alta": 1.6},
@@ -101,7 +116,21 @@ DEMARCACAO_LOTES_2026 = {
         {"numero": 2, "rotulo": "Entrega do trabalho de campo", "percentual": 30},
         {"numero": 3, "rotulo": "Entrega final + TRT/CFT", "percentual": 30},
     ],
+    "parcelas_2x": [
+        {"numero": 1, "rotulo": "Assinatura do contrato (sinal)", "percentual": 50},
+        {"numero": 2, "rotulo": "Entrega final + TRT/CFT", "percentual": 50},
+    ],
     "validade_dias_default": 15,
+}
+
+# Serviços adicionais opcionais de Georreferenciamento Rural (v3.23.6).
+# NÃO somam ao total Romatec — saem em seção informativa própria do PDF.
+OPCIONAIS_GEORREF = {
+    "ccir": {"rotulo": "Atualizacao do CCIR (INCRA)", "valor_unitario": 1621.00, "editavel": True},
+    "car": {"rotulo": "Atualizacao / emissao do CAR (SICAR)", "valor_unitario": 1621.00, "editavel": True},
+    "itr": {"rotulo": "Regularizacao de ITR em atraso", "valor_unitario": 300.00, "unidade": "por exercicio", "editavel": True},
+    "anuencia": {"rotulo": "Coleta de anuencia dos confrontantes", "valor_unitario": 150.00, "unidade": "por confrontante", "editavel": True},
+    "retificacao": {"rotulo": "Retificacao de area (Lei 10.931/2004)", "valor": "sob_orcamento"},
 }
 
 # Adicional de campo (insalubridade/periculosidade) — percentuais (textos no engine futuro).
