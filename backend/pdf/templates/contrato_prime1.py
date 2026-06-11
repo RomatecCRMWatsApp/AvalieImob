@@ -235,6 +235,13 @@ def render(doc: dict, uid: str, empresa: str) -> bytes:
     cw = PAGE_W - 2 * MARGIN
     story = [NextPageTemplate("interna"), PageBreak()]
 
+    # Preâmbulo (qualificação das partes) — somente exclusividade
+    if "exclusiv" in (doc.get("tipo_contrato") or "").lower():
+        from pdf.templates.contrato_base import preambulo_exclusividade
+        for par in preambulo_exclusividade(doc):
+            story.append(Paragraph(par, st["corpo"]))
+        story.append(Spacer(1, 8))
+
     # 01 Objeto
     story.append(SecaoHeaderP1("01", "Objeto & Imóvel", width=cw))
     story.append(Spacer(1, 4))
@@ -251,18 +258,16 @@ def render(doc: dict, uid: str, empresa: str) -> bytes:
     story.append(BandaVerde("Preço anunciado do imóvel", _money(valor_total), _extenso(valor_total), width=cw))
     story.append(Spacer(1, 12))
 
-    # 03 Cláusulas
+    # 03 Cláusulas (conteúdo neutro do contrato_base — canônico p/ exclusividade)
+    from pdf.templates.contrato_base import montar_clausulas, fecho_exclusividade
     story.append(SecaoHeaderP1("03", "Cláusulas Contratuais", width=cw))
     story.append(Spacer(1, 4))
-    if clausulas:
-        for cl in clausulas:
-            titulo = (cl.get("titulo") or "").strip()
-            num = cl.get("numero")
-            cab = f"{num}ª — {titulo}" if num else titulo
-            if cab:
-                story.append(Paragraph(cab.upper(), st["clausula_tit"]))
-            if (cl.get("conteudo") or "").strip():
-                story.append(Paragraph(cl["conteudo"].strip(), st["corpo"]))
+    cls = montar_clausulas(doc)
+    if cls:
+        for cl in cls:
+            story.append(Paragraph(cl.titulo.upper(), st["clausula_tit"]))
+            for item in cl.itens:
+                story.append(Paragraph(item, st["corpo"]))
     else:
         story.append(Paragraph("As cláusulas serão geradas na etapa de cláusulas do contrato.", st["corpo"]))
     story.append(Spacer(1, 12))
@@ -286,6 +291,11 @@ def render(doc: dict, uid: str, empresa: str) -> bytes:
     txt_prazo = f"{prazo}" if prazo else "INDETERMINADO (com aviso prévio conforme cláusula própria)"
     story.append(Paragraph(f"Prazo de exclusividade/vigência: <b>{txt_prazo}</b>.", st["corpo"]))
     story.append(Spacer(1, 12))
+
+    # Fecho (exclusividade)
+    if "exclusiv" in (doc.get("tipo_contrato") or "").lower():
+        story.append(Paragraph(fecho_exclusividade(doc), st["corpo"]))
+        story.append(Spacer(1, 8))
 
     # 06 Assinaturas
     story.append(SecaoHeaderP1("06", "Assinaturas", width=cw))

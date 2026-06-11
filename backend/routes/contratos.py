@@ -742,8 +742,30 @@ def _generate_contrato_pdf_bytes(doc: dict, uid: str, empresa: str) -> bytes:
             elems.append(HRFlowable(width="100%", thickness=0.5, color=colors.lightgrey, spaceAfter=6))
 
         # ── Cláusulas ─────────────────────────────────────────────────────────
+        # Exclusividade: texto canônico (mesmo builder dos templates Prime); demais
+        # tipos: cláusulas livres do documento. Garante paridade de texto nos 3 layouts.
+        _is_excl = "exclusiv" in (doc.get("tipo_contrato") or "").lower()
+        _clausulas_canon = []
+        if _is_excl:
+            try:
+                from pdf.templates.contrato_base import (
+                    montar_clausulas, preambulo_exclusividade, fecho_exclusividade,
+                )
+                _clausulas_canon = montar_clausulas(doc)
+            except Exception:
+                _clausulas_canon = []
         clausulas = doc.get("clausulas") or []
-        if clausulas:
+        if _clausulas_canon:
+            for par in preambulo_exclusividade(doc):
+                elems.append(_p(par, styles["clausula_texto"]))
+            elems.append(HRFlowable(width="100%", thickness=0.5, color=colors.lightgrey, spaceAfter=6))
+            for cl in _clausulas_canon:
+                elems.append(_p(f"<b>{cl.titulo}</b>", styles["clausula_titulo"]))
+                for item in cl.itens:
+                    elems.append(_p(item, styles["clausula_texto"]))
+            elems.append(_p(fecho_exclusividade(doc), styles["clausula_texto"]))
+            elems.append(HRFlowable(width="100%", thickness=0.5, color=colors.lightgrey, spaceAfter=6))
+        elif clausulas:
             elems.append(_p("CLAUSULAS E CONDICOES", styles["secao"]))
             for i, cl in enumerate(clausulas, 1):
                 if isinstance(cl, dict):
