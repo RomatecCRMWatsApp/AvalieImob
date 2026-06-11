@@ -1704,6 +1704,8 @@ const ContratoWizard = () => {
   const [lastSaved, setLastSaved] = useState(null);
   const [perfil, setPerfil] = useState(null);
   const debounceRef = useRef(null);
+  const creatingRef = useRef(false);      // trava criação concorrente (corrige duplicatas)
+  const skipAutosaveRef = useRef(false);  // pula o autosave disparado pelo próprio load()
 
   /* Load existing */
   const load = useCallback(async () => {
@@ -1711,6 +1713,7 @@ const ContratoWizard = () => {
     setLoading(true);
     try {
       const data = await contratosAPI.buscar(contratoId);
+      skipAutosaveRef.current = true;  // não autosalvar por causa do preenchimento do load
       setForm({ ...EMPTY, vendedores: [{ ...EMPTY_PESSOA }], compradores: [{ ...EMPTY_PESSOA }], ...data });
     } catch (err) {
       if (process.env.NODE_ENV === 'development') {
@@ -1737,11 +1740,15 @@ const ContratoWizard = () => {
       if (!silent) toast({ title: 'Selecione o tipo de contrato', description: 'Escolha uma modalidade na Etapa 1 antes de salvar.', variant: 'destructive' });
       return;
     }
+    // Evita criação concorrente: se já há um POST de criação em andamento e
+    // ainda não temos id, não dispara outro (corrige a geração de 3 rascunhos).
+    if (!contratoId && creatingRef.current) return;
     setSaving(true);
     try {
       if (contratoId) {
         await contratosAPI.atualizar(contratoId, form);
       } else {
+        creatingRef.current = true;
         const created = await contratosAPI.criar(form);
         setContratoId(created.id);
         // Só redireciona se for autosave (silent=true), não quando clica no botão Salvar
@@ -1752,6 +1759,8 @@ const ContratoWizard = () => {
       setLastSaved(new Date());
       if (!silent) toast({ title: 'Rascunho salvo' });
     } catch (err) {
+      // Libera nova tentativa apenas se a CRIAÇÃO falhou (mantém a trava se já criou)
+      if (!contratoId) creatingRef.current = false;
       if (process.env.NODE_ENV === 'development') {
         console.warn('Erro ao salvar contrato:', err);
       }
@@ -1764,6 +1773,8 @@ const ContratoWizard = () => {
 
   /* Autosave */
   useEffect(() => {
+    // Pula o autosave provocado pelo preenchimento do load() (evita update/versão à toa)
+    if (skipAutosaveRef.current) { skipAutosaveRef.current = false; return; }
     if (isNew && !contratoId) return;
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => save(true), 2500);

@@ -923,6 +923,9 @@ async def listar_contratos(
     filtros = {"user_id": uid}
     if status:
         filtros["status"] = status
+    else:
+        # Por padrão, oculta os arquivados (soft delete) — assim o excluir "cola"
+        filtros["status"] = {"$nin": ["arquivado"]}
     if tipo_contrato:
         filtros["tipo_contrato"] = tipo_contrato
     
