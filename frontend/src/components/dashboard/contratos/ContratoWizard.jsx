@@ -58,6 +58,33 @@ const PARTES_POR_TIPO = {
   distrato:                  { parte1: 'Parte A', parte2: 'Parte B', parte3: null, temParte3: false },
 };
 
+/* ─── Descrição do card POR PAPEL (nunca genérica) ───────── */
+const DESC_PAPEL = {
+  'Vendedor': 'Informe os dados de quem vende/aliena o bem.',
+  'Comprador': 'Informe os dados de quem adquire o bem.',
+  'Proprietário': 'Informe os dados do(s) proprietário(s) do imóvel que outorga(m) a exclusividade.',
+  'Corretor': 'Dados do corretor/escritório responsável pela intermediação.',
+  'Permutante A': 'Informe os dados do primeiro permutante.',
+  'Permutante B': 'Informe os dados do segundo permutante.',
+  'Cedente': 'Informe os dados de quem cede os direitos.',
+  'Cessionário': 'Informe os dados de quem recebe os direitos.',
+  'Locador': 'Informe os dados de quem loca (proprietário) o imóvel.',
+  'Locatário': 'Informe os dados de quem aluga o imóvel.',
+  'Fiador': 'Informe os dados do(s) fiador(es) — opcional.',
+  'Comodante': 'Informe os dados de quem empresta o bem.',
+  'Comodatário': 'Informe os dados de quem recebe o bem em comodato.',
+  'Arrendador': 'Informe os dados de quem arrenda (proprietário) a terra.',
+  'Arrendatário': 'Informe os dados de quem explora a terra arrendada.',
+  'Parceiro': 'Informe os dados do parceiro outorgado.',
+  'Doador': 'Informe os dados de quem doa o bem.',
+  'Donatário': 'Informe os dados de quem recebe a doação.',
+  'Cliente': 'Informe os dados do(s) contratante(s).',
+  'Usufrutuário': 'Informe os dados de quem recebe o usufruto.',
+  'Parte A': 'Informe os dados da primeira parte.',
+  'Parte B': 'Informe os dados da segunda parte.',
+};
+const descPapel = (label) => DESC_PAPEL[label] || `Informe os dados de: ${label}.`;
+
 /* ─── Função para obter labels dinâmicos ─────────────────── */
 const getParteLabels = (tipoContrato) => {
   const config = PARTES_POR_TIPO[tipoContrato] || PARTES_POR_TIPO.compra_venda;
@@ -66,8 +93,31 @@ const getParteLabels = (tipoContrato) => {
     parte2: config.parte2,
     parte3: config.parte3,
     temParte3: config.temParte3,
+    descricao1: descPapel(config.parte1),
+    descricao2: descPapel(config.parte2),
   };
 };
+
+/* ─── Título do header POR TIPO ──────────────────────────── */
+const TITULO_HEADER = {
+  compra_venda: 'Contrato de Compra e Venda',
+  promessa_compra_venda: 'Contrato de Promessa de Compra e Venda',
+  permuta: 'Contrato de Permuta',
+  cessao_direitos: 'Contrato de Cessão de Direitos',
+  locacao_residencial: 'Contrato de Locação Residencial',
+  locacao_comercial: 'Contrato de Locação Comercial',
+  comodato: 'Contrato de Comodato',
+  arrendamento_rural: 'Contrato de Arrendamento Rural',
+  parceria_rural: 'Contrato de Parceria Rural',
+  doacao: 'Contrato de Doação',
+  arras: 'Recibo de Arras / Sinal',
+  intermediacao: 'Contrato de Intermediação Imobiliária',
+  exclusividade: 'Contrato de Exclusividade',
+  usufruto: 'Instrumento de Instituição de Usufruto',
+  compra_venda_veiculo: 'Contrato de Compra e Venda de Veículo',
+  distrato: 'Instrumento de Distrato',
+};
+const tituloHeader = (tipo) => TITULO_HEADER[tipo] || 'Contrato';
 
 /* ─── Tipos de contrato por categoria ───────────────────── */
 const TIPOS = [
@@ -326,7 +376,7 @@ const Step2Parte1 = ({ form, setForm, labels }) => {
     <div className="space-y-5">
       <div>
         <h2 className="text-xl font-bold text-gray-900 mb-1">{parte1}(es)</h2>
-        <p className="text-sm text-gray-500">Informe os dados de todas as partes que alienam, cedem ou disponibilizam o bem.</p>
+        <p className="text-sm text-gray-500">{labels.descricao1}</p>
       </div>
 
       {form.vendedores.length === 0 && (
@@ -371,7 +421,7 @@ const Step3Parte2 = ({ form, setForm, labels }) => {
     <div className="space-y-5">
       <div>
         <h2 className="text-xl font-bold text-gray-900 mb-1">{parte2}(es)</h2>
-        <p className="text-sm text-gray-500">Informe os dados de todas as partes que adquirem, tomam ou recebem o bem.</p>
+        <p className="text-sm text-gray-500">{labels.descricao2}</p>
       </div>
 
       {form.compradores.length === 0 && (
@@ -1845,13 +1895,14 @@ const ContratoWizard = () => {
     }
   };
 
-  const progressPct = Math.round(((step + 1) / STEP_LABELS.length) * 100);
   const parteLabels = getParteLabels(form.tipo_contrato);
+  const ehCorretorContratado = ['intermediacao', 'exclusividade'].includes(form.tipo_contrato);
+  // Fonte ÚNICA de labels: barra de progresso E chips derivam deste array.
   const dynamicStepLabels = [
     'Tipo',
     parteLabels.parte1 + '(es)',
     parteLabels.parte2 + '(es)',
-    parteLabels.temParte3 ? (parteLabels.parte3 === 'Corretor' ? 'Corretor' : parteLabels.parte3 + '(es)') : 'Parte 3',
+    ehCorretorContratado ? 'Corretor (Contratado)' : 'Corretor',
     'Objeto',
     'Pagamento',
     'Cláusulas',
@@ -1860,6 +1911,7 @@ const ContratoWizard = () => {
     'Revisão',
     'Exportar',
   ];
+  const progressPct = Math.round(((step + 1) / dynamicStepLabels.length) * 100);
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
@@ -1874,7 +1926,8 @@ const ContratoWizard = () => {
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <FileSignature className="w-5 h-5 text-emerald-800" />
           <h1 className="text-lg font-bold text-gray-900 truncate">
-            {isNew ? 'Novo Contrato' : `Contrato ${form.numero || ''}`}
+            {form.tipo_contrato ? tituloHeader(form.tipo_contrato) : 'Novo Contrato'}
+            {form.numero ? <span className="text-gray-400 font-normal"> · {form.numero}</span> : ''}
           </h1>
         </div>
         <div className="flex items-center gap-2">
@@ -1899,7 +1952,7 @@ const ContratoWizard = () => {
       <div>
         <div className="flex items-center justify-between mb-1">
           <span className="text-xs text-gray-500 font-medium">
-            Etapa {step + 1} de {STEP_LABELS.length} — {dynamicStepLabels[step]}
+            Etapa {step + 1} de {dynamicStepLabels.length} — {dynamicStepLabels[step]}
           </span>
           <span className="text-xs text-gray-400">{progressPct}%</span>
         </div>
@@ -1911,9 +1964,9 @@ const ContratoWizard = () => {
         </div>
       </div>
 
-      {/* Step tabs (desktop) */}
+      {/* Step tabs (desktop) — mesma fonte da barra (corrige off-by-one) */}
       <div className="hidden lg:flex gap-1 flex-wrap">
-        {STEP_LABELS.map((label, i) => (
+        {dynamicStepLabels.map((label, i) => (
           <button
             key={i}
             onClick={() => setStep(i)}
