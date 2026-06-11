@@ -19,6 +19,46 @@ async def list_clients(uid: str = Depends(get_active_subscriber), db=Depends(get
     return [Client(**serialize_doc(i)) for i in items]
 
 
+@router.get("/clients/busca")
+async def buscar_clientes(
+    q: str = "",
+    limit: int = 20,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db),
+):
+    """Busca incremental por nome / CPF-CNPJ / telefone (fonte do ClientePicker).
+    Mínimo 2 caracteres; case-insensitive; escopo do usuário."""
+    termo = (q or "").strip()
+    if len(termo) < 2:
+        return []
+    import re
+    rgx = re.compile(re.escape(termo), re.IGNORECASE)
+    so_digitos = _digits(termo)
+    ors = [{"name": rgx}, {"phone": rgx}, {"email": rgx}]
+    if so_digitos:
+        ors.append({"doc": re.compile(re.escape(so_digitos))})
+    itens = await db.clients.find(
+        {"user_id": uid, "$or": ors}
+    ).sort("name", 1).to_list(max(1, min(limit, 50)))
+    out = []
+    for i in itens:
+        c = serialize_doc(i)
+        out.append({
+            "id": c.get("id"),
+            "name": c.get("name", ""),
+            "type": c.get("type", ""),
+            "doc": c.get("doc", ""),
+            "phone": c.get("phone", ""),
+            "email": c.get("email", ""),
+            "estado_civil": c.get("estado_civil", ""),
+            "origem": c.get("origem", ""),
+            "foto_thumb_key": c.get("foto_thumb_key"),
+            "tem_conjuge": bool(c.get("conjuge")),
+            "qtd_documentos": len(c.get("documentos") or []),
+        })
+    return out
+
+
 @router.post("/clients", response_model=Client)
 async def create_client(data: ClientBase, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
     c = Client(user_id=uid, **data.model_dump())
