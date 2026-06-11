@@ -543,6 +543,12 @@ async def startup():
         await seed_incra_default(get_db())
     except Exception as e:
         logger.error(f"Erro no auto-seed INCRA: {e}")
+    # Garante o modelo "Vistoria de Obra para Averbação" (idempotente, não dropa nada).
+    try:
+        from models.averbacao import ensure_modelo_averbacao
+        await ensure_modelo_averbacao(get_db())
+    except Exception as e:
+        logger.error(f"Erro ao garantir modelo Averbação: {e}")
     # Auto-seed TVI é opcional e deve ser explicitamente habilitado.
     enable_tvi_autoseed = os.getenv("ENABLE_TVI_AUTOSEED", "").strip().lower() in {"1", "true", "yes", "on"}
     if not enable_tvi_autoseed:

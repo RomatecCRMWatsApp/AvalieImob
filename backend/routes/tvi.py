@@ -20,6 +20,10 @@ from pdf.tvi_pdf import generate_tvi_pdf
 from docx_gen.tvi_docx import generate_tvi_docx
 from services.tvi_share import enviar_tvi_email, gerar_link_whatsapp
 from services.upload_security import detect_content_type, normalize_filename
+from models.averbacao import catalogos_averbacao, calcular_averbacao
+from services.vistoria_averbacao_relatorio import gerar_relatorio_averbacao
+from pdf.vistoria_averbacao_pdf import generate_averbacao_pdf
+from docx_gen.vistoria_averbacao_docx import generate_averbacao_docx
 
 
 class ShareEmailRequest(BaseModel):
@@ -87,6 +91,14 @@ async def list_tvi_models(
     return {"categorias": grouped, "total": len(docs)}
 
 
+# ── Catálogos da Vistoria de Obra para Averbação (fonte única) ─────────────
+@router.get("/tvi/catalogos/averbacao")
+async def get_catalogos_averbacao(uid: str = Depends(get_active_subscriber)):
+    """Etapas (com pesos), documentos registrais, sistemas e patologias — o
+       front nunca hardcoda catálogos."""
+    return catalogos_averbacao()
+
+
 @router.get("/tvi/models/{model_id}")
 async def get_tvi_model(
     model_id: str,
@@ -111,6 +123,8 @@ async def create_vistoria(
     numero = await _next_tvi_numero(db)
     payload = data.model_dump()
     payload["numero_tvi"] = numero
+    if payload.get("averbacao"):
+        payload["averbacao"] = calcular_averbacao(payload["averbacao"])
     # Enrich with model info
     modelo = await db.vistoria_models.find_one({"id": data.model_id})
     if modelo:
@@ -171,6 +185,9 @@ async def update_vistoria(
     # Preserva número
     if doc.get("numero_tvi") and not updates.get("numero_tvi"):
         updates["numero_tvi"] = doc["numero_tvi"]
+    # Cálculos da averbação SEMPRE server-side (fonte da verdade).
+    if updates.get("averbacao"):
+        updates["averbacao"] = calcular_averbacao(updates["averbacao"])
     await db.vistorias.update_one({"id": vid}, {"$set": updates})
     new_doc = await db.vistorias.find_one({"id": vid})
     return Vistoria(**serialize_doc(new_doc))
@@ -346,6 +363,46 @@ async def _load_vistoria_full(vid: str, uid: str, db):
     return vistoria, user, photos, signatures, model_nome, campos_especificos
 
 
+async def _resolve_photos_bytes(db, photos: list) -> list:
+    """Converte url /api/upload/image/{id} em data-URI (PDF) + anexa _bytes (DOCX)."""
+    out = []
+    for p in (photos or []):
+        p2 = dict(p) if isinstance(p, dict) else {}
+        url = p2.get("url") or ""
+        img_id = url.rsplit("/", 1)[-1] if "/upload/image/" in url else None
+        if img_id:
+            img = await db.images.find_one({"id": img_id})
+            if img and img.get("data_b64"):
+                ct = img.get("content_type", "image/jpeg")
+                p2["url"] = f"data:{ct};base64,{img['data_b64']}"
+                try:
+                    p2["_bytes"] = base64.b64decode(img["data_b64"])
+                except Exception:
+                    pass
+        out.append(p2)
+    return out
+
+
+# ── Relatório (gera/persiste o texto — fonte única p/ preview e PDF) ────────
+@router.post("/tvi/vistoria/{vid}/relatorio")
+async def gerar_relatorio_endpoint(
+    vid: str,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db),
+):
+    doc = await db.vistorias.find_one({"id": vid, "user_id": uid})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Vistoria não encontrada")
+    vistoria = serialize_doc(doc)
+    if not vistoria.get("averbacao"):
+        raise HTTPException(status_code=400, detail="Vistoria sem dados de averbação")
+    texto = gerar_relatorio_averbacao(vistoria)
+    await db.vistorias.update_one(
+        {"id": vid}, {"$set": {"relatorio_gerado": texto, "updated_at": datetime.utcnow()}}
+    )
+    return {"relatorio": texto}
+
+
 # ── Export PDF ──────────────────────────────────────────────────────────────
 @router.post("/tvi/vistoria/{vid}/export/pdf")
 async def export_pdf(
@@ -355,7 +412,11 @@ async def export_pdf(
 ):
     """Gera e retorna o TVI em PDF (application/pdf) — binário puro, sem JSON."""
     vistoria, user, photos, signatures, model_nome, campos_esp = await _load_vistoria_full(vid, uid, db)
-    pdf_bytes = generate_tvi_pdf(vistoria, user, photos, signatures, model_nome, campos_esp)
+    if vistoria.get("averbacao"):
+        photos_av = await _resolve_photos_bytes(db, photos)
+        pdf_bytes = generate_averbacao_pdf(vistoria, user, photos_av, signatures)
+    else:
+        pdf_bytes = generate_tvi_pdf(vistoria, user, photos, signatures, model_nome, campos_esp)
 
     # Validação de integridade
     if not pdf_bytes or len(pdf_bytes) < 100 or not pdf_bytes.startswith(b"%PDF-"):
@@ -387,7 +448,11 @@ async def export_docx(
 ):
     """Gera e retorna o TVI em DOCX (Word) — binário puro, sem JSON."""
     vistoria, user, photos, signatures, model_nome, campos_esp = await _load_vistoria_full(vid, uid, db)
-    docx_bytes = generate_tvi_docx(vistoria, user, photos, signatures, model_nome, campos_esp)
+    if vistoria.get("averbacao"):
+        photos_av = await _resolve_photos_bytes(db, photos)
+        docx_bytes = generate_averbacao_docx(vistoria, user, photos_av, signatures)
+    else:
+        docx_bytes = generate_tvi_docx(vistoria, user, photos, signatures, model_nome, campos_esp)
 
     # Validação de integridade
     if not docx_bytes or len(docx_bytes) == 0:

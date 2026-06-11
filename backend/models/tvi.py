@@ -3,6 +3,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional, List, Any, Dict
 from datetime import datetime
 from models.common import _id, _now
+from models.averbacao import DadosAverbacao
 
 
 # ── Campos comuns de identificação presentes em todos os modelos ────────────
@@ -82,6 +83,9 @@ class VistoriaBase(BaseModel):
 
     # Campos extras conforme categoria/tipo (flexível)
     campos_extras: Dict[str, Any] = Field(default_factory=dict)
+
+    # Vistoria de Obra para Averbação (modelo REGULARIZAÇÃO) — opcional.
+    averbacao: Optional[DadosAverbacao] = None
 
     # D4Sign — Assinatura Digital com Validade Juridica (Lei 14.063/2020 + MP 2.200-2/2001)
     d4sign_document_uuid: Optional[str] = None

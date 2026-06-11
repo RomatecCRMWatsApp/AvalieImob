@@ -425,6 +425,9 @@ export const tviAPI = {
   saveSignature: (id, signatureBase64) => api.post(`/tvi/vistoria/${id}/signature`, { signature: signatureBase64 }).then(r => r.data),
   exportPdf: (id) => api.post(`/tvi/vistoria/${id}/export/pdf`, {}, { responseType: 'blob' }).then(r => r.data),
   exportDocx: (id) => api.post(`/tvi/vistoria/${id}/export/docx`, {}, { responseType: 'blob' }).then(r => r.data),
+  // Vistoria de Obra para Averbação
+  catalogosAverbacao: () => api.get('/tvi/catalogos/averbacao').then(r => r.data),
+  gerarRelatorio: (id) => api.post(`/tvi/vistoria/${id}/relatorio`).then(r => r.data),
 };
 
 // ---- Zonas do Plano Diretor (personalizadas por usuário)
