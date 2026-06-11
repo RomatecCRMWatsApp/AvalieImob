@@ -76,6 +76,7 @@ class ContratoUpdate(BaseModel):
     incluir_logo: Optional[bool] = None
     incluir_recibo_arras: Optional[bool] = None
     incluir_checklist: Optional[bool] = None
+    template_pdf: Optional[str] = None   # prime1 | prime2 | tradicional
 
 
 class GerarClausulasRequest(BaseModel):
@@ -959,10 +960,13 @@ async def buscar_contrato(
 @router.get("/contratos/{cid}/pdf")
 async def baixar_contrato_pdf(
     cid: str,
+    template: Optional[str] = None,   # prime1 | prime2 | tradicional (opcional)
     uid: str = Depends(get_authenticated_user),
     db=Depends(get_db),
 ):
-    """Gera e retorna PDF binário válido do contrato do usuário autenticado."""
+    """Gera e retorna PDF binário válido do contrato do usuário autenticado.
+    O template vem da query, senão do contrato (template_pdf), senão o padrão.
+    Qualquer falha no template escolhido cai no gerador tradicional (download nunca quebra)."""
     doc = await db.contratos.find_one(_contrato_query_by_cid(cid, uid))
     if not doc:
         raise HTTPException(status_code=404, detail="Contrato não encontrado")
@@ -970,7 +974,8 @@ async def baixar_contrato_pdf(
     user = await db.users.find_one({"id": uid}, {"company": 1, "name": 1})
     empresa = (user or {}).get("company") or (user or {}).get("name") or "AvalieImob"
 
-    pdf_bytes = _generate_contrato_pdf_bytes(doc=doc, uid=uid, empresa=empresa)
+    from pdf.templates.registry import gerar_pdf_contrato
+    pdf_bytes = gerar_pdf_contrato(doc=doc, uid=uid, empresa=empresa, template=template)
     if not pdf_bytes.startswith(b"%PDF-"):
         raise HTTPException(status_code=500, detail="Falha ao gerar PDF válido")
 

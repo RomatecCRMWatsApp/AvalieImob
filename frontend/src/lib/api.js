@@ -473,8 +473,10 @@ export const contratosAPI = {
   buscar: (id) => api.get(`/contratos/${id}`).then(r => normalizeContrato(r.data)),
   atualizar: (id, data) => api.put(`/contratos/${id}`, data).then(r => normalizeContrato(r.data)),
   excluir: (id) => api.delete(`/contratos/${id}`).then(r => r.data),
-  // PDF / DOCX (blobs)
-  pdf: (id) => api.get(`/contratos/${id}/pdf`, { responseType: 'blob' }).then(r => r.data),
+  // PDF / DOCX (blobs). template opcional: 'prime1' | 'prime2' | 'tradicional'
+  pdf: (id, template) => api.get(`/contratos/${id}/pdf`, {
+    params: template ? { template } : {}, responseType: 'blob',
+  }).then(r => r.data),
   docx: (id) => api.get(`/contratos/${id}/docx`, { responseType: 'blob' }).then(r => r.data),
   reciboArrasDocx: (id) => api.get(`/contratos/${id}/recibo-arras/docx`, { responseType: 'blob' }).then(r => r.data),
   // PDF assinado (motor ICP compartilhado com o PTAM)
