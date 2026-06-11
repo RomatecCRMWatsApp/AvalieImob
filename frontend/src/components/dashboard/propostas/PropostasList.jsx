@@ -3,10 +3,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Home, Store, Compass, MapPin, TreePine, Scissors, Link2, Ruler, Coins,
-  DraftingCompass, Layers, Loader2, Trash2, FileText, ChevronRight,
+  DraftingCompass, Layers, Loader2, Trash2, FileText,
 } from 'lucide-react';
 import { useToast } from '../../../hooks/use-toast';
 import { propostasAPI } from '../../../lib/api';
+import { TypeCard } from '../shared/TypeCardGrid';
 
 const ICONS = { Home, Store, Compass, MapPin, TreePine, Scissors, Link2, Ruler, Coins, DraftingCompass, Layers };
 
@@ -57,34 +58,16 @@ const PropostasList = () => {
       <div className="space-y-3">
         <h2 className="text-sm font-semibold text-gray-700 dark:text-[#F2EFE6]">Nova proposta — escolha o tipo</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {tipos.map((t) => {
-            const Icon = ICONS[t.icone] || FileText;
-            const disp = t.disponivel;
-            return (
-              <button
-                key={t.subtipo} type="button" disabled={!disp}
-                onClick={() => disp && nav(`/dashboard/propostas/nova/${t.subtipo}`)}
-                aria-label={`Nova proposta: ${t.label}`}
-                className={`group relative text-left rounded-2xl p-[18px] border transition-all duration-150
-                  ${disp
-                    ? 'bg-white border-[rgba(12,51,32,0.12)] hover:-translate-y-0.5 hover:border-[rgba(201,168,76,0.55)] hover:shadow-[0_8px_24px_rgba(12,51,32,0.12)] cursor-pointer dark:bg-[#103B26] dark:border-[rgba(201,168,76,0.14)]'
-                    : 'bg-gray-50 border-gray-100 opacity-60 cursor-not-allowed dark:bg-[#0e2c1d]'}`}
-              >
-                {disp && <ChevronRight className="absolute top-4 right-4 w-4 h-4 text-[#C9A84C] opacity-0 group-hover:opacity-100 transition-opacity" />}
-                <div className="flex items-start gap-3">
-                  <div className="w-[38px] h-[38px] rounded-xl flex items-center justify-center flex-shrink-0 bg-[rgba(201,168,76,0.16)]">
-                    <Icon className="w-[18px] h-[18px] text-[#C9A84C]" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="font-semibold text-[15px] leading-tight text-[#15301F] dark:text-[#F2EFE6]">{t.label}</div>
-                    <div className={`text-[11px] mt-1 font-medium ${disp ? 'text-emerald-600' : 'text-gray-400'}`}>
-                      {disp ? '● Disponível' : '○ Em breve'}
-                    </div>
-                  </div>
-                </div>
-              </button>
-            );
-          })}
+          {tipos.map((t) => (
+            <TypeCard
+              key={t.subtipo}
+              icon={ICONS[t.icone] || FileText}
+              label={t.label}
+              disponivel={t.disponivel}
+              ariaLabel={`Nova proposta: ${t.label}`}
+              onClick={() => nav(`/dashboard/propostas/nova/${t.subtipo}`)}
+            />
+          ))}
         </div>
       </div>
 

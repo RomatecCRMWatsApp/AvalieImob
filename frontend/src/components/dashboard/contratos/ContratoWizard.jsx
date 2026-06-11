@@ -1,6 +1,6 @@
 // @module contratos/ContratoWizard — Wizard de 11 etapas para criacao/edicao de contratos
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   ArrowLeft, ChevronLeft, ChevronRight, Save, Loader2, Check,
   FileSignature, Building2, Car, Tractor, User, Users, Briefcase,
@@ -1728,13 +1728,14 @@ const Step11Exportar = ({ form, setForm, contratoId, user }) => {
 const ContratoWizard = () => {
   const { id } = useParams();
   const nav = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const { user } = useAuth();
 
   const isNew = !id || id === 'novo';
   const [form, setForm] = useState({ ...EMPTY, vendedores: [{ ...EMPTY_PESSOA }], compradores: [{ ...EMPTY_PESSOA }] });
   const [contratoId, setContratoId] = useState(isNew ? null : id);
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(location.state?.startStep || 0);
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState(null);

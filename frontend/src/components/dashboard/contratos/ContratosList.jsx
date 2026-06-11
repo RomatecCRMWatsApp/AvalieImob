@@ -12,6 +12,8 @@ import { useToast } from '../../../hooks/use-toast';
 import { contratosAPI } from '../../../lib/api';
 import AssinaturaPosicionadaModal from '../assinatura/AssinaturaPosicionadaModal';
 import AssinaturaDigital from '../ptam/AssinaturaDigital';
+import TypeCardGrid from '../shared/TypeCardGrid';
+import { CONTRATO_TIPOS, CONTRATO_CATEGORIAS } from '../../../constants/contratoTipos';
 
 /* ── Ciclo de vida do card (status_card vindo do backend) ─────────────────────
    Espelha o círculo de status do PTAM (spec PR-4 §2). */
@@ -82,10 +84,13 @@ const TIPO_OPTIONS = [
 
 const STATUS_OPTIONS = [
   { value: '', label: 'Todos os status' },
-  { value: 'minuta', label: 'Minuta' },
-  { value: 'definitivo', label: 'Definitivo' },
+  { value: 'rascunho', label: 'Rascunho' },
+  { value: 'concluido', label: 'Concluído' },
   { value: 'assinado', label: 'Assinado' },
-  { value: 'distratado', label: 'Distratado' },
+  { value: 'ativo', label: 'Ativo' },
+  { value: 'denunciado', label: 'Denunciado' },
+  { value: 'encerrado', label: 'Encerrado' },
+  { value: 'rescindido', label: 'Rescindido' },
 ];
 
 const fmtCurrency = (v) =>
@@ -274,7 +279,7 @@ const ContratosList = () => {
     try {
       const params = {};
       if (filterTipo) params.tipo_contrato = filterTipo;
-      if (filterStatus) params.status = filterStatus.toLowerCase();
+      // status é do ciclo PR-4 (status_card, derivado) → filtra no cliente
       setItems(await contratosAPI.listar(params));
     } catch (err) {
       if (process.env.NODE_ENV === 'development') console.warn(err);
@@ -282,9 +287,20 @@ const ContratosList = () => {
     } finally {
       setLoading(false);
     }
-  }, [toast, filterTipo, filterStatus]);
+  }, [toast, filterTipo]);
 
   useEffect(() => { load(); }, [load]);
+
+  const criarDoTipo = async (tipo) => {
+    if (!tipo || tipo.status === 'em_breve') return;
+    try {
+      const novo = await contratosAPI.criar({ tipo_contrato: tipo.id });
+      // abre o wizard já na etapa 2 (Partes), pulando a etapa Tipo
+      nav(`/dashboard/contratos/${getContratoId(novo)}`, { state: { startStep: 1 } });
+    } catch {
+      toast({ title: 'Erro ao criar contrato', variant: 'destructive' });
+    }
+  };
 
   const remove = async (id, c) => {
     if (!id) { toast({ title: 'Contrato sem ID válido', variant: 'destructive' }); return; }
@@ -355,19 +371,21 @@ const ContratosList = () => {
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
-  /* client-side search por partes */
-  const filtered = search.trim()
-    ? items.filter((c) => {
-        const q = search.toLowerCase();
-        const partes = [
-          c.vendedores?.map(getParteNome)?.join(' ') || '',
-          c.compradores?.map(getParteNome)?.join(' ') || '',
-          numeroDisplay(c),
-          c.objeto?.endereco || '',
-        ].join(' ').toLowerCase();
-        return partes.includes(q);
-      })
-    : items;
+  /* filtros client-side: status (ciclo PR-4) + busca por partes */
+  const filtered = items.filter((c) => {
+    if (filterStatus && (c.status_card || 'rascunho') !== filterStatus) return false;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      const partes = [
+        c.vendedores?.map(getParteNome)?.join(' ') || '',
+        c.compradores?.map(getParteNome)?.join(' ') || '',
+        numeroDisplay(c),
+        c.objeto?.endereco || '',
+      ].join(' ').toLowerCase();
+      if (!partes.includes(q)) return false;
+    }
+    return true;
+  });
 
   return (
     <div className="space-y-6">
@@ -375,10 +393,10 @@ const ContratosList = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <FileSignature className="w-6 h-6 text-emerald-800" />
-            <h1 className="font-display text-3xl font-bold text-[#B8860B] dark:text-amber-400">Contratos</h1>
+            <FileSignature className="w-6 h-6 text-[#C9A84C]" />
+            <h1 className="font-display text-[34px] font-bold leading-tight text-[#C9A84C]">Contratos</h1>
           </div>
-          <p className="text-gray-600">
+          <p className="text-sm mt-1 text-[#5B7466] dark:text-[#9FB5A6]">
             Compra e venda, locação, arras, permuta, intermediação e mais — com IA jurídica e assinatura ICP-Brasil.
           </p>
         </div>
@@ -386,6 +404,17 @@ const ContratosList = () => {
           <Plus className="w-4 h-4 mr-2" /> Novo Contrato
         </Button>
       </div>
+
+      {/* Novo contrato — escolha o tipo */}
+      <div className="space-y-3">
+        <h2 className="text-sm font-semibold text-gray-700 dark:text-[#F2EFE6]">Novo contrato — escolha o tipo</h2>
+        <TypeCardGrid tipos={CONTRATO_TIPOS} categorias={CONTRATO_CATEGORIAS} onPick={criarDoTipo} />
+      </div>
+
+      {/* Contratos existentes */}
+      <h2 className="text-sm font-semibold text-gray-700 dark:text-[#F2EFE6] pt-2">
+        Contratos existentes {items.length > 0 && <span className="text-gray-400 font-normal">· {items.length}</span>}
+      </h2>
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 items-center bg-white border border-gray-200 rounded-xl p-4">
