@@ -552,6 +552,62 @@ const Step5Objeto = ({ form, setForm }) => {
               />
             </div>
           </div>
+
+          {form.tipo_contrato === 'exclusividade' && (
+            <div className="space-y-4">
+              {/* Cadastro Imobiliário Municipal (BCI) */}
+              <div className="bg-gray-50 rounded-xl p-4">
+                <p className="text-sm font-semibold text-gray-700 mb-3">Cadastro Imobiliário Municipal (BCI)</p>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <Input label="Código do Imóvel (CTI)" value={obj.cti || ''} onChange={(v) => upd('cti', v)} />
+                  <Input label="Inscrição Cadastral" value={obj.inscricao_cadastral || ''} onChange={(v) => upd('inscricao_cadastral', v)} />
+                  <Input label="Setor" value={obj.setor || ''} onChange={(v) => upd('setor', v)} />
+                  <Input label="Quadra" value={obj.quadra || ''} onChange={(v) => upd('quadra', v)} />
+                  <Input label="Lote" value={obj.lote || ''} onChange={(v) => upd('lote', v)} />
+                  <Input label="Unidade" value={obj.unidade || ''} onChange={(v) => upd('unidade', v)} />
+                  <Input label="Situação Cadastral" value={obj.situacao_cadastral || ''} onChange={(v) => upd('situacao_cadastral', v)} />
+                  <Input label="Natureza" value={obj.natureza || ''} onChange={(v) => upd('natureza', v)} />
+                  <Input label="Data de Cadastro" type="date" value={obj.data_cadastro || ''} onChange={(v) => upd('data_cadastro', v)} />
+                  <Input label="Data de Construção" type="date" value={obj.data_construcao || ''} onChange={(v) => upd('data_construcao', v)} />
+                </div>
+              </div>
+
+              {/* Proprietário / Detentor (BCI) */}
+              <div className="grid sm:grid-cols-2 gap-3">
+                <Input label="Proprietário/Detentor (BCI)" value={obj.proprietario_bci_nome || ''} onChange={(v) => upd('proprietario_bci_nome', v)} placeholder="Conforme BCI" />
+                <Input label="CPF/CNPJ (BCI)" value={obj.proprietario_bci_doc || ''} onChange={(v) => upd('proprietario_bci_doc', v)} />
+              </div>
+
+              {/* Medidas do Imóvel (BCI) */}
+              <div className="bg-gray-50 rounded-xl p-4">
+                <p className="text-sm font-semibold text-gray-700 mb-3">Medidas do Imóvel (BCI)</p>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <Input label="Testada Principal (m)" type="number" value={obj.testada_principal || ''} onChange={(v) => upd('testada_principal', v)} />
+                  <Input label="Profundidade do Lote (m)" type="number" value={obj.profundidade_lote || ''} onChange={(v) => upd('profundidade_lote', v)} />
+                  <Input label="Área do Terreno (m²)" type="number" value={obj.area_terreno || ''} onChange={(v) => upd('area_terreno', v)} />
+                  <Input label="Área da Edificação (m²)" type="number" value={obj.area_edificacao || ''} onChange={(v) => upd('area_edificacao', v)} />
+                  <Input label="Área Total da Edificação (m²)" type="number" value={obj.area_total_edificacao || ''} onChange={(v) => upd('area_total_edificacao', v)} />
+                </div>
+              </div>
+
+              {/* IPTU */}
+              <div className="bg-gray-50 rounded-xl p-4">
+                <p className="text-sm font-semibold text-gray-700 mb-3">IPTU</p>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <Input label="Inscrição do Contribuinte" value={obj.iptu_inscricao_contribuinte || ''} onChange={(v) => upd('iptu_inscricao_contribuinte', v)} />
+                  <Input label="Exercício de Referência" value={obj.iptu_exercicio || ''} onChange={(v) => upd('iptu_exercicio', v)} />
+                  <Input label="Valor Anual do IPTU (R$)" type="number" value={obj.iptu_valor_anual || ''} onChange={(v) => upd('iptu_valor_anual', v)} />
+                  <Select label="Situação do IPTU" value={obj.iptu_situacao || ''} onChange={(v) => upd('iptu_situacao', v)}
+                          options={[{ value: '', label: 'Selecione...' }, { value: 'quitado', label: 'Quitado' }, { value: 'parcelado', label: 'Parcelado' }, { value: 'em_debito', label: 'Em débito' }, { value: 'isento', label: 'Isento' }]} />
+                  <Input label="Vencimento" type="date" value={obj.iptu_vencimento || ''} onChange={(v) => upd('iptu_vencimento', v)} />
+                  <Input label="Débito Total / Valor em Aberto (R$)" type="number" value={obj.iptu_debito_total || ''} onChange={(v) => upd('iptu_debito_total', v)} />
+                  <Input label="Desconto Concedido (R$)" type="number" value={obj.iptu_desconto || ''} onChange={(v) => upd('iptu_desconto', v)} />
+                  <Input label="Valor Cobrado / a Pagar (R$)" type="number" value={obj.iptu_valor_cobrado || ''} onChange={(v) => upd('iptu_valor_cobrado', v)} />
+                </div>
+              </div>
+            </div>
+          )}
+
           {enderecoCompleto.length > 5 && (
             <ImovelMap endereco={enderecoCompleto} height={260} />
           )}

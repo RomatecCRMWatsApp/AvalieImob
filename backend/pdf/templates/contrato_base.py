@@ -85,6 +85,59 @@ def _endereco_completo(p: dict) -> str:
     return ", ".join([x for x in partes if x]) or "endereço não informado"
 
 
+def _ficha_imovel_txt(objeto: dict) -> str:
+    """Compila os campos da ficha (BCI/medidas/IPTU) em frases condicionais p/ a cláusula do imóvel."""
+    def _num(v, suf=""):
+        return f"{str(v).replace('.', ',')}{suf}" if v not in (None, "", 0, "0") else ""
+
+    def _juntar(prefixo, pares):
+        itens = [f"{lbl} {val}" for lbl, val in pares if val not in (None, "", 0, "0")]
+        return f"{prefixo} {'; '.join(itens)}." if itens else ""
+
+    partes = []
+    bci = _juntar("Conforme o Cadastro Imobiliário Municipal (BCI):", [
+        ("código do imóvel (CTI)", objeto.get("cti")),
+        ("inscrição cadastral", objeto.get("inscricao_cadastral")),
+        ("setor", objeto.get("setor")),
+        ("quadra", objeto.get("quadra")),
+        ("lote", objeto.get("lote")),
+        ("unidade", objeto.get("unidade")),
+        ("situação cadastral", objeto.get("situacao_cadastral")),
+        ("natureza", objeto.get("natureza")),
+        ("data de cadastro", objeto.get("data_cadastro")),
+        ("data de construção", objeto.get("data_construcao")),
+    ])
+    if bci:
+        partes.append(bci)
+    if objeto.get("proprietario_bci_nome"):
+        pb = f"Proprietário/detentor conforme o BCI: {objeto['proprietario_bci_nome']}"
+        if objeto.get("proprietario_bci_doc"):
+            pb += f", CPF/CNPJ {objeto['proprietario_bci_doc']}"
+        partes.append(pb + ".")
+    med = _juntar("Medidas cadastrais (BCI):", [
+        ("testada principal", _num(objeto.get("testada_principal"), " m")),
+        ("profundidade do lote", _num(objeto.get("profundidade_lote"), " m")),
+        ("área do terreno", _num(objeto.get("area_terreno"), " m²")),
+        ("área da edificação", _num(objeto.get("area_edificacao"), " m²")),
+        ("área total da edificação", _num(objeto.get("area_total_edificacao"), " m²")),
+    ])
+    if med:
+        partes.append(med)
+    iptu = _juntar("Situação fiscal (IPTU):", [
+        ("inscrição do contribuinte", objeto.get("iptu_inscricao_contribuinte")),
+        ("exercício de referência", objeto.get("iptu_exercicio")),
+        ("valor anual R$", _num(objeto.get("iptu_valor_anual"))),
+        ("situação", objeto.get("iptu_situacao")),
+        ("vencimento", objeto.get("iptu_vencimento")),
+        ("débito total R$", _num(objeto.get("iptu_debito_total"))),
+        ("desconto concedido R$", _num(objeto.get("iptu_desconto"))),
+        ("valor a pagar R$", _num(objeto.get("iptu_valor_cobrado"))),
+    ])
+    if iptu:
+        partes.append(iptu)
+    return " " + " ".join(partes) if partes else ""
+
+
 def _ctx(doc: dict) -> dict:
     p = _parte(doc)
     objeto = doc.get("objeto") or {}
@@ -133,6 +186,7 @@ def _ctx(doc: dict) -> dict:
         "cartorio": pick(objeto.get("cartorio"), "cartório competente"),
         "onus_declarados": pick(objeto.get("onus"), doc.get("onus_declarados"),
                                "livre e desembaraçado de ônus, gravames e ações"),
+        "ficha_complementar": _ficha_imovel_txt(objeto),
         "preco_anunciado": _money(preco),
         "preco_extenso": _ext_money(preco),
         "preco_minimo_autorizado": _money(preco_min),
@@ -195,7 +249,7 @@ def clausulas_exclusividade(doc: dict) -> List[Clausula]:
     blocos.append(("DO OBJETO", [
         f"O CONTRATANTE outorga ao CONTRATADO, com exclusividade, a intermediação da venda do "
         f"imóvel: {c['imovel_descricao']}, situado em {c['endereco']}, área total de {c['area_total']}, "
-        f"matrícula nº {c['matricula']} do {c['cartorio']}.",
+        f"matrícula nº {c['matricula']} do {c['cartorio']}.{c['ficha_complementar']}",
         f"O CONTRATANTE declara, sob as penas da lei, ser legítimo proprietário do imóvel e que este "
         f"se encontra {c['onus_declarados']}, responsabilizando-se civil e criminalmente pela "
         f"veracidade desta declaração.",
