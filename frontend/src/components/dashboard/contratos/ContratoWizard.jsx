@@ -1678,6 +1678,13 @@ const ContratoWizard = () => {
   const debounceRef = useRef(null);
   const creatingRef = useRef(false);      // trava criação concorrente (corrige duplicatas)
   const skipAutosaveRef = useRef(false);  // pula o autosave disparado pelo próprio load()
+  // BUG 5-B — persistência ponta a ponta: garante que o último valor digitado
+  // (ex.: cidade/data/foro) não seja engolido pelo debounce ao trocar de etapa
+  // ou desmontar o wizard. formRef/contratoIdRef expõem o estado mais recente
+  // ao flush; dirtyRef evita salvar (e versionar) sem alteração real.
+  const formRef = useRef(form);
+  const contratoIdRef = useRef(contratoId);
+  const dirtyRef = useRef(false);
 
   const tipoAnteriorRef = useRef(form.tipo_contrato);
 
@@ -1734,7 +1741,8 @@ const ContratoWizard = () => {
           nav(`/dashboard/contratos/${created.id}`, { replace: true });
         }
       }
-      setLastSaved(new Date());
+      setLastSaved(new Date());        // "Salvo ✓" só após o 200 real do save
+      dirtyRef.current = false;        // alteração persistida com sucesso
       if (!silent) toast({ title: 'Rascunho salvo' });
     } catch (err) {
       // Libera nova tentativa apenas se a CRIAÇÃO falhou (mantém a trava se já criou)
@@ -1749,15 +1757,43 @@ const ContratoWizard = () => {
     }
   }, [form, contratoId, nav, toast]);
 
+  /* Mantém o estado mais recente acessível ao flush (unmount / troca de etapa) */
+  useEffect(() => { formRef.current = form; }, [form]);
+  useEffect(() => { contratoIdRef.current = contratoId; }, [contratoId]);
+
+  /* Flush síncrono: persiste já o estado atual sem esperar o debounce.
+     Usado ao trocar de etapa e ao desmontar — corrige o BUG 5-B (último valor
+     digitado, ex.: cidade/data/foro, era engolido pelo clearTimeout). */
+  const flushSave = useCallback(() => {
+    if (!dirtyRef.current) return;            // nada novo → não versiona à toa
+    const cid = contratoIdRef.current;
+    if (!cid) return;                          // criação fica a cargo do autosave
+    clearTimeout(debounceRef.current);
+    dirtyRef.current = false;
+    // fire-and-forget: o save é idempotente ($set), o componente pode desmontar
+    contratosAPI.atualizar(cid, formRef.current).catch(() => { dirtyRef.current = true; });
+  }, []);
+
   /* Autosave */
   useEffect(() => {
     // Pula o autosave provocado pelo preenchimento do load() (evita update/versão à toa)
     if (skipAutosaveRef.current) { skipAutosaveRef.current = false; return; }
     if (isNew && !contratoId) return;
+    dirtyRef.current = true;                   // há alteração pendente
     clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => save(true), 2500);
+    debounceRef.current = setTimeout(() => save(true), 1500);
     return () => clearTimeout(debounceRef.current);
   }, [form]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* Flush no unmount: se sair do wizard com alteração pendente, grava antes. */
+  useEffect(() => () => { flushSave(); }, [flushSave]);
+
+  /* Flush ao fechar/atualizar a aba (sendBeacon-like via fetch keepalive). */
+  useEffect(() => {
+    const handler = () => { flushSave(); };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [flushSave]);
 
   // Mantém o passo no range quando o tipo muda (N de etapas varia por tipo).
   useEffect(() => {
@@ -1783,8 +1819,10 @@ const ContratoWizard = () => {
     }
   }, [form.tipo_contrato]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const goNext = () => { if (step < etapas.length - 1) setStep(s => s + 1); };
-  const goPrev = () => { if (step > 0) setStep(s => s - 1); };
+  // Flush ao trocar de etapa: persiste o que foi digitado nesta etapa ANTES de
+  // sair dela (BUG 5-B — sem isso o debounce podia ser cancelado e perder o valor).
+  const goNext = () => { flushSave(); if (step < etapas.length - 1) setStep(s => s + 1); };
+  const goPrev = () => { flushSave(); if (step > 0) setStep(s => s - 1); };
 
   if (loading) return (
     <div className="flex items-center justify-center py-24">
@@ -1871,7 +1909,7 @@ const ContratoWizard = () => {
         {dynamicStepLabels.map((label, i) => (
           <button
             key={i}
-            onClick={() => setStep(i)}
+            onClick={() => { flushSave(); setStep(i); }}
             className={`text-xs px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1 ${
               i === stepIdx
                 ? 'bg-emerald-800 text-white'
