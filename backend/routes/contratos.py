@@ -849,6 +849,13 @@ def _generate_contrato_pdf_bytes(doc: dict, uid: str, empresa: str) -> bytes:
             styles["rodape"]
         ))
 
+        # ── Anexos do imóvel (fotos + documentos) — exclusividade ─────────────
+        try:
+            from pdf.templates.anexos_imovel import anexos_imovel_flowables
+            elems.extend(anexos_imovel_flowables(doc.get("objeto") or {}))
+        except Exception:
+            logger.warning("Falha ao montar anexos do imóvel (tradicional).", exc_info=True)
+
         pdf.build(elems)
 
     except Exception as exc:
@@ -857,6 +864,33 @@ def _generate_contrato_pdf_bytes(doc: dict, uid: str, empresa: str) -> bytes:
 
     buffer.seek(0)
     return buffer.read()
+
+
+async def _preload_anexos_imovel(db, doc: dict) -> None:
+    """Pré-carrega os bytes (db.images → data_b64) das fotos e documentos do imóvel
+    e injeta em objeto['_fotos_bytes'] / objeto['_documentos_bytes'] para o renderer
+    síncrono montar os anexos. Defensivo: ids inválidos são ignorados."""
+    import base64
+    obj = doc.get("objeto")
+    if not isinstance(obj, dict):
+        return
+
+    async def _carregar(ids) -> list:
+        out = []
+        for iid in (ids or []):
+            if not iid:
+                continue
+            try:
+                img = await db.images.find_one({"id": iid}, {"data_b64": 1})
+                if img and img.get("data_b64"):
+                    out.append(base64.b64decode(img["data_b64"]))
+            except Exception:
+                logger.warning("Anexo imóvel: falha ao carregar imagem %s", iid)
+        return out
+
+    obj["_fotos_bytes"] = await _carregar(obj.get("fotos_imovel"))
+    obj["_documentos_bytes"] = await _carregar(obj.get("documentos_imovel"))
+    doc["objeto"] = obj
 
 
 async def _next_contrato_numero(db, ano: int) -> str:
@@ -995,6 +1029,8 @@ async def baixar_contrato_pdf(
 
     user = await db.users.find_one({"id": uid}, {"company": 1, "name": 1})
     empresa = (user or {}).get("company") or (user or {}).get("name") or "AvalieImob"
+
+    await _preload_anexos_imovel(db, doc)
 
     from pdf.templates.registry import gerar_pdf_contrato
     pdf_bytes = gerar_pdf_contrato(doc=doc, uid=uid, empresa=empresa, template=template)

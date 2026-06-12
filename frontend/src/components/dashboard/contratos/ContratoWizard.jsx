@@ -14,6 +14,7 @@ import { useToast } from '../../../hooks/use-toast';
 import { contratosAPI, perfilAPI } from '../../../lib/api';
 import { useAuth } from '../../../contexts/AuthContext';
 import ImovelMap from '../../maps/ImovelMap';
+import ImageUploader from '../ptam/ImageUploader';
 import RomaIAAvatar from '../../common/RomaIAAvatar';
 import { getWizardConfig, etapaLabel } from '../../../constants/contratoWizardConfig';
 
@@ -604,6 +605,32 @@ const Step5Objeto = ({ form, setForm }) => {
                   <Input label="Desconto Concedido (R$)" type="number" value={obj.iptu_desconto || ''} onChange={(v) => upd('iptu_desconto', v)} />
                   <Input label="Valor Cobrado / a Pagar (R$)" type="number" value={obj.iptu_valor_cobrado || ''} onChange={(v) => upd('iptu_valor_cobrado', v)} />
                 </div>
+              </div>
+
+              {/* Fotos do Imóvel — vão para o Anexo I do PDF */}
+              <div className="bg-gray-50 rounded-xl p-4">
+                <p className="text-sm font-semibold text-gray-700 mb-1">Fotos do Imóvel</p>
+                <p className="text-xs text-gray-500 mb-3">Anexadas ao contrato como <b>Anexo I — Relatório Fotográfico</b>.</p>
+                <ImageUploader
+                  images={obj.fotos_imovel || []}
+                  onImagesChange={(ids) => upd('fotos_imovel', ids)}
+                  maxImages={20}
+                  label="Fotos"
+                  accept="image/jpeg,image/jpg,image/png,image/webp"
+                />
+              </div>
+
+              {/* Documentos do Imóvel — vão para o Anexo II do PDF */}
+              <div className="bg-gray-50 rounded-xl p-4">
+                <p className="text-sm font-semibold text-gray-700 mb-1">Documentos do Imóvel</p>
+                <p className="text-xs text-gray-500 mb-3">Matrícula, IPTU, BCI etc. — anexados como <b>Anexo II — Documentação</b> (JPG, PNG ou PDF; PDF vira páginas).</p>
+                <ImageUploader
+                  images={obj.documentos_imovel || []}
+                  onImagesChange={(ids) => upd('documentos_imovel', ids)}
+                  maxImages={20}
+                  label="Documentos"
+                  accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf"
+                />
               </div>
             </div>
           )}

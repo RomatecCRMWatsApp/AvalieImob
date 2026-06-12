@@ -302,5 +302,12 @@ def render(doc: dict, uid: str, empresa: str) -> bytes:
     story.append(Spacer(1, 16))
     story.append(KeepTogether(_bloco_assinaturas(contratante, st, cw)))
 
+    # Anexos do imóvel (fotos + documentos) — exclusividade
+    try:
+        from pdf.templates.anexos_imovel import anexos_imovel_flowables
+        story.extend(anexos_imovel_flowables(objeto))
+    except Exception:
+        pass
+
     pdf.build(story)
     return buf.getvalue()
