@@ -206,6 +206,21 @@ export const propostasAPI = {
   excluir: (id) => api.delete(`/propostas/${id}`).then(r => r.data),
 };
 
+// ---- Contrato de Exclusividade com aceite eletrônico via WhatsApp ----
+export const contratosExclusividadeAPI = {
+  // Autenticadas (corretor)
+  listar: () => api.get('/contratos-exclusividade').then(r => r.data),
+  buscar: (id) => api.get(`/contratos-exclusividade/${id}`).then(r => r.data),
+  criar: (data) => api.post('/contratos-exclusividade', data).then(r => r.data),
+  enviar: (id) => api.post(`/contratos-exclusividade/${id}/enviar`).then(r => r.data),
+  reenviar: (id, papel) => api.post(`/contratos-exclusividade/${id}/reenviar/${papel}`).then(r => r.data),
+  cancelar: (id) => api.post(`/contratos-exclusividade/${id}/cancelar`).then(r => r.data),
+  // Públicas (sem auth)
+  obterPorToken: (token) => api.get(`/publico/contratos-exclusividade/aceite/${token}`).then(r => r.data),
+  confirmarAceite: (token, body) => api.post(`/publico/contratos-exclusividade/aceite/${token}/confirmar`, body).then(r => r.data),
+  verificar: (hash) => api.get(`/publico/contratos-exclusividade/verificar/${hash}`).then(r => r.data),
+};
+
 // ---- Admin (usuários cadastrados / assinaturas) — somente admin/owner/ceo
 export const adminAPI = {
   listUsers: () => api.get('/admin/users').then(r => r.data),

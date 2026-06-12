@@ -15,6 +15,8 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import PortalCliente from './pages/PortalCliente';
 import ContratoPublico from './pages/ContratoPublico';
+import AceiteContrato from './pages/AceiteContrato';
+import VerificarContrato from './pages/VerificarContrato';
 import ServicoPTAM from './pages/ServicoPTAM';
 import ServicoLaudoTecnico from './pages/ServicoLaudoTecnico';
 import ServicoAvaliacaoRural from './pages/ServicoAvaliacaoRural';
@@ -135,6 +137,8 @@ function App() {
                 <Route path="/laudo/:token" element={<PortalCliente />} />
                 <Route path="/v/laudo/v/:hash" element={<VerificarLaudo />} />
                 <Route path="/contrato/public/:token" element={<ContratoPublico />} />
+                <Route path="/aceite/:token" element={<AceiteContrato />} />
+                <Route path="/verificar/:hash" element={<VerificarContrato />} />
                 <Route path="/dashboard/*" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>

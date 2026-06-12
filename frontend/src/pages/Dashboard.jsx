@@ -47,6 +47,7 @@ import ConsultaPage from '../components/dashboard/consulta/ConsultaPage';
 import GlobalSearch from '../components/common/GlobalSearch';
 import ContratosList from '../components/dashboard/contratos/ContratosList';
 import ContratoWizard from '../components/dashboard/contratos/ContratoWizard';
+import ContratoExclusividadeList from '../components/dashboard/contratos-exclusividade/ContratoExclusividadeList';
 import RecibosList from '../components/dashboard/recibos/RecibosList';
 import ReciboWizard from '../components/dashboard/recibos/ReciboWizard';
 import BrandingWizard from '../components/dashboard/branding/BrandingWizard';
@@ -88,6 +89,7 @@ const NAV_GROUPS = [
     label: 'Contratos',
     items: [
       { to: '/dashboard/contratos', icon: FileSignature, label: 'Contratos', badge: 'NOVO' },
+      { to: '/dashboard/exclusividade', icon: FileSignature, label: 'Exclusividade', badge: 'NOVO' },
       { to: '/dashboard/recibos',   icon: Receipt,       label: 'Recibos',   badge: 'NOVO' },
     ],
   },
@@ -451,6 +453,7 @@ const Dashboard = () => {
             <Route path="contratos"        element={<ContratosList />} />
             <Route path="contratos/novo"   element={<ContratoWizard />} />
             <Route path="contratos/:id"    element={<ContratoWizard />} />
+            <Route path="exclusividade"    element={<ContratoExclusividadeList />} />
             <Route path="recibos"        element={<RecibosList />} />
             <Route path="recibos/novo"   element={<ReciboWizard />} />
             <Route path="recibos/:id"    element={<ReciboWizard />} />
