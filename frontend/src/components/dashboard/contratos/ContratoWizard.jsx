@@ -273,6 +273,34 @@ const Step4Corretor = ({ form, setForm, perfil, corretorLabel }) => {
   const cor = form.corretor;
   const upd = (key, val) => setForm({ ...form, corretor: { ...cor, [key]: val } });
 
+  // Prazo de exclusividade dinâmico: data inicial + dias → calcula a data final.
+  const calcDataFim = (inicio, dias) => {
+    if (!inicio || !dias) return '';
+    const d = new Date(`${inicio}T00:00:00`);
+    if (isNaN(d.getTime())) return '';
+    d.setDate(d.getDate() + Number(dias));
+    return d.toISOString().slice(0, 10);
+  };
+  const fmtBR = (iso) => (iso ? iso.split('-').reverse().join('/') : '');
+  const updPrazo = (patch) => {
+    const next = { ...cor, ...patch };
+    let dataFim = '';
+    let texto = '';
+    if (next.exclusividade_indeterminado) {
+      texto = 'Prazo indeterminado';
+    } else if (next.exclusividade_data_inicio && next.exclusividade_prazo_dias) {
+      dataFim = calcDataFim(next.exclusividade_data_inicio, next.exclusividade_prazo_dias);
+      texto = `${next.exclusividade_prazo_dias} dias, de ${fmtBR(next.exclusividade_data_inicio)} a ${fmtBR(dataFim)}`;
+    }
+    setForm({
+      ...form,
+      regime_prazo: next.exclusividade_indeterminado ? 'indeterminado' : 'determinado',
+      corretor: { ...next, exclusividade_data_fim: dataFim, prazo_exclusividade: texto },
+    });
+  };
+  const prazoDataFim = cor.exclusividade_indeterminado
+    ? '' : calcDataFim(cor.exclusividade_data_inicio, cor.exclusividade_prazo_dias);
+
   const valorComissao = cor.comissao_percentual && form.pagamento?.valor_total
     ? (parseFloat(form.pagamento.valor_total) * parseFloat(cor.comissao_percentual)) / 100
     : null;
@@ -403,12 +431,43 @@ const Step4Corretor = ({ form, setForm, perfil, corretorLabel }) => {
               Cláusula de exclusividade
             </label>
             {cor.exclusividade && (
-              <Input
-                label="Prazo de exclusividade"
-                value={cor.prazo_exclusividade}
-                onChange={(v) => upd('prazo_exclusividade', v)}
-                placeholder="Ex: 90 dias a partir de 01/06/2025"
-              />
+              <div className="space-y-3">
+                <div className="flex flex-wrap gap-4 text-sm text-gray-700">
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input type="radio" checked={!cor.exclusividade_indeterminado}
+                           onChange={() => updPrazo({ exclusividade_indeterminado: false })} />
+                    Prazo determinado
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input type="radio" checked={!!cor.exclusividade_indeterminado}
+                           onChange={() => updPrazo({ exclusividade_indeterminado: true })} />
+                    Prazo indeterminado
+                  </label>
+                </div>
+
+                {!cor.exclusividade_indeterminado ? (
+                  <>
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      <Input label="Data inicial" type="date" value={cor.exclusividade_data_inicio}
+                             onChange={(v) => updPrazo({ exclusividade_data_inicio: v })} />
+                      <Input label="Quantidade de dias" type="number" value={cor.exclusividade_prazo_dias}
+                             onChange={(v) => updPrazo({ exclusividade_prazo_dias: v })} placeholder="Ex: 90" />
+                    </div>
+                    {prazoDataFim ? (
+                      <div className="text-sm text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+                        Data final: <b>{fmtBR(prazoDataFim)}</b>
+                        <span className="text-emerald-600"> ({cor.exclusividade_prazo_dias} dias a partir de {fmtBR(cor.exclusividade_data_inicio)})</span>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-400">Informe a data inicial e a quantidade de dias para calcular a data final.</p>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-sm text-gray-600 bg-gray-100 rounded-lg px-3 py-2">
+                    Vigência por <b>prazo indeterminado</b>, podendo ser denunciado por qualquer das partes mediante aviso prévio.
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>

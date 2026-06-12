@@ -284,11 +284,69 @@ def _clausula_imovel(im: dict) -> List[str]:
     if im.get("latitude") is not None and im.get("longitude") is not None:
         frase += f", georreferenciado nas coordenadas {im['latitude']}, {im['longitude']} (SIRGAS 2000)"
     frase += "."
-    paragrafo_unico = (
+
+    paras = [frase]
+
+    def _num(v, sufixo=""):
+        return f"{str(v).replace('.', ',')}{sufixo}"
+
+    def _juntar(prefixo, pares):
+        itens = [f"{lbl} {val}" for lbl, val in pares if val not in (None, "", 0)]
+        return f"{prefixo} {'; '.join(itens)}." if itens else ""
+
+    # Cadastro Imobiliário Municipal (BCI)
+    cad = _juntar("Conforme o Cadastro Imobiliário Municipal (BCI):", [
+        ("código do imóvel (CTI)", _esc(im.get("cti"))),
+        ("inscrição cadastral", _esc(im.get("inscricao_cadastral"))),
+        ("setor", _esc(im.get("setor"))),
+        ("quadra", _esc(im.get("quadra"))),
+        ("lote", _esc(im.get("lote"))),
+        ("unidade", _esc(im.get("unidade"))),
+        ("situação cadastral", _esc(im.get("situacao_cadastral"))),
+        ("natureza", _esc(im.get("natureza"))),
+        ("data de cadastro", _esc(im.get("data_cadastro"))),
+        ("data de construção", _esc(im.get("data_construcao"))),
+    ])
+    if cad:
+        paras.append(cad)
+
+    # Proprietário/detentor conforme BCI
+    if im.get("proprietario_bci_nome"):
+        pb = f"Proprietário/detentor conforme o BCI: {_esc(im['proprietario_bci_nome'])}"
+        if im.get("proprietario_bci_doc"):
+            pb += f", CPF/CNPJ {_esc(im['proprietario_bci_doc'])}"
+        paras.append(pb + ".")
+
+    # Medidas (BCI)
+    med = _juntar("Medidas cadastrais (BCI):", [
+        ("testada principal", _num(im.get("testada_principal"), " m") if im.get("testada_principal") else ""),
+        ("profundidade do lote", _num(im.get("profundidade_lote"), " m") if im.get("profundidade_lote") else ""),
+        ("área do terreno", _num(im.get("area_terreno"), " m²") if im.get("area_terreno") else ""),
+        ("área da edificação", _num(im.get("area_edificacao"), " m²") if im.get("area_edificacao") else ""),
+        ("área total da edificação", _num(im.get("area_total_edificacao"), " m²") if im.get("area_total_edificacao") else ""),
+    ])
+    if med:
+        paras.append(med)
+
+    # IPTU / situação fiscal
+    iptu = _juntar("Situação fiscal (IPTU):", [
+        ("inscrição do contribuinte", _esc(im.get("iptu_inscricao_contribuinte"))),
+        ("exercício de referência", _esc(im.get("iptu_exercicio"))),
+        ("valor anual", _brl(im.get("iptu_valor_anual")) if im.get("iptu_valor_anual") else ""),
+        ("situação", _esc(im.get("iptu_situacao"))),
+        ("vencimento", _esc(im.get("iptu_vencimento"))),
+        ("débito total", _brl(im.get("iptu_debito_total")) if im.get("iptu_debito_total") else ""),
+        ("desconto concedido", _brl(im.get("iptu_desconto")) if im.get("iptu_desconto") else ""),
+        ("valor a pagar", _brl(im.get("iptu_valor_cobrado")) if im.get("iptu_valor_cobrado") else ""),
+    ])
+    if iptu:
+        paras.append(iptu)
+
+    paras.append(
         f"Parágrafo único. O imóvel será anunciado pelo valor de {_brl(im.get('valor_anunciado'))} "
         f"({valor_por_extenso(im.get('valor_anunciado'))}), podendo ser ajustado por anuência "
         f"expressa de todos os CONTRATANTES.")
-    return [frase, paragrafo_unico]
+    return paras
 
 
 def _secoes(contrato: dict) -> List[Tuple[str, List[str]]]:

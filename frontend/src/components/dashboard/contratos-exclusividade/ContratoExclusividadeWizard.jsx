@@ -1,15 +1,13 @@
 /**
  * @module contratos-exclusividade/ContratoExclusividadeWizard
  * Wizard do Contrato de Exclusividade (multiproprietários + ficha de imóvel padrão PTAM).
- * Reusa ImovelMap/StreetView/FotosLaudo/ImageUploader. Autosave (rascunho → PUT) + etapas.
+ * Ficha completa (BCI/IPTU/medidas/cadastro), sem mapa. Reusa FotosLaudo/ImageUploader.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Plus, Trash2, Send, Loader2, ChevronLeft, ChevronRight, Save, MapPin } from 'lucide-react';
+import { Plus, Trash2, Send, Loader2, ChevronLeft, ChevronRight, Save } from 'lucide-react';
 import { contratosExclusividadeAPI } from '../../../lib/api';
 import { useToast } from '../../../hooks/use-toast';
-import ImovelMap from '../../maps/ImovelMap';
-import StreetView from '../../maps/StreetView';
 import FotosLaudo from '../ptam/FotosLaudo';
 import ImageUploader from '../ptam/ImageUploader';
 
@@ -302,9 +300,55 @@ export default function ContratoExclusividadeWizard() {
               <Input label="Latitude (GPS)" value={im.latitude} onChange={(v) => setImovel('latitude', v)} type="number" />
               <Input label="Longitude (GPS)" value={im.longitude} onChange={(v) => setImovel('longitude', v)} type="number" />
             </div>
-            <div className="flex items-center gap-2 text-sm text-gray-500"><MapPin className="w-4 h-4" /> Localização no mapa</div>
-            <ImovelMap endereco={[im.endereco, im.bairro, im.cidade, im.uf].filter(Boolean).join(', ')} lat={im.latitude} lng={im.longitude} height={260} />
-            {im.latitude && im.longitude && <StreetView lat={im.latitude} lng={im.longitude} endereco={im.endereco} height={240} />}
+            {/* Cadastro Imobiliário Municipal (BCI) */}
+            <div className="border border-gray-200 rounded-xl p-4 space-y-3">
+              <p className="text-sm font-semibold text-gray-700">Cadastro Imobiliário Municipal (BCI)</p>
+              <div className="grid sm:grid-cols-2 gap-3">
+                <Input label="Código do Imóvel (CTI)" value={im.cti} onChange={(v) => setImovel('cti', v)} />
+                <Input label="Inscrição Cadastral" value={im.inscricao_cadastral} onChange={(v) => setImovel('inscricao_cadastral', v)} />
+                <Input label="Setor" value={im.setor} onChange={(v) => setImovel('setor', v)} />
+                <Input label="Quadra" value={im.quadra} onChange={(v) => setImovel('quadra', v)} />
+                <Input label="Lote" value={im.lote} onChange={(v) => setImovel('lote', v)} />
+                <Input label="Unidade" value={im.unidade} onChange={(v) => setImovel('unidade', v)} />
+                <Input label="Situação Cadastral" value={im.situacao_cadastral} onChange={(v) => setImovel('situacao_cadastral', v)} />
+                <Input label="Natureza" value={im.natureza} onChange={(v) => setImovel('natureza', v)} />
+                <Input label="Data de Cadastro" type="date" value={im.data_cadastro} onChange={(v) => setImovel('data_cadastro', v)} />
+                <Input label="Data de Construção" type="date" value={im.data_construcao} onChange={(v) => setImovel('data_construcao', v)} />
+              </div>
+            </div>
+
+            {/* Proprietário / Detentor (BCI) */}
+            <div className="grid sm:grid-cols-2 gap-3">
+              <Input label="Proprietário/Detentor (BCI)" value={im.proprietario_bci_nome} onChange={(v) => setImovel('proprietario_bci_nome', v)} placeholder="Conforme BCI" />
+              <Input label="CPF/CNPJ (BCI)" value={im.proprietario_bci_doc} onChange={(v) => setImovel('proprietario_bci_doc', v)} />
+            </div>
+
+            {/* Medidas do Imóvel (BCI) */}
+            <div className="border border-gray-200 rounded-xl p-4 space-y-3">
+              <p className="text-sm font-semibold text-gray-700">Medidas do Imóvel (BCI)</p>
+              <div className="grid sm:grid-cols-2 gap-3">
+                <Input label="Testada Principal (m)" value={im.testada_principal} onChange={(v) => setImovel('testada_principal', v)} type="number" />
+                <Input label="Profundidade do Lote (m)" value={im.profundidade_lote} onChange={(v) => setImovel('profundidade_lote', v)} type="number" />
+                <Input label="Área do Terreno (m²)" value={im.area_terreno} onChange={(v) => setImovel('area_terreno', v)} type="number" />
+                <Input label="Área da Edificação (m²)" value={im.area_edificacao} onChange={(v) => setImovel('area_edificacao', v)} type="number" />
+                <Input label="Área Total da Edificação (m²)" value={im.area_total_edificacao} onChange={(v) => setImovel('area_total_edificacao', v)} type="number" />
+              </div>
+            </div>
+
+            {/* IPTU */}
+            <div className="border border-gray-200 rounded-xl p-4 space-y-3">
+              <p className="text-sm font-semibold text-gray-700">IPTU</p>
+              <div className="grid sm:grid-cols-2 gap-3">
+                <Input label="Inscrição do Contribuinte" value={im.iptu_inscricao_contribuinte} onChange={(v) => setImovel('iptu_inscricao_contribuinte', v)} />
+                <Input label="Exercício de Referência" value={im.iptu_exercicio} onChange={(v) => setImovel('iptu_exercicio', v)} />
+                <Input label="Valor Anual do IPTU (R$)" value={im.iptu_valor_anual} onChange={(v) => setImovel('iptu_valor_anual', v)} type="number" />
+                <Select label="Situação do IPTU" value={im.iptu_situacao} onChange={(v) => setImovel('iptu_situacao', v)} options={[{ value: '', label: 'Selecione...' }, { value: 'quitado', label: 'Quitado' }, { value: 'parcelado', label: 'Parcelado' }, { value: 'em_debito', label: 'Em débito' }, { value: 'isento', label: 'Isento' }]} />
+                <Input label="Vencimento" type="date" value={im.iptu_vencimento} onChange={(v) => setImovel('iptu_vencimento', v)} />
+                <Input label="Débito Total / Valor em Aberto (R$)" value={im.iptu_debito_total} onChange={(v) => setImovel('iptu_debito_total', v)} type="number" />
+                <Input label="Desconto Concedido (R$)" value={im.iptu_desconto} onChange={(v) => setImovel('iptu_desconto', v)} type="number" />
+                <Input label="Valor Cobrado / a Pagar (R$)" value={im.iptu_valor_cobrado} onChange={(v) => setImovel('iptu_valor_cobrado', v)} type="number" />
+              </div>
+            </div>
             <div className="grid sm:grid-cols-2 gap-3">
               <Input label="Área total (m²)" value={im.area_total_m2} onChange={(v) => { setImovel('area_total_m2', v); if (v && !im.area_hectares) setImovel('area_hectares', (Number(v) / 10000).toFixed(4)); }} type="number" />
               <Input label="Área (hectares)" value={im.area_hectares} onChange={(v) => setImovel('area_hectares', v)} type="number" hint="4 casas decimais" />

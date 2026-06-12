@@ -279,6 +279,36 @@ class ImovelContratoInput(BaseModel):
     confrontacoes: Optional[str] = None
     descricao_geral: str
     valor_anunciado: float = Field(gt=0)
+    # ---- Cadastro Imobiliário Municipal (BCI) — Identificação Cadastral ----
+    cti: Optional[str] = None                     # Código do Imóvel (CTI)
+    inscricao_cadastral: Optional[str] = None     # Loc. cartográfica
+    setor: Optional[str] = None
+    quadra: Optional[str] = None
+    lote: Optional[str] = None
+    unidade: Optional[str] = None
+    situacao_cadastral: Optional[str] = None
+    natureza: Optional[str] = None
+    data_cadastro: Optional[str] = None
+    data_construcao: Optional[str] = None
+    # ---- Proprietário/Detentor (BCI) ----
+    proprietario_bci_nome: Optional[str] = None
+    proprietario_bci_doc: Optional[str] = None    # CPF/CNPJ conforme BCI
+    # ---- Medidas do Imóvel (BCI) ----
+    testada_principal: Optional[float] = None
+    profundidade_lote: Optional[float] = None
+    area_terreno: Optional[float] = None
+    area_edificacao: Optional[float] = None
+    area_total_edificacao: Optional[float] = None
+    # ---- IPTU ----
+    iptu_inscricao_contribuinte: Optional[str] = None
+    iptu_exercicio: Optional[str] = None
+    iptu_valor_anual: Optional[float] = None
+    iptu_situacao: Optional[str] = None
+    iptu_vencimento: Optional[str] = None
+    iptu_debito_total: Optional[float] = None
+    iptu_desconto: Optional[float] = None
+    iptu_valor_cobrado: Optional[float] = None
+    # ---- Anexos ----
     fotos: list[FotoImovel] = Field(default_factory=list)
     documentos: list[DocumentoImovel] = Field(default_factory=list)
     checklist_documentacao: ChecklistDocumentacao = Field(default_factory=ChecklistDocumentacao)
