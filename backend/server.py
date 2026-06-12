@@ -549,6 +549,16 @@ async def startup():
         await ensure_modelo_averbacao(get_db())
     except Exception as e:
         logger.error(f"Erro ao garantir modelo Averbação: {e}")
+    # Índices do módulo Contrato de Exclusividade (aceite eletrônico) — idempotente.
+    try:
+        db = get_db()
+        await db.contratos_exclusividade.create_index("signatarios.token", unique=True, sparse=True)
+        await db.contratos_exclusividade.create_index("hash_documento")
+        await db.contratos_exclusividade.create_index([("user_id", 1), ("status", 1)])
+        await db.contratos_exclusividade.create_index("id", unique=True)
+        await db.contratos_exclusividade.create_index("expira_em")
+    except Exception as e:
+        logger.error(f"Erro ao criar índices de contratos_exclusividade: {e}")
     # Auto-seed TVI é opcional e deve ser explicitamente habilitado.
     enable_tvi_autoseed = os.getenv("ENABLE_TVI_AUTOSEED", "").strip().lower() in {"1", "true", "yes", "on"}
     if not enable_tvi_autoseed:

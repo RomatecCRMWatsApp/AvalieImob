@@ -40,6 +40,10 @@ from routes.amostras_mercado import router as amostras_mercado_router
 from routes.cupons import router as cupons_router
 from routes.propostas import router as propostas_router
 from routes.perfis_corretor import router as perfis_corretor_router
+from routes.contratos_exclusividade import (
+    router as contratos_exclusividade_router,
+    router_publico as contratos_exclusividade_publico_router,
+)
 
 all_routers = [
     auth_router, users_router, ptam_router, locacao_router,
@@ -54,4 +58,5 @@ all_routers = [
     consulta_router, branding_router, zayra_router, galeria_router,
     conformidade_router, amostras_mercado_router, cupons_router,
     propostas_router, perfis_corretor_router,
+    contratos_exclusividade_router, contratos_exclusividade_publico_router,
 ]
