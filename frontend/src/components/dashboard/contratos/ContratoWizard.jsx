@@ -1699,7 +1699,26 @@ const ContratoWizard = () => {
     try {
       const data = await contratosAPI.buscar(contratoId);
       skipAutosaveRef.current = true;  // não autosalvar por causa do preenchimento do load
-      setForm({ ...EMPTY, vendedores: [{ ...EMPTY_PESSOA }], compradores: [{ ...EMPTY_PESSOA }], ...data });
+      // Merge PROFUNDO dos objetos aninhados: faz backfill dos defaults (ex.:
+      // objeto.tipo_bem) quando o documento salvo vier parcial. Sem isso, o spread
+      // raso ({...EMPTY, ...data}) substitui objeto/corretor/pagamento/config INTEIROS
+      // pelo que veio do banco — e, se faltar tipo_bem, o bloco condicional da etapa
+      // Imóvel não renderiza (os campos somem da tela, deixando só o dropdown).
+      const objSalvo = data.objeto || {};
+      setForm({
+        ...EMPTY,
+        vendedores: [{ ...EMPTY_PESSOA }],
+        compradores: [{ ...EMPTY_PESSOA }],
+        ...data,
+        objeto: {
+          ...EMPTY.objeto,
+          ...objSalvo,
+          tipo_bem: objSalvo.tipo_bem || objSalvo.tipo || 'imovel_urbano',
+        },
+        corretor: { ...EMPTY.corretor, ...(data.corretor || {}) },
+        pagamento: { ...EMPTY.pagamento, ...(data.pagamento || {}) },
+        config: { ...EMPTY.config, ...(data.config || {}) },
+      });
     } catch (err) {
       if (process.env.NODE_ENV === 'development') {
         console.warn(err);
