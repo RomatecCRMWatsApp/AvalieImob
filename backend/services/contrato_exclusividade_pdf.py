@@ -28,6 +28,12 @@ try:
 except Exception:  # pragma: no cover
     _TZ = None
 
+try:
+    from utils.extenso import valor_por_extenso
+except Exception:  # pragma: no cover
+    def valor_por_extenso(v):
+        return ""
+
 VERDE = colors.HexColor("#0B6E4F")
 DOURADO = colors.HexColor("#B8860B")
 CINZA = colors.HexColor("#444444")
@@ -130,6 +136,76 @@ def _qualificar_pessoa(p: dict, estado_civil: str = "", regime: str = "") -> str
 # Corpo do contrato (compartilhado tela + PDF)
 # ---------------------------------------------------------------------------
 
+def _pct_extenso(p) -> str:
+    try:
+        from utils.extenso import _inteiro_extenso
+        return _inteiro_extenso(int(round(float(p))))
+    except Exception:
+        return ""
+
+
+def _clausula_rescisao(contrato: dict, comissao_pct, imovel: dict) -> Tuple[str, List[str]]:
+    """Cláusula 8ª montada dinamicamente: caput + (multa) + (reembolso) + comissão integral."""
+    multa = contrato.get("multa_rescisoria")
+    reembolso = bool(contrato.get("reembolso_despesas"))
+    valor_anunciado = float(imovel.get("valor_anunciado") or 0)
+    comissao_estimada = round(valor_anunciado * float(comissao_pct or 0) / 100.0, 2)
+
+    paras = [
+        "O presente contrato poderá ser rescindido por mútuo acordo entre as partes, "
+        "mediante termo escrito, ou por inadimplemento de quaisquer das obrigações aqui "
+        "pactuadas."
+    ]
+    extras: List[str] = []
+
+    if multa:
+        modo = multa.get("modo")
+        if modo == "percentual_comissao":
+            pct = multa.get("percentual") or 0
+            valor_multa = round(comissao_estimada * float(pct) / 100.0, 2)
+            extras.append(
+                "Em caso de rescisão imotivada por iniciativa do(s) CONTRATANTE(S) antes "
+                "do término do prazo de exclusividade previsto na Cláusula Terceira, será "
+                f"devida à CONTRATADA multa compensatória equivalente a {str(pct).replace('.', ',')}% "
+                f"({_pct_extenso(pct)} por cento) da comissão estimada, calculada sobre o valor "
+                f"anunciado do imóvel, correspondente nesta data a {_brl(valor_multa)} "
+                f"({valor_por_extenso(valor_multa)})."
+            )
+        else:  # valor_fixo
+            vfixo = round(float(multa.get("valor_fixo") or 0), 2)
+            extras.append(
+                "Em caso de rescisão imotivada por iniciativa do(s) CONTRATANTE(S) antes "
+                "do término do prazo de exclusividade previsto na Cláusula Terceira, será "
+                f"devida à CONTRATADA multa compensatória no valor de {_brl(vfixo)} "
+                f"({valor_por_extenso(vfixo)})."
+            )
+
+    if reembolso:
+        prefixo = ("Independentemente da multa prevista no parágrafo anterior, o(s) "
+                   if multa else "O(s) ")
+        extras.append(
+            prefixo +
+            "CONTRATANTE(S) reembolsará(ão) à CONTRATADA as despesas de divulgação "
+            "comprovadamente realizadas durante a vigência deste contrato, tais como "
+            "anúncios em portais imobiliários, impulsionamento em redes sociais, confecção "
+            "de placas e material fotográfico profissional, mediante apresentação dos "
+            "respectivos comprovantes."
+        )
+
+    # Comissão integral — sempre presente (último parágrafo)
+    extras.append(
+        "A rescisão deste contrato não afasta o direito da CONTRATADA à comissão integral "
+        "prevista na Cláusula Quarta, na hipótese de o negócio vir a se concretizar, durante "
+        "a vigência da exclusividade, com pessoa por ela apresentada ou em decorrência de sua "
+        "mediação, nos termos do art. 726 do Código Civil."
+    )
+
+    for i, texto in enumerate(extras, start=1):
+        paras.append(f"§{i}º. {texto}")
+
+    return ("CLÁUSULA OITAVA — DA RESCISÃO E PENALIDADES", paras)
+
+
 def _secoes(contrato: dict) -> List[Tuple[str, List[str]]]:
     prop = contrato.get("proprietario", {})
     conj = contrato.get("conjuge")
@@ -206,11 +282,8 @@ def _secoes(contrato: dict) -> List[Tuple[str, List[str]]]:
         "identificador do dispositivo) força probatória da autoria e integridade deste "
         "instrumento, aferível pelo código hash SHA-256 nele consignado."]))
 
-    # CLÁUSULA 8ª — RESCISÃO
-    secoes.append(("CLÁUSULA OITAVA — DA RESCISÃO E PENALIDADES", [
-        "A rescisão antecipada e imotivada por iniciativa do(s) CONTRATANTE(S), durante a "
-        "vigência da exclusividade, não afasta o direito da CONTRATADA à comissão pactuada "
-        "quando comprovada a aproximação útil das partes."]))
+    # CLÁUSULA 8ª — RESCISÃO E PENALIDADES (montagem dinâmica)
+    secoes.append(_clausula_rescisao(contrato, comissao, imovel))
 
     # CLÁUSULA 9ª — FORO
     secoes.append(("CLÁUSULA NONA — DO FORO", [
