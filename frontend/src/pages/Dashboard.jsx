@@ -89,6 +89,7 @@ const NAV_GROUPS = [
   {
     label: 'Contratos',
     items: [
+      { to: '/dashboard/propostas', icon: FileText, label: 'Propostas', badge: 'NOVO' },
       { to: '/dashboard/contratos', icon: FileSignature, label: 'Contratos', badge: 'NOVO' },
       { to: '/dashboard/exclusividade', icon: FileSignature, label: 'Exclusividade', badge: 'NOVO' },
       { to: '/dashboard/recibos',   icon: Receipt,       label: 'Recibos',   badge: 'NOVO' },
