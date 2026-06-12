@@ -383,7 +383,29 @@ def _qualifica_pf(p: dict, role: str = "") -> str:
     conjuge = p.get("conjuge_nome") or ""
     if conjuge:
         cjcpf = _s(p.get("conjuge_cpf"), _BLANK)
-        qualif += f"; conjuge: {_safe_text(conjuge)}, CPF {cjcpf}"
+        cj = f"; conjuge: {_safe_text(conjuge)}, CPF {cjcpf}"
+        cj_rg = p.get("conjuge_rg") or ""
+        cj_rg_org = p.get("conjuge_rg_orgao") or ""
+        if cj_rg:
+            cj += f", RG {cj_rg}" + (f" {cj_rg_org}" if cj_rg_org else "")
+        cj_cnh = p.get("conjuge_cnh") or ""
+        if cj_cnh:
+            cj += f", CNH n. {cj_cnh}"
+            if p.get("conjuge_cnh_categoria"):
+                cj += f" categoria {p['conjuge_cnh_categoria']}"
+            if p.get("conjuge_cnh_orgao"):
+                cj += f" expedida pelo {p['conjuge_cnh_orgao']}"
+            if p.get("conjuge_cnh_validade"):
+                cj += f", válida até {_fmt_date(p.get('conjuge_cnh_validade'))}"
+        cj_mae = (p.get("conjuge_filiacao_mae") or "").strip()
+        cj_pai = (p.get("conjuge_filiacao_pai") or "").strip()
+        if cj_mae and cj_pai:
+            cj += f", filho(a) de {_safe_text(cj_pai)} e {_safe_text(cj_mae)}"
+        elif cj_mae:
+            cj += f", filho(a) de {_safe_text(cj_mae)}"
+        elif cj_pai:
+            cj += f", filho(a) de {_safe_text(cj_pai)}"
+        qualif += cj
 
     return _safe_text(qualif)
 

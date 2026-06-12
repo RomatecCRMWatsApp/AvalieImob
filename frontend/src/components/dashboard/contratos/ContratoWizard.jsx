@@ -250,9 +250,26 @@ const PessoaForm = ({ pessoa, onChange, titulo }) => {
                 <Input label="Nome do Cônjuge" value={pessoa.conjuge_nome} onChange={(v) => upd('conjuge_nome', v)} required />
                 <Input label="CPF do Cônjuge" value={pessoa.conjuge_cpf} onChange={(v) => upd('conjuge_cpf', v)} placeholder="000.000.000-00" required />
                 <Input label="RG do Cônjuge" value={pessoa.conjuge_rg} onChange={(v) => upd('conjuge_rg', v)} />
+                <Input label="Órgão Emissor (Cônjuge)" value={pessoa.conjuge_rg_orgao} onChange={(v) => upd('conjuge_rg_orgao', v)} placeholder="SSP/MT" />
                 <Input label="Nascimento" value={pessoa.conjuge_nascimento} onChange={(v) => upd('conjuge_nascimento', v)} type="date" />
                 <Input label="Profissão" value={pessoa.conjuge_profissao} onChange={(v) => upd('conjuge_profissao', v)} />
                 <Input label="Nacionalidade" value={pessoa.conjuge_nacionalidade} onChange={(v) => upd('conjuge_nacionalidade', v)} />
+                <Input label="CNH do Cônjuge (nº)" value={pessoa.conjuge_cnh} onChange={(v) => upd('conjuge_cnh', v)} placeholder="00000000000" />
+                <Select
+                  label="Categoria da CNH (Cônjuge)"
+                  value={pessoa.conjuge_cnh_categoria}
+                  onChange={(v) => upd('conjuge_cnh_categoria', v)}
+                  options={[
+                    { value: '', label: 'Selecione...' },
+                    { value: 'A', label: 'A' }, { value: 'B', label: 'B' }, { value: 'AB', label: 'AB' },
+                    { value: 'C', label: 'C' }, { value: 'D', label: 'D' }, { value: 'E', label: 'E' },
+                    { value: 'AC', label: 'AC' }, { value: 'AD', label: 'AD' }, { value: 'AE', label: 'AE' },
+                  ]}
+                />
+                <Input label="Validade da CNH (Cônjuge)" value={pessoa.conjuge_cnh_validade} onChange={(v) => upd('conjuge_cnh_validade', v)} type="date" />
+                <Input label="Órgão Expedidor da CNH (Cônjuge)" value={pessoa.conjuge_cnh_orgao} onChange={(v) => upd('conjuge_cnh_orgao', v)} placeholder="DETRAN/MT" />
+                <Input label="Nome da Mãe do Cônjuge" value={pessoa.conjuge_filiacao_mae} onChange={(v) => upd('conjuge_filiacao_mae', v)} />
+                <Input label="Nome do Pai do Cônjuge" value={pessoa.conjuge_filiacao_pai} onChange={(v) => upd('conjuge_filiacao_pai', v)} />
               </div>
             </div>
           )}

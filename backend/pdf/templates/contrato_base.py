@@ -164,6 +164,14 @@ def _ctx(doc: dict) -> dict:
 
     conjuge_nome = _g(p, "conjuge_nome") or (p.get("conjuge") or {}).get("nome", "")
     conjuge_cpf = _g(p, "conjuge_cpf") or (p.get("conjuge") or {}).get("cpf", "")
+    _cj = p.get("conjuge") or {}
+    conjuge_rg = _g(p, "conjuge_rg") or _cj.get("rg", "")
+    conjuge_rg_orgao = _g(p, "conjuge_rg_orgao") or _cj.get("orgao_emissor", "")
+    conjuge_cnh = _g(p, "conjuge_cnh") or _cj.get("cnh", "")
+    conjuge_cnh_categoria = _g(p, "conjuge_cnh_categoria") or _cj.get("cnh_categoria", "")
+    conjuge_cnh_orgao = _g(p, "conjuge_cnh_orgao") or _cj.get("cnh_orgao", "")
+    conjuge_filiacao_mae = _g(p, "conjuge_filiacao_mae") or _cj.get("filiacao_mae", "")
+    conjuge_filiacao_pai = _g(p, "conjuge_filiacao_pai") or _cj.get("filiacao_pai", "")
 
     return {
         "nome": _g(p, "nome", "razao_social", default=""),
@@ -182,6 +190,13 @@ def _ctx(doc: dict) -> dict:
         "endereco_completo": _endereco_completo(p),
         "conjuge_nome": conjuge_nome,
         "conjuge_cpf": conjuge_cpf,
+        "conjuge_rg": conjuge_rg,
+        "conjuge_rg_orgao": conjuge_rg_orgao,
+        "conjuge_cnh": conjuge_cnh,
+        "conjuge_cnh_categoria": conjuge_cnh_categoria,
+        "conjuge_cnh_orgao": conjuge_cnh_orgao,
+        "conjuge_filiacao_mae": conjuge_filiacao_mae,
+        "conjuge_filiacao_pai": conjuge_filiacao_pai,
         "regime_bens": _g(p, "regime_bens", default="comunhão parcial de bens"),
         "tem_conjuge": bool(conjuge_nome),
         "imovel_descricao": pick(objeto.get("descricao"), objeto.get("denominacao"), "imóvel objeto deste contrato"),
@@ -242,10 +257,23 @@ def preambulo_exclusividade(doc: dict) -> List[str]:
         f"CPF nº {c['cpf']}{cnh_part}{filiacao_part}, residente e domiciliado(a) em {c['endereco_completo']}."
     )
     if c["tem_conjuge"]:
-        contratante += (
-            f" Cônjuge anuente: {c['conjuge_nome']}, CPF nº {c['conjuge_cpf']}, "
-            f"casados sob o regime de {c['regime_bens']}."
-        )
+        cj = f" Cônjuge anuente: {c['conjuge_nome']}, CPF nº {c['conjuge_cpf']}"
+        if c["conjuge_rg"]:
+            cj += f", RG nº {c['conjuge_rg']}" + (f" ({c['conjuge_rg_orgao']})" if c["conjuge_rg_orgao"] else "")
+        if c["conjuge_cnh"]:
+            cj += f", CNH nº {c['conjuge_cnh']}"
+            if c["conjuge_cnh_categoria"]:
+                cj += f" categoria {c['conjuge_cnh_categoria']}"
+            if c["conjuge_cnh_orgao"]:
+                cj += f" ({c['conjuge_cnh_orgao']})"
+        if c["conjuge_filiacao_mae"] and c["conjuge_filiacao_pai"]:
+            cj += f", filho(a) de {c['conjuge_filiacao_pai']} e {c['conjuge_filiacao_mae']}"
+        elif c["conjuge_filiacao_mae"]:
+            cj += f", filho(a) de {c['conjuge_filiacao_mae']}"
+        elif c["conjuge_filiacao_pai"]:
+            cj += f", filho(a) de {c['conjuge_filiacao_pai']}"
+        cj += f", casados sob o regime de {c['regime_bens']}."
+        contratante += cj
     contratado = (
         "<b>CONTRATADO (CORRETOR):</b> ROMATEC CONSULTORIA TOTAL, pessoa jurídica de direito "
         "privado, CNPJ nº 17.261.987/0001-09, com sede na Rua São Raimundo, nº 10, Centro, "
