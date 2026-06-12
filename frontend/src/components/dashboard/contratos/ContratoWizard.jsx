@@ -584,6 +584,34 @@ const Step6Pagamento = ({ form, setForm, contratoId }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pag.arras_valor, pag.arras_tipo, contratoId]);
 
+  // Exclusividade de corretagem NÃO tem arras/sinal nem formas de pagamento (não há
+  // comprador): as condições são comissão e prazo, definidos na etapa do Corretor.
+  const isExclusividade = form.tipo_contrato === 'exclusividade';
+  if (isExclusividade) {
+    const cor = form.corretor || {};
+    return (
+      <div className="space-y-5">
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 mb-1">Condições da Corretagem</h2>
+          <p className="text-sm text-gray-500">Na exclusividade de corretagem não há arras nem sinal — as condições são a comissão e o prazo de exclusividade.</p>
+        </div>
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-5">
+          <label className="block text-sm font-semibold text-emerald-800 mb-2">
+            <DollarSign className="w-4 h-4 inline mr-1" /> Valor anunciado do imóvel
+          </label>
+          <input type="number" value={pag.valor_total || ''} onChange={(e) => updPag('valor_total', e.target.value)} placeholder="0,00"
+                 className="w-full text-2xl font-bold border-0 border-b-2 border-emerald-300 bg-transparent px-0 py-1 focus:outline-none focus:border-emerald-600 text-emerald-900" />
+          {pag.valor_total > 0 && <p className="text-sm text-emerald-700 mt-1">{fmtCurrency(pag.valor_total)}</p>}
+        </div>
+        <div className="bg-gray-50 rounded-xl p-4 text-sm text-gray-600 space-y-1">
+          <div className="font-semibold text-gray-800 flex items-center gap-2"><Info className="w-4 h-4 text-emerald-600" /> Comissão e prazo</div>
+          <p>Comissão: <b>{cor.comissao_percentual ?? '—'}%</b> · Prazo de exclusividade: <b>{cor.prazo_exclusividade || '—'}</b></p>
+          <p className="text-xs text-gray-400">Defina/edite na etapa “Corretor (Contratado)”. A comissão é devida integralmente durante o prazo, ainda que a venda ocorra diretamente pelo proprietário (art. 726, parte final, CC).</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5">
       <div>
@@ -633,6 +661,9 @@ const Step6Pagamento = ({ form, setForm, contratoId }) => {
           <p className="text-xs text-gray-500">
             {((pag.arras_valor / pag.valor_total) * 100).toFixed(1)}% do valor total
           </p>
+        )}
+        {Number(pag.arras_valor) > 0 && Number(pag.valor_total) > 0 && Number(pag.arras_valor) >= Number(pag.valor_total) && (
+          <p className="text-xs text-red-600 font-medium">⚠ O sinal deve ser menor que o valor total do negócio.</p>
         )}
       </div>
 
