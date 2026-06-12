@@ -327,6 +327,10 @@ export default function ContratoExclusividadeList() {
 
   const pendentes = (c) => (c.signatarios || []).filter((s) => s.status !== 'aceito');
   const aceitos = (c) => (c.signatarios || []).filter((s) => s.status === 'aceito').length;
+  const andamento = (c) => {
+    const e = c.etapas || [];
+    return e.length ? Math.round((e.filter((x) => x.concluida).length / e.length) * 100) : null;
+  };
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
@@ -363,6 +367,9 @@ export default function ContratoExclusividadeList() {
                     <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${cls}`}>{label}</span>
                     {(c.status === 'enviado' || c.status === 'parcialmente_assinado') && (
                       <span className="text-xs text-gray-500">{aceitos(c)}/{total} assinaturas</span>
+                    )}
+                    {c.status === 'rascunho' && andamento(c) !== null && (
+                      <span className="text-xs text-gray-500">{andamento(c)}% preenchido</span>
                     )}
                   </div>
                   <p className="font-medium text-gray-900 mt-1 truncate">{c.imovel?.descricao_geral || c.imovel?.descricao || 'Imóvel'}</p>

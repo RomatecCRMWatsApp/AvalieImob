@@ -78,6 +78,31 @@ const Select = ({ label, value, onChange, options }) => (
   </div>
 );
 
+const fmtDataHora = (iso) => {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    const p = (n) => String(n).padStart(2, '0');
+    return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} · ${p(d.getHours())}:${p(d.getMinutes())}`;
+  } catch { return ''; }
+};
+
+// Bloco de auditoria por etapa (igual ao PTAM): checkbox + carimbo de data/hora.
+const EtapaConcluida = ({ nome, etapa, onMarcar, salvando }) => (
+  <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 flex items-start gap-3 mt-5">
+    <input type="checkbox" checked={!!etapa?.concluida} disabled={!!etapa?.concluida || salvando}
+           onChange={() => onMarcar()} className="w-5 h-5 mt-0.5 accent-emerald-700 cursor-pointer" />
+    <div>
+      <p className="text-sm font-semibold text-gray-800">✓ Etapa concluída — {nome}</p>
+      {etapa?.concluida ? (
+        <p className="text-xs text-emerald-700 font-semibold mt-0.5">CONCLUÍDA EM {fmtDataHora(etapa.concluida_em)}</p>
+      ) : (
+        <p className="text-xs text-gray-400 mt-0.5">Marque ao terminar esta etapa — salva na hora e alimenta o andamento (%) do contrato no card.</p>
+      )}
+    </div>
+  </div>
+);
+
 export default function ContratoExclusividadeWizard() {
   const { id } = useParams();
   const nav = useNavigate();
@@ -97,6 +122,7 @@ export default function ContratoExclusividadeWizard() {
   const [loading, setLoading] = useState(!isNew);
   const [lastSaved, setLastSaved] = useState(null);
   const [enviando, setEnviando] = useState(false);
+  const [etapas, setEtapas] = useState([]); // auditoria: etapa_numero/concluida/concluida_em
 
   const formRef = useRef(form);
   const cidRef = useRef(contratoId);
@@ -119,6 +145,7 @@ export default function ContratoExclusividadeWizard() {
         proprietarios: (d.proprietarios && d.proprietarios.length) ? d.proprietarios : [{ ...PROP_VAZIO }],
         imovel: { ...f.imovel, ...(d.imovel || {}) },
       }));
+      setEtapas(d.etapas || []);
       setLoading(false);
     }).catch(() => { toast({ title: 'Erro ao carregar', variant: 'destructive' }); nav('/dashboard/exclusividade'); });
     return () => { vivo = false; };
@@ -193,6 +220,32 @@ export default function ContratoExclusividadeWizard() {
   const goStep = (n) => { flush(); setStep(n); };
   const goNext = () => { flush(); setStep((s) => Math.min(s + 1, ETAPAS.length - 1)); };
   const goPrev = () => { flush(); setStep((s) => Math.max(s - 1, 0)); };
+
+  // 5-C — marca a etapa atual como concluída (timestamp de auditoria) + recalcula %.
+  const [marcandoEtapa, setMarcandoEtapa] = useState(false);
+  const etapaAtual = etapas.find((e) => e.etapa_numero === step + 1);
+  const marcarEtapaConcluida = async () => {
+    if (etapaAtual?.concluida) return;
+    await persist(true);                       // garante rascunho criado + salvo
+    const cid = cidRef.current;
+    if (!cid) { toast({ title: 'Aguarde o rascunho ser salvo e tente novamente.', variant: 'destructive' }); return; }
+    setMarcandoEtapa(true);
+    try {
+      const r = await contratosExclusividadeAPI.concluirEtapa(cid, step + 1);
+      setEtapas((prev) => {
+        const next = [...prev];
+        const i = next.findIndex((e) => e.etapa_numero === step + 1);
+        const upd = { etapa_numero: step + 1, etapa_nome: ETAPAS[step], concluida: true, concluida_em: r.concluida_em };
+        if (i >= 0) next[i] = { ...next[i], ...upd }; else next.push(upd);
+        return next;
+      });
+      toast({ title: `Etapa "${ETAPAS[step]}" concluída`, description: `Andamento: ${r.andamento_pct}%` });
+    } catch (e) {
+      toast({ title: 'Erro ao concluir etapa', description: e.response?.data?.detail || '', variant: 'destructive' });
+    } finally {
+      setMarcandoEtapa(false);
+    }
+  };
 
   const enviar = async () => {
     setEnviando(true);
@@ -433,6 +486,8 @@ export default function ContratoExclusividadeWizard() {
             </button>
           </div>
         )}
+
+        <EtapaConcluida nome={ETAPAS[step]} etapa={etapaAtual} onMarcar={marcarEtapaConcluida} salvando={marcandoEtapa} />
       </div>
 
       <div className="flex items-center justify-between mt-5">

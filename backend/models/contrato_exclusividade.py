@@ -397,16 +397,11 @@ class ContratoExclusividadeUpdate(BaseModel):
 
 # Etapas do wizard (10) — usado para inicializar etapas[] e calcular andamento (%)
 ETAPAS_PADRAO = [
-    (1, "Contratante"),
-    (2, "Cônjuge"),
-    (3, "Tipo do Bem"),
-    (4, "Imóvel — Dados Registrais"),
-    (5, "Imóvel — Dados Cadastrais"),
-    (6, "Áreas e Situação"),
-    (7, "Relatório Fotográfico"),
-    (8, "Anexos Documentais"),
-    (9, "Condições Comerciais"),
-    (10, "Revisão e Envio"),
+    (1, "Proprietários"),
+    (2, "Imóvel"),
+    (3, "Fotos & Documentos"),
+    (4, "Condições"),
+    (5, "Revisão e Envio"),
 ]
 
 
