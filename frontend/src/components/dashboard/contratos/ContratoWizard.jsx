@@ -15,109 +15,11 @@ import { contratosAPI, perfilAPI } from '../../../lib/api';
 import { useAuth } from '../../../contexts/AuthContext';
 import ImovelMap from '../../maps/ImovelMap';
 import RomaIAAvatar from '../../common/RomaIAAvatar';
+import { getWizardConfig, etapaLabel } from '../../../constants/contratoWizardConfig';
 
-/* ─── Step labels ────────────────────────────────────────── */
-const STEP_LABELS = [
-  'Tipo',
-  'Vendedor(es)',
-  'Comprador(es)',
-  'Corretor',
-  'Objeto',
-  'Pagamento',
-  'Cláusulas',
-  'Validação',
-  'Testemunhas',
-  'Revisão',
-  'Exportar',
-];
+/* Papéis, rótulos e descrições por tipo vivem em constants/contratoWizardConfig.js
+   (fonte única). Este arquivo só consome via getWizardConfig/etapaLabel. */
 
-/* ─── Configuração de partes por tipo de contrato ────────── */
-const PARTES_POR_TIPO = {
-  // Compra e Venda
-  compra_venda:              { parte1: 'Vendedor', parte2: 'Comprador', parte3: 'Corretor', temParte3: true },
-  promessa_compra_venda:     { parte1: 'Vendedor', parte2: 'Comprador', parte3: 'Corretor', temParte3: true },
-  permuta:                   { parte1: 'Permutante A', parte2: 'Permutante B', parte3: 'Corretor', temParte3: true },
-  cessao_direitos:           { parte1: 'Cedente', parte2: 'Cessionário', parte3: 'Corretor', temParte3: true },
-  
-  // Locação
-  locacao_residencial:       { parte1: 'Locador', parte2: 'Locatário', parte3: 'Fiador', temParte3: true },
-  locacao_comercial:         { parte1: 'Locador', parte2: 'Locatário', parte3: 'Fiador', temParte3: true },
-  comodato:                  { parte1: 'Comodante', parte2: 'Comodatário', parte3: null, temParte3: false },
-  arrendamento_rural:        { parte1: 'Arrendador', parte2: 'Arrendatário', parte3: null, temParte3: false },
-  
-  // Rural
-  parceria_rural:            { parte1: 'Proprietário', parte2: 'Parceiro', parte3: null, temParte3: false },
-  doacao:                    { parte1: 'Doador', parte2: 'Donatário', parte3: null, temParte3: false },
-  
-  // Outros
-  arras:                     { parte1: 'Vendedor', parte2: 'Comprador', parte3: null, temParte3: false },
-  intermediacao:             { parte1: 'Cliente', parte2: 'Corretor', parte3: null, temParte3: false },
-  exclusividade:             { parte1: 'Proprietário', parte2: 'Corretor', parte3: null, temParte3: false },
-  usufruto:                  { parte1: 'Usufrutuário', parte2: 'Proprietário', parte3: null, temParte3: false },
-  compra_venda_veiculo:      { parte1: 'Vendedor', parte2: 'Comprador', parte3: null, temParte3: false },
-  distrato:                  { parte1: 'Parte A', parte2: 'Parte B', parte3: null, temParte3: false },
-};
-
-/* ─── Descrição do card POR PAPEL (nunca genérica) ───────── */
-const DESC_PAPEL = {
-  'Vendedor': 'Informe os dados de quem vende/aliena o bem.',
-  'Comprador': 'Informe os dados de quem adquire o bem.',
-  'Proprietário': 'Informe os dados do(s) proprietário(s) do imóvel que outorga(m) a exclusividade.',
-  'Corretor': 'Dados do corretor/escritório responsável pela intermediação.',
-  'Permutante A': 'Informe os dados do primeiro permutante.',
-  'Permutante B': 'Informe os dados do segundo permutante.',
-  'Cedente': 'Informe os dados de quem cede os direitos.',
-  'Cessionário': 'Informe os dados de quem recebe os direitos.',
-  'Locador': 'Informe os dados de quem loca (proprietário) o imóvel.',
-  'Locatário': 'Informe os dados de quem aluga o imóvel.',
-  'Fiador': 'Informe os dados do(s) fiador(es) — opcional.',
-  'Comodante': 'Informe os dados de quem empresta o bem.',
-  'Comodatário': 'Informe os dados de quem recebe o bem em comodato.',
-  'Arrendador': 'Informe os dados de quem arrenda (proprietário) a terra.',
-  'Arrendatário': 'Informe os dados de quem explora a terra arrendada.',
-  'Parceiro': 'Informe os dados do parceiro outorgado.',
-  'Doador': 'Informe os dados de quem doa o bem.',
-  'Donatário': 'Informe os dados de quem recebe a doação.',
-  'Cliente': 'Informe os dados do(s) contratante(s).',
-  'Usufrutuário': 'Informe os dados de quem recebe o usufruto.',
-  'Parte A': 'Informe os dados da primeira parte.',
-  'Parte B': 'Informe os dados da segunda parte.',
-};
-const descPapel = (label) => DESC_PAPEL[label] || `Informe os dados de: ${label}.`;
-
-/* ─── Função para obter labels dinâmicos ─────────────────── */
-const getParteLabels = (tipoContrato) => {
-  const config = PARTES_POR_TIPO[tipoContrato] || PARTES_POR_TIPO.compra_venda;
-  return {
-    parte1: config.parte1,
-    parte2: config.parte2,
-    parte3: config.parte3,
-    temParte3: config.temParte3,
-    descricao1: descPapel(config.parte1),
-    descricao2: descPapel(config.parte2),
-  };
-};
-
-/* ─── Título do header POR TIPO ──────────────────────────── */
-const TITULO_HEADER = {
-  compra_venda: 'Contrato de Compra e Venda',
-  promessa_compra_venda: 'Contrato de Promessa de Compra e Venda',
-  permuta: 'Contrato de Permuta',
-  cessao_direitos: 'Contrato de Cessão de Direitos',
-  locacao_residencial: 'Contrato de Locação Residencial',
-  locacao_comercial: 'Contrato de Locação Comercial',
-  comodato: 'Contrato de Comodato',
-  arrendamento_rural: 'Contrato de Arrendamento Rural',
-  parceria_rural: 'Contrato de Parceria Rural',
-  doacao: 'Contrato de Doação',
-  arras: 'Recibo de Arras / Sinal',
-  intermediacao: 'Contrato de Intermediação Imobiliária',
-  exclusividade: 'Contrato de Exclusividade',
-  usufruto: 'Instrumento de Instituição de Usufruto',
-  compra_venda_veiculo: 'Contrato de Compra e Venda de Veículo',
-  distrato: 'Instrumento de Distrato',
-};
-const tituloHeader = (tipo) => TITULO_HEADER[tipo] || 'Contrato';
 
 /* ─── Tipos de contrato por categoria ───────────────────── */
 const TIPOS = [
@@ -364,118 +266,12 @@ const PessoaForm = ({ pessoa, onChange, titulo }) => {
 };
 
 /* ═══════════════════════════════════════════════════════════
-   STEP 2 — Parte 1 (Vendedor/Locador/Proprietário/etc)
+   STEP 4 — Corretor (etapa própria; StepParte cobre as demais partes)
 ═══════════════════════════════════════════════════════════ */
-const Step2Parte1 = ({ form, setForm, labels }) => {
-  const { parte1 } = labels;
-  const addParte = () => setForm({ ...form, vendedores: [...form.vendedores, { ...EMPTY_PESSOA }] });
-  const removeParte = (i) => setForm({ ...form, vendedores: form.vendedores.filter((_, idx) => idx !== i) });
-  const updateParte = (i, p) => setForm({ ...form, vendedores: form.vendedores.map((v, idx) => idx === i ? p : v) });
-
-  return (
-    <div className="space-y-5">
-      <div>
-        <h2 className="text-xl font-bold text-gray-900 mb-1">{parte1}(es)</h2>
-        <p className="text-sm text-gray-500">{labels.descricao1}</p>
-      </div>
-
-      {form.vendedores.length === 0 && (
-        <div className="text-center py-10 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-          <Users className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-          <p className="text-sm text-gray-500">Nenhum {parte1.toLowerCase()} adicionado ainda.</p>
-        </div>
-      )}
-
-      {form.vendedores.map((v, i) => (
-        <div key={i} className="relative">
-          <PessoaForm pessoa={v} onChange={(p) => updateParte(i, p)} titulo={`${parte1} ${i + 1}`} />
-          {form.vendedores.length > 1 && (
-            <button
-              onClick={() => removeParte(i)}
-              className="absolute top-3 right-3 text-red-500 hover:text-red-700 transition"
-              title="Remover"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          )}
-        </div>
-      ))}
-
-      <Button variant="outline" onClick={addParte} className="w-full border-dashed border-emerald-300 text-emerald-700 hover:bg-emerald-50">
-        <Plus className="w-4 h-4 mr-2" /> Adicionar outro {parte1.toLowerCase()}
-      </Button>
-    </div>
-  );
-};
-
-/* ═══════════════════════════════════════════════════════════
-   STEP 3 — Parte 2 (Comprador/Locatário/Cessionário/etc)
-═══════════════════════════════════════════════════════════ */
-const Step3Parte2 = ({ form, setForm, labels }) => {
-  const { parte2 } = labels;
-  const addParte = () => setForm({ ...form, compradores: [...form.compradores, { ...EMPTY_PESSOA }] });
-  const removeParte = (i) => setForm({ ...form, compradores: form.compradores.filter((_, idx) => idx !== i) });
-  const updateParte = (i, p) => setForm({ ...form, compradores: form.compradores.map((v, idx) => idx === i ? p : v) });
-
-  return (
-    <div className="space-y-5">
-      <div>
-        <h2 className="text-xl font-bold text-gray-900 mb-1">{parte2}(es)</h2>
-        <p className="text-sm text-gray-500">{labels.descricao2}</p>
-      </div>
-
-      {form.compradores.length === 0 && (
-        <div className="text-center py-10 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-          <Users className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-          <p className="text-sm text-gray-500">Nenhum {parte2.toLowerCase()} adicionado ainda.</p>
-        </div>
-      )}
-
-      {form.compradores.map((c, i) => (
-        <div key={i} className="relative">
-          <PessoaForm pessoa={c} onChange={(p) => updateParte(i, p)} titulo={`${parte2} ${i + 1}`} />
-          {form.compradores.length > 1 && (
-            <button
-              onClick={() => removeParte(i)}
-              className="absolute top-3 right-3 text-red-500 hover:text-red-700 transition"
-              title="Remover"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          )}
-        </div>
-      ))}
-
-      <Button variant="outline" onClick={addParte} className="w-full border-dashed border-emerald-300 text-emerald-700 hover:bg-emerald-50">
-        <Plus className="w-4 h-4 mr-2" /> Adicionar outro {parte2.toLowerCase()}
-      </Button>
-    </div>
-  );
-};
-
-/* ═══════════════════════════════════════════════════════════
-   STEP 4 — Corretor / Parte 3 (Fiador, etc)
-═══════════════════════════════════════════════════════════ */
-const Step4Corretor = ({ form, setForm, perfil, labels }) => {
-  const { parte3, temParte3 } = labels;
+const Step4Corretor = ({ form, setForm, perfil, corretorLabel }) => {
+  const parte3 = 'Corretor';
   const cor = form.corretor;
   const upd = (key, val) => setForm({ ...form, corretor: { ...cor, [key]: val } });
-
-  // Se não tem parte 3 (ex: exclusividade, intermediacao), mostra mensagem
-  if (!temParte3) {
-    return (
-      <div className="space-y-5">
-        <div>
-          <h2 className="text-xl font-bold text-gray-900 mb-1">Parte 3</h2>
-          <p className="text-sm text-gray-500">Este tipo de contrato não possui terceira parte obrigatória.</p>
-        </div>
-        <div className="bg-gray-50 rounded-xl p-6 text-center">
-          <Info className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-          <p className="text-sm text-gray-600">Clique em "Próximo" para continuar.</p>
-        </div>
-      </div>
-    );
-  }
 
   const valorComissao = cor.comissao_percentual && form.pagamento?.valor_total
     ? (parseFloat(form.pagamento.valor_total) * parseFloat(cor.comissao_percentual)) / 100
@@ -497,10 +293,8 @@ const Step4Corretor = ({ form, setForm, perfil, labels }) => {
     });
   };
 
-  const titulo = parte3 === 'Corretor' ? 'Corretor de Imóveis' : `${parte3}(es)`;
-  const descricao = parte3 === 'Corretor' 
-    ? 'Inclua o corretor responsável pela intermediação, se houver.'
-    : `Inclua os dados do(s) ${parte3.toLowerCase()}(es), se houver.`;
+  const titulo = corretorLabel || 'Corretor de Imóveis';
+  const descricao = 'Dados do corretor/escritório responsável pela intermediação.';
 
   return (
     <div className="space-y-5">
@@ -1773,6 +1567,51 @@ const Step11Exportar = ({ form, setForm, contratoId, user }) => {
 };
 
 /* ═══════════════════════════════════════════════════════════
+   STEP genérico de PARTE (dirigido pelo registry — papel.dataKey)
+═══════════════════════════════════════════════════════════ */
+const StepParte = ({ form, setForm, papel }) => {
+  const lista = form[papel.dataKey] || [];
+  const setLista = (nova) => setForm({ ...form, [papel.dataKey]: nova });
+  const add = () => setLista([...lista, { ...EMPTY_PESSOA }]);
+  const remove = (i) => setLista(lista.filter((_, idx) => idx !== i));
+  const upd = (i, p) => setLista(lista.map((v, idx) => (idx === i ? p : v)));
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <h2 className="text-xl font-bold text-gray-900 mb-1">
+          {papel.label}
+          {papel.opcional && <span className="text-xs text-gray-400 font-normal ml-2">(opcional)</span>}
+        </h2>
+        <p className="text-sm text-gray-500">{papel.descricao}</p>
+      </div>
+
+      {lista.length === 0 && (
+        <div className="text-center py-10 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+          <Users className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+          <p className="text-sm text-gray-500">Nenhum {papel.labelSingular.toLowerCase()} adicionado ainda.</p>
+        </div>
+      )}
+
+      {lista.map((v, i) => (
+        <div key={i} className="relative">
+          <PessoaForm pessoa={v} onChange={(pp) => upd(i, pp)} titulo={`${papel.labelSingular} ${i + 1}`} />
+          {lista.length > 1 && (
+            <button onClick={() => remove(i)} className="absolute top-3 right-3 text-red-500 hover:text-red-700 transition" title="Remover">
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      ))}
+
+      <Button variant="outline" onClick={add} className="w-full border-dashed border-emerald-300 text-emerald-700 hover:bg-emerald-50">
+        <Plus className="w-4 h-4 mr-2" /> Adicionar outro {papel.labelSingular.toLowerCase()}
+      </Button>
+    </div>
+  );
+};
+
+/* ═══════════════════════════════════════════════════════════
    MAIN WIZARD
 ═══════════════════════════════════════════════════════════ */
 const ContratoWizard = () => {
@@ -1793,6 +1632,12 @@ const ContratoWizard = () => {
   const debounceRef = useRef(null);
   const creatingRef = useRef(false);      // trava criação concorrente (corrige duplicatas)
   const skipAutosaveRef = useRef(false);  // pula o autosave disparado pelo próprio load()
+
+  const tipoAnteriorRef = useRef(form.tipo_contrato);
+
+  // Registry: ÚNICA fonte de etapas/labels/título para o tipo selecionado.
+  const config = getWizardConfig(form.tipo_contrato);
+  const etapas = config.etapas;
 
   /* Load existing */
   const load = useCallback(async () => {
@@ -1868,7 +1713,31 @@ const ContratoWizard = () => {
     return () => clearTimeout(debounceRef.current);
   }, [form]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const goNext = () => { if (step < STEP_LABELS.length - 1) setStep(s => s + 1); };
+  // Mantém o passo no range quando o tipo muda (N de etapas varia por tipo).
+  useEffect(() => {
+    if (step > etapas.length - 1) setStep(etapas.length - 1);
+  }, [etapas.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Troca de tipo: preserva partes compatíveis; descarta as incompatíveis com aviso.
+  useEffect(() => {
+    const novo = form.tipo_contrato;
+    if (!novo || novo === tipoAnteriorRef.current) return;
+    tipoAnteriorRef.current = novo;
+    const umaParte = ['exclusividade', 'intermediacao'].includes(novo);
+    const temFiador = ['locacao_residencial', 'locacao_comercial'].includes(novo);
+    const limparComp = umaParte && (form.compradores?.length || 0) > 0;
+    const limparFiador = !temFiador && (form.fiadores?.length || 0) > 0;
+    if (limparComp || limparFiador) {
+      setForm((f) => ({
+        ...f,
+        ...(limparComp ? { compradores: [] } : {}),
+        ...(limparFiador ? { fiadores: [] } : {}),
+      }));
+      toast({ title: 'Etapas ajustadas ao tipo', description: 'Dados de etapas que este tipo não possui foram descartados.' });
+    }
+  }, [form.tipo_contrato]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const goNext = () => { if (step < etapas.length - 1) setStep(s => s + 1); };
   const goPrev = () => { if (step > 0) setStep(s => s - 1); };
 
   if (loading) return (
@@ -1878,40 +1747,27 @@ const ContratoWizard = () => {
   );
 
   const renderStep = () => {
-    const labels = getParteLabels(form.tipo_contrato);
-    switch (step) {
-      case 0: return <Step1Tipo form={form} setForm={setForm} />;
-      case 1: return <Step2Parte1 form={form} setForm={setForm} labels={labels} />;
-      case 2: return <Step3Parte2 form={form} setForm={setForm} labels={labels} />;
-      case 3: return <Step4Corretor form={form} setForm={setForm} perfil={perfil} labels={labels} />;
-      case 4: return <Step5Objeto form={form} setForm={setForm} />;
-      case 5: return <Step6Pagamento form={form} setForm={setForm} contratoId={contratoId} />;
-      case 6: return <Step7Clausulas form={form} setForm={setForm} contratoId={contratoId} />;
-      case 7: return <Step8Validacao contratoId={contratoId} onGoToStep={setStep} />;
-      case 8: return <Step9Testemunhas form={form} setForm={setForm} />;
-      case 9: return <Step10Revisao form={form} contratoId={contratoId} />;
-      case 10: return <Step11Exportar form={form} setForm={setForm} contratoId={contratoId} user={user} />;
+    const etapa = etapas[Math.min(step, etapas.length - 1)];
+    if (!etapa) return null;
+    switch (etapa.kind) {
+      case 'tipo': return <Step1Tipo form={form} setForm={setForm} />;
+      case 'partes': return <StepParte form={form} setForm={setForm} papel={etapa.papel} />;
+      case 'corretor': return <Step4Corretor form={form} setForm={setForm} perfil={perfil} corretorLabel={etapa.label} />;
+      case 'objeto': return <Step5Objeto form={form} setForm={setForm} />;
+      case 'condicoes': return <Step6Pagamento form={form} setForm={setForm} contratoId={contratoId} />;
+      case 'clausulas': return <Step7Clausulas form={form} setForm={setForm} contratoId={contratoId} />;
+      case 'validacao': return <Step8Validacao contratoId={contratoId} onGoToStep={setStep} />;
+      case 'testemunhas': return <Step9Testemunhas form={form} setForm={setForm} />;
+      case 'revisao': return <Step10Revisao form={form} contratoId={contratoId} />;
+      case 'exportar': return <Step11Exportar form={form} setForm={setForm} contratoId={contratoId} user={user} />;
       default: return null;
     }
   };
 
-  const parteLabels = getParteLabels(form.tipo_contrato);
-  const ehCorretorContratado = ['intermediacao', 'exclusividade'].includes(form.tipo_contrato);
-  // Fonte ÚNICA de labels: barra de progresso E chips derivam deste array.
-  const dynamicStepLabels = [
-    'Tipo',
-    parteLabels.parte1 + '(es)',
-    parteLabels.parte2 + '(es)',
-    ehCorretorContratado ? 'Corretor (Contratado)' : 'Corretor',
-    'Objeto',
-    'Pagamento',
-    'Cláusulas',
-    'Validação',
-    'Testemunhas',
-    'Revisão',
-    'Exportar',
-  ];
-  const progressPct = Math.round(((step + 1) / dynamicStepLabels.length) * 100);
+  // Fonte ÚNICA de labels: barra, chips e conteúdo derivam do registry.
+  const stepIdx = Math.min(step, etapas.length - 1);
+  const dynamicStepLabels = etapas.map(etapaLabel);
+  const progressPct = Math.round(((stepIdx + 1) / etapas.length) * 100);
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
@@ -1926,7 +1782,7 @@ const ContratoWizard = () => {
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <FileSignature className="w-5 h-5 text-emerald-800" />
           <h1 className="text-lg font-bold text-gray-900 truncate">
-            {form.tipo_contrato ? tituloHeader(form.tipo_contrato) : 'Novo Contrato'}
+            {form.tipo_contrato ? config.tituloHeader : 'Novo Contrato'}
             {form.numero ? <span className="text-gray-400 font-normal"> · {form.numero}</span> : ''}
           </h1>
         </div>
@@ -1952,7 +1808,7 @@ const ContratoWizard = () => {
       <div>
         <div className="flex items-center justify-between mb-1">
           <span className="text-xs text-gray-500 font-medium">
-            Etapa {step + 1} de {dynamicStepLabels.length} — {dynamicStepLabels[step]}
+            Etapa {stepIdx + 1} de {etapas.length} — {dynamicStepLabels[stepIdx]}
           </span>
           <span className="text-xs text-gray-400">{progressPct}%</span>
         </div>
@@ -1971,14 +1827,14 @@ const ContratoWizard = () => {
             key={i}
             onClick={() => setStep(i)}
             className={`text-xs px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1 ${
-              i === step
+              i === stepIdx
                 ? 'bg-emerald-800 text-white'
-                : i < step
+                : i < stepIdx
                 ? 'bg-emerald-100 text-emerald-800'
                 : 'bg-gray-100 text-gray-500'
             }`}
           >
-            {i < step && <Check className="w-3 h-3" />}
+            {i < stepIdx && <Check className="w-3 h-3" />}
             {i + 1}. {label}
           </button>
         ))}
@@ -2000,7 +1856,7 @@ const ContratoWizard = () => {
         </Button>
         <Button
           onClick={goNext}
-          disabled={step === STEP_LABELS.length - 1}
+          disabled={step >= etapas.length - 1}
           className="bg-emerald-900 hover:bg-emerald-800 text-white"
         >
           Próxima <ChevronRight className="w-4 h-4 ml-1" />

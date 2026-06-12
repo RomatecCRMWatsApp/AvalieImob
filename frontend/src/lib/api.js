@@ -492,6 +492,11 @@ export const contratosAPI = {
   // Clonar / Zerar assinatura
   clonar: (id) => api.post(`/contratos/${id}/clonar`).then(r => normalizeContrato(r.data)),
   zerarAssinatura: (id) => api.post(`/contratos/${id}/zerar-assinatura`).then(r => r.data),
+  // IA jurídica / cálculos do wizard (endpoints já existentes no backend)
+  gerarClausulas: (id, body = {}) => api.post(`/contratos/${id}/gerar-clausulas`, body).then(r => r.data),
+  validarJuridico: (id) => api.post(`/contratos/${id}/validar-juridico`).then(r => r.data),
+  simuladorPenalidades: (id, body = {}) => api.post(`/contratos/${id}/simulador-penalidades`, body).then(r => r.data),
+  checklist: (id) => api.get(`/contratos/${id}/checklist`).then(r => r.data),
 };
 
 // ---- Perfis de Corretor (autofill "Usar meus dados" no wizard de partes)
