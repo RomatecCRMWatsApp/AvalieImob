@@ -4,6 +4,7 @@
  * Lista (badges de status + ações) + criação em etapas (modal) com cônjuge condicional.
  */
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Plus, Send, Bell, Trash2, X, Check, FileSignature, Loader2 } from 'lucide-react';
 import { contratosExclusividadeAPI } from '../../../lib/api';
 import { useToast } from '../../../hooks/use-toast';
@@ -297,9 +298,10 @@ function CriarModal({ onClose, onCriado }) {
 
 export default function ContratoExclusividadeList() {
   const { toast } = useToast();
+  const nav = useNavigate();
   const [lista, setLista] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [modal, setModal] = useState(false);
+  const [modal, setModal] = useState(false);  // legado (modal de criação substituído pelo wizard)
 
   const carregar = async () => {
     setLoading(true);
@@ -336,7 +338,7 @@ export default function ContratoExclusividadeList() {
             <p className="text-sm text-gray-500">Aceite eletrônico por WhatsApp (token por signatário)</p>
           </div>
         </div>
-        <button onClick={() => setModal(true)}
+        <button onClick={() => nav('/dashboard/exclusividade/novo')}
                 className="flex items-center gap-2 bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold">
           <Plus className="w-4 h-4" /> Novo contrato
         </button>
@@ -356,16 +358,16 @@ export default function ContratoExclusividadeList() {
             const total = (c.signatarios || []).length;
             return (
               <div key={c.id} className="bg-white border border-gray-200 rounded-xl p-4 flex flex-wrap items-center gap-3 justify-between">
-                <div className="min-w-0">
+                <div className="min-w-0 cursor-pointer" onClick={() => (c.status === 'rascunho' || c.status === 'enviado' || c.status === 'parcialmente_assinado') && nav(`/dashboard/exclusividade/${c.id}`)}>
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${cls}`}>{label}</span>
                     {(c.status === 'enviado' || c.status === 'parcialmente_assinado') && (
                       <span className="text-xs text-gray-500">{aceitos(c)}/{total} assinaturas</span>
                     )}
                   </div>
-                  <p className="font-medium text-gray-900 mt-1 truncate">{c.imovel?.descricao || 'Imóvel'}</p>
+                  <p className="font-medium text-gray-900 mt-1 truncate">{c.imovel?.descricao_geral || c.imovel?.descricao || 'Imóvel'}</p>
                   <p className="text-sm text-gray-500 truncate">
-                    {c.proprietario?.nome} · {brl(c.imovel?.valor_anunciado)} · {c.comissao_percentual}% · {c.prazo_meses} meses
+                    {(c.proprietarios || []).map((p) => p.nome).filter(Boolean).join(', ') || '—'} · {brl(c.imovel?.valor_anunciado)} · {c.comissao_percentual}% · {c.prazo_meses} meses
                   </p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">

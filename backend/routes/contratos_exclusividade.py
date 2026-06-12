@@ -23,7 +23,8 @@ from slowapi.util import get_remote_address
 from db import get_db
 from dependencies import get_active_subscriber
 from models.contrato_exclusividade import (
-    AceiteInput, ContratoExclusividadeCreate, StatusContrato, StatusSignatario, exige_conjuge,
+    AceiteInput, ContratoExclusividadeCreate, ContratoExclusividadeUpdate,
+    StatusContrato, StatusSignatario, exige_conjuge, etapas_iniciais, andamento_pct,
 )
 from services.contrato_exclusividade_assinatura import (
     agora_utc, gerar_hash_documento, gerar_token,
@@ -45,41 +46,98 @@ COL = "contratos_exclusividade"
 
 # ───────────────────────── helpers ─────────────────────────
 
-def _montar_signatarios(payload: ContratoExclusividadeCreate) -> list:
-    sigs = [{
-        "papel": "proprietario",
-        "nome": payload.proprietario.nome,
-        "cpf": payload.proprietario.cpf,
-        "whatsapp": payload.proprietario.whatsapp,
-        "token": gerar_token(),
-        "status": StatusSignatario.PENDENTE.value,
-        "aceite": None,
-    }]
-    if payload.conjuge and exige_conjuge(payload.estado_civil, payload.regime_bens):
+def _so_dig(v) -> str:
+    return "".join(filter(str.isdigit, str(v or "")))
+
+
+def _signatarios_de_proprietarios(proprietarios: list) -> list:
+    """
+    Multiproprietários: cada condômino é signatário; cada condômino casado/união
+    (regime != separação total e PF) adiciona o cônjuge como signatário vinculado
+    (indice_proprietario). WhatsApp deve ser distinto entre todos os signatários.
+    `proprietarios` é uma lista de dicts (do documento ou do payload serializado).
+    """
+    sigs = []
+    for idx, p in enumerate(proprietarios):
+        cpf_cnpj = _so_dig(p.get("cpf_cnpj"))
         sigs.append({
-            "papel": "conjuge",
-            "nome": payload.conjuge.nome,
-            "cpf": payload.conjuge.cpf,
-            "whatsapp": payload.conjuge.whatsapp,
+            "papel": "proprietario", "indice_proprietario": idx,
+            "nome": p.get("nome", ""), "cpf": cpf_cnpj,
+            "fracao_percentual": p.get("fracao_percentual"),
+            "whatsapp": _so_dig(p.get("whatsapp")),
             "token": gerar_token(),
-            "status": StatusSignatario.PENDENTE.value,
-            "aceite": None,
+            "status": StatusSignatario.PENDENTE.value, "aceite": None,
         })
+        conj = p.get("conjuge")
+        pf = len(cpf_cnpj) == 11
+        if pf and conj and exige_conjuge(p.get("estado_civil"), p.get("regime_bens")):
+            sigs.append({
+                "papel": "conjuge", "indice_proprietario": idx,
+                "nome": conj.get("nome", ""), "cpf": _so_dig(conj.get("cpf")),
+                "fracao_percentual": None,
+                "whatsapp": _so_dig(conj.get("whatsapp")),
+                "token": gerar_token(),
+                "status": StatusSignatario.PENDENTE.value, "aceite": None,
+            })
+    numeros = [s["whatsapp"] for s in sigs if s["whatsapp"]]
+    if len(numeros) != len(set(numeros)):
+        raise HTTPException(422, "Cada signatário deve possuir número de WhatsApp próprio")
     return sigs
 
 
+def _validar_para_envio(doc: dict) -> list:
+    """Valida o rascunho e devolve a lista de proprietários (dicts) pronta p/ signatários."""
+    props = doc.get("proprietarios") or []
+    if not props:
+        raise HTTPException(422, "Informe ao menos um proprietário")
+    soma = round(sum(float(p.get("fracao_percentual") or 0) for p in props), 2)
+    if abs(soma - 100.0) > 0.05:
+        raise HTTPException(422, f"A soma das frações deve totalizar 100% (atual: {soma}%)")
+    docs = [_so_dig(p.get("cpf_cnpj")) for p in props]
+    if len(docs) != len(set(docs)):
+        raise HTTPException(422, "Proprietário duplicado (mesmo CPF/CNPJ)")
+    for p in props:
+        if not _so_dig(p.get("whatsapp")):
+            raise HTTPException(422, f"WhatsApp obrigatório para o proprietário {p.get('nome','')}")
+        pf = len(_so_dig(p.get("cpf_cnpj"))) == 11
+        if pf and exige_conjuge(p.get("estado_civil"), p.get("regime_bens")):
+            conj = p.get("conjuge") or {}
+            if not conj.get("nome") or not _so_dig(conj.get("whatsapp")):
+                raise HTTPException(
+                    422, f"Cônjuge (nome + WhatsApp) obrigatório para {p.get('nome','')}")
+    if not (doc.get("imovel") or {}).get("descricao_geral"):
+        raise HTTPException(422, "Descrição geral do imóvel é obrigatória")
+    return props
+
+
 def _publico_view(contrato: dict, signatario: dict) -> dict:
+    props = contrato.get("proprietarios") or []
     return {
         "signatario": {"nome": signatario["nome"], "papel": signatario["papel"],
-                       "status": signatario["status"]},
-        "imovel": contrato["imovel"],
-        "proprietario_nome": contrato["proprietario"]["nome"],
-        "conjuge_nome": contrato["conjuge"]["nome"] if contrato.get("conjuge") else None,
-        "comissao_percentual": contrato["comissao_percentual"],
-        "prazo_meses": contrato["prazo_meses"],
-        "hash_documento": contrato["hash_documento"],
+                       "status": signatario["status"],
+                       "fracao_percentual": signatario.get("fracao_percentual")},
+        "imovel": contrato.get("imovel", {}),
+        "proprietarios": [{"nome": p.get("nome"), "fracao_percentual": p.get("fracao_percentual")}
+                          for p in props],
+        "comissao_percentual": contrato.get("comissao_percentual"),
+        "prazo_meses": contrato.get("prazo_meses"),
+        "hash_documento": contrato.get("hash_documento"),
         "texto_contrato": montar_texto_contrato(contrato),
     }
+
+
+async def _carregar_fotos_bytes(db, contrato: dict) -> dict:
+    """Pré-carrega bytes (db.images) das fotos da ficha para o anexo fotográfico do PDF."""
+    import base64
+    im = contrato.get("imovel") or {}
+    for f in im.get("fotos", []) or []:
+        try:
+            doc = await db["images"].find_one({"id": f.get("image_id")})
+            if doc and doc.get("data_b64"):
+                f["_image_bytes"] = base64.b64decode(doc["data_b64"])
+        except Exception:
+            logger.exception("Falha ao carregar foto %s", f.get("image_id"))
+    return contrato
 
 
 async def _zapi_cfg(db, uid: str) -> dict:
@@ -122,7 +180,8 @@ async def criar_contrato(
         "user_id": uid,
         "tipo": "exclusividade",
         "status": StatusContrato.RASCUNHO.value,
-        "signatarios": _montar_signatarios(payload),
+        "signatarios": _signatarios_de_proprietarios(doc["proprietarios"]),
+        "etapas": etapas_iniciais(),
         "criado_em": agora_utc(),
         "expira_em": agora_utc() + timedelta(days=EXPIRACAO_DIAS),
         "pdf_final_url": None,
@@ -131,6 +190,85 @@ async def criar_contrato(
     await db[COL].insert_one(doc)
     return {"id": cid, "hash_documento": doc["hash_documento"],
             "total_signatarios": len(doc["signatarios"])}
+
+
+@router.post("/rascunho", status_code=201)
+async def criar_rascunho(uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    """Cria um rascunho VAZIO para o wizard de 10 etapas preencher via autosave (PUT)."""
+    cid = str(_uuid.uuid4())
+    doc = {
+        "id": cid, "user_id": uid, "tipo": "exclusividade",
+        "status": StatusContrato.RASCUNHO.value,
+        "proprietarios": [],
+        "imovel": {"checklist_documentacao": {}, "fotos": [], "documentos": []},
+        "comissao_percentual": 6, "prazo_meses": 6,
+        "assinatura_cidade": "", "assinatura_data": None, "foro_comarca": "Açailândia/MA",
+        "observacoes_html": "", "condicoes_especiais_html": "", "colaborador_relatorio": "",
+        "fotos": [], "anexos": [], "signatarios": [], "etapas": etapas_iniciais(),
+        "hash_documento": None, "pdf_final_url": None,
+        "criado_em": agora_utc(), "atualizado_em": agora_utc(),
+    }
+    await db[COL].insert_one(doc)
+    await audit_log(db, uid, cid, "rascunho_criado")
+    return {"id": cid}
+
+
+@router.put("/{cid}")
+async def atualizar_rascunho(
+    cid: str, body: ContratoExclusividadeUpdate,
+    uid: str = Depends(get_active_subscriber), db=Depends(get_db),
+):
+    """
+    Update PARCIAL (autosave). exclude_unset → grava só o que veio; sub-objetos
+    (proprietario/conjuge/imovel) por dot-notation $set (merge profundo, não zera o resto).
+    Bloqueia edição de contrato já assinado/cancelado.
+    """
+    doc = await db[COL].find_one({"id": cid, "user_id": uid})
+    if not doc:
+        raise HTTPException(404, "Contrato não encontrado")
+    if doc["status"] in (StatusContrato.ASSINADO.value, StatusContrato.CANCELADO.value):
+        raise HTTPException(409, "Contrato finalizado não pode ser editado")
+
+    dados = body.model_dump(exclude_unset=True, mode="json")
+    set_doc = {"atualizado_em": agora_utc()}
+    # imovel: merge profundo por campo (preenchimento progressivo sem zerar o resto)
+    if "imovel" in dados and isinstance(dados["imovel"], dict):
+        for k, v in dados.pop("imovel").items():
+            set_doc[f"imovel.{k}"] = v
+    # proprietarios (lista) e escalares: $set direto (a lista é substituída inteira)
+    for k, v in dados.items():
+        set_doc[k] = v
+
+    await db[COL].update_one({"id": cid, "user_id": uid}, {"$set": set_doc})
+    novo = await db[COL].find_one({"id": cid, "user_id": uid})
+    novo.pop("_id", None)
+    for s in novo.get("signatarios", []):
+        s.pop("token", None)
+    novo["andamento_pct"] = andamento_pct(novo.get("etapas", []))
+    return novo
+
+
+@router.post("/{cid}/etapas/{numero}/concluir")
+async def concluir_etapa(
+    cid: str, numero: int,
+    uid: str = Depends(get_active_subscriber), db=Depends(get_db),
+):
+    """Marca etapa concluída (timestamp + autor), recalcula andamento (%)."""
+    doc = await db[COL].find_one({"id": cid, "user_id": uid})
+    if not doc:
+        raise HTTPException(404, "Contrato não encontrado")
+    etapas = doc.get("etapas") or etapas_iniciais()
+    alvo = next((e for e in etapas if e.get("etapa_numero") == numero), None)
+    if not alvo:
+        raise HTTPException(404, f"Etapa {numero} inexistente")
+    quando = agora_utc()
+    alvo.update({"concluida": True, "concluida_em": quando, "concluida_por": uid})
+    await db[COL].update_one(
+        {"id": cid, "user_id": uid},
+        {"$set": {"etapas": etapas, "atualizado_em": quando}})
+    await audit_log(db, uid, cid, "etapa_concluida", {"etapa": numero})
+    return {"etapa_numero": numero, "concluida_em": quando.isoformat(),
+            "andamento_pct": andamento_pct(etapas)}
 
 
 @router.get("")
@@ -163,20 +301,40 @@ async def enviar_contrato(cid: str, uid: str = Depends(get_active_subscriber), d
     if contrato["status"] not in (StatusContrato.RASCUNHO.value, StatusContrato.ENVIADO.value):
         raise HTTPException(409, f"Contrato no status '{contrato['status']}' não pode ser enviado")
 
+    # Fluxo wizard: signatários e hash são construídos no 1º envio (a partir do rascunho).
+    if not contrato.get("signatarios"):
+        props = _validar_para_envio(contrato)
+        sigs = _signatarios_de_proprietarios(props)
+        from services.contrato_exclusividade_assinatura import gerar_hash_documento
+        novo_hash = gerar_hash_documento(contrato)
+        await db[COL].update_one(
+            {"id": cid, "user_id": uid},
+            {"$set": {"signatarios": sigs, "hash_documento": novo_hash}})
+        contrato = await db[COL].find_one({"id": cid, "user_id": uid})
+
     cfg = await _zapi_cfg(db, uid)
+    await _carregar_fotos_bytes(db, contrato)
     pdf_bytes = gerar_pdf_rascunho(contrato)
+    imovel = contrato.get("imovel", {})
+    resumo_imovel = imovel.get("descricao_geral") or imovel.get("descricao") or "imóvel objeto do contrato"
+    valor = float(imovel.get("valor_anunciado") or 0)
     notificados = 0
     for s in contrato["signatarios"]:
         if s["status"] == StatusSignatario.ACEITO.value:
             continue
         link = f"{APP_URL}/aceite/{s['token']}"
-        papel = "proprietário(a)" if s["papel"] == "proprietario" else "cônjuge/companheiro(a)"
+        if s["papel"] == "proprietario":
+            frac = s.get("fracao_percentual")
+            papel = (f"proprietário(a) de {str(frac).replace('.', ',')}% do imóvel"
+                     if frac is not None else "proprietário(a) do imóvel")
+        else:
+            papel = "cônjuge/companheiro(a)"
         msg = (
             f"Olá, *{s['nome']}*! 👋\n\n"
             f"A *Romatec Consultoria Total* enviou um *Contrato de Exclusividade de "
             f"Corretagem* para sua análise e aceite eletrônico, na condição de {papel}.\n\n"
-            f"📍 Imóvel: {contrato['imovel']['descricao']}\n"
-            f"💰 Valor anunciado: R$ {contrato['imovel']['valor_anunciado']:,.2f}\n"
+            f"📍 Imóvel: {resumo_imovel}\n"
+            f"💰 Valor anunciado: R$ {valor:,.2f}\n"
             f"📆 Prazo de exclusividade: {contrato['prazo_meses']} meses\n\n"
             f"👉 Leia o contrato completo e confirme o aceite:\n{link}\n\n"
             f"🔒 Link individual e intransferível. Válido por {EXPIRACAO_DIAS} dias.\n"
@@ -298,6 +456,7 @@ async def confirmar_aceite(token: str, payload: AceiteInput, request: Request, d
                 "mensagem": "Aceite registrado. Aguardando o(s) demais signatário(s)."}
 
     # Todos aceitaram → PDF final + envio
+    await _carregar_fotos_bytes(db, contrato)
     pdf_final = gerar_pdf_final(contrato)
     pdf_url = None
     try:
@@ -339,11 +498,12 @@ async def verificar(hash_documento: str, request: Request, db=Depends(get_db)):
     contrato = await db[COL].find_one({"hash_documento": hash_documento})
     if not contrato:
         return {"valido": False, "mensagem": "Nenhum documento encontrado para este código"}
+    im = contrato.get("imovel", {})
     return {
         "valido": True,
         "status": contrato["status"],
-        "imovel": contrato["imovel"]["descricao"],
-        "cidade": f"{contrato['imovel']['cidade']}/{contrato['imovel']['uf']}",
+        "imovel": im.get("descricao_geral") or im.get("descricao") or "—",
+        "cidade": f"{im.get('cidade', '')}/{im.get('uf', '')}",
         "signatarios": [
             {"nome": s["nome"], "papel": s["papel"], "status": s["status"],
              "data_aceite": s["aceite"]["data_hora_utc"] if s.get("aceite") else None}

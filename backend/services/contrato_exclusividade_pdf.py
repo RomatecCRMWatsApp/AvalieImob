@@ -34,6 +34,12 @@ except Exception:  # pragma: no cover
     def valor_por_extenso(v):
         return ""
 
+try:
+    from services.foto_overlay import aplicar_tarja_romatec
+except Exception:  # pragma: no cover
+    def aplicar_tarja_romatec(b, **kw):
+        return b
+
 VERDE = colors.HexColor("#0B6E4F")
 DOURADO = colors.HexColor("#B8860B")
 CINZA = colors.HexColor("#444444")
@@ -206,21 +212,103 @@ def _clausula_rescisao(contrato: dict, comissao_pct, imovel: dict) -> Tuple[str,
     return ("CLÁUSULA OITAVA — DA RESCISÃO E PENALIDADES", paras)
 
 
+_ROMANOS = ["(i)", "(ii)", "(iii)", "(iv)", "(v)", "(vi)", "(vii)", "(viii)", "(ix)", "(x)"]
+
+
+def _fracao_extenso(f) -> str:
+    try:
+        f = float(f)
+    except (TypeError, ValueError):
+        return ""
+    intp = int(f)
+    dec = int(round((f - intp) * 100))
+    if dec == 0:
+        return _pct_extenso(intp)
+    return f"{_pct_extenso(intp)} vírgula {_pct_extenso(dec)}"
+
+
+def _qualificar_proprietario(p: dict) -> str:
+    """Qualificação notarial de um condômino, com cônjuge inline e fração."""
+    partes = [f"<b>{_esc(p.get('nome')) or '____________________'}</b>",
+              _esc(p.get("nacionalidade") or "brasileiro(a)")]
+    ec = p.get("estado_civil")
+    if ec:
+        estado = _ESTADO_CIVIL.get(ec, ec)
+        conj = p.get("conjuge") or {}
+        if conj.get("nome"):
+            regime = _REGIME.get(p.get("regime_bens"), p.get("regime_bens") or "")
+            estado += f", {('casado(a)' if ec == 'casado' else 'convivente')} sob o regime de {regime} com "
+            estado += _qualificar_pessoa(conj)
+        partes.append(estado)
+    if p.get("profissao"):
+        partes.append(_esc(p["profissao"]))
+    doc = _so_digitos_pdf(p.get("cpf_cnpj"))
+    rotulo = "CPF" if len(doc) == 11 else "CNPJ"
+    partes.append(f"inscrito(a) no {rotulo} sob o nº {_fmt_cpf(doc) if len(doc) == 11 else _esc(p.get('cpf_cnpj'))}")
+    frac = p.get("fracao_percentual")
+    if frac is not None:
+        partes.append(f"proprietário(a) de {str(frac).replace('.', ',')}% "
+                      f"({_fracao_extenso(frac)} por cento) do imóvel objeto deste contrato")
+    return ", ".join(partes) + ";"
+
+
+def _so_digitos_pdf(v) -> str:
+    return "".join(filter(str.isdigit, str(v or "")))
+
+
+def _clausula_imovel(im: dict) -> List[str]:
+    """Cláusula 2ª condicional — sem trechos vazios (montagem só com o que existe)."""
+    frase = f"O imóvel objeto da exclusividade é o seguinte: {_esc(im.get('descricao_geral')) or '____________________'}"
+    loc = []
+    if im.get("endereco"):
+        loc.append(f"situado na {_esc(im['endereco'])}")
+    if im.get("bairro"):
+        loc.append(f"bairro {_esc(im['bairro'])}")
+    cidade_uf = "/".join(x for x in [_esc(im.get("cidade")), _esc(im.get("uf"))] if x)
+    if cidade_uf:
+        loc.append(cidade_uf)
+    if im.get("cep"):
+        loc.append(f"CEP {_esc(im['cep'])}")
+    if loc:
+        frase += ", " + ", ".join(loc)
+    if im.get("matricula"):
+        frase += f", registrado sob a matrícula nº {_esc(im['matricula'])}"
+        if im.get("cartorio"):
+            frase += f" no {_esc(im['cartorio'])}"
+    if im.get("area_total_m2") is not None:
+        frase += f", com área total de {str(im['area_total_m2']).replace('.', ',')} m²"
+    if im.get("area_hectares") is not None:
+        frase += f", equivalente a {('%.4f' % float(im['area_hectares'])).replace('.', ',')} hectares"
+    if im.get("confrontacoes"):
+        frase += f", com as seguintes confrontações: {_esc(im['confrontacoes'])}"
+    if im.get("latitude") is not None and im.get("longitude") is not None:
+        frase += f", georreferenciado nas coordenadas {im['latitude']}, {im['longitude']} (SIRGAS 2000)"
+    frase += "."
+    paragrafo_unico = (
+        f"Parágrafo único. O imóvel será anunciado pelo valor de {_brl(im.get('valor_anunciado'))} "
+        f"({valor_por_extenso(im.get('valor_anunciado'))}), podendo ser ajustado por anuência "
+        f"expressa de todos os CONTRATANTES.")
+    return [frase, paragrafo_unico]
+
+
 def _secoes(contrato: dict) -> List[Tuple[str, List[str]]]:
-    prop = contrato.get("proprietario", {})
-    conj = contrato.get("conjuge")
+    props = contrato.get("proprietarios") or []
     imovel = contrato.get("imovel", {})
-    ec = contrato.get("estado_civil", "")
-    regime = contrato.get("regime_bens", "") or ""
     comissao = contrato.get("comissao_percentual", 0)
     prazo = contrato.get("prazo_meses", 6)
 
     secoes: List[Tuple[str, List[str]]] = []
 
-    # DAS PARTES
-    partes_txt = ["CONTRATANTE: " + _qualificar_pessoa(prop, ec, regime) + ";"]
-    if conj:
-        partes_txt.append("CÔNJUGE/COMPANHEIRO(A) ANUENTE: " + _qualificar_pessoa(conj) + ";")
+    # DAS PARTES — todos os condôminos como CONTRATANTES (parágrafo notarial)
+    if props:
+        itens = []
+        for idx, p in enumerate(props):
+            marc = _ROMANOS[idx] if idx < len(_ROMANOS) else f"({idx + 1})"
+            itens.append(f"{marc} {_qualificar_proprietario(p)}")
+        contratantes = "CONTRATANTES: " + " ".join(itens)
+    else:
+        contratantes = "CONTRATANTES: ____________________;"
+    partes_txt = [contratantes]
     partes_txt.append(
         "CONTRATADA: <b>{razao}</b>, inscrita no CNPJ sob nº {cnpj}, com sede na {end}, "
         "representada por {rep}, Corretor de Imóveis {creci} e {cnai}.".format(
@@ -235,19 +323,8 @@ def _secoes(contrato: dict) -> List[Tuple[str, List[str]]]:
         "venda do imóvel descrito na cláusula segunda, nos termos do art. 726 do Código "
         "Civil e da Lei nº 6.530/1978."]))
 
-    # CLÁUSULA 2ª — DESCRIÇÃO DO IMÓVEL
-    desc = [f"Imóvel: {_esc(imovel.get('descricao'))}.",
-            f"Endereço: {_esc(imovel.get('endereco'))}, {_esc(imovel.get('bairro'))}, "
-            f"{_esc(imovel.get('cidade'))}/{_esc(imovel.get('uf'))}."]
-    if imovel.get("matricula"):
-        m = f"Matrícula nº {_esc(imovel['matricula'])}"
-        if imovel.get("cartorio"):
-            m += f", do {_esc(imovel['cartorio'])}"
-        desc.append(m + ".")
-    if imovel.get("area_total"):
-        desc.append(f"Área: {_esc(imovel['area_total'])}.")
-    desc.append(f"Valor anunciado: {_brl(imovel.get('valor_anunciado'))}.")
-    secoes.append(("CLÁUSULA SEGUNDA — DA DESCRIÇÃO DO IMÓVEL", desc))
+    # CLÁUSULA 2ª — DO IMÓVEL (ficha, condicional)
+    secoes.append(("CLÁUSULA SEGUNDA — DO IMÓVEL", _clausula_imovel(imovel)))
 
     # CLÁUSULA 3ª — PRAZO
     secoes.append(("CLÁUSULA TERCEIRA — DO PRAZO DE EXCLUSIVIDADE", [
@@ -402,8 +479,15 @@ class _ContratoDoc(BaseDocTemplate):
 # Blocos de assinatura
 # ---------------------------------------------------------------------------
 
-def _bloco_assinatura(s: dict, st: dict, final: bool) -> Table:
-    papel = _PAPEL.get(s.get("papel"), s.get("papel"))
+def _bloco_assinatura(s: dict, st: dict, final: bool, owner_nome: str = "") -> Table:
+    if s.get("papel") == "conjuge":
+        papel = f"Cônjuge anuente de {_esc(owner_nome)}" if owner_nome else "Cônjuge anuente"
+    elif s.get("papel") == "proprietario":
+        frac = s.get("fracao_percentual")
+        papel = (f"Proprietário(a) — {str(frac).replace('.', ',')}%"
+                 if frac is not None else "Proprietário(a)")
+    else:
+        papel = _PAPEL.get(s.get("papel"), s.get("papel"))
     linhas = []
     if final and s.get("aceite"):
         a = s["aceite"]
@@ -451,9 +535,18 @@ def _gerar(contrato: dict, final: bool) -> bytes:
 
     story.append(Spacer(1, 12))
     story.append(Paragraph("DAS ASSINATURAS ELETRÔNICAS", st["clausula"]))
+    props = contrato.get("proprietarios") or []
     for s in contrato.get("signatarios", []):
-        story.append(_bloco_assinatura(s, st, final))
+        owner_nome = ""
+        if s.get("papel") == "conjuge":
+            idx = s.get("indice_proprietario")
+            if isinstance(idx, int) and 0 <= idx < len(props):
+                owner_nome = props[idx].get("nome", "")
+        story.append(_bloco_assinatura(s, st, final, owner_nome))
         story.append(Spacer(1, 8))
+
+    # Anexo I — Relatório fotográfico (só se houver fotos com bytes pré-carregados)
+    story += _anexo_fotografico(contrato, st)
 
     if final:
         story.append(Spacer(1, 10))
@@ -473,6 +566,55 @@ def _gerar(contrato: dict, final: bool) -> bytes:
     doc.multiBuild(story)
     buf.seek(0)
     return buf.read()
+
+
+def _anexo_fotografico(contrato: dict, st: dict) -> List:
+    """Anexo I — grade 2 colunas com tarja Romatec queimada + legenda. Defensivo."""
+    im = contrato.get("imovel", {})
+    fotos = [f for f in (im.get("fotos") or []) if f.get("_image_bytes")]
+    if not fotos:
+        return []
+    from reportlab.platypus import PageBreak
+    endereco = ", ".join(x for x in [im.get("endereco"), im.get("bairro"),
+                                     im.get("cidade"), im.get("uf")] if x)
+    colaborador = contrato.get("colaborador_relatorio") or "Romatec"
+    elems: List = [PageBreak(),
+                   Paragraph("ANEXO I — RELATÓRIO FOTOGRÁFICO DO IMÓVEL", st["clausula"])]
+    cell_w = 7.6 * cm
+    linha = []
+    for idx, f in enumerate(fotos, start=1):
+        cel = []
+        try:
+            tratada = aplicar_tarja_romatec(
+                f["_image_bytes"], lat=f.get("gps_lat"), lon=f.get("gps_lng"),
+                endereco=endereco, data_hora=f.get("data_hora", ""), colaborador=colaborador)
+            img = Image(io.BytesIO(tratada))
+            ratio = min(cell_w / img.imageWidth, (5.4 * cm) / img.imageHeight)
+            img.drawWidth = img.imageWidth * ratio
+            img.drawHeight = img.imageHeight * ratio
+            cel.append(img)
+        except Exception:
+            cel.append(Paragraph("[imagem indisponível]", st["legenda"]))
+        cel.append(Paragraph(f"<b>{idx}.</b> {_esc(f.get('legenda') or f'Foto {idx}')}", st["legenda"]))
+        linha.append(cel)
+        if len(linha) == 2:
+            elems.append(_linha_fotos(linha, cell_w))
+            linha = []
+    if linha:
+        linha.append([Spacer(1, 1)])
+        elems.append(_linha_fotos(linha, cell_w))
+    return elems
+
+
+def _linha_fotos(linha, cell_w):
+    t = Table([linha], colWidths=[cell_w + 0.4 * cm, cell_w + 0.4 * cm])
+    t.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    return t
 
 
 def gerar_pdf_rascunho(contrato: dict) -> bytes:

@@ -27,11 +27,36 @@ def gerar_hash_documento(contrato: dict) -> str:
     def _norm(dt):
         return dt.isoformat() if isinstance(dt, datetime) else dt
 
+    def _dig(v):
+        return "".join(filter(str.isdigit, str(v or "")))
+
+    proprietarios = [
+        {
+            "nome": p.get("nome"),
+            "cpf_cnpj": _dig(p.get("cpf_cnpj")),
+            "fracao_percentual": p.get("fracao_percentual"),
+            "conjuge_cpf": _dig((p.get("conjuge") or {}).get("cpf")),
+        }
+        for p in (contrato.get("proprietarios") or [])
+    ]
+    im = contrato.get("imovel") or {}
+    imovel_canon = {
+        "matricula": im.get("matricula"),
+        "cartorio": im.get("cartorio"),
+        "endereco": im.get("endereco"),
+        "descricao_geral": im.get("descricao_geral"),
+        "area_total_m2": im.get("area_total_m2"),
+        "area_hectares": im.get("area_hectares"),
+        "confrontacoes": im.get("confrontacoes"),
+        "latitude": im.get("latitude"),
+        "longitude": im.get("longitude"),
+        "valor_anunciado": im.get("valor_anunciado"),
+    }  # fotos/documentos NÃO entram no hash (anexos mutáveis pré-envio)
+
     conteudo_canonico = json.dumps(
         {
-            "proprietario": contrato.get("proprietario"),
-            "conjuge": contrato.get("conjuge"),
-            "imovel": contrato.get("imovel"),
+            "proprietarios": proprietarios,
+            "imovel": imovel_canon,
             "comissao_percentual": contrato.get("comissao_percentual"),
             "prazo_meses": contrato.get("prazo_meses"),
             "criado_em": _norm(contrato.get("criado_em")),
