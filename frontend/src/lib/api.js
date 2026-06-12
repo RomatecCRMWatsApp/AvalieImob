@@ -497,6 +497,7 @@ export const contratosAPI = {
   validarJuridico: (id) => api.post(`/contratos/${id}/validar-juridico`).then(r => r.data),
   simuladorPenalidades: (id, body = {}) => api.post(`/contratos/${id}/simulador-penalidades`, body).then(r => r.data),
   checklist: (id) => api.get(`/contratos/${id}/checklist`).then(r => r.data),
+  clausulasPreview: (id) => api.get(`/contratos/${id}/clausulas-preview`).then(r => r.data),
 };
 
 // ---- Perfis de Corretor (autofill "Usar meus dados" no wizard de partes)

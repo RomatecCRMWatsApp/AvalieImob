@@ -1427,6 +1427,30 @@ async def simulador_penalidades(
     return resultado
 
 
+@router.get("/contratos/{cid}/clausulas-preview")
+async def clausulas_preview(
+    cid: str,
+    uid: str = Depends(get_authenticated_user),
+    db=Depends(get_db),
+):
+    """Texto montado das cláusulas (preview read-only da etapa 7). Para
+    exclusividade retorna o texto canônico (preâmbulo + 12 cláusulas + fecho)."""
+    doc = await db.contratos.find_one(_contrato_query_by_cid(cid, uid))
+    if not doc:
+        raise HTTPException(status_code=404, detail="Contrato não encontrado")
+    from pdf.templates.contrato_base import (
+        montar_clausulas, preambulo_exclusividade, fecho_exclusividade,
+    )
+    is_excl = "exclusiv" in (doc.get("tipo_contrato") or "").lower()
+    clausulas = [{"titulo": c.titulo, "itens": c.itens} for c in montar_clausulas(doc)]
+    return {
+        "canonico": is_excl,
+        "preambulo": preambulo_exclusividade(doc) if is_excl else [],
+        "clausulas": clausulas,
+        "fecho": fecho_exclusividade(doc) if is_excl else "",
+    }
+
+
 @router.get("/contratos/{cid}/checklist")
 async def checklist_documental(
     cid: str,

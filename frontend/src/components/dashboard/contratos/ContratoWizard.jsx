@@ -719,10 +719,22 @@ const Step7Clausulas = ({ form, setForm, contratoId }) => {
   const [clausulas, setClausulas] = useState(form.clausulas || []);
   const [editando, setEditando] = useState(null); // index sendo editado
   const [editBuffer, setEditBuffer] = useState({});
+  const [preview, setPreview] = useState(null);
+
+  // Tipos com texto jurídico canônico (cláusulas fixas, montadas no backend).
+  const ehCanonico = (form.tipo_contrato || '').includes('exclusiv');
+  const stripBold = (s) => (s || '').replace(/<\/?b>/g, '');
 
   useEffect(() => {
     setForm(f => ({ ...f, clausulas }));
   }, [clausulas]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!ehCanonico || !contratoId) return;
+    contratosAPI.clausulasPreview(contratoId)
+      .then(setPreview)
+      .catch(() => setPreview({ preambulo: [], clausulas: [], fecho: '' }));
+  }, [ehCanonico, contratoId]);
 
   const gerarClausulas = async () => {
     if (!contratoId) {
@@ -763,6 +775,40 @@ const Step7Clausulas = ({ form, setForm, contratoId }) => {
     { tipo: 'corretor', label: 'Cláusulas do Corretor', cor: 'emerald' },
     { tipo: 'especial', label: 'Cláusulas Especiais', cor: 'amber' },
   ];
+
+  // Tipos canônicos (ex.: Exclusividade): cláusulas fixas → preview SOMENTE LEITURA.
+  if (ehCanonico) {
+    return (
+      <div className="space-y-5">
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 mb-1">Cláusulas do Contrato</h2>
+          <p className="text-sm text-gray-500">Para este tipo, as cláusulas são padronizadas e aplicadas automaticamente ao PDF.</p>
+        </div>
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-sm text-emerald-800">
+          <strong>Texto canônico aplicado.</strong> As 12 cláusulas do Contrato de Exclusividade são montadas
+          automaticamente conforme o regime de prazo e os dados preenchidos. Pré-visualização abaixo (somente leitura).
+        </div>
+        {!preview ? (
+          <div className="flex justify-center py-10"><Loader2 className="w-5 h-5 animate-spin text-emerald-700" /></div>
+        ) : (
+          <div className="space-y-4">
+            {(preview.preambulo || []).map((p, i) => (
+              <p key={`pre-${i}`} className="text-sm text-gray-700 leading-relaxed text-justify">{stripBold(p)}</p>
+            ))}
+            {(preview.clausulas || []).map((c, i) => (
+              <div key={`cl-${i}`} className="bg-gray-50 rounded-xl border border-gray-200 p-4">
+                <div className="font-bold text-emerald-900 text-sm mb-1.5">{c.titulo}</div>
+                {(c.itens || []).map((it, j) => (
+                  <p key={j} className="text-sm text-gray-700 leading-relaxed text-justify mb-1.5">{stripBold(it)}</p>
+                ))}
+              </div>
+            ))}
+            {preview.fecho && <p className="text-sm text-gray-700 italic leading-relaxed">{stripBold(preview.fecho)}</p>}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
