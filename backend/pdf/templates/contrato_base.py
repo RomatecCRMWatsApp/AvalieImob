@@ -173,6 +173,12 @@ def _ctx(doc: dict) -> dict:
         "rg": _g(p, "rg", default=""),
         "orgao_emissor": _g(p, "orgao_emissor", "rg_orgao", default=""),
         "cpf": _g(p, "cpf", "doc", default=""),
+        "cnh": _g(p, "cnh", default=""),
+        "cnh_categoria": _g(p, "cnh_categoria", default=""),
+        "cnh_orgao": _g(p, "cnh_orgao", default=""),
+        "cnh_validade": _g(p, "cnh_validade", default=""),
+        "filiacao_mae": _g(p, "filiacao_mae", default=""),
+        "filiacao_pai": _g(p, "filiacao_pai", default=""),
         "endereco_completo": _endereco_completo(p),
         "conjuge_nome": conjuge_nome,
         "conjuge_cpf": conjuge_cpf,
@@ -214,10 +220,26 @@ def _ctx(doc: dict) -> dict:
 def preambulo_exclusividade(doc: dict) -> List[str]:
     """Qualificação das partes (parágrafos do preâmbulo)."""
     c = _ctx(doc)
+    # CNH (documento de habilitação) — opcional
+    cnh_part = ""
+    if c["cnh"]:
+        cnh_part = f", portador(a) da CNH nº {c['cnh']}"
+        if c["cnh_categoria"]:
+            cnh_part += f" categoria {c['cnh_categoria']}"
+        if c["cnh_orgao"]:
+            cnh_part += f" ({c['cnh_orgao']})"
+    # Filiação — opcional
+    filiacao_part = ""
+    if c["filiacao_mae"] and c["filiacao_pai"]:
+        filiacao_part = f", filho(a) de {c['filiacao_pai']} e {c['filiacao_mae']}"
+    elif c["filiacao_mae"]:
+        filiacao_part = f", filho(a) de {c['filiacao_mae']}"
+    elif c["filiacao_pai"]:
+        filiacao_part = f", filho(a) de {c['filiacao_pai']}"
     contratante = (
         f"<b>CONTRATANTE (PROPRIETÁRIO):</b> {c['nome']}, {c['nacionalidade']}, "
         f"{c['estado_civil']}, {c['profissao']}, RG nº {c['rg']} ({c['orgao_emissor']}), "
-        f"CPF nº {c['cpf']}, residente e domiciliado(a) em {c['endereco_completo']}."
+        f"CPF nº {c['cpf']}{cnh_part}{filiacao_part}, residente e domiciliado(a) em {c['endereco_completo']}."
     )
     if c["tem_conjuge"]:
         contratante += (

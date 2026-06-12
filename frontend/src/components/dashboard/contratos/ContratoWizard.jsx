@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { useToast } from '../../../hooks/use-toast';
-import { contratosAPI, perfilAPI } from '../../../lib/api';
+import { contratosAPI, perfilAPI, testemunhasAPI } from '../../../lib/api';
 import { useAuth } from '../../../contexts/AuthContext';
 import ImovelMap from '../../maps/ImovelMap';
 import ImageUploader from '../ptam/ImageUploader';
@@ -216,6 +216,22 @@ const PessoaForm = ({ pessoa, onChange, titulo }) => {
             />
             <Input label="Profissão" value={pessoa.profissao} onChange={(v) => upd('profissao', v)} />
             <Input label="Nacionalidade" value={pessoa.nacionalidade} onChange={(v) => upd('nacionalidade', v)} />
+            <Input label="CNH (nº de registro)" value={pessoa.cnh} onChange={(v) => upd('cnh', v)} placeholder="00000000000" />
+            <Select
+              label="Categoria da CNH"
+              value={pessoa.cnh_categoria}
+              onChange={(v) => upd('cnh_categoria', v)}
+              options={[
+                { value: '', label: 'Selecione...' },
+                { value: 'A', label: 'A' }, { value: 'B', label: 'B' }, { value: 'AB', label: 'AB' },
+                { value: 'C', label: 'C' }, { value: 'D', label: 'D' }, { value: 'E', label: 'E' },
+                { value: 'AC', label: 'AC' }, { value: 'AD', label: 'AD' }, { value: 'AE', label: 'AE' },
+              ]}
+            />
+            <Input label="Validade da CNH" value={pessoa.cnh_validade} onChange={(v) => upd('cnh_validade', v)} type="date" />
+            <Input label="Órgão Expedidor da CNH" value={pessoa.cnh_orgao} onChange={(v) => upd('cnh_orgao', v)} placeholder="DETRAN/MT" />
+            <Input label="Nome da Mãe (filiação)" value={pessoa.filiacao_mae} onChange={(v) => upd('filiacao_mae', v)} />
+            <Input label="Nome do Pai (filiação)" value={pessoa.filiacao_pai} onChange={(v) => upd('filiacao_pai', v)} />
             <Input label="E-mail" value={pessoa.email} onChange={(v) => upd('email', v)} type="email" />
             <Input label="Telefone" value={pessoa.telefone} onChange={(v) => upd('telefone', v)} placeholder="(65) 99999-9999" />
             <Input label="Endereço" value={pessoa.endereco} onChange={(v) => upd('endereco', v)} />
@@ -1208,6 +1224,9 @@ const EMPTY_TESTEMUNHA = { nome: '', cpf: '', rg: '', profissao: '', endereco: '
 
 const Step9Testemunhas = ({ form, setForm }) => {
   const testemunhas = form.testemunhas || [{ ...EMPTY_TESTEMUNHA }, { ...EMPTY_TESTEMUNHA }];
+  const { toast } = useToast();
+  const [salvas, setSalvas] = useState([]);
+  const [salvando, setSalvando] = useState({});
 
   const upd = (i, key, val) => {
     const list = [...testemunhas];
@@ -1215,11 +1234,49 @@ const Step9Testemunhas = ({ form, setForm }) => {
     setForm({ ...form, testemunhas: list });
   };
 
+  const setTestemunha = (i, dados) => {
+    const list = [...testemunhas];
+    list[i] = { ...EMPTY_TESTEMUNHA, ...dados };
+    setForm({ ...form, testemunhas: list });
+  };
+
+  const carregarSalvas = useCallback(async () => {
+    try { setSalvas(await testemunhasAPI.listar()); } catch { /* silent */ }
+  }, []);
+
   useEffect(() => {
     if (!form.testemunhas) {
       setForm(f => ({ ...f, testemunhas: [{ ...EMPTY_TESTEMUNHA }, { ...EMPTY_TESTEMUNHA }] }));
     }
+    carregarSalvas();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const selecionarSalva = (i, id) => {
+    if (!id) return;
+    const t = salvas.find(s => s.id === id);
+    if (t) setTestemunha(i, {
+      nome: t.nome || '', cpf: t.cpf || '', rg: t.rg || '', profissao: t.profissao || '',
+      endereco: t.endereco || '', cidade: t.cidade || '', uf: t.uf || '',
+    });
+  };
+
+  const salvarTestemunha = async (i) => {
+    const t = testemunhas[i] || {};
+    if (!(t.nome || '').trim()) { toast({ title: 'Informe o nome da testemunha antes de salvar', variant: 'destructive' }); return; }
+    setSalvando(p => ({ ...p, [i]: true }));
+    try {
+      await testemunhasAPI.salvar({
+        nome: t.nome, cpf: t.cpf, rg: t.rg, profissao: t.profissao,
+        endereco: t.endereco, cidade: t.cidade, uf: t.uf,
+      });
+      await carregarSalvas();
+      toast({ title: 'Testemunha salva para reutilizar' });
+    } catch (e) {
+      toast({ title: e.response?.data?.detail || 'Erro ao salvar testemunha', variant: 'destructive' });
+    } finally {
+      setSalvando(p => ({ ...p, [i]: false }));
+    }
+  };
 
   // Validar CPF único
   const cpfsPartes = [
@@ -1243,7 +1300,32 @@ const Step9Testemunhas = ({ form, setForm }) => {
 
       {[0, 1].map(i => (
         <div key={i} className="bg-gray-50 rounded-xl p-4 space-y-3">
-          <div className="font-semibold text-gray-800 text-sm">Testemunha {i + 1}</div>
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="font-semibold text-gray-800 text-sm">Testemunha {i + 1}</div>
+            <div className="flex items-center gap-2">
+              {salvas.length > 0 && (
+                <select
+                  value=""
+                  onChange={(e) => { selecionarSalva(i, e.target.value); e.target.value = ''; }}
+                  className="border border-gray-300 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                >
+                  <option value="">Usar testemunha salva…</option>
+                  {salvas.map(s => (
+                    <option key={s.id} value={s.id}>{s.nome}{s.cpf ? ` — ${s.cpf}` : ''}</option>
+                  ))}
+                </select>
+              )}
+              <button
+                type="button"
+                onClick={() => salvarTestemunha(i)}
+                disabled={salvando[i]}
+                className="flex items-center gap-1 text-xs font-medium text-emerald-700 border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 rounded-lg px-2.5 py-1.5 transition disabled:opacity-50"
+              >
+                {salvando[i] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                Salvar
+              </button>
+            </div>
+          </div>
           <div className="grid sm:grid-cols-2 gap-3">
             <Input label="Nome Completo" value={testemunhas[i]?.nome} onChange={(v) => upd(i, 'nome', v)} required />
             <div>

@@ -343,12 +343,39 @@ def _qualifica_pf(p: dict, role: str = "") -> str:
     rg_part = f", RG {rg}" if rg else ""
     if rg and rg_orgao:
         rg_part = f", RG {rg} {rg_orgao}"
+
+    # CNH (documento de habilitação) — opcional
+    cnh = p.get("cnh") or ""
+    cnh_cat = p.get("cnh_categoria") or ""
+    cnh_orgao = p.get("cnh_orgao") or ""
+    cnh_validade = _fmt_date(p.get("cnh_validade")) if p.get("cnh_validade") else ""
+    cnh_part = ""
+    if cnh:
+        cnh_part = f", portador(a) da CNH n. {cnh}"
+        if cnh_cat:
+            cnh_part += f" categoria {cnh_cat}"
+        if cnh_orgao:
+            cnh_part += f" expedida pelo {cnh_orgao}"
+        if cnh_validade:
+            cnh_part += f", válida até {cnh_validade}"
+
+    # Filiação — opcional
+    mae = (p.get("filiacao_mae") or "").strip()
+    pai = (p.get("filiacao_pai") or "").strip()
+    filiacao_part = ""
+    if mae and pai:
+        filiacao_part = f", filho(a) de {_safe_text(pai)} e {_safe_text(mae)}"
+    elif mae:
+        filiacao_part = f", filho(a) de {_safe_text(mae)}"
+    elif pai:
+        filiacao_part = f", filho(a) de {_safe_text(pai)}"
+
     cep_part = f", CEP {cep}" if cep else ""
     loc = f"{endereco}, {cidade}-{uf}{cep_part}"
 
     qualif = (
         f"{nome}, {nacionalidade}, {estado_civil}, {profissao}, "
-        f"portador(a) do CPF n. {cpf}{rg_part}, "
+        f"portador(a) do CPF n. {cpf}{rg_part}{cnh_part}{filiacao_part}, "
         f"nascido(a) em {nascimento}, "
         f"residente em {loc}"
     )
@@ -1146,6 +1173,9 @@ def _adapt_for_docx(doc: dict) -> dict:
                 "rg_orgao": v.get("rg_orgao"), "data_nascimento": v.get("nascimento"),
                 "estado_civil": v.get("estado_civil"), "profissao": v.get("profissao"),
                 "nacionalidade": v.get("nacionalidade", "brasileiro(a)"),
+                "cnh": v.get("cnh"), "cnh_categoria": v.get("cnh_categoria"),
+                "cnh_orgao": v.get("cnh_orgao"), "cnh_validade": v.get("cnh_validade"),
+                "filiacao_mae": v.get("filiacao_mae"), "filiacao_pai": v.get("filiacao_pai"),
                 "endereco": v.get("endereco"), "cidade": v.get("cidade"),
                 "uf": v.get("uf"), "cep": v.get("cep"),
                 "conjuge_nome": v.get("conjuge_nome"), "conjuge_cpf": v.get("conjuge_cpf"),
@@ -1173,6 +1203,9 @@ def _adapt_for_docx(doc: dict) -> dict:
                 "rg_orgao": c.get("rg_orgao"), "data_nascimento": c.get("nascimento"),
                 "estado_civil": c.get("estado_civil"), "profissao": c.get("profissao"),
                 "nacionalidade": c.get("nacionalidade", "brasileiro(a)"),
+                "cnh": c.get("cnh"), "cnh_categoria": c.get("cnh_categoria"),
+                "cnh_orgao": c.get("cnh_orgao"), "cnh_validade": c.get("cnh_validade"),
+                "filiacao_mae": c.get("filiacao_mae"), "filiacao_pai": c.get("filiacao_pai"),
                 "endereco": c.get("endereco"), "cidade": c.get("cidade"),
                 "uf": c.get("uf"), "cep": c.get("cep"),
                 "conjuge_nome": c.get("conjuge_nome"), "conjuge_cpf": c.get("conjuge_cpf"),

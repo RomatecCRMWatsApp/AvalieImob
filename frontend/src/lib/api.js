@@ -321,6 +321,14 @@ export const perfilAPI = {
   update: (data) => api.put('/perfil-avaliador', data).then(r => r.data),
 };
 
+// ---- Testemunhas salvas (autofill no wizard de Contratos)
+export const testemunhasAPI = {
+  listar: () => api.get('/testemunhas').then(r => r.data),
+  salvar: (data) => api.post('/testemunhas', data).then(r => r.data),
+  atualizar: (id, data) => api.put(`/testemunhas/${id}`, data).then(r => r.data),
+  excluir: (id) => api.delete(`/testemunhas/${id}`).then(r => r.data),
+};
+
 // ---- Upload de imagens
 export const uploadAPI = {
   uploadImage: (file) => {
