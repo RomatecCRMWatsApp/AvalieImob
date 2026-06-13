@@ -164,19 +164,22 @@ def _contrato_query_by_cid(cid: str, uid: str) -> dict:
 
 
 def _format_numero_cont(doc: dict) -> str:
-    """Exibe a numeração no padrão CONT NNNN/AAAA derivada do numero_contrato
-    armazenado (ex.: 'CV-2026-0001' -> 'CONT 0001/2026'). Não altera o dado salvo."""
+    """Exibe a numeração derivada do numero_contrato armazenado (não altera o dado salvo).
+    Exclusividade → 'CONT_EXCLUSIV-AAAA-NNNN' (igual ao PDF Prime); demais → 'CONT NNNN/AAAA'."""
     numero = (doc.get("numero_contrato") or "").strip()
     if not numero:
         return ""
-    partes = numero.replace("CV-", "").replace("CONT-", "").split("-")
+    is_excl = "exclusiv" in str(doc.get("tipo_contrato") or "").lower()
+    partes = (numero.replace("CV-", "").replace("CONT_EXCLUSIV-", "")
+              .replace("CONT-", "").split("-"))
+    ano = seq = None
     if len(partes) >= 2 and partes[0].isdigit():
         ano, seq = partes[0], partes[1]
-        return f"CONT {seq}/{ano}"
-    if len(partes) >= 2 and partes[1].isdigit():
+    elif len(partes) >= 2 and partes[1].isdigit():
         seq, ano = partes[0], partes[1]
-        return f"CONT {seq}/{ano}"
-    return f"CONT {numero}"
+    if ano and seq:
+        return f"CONT_EXCLUSIV-{ano}-{seq}" if is_excl else f"CONT {seq}/{ano}"
+    return f"CONT_EXCLUSIV-{numero}" if is_excl else f"CONT {numero}"
 
 
 def _parse_dt(value) -> Optional[datetime]:
