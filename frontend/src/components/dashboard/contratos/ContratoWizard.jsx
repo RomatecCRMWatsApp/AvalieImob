@@ -15,6 +15,7 @@ import { contratosAPI, perfilAPI, testemunhasAPI, aiAPI } from '../../../lib/api
 import { useAuth } from '../../../contexts/AuthContext';
 import ImovelMap from '../../maps/ImovelMap';
 import ImageUploader from '../ptam/ImageUploader';
+import EtapaConcluidaBox from '../ptam/EtapaConcluidaBox';
 import RichTextEditor from '../../ui/RichTextEditor';
 import { paraEditorHtml } from '../../ui/RichField';
 import { AiButton } from '../ptam/shared/primitives';
@@ -2604,6 +2605,19 @@ const ContratoWizard = () => {
   const goNext = () => { if (!validarEtapaAtual()) return; flushSave(); if (step < etapas.length - 1) setStep(s => s + 1); };
   const goPrev = () => { flushSave(); if (step > 0) setStep(s => s - 1); };
 
+  // Marca/desmarca a etapa como concluída, carimba data/hora e salva na hora (auditoria).
+  const toggleEtapaConcluida = (stepIndex, checked) => {
+    setForm((prev) => ({
+      ...prev,
+      etapas_concluidas: { ...(prev.etapas_concluidas || {}), [stepIndex]: checked },
+      etapas_concluidas_em: {
+        ...(prev.etapas_concluidas_em || {}),
+        [stepIndex]: checked ? new Date().toISOString() : null,
+      },
+    }));
+    setTimeout(() => save(false), 60);
+  };
+
   if (loading) return (
     <div className="flex items-center justify-center py-24">
       <Loader2 className="w-6 h-6 animate-spin text-emerald-800" />
@@ -2709,6 +2723,15 @@ const ContratoWizard = () => {
       {/* Step content */}
       <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
         {renderStep()}
+        {form.tipo_contrato === 'exclusividade' && (
+          <EtapaConcluidaBox
+            stepIndex={stepIdx}
+            label={dynamicStepLabels[stepIdx]}
+            form={form}
+            onToggle={toggleEtapaConcluida}
+            entidade="contrato"
+          />
+        )}
       </div>
 
       {/* Navigation */}

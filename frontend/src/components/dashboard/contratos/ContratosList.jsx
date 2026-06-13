@@ -14,6 +14,7 @@ import AssinaturaPosicionadaModal from '../assinatura/AssinaturaPosicionadaModal
 import AssinaturaDigital from '../ptam/AssinaturaDigital';
 import TypeCardGrid from '../shared/TypeCardGrid';
 import { CONTRATO_TIPOS, CONTRATO_CATEGORIAS } from '../../../constants/contratoTipos';
+import { getWizardConfig } from '../../../constants/contratoWizardConfig';
 
 /* ── Ciclo de vida do card (status_card vindo do backend) ─────────────────────
    Espelha o círculo de status do PTAM (spec PR-4 §2). */
@@ -28,6 +29,14 @@ const STATUS_CARD = {
 };
 
 const statusCardOf = (c) => STATUS_CARD[c?.status_card] || STATUS_CARD.rascunho;
+
+/* % de etapas concluídas (auditoria) — alimenta o badge de andamento no card */
+const andamentoPct = (c) => {
+  const ec = c?.etapas_concluidas || {};
+  const total = getWizardConfig(c?.tipo_contrato)?.etapas?.length || 1;
+  const feitas = Object.values(ec).filter(Boolean).length;
+  return Math.min(100, Math.round((feitas / total) * 100));
+};
 
 /* ── Círculo de status (SVG) — mesmo conceito do PTAM, cores do ciclo do contrato */
 const ContratoStatusCircle = ({ status, data }) => {
@@ -334,8 +343,13 @@ const ContratosList = () => {
       const url = URL.createObjectURL(blob instanceof Blob ? blob : new Blob([blob], { type: 'application/pdf' }));
       window.open(url, '_blank');
       setTimeout(() => URL.revokeObjectURL(url), 60000);
-    } catch {
-      toast({ title: 'Erro ao gerar PDF', variant: 'destructive' });
+    } catch (e) {
+      let detalhe = '';
+      try {
+        const data = e?.response?.data;
+        detalhe = data instanceof Blob ? (JSON.parse(await data.text())?.detail || '') : (data?.detail || '');
+      } catch { /* ignore */ }
+      toast({ title: 'Erro ao gerar PDF', description: detalhe || undefined, variant: 'destructive' });
     }
   };
 
@@ -489,6 +503,13 @@ const ContratosList = () => {
                 <div className="text-xs text-gray-500 mt-0.5 line-clamp-1">
                   {c.objeto?.endereco || c.objeto?.descricao || '—'}
                 </div>
+                {c.tipo_contrato === 'exclusividade' && c.status_card === 'rascunho' && (
+                  <div className="mt-1.5">
+                    <span className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      {andamentoPct(c)}% preenchido
+                    </span>
+                  </div>
+                )}
 
                 <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
                   <div className="flex items-center gap-1.5 text-xs text-gray-600">

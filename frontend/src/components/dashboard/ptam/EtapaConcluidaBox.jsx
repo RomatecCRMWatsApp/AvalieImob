@@ -5,7 +5,7 @@ import React from 'react';
 import { CheckCircle2, Clock } from 'lucide-react';
 import { fmtDataHora } from '../../../utils/datasServidor';
 
-export default function EtapaConcluidaBox({ stepIndex, label, form, onToggle }) {
+export default function EtapaConcluidaBox({ stepIndex, label, form, onToggle, entidade = 'laudo' }) {
   const marcada = !!(form?.etapas_concluidas && form.etapas_concluidas[stepIndex]);
   const carimbo = form?.etapas_concluidas_em && form.etapas_concluidas_em[stepIndex];
 
@@ -27,7 +27,7 @@ export default function EtapaConcluidaBox({ stepIndex, label, form, onToggle }) 
               Etapa concluída{label ? ` — ${label}` : ''}
             </div>
             <p className="text-xs text-gray-600 mt-1">
-              Marque ao terminar esta etapa — salva na hora e alimenta o andamento (%) do laudo no card.
+              Marque ao terminar esta etapa — salva na hora e alimenta o andamento (%) do {entidade} no card.
             </p>
           </div>
         </label>

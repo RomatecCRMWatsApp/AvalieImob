@@ -56,6 +56,8 @@ class ContratoCreate(BaseModel):
     objeto: Optional[Any] = None
     pagamento: Optional[Any] = None
     procuracao: Optional[Any] = None
+    etapas_concluidas: Optional[Any] = None
+    etapas_concluidas_em: Optional[Any] = None
     config: Optional[Any] = None
 
 
@@ -71,6 +73,8 @@ class ContratoUpdate(BaseModel):
     objeto: Optional[Any] = None
     pagamento: Optional[Any] = None
     procuracao: Optional[Any] = None
+    etapas_concluidas: Optional[Any] = None
+    etapas_concluidas_em: Optional[Any] = None
     clausulas: Optional[List[Any]] = None
     alertas_juridicos: Optional[List[Any]] = None
     testemunha_1: Optional[Any] = None
@@ -532,7 +536,7 @@ def _p(text: str, style) -> Paragraph:
     return Paragraph(_safe_text(_xml_safe(text)), style)
 
 
-def _generate_contrato_pdf_bytes(doc: dict, uid: str, empresa: str) -> bytes:
+def _generate_contrato_pdf_bytes(doc: dict, uid: str, empresa: str, raise_on_error: bool = False) -> bytes:
     contrato_id = str(doc.get("id") or doc.get("_id") or "-")
     styles = _pdf_styles()
     buffer = io.BytesIO()
@@ -836,14 +840,20 @@ def _generate_contrato_pdf_bytes(doc: dict, uid: str, empresa: str) -> bytes:
                 _clausulas_canon = []
         clausulas = doc.get("clausulas") or []
         if _clausulas_canon:
-            for par in preambulo_exclusividade(doc):
-                elems.append(_p(par, styles["clausula_texto"]))
+            try:
+                for par in preambulo_exclusividade(doc):
+                    elems.append(_p(par, styles["clausula_texto"]))
+            except Exception:
+                logger.warning("Falha no preâmbulo de exclusividade.", exc_info=True)
             elems.append(HRFlowable(width="100%", thickness=0.5, color=colors.lightgrey, spaceAfter=6))
             for cl in _clausulas_canon:
                 elems.append(_p(f"<b>{cl.titulo}</b>", styles["clausula_titulo"]))
                 for item in cl.itens:
                     elems.append(_p(item, styles["clausula_texto"]))
-            elems.append(_p(fecho_exclusividade(doc), styles["clausula_texto"]))
+            try:
+                elems.append(_p(fecho_exclusividade(doc), styles["clausula_texto"]))
+            except Exception:
+                logger.warning("Falha no fecho de exclusividade.", exc_info=True)
             elems.append(HRFlowable(width="100%", thickness=0.5, color=colors.lightgrey, spaceAfter=6))
         elif clausulas:
             elems.append(_p("CLAUSULAS E CONDICOES", styles["secao"]))
@@ -930,16 +940,31 @@ def _generate_contrato_pdf_bytes(doc: dict, uid: str, empresa: str) -> bytes:
         ))
 
         # ── Anexos do imóvel (fotos + documentos) — exclusividade ─────────────
+        anexos = []
         try:
             from pdf.templates.anexos_imovel import anexos_imovel_flowables
-            elems.extend(anexos_imovel_flowables(doc.get("objeto") or {}))
+            anexos = anexos_imovel_flowables(doc.get("objeto") or {})
         except Exception:
             logger.warning("Falha ao montar anexos do imóvel (tradicional).", exc_info=True)
 
-        pdf.build(elems)
+        # Build resiliente: se os anexos quebrarem o build, gera o contrato sem eles.
+        try:
+            pdf.build(list(elems) + list(anexos))
+        except Exception:
+            logger.warning("Build com anexos falhou; gerando contrato sem anexos.", exc_info=True)
+            buffer = io.BytesIO()
+            pdf = SimpleDocTemplate(
+                buffer, pagesize=A4,
+                leftMargin=2.5 * cm, rightMargin=2.5 * cm,
+                topMargin=2 * cm, bottomMargin=2.5 * cm,
+                title=f"Contrato {contrato_id}",
+            )
+            pdf.build(elems)
 
     except Exception as exc:
         logger.error("Erro ao gerar PDF do contrato %s: %s", contrato_id, exc, exc_info=True)
+        if raise_on_error:
+            raise
         return b""
 
     buffer.seek(0)
@@ -1303,7 +1328,13 @@ async def baixar_contrato_pdf(
     from pdf.templates.registry import gerar_pdf_contrato
     pdf_bytes = gerar_pdf_contrato(doc=doc, uid=uid, empresa=empresa, template=template)
     if not pdf_bytes.startswith(b"%PDF-"):
-        raise HTTPException(status_code=500, detail="Falha ao gerar PDF válido")
+        # Reexecuta o gerador tradicional propagando a exceção real p/ diagnóstico.
+        try:
+            _generate_contrato_pdf_bytes(doc, uid, empresa, raise_on_error=True)
+        except Exception as exc:  # noqa: BLE001
+            logger.error("Diagnóstico PDF contrato %s", cid, exc_info=True)
+            raise HTTPException(status_code=500, detail=f"Falha ao gerar PDF: {type(exc).__name__}: {exc}")
+        raise HTTPException(status_code=500, detail="Falha ao gerar PDF válido (sem exceção capturada)")
 
     filename_id = str(doc.get("id") or doc.get("_id") or cid)
     return Response(
