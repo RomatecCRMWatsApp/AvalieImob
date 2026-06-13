@@ -80,8 +80,12 @@ def anexos_imovel_flowables(objeto: dict) -> list:
         linhas = []
         for i, raw in enumerate(fotos, 1):
             img = _img_flowable(raw, cel_w, cel_h)
+            # NÃO usar KeepTogether dentro de célula de Table: o ReportLab calcula a
+            # altura da linha como um valor gigante (2^24), a tabela vira "too large" e
+            # o template resiliente PULA a tabela inteira — fotos sumiam (só o cabeçalho
+            # do Anexo I aparecia). A célula [img, legenda] já fica junta na própria linha.
             cel = [img, Paragraph(f"Foto {i}", _LEG)] if img else [Paragraph(f"Foto {i} (indisponível)", _LEG)]
-            linha.append(KeepTogether(cel))
+            linha.append(cel)
             if len(linha) == 2:
                 linhas.append(linha)
                 linha = []
