@@ -228,13 +228,24 @@ async def _gerar_pdf(tipo: str, doc: dict, db=None, perfil: dict | None = None) 
             pdf_bytes = await anexar_anexos_ao_pdf(db, doc, pdf_bytes)
         return pdf_bytes
     elif tipo == "contrato":
-        from routes.contratos import _generate_contrato_pdf_bytes
+        # Usa o MESMO renderer do card (registry → template_pdf ou Prime II por
+        # padrão), para o documento ASSINADO sair no layout Prime que o usuário vê.
+        # Antes chamava _generate_contrato_pdf_bytes (tradicional) direto, então a
+        # tela de Assinar/ICP saía "sem formatação". O tradicional segue como
+        # rede de segurança (fallback dentro de gerar_pdf_contrato).
+        from pdf.templates.registry import gerar_pdf_contrato
         uid = doc.get("user_id")
         empresa = "AvalieImob"
         if db is not None and uid:
             u = await db.users.find_one({"id": uid}, {"company": 1, "name": 1}) or {}
             empresa = u.get("company") or u.get("name") or "AvalieImob"
-        return _generate_contrato_pdf_bytes(doc=doc, uid=uid or "", empresa=empresa)
+        if db is not None:
+            try:
+                from routes.contratos import _preload_anexos_imovel
+                await _preload_anexos_imovel(db, doc)
+            except Exception:
+                logger.warning("Falha ao pré-carregar anexos do imóvel (assinatura).", exc_info=True)
+        return gerar_pdf_contrato(doc=doc, uid=uid or "", empresa=empresa)
     raise HTTPException(status_code=400, detail=f"Geracao de PDF nao suportada para tipo: {tipo}")
 
 
