@@ -1537,6 +1537,191 @@ const Step9Testemunhas = ({ form, setForm }) => {
 };
 
 /* ═══════════════════════════════════════════════════════════
+   STEP 9 — Procuração Particular (só exclusividade)
+═══════════════════════════════════════════════════════════ */
+const PODERES_CATALOGO = [
+  { chave: 'CERTIDOES_CRI', titulo: 'Certidões no Registro de Imóveis', descricao: 'Solicitar e retirar certidões de inteiro teor, ônus reais e ações reipersecutórias da matrícula do imóvel.' },
+  { chave: 'PREFEITURA_IPTU', titulo: 'Prefeitura / IPTU', descricao: 'Solicitar carnês e demonstrativos de IPTU, certidões negativas municipais, dados cadastrais (CIM) e certidão de valor venal.' },
+  { chave: 'BANCO_FINANCIAMENTO', titulo: 'Banco / Financiamento', descricao: 'Solicitar ao credor fiduciário extratos, saldo devedor, demonstrativos, boletos e informações para quitação/transferência do financiamento.' },
+  { chave: 'CONCESSIONARIAS', titulo: 'Concessionárias', descricao: 'Solicitar segundas vias, declarações e certidões de débitos de energia elétrica e água/esgoto do imóvel.' },
+  { chave: 'CONDOMINIO', titulo: 'Condomínio', descricao: 'Solicitar declaração de quitação de débitos condominiais.' },
+  { chave: 'ANUNCIAR_DIVULGAR', titulo: 'Anunciar e divulgar', descricao: 'Fotografar, anunciar, divulgar o imóvel em quaisquer meios e acompanhar visitas de interessados.' },
+  { chave: 'RECEBER_PROPOSTAS', titulo: 'Receber propostas', descricao: 'Receber e encaminhar propostas de compra, sem poderes para aceitá-las, alienar, assinar contratos ou receber valores.' },
+  { chave: 'RECEITA_CERTIDOES', titulo: 'Certidões federais', descricao: 'Solicitar certidões negativas federais relativas ao imóvel e aos outorgantes, para fins de instrução da venda.' },
+];
+const PODERES_DEFAULT_ON = ['CERTIDOES_CRI', 'PREFEITURA_IPTU', 'CONCESSIONARIAS', 'ANUNCIAR_DIVULGAR', 'RECEBER_PROPOSTAS'];
+
+const Step9Procuracao = ({ form, setForm, contratoId, irParaEtapa }) => {
+  const { toast } = useToast();
+  const proc = form.procuracao || {};
+  const obj = form.objeto || {};
+  const alienado = !!obj.alienacao?.alienado;
+  const corretor = form.corretor || {};
+  const outorgantes = form.vendedores || [];
+  const [gerando, setGerando] = useState(false);
+  const [editandoPoder, setEditandoPoder] = useState(null);
+
+  const setProc = (patch) => setForm({ ...form, procuracao: { ...proc, ...patch } });
+
+  // Inicializa poderes na 1ª vez (BANCO_FINANCIAMENTO só on se alienado)
+  useEffect(() => {
+    if (!form.procuracao || !Array.isArray(form.procuracao.poderes)) {
+      const poderes = PODERES_CATALOGO.map(p => ({
+        chave: p.chave,
+        ativo: PODERES_DEFAULT_ON.includes(p.chave) || (p.chave === 'BANCO_FINANCIAMENTO' && alienado),
+        texto_customizado: null,
+      }));
+      setForm(f => ({ ...f, procuracao: { gerar: false, vigencia_vinculada_contrato: true,
+        substabelecimento_permitido: false, local_assinatura: 'Açailândia/MA', ...f.procuracao, poderes } }));
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const poderes = proc.poderes || [];
+  const poderAtivo = (chave) => poderes.find(p => p.chave === chave)?.ativo;
+  const togglePoder = (chave) => setProc({ poderes: poderes.map(p => p.chave === chave ? { ...p, ativo: !p.ativo } : p) });
+  const setPoderTexto = (chave, txt) => setProc({ poderes: poderes.map(p => p.chave === chave ? { ...p, texto_customizado: txt } : p) });
+
+  const credorNome = obj.alienacao?.credor?.nome;
+
+  const baixarProcuracao = async () => {
+    if (!contratoId) { toast({ title: 'Salve o contrato antes de gerar a procuração', variant: 'destructive' }); return; }
+    setGerando(true);
+    try {
+      const blob = await contratosAPI.procuracaoPdf(contratoId);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `procuracao_${obj.matricula || 'imovel'}.pdf`;
+      document.body.appendChild(a); a.click(); a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      toast({ title: e.response?.data?.detail || 'Erro ao gerar procuração', variant: 'destructive' });
+    } finally { setGerando(false); }
+  };
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <h2 className="text-xl font-bold text-gray-900 mb-1">Procuração Particular</h2>
+        <p className="text-sm text-gray-500">Documento separado que autoriza o corretor a obter certidões, IPTU e extrato de financiamento referentes exclusivamente ao imóvel deste contrato.</p>
+      </div>
+
+      {/* Toggle principal */}
+      <div className="rounded-xl border border-gray-200 p-4 flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-gray-800">Gerar procuração particular vinculada?</p>
+          <p className="text-xs text-gray-500">Opcional. Se ativada, será exportada junto com o contrato.</p>
+        </div>
+        <button type="button" role="switch" aria-checked={!!proc.gerar}
+          onClick={() => setProc({ gerar: !proc.gerar })}
+          className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition focus:outline-none focus:ring-2 focus:ring-[#C9A84C] ${proc.gerar ? 'bg-[#0C3320]' : 'bg-gray-300'}`}>
+          <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${proc.gerar ? 'translate-x-5' : 'translate-x-1'}`} />
+        </button>
+      </div>
+
+      {proc.gerar && (
+        <div className="space-y-4">
+          {/* Partes (somente leitura) */}
+          <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-[#C9A84C] uppercase tracking-wide">Partes & Imóvel (puxados das etapas anteriores)</p>
+            </div>
+            <div className="text-sm space-y-2">
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-gray-700">Outorgante(s)</span>
+                  <button type="button" onClick={() => irParaEtapa?.('partes')} className="text-xs text-emerald-700 hover:underline flex items-center gap-1"><Edit2 className="w-3 h-3" />Editar</button>
+                </div>
+                {outorgantes.length === 0 && <p className="text-xs text-red-600">Nenhum proprietário cadastrado na etapa Contratante.</p>}
+                {outorgantes.map((o, i) => (
+                  <p key={i} className="text-gray-600">{o.nome || o.razao_social || '—'}{o.cpf ? ` — CPF ${o.cpf}` : ''}{o.conjuge_nome ? ` · cônjuge: ${o.conjuge_nome}` : ''}</p>
+                ))}
+              </div>
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-gray-700">Outorgado (Corretor)</span>
+                  <button type="button" onClick={() => irParaEtapa?.('corretor')} className="text-xs text-emerald-700 hover:underline flex items-center gap-1"><Edit2 className="w-3 h-3" />Editar</button>
+                </div>
+                <p className="text-gray-600">{corretor.nome || '—'}{corretor.creci ? ` — CRECI ${corretor.creci}` : ''}{corretor.cpf_cnpj ? ` · ${corretor.cpf_cnpj}` : ''}</p>
+              </div>
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-gray-700">Imóvel (objeto exclusivo)</span>
+                  <button type="button" onClick={() => irParaEtapa?.('objeto')} className="text-xs text-emerald-700 hover:underline flex items-center gap-1"><Edit2 className="w-3 h-3" />Editar</button>
+                </div>
+                <p className="text-gray-600">{obj.endereco || '—'}</p>
+                {obj.matricula && <span className="inline-block mt-1 text-[10px] font-bold tracking-wide px-2 py-0.5 rounded bg-[#C9A84C] text-[#0C3320]">LIMITADA À MATRÍCULA {obj.matricula}</span>}
+              </div>
+            </div>
+          </div>
+
+          {/* Checklist de poderes */}
+          <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-2">
+            <p className="text-xs font-semibold text-[#C9A84C] uppercase tracking-wide mb-1">Poderes outorgados</p>
+            {PODERES_CATALOGO.map(p => {
+              const pe = poderes.find(x => x.chave === p.chave) || {};
+              const isBanco = p.chave === 'BANCO_FINANCIAMENTO';
+              return (
+                <div key={p.chave} className="border border-gray-100 rounded-lg p-2.5">
+                  <div className="flex items-start gap-2">
+                    <input type="checkbox" checked={!!pe.ativo} onChange={() => togglePoder(p.chave)} className="mt-0.5 rounded" />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-medium text-gray-800">{p.titulo}</span>
+                        <button type="button" onClick={() => setEditandoPoder(editandoPoder === p.chave ? null : p.chave)} className="text-gray-400 hover:text-emerald-700"><Edit2 className="w-3.5 h-3.5" /></button>
+                      </div>
+                      <p className="text-xs text-gray-500">{pe.texto_customizado || p.descricao}{isBanco && credorNome ? ` (Credor: ${credorNome})` : ''}</p>
+                      {editandoPoder === p.chave && (
+                        <textarea value={pe.texto_customizado || ''} onChange={(e) => setPoderTexto(p.chave, e.target.value)} rows={2} placeholder="Texto personalizado deste poder (opcional)"
+                          maxLength={600} className="mt-2 w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            <div className="pt-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Poderes adicionais (opcional)</label>
+              <textarea value={proc.poderes_adicionais || ''} onChange={(e) => setProc({ poderes_adicionais: e.target.value })} rows={2} maxLength={2000}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+            </div>
+            <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-gray-700 pt-1">
+              <input type="checkbox" checked={!!proc.substabelecimento_permitido} onChange={(e) => setProc({ substabelecimento_permitido: e.target.checked })} className="rounded" />
+              Permitir substabelecimento {!proc.substabelecimento_permitido && <span className="text-xs text-gray-400">(padrão: vedado)</span>}
+            </label>
+          </div>
+
+          {/* Vigência e assinatura */}
+          <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+            <p className="text-xs font-semibold text-[#C9A84C] uppercase tracking-wide">Vigência & Assinatura</p>
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input type="radio" checked={proc.vigencia_vinculada_contrato !== false} onChange={() => setProc({ vigencia_vinculada_contrato: true })} />
+              Vinculada à vigência do contrato de exclusividade
+              {form.corretor?.exclusividade_data_fim && <span className="text-xs text-gray-400">(até {form.corretor.exclusividade_data_fim})</span>}
+            </label>
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input type="radio" checked={proc.vigencia_vinculada_contrato === false} onChange={() => setProc({ vigencia_vinculada_contrato: false })} />
+              Data específica
+            </label>
+            {proc.vigencia_vinculada_contrato === false && (
+              <Input label="Vigência até" type="date" value={proc.vigencia_data_fim || ''} onChange={(v) => setProc({ vigencia_data_fim: v })} />
+            )}
+            <div className="grid sm:grid-cols-2 gap-3">
+              <Input label="Local da Assinatura" value={proc.local_assinatura || 'Açailândia/MA'} onChange={(v) => setProc({ local_assinatura: v })} />
+              <Input label="Data da Assinatura" type="date" value={proc.data_assinatura || ''} onChange={(v) => setProc({ data_assinatura: v })} />
+            </div>
+          </div>
+
+          <Button type="button" onClick={baixarProcuracao} disabled={gerando} className="bg-[#0C3320] hover:bg-[#0C3320]/90 text-white">
+            {gerando ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Download className="w-4 h-4 mr-2" />}
+            Visualizar / Baixar Procuração (PDF)
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ═══════════════════════════════════════════════════════════
    STEP 10 — Revisão Final
 ═══════════════════════════════════════════════════════════ */
 const Step10Revisao = ({ form, contratoId }) => {
@@ -1631,6 +1816,26 @@ const Step10Revisao = ({ form, contratoId }) => {
         )}
       </div>
 
+      {/* Procuração Particular */}
+      {form.tipo_contrato === 'exclusividade' && (
+        <div className="border border-gray-200 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-1 text-sm font-semibold text-gray-800">
+            <FileText className="w-4 h-4" /> Procuração Particular
+          </div>
+          {!form.procuracao?.gerar ? (
+            <p className="text-sm text-gray-500">Não será gerada procuração.</p>
+          ) : (
+            <div className="text-sm text-gray-600 space-y-1">
+              <div><span className="text-gray-500">Outorgante(s):</span> {(form.vendedores || []).map(v => v.nome || v.razao_social).filter(Boolean).join('; ') || '—'}</div>
+              <div><span className="text-gray-500">Outorgado:</span> {form.corretor?.nome || '—'}</div>
+              <div><span className="text-gray-500">Objeto:</span> Matrícula {form.objeto?.matricula || '—'}</div>
+              <div><span className="text-gray-500">Poderes ativos:</span> {(form.procuracao?.poderes || []).filter(p => p.ativo).map(p => (PODERES_CATALOGO.find(c => c.chave === p.chave)?.titulo || p.chave)).join(', ') || '—'}</div>
+              <div><span className="text-gray-500">Vigência:</span> {form.procuracao?.vigencia_vinculada_contrato === false ? `até ${form.procuracao?.vigencia_data_fim || '—'}` : 'vinculada ao contrato'} · Substabelecimento: {form.procuracao?.substabelecimento_permitido ? 'permitido' : 'vedado'}</div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Accordion — Pagamento / Penalidades */}
       <div className="border border-gray-200 rounded-xl overflow-hidden">
         <button onClick={() => toggleSec('pagamento')} className="w-full flex items-center justify-between px-5 py-3 bg-gray-50 hover:bg-gray-100 transition text-sm font-semibold text-gray-800">
@@ -1724,6 +1929,7 @@ const Step11Exportar = ({ form, setForm, contratoId, user }) => {
   const [loadingDocx, setLoadingDocx] = useState(false);
   const [loadingPdf, setLoadingPdf] = useState(false);
   const [loadingArras, setLoadingArras] = useState(false);
+  const [loadingProc, setLoadingProc] = useState(false);
   const [loadingLacrar, setLoadingLacrar] = useState(false);
   const [lacrado, setLacrado] = useState(form.lacrado || false);
   const [loadingD4sign, setLoadingD4sign] = useState(false);
@@ -1785,6 +1991,19 @@ const Step11Exportar = ({ form, setForm, contratoId, user }) => {
       toast({ title: 'Erro ao gerar Recibo de Arras', variant: 'destructive' });
     } finally {
       setLoadingArras(false);
+    }
+  };
+
+  const baixarProcuracao = async () => {
+    if (!contratoId) return;
+    setLoadingProc(true);
+    try {
+      const blob = await contratosAPI.procuracaoPdf(contratoId);
+      downloadBlob(blob, `procuracao_${form.objeto?.matricula || form.numero || contratoId}.pdf`);
+    } catch (e) {
+      toast({ title: e.response?.data?.detail || 'Erro ao gerar Procuração', variant: 'destructive' });
+    } finally {
+      setLoadingProc(false);
     }
   };
 
@@ -1977,6 +2196,12 @@ const Step11Exportar = ({ form, setForm, contratoId, user }) => {
             <Button onClick={baixarArras} disabled={loadingArras || !contratoId} variant="outline" className="border-amber-300 text-amber-700 hover:bg-amber-50">
               {loadingArras ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
               Baixar Recibo de Arras
+            </Button>
+          )}
+          {form.tipo_contrato === 'exclusividade' && form.procuracao?.gerar && (
+            <Button onClick={baixarProcuracao} disabled={loadingProc || !contratoId} variant="outline" className="border-[#0C3320] text-[#0C3320] hover:bg-emerald-50">
+              {loadingProc ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+              Baixar Procuração
             </Button>
           )}
         </div>
@@ -2314,6 +2539,26 @@ const ContratoWizard = () => {
         }
       }
     }
+    if (etapa?.kind === 'procuracao') {
+      const proc = form.procuracao;
+      if (proc?.gerar) {
+        const temPoder = (proc.poderes || []).some(p => p.ativo) || (proc.poderes_adicionais || '').trim();
+        if (!temPoder) {
+          toast({ title: 'Selecione ao menos um poder para a procuração', variant: 'destructive' });
+          return false;
+        }
+        const outOk = (form.vendedores || []).length > 0 && (form.vendedores || []).every(v => (v.nome || v.razao_social) && (v.cpf || v.cnpj));
+        if (!outOk) {
+          toast({ title: 'Outorgantes incompletos', description: 'Cada proprietário precisa de nome e CPF/CNPJ (etapa Contratante).', variant: 'destructive' });
+          return false;
+        }
+        const cor = form.corretor || {};
+        if (!cor.nome || !(cor.creci || cor.cpf_cnpj)) {
+          toast({ title: 'Outorgado incompleto', description: 'O corretor precisa de nome e CRECI ou CPF/CNPJ (etapa Corretor).', variant: 'destructive' });
+          return false;
+        }
+      }
+    }
     return true;
   };
 
@@ -2338,6 +2583,8 @@ const ContratoWizard = () => {
       case 'clausulas': return <Step7Clausulas form={form} setForm={setForm} contratoId={contratoId} />;
       case 'validacao': return <Step8Validacao contratoId={contratoId} onGoToStep={setStep} />;
       case 'testemunhas': return <Step9Testemunhas form={form} setForm={setForm} />;
+      case 'procuracao': return <Step9Procuracao form={form} setForm={setForm} contratoId={contratoId}
+        irParaEtapa={(kind) => { const idx = etapas.findIndex(e => e.kind === kind); if (idx >= 0) setStep(idx); }} />;
       case 'revisao': return <Step10Revisao form={form} contratoId={contratoId} />;
       case 'exportar': return <Step11Exportar form={form} setForm={setForm} contratoId={contratoId} user={user} />;
       default: return null;

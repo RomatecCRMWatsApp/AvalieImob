@@ -504,6 +504,7 @@ export const contratosAPI = {
     params: template ? { template } : {}, responseType: 'blob',
   }).then(r => r.data),
   docx: (id) => api.get(`/contratos/${id}/docx`, { responseType: 'blob' }).then(r => r.data),
+  procuracaoPdf: (id) => api.get(`/contratos/${id}/procuracao/pdf`, { responseType: 'blob' }).then(r => r.data),
   reciboArrasDocx: (id) => api.get(`/contratos/${id}/recibo-arras/docx`, { responseType: 'blob' }).then(r => r.data),
   reciboArras: (id) => api.get(`/contratos/${id}/recibo-arras/docx`, { responseType: 'blob' }).then(r => r.data),
   lacrar: (id, body = {}) => api.post(`/contratos/${id}/lacrar`, body).then(r => r.data),

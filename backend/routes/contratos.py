@@ -55,6 +55,7 @@ class ContratoCreate(BaseModel):
     corretor: Optional[Any] = None
     objeto: Optional[Any] = None
     pagamento: Optional[Any] = None
+    procuracao: Optional[Any] = None
     config: Optional[Any] = None
 
 
@@ -69,6 +70,7 @@ class ContratoUpdate(BaseModel):
     corretor: Optional[Any] = None
     objeto: Optional[Any] = None
     pagamento: Optional[Any] = None
+    procuracao: Optional[Any] = None
     clausulas: Optional[List[Any]] = None
     alertas_juridicos: Optional[List[Any]] = None
     testemunha_1: Optional[Any] = None
@@ -942,6 +944,194 @@ async def _preload_anexos_imovel(db, doc: dict) -> None:
     doc["objeto"] = obj
 
 
+_PODER_TEXTO_BASE = {
+    "CERTIDOES_CRI": "solicitar e retirar, junto ao Cartorio de Registro de Imoveis competente, certidoes de inteiro teor, de onus reais e de acoes reipersecutorias relativas a matricula do imovel",
+    "PREFEITURA_IPTU": "solicitar, junto a Prefeitura Municipal, carnes e demonstrativos de IPTU, certidoes negativas de debitos municipais, dados cadastrais (CIM) e certidao de valor venal do imovel",
+    "BANCO_FINANCIAMENTO": "solicitar, junto ao credor fiduciario, extratos, saldo devedor, demonstrativos de evolucao da divida, boletos e demais informacoes necessarias a quitacao ou transferencia do financiamento que onera o imovel",
+    "CONCESSIONARIAS": "solicitar, junto as concessionarias de servicos publicos, segundas vias, declaracoes e certidoes de debitos de energia eletrica e de agua/esgoto vinculadas ao imovel",
+    "CONDOMINIO": "solicitar, junto ao condominio, declaracao de quitacao de debitos condominiais relativos ao imovel",
+    "ANUNCIAR_DIVULGAR": "fotografar, anunciar, divulgar e promover o imovel em quaisquer meios, bem como acompanhar visitas de interessados",
+    "RECEBER_PROPOSTAS": "receber e encaminhar aos OUTORGANTES propostas de compra, sem poderes para aceita-las, alienar o imovel, assinar contratos ou receber valores em nome dos OUTORGANTES",
+    "RECEITA_CERTIDOES": "solicitar certidoes negativas federais relativas ao imovel e aos OUTORGANTES, estritamente para fins de instrucao da venda",
+}
+_MESES_PT = ["", "janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho",
+             "agosto", "setembro", "outubro", "novembro", "dezembro"]
+
+
+def _data_extenso(s) -> str:
+    import re as _re
+    if not s:
+        from datetime import date as _date
+        d = _date.today()
+        return f"{d.day} de {_MESES_PT[d.month]} de {d.year}"
+    m = _re.match(r"(\d{4})-(\d{2})-(\d{2})", str(s))
+    if m:
+        return f"{int(m.group(3))} de {_MESES_PT[int(m.group(2))]} de {m.group(1)}"
+    return str(s)
+
+
+def _generate_procuracao_pdf_bytes(doc: dict, uid: str, empresa: str) -> bytes:
+    """PDF da PROCURAÇÃO PARTICULAR vinculada ao contrato de exclusividade.
+    Outorgantes = vendedores (etapa 2); Outorgado = corretor (etapa 3);
+    objeto limitado à matrícula (etapa 4). Texto em TA_JUSTIFY."""
+    styles = _pdf_styles()
+    buffer = io.BytesIO()
+    proc = doc.get("procuracao") or {}
+    obj = doc.get("objeto") or {}
+    cor = doc.get("corretor") or {}
+    outorgantes = doc.get("vendedores") or []
+
+    try:
+        pdf = SimpleDocTemplate(
+            buffer, pagesize=A4, leftMargin=2.5 * cm, rightMargin=2.5 * cm,
+            topMargin=2 * cm, bottomMargin=2.5 * cm, title="Procuracao Particular",
+        )
+        elems: list = []
+        verde = colors.HexColor("#1a4731")
+
+        elems.append(_p(f"<b>{_safe_text(empresa or 'Romatec Consultoria Total')}</b>", styles["subtitulo"]))
+        elems.append(_p("PROCURAÇÃO PARTICULAR", styles["titulo"]))
+        numero = _s(doc.get("numero_contrato"), "")
+        if numero:
+            elems.append(_p(f"(vinculada ao Contrato de Exclusividade nº {numero})", styles["corpo"]))
+        elems.append(HRFlowable(width="100%", thickness=1.2, color=verde, spaceAfter=8))
+
+        # OUTORGANTES
+        elems.append(_p("<b>OUTORGANTE(S):</b>", styles["secao"]))
+        if not outorgantes:
+            elems.append(_p(_BLANK, styles["corpo"]))
+        for o in outorgantes:
+            if isinstance(o, dict):
+                q = _qualifica_pj(o) if o.get("tipo") == "pj" else _qualifica_pf(o)
+            else:
+                q = _safe_text(str(o))
+            elems.append(_p(q + ".", styles["clausula_texto"]))
+
+        # OUTORGADO
+        elems.append(_p("<b>OUTORGADO:</b>", styles["secao"]))
+        cor_nome = _s(cor.get("nome"), _BLANK)
+        cor_creci = _s(cor.get("creci"), "")
+        cor_doc = _s(cor.get("cpf_cnpj"), "")
+        cor_end = _s(cor.get("endereco"), "")
+        out_txt = f"{cor_nome}, corretor(a) de imóveis"
+        if cor_creci:
+            out_txt += f" inscrito(a) no CRECI sob nº {cor_creci}"
+        if cor_doc:
+            out_txt += f", inscrito(a) no CPF/CNPJ sob nº {cor_doc}"
+        if cor_end:
+            out_txt += f", com endereço profissional em {cor_end}"
+        elems.append(_p(out_txt + ".", styles["clausula_texto"]))
+
+        # OBJETO
+        matricula = _s(obj.get("matricula"), _BLANK)
+        reg_imoveis = _s(obj.get("registro_imovel") or obj.get("cartorio"), "Cartório de Registro de Imóveis competente")
+        end_imovel = _s(obj.get("endereco"), _BLANK)
+        area_total = _s(obj.get("area_total") or obj.get("area_terreno"), "")
+        area_constr = _s(obj.get("area_construida") or obj.get("area_edificacao"), "")
+        objeto_txt = (
+            f"a presente procuração é outorgada em caráter EXCLUSIVO e LIMITADO ao imóvel objeto da "
+            f"Matrícula nº {matricula} do {reg_imoveis}, situado em {end_imovel}"
+        )
+        if area_total:
+            objeto_txt += f", com área total de {area_total} m²"
+        if area_constr:
+            objeto_txt += f" e área construída de {area_constr} m²"
+        objeto_txt += (
+            ", vinculada ao Contrato de Exclusividade de Intermediação Imobiliária celebrado entre as "
+            "partes, não conferindo ao OUTORGADO quaisquer poderes sobre outros bens, direitos ou "
+            "interesses dos OUTORGANTES."
+        )
+        elems.append(_p("<b>OBJETO:</b>", styles["secao"]))
+        elems.append(_p(objeto_txt, styles["clausula_texto"]))
+
+        # PODERES
+        elems.append(_p("<b>PODERES:</b>", styles["secao"]))
+        elems.append(_p(
+            "Pelo presente instrumento particular de procuração, na forma dos arts. 653 a 666 e, "
+            "especialmente, do art. 661 do Código Civil (Lei nº 10.406/2002), os OUTORGANTES nomeiam e "
+            "constituem o OUTORGADO seu bastante procurador, com poderes específicos para, exclusivamente "
+            "em relação ao imóvel acima descrito:",
+            styles["clausula_texto"]))
+        letras = "abcdefghijklmnopqrstuvwxyz"
+        idx = 0
+        for pd in (proc.get("poderes") or []):
+            if not isinstance(pd, dict) or not pd.get("ativo"):
+                continue
+            txt = (pd.get("texto_customizado") or "").strip() or _PODER_TEXTO_BASE.get(pd.get("chave"), "")
+            if not txt:
+                continue
+            elems.append(_p(f"{letras[idx]}) {_safe_text(txt)};", styles["clausula_texto"]))
+            idx += 1
+        if (proc.get("poderes_adicionais") or "").strip():
+            elems.append(_p(f"{letras[idx]}) {_safe_text(proc['poderes_adicionais'].strip())};", styles["clausula_texto"]))
+        elems.append(_p(
+            "podendo, para tanto, assinar requerimentos, protocolos e recibos de entrega de documentos, "
+            "prestar e receber informações, pagar taxas e emolumentos por conta dos OUTORGANTES e praticar "
+            "os demais atos estritamente necessários ao fiel cumprimento deste mandato.",
+            styles["clausula_texto"]))
+
+        # VEDAÇÕES
+        elems.append(_p("<b>VEDAÇÕES:</b>", styles["secao"]))
+        ved = (
+            "A presente procuração NÃO confere poderes para alienar, prometer alienar, onerar, hipotecar, "
+            "dar em garantia, transigir, firmar compromisso de compra e venda, receber valores, dar quitação "
+            "ou praticar qualquer ato de disposição sobre o imóvel, atos estes que dependem de manifestação "
+            "pessoal e expressa dos OUTORGANTES."
+        )
+        if not proc.get("substabelecimento_permitido"):
+            ved += " É vedado o substabelecimento, no todo ou em parte, dos poderes ora conferidos."
+        elems.append(_p(ved, styles["clausula_texto"]))
+
+        # VIGÊNCIA
+        elems.append(_p("<b>VIGÊNCIA:</b>", styles["secao"]))
+        if proc.get("vigencia_vinculada_contrato") is False and proc.get("vigencia_data_fim"):
+            vig = f"esta procuração vigorará até {_data_extenso(proc.get('vigencia_data_fim'))}"
+        else:
+            vig = ("esta procuração vigorará enquanto vigente o Contrato de Exclusividade a que se vincula, "
+                   "extinguindo-se de pleno direito com o seu término, resolução ou rescisão")
+        elems.append(_p(
+            f"{vig}, podendo ser revogada a qualquer tempo pelos OUTORGANTES, na forma da lei.",
+            styles["clausula_texto"]))
+
+        # Fecho + assinaturas
+        local = _s(proc.get("local_assinatura"), "Açailândia/MA")
+        elems.append(Spacer(1, 10))
+        elems.append(_p("Por ser expressão da verdade, firmam o presente instrumento.", styles["corpo"]))
+        elems.append(_p(f"{local}, {_data_extenso(proc.get('data_assinatura'))}.", styles["corpo"]))
+        elems.append(Spacer(1, 1.2 * cm))
+
+        for o in outorgantes:
+            nome = _safe_text(o.get("nome") or o.get("razao_social") or _BLANK) if isinstance(o, dict) else _safe_text(str(o))
+            cpf = _s(o.get("cpf") or o.get("cnpj"), "") if isinstance(o, dict) else ""
+            elems.append(_p("_______________________________________", styles["corpo"]))
+            elems.append(_p(f"OUTORGANTE — {nome}{', CPF ' + cpf if cpf else ''}", styles["corpo"]))
+            elems.append(Spacer(1, 0.5 * cm))
+            # cônjuge anuente
+            if isinstance(o, dict) and o.get("conjuge_nome"):
+                cjcpf = _s(o.get("conjuge_cpf"), "")
+                elems.append(_p("_______________________________________", styles["corpo"]))
+                elems.append(_p(f"OUTORGANTE (cônjuge) — {_safe_text(o['conjuge_nome'])}{', CPF ' + cjcpf if cjcpf else ''}", styles["corpo"]))
+                elems.append(Spacer(1, 0.5 * cm))
+
+        elems.append(Spacer(1, 0.3 * cm))
+        elems.append(_p("_______________________________________", styles["corpo"]))
+        elems.append(_p(f"OUTORGADO — {cor_nome}{', CRECI ' + cor_creci if cor_creci else ''}", styles["corpo"]))
+
+        elems.append(Spacer(1, 0.8 * cm))
+        elems.append(_p(
+            "Recomenda-se o reconhecimento de firma das assinaturas dos OUTORGANTES, podendo ser exigido "
+            "pelas instituições destinatárias (art. 654, § 2º, do Código Civil).",
+            styles["rodape"]))
+
+        pdf.build(elems)
+    except Exception as exc:
+        logger.error("Erro ao gerar PDF da procuração: %s", exc, exc_info=True)
+        return b""
+
+    buffer.seek(0)
+    return buffer.read()
+
+
 async def _next_contrato_numero(db, ano: int) -> str:
     seq = await db.counters.find_one_and_update(
         {"_id": f"contrato_numero_{ano}"},
@@ -1092,6 +1282,35 @@ async def baixar_contrato_pdf(
         media_type="application/pdf",
         headers={
             "Content-Disposition": f'attachment; filename="contrato_{filename_id}.pdf"',
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+@router.get("/contratos/{cid}/procuracao/pdf")
+async def baixar_procuracao_pdf(
+    cid: str,
+    uid: str = Depends(get_authenticated_user),
+    db=Depends(get_db),
+):
+    """Gera o PDF da PROCURAÇÃO PARTICULAR vinculada ao contrato (exclusividade)."""
+    doc = await db.contratos.find_one(_contrato_query_by_cid(cid, uid))
+    if not doc:
+        raise HTTPException(status_code=404, detail="Contrato não encontrado")
+
+    user = await db.users.find_one({"id": uid}, {"company": 1, "name": 1})
+    empresa = (user or {}).get("company") or (user or {}).get("name") or "Romatec Consultoria Total"
+
+    pdf_bytes = _generate_procuracao_pdf_bytes(doc, uid, empresa)
+    if not pdf_bytes.startswith(b"%PDF-"):
+        raise HTTPException(status_code=500, detail="Falha ao gerar a procuração")
+
+    filename_id = str(doc.get("id") or doc.get("_id") or cid)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="procuracao_{filename_id}.pdf"',
             "Cache-Control": "no-store",
         },
     )
