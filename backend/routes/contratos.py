@@ -513,8 +513,23 @@ def _pdf_styles() -> dict:
     }
 
 
+def _xml_safe(text: str) -> str:
+    """Escapa &, <, > soltos PRESERVANDO tags inline (b/i/u/br/strong/em) e entidades
+    (&nbsp; etc.). Evita 'not well-formed' do ReportLab Paragraph quando o conteúdo
+    tem caracteres especiais vindos dos dados do contrato (ônus, nomes, ficha...)."""
+    import re as _re
+    keep = _re.compile(
+        r'(</?(?:b|i|u|br|strong|em)\s*/?>|&(?:[a-zA-Z][a-zA-Z0-9]{0,8}|#\d{1,6});)',
+        _re.IGNORECASE,
+    )
+    parts = keep.split(str(text))
+    for i in range(0, len(parts), 2):  # segmentos fora de tag/entidade permitida
+        parts[i] = parts[i].replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    return "".join(parts)
+
+
 def _p(text: str, style) -> Paragraph:
-    return Paragraph(_safe_text(text), style)
+    return Paragraph(_safe_text(_xml_safe(text)), style)
 
 
 def _generate_contrato_pdf_bytes(doc: dict, uid: str, empresa: str) -> bytes:

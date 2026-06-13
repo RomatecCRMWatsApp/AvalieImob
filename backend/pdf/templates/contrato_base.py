@@ -98,7 +98,14 @@ def _plain(s) -> str:
     t = _re.sub(r"<[^>]+>", "", t)
     t = (t.replace("&nbsp;", " ").replace("&amp;", "&")
           .replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", '"'))
-    return _re.sub(r"\s{2,}", " ", t).strip()
+    t = _re.sub(r"\s{2,}", " ", t).strip()
+    # Reescapa p/ o Paragraph do ReportLab (texto puro, sem markup intencional).
+    return t.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def _xml_escape(s) -> str:
+    """Escapa &, <, > de valores de dados interpolados em cláusulas (ReportLab-safe)."""
+    return str(s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
 def _ficha_imovel_txt(objeto: dict) -> str:
@@ -161,7 +168,7 @@ def _ficha_imovel_txt(objeto: dict) -> str:
             g += f" ({reg_al})"
         partes.append(g + ".")
 
-    return " " + " ".join(partes) if partes else ""
+    return " " + _xml_escape(" ".join(partes)) if partes else ""
 
 
 def _ctx(doc: dict) -> dict:
@@ -437,7 +444,7 @@ def clausula_gravame_itens(objeto: dict) -> list:
         "declarado e o efetivamente apurado pelo credor na data da quitação, obrigando-se o CONTRATANTE a "
         "manter atualizadas as informações do financiamento durante a vigência deste contrato."
     )
-    return itens
+    return [_xml_escape(x) for x in itens]
 
 
 def clausulas_exclusividade(doc: dict) -> List[Clausula]:
