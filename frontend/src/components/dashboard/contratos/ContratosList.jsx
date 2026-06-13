@@ -11,6 +11,7 @@ import { Badge } from '../../ui/badge';
 import { useToast } from '../../../hooks/use-toast';
 import { contratosAPI } from '../../../lib/api';
 import AssinaturaPosicionadaModal from '../assinatura/AssinaturaPosicionadaModal';
+import AssinaturaClienteModal from './AssinaturaClienteModal';
 import AssinaturaDigital from '../ptam/AssinaturaDigital';
 import TypeCardGrid from '../shared/TypeCardGrid';
 import { CONTRATO_TIPOS, CONTRATO_CATEGORIAS } from '../../../constants/contratoTipos';
@@ -281,6 +282,7 @@ const ContratosList = () => {
   const [search, setSearch] = useState('');
   const [assinarDoc, setAssinarDoc] = useState(null);
   const [posicionarDoc, setPosicionarDoc] = useState(null);
+  const [assinClienteDoc, setAssinClienteDoc] = useState(null);
   const [historicoDoc, setHistoricoDoc] = useState(null);
 
   const load = useCallback(async () => {
@@ -544,6 +546,7 @@ const ContratosList = () => {
                   <ActBtn icon={MessageCircle} label="WhatsApp" onClick={() => enviarWhatsApp(c)} className="border-green-200 bg-green-50 text-green-700 hover:bg-green-100" />
                   <ActBtn icon={Link2} label="Link" onClick={() => compartilhar(contratoId)} className="border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100" />
                   <ActBtn icon={History} label="Histórico" onClick={() => setHistoricoDoc(c)} className="border-gray-200 text-gray-600 hover:bg-gray-50" />
+                  <ActBtn icon={MessageCircle} label="Assin. cliente" onClick={() => setAssinClienteDoc(c)} className="col-span-3 border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100" />
                 </div>
 
                 {/* Footer — contadores + recibo + overflow */}
@@ -591,6 +594,12 @@ const ContratosList = () => {
       )}
       {historicoDoc && (
         <HistoricoModal contrato={historicoDoc} onClose={() => setHistoricoDoc(null)} />
+      )}
+      {assinClienteDoc && (
+        <AssinaturaClienteModal
+          contratoId={getContratoId(assinClienteDoc)}
+          onClose={() => setAssinClienteDoc(null)}
+        />
       )}
     </div>
   );

@@ -16,6 +16,7 @@ import Dashboard from './pages/Dashboard';
 import PortalCliente from './pages/PortalCliente';
 import ContratoPublico from './pages/ContratoPublico';
 import AceiteContrato from './pages/AceiteContrato';
+import AssinarCliente from './pages/AssinarCliente';
 import VerificarContrato from './pages/VerificarContrato';
 import ServicoPTAM from './pages/ServicoPTAM';
 import ServicoLaudoTecnico from './pages/ServicoLaudoTecnico';
@@ -138,6 +139,7 @@ function App() {
                 <Route path="/v/laudo/v/:hash" element={<VerificarLaudo />} />
                 <Route path="/contrato/public/:token" element={<ContratoPublico />} />
                 <Route path="/aceite/:token" element={<AceiteContrato />} />
+                <Route path="/assinar-cliente/:token" element={<AssinarCliente />} />
                 <Route path="/verificar/:hash" element={<VerificarContrato />} />
                 <Route path="/dashboard/*" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                 <Route path="*" element={<Navigate to="/" replace />} />

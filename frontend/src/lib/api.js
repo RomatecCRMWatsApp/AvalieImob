@@ -224,6 +224,16 @@ export const contratosExclusividadeAPI = {
   verificar: (hash) => api.get(`/publico/contratos-exclusividade/verificar/${hash}`).then(r => r.data),
 };
 
+// ---- Assinatura DESENHADA do cliente via WhatsApp (contrato)
+export const assinaturaClienteAPI = {
+  // Autenticadas (corretor)
+  preparar: (cid) => api.post(`/assinatura-cliente/contratos/${cid}/preparar`).then(r => r.data),
+  posicionar: (cid, body) => api.post(`/assinatura-cliente/contratos/${cid}/posicionar`, body).then(r => r.data),
+  // Públicas (sem auth)
+  obter: (token) => api.get(`/publico/assinatura-cliente/${token}`).then(r => r.data),
+  assinar: (token, body) => api.post(`/publico/assinatura-cliente/${token}`, body).then(r => r.data),
+};
+
 // ---- Admin (usuários cadastrados / assinaturas) — somente admin/owner/ceo
 export const adminAPI = {
   listUsers: () => api.get('/admin/users').then(r => r.data),
