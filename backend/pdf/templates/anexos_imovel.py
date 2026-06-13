@@ -32,15 +32,23 @@ _LEG = ParagraphStyle(
 
 
 def _img_flowable(raw: bytes, max_w: float, max_h: float):
-    """Cria um Image escalado preservando proporção, cabendo em (max_w, max_h). None se inválido."""
+    """Cria um Image escalado preservando proporção, cabendo em (max_w, max_h). None se inválido.
+    Normaliza via PIL para PNG RGB — garante que o ReportLab consiga DESENHAR (evita falha
+    de build com WebP, CMYK, paletas ou modos exóticos vindos do upload)."""
     try:
-        ir = ImageReader(io.BytesIO(raw))
-        iw, ih = ir.getSize()
+        from PIL import Image as _PILImage
+        im = _PILImage.open(io.BytesIO(raw))
+        im.load()
+        if im.mode not in ("RGB", "L"):
+            im = im.convert("RGB")
+        iw, ih = im.size
         if not iw or not ih:
             return None
+        out = io.BytesIO()
+        im.save(out, format="PNG")
+        out.seek(0)
         escala = min(max_w / iw, max_h / ih)
-        w, h = iw * escala, ih * escala
-        return Image(io.BytesIO(raw), width=w, height=h)
+        return Image(out, width=iw * escala, height=ih * escala)
     except Exception:
         logger.warning("Anexo: imagem inválida ignorada.", exc_info=True)
         return None
