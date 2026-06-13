@@ -1016,19 +1016,35 @@ async def _preload_anexos_imovel(db, doc: dict) -> None:
 
     async def _carregar(ids) -> list:
         out = []
-        for iid in (ids or []):
-            if not iid:
+        for item in (ids or []):
+            # Aceita ID string OU objeto {image_id|id|img_id|...} (shapes legados/variantes
+            # do ImageUploader). Sem isso, uma lista de dicts não resolvia nenhuma imagem.
+            iid = item
+            if isinstance(item, dict):
+                iid = (item.get("image_id") or item.get("id") or item.get("img_id")
+                       or item.get("imageId") or item.get("_id"))
+            if not iid or not isinstance(iid, str):
                 continue
             try:
                 img = await db.images.find_one({"id": iid}, {"data_b64": 1})
                 if img and img.get("data_b64"):
                     out.append(base64.b64decode(img["data_b64"]))
+                else:
+                    logger.warning("Anexo imóvel: imagem id=%s sem data_b64 (nao encontrada).", iid)
             except Exception:
                 logger.warning("Anexo imóvel: falha ao carregar imagem %s", iid)
         return out
 
-    obj["_fotos_bytes"] = await _carregar(obj.get("fotos_imovel"))
-    obj["_documentos_bytes"] = await _carregar(obj.get("documentos_imovel"))
+    fotos_ids = obj.get("fotos_imovel") or []
+    docs_ids = obj.get("documentos_imovel") or []
+    obj["_fotos_bytes"] = await _carregar(fotos_ids)
+    obj["_documentos_bytes"] = await _carregar(docs_ids)
+    # Diagnóstico de fronteira: revela nos logs se o problema é "sem ids no doc",
+    # "ids não resolvem em db.images" (0 bytes) ou render (bytes presentes).
+    logger.info(
+        "Anexos imóvel: fotos %d ids -> %d bytes | docs %d ids -> %d bytes",
+        len(fotos_ids), len(obj["_fotos_bytes"]), len(docs_ids), len(obj["_documentos_bytes"]),
+    )
     doc["objeto"] = obj
 
 

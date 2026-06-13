@@ -400,21 +400,47 @@ def _bloco_assinaturas(contratante, st, cw):
     cred_romatec = ("Romatec Consultoria Total<br/>"
                     "Técnico em Agrimensura · Avaliador CNAI 031161<br/>"
                     "CRECI/MA 4.705 · CFT/MA 01209185369 (INCRA: FQNS)")
-    esq = [
-        Paragraph(linha, st["assina_nome"]),
-        Paragraph(_parte_nome(contratante) or "Contratante", st["assina_nome"]),
-        Paragraph("Contratante", st["assina_cred"]),
-    ]
-    dir_ = [
-        Paragraph(linha, st["assina_nome"]),
-        Paragraph("José Romário", st["assina_nome"]),
-        Paragraph(cred_romatec, st["assina_cred"]),
-    ]
-    t = Table([[esq, dir_]], colWidths=[col, col])
-    t.setStyle(TableStyle([
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 0),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
-        ("LINEBEFORE", (1, 0), (1, 0), 0.5, T.C_DOURADO),
-    ]))
+
+    def _col(nome, cred):
+        return [
+            Paragraph(linha, st["assina_nome"]),
+            Paragraph(nome or "—", st["assina_nome"]),
+            Paragraph(cred, st["assina_cred"]),
+        ]
+
+    contratante_col = _col(_parte_nome(contratante) or "Contratante", "Contratante")
+    corretor_col = _col("José Romário", cred_romatec)
+
+    # Cônjuge do contratante (outorga conjugal, CC art. 1.647): se casado/união, o(a)
+    # cônjuge TAMBÉM assina como anuente. Lê do próprio dict do contratante (o Wizard
+    # grava conjuge_nome direto na parte) ou de um sub-objeto conjuge.
+    conj_nome = (
+        (contratante.get("conjuge_nome") if isinstance(contratante, dict) else "")
+        or ((contratante.get("conjuge") or {}).get("nome") if isinstance(contratante, dict) else "")
+        or ""
+    ).strip()
+
+    def _styled(tbl):
+        tbl.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+            ("LINEBEFORE", (1, 0), (1, 0), 0.5, T.C_DOURADO),
+        ]))
+        return tbl
+
+    if conj_nome:
+        # Linha 1: Contratante | Cônjuge anuente. Linha 2 (tabela separada p/ espaçamento):
+        # Corretor | (vazio).
+        conjuge_col = _col(conj_nome, "Cônjuge anuente (outorga conjugal · CC art. 1.647)")
+        t1 = _styled(Table([[contratante_col, conjuge_col]], colWidths=[col, col]))
+        t2 = Table([[corretor_col, ""]], colWidths=[col, col])
+        t2.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+        ]))
+        return [t1, Spacer(1, 34), t2]
+
+    t = _styled(Table([[contratante_col, corretor_col]], colWidths=[col, col]))
     return [t]
