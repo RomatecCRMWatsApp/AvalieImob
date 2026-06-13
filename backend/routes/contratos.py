@@ -261,12 +261,35 @@ def _centenas_ext(n: int) -> str:
     return " e ".join(parts)
 
 
+def _money_to_float(value: Any) -> float:
+    """Converte um valor monetário para float de forma IDEMPOTENTE.
+
+    Aceita tanto número (int/float — ex.: 272666.02 ou um cálculo como
+    5*vt/100) quanto string BR ("272.666,02") ou string com ponto decimal
+    ("272666.02"). A heurística é a vírgula: se houver vírgula é formato BR
+    (pontos = milhar, vírgula = decimal); senão o ponto já é o separador
+    decimal e NÃO pode ser removido.
+
+    Bug histórico corrigido aqui: a antiga lógica fazia `str(value).replace(".", "")`
+    em QUALQUER entrada — ao receber um float (ex.: 13633.301000000001) removia o
+    ponto decimal e reinterpretava os dígitos como inteiro gigante
+    (R$ 13.633.301.000.000.000,00 e LayoutError "DA CORRETAGEM too large")."""
+    if isinstance(value, bool):
+        return 0.0
+    if isinstance(value, (int, float)):
+        return float(value)
+    s = str(value).replace("R$", "").replace("\xa0", "").strip()
+    if not s:
+        return 0.0
+    if "," in s:                       # formato BR: 272.666,02
+        s = s.replace(".", "").replace(",", ".")
+    return float(s)                    # ponto decimal já correto: 272666.02
+
+
 def _extenso(valor: Any) -> str:
     """Converte valor monetario para extenso em portugues."""
     try:
-        raw = str(valor).replace("R$", "").replace("\xa0", "").strip()
-        raw = raw.replace(".", "").replace(",", ".")
-        n = float(raw)
+        n = _money_to_float(valor)
         if n <= 0:
             return _BLANK_EXT
     except Exception:
@@ -319,7 +342,7 @@ def _s(value: Any, fallback: str = _BLANK) -> str:
 def _brl(value: Any) -> str:
     """Formata valor BRL ou retorna blank."""
     try:
-        n = float(str(value).replace("R$", "").replace(".", "").replace(",", ".").strip())
+        n = _money_to_float(value)
         if n == 0:
             return _BLANK_BRL
         s = f"{n:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
@@ -1528,7 +1551,7 @@ def _adapt_for_docx(doc: dict) -> dict:
     pag_raw = doc.get("pagamento") or {}
     valor_total = pag_raw.get("valor_total") or 0
     try:
-        valor_total = float(str(valor_total).replace(".", "").replace(",", "."))
+        valor_total = _money_to_float(valor_total)
     except Exception:
         valor_total = 0
 

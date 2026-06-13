@@ -7,7 +7,12 @@ import logging
 logger = logging.getLogger("romatec")
 
 TEMPLATES_DISPONIVEIS = ["prime1", "prime2", "tradicional"]
-TEMPLATE_PADRAO = "tradicional"   # seguro: gerador clássico já validado em produção
+# Padrão = PRIME II (mesmo default do Wizard, form.template_pdf || 'prime2').
+# Antes era "tradicional", o que fazia o botão PDF/Ver do CARD (que não envia
+# ?template=) baixar o layout sóbrio em vez do Prime esperado pelo usuário.
+# O gerador tradicional continua como REDE DE SEGURANÇA: qualquer falha no
+# renderer escolhido cai nele (ver gerar_pdf_contrato abaixo).
+TEMPLATE_PADRAO = "prime2"
 
 
 def _renderer_tradicional():
