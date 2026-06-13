@@ -416,6 +416,7 @@ def _bloco_assinaturas(contratante, st, cw):
 
     def _col(nome, cred):
         return [
+            Spacer(1, 42),   # espaço EM BRANCO acima da linha p/ a assinatura à mão
             Paragraph(linha, st["assina_nome"]),
             Paragraph(nome or "—", st["assina_nome"]),
             Paragraph(cred, st["assina_cred"]),
@@ -453,7 +454,7 @@ def _bloco_assinaturas(contratante, st, cw):
             ("LEFTPADDING", (0, 0), (-1, -1), 0),
             ("RIGHTPADDING", (0, 0), (-1, -1), 10),
         ]))
-        return [t1, Spacer(1, 34), t2]
+        return [t1, Spacer(1, 50), t2]
 
     t = _styled(Table([[contratante_col, corretor_col]], colWidths=[col, col]))
     return [t]
