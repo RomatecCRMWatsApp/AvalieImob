@@ -494,7 +494,7 @@ def _pdf_styles() -> dict:
     verde = colors.HexColor("#1a4731")
     cinza = colors.HexColor("#4a4a4a")
 
-    return {
+    styles = {
         "titulo": ParagraphStyle("titulo", parent=ss["Heading1"], fontSize=14,
                                  textColor=verde, spaceAfter=4, leading=18),
         "subtitulo": ParagraphStyle("subtitulo", parent=ss["Heading2"], fontSize=11,
@@ -515,6 +515,16 @@ def _pdf_styles() -> dict:
         "assinatura": ParagraphStyle("assinatura", parent=ss["Normal"], fontSize=9,
                                      textColor=cinza, alignment=1, spaceAfter=2, leading=13),
     }
+
+    # Evita LayoutError "Flowable too large": permite quebra livre de parágrafos
+    # (órfãs/viúvas) e remove o keepWithNext herdado dos estilos Heading — que faz
+    # o ReportLab tentar colar título+conteúdo num bloco que não cabe na página.
+    for _st in styles.values():
+        _st.allowOrphans = 1
+        _st.allowWidows = 1
+        _st.keepWithNext = 0
+        _st.splitLongWords = 1
+    return styles
 
 
 def _xml_safe(text: str) -> str:
