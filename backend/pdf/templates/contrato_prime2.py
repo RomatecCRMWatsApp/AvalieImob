@@ -369,21 +369,23 @@ def render(doc: dict, uid: str, empresa: str) -> bytes:
         story.append(Paragraph(fecho_exclusividade(doc), st["corpo"]))
         story.append(Spacer(1, 10))
 
-    # 06 Assinaturas
-    story.append(SecaoHeader("06", "Assinaturas", None, width=cw))
-    story.append(Spacer(1, 18))
-    story.append(KeepTogether(_bloco_assinaturas(contratante, st, cw)))
-
-    # 07 Testemunhas (só DADOS, sem linha de assinatura — conforme escolha do usuário)
+    # 06 Assinaturas + 07 Testemunhas — mantidos JUNTOS na MESMA página.
+    # KeepTogether no nível do story (uso correto; NÃO confundir com KeepTogether
+    # dentro de célula de Table, que inflava a altura e fazia as fotos sumirem).
+    # Se não couber na página atual, o bloco inteiro desce p/ a próxima.
     from pdf.templates.contrato_base import testemunhas_de, testemunha_linha
+    bloco_fim = [
+        SecaoHeader("06", "Assinaturas", None, width=cw),
+        Spacer(1, 18),
+        *_bloco_assinaturas(contratante, st, cw),
+    ]
     _tests = testemunhas_de(doc)
     if _tests:
-        story.append(Spacer(1, 16))
-        story.append(SecaoHeader("07", "Testemunhas", None, width=cw))
-        story.append(Spacer(1, 6))
+        bloco_fim += [Spacer(1, 16), SecaoHeader("07", "Testemunhas", None, width=cw), Spacer(1, 6)]
         for _t in _tests:
-            story.append(Paragraph(testemunha_linha(_t), st["corpo"]))
-            story.append(Spacer(1, 4))
+            bloco_fim.append(Paragraph(testemunha_linha(_t), st["corpo"]))
+            bloco_fim.append(Spacer(1, 4))
+    story.append(KeepTogether(bloco_fim))
 
     # Anexos do imóvel (fotos + documentos) — exclusividade
     try:
