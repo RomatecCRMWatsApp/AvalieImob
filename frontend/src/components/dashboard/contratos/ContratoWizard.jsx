@@ -1440,7 +1440,7 @@ const Step8Validacao = ({ contratoId, onGoToStep }) => {
 /* ═══════════════════════════════════════════════════════════
    STEP 9 — Testemunhas
 ═══════════════════════════════════════════════════════════ */
-const EMPTY_TESTEMUNHA = { nome: '', cpf: '', rg: '', profissao: '', endereco: '', cidade: '', uf: '' };
+const EMPTY_TESTEMUNHA = { nome: '', cpf: '', rg: '', documento: '', cnh: '', profissao: '', email: '', contato: '', endereco: '', cidade: '', uf: '' };
 
 const Step9Testemunhas = ({ form, setForm }) => {
   const testemunhas = form.testemunhas || [{ ...EMPTY_TESTEMUNHA }, { ...EMPTY_TESTEMUNHA }];
@@ -1475,7 +1475,8 @@ const Step9Testemunhas = ({ form, setForm }) => {
     if (!id) return;
     const t = salvas.find(s => s.id === id);
     if (t) setTestemunha(i, {
-      nome: t.nome || '', cpf: t.cpf || '', rg: t.rg || '', profissao: t.profissao || '',
+      nome: t.nome || '', cpf: t.cpf || '', rg: t.rg || '', documento: t.documento || '',
+      cnh: t.cnh || '', profissao: t.profissao || '', email: t.email || '', contato: t.contato || '',
       endereco: t.endereco || '', cidade: t.cidade || '', uf: t.uf || '',
     });
   };
@@ -1486,7 +1487,8 @@ const Step9Testemunhas = ({ form, setForm }) => {
     setSalvando(p => ({ ...p, [i]: true }));
     try {
       await testemunhasAPI.salvar({
-        nome: t.nome, cpf: t.cpf, rg: t.rg, profissao: t.profissao,
+        nome: t.nome, cpf: t.cpf, rg: t.rg, documento: t.documento,
+        cnh: t.cnh, profissao: t.profissao, email: t.email, contato: t.contato,
         endereco: t.endereco, cidade: t.cidade, uf: t.uf,
       });
       await carregarSalvas();
@@ -1563,7 +1565,11 @@ const Step9Testemunhas = ({ form, setForm }) => {
               )}
             </div>
             <Input label="RG" value={testemunhas[i]?.rg} onChange={(v) => upd(i, 'rg', v)} />
+            <Input label="Documento" value={testemunhas[i]?.documento} onChange={(v) => upd(i, 'documento', v)} placeholder="Ex.: Passaporte AB123456" />
+            <Input label="CNH" value={testemunhas[i]?.cnh} onChange={(v) => upd(i, 'cnh', v)} placeholder="Nº de registro" />
             <Input label="Profissão" value={testemunhas[i]?.profissao} onChange={(v) => upd(i, 'profissao', v)} />
+            <Input label="E-mail" value={testemunhas[i]?.email} onChange={(v) => upd(i, 'email', v)} placeholder="email@exemplo.com" />
+            <Input label="Contato / Telefone" value={testemunhas[i]?.contato} onChange={(v) => upd(i, 'contato', v)} placeholder="(99) 99999-9999" />
             <div className="sm:col-span-2">
               <Input label="Endereço" value={testemunhas[i]?.endereco} onChange={(v) => upd(i, 'endereco', v)} />
             </div>

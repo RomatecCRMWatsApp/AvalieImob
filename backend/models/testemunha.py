@@ -28,7 +28,11 @@ class TestemunhaBase(BaseModel):
     nome: str = ""
     cpf: Optional[str] = ""
     rg: Optional[str] = ""
+    documento: Optional[str] = ""      # documento genérico (tipo + número), ex.: "Passaporte AB123"
+    cnh: Optional[str] = ""
     profissao: Optional[str] = ""
+    email: Optional[str] = ""
+    contato: Optional[str] = ""        # telefone / WhatsApp
     endereco: Optional[str] = ""
     cidade: Optional[str] = ""
     uf: Optional[str] = ""

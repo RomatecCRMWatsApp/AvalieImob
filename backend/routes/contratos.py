@@ -58,6 +58,7 @@ class ContratoCreate(BaseModel):
     procuracao: Optional[Any] = None
     etapas_concluidas: Optional[Any] = None
     etapas_concluidas_em: Optional[Any] = None
+    testemunhas: Optional[List[Any]] = None
     config: Optional[Any] = None
 
 
@@ -79,6 +80,7 @@ class ContratoUpdate(BaseModel):
     alertas_juridicos: Optional[List[Any]] = None
     testemunha_1: Optional[Any] = None
     testemunha_2: Optional[Any] = None
+    testemunhas: Optional[List[Any]] = None   # array do Wizard (Step Testemunhas)
     incluir_logo: Optional[bool] = None
     incluir_recibo_arras: Optional[bool] = None
     incluir_checklist: Optional[bool] = None
@@ -914,15 +916,13 @@ def _generate_contrato_pdf_bytes(doc: dict, uid: str, empresa: str, raise_on_err
             elems.append(HRFlowable(width="100%", thickness=0.5, color=colors.lightgrey, spaceAfter=6))
 
         # ── Testemunhas ───────────────────────────────────────────────────────
-        test1 = doc.get("testemunha_1") or {}
-        test2 = doc.get("testemunha_2") or {}
-        if isinstance(test1, dict) and test1.get("nome"):
+        from pdf.templates.contrato_base import testemunhas_de, testemunha_linha
+        _tests = testemunhas_de(doc)
+        if _tests:
             elems.append(_p("DAS TESTEMUNHAS", styles["secao"]))
-            for t in [test1, test2]:
-                if isinstance(t, dict) and t.get("nome"):
-                    tnome = _s(t.get("nome"), _BLANK)
-                    tcpf = _s(t.get("cpf"), _BLANK)
-                    elems.append(_p(f"{tnome} — CPF {tcpf}", styles["corpo"]))
+            for t in _tests:
+                # testemunha_linha já escapa XML; _p reescapa de forma idempotente.
+                elems.append(_p(testemunha_linha(t), styles["corpo"]))
 
         # ── Local e Assinaturas ────────────────────────────────────────────────
         elems.append(PageBreak())
@@ -1612,11 +1612,13 @@ def _adapt_for_docx(doc: dict) -> dict:
             "exclusividade_prazo_dias": cor_raw.get("prazo_exclusividade"),
         }
 
-    testemunhas = []
-    for key in ("testemunha_1", "testemunha_2"):
-        t = doc.get(key)
-        if isinstance(t, dict) and t.get("nome"):
-            testemunhas.append({"nome": t.get("nome"), "cpf": t.get("cpf")})
+    from pdf.templates.contrato_base import testemunhas_de as _testemunhas_de
+    testemunhas = [
+        {"nome": t.get("nome"), "cpf": t.get("cpf"), "rg": t.get("rg"),
+         "documento": t.get("documento"), "cnh": t.get("cnh"),
+         "profissao": t.get("profissao"), "email": t.get("email"), "contato": t.get("contato")}
+        for t in _testemunhas_de(doc)
+    ]
 
     return {
         "tipo_contrato": doc.get("tipo_contrato", ""),

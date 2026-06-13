@@ -374,6 +374,17 @@ def render(doc: dict, uid: str, empresa: str) -> bytes:
     story.append(Spacer(1, 18))
     story.append(KeepTogether(_bloco_assinaturas(contratante, st, cw)))
 
+    # 07 Testemunhas (só DADOS, sem linha de assinatura — conforme escolha do usuário)
+    from pdf.templates.contrato_base import testemunhas_de, testemunha_linha
+    _tests = testemunhas_de(doc)
+    if _tests:
+        story.append(Spacer(1, 16))
+        story.append(SecaoHeader("07", "Testemunhas", None, width=cw))
+        story.append(Spacer(1, 6))
+        for _t in _tests:
+            story.append(Paragraph(testemunha_linha(_t), st["corpo"]))
+            story.append(Spacer(1, 4))
+
     # Anexos do imóvel (fotos + documentos) — exclusividade
     try:
         from pdf.templates.anexos_imovel import anexos_imovel_flowables

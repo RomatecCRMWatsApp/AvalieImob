@@ -108,6 +108,40 @@ def _xml_escape(s) -> str:
     return str(s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+def testemunhas_de(doc: dict) -> list:
+    """Normaliza as testemunhas do contrato: prioriza doc['testemunhas'] (array do
+    Wizard, Step Testemunhas); fallback p/ testemunha_1/testemunha_2 (legado).
+    Retorna só as que têm nome preenchido."""
+    if not isinstance(doc, dict):
+        return []
+    arr = doc.get("testemunhas")
+    if isinstance(arr, list) and arr:
+        out = [t for t in arr if isinstance(t, dict) and (t.get("nome") or "").strip()]
+        if out:
+            return out
+    legado = [doc.get("testemunha_1"), doc.get("testemunha_2")]
+    return [t for t in legado if isinstance(t, dict) and (t.get("nome") or "").strip()]
+
+
+def testemunha_linha(t: dict) -> str:
+    """Qualificação inline de UMA testemunha (nome + CPF/RG/documento/CNH/profissão/
+    contato/e-mail), só com os campos preenchidos (sem trechos vazios). XML-safe."""
+    if not isinstance(t, dict):
+        return ""
+    nome = _xml_escape((t.get("nome") or "").strip())
+    campos = [
+        (f"CPF {t['cpf']}" if (t.get("cpf") or "").strip() else None),
+        (f"RG {t['rg']}" if (t.get("rg") or "").strip() else None),
+        (str(t["documento"]).strip() if (t.get("documento") or "").strip() else None),
+        (f"CNH {t['cnh']}" if (t.get("cnh") or "").strip() else None),
+        (str(t["profissao"]).strip() if (t.get("profissao") or "").strip() else None),
+        (f"contato {t['contato']}" if (t.get("contato") or "").strip() else None),
+        (str(t["email"]).strip() if (t.get("email") or "").strip() else None),
+    ]
+    suf = ", ".join(_xml_escape(c) for c in campos if c)
+    return f"{nome} — {suf}" if suf else nome
+
+
 def _ficha_imovel_txt(objeto: dict) -> str:
     """Compila os campos da ficha (BCI/medidas/IPTU) em frases condicionais p/ a cláusula do imóvel."""
     def _num(v, suf=""):
