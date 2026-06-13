@@ -193,8 +193,8 @@ def render(doc: dict, uid: str, empresa: str) -> bytes:
     T.registrar_fontes()
     st = _styles()
 
-    numero = (doc.get("numero_contrato") or doc.get("numero") or "").strip()
-    codigo = numero.replace("CV-", "CONT-") if numero else "CONT-2026"
+    from pdf.templates.contrato_base import codigo_contrato
+    codigo = codigo_contrato(doc)   # exclusividade → CONT_EXCLUSIV-AAAA-NNNN; demais → CONT-...
     tipo = (doc.get("tipo_contrato") or "Contrato").replace("_", " ").title()
 
     vendedores = doc.get("vendedores") or []

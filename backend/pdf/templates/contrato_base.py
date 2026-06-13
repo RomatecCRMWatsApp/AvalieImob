@@ -123,6 +123,23 @@ def testemunhas_de(doc: dict) -> list:
     return [t for t in legado if isinstance(t, dict) and (t.get("nome") or "").strip()]
 
 
+def codigo_contrato(doc: dict) -> str:
+    """Código exibido no PDF, derivado de numero_contrato (ex.: 'CV-2026-0023').
+    Prefixo conforme o tipo: exclusividade → 'CONT_EXCLUSIV-'; demais → 'CONT-'.
+    Idempotente: normaliza qualquer prefixo conhecido (CV-/CONT-/CONT_EXCLUSIV-)."""
+    numero = str(doc.get("numero_contrato") or doc.get("numero") or "").strip() if isinstance(doc, dict) else ""
+    is_excl = "exclusiv" in str((doc or {}).get("tipo_contrato") or "").lower()
+    pref = "CONT_EXCLUSIV-" if is_excl else "CONT-"
+    if not numero:
+        return f"{pref}2026"
+    base = numero
+    for p in ("CONT_EXCLUSIV-", "CONT-", "CV-"):
+        if base.startswith(p):
+            base = base[len(p):]
+            break
+    return pref + base
+
+
 def testemunha_linha(t: dict) -> str:
     """Qualificação inline de UMA testemunha (nome + CPF/RG/documento/CNH/profissão/
     contato/e-mail), só com os campos preenchidos (sem trechos vazios). XML-safe."""
