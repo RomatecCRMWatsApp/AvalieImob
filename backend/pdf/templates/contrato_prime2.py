@@ -287,7 +287,8 @@ def render(doc: dict, uid: str, empresa: str) -> bytes:
     }
 
     buf = io.BytesIO()
-    pdf = BaseDocTemplate(
+    from pdf.templates.resilient import ResilientBaseDocTemplate
+    pdf = ResilientBaseDocTemplate(
         buf, pagesize=A4, leftMargin=MARGIN, rightMargin=MARGIN,
         topMargin=2.4 * cm, bottomMargin=2.0 * cm, title=f"Contrato {codigo}",
     )

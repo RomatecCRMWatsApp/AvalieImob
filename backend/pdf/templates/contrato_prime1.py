@@ -224,8 +224,9 @@ def render(doc: dict, uid: str, empresa: str) -> bytes:
     }
 
     buf = io.BytesIO()
-    pdf = BaseDocTemplate(buf, pagesize=A4, leftMargin=MARGIN, rightMargin=MARGIN,
-                          topMargin=2.4 * cm, bottomMargin=1.9 * cm, title=f"Contrato {codigo}")
+    from pdf.templates.resilient import ResilientBaseDocTemplate
+    pdf = ResilientBaseDocTemplate(buf, pagesize=A4, leftMargin=MARGIN, rightMargin=MARGIN,
+                                   topMargin=2.4 * cm, bottomMargin=1.9 * cm, title=f"Contrato {codigo}")
     frame = Frame(MARGIN, 1.9 * cm, PAGE_W - 2 * MARGIN, PAGE_H - 4.3 * cm, id="corpo")
     pdf.addPageTemplates([
         PageTemplate(id="capa", frames=[frame], onPage=lambda c, d: _draw_capa(c, meta)),

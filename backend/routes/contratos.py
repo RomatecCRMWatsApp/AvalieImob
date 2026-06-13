@@ -548,11 +548,12 @@ def _p(text: str, style) -> Paragraph:
 
 def _generate_contrato_pdf_bytes(doc: dict, uid: str, empresa: str, raise_on_error: bool = False) -> bytes:
     contrato_id = str(doc.get("id") or doc.get("_id") or "-")
+    from pdf.templates.resilient import ResilientSimpleDocTemplate
     styles = _pdf_styles()
     buffer = io.BytesIO()
 
     try:
-        pdf = SimpleDocTemplate(
+        pdf = ResilientSimpleDocTemplate(
             buffer, pagesize=A4,
             leftMargin=2.5 * cm, rightMargin=2.5 * cm,
             topMargin=2 * cm, bottomMargin=2.5 * cm,
@@ -963,7 +964,7 @@ def _generate_contrato_pdf_bytes(doc: dict, uid: str, empresa: str, raise_on_err
         except Exception:
             logger.warning("Build com anexos falhou; gerando contrato sem anexos.", exc_info=True)
             buffer = io.BytesIO()
-            pdf = SimpleDocTemplate(
+            pdf = ResilientSimpleDocTemplate(
                 buffer, pagesize=A4,
                 leftMargin=2.5 * cm, rightMargin=2.5 * cm,
                 topMargin=2 * cm, bottomMargin=2.5 * cm,
@@ -1038,6 +1039,7 @@ def _generate_procuracao_pdf_bytes(doc: dict, uid: str, empresa: str) -> bytes:
     """PDF da PROCURAÇÃO PARTICULAR vinculada ao contrato de exclusividade.
     Outorgantes = vendedores (etapa 2); Outorgado = corretor (etapa 3);
     objeto limitado à matrícula (etapa 4). Texto em TA_JUSTIFY."""
+    from pdf.templates.resilient import ResilientSimpleDocTemplate
     styles = _pdf_styles()
     buffer = io.BytesIO()
     proc = doc.get("procuracao") or {}
@@ -1046,7 +1048,7 @@ def _generate_procuracao_pdf_bytes(doc: dict, uid: str, empresa: str) -> bytes:
     outorgantes = doc.get("vendedores") or []
 
     try:
-        pdf = SimpleDocTemplate(
+        pdf = ResilientSimpleDocTemplate(
             buffer, pagesize=A4, leftMargin=2.5 * cm, rightMargin=2.5 * cm,
             topMargin=2 * cm, bottomMargin=2.5 * cm, title="Procuracao Particular",
         )
