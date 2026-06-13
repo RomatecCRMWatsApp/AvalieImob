@@ -11,10 +11,13 @@ import {
 } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { useToast } from '../../../hooks/use-toast';
-import { contratosAPI, perfilAPI, testemunhasAPI } from '../../../lib/api';
+import { contratosAPI, perfilAPI, testemunhasAPI, aiAPI } from '../../../lib/api';
 import { useAuth } from '../../../contexts/AuthContext';
 import ImovelMap from '../../maps/ImovelMap';
 import ImageUploader from '../ptam/ImageUploader';
+import RichTextEditor from '../../ui/RichTextEditor';
+import { paraEditorHtml } from '../../ui/RichField';
+import { AiButton } from '../ptam/shared/primitives';
 import RomaIAAvatar from '../../common/RomaIAAvatar';
 import { getWizardConfig, etapaLabel } from '../../../constants/contratoWizardConfig';
 
@@ -528,6 +531,30 @@ const Step5Objeto = ({ form, setForm }) => {
     PRO_COTISTA: 'Resolução CCFGTS — recursos FGTS',
   };
   const numDocsImovel = (obj.documentos_imovel || []).length;
+
+  // Aperfeiçoar com IA (campos de texto longo do imóvel)
+  const { toast: toastObj } = useToast();
+  const [aiCampo, setAiCampo] = useState(null);
+  const aperfeicoarCampo = async (campo, instrucao) => {
+    const atual = (obj[campo] || '').replace(/<[^>]+>/g, ' ').trim();
+    const prompt =
+      `${instrucao} Mantenha tom formal, jurídico e claro em português-BR, conciso. ` +
+      'Retorne APENAS o texto aperfeiçoado, sem explicações, títulos ou rótulos.\n\n' +
+      `Imóvel: ${obj.endereco || ''} ${obj.matricula ? '— matrícula ' + obj.matricula : ''}\n` +
+      `Texto atual:\n${atual || '(vazio — gere um texto inicial adequado)'}`;
+    setAiCampo(campo);
+    try {
+      const res = await aiAPI.chat(`contrato_objeto_${campo}_${Date.now()}`, prompt);
+      const texto = (res?.reply || '').trim();
+      if (texto) upd(campo, texto);
+      toastObj({ title: 'Texto aperfeiçoado com IA' });
+    } catch (e) {
+      toastObj({ title: 'Erro na IA', description: e.response?.data?.detail || 'Tente novamente', variant: 'destructive' });
+    } finally {
+      setAiCampo(null);
+    }
+  };
+
   const somaValores = ['entrada_recursos_proprios', 'subsidio', 'valor_financiado']
     .reduce((s, k) => s + (parseFloat((al.valores || {})[k]) || 0), 0);
   const valorCompra = parseFloat((al.valores || {}).valor_compra) || 0;
@@ -583,23 +610,31 @@ const Step5Objeto = ({ form, setForm }) => {
             />
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Ônus / Gravames</label>
-              <textarea
-                value={obj.onus || ''}
-                onChange={(e) => upd('onus', e.target.value)}
-                rows={2}
+              <RichTextEditor
+                value={paraEditorHtml(obj.onus)}
+                onChange={(html) => upd('onus', html)}
+                onBlurHtml={(html) => upd('onus', html)}
                 placeholder="Ex: Livre e desembaraçado de quaisquer ônus ou inscrever gravame específico"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                minHeight={80}
+                showAiButton={false}
               />
+              <div className="flex justify-end mt-1">
+                <AiButton onClick={() => aperfeicoarCampo('onus', 'Aperfeiçoe esta declaração de ônus/gravames de um imóvel para um contrato.')} loading={aiCampo === 'onus'} />
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Benfeitorias Incluídas</label>
-              <textarea
-                value={obj.benfeitorias || ''}
-                onChange={(e) => upd('benfeitorias', e.target.value)}
-                rows={2}
+              <RichTextEditor
+                value={paraEditorHtml(obj.benfeitorias)}
+                onChange={(html) => upd('benfeitorias', html)}
+                onBlurHtml={(html) => upd('benfeitorias', html)}
                 placeholder="Ex: Incluídas as instalações elétricas, hidráulicas e etc."
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                minHeight={80}
+                showAiButton={false}
               />
+              <div className="flex justify-end mt-1">
+                <AiButton onClick={() => aperfeicoarCampo('benfeitorias', 'Aperfeiçoe a descrição das benfeitorias incluídas no imóvel para um contrato.')} loading={aiCampo === 'benfeitorias'} />
+              </div>
             </div>
           </div>
 
@@ -853,12 +888,16 @@ const Step5Objeto = ({ form, setForm }) => {
           <Input label="Registro de Imóveis" value={obj.registro_imovel} onChange={(v) => upd('registro_imovel', v)} />
           <div className="sm:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-1">Ônus / Gravames</label>
-            <textarea
-              value={obj.onus || ''}
-              onChange={(e) => upd('onus', e.target.value)}
-              rows={2}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            <RichTextEditor
+              value={paraEditorHtml(obj.onus)}
+              onChange={(html) => upd('onus', html)}
+              onBlurHtml={(html) => upd('onus', html)}
+              minHeight={80}
+              showAiButton={false}
             />
+            <div className="flex justify-end mt-1">
+              <AiButton onClick={() => aperfeicoarCampo('onus', 'Aperfeiçoe esta declaração de ônus/gravames de um imóvel rural para um contrato.')} loading={aiCampo === 'onus'} />
+            </div>
           </div>
         </div>
       )}

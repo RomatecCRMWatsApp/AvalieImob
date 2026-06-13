@@ -87,6 +87,20 @@ def _endereco_completo(p: dict) -> str:
     return ", ".join([x for x in partes if x]) or "endereço não informado"
 
 
+def _plain(s) -> str:
+    """Remove HTML do editor rich text -> texto inline (tags de bloco viram espaço)."""
+    import re as _re
+    if not s:
+        return ""
+    t = str(s)
+    t = _re.sub(r"(?i)<br\s*/?>", " ", t)
+    t = _re.sub(r"(?i)</(div|p|li|ul|ol|tr)>", " ", t)
+    t = _re.sub(r"<[^>]+>", "", t)
+    t = (t.replace("&nbsp;", " ").replace("&amp;", "&")
+          .replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", '"'))
+    return _re.sub(r"\s{2,}", " ", t).strip()
+
+
 def _ficha_imovel_txt(objeto: dict) -> str:
     """Compila os campos da ficha (BCI/medidas/IPTU) em frases condicionais p/ a cláusula do imóvel."""
     def _num(v, suf=""):
@@ -217,7 +231,7 @@ def _ctx(doc: dict) -> dict:
                           objeto.get("area_terreno") and f"{objeto.get('area_terreno')} m²", "área a especificar"),
         "matricula": pick(objeto.get("matricula"), "a indicar"),
         "cartorio": pick(objeto.get("cartorio"), "cartório competente"),
-        "onus_declarados": pick(objeto.get("onus"), doc.get("onus_declarados"),
+        "onus_declarados": pick(_plain(objeto.get("onus")), doc.get("onus_declarados"),
                                "livre e desembaraçado de ônus, gravames e ações"),
         "ficha_complementar": _ficha_imovel_txt(objeto),
         "preco_anunciado": _money(preco),

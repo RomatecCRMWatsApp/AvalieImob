@@ -89,6 +89,20 @@ class GerarClausulasRequest(BaseModel):
 # Helpers
 # ──────────────────────────────────────────────────────────────────────────────
 
+def _strip_html_inline(s) -> str:
+    """Remove HTML do editor rich text -> texto inline (p/ campos onus/benfeitorias no PDF)."""
+    import re as _re
+    if not s:
+        return ""
+    t = str(s)
+    t = _re.sub(r"(?i)<br\s*/?>", " ", t)
+    t = _re.sub(r"(?i)</(div|p|li|ul|ol|tr)>", " ", t)
+    t = _re.sub(r"<[^>]+>", "", t)
+    t = (t.replace("&nbsp;", " ").replace("&amp;", "&")
+          .replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", '"'))
+    return _re.sub(r"\s{2,}", " ", t).strip()
+
+
 def _calculate_hash(content: bytes) -> str:
     return hashlib.sha256(content).hexdigest()
 
@@ -662,11 +676,11 @@ def _generate_contrato_pdf_bytes(doc: dict, uid: str, empresa: str) -> bytes:
                 if situacao:
                     elems.append(_p(f"Situacao de ocupacao: {SITUACAO_LABEL.get(situacao, situacao)}.", styles["corpo"]))
 
-                onus = _s(obj.get("onus"), "")
+                onus = _strip_html_inline(_s(obj.get("onus"), ""))
                 if onus and onus != _BLANK:
                     elems.append(_p(f"Onus/Gravames: {onus}", styles["corpo"]))
 
-                benf = _s(obj.get("benfeitorias"), "")
+                benf = _strip_html_inline(_s(obj.get("benfeitorias"), ""))
                 if benf and benf != _BLANK:
                     elems.append(_p(f"Benfeitorias incluidas: {benf}", styles["corpo"]))
 
