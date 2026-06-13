@@ -76,7 +76,10 @@ function useLocalizacao() {
   const [local, setLocal] = useState('Açailândia, MA');
   useEffect(() => {
     if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
+    let cancelled = false;
+    const buscar = () => {
+      if (cancelled) return;
+      navigator.geolocation.getCurrentPosition(
       async ({ coords }) => {
         try {
           const res = await fetch(
@@ -87,11 +90,22 @@ function useLocalizacao() {
           const cidade = a.city || a.town || a.municipality || a.village || '';
           const iso = a['ISO3166-2-lvl4'] ? String(a['ISO3166-2-lvl4']).split('-')[1] : '';
           const estado = iso || a.state || '';
-          if (cidade) setLocal(estado ? `${cidade}, ${estado}` : cidade);
+          if (cidade && !cancelled) setLocal(estado ? `${cidade}, ${estado}` : cidade);
         } catch { /* mantém fallback */ }
       },
-      () => { /* sem permissão → fallback */ }
-    );
+        () => { /* sem permissão → fallback */ }
+      );
+    };
+    // Só busca a localização se o usuário JÁ concedeu permissão antes — evita o
+    // prompt de localização a cada carregamento e o "[Violation]" no console
+    // quando a Permissions-Policy não permite. Se a Permissions API não existir,
+    // mantém só o fallback "Açailândia, MA".
+    if (navigator.permissions?.query) {
+      navigator.permissions.query({ name: 'geolocation' })
+        .then((status) => { if (status.state === 'granted') buscar(); })
+        .catch(() => { /* sem Permissions API → mantém fallback */ });
+    }
+    return () => { cancelled = true; };
   }, []);
   return local;
 }

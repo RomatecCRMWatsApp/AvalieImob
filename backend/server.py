@@ -60,7 +60,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        # geolocation=(self): o app usa GPS legítimo (tarja de coordenadas nas fotos do
+        # imóvel/vistoria, cidade no TopBar). Bloquear com geolocation=() gerava o
+        # console "[Violation] Geolocation access blocked" E quebrava o GPS das fotos.
+        # camera/microphone seguem desativados (não usados).
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(self)"
         return response
 
 
