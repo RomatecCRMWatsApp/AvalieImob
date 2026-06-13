@@ -391,6 +391,13 @@ async def indexnow_ping(payload: dict):
 # ── React SPA static files ───────────────────────────────────────────
 import pathlib as _pathlib
 _frontend_build = _pathlib.Path(__file__).parent.parent / "frontend" / "build"
+# Raiz canônica do build (resolvida 1x) — usada no guard anti path-traversal
+# do catch-all serve_spa, para impedir que um caminho com `..` escape do build
+# e sirva arquivos sensíveis fora dele (ex.: ../../backend/.env).
+try:
+    _BUILD_ROOT = _frontend_build.resolve()
+except Exception:
+    _BUILD_ROOT = _frontend_build
 
 # v1.0 SEO: o Dockerfile builda o React no Stage 1 sem injetar env vars
 # REACT_APP_*, entao placeholders %REACT_APP_FOO% ficam literais no HTML.
@@ -514,7 +521,16 @@ if _frontend_build.exists():
         if full_path in ("200.html", "404.html") or full_path.startswith("_"):
             return HTMLResponse(content=_render_index_html(), headers=dict(_NO_CACHE))
         file_path = _frontend_build / full_path
-        if full_path and file_path.is_file():
+        # Guard anti path-traversal: só serve o arquivo se o caminho RESOLVIDO
+        # continuar DENTRO do build. Bloqueia `..`/`%2e%2e` (ex.: scanners
+        # tentando ../../backend/.env), que o Starlette não colapsa no
+        # parâmetro {full_path:path}. Qualquer escape cai no SPA fallback.
+        try:
+            _resolved = file_path.resolve()
+            _dentro = _resolved == _BUILD_ROOT or _BUILD_ROOT in _resolved.parents
+        except Exception:
+            _dentro = False
+        if full_path and _dentro and file_path.is_file():
             if full_path in _NO_CACHE_FILES or full_path.endswith(".html"):
                 return FileResponse(str(file_path), headers=dict(_NO_CACHE))
             return FileResponse(str(file_path))
