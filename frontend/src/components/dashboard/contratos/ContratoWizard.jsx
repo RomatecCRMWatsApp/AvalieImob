@@ -517,6 +517,22 @@ const Step5Objeto = ({ form, setForm }) => {
   const obj = form.objeto;
   const upd = (key, val) => setForm({ ...form, objeto: { ...obj, [key]: val } });
 
+  // Alienação fiduciária / financiamento (sub-objeto obj.alienacao)
+  const al = obj.alienacao || {};
+  const setAl = (patch) => upd('alienacao', { ...al, ...patch });
+  const setAlGrp = (grp, patch) => setAl({ [grp]: { ...(al[grp] || {}), ...patch } });
+  const PROG_LEI = {
+    MCMV: 'Lei nº 11.977/2009, reeditado pela Lei nº 14.620/2023',
+    SFH: 'Lei nº 4.380/1964',
+    SFI: 'Lei nº 9.514/1997',
+    PRO_COTISTA: 'Resolução CCFGTS — recursos FGTS',
+  };
+  const numDocsImovel = (obj.documentos_imovel || []).length;
+  const somaValores = ['entrada_recursos_proprios', 'subsidio', 'valor_financiado']
+    .reduce((s, k) => s + (parseFloat((al.valores || {})[k]) || 0), 0);
+  const valorCompra = parseFloat((al.valores || {}).valor_compra) || 0;
+  const divergeValores = valorCompra > 0 && somaValores > 0 && Math.abs(somaValores - valorCompra) > 0.01;
+
   const enderecoCompleto = [obj.endereco, obj.bairro, obj.cidade, obj.uf].filter(Boolean).join(', ');
 
   return (
@@ -638,6 +654,153 @@ const Step5Objeto = ({ form, setForm }) => {
                   <Input label="Desconto Concedido (R$)" type="number" value={obj.iptu_desconto || ''} onChange={(v) => upd('iptu_desconto', v)} />
                   <Input label="Valor Cobrado / a Pagar (R$)" type="number" value={obj.iptu_valor_cobrado || ''} onChange={(v) => upd('iptu_valor_cobrado', v)} />
                 </div>
+              </div>
+
+              {/* Imóvel alienado / financiado — alienação fiduciária */}
+              <div className="rounded-xl border border-gray-200 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800">Imóvel alienado / financiado?</p>
+                    <p className="text-xs text-gray-500">Ative se o imóvel possui alienação fiduciária ou financiamento registrado na matrícula.</p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={!!al.alienado}
+                    onClick={() => setAl({ alienado: !al.alienado })}
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition focus:outline-none focus:ring-2 focus:ring-[#C9A84C] ${al.alienado ? 'bg-[#0C3320]' : 'bg-gray-300'}`}
+                  >
+                    <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${al.alienado ? 'translate-x-5' : 'translate-x-1'}`} />
+                  </button>
+                </div>
+
+                {al.alienado && (
+                  <div className="mt-4 space-y-4">
+                    {/* Bloco A — Credor Fiduciário */}
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <p className="text-xs font-semibold text-[#C9A84C] uppercase tracking-wide mb-2">Credor Fiduciário</p>
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        <Input label="Banco / Credor Fiduciário" value={(al.credor || {}).nome || ''} onChange={(v) => setAlGrp('credor', { nome: v })} placeholder="Banco do Brasil S.A." required />
+                        <Input label="CNPJ do Credor" value={(al.credor || {}).cnpj || ''} onChange={(v) => setAlGrp('credor', { cnpj: v })} placeholder="00.000.000/0001-91" required />
+                        <Input label="Agência" value={(al.credor || {}).agencia || ''} onChange={(v) => setAlGrp('credor', { agencia: v })} placeholder="Ag. Parque das Nações-MA, prefixo 5908-0" />
+                        <Input label="Endereço da Agência" value={(al.credor || {}).endereco_agencia || ''} onChange={(v) => setAlGrp('credor', { endereco_agencia: v })} />
+                      </div>
+                    </div>
+
+                    {/* Bloco B — Instrumento / Título */}
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <p className="text-xs font-semibold text-[#C9A84C] uppercase tracking-wide mb-2">Instrumento / Título</p>
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        <Select
+                          label="Tipo do Instrumento"
+                          value={(al.instrumento || {}).tipo || 'INSTRUMENTO_PARTICULAR_EFEITO_ESCRITURA'}
+                          onChange={(v) => setAlGrp('instrumento', { tipo: v })}
+                          options={[
+                            { value: 'INSTRUMENTO_PARTICULAR_EFEITO_ESCRITURA', label: 'Instrumento Particular c/ efeito de escritura' },
+                            { value: 'ESCRITURA_PUBLICA', label: 'Escritura Pública' },
+                            { value: 'CEDULA_CREDITO_IMOBILIARIO', label: 'Cédula de Crédito Imobiliário (CCI)' },
+                            { value: 'CONTRATO_GAVETA', label: 'Contrato particular não registrado (gaveta)' },
+                            { value: 'OUTRO', label: 'Outro' },
+                          ]}
+                        />
+                        {(al.instrumento || {}).tipo === 'OUTRO' && (
+                          <Input label="Descrição (Outro)" value={(al.instrumento || {}).tipo_outro_descricao || ''} onChange={(v) => setAlGrp('instrumento', { tipo_outro_descricao: v })} />
+                        )}
+                        <Input label="Nº do Instrumento/Contrato" value={(al.instrumento || {}).numero || ''} onChange={(v) => setAlGrp('instrumento', { numero: v })} placeholder="131.105.731" />
+                        <Input label="Data do Instrumento" type="date" value={(al.instrumento || {}).data || ''} onChange={(v) => setAlGrp('instrumento', { data: v })} />
+                        <Input label="Base Legal" value={(al.instrumento || {}).base_legal || ''} onChange={(v) => setAlGrp('instrumento', { base_legal: v })} placeholder="art. 61 e §§ da Lei nº 4.380/1964" />
+                      </div>
+                    </div>
+
+                    {/* Bloco C — Programa Habitacional */}
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <p className="text-xs font-semibold text-[#C9A84C] uppercase tracking-wide mb-2">Programa Habitacional</p>
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        <Select
+                          label="Programa"
+                          value={(al.programa || {}).nome || 'NENHUM'}
+                          onChange={(v) => setAlGrp('programa', { nome: v, lei_referencia: (al.programa || {}).lei_referencia || PROG_LEI[v] || '' })}
+                          options={[
+                            { value: 'NENHUM', label: 'Nenhum' },
+                            { value: 'MCMV', label: 'Minha Casa, Minha Vida' },
+                            { value: 'SFH', label: 'SFH' },
+                            { value: 'SFI', label: 'SFI' },
+                            { value: 'PRO_COTISTA', label: 'Pró-Cotista' },
+                            { value: 'OUTRO', label: 'Outro' },
+                          ]}
+                        />
+                        <Input label="Lei de Referência" value={(al.programa || {}).lei_referencia || ''} onChange={(v) => setAlGrp('programa', { lei_referencia: v })} placeholder="Lei nº 11.977/2009..." />
+                      </div>
+                    </div>
+
+                    {/* Bloco D — Registro na Matrícula */}
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <p className="text-xs font-semibold text-[#C9A84C] uppercase tracking-wide mb-2">Registro na Matrícula</p>
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        <Input label="Registro da Compra e Venda" value={(al.registro || {}).registro_compra_venda || ''} onChange={(v) => setAlGrp('registro', { registro_compra_venda: v })} placeholder="R-03/26.016" />
+                        <Input label="Registro da Alienação Fiduciária" value={(al.registro || {}).registro_alienacao || ''} onChange={(v) => setAlGrp('registro', { registro_alienacao: v })} placeholder="R-04/26.016" />
+                        <Input label="Data do Registro" type="date" value={(al.registro || {}).data_registro || ''} onChange={(v) => setAlGrp('registro', { data_registro: v })} />
+                      </div>
+                    </div>
+
+                    {/* Bloco E — Valores da Operação Original */}
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <p className="text-xs font-semibold text-[#C9A84C] uppercase tracking-wide mb-2">Valores da Operação Original</p>
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        <Input label="Valor da Compra e Venda (R$)" type="number" value={(al.valores || {}).valor_compra || ''} onChange={(v) => setAlGrp('valores', { valor_compra: v })} placeholder="115000.00" />
+                        <Input label="Entrada — Recursos Próprios (R$)" type="number" value={(al.valores || {}).entrada_recursos_proprios || ''} onChange={(v) => setAlGrp('valores', { entrada_recursos_proprios: v })} placeholder="7000.00" />
+                        <Input label="Subsídio (R$)" type="number" value={(al.valores || {}).subsidio || ''} onChange={(v) => setAlGrp('valores', { subsidio: v })} placeholder="16146.00" />
+                        <Input label="Origem do Subsídio" value={(al.valores || {}).subsidio_origem || ''} onChange={(v) => setAlGrp('valores', { subsidio_origem: v })} placeholder="FGTS na forma de desconto" />
+                        <Input label="Valor Financiado (R$)" type="number" value={(al.valores || {}).valor_financiado || ''} onChange={(v) => setAlGrp('valores', { valor_financiado: v })} placeholder="91854.00" required />
+                      </div>
+                      {divergeValores && (
+                        <p className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5 flex items-center gap-1">
+                          <AlertTriangle className="w-3.5 h-3.5" />
+                          A soma de entrada + subsídio + financiado (R$ {somaValores.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}) difere do valor da compra (R$ {valorCompra.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}). Verifique os valores na matrícula.
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Bloco F — Condições do Financiamento */}
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <p className="text-xs font-semibold text-[#C9A84C] uppercase tracking-wide mb-2">Condições do Financiamento</p>
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        <Input label="Prazo (meses)" type="number" value={(al.condicoes || {}).prazo_meses || ''} onChange={(v) => setAlGrp('condicoes', { prazo_meses: v })} placeholder="361" />
+                        <Input label="Parcela Inicial (R$)" type="number" value={(al.condicoes || {}).parcela_inicial || ''} onChange={(v) => setAlGrp('condicoes', { parcela_inicial: v })} placeholder="518.08" />
+                        <Input label="Taxa de Juros Nominal (% a.a.)" type="number" value={(al.condicoes || {}).taxa_juros_nominal_aa || ''} onChange={(v) => setAlGrp('condicoes', { taxa_juros_nominal_aa: v })} placeholder="5.004" />
+                        <Input label="Taxa de Juros Efetiva (% a.a.)" type="number" value={(al.condicoes || {}).taxa_juros_efetiva_aa || ''} onChange={(v) => setAlGrp('condicoes', { taxa_juros_efetiva_aa: v })} placeholder="5.116" />
+                        <Input label="Início da Amortização" type="date" value={(al.condicoes || {}).amortizacao_inicio || ''} onChange={(v) => setAlGrp('condicoes', { amortizacao_inicio: v })} />
+                        <Input label="Fim da Amortização" type="date" value={(al.condicoes || {}).amortizacao_fim || ''} onChange={(v) => setAlGrp('condicoes', { amortizacao_fim: v })} />
+                      </div>
+                    </div>
+
+                    {/* Bloco G — Saldo Devedor Atual */}
+                    <div className="rounded-lg p-3 border border-[#C9A84C] bg-[#C9A84C]/5">
+                      <p className="text-xs font-semibold text-[#C9A84C] uppercase tracking-wide mb-2">Saldo Devedor Atual</p>
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        <Input label="Saldo Devedor (R$)" type="number" value={(al.saldo_devedor || {}).valor || ''} onChange={(v) => setAlGrp('saldo_devedor', { valor: v })} placeholder="conforme extrato" required />
+                        <Input label="Data de Referência do Extrato" type="date" value={(al.saldo_devedor || {}).data_referencia || ''} onChange={(v) => setAlGrp('saldo_devedor', { data_referencia: v })} required />
+                      </div>
+                      <p className={`mt-2 text-xs rounded px-2 py-1.5 flex items-center gap-1 ${numDocsImovel > 0 ? 'text-emerald-700 bg-emerald-50 border border-emerald-200' : 'text-amber-700 bg-amber-50 border border-amber-200'}`}>
+                        {numDocsImovel > 0
+                          ? <><CheckCircle2 className="w-3.5 h-3.5" /> {numDocsImovel} documento(s) anexado(s). Confirme que o extrato do financiamento está entre eles (seção Documentos do Imóvel).</>
+                          : <><AlertTriangle className="w-3.5 h-3.5" /> Anexe o extrato do financiamento na seção “Documentos do Imóvel” abaixo para comprovar o saldo devedor.</>}
+                      </p>
+                    </div>
+
+                    {/* Observações */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Observações</label>
+                      <textarea
+                        value={al.observacoes || ''}
+                        onChange={(e) => setAl({ observacoes: e.target.value })}
+                        rows={2}
+                        maxLength={2000}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Fotos do Imóvel — vão para o Anexo I do PDF */}
@@ -1443,6 +1606,27 @@ const Step10Revisao = ({ form, contratoId }) => {
             <div><span className="text-gray-500">Endereço:</span> {obj.endereco || obj.descricao_veiculo || '—'}</div>
             {obj.matricula && <div><span className="text-gray-500">Matrícula:</span> {obj.matricula}</div>}
             {obj.area_total && <div><span className="text-gray-500">Área:</span> {obj.area_total} {obj.tipo_bem === 'imovel_rural' ? 'ha' : 'm²'}</div>}
+
+            {obj.alienacao?.alienado && (
+              <div className="mt-3 rounded-lg border border-[#C9A84C] bg-[#C9A84C]/5 p-3 space-y-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[10px] font-bold tracking-wide px-2 py-0.5 rounded bg-[#C9A84C] text-[#0C3320]">ALIENADO</span>
+                  <span className="text-sm font-semibold text-gray-800">Gravame — Alienação Fiduciária</span>
+                </div>
+                {obj.alienacao.credor?.nome && <div><span className="text-gray-500">Credor:</span> {obj.alienacao.credor.nome}{obj.alienacao.credor.cnpj ? ` — CNPJ ${obj.alienacao.credor.cnpj}` : ''}</div>}
+                {obj.alienacao.instrumento?.numero && <div><span className="text-gray-500">Instrumento:</span> nº {obj.alienacao.instrumento.numero}{obj.alienacao.instrumento.data ? ` — ${obj.alienacao.instrumento.data}` : ''}</div>}
+                {obj.alienacao.programa?.nome && obj.alienacao.programa.nome !== 'NENHUM' && <div><span className="text-gray-500">Programa:</span> {obj.alienacao.programa.nome}</div>}
+                {(obj.alienacao.registro?.registro_compra_venda || obj.alienacao.registro?.registro_alienacao) && (
+                  <div><span className="text-gray-500">Registros:</span> {[obj.alienacao.registro.registro_compra_venda, obj.alienacao.registro.registro_alienacao].filter(Boolean).join(' · ')}</div>
+                )}
+                {obj.alienacao.valores?.valor_financiado && <div><span className="text-gray-500">Valor financiado:</span> R$ {obj.alienacao.valores.valor_financiado}</div>}
+                {obj.alienacao.condicoes?.prazo_meses && <div><span className="text-gray-500">Prazo:</span> {obj.alienacao.condicoes.prazo_meses} meses{obj.alienacao.condicoes.parcela_inicial ? ` — parcela inicial R$ ${obj.alienacao.condicoes.parcela_inicial}` : ''}</div>}
+                {obj.alienacao.saldo_devedor?.valor != null && (
+                  <div className="font-semibold text-[#0C3320]">Saldo devedor: R$ {obj.alienacao.saldo_devedor.valor}{obj.alienacao.saldo_devedor.data_referencia ? ` (ref. ${obj.alienacao.saldo_devedor.data_referencia})` : ''}</div>
+                )}
+                <div className="text-xs text-gray-500">{(obj.documentos_imovel || []).length > 0 ? '✓ Documentos anexados ao contrato' : '⚠ Extrato não anexado'}</div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -2112,7 +2296,28 @@ const ContratoWizard = () => {
 
   // Flush ao trocar de etapa: persiste o que foi digitado nesta etapa ANTES de
   // sair dela (BUG 5-B — sem isso o debounce podia ser cancelado e perder o valor).
-  const goNext = () => { flushSave(); if (step < etapas.length - 1) setStep(s => s + 1); };
+  const validarEtapaAtual = () => {
+    const etapa = etapas[Math.min(step, etapas.length - 1)];
+    if (etapa?.kind === 'objeto') {
+      const a = form.objeto?.alienacao;
+      if (a?.alienado) {
+        const cnpjDig = (a.credor?.cnpj || '').replace(/\D/g, '');
+        const faltas = [];
+        if (!(a.credor?.nome || '').trim()) faltas.push('Banco/Credor');
+        if (cnpjDig.length !== 14) faltas.push('CNPJ válido (14 dígitos)');
+        if (!(a.valores?.valor_financiado)) faltas.push('Valor Financiado');
+        if (!(a.saldo_devedor?.valor)) faltas.push('Saldo Devedor');
+        if (!(a.saldo_devedor?.data_referencia)) faltas.push('Data de Referência do Extrato');
+        if (faltas.length) {
+          toast({ title: 'Complete os dados da alienação', description: faltas.join(', '), variant: 'destructive' });
+          return false;
+        }
+      }
+    }
+    return true;
+  };
+
+  const goNext = () => { if (!validarEtapaAtual()) return; flushSave(); if (step < etapas.length - 1) setStep(s => s + 1); };
   const goPrev = () => { flushSave(); if (step > 0) setStep(s => s - 1); };
 
   if (loading) return (

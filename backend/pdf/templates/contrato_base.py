@@ -26,6 +26,8 @@ DEFAULTS = {
 _ORDINAIS = [
     "", "PRIMEIRA", "SEGUNDA", "TERCEIRA", "QUARTA", "QUINTA", "SEXTA",
     "SÉTIMA", "OITAVA", "NONA", "DÉCIMA", "DÉCIMA PRIMEIRA", "DÉCIMA SEGUNDA",
+    "DÉCIMA TERCEIRA", "DÉCIMA QUARTA", "DÉCIMA QUINTA", "DÉCIMA SEXTA",
+    "DÉCIMA SÉTIMA", "DÉCIMA OITAVA", "DÉCIMA NONA", "VIGÉSIMA",
 ]
 
 
@@ -135,6 +137,16 @@ def _ficha_imovel_txt(objeto: dict) -> str:
     ])
     if iptu:
         partes.append(iptu)
+
+    al = objeto.get("alienacao") or {}
+    if al.get("alienado"):
+        cred = (al.get("credor") or {}).get("nome") or "credor fiduciário"
+        reg_al = (al.get("registro") or {}).get("registro_alienacao") or ""
+        g = f"Gravame: Alienação Fiduciária — {cred}"
+        if reg_al:
+            g += f" ({reg_al})"
+        partes.append(g + ".")
+
     return " " + " ".join(partes) if partes else ""
 
 
@@ -288,6 +300,132 @@ def preambulo_exclusividade(doc: dict) -> List[str]:
     return [contratante, contratado, regencia]
 
 
+_INSTRUMENTO_EXTENSO = {
+    "INSTRUMENTO_PARTICULAR_EFEITO_ESCRITURA": "Instrumento Particular, com efeito de escritura pública",
+    "ESCRITURA_PUBLICA": "Escritura Pública",
+    "CEDULA_CREDITO_IMOBILIARIO": "Cédula de Crédito Imobiliário",
+    "CONTRATO_GAVETA": "instrumento particular não registrado",
+}
+_PROGRAMA_EXTENSO = {
+    "MCMV": "Programa Minha Casa, Minha Vida",
+    "SFH": "Sistema Financeiro da Habitação",
+    "SFI": "Sistema de Financiamento Imobiliário",
+    "PRO_COTISTA": "Programa Pró-Cotista (FGTS)",
+}
+
+
+def _data_br(s) -> str:
+    import re as _re
+    if not s:
+        return ""
+    m = _re.match(r"(\d{4})-(\d{2})-(\d{2})", str(s))
+    return f"{m.group(3)}/{m.group(2)}/{m.group(1)}" if m else str(s)
+
+
+def _rs_ext(v, *, zero_ok: bool = False) -> str:
+    """'R$ 1.234,56 (mil duzentos...)' ou '' se vazio."""
+    try:
+        fv = float(v)
+    except (TypeError, ValueError):
+        return ""
+    if fv == 0 and not zero_ok:
+        return ""
+    ext = _ext_money(fv)
+    return f"R$ {_money(fv)}" + (f" ({ext})" if ext else "")
+
+
+def clausula_gravame_itens(objeto: dict) -> list:
+    """Itens da cláusula DO GRAVAME (alienação fiduciária) — caput + parágrafos
+    condicionais, sem trechos vazios. Retorna [] se o imóvel não for alienado."""
+    al = (objeto or {}).get("alienacao") or {}
+    if not al.get("alienado"):
+        return []
+    credor = al.get("credor") or {}
+    instr = al.get("instrumento") or {}
+    prog = al.get("programa") or {}
+    reg = al.get("registro") or {}
+    val = al.get("valores") or {}
+    cond = al.get("condicoes") or {}
+    saldo = al.get("saldo_devedor") or {}
+
+    matricula = objeto.get("matricula") or "____"
+    registro_imoveis = objeto.get("registro_imovel") or objeto.get("cartorio") or "Cartório de Registro de Imóveis competente"
+
+    # ── Caput ────────────────────────────────────────────────────────────────
+    caput = (
+        "O CONTRATANTE declara, para todos os fins de direito, que o imóvel objeto do presente "
+        f"contrato encontra-se gravado com ALIENAÇÃO FIDUCIÁRIA em favor de {credor.get('nome') or '____'}"
+    )
+    if credor.get("cnpj"):
+        caput += f", inscrito no CNPJ sob nº {credor['cnpj']}"
+    if credor.get("agencia"):
+        caput += f", por sua {credor['agencia']}"
+    tipo_ext = _INSTRUMENTO_EXTENSO.get(instr.get("tipo")) or instr.get("tipo_outro_descricao") or "instrumento contratual"
+    caput += f", conforme {tipo_ext}"
+    if instr.get("numero"):
+        caput += f" nº {instr['numero']}"
+    if instr.get("data"):
+        caput += f", datado de {_data_br(instr['data'])}"
+    prog_ext = _PROGRAMA_EXTENSO.get(prog.get("nome")) or (prog.get("nome_outro_descricao") if prog.get("nome") == "OUTRO" else "")
+    if prog_ext:
+        caput += f", celebrado no âmbito do {prog_ext}"
+        if prog.get("lei_referencia"):
+            caput += f", nos termos da {prog['lei_referencia']}"
+    if reg.get("registro_alienacao"):
+        caput += f", registrado sob {reg['registro_alienacao']}"
+    caput += f" na matrícula nº {matricula} do {registro_imoveis}."
+
+    itens = [caput]
+
+    # ── §1º — valores da operação original ───────────────────────────────────
+    if any(val.get(k) for k in ("valor_compra", "entrada_recursos_proprios", "subsidio", "valor_financiado")):
+        partes = []
+        if val.get("valor_compra"):
+            partes.append(f"a operação original de compra e venda foi realizada pelo valor de {_rs_ext(val['valor_compra'])}")
+        det = []
+        if val.get("entrada_recursos_proprios"):
+            det.append(f"{_rs_ext(val['entrada_recursos_proprios'])} pagos com recursos próprios")
+        if val.get("subsidio"):
+            origem = val.get("subsidio_origem") or "subsídio"
+            det.append(f"{_rs_ext(val['subsidio'])} concedidos a título de {origem}")
+        if val.get("valor_financiado"):
+            det.append(f"{_rs_ext(val['valor_financiado'])} financiados pelo credor fiduciário")
+        frase = (partes[0] if partes else "a operação original de compra e venda foi financiada")
+        if det:
+            frase += ", sendo " + "; ".join(det)
+        if cond.get("prazo_meses"):
+            frase += f", em {cond['prazo_meses']} ({_ext_int(cond['prazo_meses'])}) prestações mensais"
+        if cond.get("parcela_inicial"):
+            frase += f", com parcela inicial de {_rs_ext(cond['parcela_inicial'])}"
+        if cond.get("amortizacao_inicio") and cond.get("amortizacao_fim"):
+            frase += f", e período de amortização de {_data_br(cond['amortizacao_inicio'])} a {_data_br(cond['amortizacao_fim'])}"
+        itens.append(frase + ".")
+
+    # ── §2º — saldo devedor ──────────────────────────────────────────────────
+    if saldo.get("valor") is not None and saldo.get("data_referencia"):
+        itens.append(
+            f"O saldo devedor do financiamento, conforme extrato emitido pelo credor fiduciário, é de "
+            f"{_rs_ext(saldo['valor'], zero_ok=True)}, apurado em {_data_br(saldo['data_referencia'])}, "
+            f"documento que integra o presente contrato como anexo."
+        )
+
+    # ── §3º e §4º — efeitos legais (fixos) ───────────────────────────────────
+    itens.append(
+        "As partes reconhecem que a propriedade resolúvel do imóvel pertence ao credor fiduciário, na "
+        "forma dos arts. 22 a 33 da Lei nº 9.514/1997, detendo o CONTRATANTE a posse direta na qualidade "
+        "de devedor fiduciante, razão pela qual a alienação do imóvel a terceiros fica condicionada à "
+        "prévia quitação do financiamento, à interveniência ou à anuência expressa do credor fiduciário, "
+        "conforme o caso."
+    )
+    itens.append(
+        "O CONTRATADO (corretor) não responde, em nenhuma hipótese, por eventual recusa do credor "
+        "fiduciário em anuir com a transferência, tampouco por divergências entre o saldo devedor "
+        "declarado e o efetivamente apurado pelo credor na data da quitação, obrigando-se o CONTRATANTE a "
+        "manter atualizadas as informações do financiamento durante a vigência deste contrato."
+    )
+    return itens
+
+
 def clausulas_exclusividade(doc: dict) -> List[Clausula]:
     """As 12 cláusulas canônicas do Contrato de Intermediação com Exclusividade.
     Numeração N.i gerada automaticamente. Sem placeholders no resultado."""
@@ -429,6 +567,13 @@ def clausulas_exclusividade(doc: dict) -> List[Clausula]:
         "(art. 107 CC). Os dados pessoais serão tratados exclusivamente para a execução deste contrato "
         "(Lei nº 13.709/2018).",
     ]))
+
+    # Cláusula DO GRAVAME (alienação fiduciária) — penúltima quando o imóvel é alienado.
+    # Inserida aqui (e não após o objeto) para não desalinhar as referências cruzadas
+    # internas das cláusulas anteriores (3ª, 8.1, 11ª), que são fixas no texto canônico.
+    _gravame_itens = clausula_gravame_itens(doc.get("objeto") or {})
+    if _gravame_itens:
+        blocos.append(("DO GRAVAME (ALIENAÇÃO FIDUCIÁRIA)", _gravame_itens))
 
     blocos.append(("DAS DISPOSIÇÕES GERAIS E DO FORO", [
         "Este contrato obriga as partes, herdeiros e sucessores; não admite cessão sem anuência escrita; "
