@@ -1361,7 +1361,28 @@ async def listar_contratos(
             if busca.lower() in json.dumps(d.get("vendedores", []), ensure_ascii=False).lower()
             or busca.lower() in json.dumps(d.get("compradores", []), ensure_ascii=False).lower()
         ]
-    
+
+    # Enriquece com os signatários da sessão de assinatura do cliente (caixa de confirmação
+    # no card) — cobre também os contratos enviados ANTES da denormalização (v1.4.914).
+    faltam = [d for d in docs if d.get("assinatura_cliente_sessao_id")
+              and not d.get("assinatura_cliente_signatarios")]
+    if faltam:
+        sids = [d["assinatura_cliente_sessao_id"] for d in faltam]
+        try:
+            cur = db.assinatura_cliente_sessoes.find({"id": {"$in": sids}})
+            async for s in cur:
+                resumo = [{"nome": x.get("nome"), "role": x.get("role"), "status": x.get("status"),
+                           "assinado_em": (x.get("assinado_em").isoformat() if x.get("assinado_em") else None)}
+                          for x in s.get("signatarios", [])]
+                ok = sum(1 for x in s.get("signatarios", []) if x.get("status") == "assinado")
+                for d in faltam:
+                    if d.get("assinatura_cliente_sessao_id") == s["id"]:
+                        d["assinatura_cliente_signatarios"] = resumo
+                        d["assinatura_cliente_assinados"] = ok
+                        d["assinatura_cliente_total"] = len(resumo)
+        except Exception:
+            logger.warning("Falha ao enriquecer signatários no card.", exc_info=True)
+
     return [_normalize_contrato_doc(d) for d in docs]
 
 
