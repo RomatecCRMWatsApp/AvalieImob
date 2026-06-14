@@ -10,8 +10,8 @@ export const CONTRATO_CATEGORIAS = ['COMPRA E VENDA', 'LOCAÇÃO', 'IMÓVEL RURA
 
 export const CONTRATO_TIPOS = [
   // COMPRA E VENDA
-  { id: 'compra_venda',          nome: 'Compra e Venda',        descricao: 'Imóvel urbano',           categoria: 'COMPRA E VENDA', Icon: Home,           status: 'disponivel' },
-  { id: 'promessa_compra_venda', nome: 'Promessa de C&V',       descricao: 'Compromisso de venda',    categoria: 'COMPRA E VENDA', Icon: Landmark,       status: 'disponivel' },
+  { id: 'compra_venda',          nome: 'Compra e Venda',        descricao: 'Imóvel urbano',           categoria: 'COMPRA E VENDA', Icon: Home,           status: 'disponivel', verificado: true },
+  { id: 'promessa_compra_venda', nome: 'Promessa de C&V',       descricao: 'Compromisso de venda',    categoria: 'COMPRA E VENDA', Icon: Landmark,       status: 'disponivel', verificado: true },
   { id: 'permuta',               nome: 'Permuta',               descricao: 'Troca de bens',           categoria: 'COMPRA E VENDA', Icon: ArrowLeftRight, status: 'disponivel' },
   { id: 'cessao_direitos',       nome: 'Cessão de Direitos',    descricao: 'Direitos sobre imóvel',   categoria: 'COMPRA E VENDA', Icon: ScrollText,     status: 'disponivel' },
   { id: 'compra_venda_veiculo',  nome: 'C&V de Veículo',        descricao: 'Veículo automotor',       categoria: 'COMPRA E VENDA', Icon: Car,            status: 'disponivel' },
@@ -25,7 +25,7 @@ export const CONTRATO_TIPOS = [
   { id: 'arrendamento_rural',    nome: 'Arrendamento Rural',    descricao: 'Arrendamento de terra',   categoria: 'IMÓVEL RURAL',   Icon: Wheat,          status: 'disponivel' },
   // OUTROS
   { id: 'intermediacao',         nome: 'Intermediação',         descricao: 'Corretagem',              categoria: 'OUTROS',         Icon: Handshake,      status: 'disponivel' },
-  { id: 'exclusividade',         nome: 'Exclusividade',         descricao: 'Venda com exclusividade', categoria: 'OUTROS',         Icon: BadgeCheck,     status: 'disponivel' },
+  { id: 'exclusividade',         nome: 'Exclusividade',         descricao: 'Venda com exclusividade', categoria: 'OUTROS',         Icon: BadgeCheck,     status: 'disponivel', verificado: true },
   { id: 'arras',                 nome: 'Arras / Sinal',         descricao: 'Sinal e princípio',       categoria: 'OUTROS',         Icon: HandCoins,      status: 'disponivel' },
   { id: 'usufruto',              nome: 'Usufruto',              descricao: 'Direito de usufruto',     categoria: 'OUTROS',         Icon: Crown,          status: 'disponivel' },
   { id: 'distrato',              nome: 'Distrato',              descricao: 'Desfazimento de contrato',categoria: 'OUTROS',         Icon: FileX2,         status: 'disponivel' },
