@@ -18,10 +18,23 @@ DEFAULTS = {
     "periodo_minimo_dias": 90,
     "aviso_previo_dias": 30,
     "cauda_meses": 12,
-    "multa_violacao_percentual": 100,
+    "multa_violacao_percentual": 50,
     "comissao_percentual": 6,
     "comissao_base": "valor_efetivo_venda",
 }
+
+# Cláusula ESSENCIAL — comissão devida em qualquer venda (art. 726 CC).
+# Reutilizada na cláusula 3.2 e na caixa de DESTAQUE do PDF Prime (parecer item 5).
+TXT_COMISSAO_QUALQUER_VENDA = (
+    "A comissão será integralmente devida ao CONTRATADO em <b>TODA E QUALQUER alienação onerosa</b> "
+    "do imóvel concretizada durante a vigência deste contrato — venda, promessa de venda, permuta "
+    "ou dação em pagamento —, <b>QUALQUER QUE SEJA A ORIGEM DO COMPRADOR OU O MEIO PELO QUAL O "
+    "NEGÓCIO SE REALIZOU</b>, inclusive: (a) venda direta pelo CONTRATANTE; (b) venda a parente, "
+    "amigo ou conhecido; (c) venda intermediada por terceiro, outro corretor ou imobiliária; "
+    "(d) negócio iniciado por anúncio ou contato alheio ao CONTRATADO — ressalvada unicamente a "
+    "hipótese de comprovada inércia ou ociosidade do CONTRATADO, nos exatos termos do art. 726 do "
+    "Código Civil."
+)
 
 _ORDINAIS = [
     "", "PRIMEIRA", "SEGUNDA", "TERCEIRA", "QUARTA", "QUINTA", "SEXTA",
@@ -85,6 +98,27 @@ def _endereco_completo(p: dict) -> str:
         _g(p, "uf") and f"{_g(p, 'uf')}", _g(p, "cep") and f"CEP {_g(p, 'cep')}",
     ]
     return ", ".join([x for x in partes if x]) or "endereço não informado"
+
+
+def _norm_matricula(v) -> str:
+    """Remove o rótulo que vaza p/ o valor ('MATRÍCULA Nº 26016' -> '26.016')."""
+    import re as _re
+    s = str(v or "").strip()
+    if not s:
+        return ""
+    s = _re.sub(r"(?i)^\s*matr[ií]cula\s*", "", s)
+    s = _re.sub(r"(?i)^\s*(n[º°o\.]\s*)+", "", s).strip()
+    if s.isdigit() and len(s) > 3:
+        s = f"{int(s):,}".replace(",", ".")
+    return s
+
+
+def _norm_foro(v) -> str:
+    """Evita 'Comarca de Comarca de ...' — a cláusula já prefixa 'foro da Comarca de'."""
+    import re as _re
+    s = str(v or "").strip()
+    s = _re.sub(r"(?i)^\s*(foro\s+d[ao]\s+)?comarca\s+d[aeo]\s+", "", s).strip()
+    return s
 
 
 def _plain(s) -> str:
@@ -284,11 +318,13 @@ def _ctx(doc: dict) -> dict:
         "regime_bens": _g(p, "regime_bens", default="comunhão parcial de bens"),
         "tem_conjuge": bool(conjuge_nome),
         "imovel_descricao": pick(objeto.get("descricao"), objeto.get("denominacao"), "imóvel objeto deste contrato"),
-        "endereco": pick(objeto.get("endereco"), "endereço a especificar"),
+        "endereco": (lambda e: e if e != "endereço não informado" else pick(objeto.get("endereco"), "endereço a especificar"))(_endereco_completo(objeto)),
         "area_total": pick(objeto.get("area_total_ha") and f"{objeto.get('area_total_ha')} ha",
                           objeto.get("area_terreno") and f"{objeto.get('area_terreno')} m²", "área a especificar"),
-        "matricula": pick(objeto.get("matricula"), "a indicar"),
-        "cartorio": pick(objeto.get("cartorio"), "cartório competente"),
+        "matricula": pick(_norm_matricula(objeto.get("matricula")), "a indicar"),
+        "cartorio": (lambda reg, cns: f"{reg} (CNS {cns})" if (reg != 'cartório competente' and cns) else reg)(
+            pick(objeto.get("registro_imovel"), objeto.get("cartorio"), "cartório competente"),
+            (objeto.get("cns") or objeto.get("cartorio_cns") or "").strip()),
         "onus_declarados": pick(_plain(objeto.get("onus")), doc.get("onus_declarados"),
                                "livre e desembaraçado de ônus, gravames e ações"),
         "ficha_complementar": _ficha_imovel_txt(objeto),
@@ -310,7 +346,7 @@ def _ctx(doc: dict) -> dict:
         "aviso_previo_dias": pick(doc.get("aviso_previo_dias"), DEFAULTS["aviso_previo_dias"]),
         "cauda_meses": pick(doc.get("cauda_meses"), DEFAULTS["cauda_meses"]),
         "multa_violacao_percentual": pick(doc.get("multa_violacao_percentual"), DEFAULTS["multa_violacao_percentual"]),
-        "foro_eleito": pick(doc.get("foro_eleito"), doc.get("foro"), "Açailândia/MA"),
+        "foro_eleito": pick(_norm_foro(doc.get("foro_eleito")), _norm_foro(doc.get("foro")), "Açailândia/MA"),
         "cidade_assinatura": pick(doc.get("cidade_assinatura"), "Açailândia/MA"),
         "data_assinatura": pick(doc.get("data_assinatura"), "____ de __________ de ______"),
     }
@@ -420,7 +456,7 @@ def clausula_gravame_itens(objeto: dict) -> list:
     cond = al.get("condicoes") or {}
     saldo = al.get("saldo_devedor") or {}
 
-    matricula = objeto.get("matricula") or "____"
+    matricula = _norm_matricula(objeto.get("matricula")) or "____"
     registro_imoveis = objeto.get("registro_imovel") or objeto.get("cartorio") or "Cartório de Registro de Imóveis competente"
 
     # ── Caput ────────────────────────────────────────────────────────────────
@@ -495,6 +531,12 @@ def clausula_gravame_itens(objeto: dict) -> list:
         "declarado e o efetivamente apurado pelo credor na data da quitação, obrigando-se o CONTRATANTE a "
         "manter atualizadas as informações do financiamento durante a vigência deste contrato."
     )
+    # §5º — base de cálculo da comissão x saldo fiduciário (parecer item 6)
+    itens.append(
+        "As partes ajustam que a comissão do CONTRATADO incide sobre o valor total da alienação, "
+        "independentemente de parte do preço ser destinada à quitação do saldo devedor junto ao credor "
+        "fiduciário, cuja liquidação é ônus exclusivo do CONTRATANTE/vendedor."
+    )
     return [_xml_escape(x) for x in itens]
 
 
@@ -528,14 +570,7 @@ def clausulas_exclusividade(doc: dict) -> List[Clausula]:
     blocos.append(("DA EXCLUSIVIDADE E DA COMISSÃO DEVIDA EM QUALQUER VENDA (art. 726 CC)", [
         "Durante a vigência deste contrato, o CONTRATADO é o único autorizado a anunciar, negociar "
         "e intermediar a venda do imóvel.",
-        "A comissão será integralmente devida ao CONTRATADO em <b>TODA E QUALQUER alienação onerosa</b> "
-        "do imóvel concretizada durante a vigência deste contrato — venda, promessa de venda, permuta "
-        "ou dação em pagamento —, <b>QUALQUER QUE SEJA A ORIGEM DO COMPRADOR OU O MEIO PELO QUAL O "
-        "NEGÓCIO SE REALIZOU</b>, inclusive: (a) venda direta pelo CONTRATANTE; (b) venda a parente, "
-        "amigo ou conhecido; (c) venda intermediada por terceiro, outro corretor ou imobiliária; "
-        "(d) negócio iniciado por anúncio ou contato alheio ao CONTRATADO — ressalvada unicamente a "
-        "hipótese de comprovada inércia ou ociosidade do CONTRATADO, nos exatos termos do art. 726 do "
-        "Código Civil.",
+        TXT_COMISSAO_QUALQUER_VENDA,
         "O CONTRATANTE encaminhará ao CONTRATADO todo interessado que o procurar diretamente, "
         "abstendo-se de negociar pessoalmente.",
     ]))
@@ -604,11 +639,13 @@ def clausulas_exclusividade(doc: dict) -> List[Clausula]:
     ]))
 
     blocos.append(("DA PENALIDADE POR VIOLAÇÃO DA EXCLUSIVIDADE", [
-        f"A violação das Cláusulas Terceira ou 8.1 (parte final) sujeita o CONTRATANTE ao pagamento: "
-        f"(a) da comissão integral, calculada sobre o maior valor entre o preço anunciado e o da venda "
-        f"realizada; e, cumulativamente, (b) de multa penal não compensatória equivalente a "
-        f"{c['multa_violacao_percentual']}% ({_ext_int(c['multa_violacao_percentual'])} por cento) do "
-        f"valor da comissão, sem prejuízo de perdas e danos suplementares (art. 416, parágrafo único, CC).",
+        f"A violação das Cláusulas Terceira ou 8.1 (parte final) sujeita o CONTRATANTE ao pagamento da "
+        f"comissão integral, calculada sobre o maior valor entre o preço anunciado e o da venda realizada, "
+        f"acrescida de multa penal de {c['multa_violacao_percentual']}% "
+        f"({_ext_int(c['multa_violacao_percentual'])} por cento) sobre o valor da comissão, a título de "
+        f"cláusula penal compensatória única (CC arts. 408 a 416), observado o limite do art. 412 do "
+        f"Código Civil. As perdas e danos comprovadamente excedentes à pena poderão ser exigidas na forma "
+        f"do art. 416, parágrafo único, do Código Civil, se assim convencionado.",
     ]))
 
     # CLÁUSULA DÉCIMA — DA RESCISÃO (regime-dependente no item .1)

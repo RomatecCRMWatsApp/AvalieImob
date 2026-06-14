@@ -200,6 +200,33 @@ class BandaTotal(Flowable):
             c.drawString(0.7 * cm, 0.35 * cm, self.extenso)
 
 
+def _card_destaque_vermelho(titulo, corpo_html, largura):
+    """Caixa de DESTAQUE p/ a cláusula essencial de comissão (parecer item 5):
+    fundo claro #FBEEEC, borda vermelha #C0392B, título e corpo em vermelho negrito."""
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib import colors
+    f = T.fonts()
+    vermelho = colors.HexColor("#C0392B")
+    st_tit = ParagraphStyle("destaque_tit", fontName=f["sans_bold"], fontSize=10.5,
+                            textColor=vermelho, spaceAfter=4, leading=13)
+    st_corpo = ParagraphStyle("destaque_corpo", fontName=f["sans"], fontSize=9,
+                              textColor=vermelho, leading=13, alignment=4)
+    inner = [
+        [Paragraph(titulo, st_tit)],
+        [Paragraph(corpo_html, st_corpo)],
+    ]
+    t = Table(inner, colWidths=[largura])
+    t.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#FBEEEC")),
+        ("BOX", (0, 0), (-1, -1), 1.5, vermelho),
+        ("LEFTPADDING", (0, 0), (-1, -1), 12),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 12),
+        ("TOPPADDING", (0, 0), (-1, -1), 10),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+    ]))
+    return t
+
+
 def _card_borda_dourada(titulo, linhas, styles, largura):
     """Card fundo verde-escuro, borda dourada, título mono dourado, corpo branco."""
     corpo = "<br/>".join(linhas)
@@ -307,7 +334,7 @@ def render(doc: dict, uid: str, empresa: str) -> bytes:
     T.registrar_fontes()
     st = _styles()
 
-    from pdf.templates.contrato_base import codigo_contrato
+    from pdf.templates.contrato_base import codigo_contrato, _norm_matricula
     codigo = codigo_contrato(doc)   # exclusividade → CONT_EXCLUSIV-AAAA-NNNN; demais → CONT-...
     tipo = (doc.get("tipo_contrato") or "Contrato").replace("_", " ").title()
 
@@ -363,7 +390,7 @@ def render(doc: dict, uid: str, empresa: str) -> bytes:
     cns = objeto.get("cns") or objeto.get("cartorio_cns") or objeto.get("serventia_cns") or ""
     linhas_obj = [
         f"Endereço: {end_imovel}",
-        f"Matrícula: {objeto.get('matricula','—') or '—'} · Município/UF: {objeto.get('cidade','—') or '—'}/{objeto.get('uf','—') or '—'}",
+        f"Matrícula: {_norm_matricula(objeto.get('matricula')) or '—'} · Município/UF: {objeto.get('cidade','—') or '—'}/{objeto.get('uf','—') or '—'}",
         f"Serventia / Cartório: {serventia}" + (f" · CNS {cns}" if cns else ""),
     ]
     story.append(Paragraph(f"O presente instrumento tem por objeto o imóvel adiante descrito: {desc}.", st["corpo"]))
@@ -375,7 +402,15 @@ def render(doc: dict, uid: str, empresa: str) -> bytes:
     story.append(Spacer(1, 6))
     valor_total = pagamento.get("valor_total") or 0
     story.append(BandaTotal("Preço anunciado do imóvel", _money(valor_total), _extenso(valor_total), width=cw))
-    story.append(Spacer(1, 14))
+    story.append(Spacer(1, 12))
+
+    # Caixa de DESTAQUE — comissão devida em qualquer venda (art. 726 CC) — só exclusividade
+    if "exclusiv" in (doc.get("tipo_contrato") or "").lower():
+        from pdf.templates.contrato_base import TXT_COMISSAO_QUALQUER_VENDA
+        story.append(_card_destaque_vermelho(
+            "⚠ CLÁUSULA ESSENCIAL — COMISSÃO DEVIDA EM QUALQUER VENDA",
+            TXT_COMISSAO_QUALQUER_VENDA, cw))
+        story.append(Spacer(1, 14))
 
     # 03 Cláusulas (conteúdo neutro vindo do contrato_base — canônico p/ exclusividade)
     from pdf.templates.contrato_base import montar_clausulas, fecho_exclusividade

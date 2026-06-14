@@ -193,7 +193,7 @@ def render(doc: dict, uid: str, empresa: str) -> bytes:
     T.registrar_fontes()
     st = _styles()
 
-    from pdf.templates.contrato_base import codigo_contrato
+    from pdf.templates.contrato_base import codigo_contrato, _norm_matricula
     codigo = codigo_contrato(doc)   # exclusividade → CONT_EXCLUSIV-AAAA-NNNN; demais → CONT-...
     tipo = (doc.get("tipo_contrato") or "Contrato").replace("_", " ").title()
 
@@ -251,7 +251,7 @@ def render(doc: dict, uid: str, empresa: str) -> bytes:
     serventia = objeto.get("registro_imovel") or objeto.get("cartorio") or objeto.get("serventia") or "—"
     cns = objeto.get("cns") or objeto.get("cartorio_cns") or objeto.get("serventia_cns") or ""
     story.append(Paragraph(f"◆ Endereço: {end_imovel}", st["item"]))
-    story.append(Paragraph(f"◆ Matrícula: {objeto.get('matricula','—') or '—'} · Município/UF: {objeto.get('cidade','—') or '—'}/{objeto.get('uf','—') or '—'}", st["item"]))
+    story.append(Paragraph(f"◆ Matrícula: {_norm_matricula(objeto.get('matricula')) or '—'} · Município/UF: {objeto.get('cidade','—') or '—'}/{objeto.get('uf','—') or '—'}", st["item"]))
     story.append(Paragraph(f"◆ Serventia / Cartório: {serventia}" + (f" · CNS {cns}" if cns else ""), st["item"]))
     story.append(Spacer(1, 12))
 

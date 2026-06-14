@@ -27,7 +27,8 @@ def render_procuracao(doc: dict, uid: str, empresa: str) -> bytes:
         _qualifica_pf, _qualifica_pj, _data_extenso, _PODER_TEXTO_BASE, _s, _BLANK,
         _qualifica_outorgado,
     )
-    from pdf.templates.contrato_base import codigo_contrato, _xml_escape
+    from pdf.templates.contrato_base import codigo_contrato, _xml_escape, _norm_matricula
+    from pdf.templates.contrato_prime2 import _endereco_full
 
     T.registrar_fontes()
     st = _styles()
@@ -48,8 +49,8 @@ def render_procuracao(doc: dict, uid: str, empresa: str) -> bytes:
         "subtitulo": "CC arts. 653-666 · art. 661 (mandato) · art. 654 §2º",
         "contratante_nome": (contratante.get("nome") or ""),
         "contratante_doc": (contratante.get("cpf") or contratante.get("cnpj") or ""),
-        "contratante_end": (contratante.get("endereco") or ""),
-        "emissao": f"Vinculada ao Contrato de Exclusividade {(_s(doc.get('numero_contrato'), '')) or ''}".strip(),
+        "contratante_end": (_endereco_full(contratante) or contratante.get("endereco") or ""),
+        "emissao": f"Vinculada ao Contrato de Exclusividade {base_cod}".strip(),
         "validade": "",
     }
 
@@ -95,9 +96,9 @@ def render_procuracao(doc: dict, uid: str, empresa: str) -> bytes:
     story.append(Spacer(1, 8))
     story.append(SecaoHeader("03", "Objeto", None, width=cw))
     story.append(Spacer(1, 6))
-    matricula = _s(obj.get("matricula"), _BLANK)
+    matricula = _norm_matricula(obj.get("matricula")) or _BLANK
     reg = _s(obj.get("registro_imovel") or obj.get("cartorio"), "Cartório de Registro de Imóveis competente")
-    end_im = _s(obj.get("endereco"), _BLANK)
+    end_im = _endereco_full(obj) or _s(obj.get("endereco"), _BLANK)
     area_t = _s(obj.get("area_total") or obj.get("area_terreno"), "")
     area_c = _s(obj.get("area_construida") or obj.get("area_edificacao"), "")
     objeto_txt = (f"A presente procuração é outorgada em caráter EXCLUSIVO e LIMITADO ao imóvel objeto da "

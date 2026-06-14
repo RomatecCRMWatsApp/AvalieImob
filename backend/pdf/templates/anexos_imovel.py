@@ -75,10 +75,11 @@ def anexos_imovel_flowables(objeto: dict) -> list:
     page_w = A4[0] - 5 * cm  # margens ~2,5cm de cada lado
     elems: list = []
 
-    # ── ANEXO I — RELATÓRIO FOTOGRÁFICO ───────────────────────────────────────
+    # ── ANEXO III — RELATÓRIO FOTOGRÁFICO ─────────────────────────────────────
+    # (I = Relação de Interessados e II = Autorização de Publicidade — a gerar; ver parecer item 8)
     if fotos:
         elems.append(PageBreak())
-        elems.append(Paragraph("ANEXO I — RELATÓRIO FOTOGRÁFICO DO IMÓVEL", _TIT))
+        elems.append(Paragraph("ANEXO III — RELATÓRIO FOTOGRÁFICO DO IMÓVEL", _TIT))
         elems.append(HRFlowable(width="100%", thickness=1, color=_DOURADO, spaceAfter=10))
         cel_w = (page_w - 0.6 * cm) / 2.0  # 2 colunas
         cel_h = 6.2 * cm
@@ -107,10 +108,10 @@ def anexos_imovel_flowables(objeto: dict) -> list:
         ]))
         elems.append(tbl)
 
-    # ── ANEXO II — DOCUMENTAÇÃO DO IMÓVEL ─────────────────────────────────────
+    # ── ANEXO IV — DOCUMENTAÇÃO DO IMÓVEL ─────────────────────────────────────
     if docs:
         elems.append(PageBreak())
-        elems.append(Paragraph("ANEXO II — DOCUMENTAÇÃO DO IMÓVEL", _TIT))
+        elems.append(Paragraph("ANEXO IV — DOCUMENTAÇÃO DO IMÓVEL", _TIT))
         elems.append(HRFlowable(width="100%", thickness=1, color=_DOURADO, spaceAfter=10))
         doc_h = A4[1] - 9 * cm  # folga p/ legenda/rodapé; evita "flowable too large"
         for i, raw in enumerate(docs, 1):
