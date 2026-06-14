@@ -1080,7 +1080,15 @@ def _data_extenso(s) -> str:
 def _generate_procuracao_pdf_bytes(doc: dict, uid: str, empresa: str) -> bytes:
     """PDF da PROCURAÇÃO PARTICULAR vinculada ao contrato de exclusividade.
     Outorgantes = vendedores (etapa 2); Outorgado = corretor (etapa 3);
-    objeto limitado à matrícula (etapa 4). Texto em TA_JUSTIFY."""
+    objeto limitado à matrícula (etapa 4). Layout PRIME (bate com o contrato);
+    cai no sóbrio abaixo em qualquer falha."""
+    try:
+        from pdf.templates.procuracao_prime import render_procuracao
+        _prime = render_procuracao(doc, uid, empresa)
+        if _prime and _prime.startswith(b"%PDF-"):
+            return _prime
+    except Exception:
+        logger.warning("Procuração Prime falhou — usando layout sóbrio.", exc_info=True)
     from pdf.templates.resilient import ResilientSimpleDocTemplate
     styles = _pdf_styles()
     buffer = io.BytesIO()
