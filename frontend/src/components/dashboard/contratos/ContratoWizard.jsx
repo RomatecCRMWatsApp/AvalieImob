@@ -128,27 +128,31 @@ const Step1Tipo = ({ form, setForm }) => (
       <p className="text-sm text-gray-500">Selecione a modalidade contratual. O wizard se adapta ao tipo escolhido.</p>
     </div>
 
-    {TIPOS.map((grupo) => (
-      <div key={grupo.categoria}>
-        <div className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">{grupo.categoria}</div>
-        <div className="grid sm:grid-cols-2 gap-3">
-          {grupo.items.map((t) => (
-            <button
-              key={t.value}
-              onClick={() => setForm({ ...form, tipo_contrato: t.value })}
-              className={`text-left p-4 rounded-xl border-2 transition-all ${
-                form.tipo_contrato === t.value
-                  ? 'border-emerald-600 bg-emerald-50 shadow-sm'
-                  : 'border-gray-200 hover:border-emerald-300 hover:bg-gray-50'
-              }`}
-            >
-              <div className="font-semibold text-gray-900 text-sm">{t.label}</div>
-              <div className="text-xs text-gray-500 mt-0.5 leading-snug">{t.desc}</div>
-            </button>
-          ))}
-        </div>
-      </div>
-    ))}
+    <div className="bg-gray-50 rounded-xl p-4">
+      <label className="block text-sm font-medium text-gray-700 mb-1">Modalidade contratual</label>
+      <select
+        value={form.tipo_contrato || ''}
+        onChange={(e) => setForm({ ...form, tipo_contrato: e.target.value })}
+        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+      >
+        <option value="">Selecione o tipo de contrato…</option>
+        {TIPOS.map((grupo) => (
+          <optgroup key={grupo.categoria} label={grupo.categoria}>
+            {grupo.items.map((t) => (
+              <option key={t.value} value={t.value}>{t.label}</option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+      {(() => {
+        const sel = TIPOS.flatMap((g) => g.items).find((t) => t.value === form.tipo_contrato);
+        return sel ? (
+          <p className="text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 mt-2 leading-snug">
+            <span className="font-semibold">{sel.label}:</span> {sel.desc}
+          </p>
+        ) : null;
+      })()}
+    </div>
 
     <div className="bg-gray-50 rounded-xl p-4 grid sm:grid-cols-3 gap-4">
       <Input label="Cidade de Assinatura" value={form.cidade_assinatura} onChange={(v) => setForm({ ...form, cidade_assinatura: v })} placeholder="Ex: Cuiabá/MT" />
