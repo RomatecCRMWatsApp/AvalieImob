@@ -172,11 +172,19 @@ async def preparar(cid: str, uid: str = Depends(get_active_subscriber), db=Depen
             logger.warning("Falha ao gerar/renderizar a procuração no preparar.", exc_info=True)
     # assinatura visual do corretor salva (p/ pré-carregar no canvas) + nome
     perfil = await db.perfil_avaliador.find_one({"user_id": uid}) or {}
-    corretor_nome = (doc.get("corretor") or {}).get("nome") or "Corretor"
+    corretor_nome = (doc.get("corretor") or {}).get("nome") or perfil.get("nome") or "Corretor"
+    assin_b64 = perfil.get("assinatura_visual_b64")
+    assin_padrao = False
+    if not assin_b64:
+        # NUNCA desenhou ainda: gera uma assinatura cursiva a partir do NOME COMPLETO
+        from services.assinatura_default import gerar_assinatura_nome_b64
+        nome_full = (doc.get("corretor") or {}).get("nome") or perfil.get("nome") or ""
+        assin_b64 = await asyncio.to_thread(gerar_assinatura_nome_b64, nome_full)
+        assin_padrao = bool(assin_b64)
     # compat: 'paginas' = páginas do contrato (caso algum cliente antigo leia)
     return {"ok": True, "documentos": documentos, "paginas": documentos[0]["paginas"],
             "signatarios": _signatarios_sugeridos(doc),
-            "corretor": {"nome": corretor_nome, "assinatura_b64": perfil.get("assinatura_visual_b64")}}
+            "corretor": {"nome": corretor_nome, "assinatura_b64": assin_b64, "assinatura_padrao": assin_padrao}}
 
 
 @router.post("/contratos/{cid}/posicionar")

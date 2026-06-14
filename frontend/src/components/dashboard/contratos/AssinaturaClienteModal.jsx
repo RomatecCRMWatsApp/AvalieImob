@@ -236,6 +236,11 @@ export default function AssinaturaClienteModal({ contratoId, onClose }) {
                     {corretorTraco ? '✓ assinatura pronta (será salva p/ reutilizar)' : 'desenhe sua assinatura aqui'}
                   </span>
                 </div>
+                {corretor.assinatura_padrao && corretorTraco && (
+                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+                    ✨ Gerada automaticamente do seu nome. Desenhe por cima (ou Limpar) para usar a sua de próprio punho.
+                  </div>
+                )}
               </div>
             )}
             <p style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>
