@@ -65,13 +65,24 @@ jobs:
         continue-on-error: true
         run: |
           COUNT=$(git rev-list --count HEAD)
-          echo "$COUNT" > frontend/build-number.txt
+          CURRENT=$(tr -dc '0-9' < frontend/build-number.txt 2>/dev/null || echo 0)
+          CURRENT=${CURRENT:-0}
+          # NUNCA diminuir o build-number: usa o MAIOR entre a contagem de commits e o
+          # valor atual (manual). Sem isso, um valor manual mais alto (ex.: 882) era
+          # revertido pra contagem (863), o badge andava pra tras e o "Atualizar"
+          # parava de disparar.
+          if [ "$CURRENT" -ge "$COUNT" ]; then
+            echo "build-number ($CURRENT) >= contagem ($COUNT) - mantendo o valor manual, sem bump."
+            exit 0
+          fi
+          NEW="$COUNT"
+          echo "$NEW" > frontend/build-number.txt
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add frontend/build-number.txt
           if git diff --cached --quiet; then
-            echo "build-number.txt ja esta em $COUNT - nada a commitar."
+            echo "build-number.txt ja esta em $NEW - nada a commitar."
             exit 0
           fi
-          git commit -m "chore(build): build-number $COUNT [skip ci]"
+          git commit -m "chore(build): build-number $NEW [skip ci]"
           git push origin HEAD:main
