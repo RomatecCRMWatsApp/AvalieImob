@@ -147,6 +147,21 @@ export default function AssinaturaClienteModal({ contratoId, onClose }) {
 
   const setFone = (i, v) => setSignatarios((ss) => ss.map((s, kk) => (kk === i ? { ...s, telefone: v } : s)));
 
+  const [marcaMinuta, setMarcaMinuta] = useState('MINUTA');
+  const [enviandoMinuta, setEnviandoMinuta] = useState(false);
+  const enviarMinutaAvulsa = async () => {
+    const telefones = signatarios.map((s) => s.telefone).filter((t) => (t || '').replace(/\D/g, ''));
+    setEnviandoMinuta(true);
+    try {
+      const r = await assinaturaClienteAPI.enviarMinuta(contratoId, { marca: marcaMinuta, telefones });
+      toast({ title: `Minuta enviada (${r.enviados})`, description: `${marcaMinuta} • ${(r.documentos || []).join(' · ')}` });
+    } catch (e) {
+      toast({ title: 'Falha ao enviar minuta', description: e?.response?.data?.detail || '', variant: 'destructive' });
+    } finally {
+      setEnviandoMinuta(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black/80 z-[60] flex flex-col" onMouseMove={onMove} onMouseUp={onUp}>
       {/* Header */}
@@ -225,6 +240,19 @@ export default function AssinaturaClienteModal({ contratoId, onClose }) {
                   placeholder={`WhatsApp de ${s.nome.split(' ')[0]} (DDD+número)`}
                   className="flex-1 min-w-[200px] border border-gray-300 rounded-lg px-2.5 py-1.5 text-[13px]" />
               ))}
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+              <span className="text-[12px] text-amber-800">📄 A <b>minuta (rascunho)</b> já vai junto com o link. Pode enviar avulsa para leitura antecipada:</span>
+              <select value={marcaMinuta} onChange={(e) => setMarcaMinuta(e.target.value)}
+                className="border border-amber-300 rounded-lg px-2 py-1 text-[12px] bg-white">
+                <option value="MINUTA">MINUTA</option>
+                <option value="RASCUNHO">RASCUNHO</option>
+              </select>
+              <button onClick={enviarMinutaAvulsa} disabled={enviandoMinuta}
+                className="bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-lg px-3 py-1.5 text-[12px] disabled:opacity-60">
+                {enviandoMinuta ? 'Enviando…' : 'Enviar minuta avulsa'}
+              </button>
             </div>
 
             {corretor && (

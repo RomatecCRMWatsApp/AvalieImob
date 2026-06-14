@@ -131,18 +131,45 @@ def _signatarios_sugeridos(doc: dict) -> list:
     return out
 
 
-async def _disparar_links(db, cfg, sessao_id: str, signatarios: list) -> list:
+async def _carregar_minutas(db, sessao_id: str) -> list:
+    """Baixa (1x) as MINUTAS (rascunho c/ marca d'água) da sessão p/ enviar junto com o link."""
+    sessao = await db[COL].find_one({"id": sessao_id}) or {}
+    minutas = []
+    for d in sessao.get("documentos", []):
+        key = d.get("pdf_key_minuta")
+        if not key:
+            continue
+        try:
+            data = await asyncio.to_thread(r2_storage.download_bytes, key)
+            if data and data.startswith(b"%PDF-"):
+                minutas.append({"titulo": d.get("titulo") or d.get("tipo", "Documento"),
+                                "tipo": d.get("tipo"), "bytes": data})
+        except Exception:
+            logger.warning("Falha ao baixar minuta %s", key, exc_info=True)
+    return minutas
+
+
+async def _disparar_links(db, cfg, sessao_id: str, signatarios: list, enviar_minuta: bool = True) -> list:
     """Envia (ou reenvia) o link de assinatura por WhatsApp a cada signatário da lista.
-    Reutiliza o MESMO token/link de cada um. Marca status 'enviado'."""
+    Reutiliza o MESMO token/link de cada um. Marca status 'enviado'. Quando `enviar_minuta`,
+    envia também a MINUTA (rascunho c/ marca d'água) p/ leitura ANTES de assinar."""
+    minutas = await _carregar_minutas(db, sessao_id) if enviar_minuta else []
     links = []
     for s in signatarios:
         url = f"{APP_URL}/assinar-cliente/{s['token']}"
         primeiro = str(s.get("nome") or "").split(" ")[0]
         msg = (f"Olá, {primeiro}! A *Romatec Consultoria Total* enviou um documento para sua "
-               f"assinatura eletrônica.\n\nAssine com segurança neste link:\n{url}\n\n"
+               f"assinatura eletrônica.\n\nEnviamos abaixo a *MINUTA (rascunho)* para sua leitura. "
+               f"Após ler, assine com segurança neste link:\n{url}\n\n"
                f"O link é pessoal e tem validade limitada (Lei 14.063/2020).")
         try:
             await _enviar_texto(cfg, s["telefone"], msg)
+            for m in minutas:
+                try:
+                    await _enviar_pdf(cfg, s["telefone"], m["bytes"], f"minuta_{m['tipo']}",
+                                      f"MINUTA ({m['titulo']}) — para leitura. A versão final será gerada após as assinaturas.")
+                except Exception:
+                    logger.warning("Falha ao enviar minuta p/ %s", s.get("telefone"), exc_info=True)
             await db[COL].update_one({"id": sessao_id, "signatarios.token": s["token"]},
                                      {"$set": {"signatarios.$.status": "enviado"}})
         except Exception as e:  # noqa: BLE001
@@ -256,7 +283,18 @@ async def posicionar(cid: str, payload: dict, uid: str = Depends(get_active_subs
         except Exception as e:  # noqa: BLE001
             logger.error("Falha ao subir PDF-base no R2: %s", e, exc_info=True)
             raise HTTPException(status_code=500, detail="Falha ao armazenar o documento")
-        documentos_sessao.append({"tipo": tipo, "pdf_key_base": pdf_key,
+        # MINUTA (rascunho com marca d'água) p/ o cliente LER antes de assinar — vai junto com o link
+        pdf_key_minuta = None
+        try:
+            from services.marca_dagua import aplicar_marca_dagua
+            minuta = await asyncio.to_thread(aplicar_marca_dagua, pdf_bytes, "MINUTA")
+            if minuta and minuta.startswith(b"%PDF-"):
+                pdf_key_minuta = f"assinatura-cliente/{sessao_id}/{tipo}_minuta.pdf"
+                await asyncio.to_thread(r2_storage.upload_bytes, minuta, pdf_key_minuta, "application/pdf")
+        except Exception:
+            logger.warning("Falha ao gerar/subir minuta (%s) — segue sem ela.", tipo, exc_info=True)
+        documentos_sessao.append({"tipo": tipo, "titulo": di.get("titulo") or tipo.capitalize(),
+                                  "pdf_key_base": pdf_key, "pdf_key_minuta": pdf_key_minuta,
                                   "ancoras": anc_clientes, "pdf_key_final": None})
 
     expira = datetime.utcnow() + timedelta(hours=EXPIRA_HORAS)
@@ -341,6 +379,51 @@ async def reenviar(cid: str, payload: dict = None, uid: str = Depends(get_active
         raise HTTPException(status_code=400, detail="Nenhum signatário pendente.")
     links = await _disparar_links(db, cfg, sessao["id"], pendentes)
     return {"ok": True, "reenviados": len(links), "links": links}
+
+
+@router.post("/contratos/{cid}/minuta/enviar")
+async def enviar_minuta_avulsa(cid: str, payload: dict = None,
+                               uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    """Envia a MINUTA/RASCUNHO (com marca d'água) do contrato (+ procuração) por WhatsApp,
+    AVULSO — sem criar sessão de assinatura — só para o cliente LER antecipadamente.
+    Body: {telefones:[...], marca:'MINUTA'|'RASCUNHO'}. Sem telefones → usa o cadastro."""
+    doc = await _carregar_contrato(db, cid, uid)
+    payload = payload or {}
+    marca = (payload.get("marca") or "MINUTA").upper()
+    if marca not in ("MINUTA", "RASCUNHO"):
+        marca = "MINUTA"
+    fones = [_so_dig(t) for t in (payload.get("telefones") or []) if _so_dig(t)]
+    if not fones:
+        fones = [_so_dig(s.get("telefone")) for s in _signatarios_sugeridos(doc) if _so_dig(s.get("telefone"))]
+    fones = list(dict.fromkeys(fones))
+    if not fones:
+        raise HTTPException(status_code=422, detail="Informe ao menos um WhatsApp para enviar a minuta.")
+    from services.marca_dagua import aplicar_marca_dagua
+    docs = []
+    pdf_c = await _gerar_contrato_pdf(db, doc, uid)
+    if pdf_c and pdf_c.startswith(b"%PDF-"):
+        docs.append(("contrato", "Contrato", await asyncio.to_thread(aplicar_marca_dagua, pdf_c, marca)))
+    if _tem_procuracao(doc):
+        try:
+            pdf_p = await _gerar_procuracao_pdf(db, doc, uid)
+            if pdf_p and pdf_p.startswith(b"%PDF-"):
+                docs.append(("procuracao", "Procuração", await asyncio.to_thread(aplicar_marca_dagua, pdf_p, marca)))
+        except Exception:
+            logger.warning("Falha ao gerar procuração p/ minuta avulsa.", exc_info=True)
+    if not docs:
+        raise HTTPException(status_code=500, detail="Falha ao gerar a minuta.")
+    cfg = await _zapi_cfg(db, uid)
+    enviados = 0
+    for fone in fones:
+        try:
+            await _enviar_texto(cfg, fone, f"Olá! Segue a *{marca} (rascunho)* do(s) documento(s) "
+                                           f"para sua leitura prévia. A versão para assinatura será enviada na sequência.")
+            for tipo, titulo, b in docs:
+                await _enviar_pdf(cfg, fone, b, f"minuta_{tipo}", f"{marca} ({titulo}) — para leitura.")
+            enviados += 1
+        except Exception:
+            logger.warning("Falha ao enviar minuta avulsa p/ %s", fone, exc_info=True)
+    return {"ok": True, "enviados": enviados, "marca": marca, "documentos": [t for t, _, _ in docs]}
 
 
 # ───────────────────────── rotas públicas ─────────────────────────
