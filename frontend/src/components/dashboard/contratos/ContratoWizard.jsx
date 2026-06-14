@@ -707,7 +707,7 @@ const Step5Objeto = ({ form, setForm }) => {
                 showAiButton={false}
               />
               <div className="flex justify-end mt-1">
-                <AiButton onClick={() => aperfeicoarCampo('onus', 'Aperfeiçoe esta declaração de ônus/gravames de um imóvel para um contrato.')} loading={aiCampo === 'onus'} />
+                <AiButton onClick={() => aperfeicoarCampo('onus', 'A partir do texto abaixo — que pode conter o HISTÓRICO REGISTRAL da matrícula (protocolos, registros R-xx, averbações AV-xx, selos, emolumentos, partes anteriores) — redija uma DECLARAÇÃO DE ÔNUS E GRAVAMES concisa e formal para o contrato: diga objetivamente se o imóvel está livre e desembaraçado de ônus OU descreva apenas os gravames VIGENTES (ex.: alienação fiduciária/hipoteca em favor do credor, citando só o registro R-xx pertinente), em no máximo 2 ou 3 frases. NÃO reproduza o histórico registral completo, números de protocolo, selo ou emolumentos.')} loading={aiCampo === 'onus'} />
               </div>
             </div>
             <div className="sm:col-span-2">
@@ -721,7 +721,7 @@ const Step5Objeto = ({ form, setForm }) => {
                 showAiButton={false}
               />
               <div className="flex justify-end mt-1">
-                <AiButton onClick={() => aperfeicoarCampo('benfeitorias', 'Aperfeiçoe a descrição das benfeitorias incluídas no imóvel para um contrato.')} loading={aiCampo === 'benfeitorias'} />
+                <AiButton onClick={() => aperfeicoarCampo('benfeitorias', 'A partir do texto abaixo (que pode trazer a averbação/habite-se com protocolos e selos), redija uma descrição CONCISA e formal das benfeitorias/edificação incluídas no negócio (tipo da construção, padrão, área construída e principais cômodos), em 1 a 3 frases. NÃO reproduza números de protocolo, selo, emolumentos nem o texto registral integral.')} loading={aiCampo === 'benfeitorias'} />
               </div>
             </div>
           </div>
@@ -1024,7 +1024,7 @@ const Step5Objeto = ({ form, setForm }) => {
               showAiButton={false}
             />
             <div className="flex justify-end mt-1">
-              <AiButton onClick={() => aperfeicoarCampo('onus', 'Aperfeiçoe esta declaração de ônus/gravames de um imóvel rural para um contrato.')} loading={aiCampo === 'onus'} />
+              <AiButton onClick={() => aperfeicoarCampo('onus', 'A partir do texto abaixo — que pode conter o HISTÓRICO REGISTRAL da matrícula (protocolos, registros R-xx, averbações AV-xx, selos, emolumentos, partes anteriores) — redija uma DECLARAÇÃO DE ÔNUS E GRAVAMES concisa e formal para um contrato de imóvel RURAL: diga objetivamente se o imóvel está livre e desembaraçado de ônus OU descreva apenas os gravames VIGENTES (ex.: alienação fiduciária/hipoteca/penhor, citando só o registro R-xx pertinente), em no máximo 2 ou 3 frases. NÃO reproduza o histórico registral completo, números de protocolo, selo ou emolumentos.')} loading={aiCampo === 'onus'} />
             </div>
           </div>
         </div>
