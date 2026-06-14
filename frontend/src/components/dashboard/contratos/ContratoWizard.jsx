@@ -2588,7 +2588,12 @@ const ContratoWizard = () => {
 
   const isNew = !id || id === 'novo';
   const tipoPreset = location.state?.tipoPreset || '';
-  const [form, setForm] = useState({ ...EMPTY, tipo_contrato: tipoPreset, vendedores: [{ ...EMPTY_PESSOA }], compradores: [{ ...EMPTY_PESSOA }] });
+  const [form, setForm] = useState({
+    ...EMPTY, tipo_contrato: tipoPreset,
+    vendedores: [{ ...EMPTY_PESSOA }], compradores: [{ ...EMPTY_PESSOA }],
+    // atalho "Novo exclusivo": já abre com a procuração habilitada
+    ...(tipoPreset === 'exclusividade' ? { procuracao: { gerar: true } } : {}),
+  });
   const [contratoId, setContratoId] = useState(isNew ? null : id);
   const [step, setStep] = useState(location.state?.startStep || 0);
   const [loading, setLoading] = useState(!isNew);

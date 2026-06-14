@@ -8,7 +8,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Building2, BarChart3, FileCheck2, Shield, Beef, Home,
   ClipboardCheck, FileText, FileSignature, Receipt, Sparkles, FileSearch, Award,
-  CreditCard, Settings, LogOut, Globe, Search, Palette, Tag,
+  CreditCard, Settings, LogOut, Globe, Search, Palette, Tag, BadgeCheck,
 } from 'lucide-react';
 import { ptamAPI } from '../lib/api';
 
@@ -50,6 +50,7 @@ const MENU = [
   { section: 'Contratos', items: [
     { id: 'propostas', label: 'Propostas', icon: FileText, route: '/dashboard/propostas', tag: 'NOVO' },
     { id: 'contratos', label: 'Contratos', icon: FileSignature, route: '/dashboard/contratos', tag: 'NOVO' },
+    { id: 'exclusividade', label: 'Exclusividade', icon: BadgeCheck, route: '/dashboard/contratos-exclusivos', tag: 'NOVO' },
     { id: 'recibos', label: 'Recibos', icon: Receipt, route: '/dashboard/recibos', tag: 'NOVO' },
   ]},
   { section: 'Ferramentas', items: [

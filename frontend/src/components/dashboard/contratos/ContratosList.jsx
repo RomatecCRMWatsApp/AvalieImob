@@ -272,7 +272,7 @@ const ActBtn = ({ icon: Icon, label, onClick, className = '', disabled = false, 
 );
 
 /* ── Main component ──────────────────────────────────────── */
-const ContratosList = () => {
+const ContratosList = ({ tipoFixo = '', titulo, descricao, ctaLabel }) => {
   const nav = useNavigate();
   const { toast } = useToast();
   const [items, setItems] = useState([]);
@@ -289,7 +289,8 @@ const ContratosList = () => {
     setLoading(true);
     try {
       const params = {};
-      if (filterTipo) params.tipo_contrato = filterTipo;
+      const tp = tipoFixo || filterTipo;
+      if (tp) params.tipo_contrato = tp;
       // status é do ciclo PR-4 (status_card, derivado) → filtra no cliente
       setItems(await contratosAPI.listar(params));
     } catch (err) {
@@ -298,7 +299,7 @@ const ContratosList = () => {
     } finally {
       setLoading(false);
     }
-  }, [toast, filterTipo]);
+  }, [toast, filterTipo, tipoFixo]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -406,26 +407,30 @@ const ContratosList = () => {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <FileSignature className="w-6 h-6 text-[#C9A84C]" />
-            <h1 className="font-display text-[34px] font-bold leading-tight text-[#C9A84C]">Contratos</h1>
+            <h1 className="font-display text-[34px] font-bold leading-tight text-[#C9A84C]">{titulo || 'Contratos'}</h1>
           </div>
           <p className="text-sm mt-1 text-[#5B7466] dark:text-[#9FB5A6]">
-            Compra e venda, locação, arras, permuta, intermediação e mais — com IA jurídica e assinatura ICP-Brasil.
+            {descricao || 'Compra e venda, locação, arras, permuta, intermediação e mais — com IA jurídica e assinatura ICP-Brasil.'}
           </p>
         </div>
-        <Button onClick={() => nav('/dashboard/contratos/novo')} className="bg-emerald-900 hover:bg-emerald-800 text-white">
-          <Plus className="w-4 h-4 mr-2" /> Novo Contrato
+        <Button
+          onClick={() => nav('/dashboard/contratos/novo', tipoFixo ? { state: { startStep: 1, tipoPreset: tipoFixo } } : undefined)}
+          className="bg-emerald-900 hover:bg-emerald-800 text-white">
+          <Plus className="w-4 h-4 mr-2" /> {ctaLabel || 'Novo Contrato'}
         </Button>
       </div>
 
-      {/* Novo contrato — escolha o tipo */}
-      <div className="space-y-3">
-        <h2 className="text-sm font-semibold text-gray-700 dark:text-[#F2EFE6]">Novo contrato — escolha o tipo</h2>
-        <TypeCardGrid tipos={CONTRATO_TIPOS} categorias={CONTRATO_CATEGORIAS} onPick={criarDoTipo} />
-      </div>
+      {/* Novo contrato — escolha o tipo (só na página geral) */}
+      {!tipoFixo && (
+        <div className="space-y-3">
+          <h2 className="text-sm font-semibold text-gray-700 dark:text-[#F2EFE6]">Novo contrato — escolha o tipo</h2>
+          <TypeCardGrid tipos={CONTRATO_TIPOS} categorias={CONTRATO_CATEGORIAS} onPick={criarDoTipo} />
+        </div>
+      )}
 
       {/* Contratos existentes */}
       <h2 className="text-sm font-semibold text-gray-700 dark:text-[#F2EFE6] pt-2">
-        Contratos existentes {items.length > 0 && <span className="text-gray-400 font-normal">· {items.length}</span>}
+        {tipoFixo ? 'Contratos de exclusividade' : 'Contratos existentes'} {items.length > 0 && <span className="text-gray-400 font-normal">· {items.length}</span>}
       </h2>
 
       {/* Filters */}

@@ -91,7 +91,7 @@ const NAV_GROUPS = [
     items: [
       { to: '/dashboard/propostas', icon: FileText, label: 'Propostas', badge: 'NOVO' },
       { to: '/dashboard/contratos', icon: FileSignature, label: 'Contratos', badge: 'NOVO' },
-      { to: '/dashboard/exclusividade', icon: FileSignature, label: 'Exclusividade', badge: 'NOVO' },
+      { to: '/dashboard/contratos-exclusivos', icon: FileSignature, label: 'Exclusividade', badge: 'NOVO' },
       { to: '/dashboard/recibos',   icon: Receipt,       label: 'Recibos',   badge: 'NOVO' },
     ],
   },
@@ -453,6 +453,7 @@ const Dashboard = () => {
             <Route path="cnd/historico"    element={<CNDHistorico />} />
             <Route path="consulta"         element={<ConsultaPage />} />
             <Route path="contratos"        element={<ContratosList />} />
+            <Route path="contratos-exclusivos" element={<ContratosList tipoFixo="exclusividade" titulo="Exclusividade + Procuração" descricao="Contratos de exclusividade de venda (art. 726 CC) com procuração vinculada, assinatura do cliente e ICP-Brasil." ctaLabel="Novo Contrato de Exclusividade" />} />
             <Route path="contratos/novo"   element={<ContratoWizard />} />
             <Route path="contratos/:id"    element={<ContratoWizard />} />
             <Route path="exclusividade"        element={<ContratoExclusividadeList />} />
