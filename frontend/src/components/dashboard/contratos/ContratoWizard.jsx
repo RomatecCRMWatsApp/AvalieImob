@@ -81,7 +81,7 @@ const EMPTY = {
   config: { incluir_logo: true, incluir_recibo_arras: true, incluir_checklist: true },
 };
 
-const EMPTY_PESSOA = { tipo: 'pf', nome: '', cpf: '', rg: '', rg_orgao: '', nascimento: '', estado_civil: '', profissao: '', nacionalidade: 'brasileiro(a)', email: '', telefone: '', endereco: '', cidade: '', uf: '', cep: '', conjuge_nome: '', conjuge_cpf: '', conjuge_rg: '', conjuge_nascimento: '', conjuge_profissao: '', conjuge_nacionalidade: 'brasileiro(a)', procurador: false, procurador_nome: '', procurador_cpf: '', procurador_instrumento: '', cnpj: '', razao_social: '', nome_fantasia: '', inscricao_estadual: '', representante_nome: '', representante_cpf: '', representante_cargo: '' };
+const EMPTY_PESSOA = { tipo: 'pf', nome: '', cpf: '', rg: '', rg_orgao: '', nascimento: '', estado_civil: '', profissao: '', nacionalidade: 'brasileiro(a)', email: '', telefone: '', endereco: '', cidade: '', uf: '', cep: '', conjuge_nome: '', conjuge_cpf: '', conjuge_rg: '', conjuge_nascimento: '', conjuge_profissao: '', conjuge_nacionalidade: 'brasileiro(a)', conjuge_telefone: '', conjuge_email: '', procurador: false, procurador_nome: '', procurador_cpf: '', procurador_instrumento: '', cnpj: '', razao_social: '', nome_fantasia: '', inscricao_estadual: '', representante_nome: '', representante_cpf: '', representante_cargo: '' };
 
 /* ─── Helpers ────────────────────────────────────────────── */
 const Input = ({ label, value, onChange, placeholder, type = 'text', required, note }) => (
@@ -274,6 +274,8 @@ const PessoaForm = ({ pessoa, onChange, titulo }) => {
                 <Input label="Órgão Expedidor da CNH (Cônjuge)" value={pessoa.conjuge_cnh_orgao} onChange={(v) => upd('conjuge_cnh_orgao', v)} placeholder="DETRAN/MT" />
                 <Input label="Nome da Mãe do Cônjuge" value={pessoa.conjuge_filiacao_mae} onChange={(v) => upd('conjuge_filiacao_mae', v)} />
                 <Input label="Nome do Pai do Cônjuge" value={pessoa.conjuge_filiacao_pai} onChange={(v) => upd('conjuge_filiacao_pai', v)} />
+                <Input label="Contato / WhatsApp do Cônjuge" value={pessoa.conjuge_telefone || ''} onChange={(v) => upd('conjuge_telefone', v)} placeholder="(99) 99999-9999" />
+                <Input label="E-mail do Cônjuge" value={pessoa.conjuge_email || ''} onChange={(v) => upd('conjuge_email', v)} type="email" placeholder="email@exemplo.com" />
               </div>
             </div>
           )}
