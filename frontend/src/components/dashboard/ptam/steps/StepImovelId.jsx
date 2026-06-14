@@ -112,6 +112,7 @@ export const StepImovelId = ({ form, setForm }) => {
           lat={form.property_gps_lat}
           lng={form.property_gps_lng}
           height={280}
+          onPick={(la, ln) => setForm((f) => ({ ...f, property_gps_lat: String(la), property_gps_lng: String(ln) }))}
         />
         <StreetView
           lat={form.property_gps_lat || null}

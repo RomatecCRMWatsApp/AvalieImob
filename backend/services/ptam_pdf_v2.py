@@ -1121,6 +1121,27 @@ def subsec(texto, ancora=None):
     return out
 
 
+def _mapa_localizacao_flowables(lat, lon):
+    """Mapa estático de localização (nível de quadra) p/ o laudo. [] se indisponível."""
+    if lat in (None, '') or lon in (None, ''):
+        return []
+    try:
+        from services.mapa_estatico import gerar_mapa_png
+        png = gerar_mapa_png(lat, lon, zoom=18, larg=640, alt=320)
+        if not png:
+            return []
+        _cap = ParagraphStyle('mapcap', fontName='Helvetica', fontSize=7.5,
+                              textColor=colors.HexColor('#666666'), alignment=TA_CENTER, spaceBefore=2)
+        return [
+            Spacer(1, 6),
+            RLImage(BytesIO(png), width=UTIL_W, height=UTIL_W * (320.0 / 640.0), kind='proportional'),
+            Paragraph('Localização aproximada do imóvel — quadra e ruas confrontantes (OpenStreetMap).', _cap),
+            Spacer(1, 4),
+        ]
+    except Exception:
+        return []
+
+
 def tbl(dados, cw=None):
     cw = cw or [5.0 * cm, UTIL_W - 5.0 * cm]
     # Label (1ª coluna) como Paragraph branco/negrito → quebra a linha em vez de cortar o texto.
@@ -1668,6 +1689,9 @@ def build_story(ptam, page_map):
     _cidade_uf = ' — '.join(x for x in [
         _txt(ptam.get('property_city'), ''), _txt(ptam.get('property_state'), '')
     ] if x)
+    _gps_lat = ptam.get('property_gps_lat')
+    _gps_lng = ptam.get('property_gps_lng')
+    _coords_txt = f"{_gps_lat}, {_gps_lng}" if (_gps_lat not in (None, '') and _gps_lng not in (None, '')) else ''
     _ident_rows = [
         ('Tipo', ptam.get('property_type')),
         ('Endereço', ptam.get('property_address')),
@@ -1676,10 +1700,13 @@ def build_story(ptam, page_map):
         ('Matrícula', ptam.get('property_matricula')),
         ('Cartório', ptam.get('property_cartorio')),
         ('Cidade/UF', _cidade_uf),
+        ('Coordenadas (SIRGAS 2000)', _coords_txt),
     ]
     # Linhas vazias (ex.: Bairro em imóvel rural) não vão ao laudo.
     _ident_rows = [(lb, _txt(vl)) for lb, vl in _ident_rows if _preenchido(vl)]
     st.append(tbl(_ident_rows or [('Identificação', 'Não informada')]))
+    # Mapa de localização (nível de quadra) — best-effort; só com coordenadas válidas.
+    st += _mapa_localizacao_flowables(_gps_lat, _gps_lng)
     # Áreas adicionais (quando informadas)
     _areas_extra = []
     if ptam.get('property_area_sqm'):
