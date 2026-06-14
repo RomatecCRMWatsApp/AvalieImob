@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { useToast } from '../../../hooks/use-toast';
-import { contratosAPI, perfilAPI, testemunhasAPI, aiAPI } from '../../../lib/api';
+import { contratosAPI, perfilAPI, testemunhasAPI, aiAPI, API_BASE } from '../../../lib/api';
 import { useAuth } from '../../../contexts/AuthContext';
 import ImovelMap from '../../maps/ImovelMap';
 import ImageUploader from '../ptam/ImageUploader';
@@ -76,7 +76,7 @@ const EMPTY = {
   vendedores: [],
   compradores: [],
   corretor: { incluir: false, nome: '', cpf_cnpj: '', creci: '', email: '', telefone: '', nacionalidade: 'brasileiro(a)', profissao: 'Corretor de Imóveis', estado_civil: '', rg: '', rg_orgao: '', cnh: '', cnh_categoria: '', cnh_validade: '', cnh_orgao: '', endereco: '', numero: '', bairro: '', cidade: '', uf: '', cep: '', conjuge_nome: '', conjuge_cpf: '', conjuge_rg: '', regime_bens: '', comissao_percentual: 6, exclusividade: false, prazo_exclusividade: '', comissao_responsavel: 'vendedor', comissao_parcela1_pct: 50, comissao_parcela2_pct: 50, banco: 'Santander', agencia: '1225', conta: '130007144', banco_cnpj: '17.261.987/0001-09', banco_pix: 'romatec.cad@hotmail.com' },
-  objeto: { tipo_bem: 'imovel_urbano', endereco: '', bairro: '', cidade: '', uf: '', cep: '', registro_imovel: '', cns: '', matricula: '', latitude: '', longitude: '', area_total: '', area_construida: '', situacao_ocupacao: '', onus: '', benfeitorias: '', ccir: '', car: '', modulos_fiscais: '', descricao_veiculo: '', placa: '', renavam: '', chassi: '', ano_fabricacao: '', cor: '' },
+  objeto: { tipo_bem: 'imovel_urbano', endereco: '', bairro: '', cidade: '', uf: '', cep: '', registro_imovel: '', cns: '', matricula: '', latitude: '', longitude: '', endereco_completo: '', area_total: '', area_construida: '', situacao_ocupacao: '', onus: '', benfeitorias: '', ccir: '', car: '', modulos_fiscais: '', descricao_veiculo: '', placa: '', renavam: '', chassi: '', ano_fabricacao: '', cor: '' },
   pagamento: { valor_total: '', arras_valor: '', arras_data: '', arras_tipo: 'confirmatorias', formas: [], penalidades: null },
   config: { incluir_logo: true, incluir_recibo_arras: true, incluir_checklist: true },
 };
@@ -575,6 +575,33 @@ const Step5Objeto = ({ form, setForm }) => {
   const obj = form.objeto;
   const upd = (key, val) => setForm({ ...form, objeto: { ...obj, [key]: val } });
 
+  // Marca a localização no mapa: grava lat/lng e busca o endereço (reverse-geocode)
+  // SEM sobrescrever o que o usuário já editou no campo "Endereço completo".
+  const marcarNoMapa = async (la, ln) => {
+    setForm((f) => ({ ...f, objeto: { ...f.objeto, latitude: String(la), longitude: String(ln) } }));
+    try {
+      const r = await fetch(`${API_BASE}/maps/reverse?lat=${la}&lng=${ln}`);
+      if (!r.ok) return;
+      const d = await r.json();
+      if (d?.endereco) {
+        setForm((f) => (
+          (f.objeto.endereco_completo || '').trim()
+            ? f
+            : { ...f, objeto: { ...f.objeto, endereco_completo: d.endereco } }
+        ));
+      }
+    } catch { /* best-effort */ }
+  };
+  const buscarEnderecoDasCoords = async () => {
+    if (!obj.latitude || !obj.longitude) return;
+    try {
+      const r = await fetch(`${API_BASE}/maps/reverse?lat=${obj.latitude}&lng=${obj.longitude}`);
+      if (!r.ok) return;
+      const d = await r.json();
+      if (d?.endereco) upd('endereco_completo', d.endereco);
+    } catch { /* best-effort */ }
+  };
+
   // Alienação fiduciária / financiamento (sub-objeto obj.alienacao)
   const al = obj.alienacao || {};
   const setAl = (patch) => upd('alienacao', { ...al, ...patch });
@@ -937,13 +964,31 @@ const Step5Objeto = ({ form, setForm }) => {
             </div>
           )}
 
+          <div className="sm:col-span-2">
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm font-medium text-gray-700">Endereço completo (como sairá no contrato)</label>
+              <button type="button" onClick={buscarEnderecoDasCoords} disabled={!obj.latitude || !obj.longitude}
+                className="text-xs text-emerald-700 underline disabled:text-gray-300 disabled:no-underline">
+                ↻ Buscar do mapa
+              </button>
+            </div>
+            <textarea
+              value={obj.endereco_completo || ''}
+              onChange={(e) => upd('endereco_completo', e.target.value)}
+              placeholder={enderecoCompleto || 'Rua, nº, quadra/lote, bairro, cidade-UF, CEP'}
+              rows={2}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+            <p className="text-xs text-gray-500 mt-1">Trazido do mapa ao marcar a localização. Edite/insira/apague livremente — este texto é o endereço usado no contrato (se vazio, montamos dos campos acima).</p>
+          </div>
+
           {(enderecoCompleto.length > 5 || (obj.latitude && obj.longitude)) && (
             <ImovelMap
-              endereco={enderecoCompleto}
+              endereco={obj.endereco_completo || enderecoCompleto}
               lat={obj.latitude}
               lng={obj.longitude}
               height={260}
-              onPick={(la, ln) => setForm((f) => ({ ...f, objeto: { ...f.objeto, latitude: String(la), longitude: String(ln) } }))}
+              onPick={marcarNoMapa}
             />
           )}
         </div>

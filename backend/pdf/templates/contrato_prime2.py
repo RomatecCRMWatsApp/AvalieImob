@@ -45,8 +45,12 @@ def _parte_endereco(p: dict) -> str:
 
 
 def _endereco_full(p: dict) -> str:
-    """Endereço COMPLETO (logradouro, nº, bairro, cidade-UF, CEP) a partir das partes."""
+    """Endereço COMPLETO. Usa o override editável `endereco_completo` (se preenchido),
+    senão compõe das partes (logradouro, nº, bairro, cidade-UF, CEP)."""
     p = p or {}
+    ovr = (p.get("endereco_completo") or "").strip() if isinstance(p.get("endereco_completo"), str) else ""
+    if ovr:
+        return ovr
     pf = p.get("pf") or {}
     pj = p.get("pj") or {}
 

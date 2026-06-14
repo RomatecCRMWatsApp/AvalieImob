@@ -10,7 +10,45 @@ from dependencies import get_active_subscriber
 router = APIRouter(prefix="/maps", tags=["maps"])
 
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
+NOMINATIM_REVERSE_URL = "https://nominatim.openstreetmap.org/reverse"
 NOMINATIM_HEADERS = {"User-Agent": "AvalieImob/1.0 (romatec@romatec.com.br)"}
+
+
+def _montar_endereco_br(addr: dict) -> str:
+    """Compõe um endereço BR legível a partir do `address` do Nominatim."""
+    rua = addr.get("road") or addr.get("pedestrian") or addr.get("residential") or ""
+    num = addr.get("house_number") or ""
+    bairro = addr.get("suburb") or addr.get("neighbourhood") or addr.get("city_district") or ""
+    cidade = addr.get("city") or addr.get("town") or addr.get("village") or addr.get("municipality") or ""
+    uf = addr.get("state") or ""
+    cep = addr.get("postcode") or ""
+    p1 = ", ".join([x for x in [rua, (f"nº {num}" if num else ""), bairro] if x])
+    p2 = ", ".join([x for x in [cidade, uf] if x])
+    out = ", ".join([x for x in [p1, p2] if x])
+    if cep:
+        out = f"{out}, CEP {cep}" if out else f"CEP {cep}"
+    return out
+
+
+@router.get("/reverse")
+async def reverse(lat: float = Query(...), lng: float = Query(...)):
+    """Reverse-geocode (coordenadas → endereço) via Nominatim. Best-effort."""
+    params = {"lat": lat, "lon": lng, "format": "jsonv2", "addressdetails": 1, "zoom": 18}
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            resp = await client.get(NOMINATIM_REVERSE_URL, params=params, headers=NOMINATIM_HEADERS)
+            resp.raise_for_status()
+            data = resp.json()
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f"Nominatim indisponível: {exc}")
+    if not data or "error" in data:
+        raise HTTPException(status_code=404, detail="Endereço não encontrado para as coordenadas")
+    addr = data.get("address") or {}
+    return {
+        "endereco": _montar_endereco_br(addr) or data.get("display_name", ""),
+        "display_name": data.get("display_name", ""),
+        "address": addr,
+    }
 
 
 @router.get("/geocode")

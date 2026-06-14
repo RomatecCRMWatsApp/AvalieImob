@@ -92,6 +92,9 @@ def _bool_label(v, sim="autorizado", nao="não autorizado") -> str:
 
 
 def _endereco_completo(p: dict) -> str:
+    ovr = _g(p, "endereco_completo")  # override editável (campo livre do imóvel)
+    if ovr:
+        return ovr
     partes = [
         _g(p, "endereco"), _g(p, "numero") and f"nº {_g(p, 'numero')}",
         _g(p, "bairro"), _g(p, "cidade", "city"),
