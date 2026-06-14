@@ -253,6 +253,14 @@ def render(doc: dict, uid: str, empresa: str) -> bytes:
     story.append(Paragraph(f"◆ Endereço: {end_imovel}", st["item"]))
     story.append(Paragraph(f"◆ Matrícula: {_norm_matricula(objeto.get('matricula')) or '—'} · Município/UF: {objeto.get('cidade','—') or '—'}/{objeto.get('uf','—') or '—'}", st["item"]))
     story.append(Paragraph(f"◆ Serventia / Cartório: {serventia}" + (f" · CNS {cns}" if cns else ""), st["item"]))
+    lat, lon = objeto.get("latitude"), objeto.get("longitude")
+    if lat not in (None, "") and lon not in (None, ""):
+        story.append(Paragraph(f"◆ Coordenadas (SIRGAS 2000): {lat}, {lon}", st["item"]))
+    from pdf.templates.contrato_prime2 import _mapa_flowable
+    _mapa = _mapa_flowable(lat, lon, cw)
+    if _mapa is not None:
+        story.append(Spacer(1, 6))
+        story.append(_mapa)
     story.append(Spacer(1, 12))
 
     # 02 Condições
