@@ -216,7 +216,8 @@ def _mapa_flowable(lat, lon, largura):
         return None
     try:
         from services.mapa_estatico import gerar_mapa_png
-        png = gerar_mapa_png(lat, lon, zoom=16, larg=620, alt=300)
+        # zoom 18 = nível de QUADRA: mostra o lote e as ruas confrontantes nomeadas
+        png = gerar_mapa_png(lat, lon, zoom=18, larg=620, alt=320)
         if not png:
             return None
         from reportlab.platypus import Image as RLImage
