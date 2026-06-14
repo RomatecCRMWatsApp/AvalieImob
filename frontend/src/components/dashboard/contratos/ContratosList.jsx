@@ -336,19 +336,25 @@ const ContratosList = ({ tipoFixo = '', titulo, descricao, ctaLabel }) => {
     }
   };
 
-  const visualizarPdf = async (id) => {
+  const visualizarPdf = async (id, tipo = 'contrato') => {
+    // Abre a aba JÁ no clique (gesto do usuário) — senão o navegador BLOQUEIA o popup
+    // quando o window.open vem depois do await (causa do "Ver" não funcionar).
+    const win = window.open('', '_blank');
     try {
-      const blob = await contratosAPI.pdf(id);
+      const blob = tipo === 'procuracao'
+        ? await contratosAPI.procuracaoPdf(id)
+        : await contratosAPI.pdf(id);
       const url = URL.createObjectURL(blob instanceof Blob ? blob : new Blob([blob], { type: 'application/pdf' }));
-      window.open(url, '_blank');
+      if (win) win.location.href = url; else window.location.href = url;
       setTimeout(() => URL.revokeObjectURL(url), 60000);
     } catch (e) {
+      if (win) win.close();
       let detalhe = '';
       try {
         const data = e?.response?.data;
         detalhe = data instanceof Blob ? (JSON.parse(await data.text())?.detail || '') : (data?.detail || '');
       } catch { /* ignore */ }
-      toast({ title: 'Erro ao gerar PDF', description: detalhe || undefined, variant: 'destructive' });
+      toast({ title: `Erro ao gerar ${tipo === 'procuracao' ? 'a procuração' : 'o PDF'}`, description: detalhe || undefined, variant: 'destructive' });
     }
   };
 
@@ -386,6 +392,8 @@ const ContratosList = ({ tipoFixo = '', titulo, descricao, ctaLabel }) => {
 
   /* filtros client-side: status (ciclo PR-4) + busca por partes */
   const filtered = items.filter((c) => {
+    // Exclusividade tem página própria → não duplica na lista geral de Contratos.
+    if (!tipoFixo && (c.tipo_contrato || '').includes('exclusiv')) return false;
     if (filterStatus && (c.status_card || 'rascunho') !== filterStatus) return false;
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -526,9 +534,17 @@ const ContratosList = ({ tipoFixo = '', titulo, descricao, ctaLabel }) => {
                 {/* Linha 1 — abrir / visualizar / pdf */}
                 <div className="grid grid-cols-3 gap-1.5 mt-3" onClick={(e) => e.stopPropagation()}>
                   <ActBtn icon={PenSquare} label="Abrir" onClick={() => contratoId && nav(`/dashboard/contratos/${contratoId}`)} className="border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100" />
-                  <ActBtn icon={Eye} label="Ver" onClick={() => visualizarPdf(contratoId)} className="border-gray-200 text-gray-700 hover:bg-gray-50" />
-                  <ActBtn icon={FileDown} label="PDF" onClick={() => downloadVia(contratosAPI.pdf, contratoId, `contrato-${contratoId}.pdf`, toast)} className="border-gray-200 text-gray-700 hover:bg-gray-50" />
+                  <ActBtn icon={Eye} label="Ver contrato" onClick={() => visualizarPdf(contratoId, 'contrato')} className="border-gray-200 text-gray-700 hover:bg-gray-50" />
+                  <ActBtn icon={FileDown} label="PDF contrato" onClick={() => downloadVia(contratosAPI.pdf, contratoId, `contrato-${contratoId}.pdf`, toast)} className="border-gray-200 text-gray-700 hover:bg-gray-50" />
                 </div>
+
+                {/* Procuração (quando o contrato a gera) — ver / baixar à parte */}
+                {(c?.procuracao?.gerar || (c?.tipo_contrato || '').includes('exclusiv')) && (
+                  <div className="grid grid-cols-2 gap-1.5 mt-1.5" onClick={(e) => e.stopPropagation()}>
+                    <ActBtn icon={Eye} label="Ver procuração" onClick={() => visualizarPdf(contratoId, 'procuracao')} className="border-[#C9A84C]/40 bg-[#C9A84C]/10 text-[#8a7320] hover:bg-[#C9A84C]/20" />
+                    <ActBtn icon={FileDown} label="PDF procuração" onClick={() => downloadVia(contratosAPI.procuracaoPdf, contratoId, `procuracao-${contratoId}.pdf`, toast)} className="border-[#C9A84C]/40 bg-[#C9A84C]/10 text-[#8a7320] hover:bg-[#C9A84C]/20" />
+                  </div>
+                )}
 
                 {/* Linha 2 — assinatura */}
                 <div className="grid grid-cols-2 gap-1.5 mt-1.5" onClick={(e) => e.stopPropagation()}>
