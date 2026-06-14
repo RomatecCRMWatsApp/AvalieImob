@@ -59,6 +59,8 @@ class ContratoCreate(BaseModel):
     etapas_concluidas: Optional[Any] = None
     etapas_concluidas_em: Optional[Any] = None
     testemunhas: Optional[List[Any]] = None
+    clausulas: Optional[List[Any]] = None
+    clausulas_enfase: Optional[str] = None
     config: Optional[Any] = None
 
 
@@ -77,6 +79,7 @@ class ContratoUpdate(BaseModel):
     etapas_concluidas: Optional[Any] = None
     etapas_concluidas_em: Optional[Any] = None
     clausulas: Optional[List[Any]] = None
+    clausulas_enfase: Optional[str] = None
     alertas_juridicos: Optional[List[Any]] = None
     testemunha_1: Optional[Any] = None
     testemunha_2: Optional[Any] = None
@@ -89,6 +92,7 @@ class ContratoUpdate(BaseModel):
 
 class GerarClausulasRequest(BaseModel):
     tipo: Optional[str] = None  # sobreescreve o tipo do contrato se fornecido
+    enfase: Optional[str] = None  # 'equilibrada' | 'unilateral_vendedor' | 'unilateral_comprador'
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -922,8 +926,8 @@ def _generate_contrato_pdf_bytes(doc: dict, uid: str, empresa: str, raise_on_err
             elems.append(_p("CLAUSULAS E CONDICOES", styles["secao"]))
             for i, cl in enumerate(clausulas, 1):
                 if isinstance(cl, dict):
-                    titulo = _s(cl.get("titulo") or cl.get("nome"), f"Clausula {i}")
-                    texto = _s(cl.get("texto") or cl.get("conteudo"), "")
+                    titulo = _strip_html_inline(_s(cl.get("titulo") or cl.get("nome"), f"Clausula {i}"))
+                    texto = _strip_html_inline(_s(cl.get("texto") or cl.get("conteudo"), ""))
                     elems.append(_p(f"<b>Clausula {i}a — {titulo}</b>", styles["clausula_titulo"]))
                     if texto:
                         elems.append(_p(texto, styles["clausula_texto"]))
@@ -1861,8 +1865,9 @@ async def gerar_clausulas(
         clausulas = await gerar_clausulas_exclusividade(dados=dados_exclusividade)
         clausulas_corretor = []  # Já incluído nas cláusulas de exclusividade
     else:
-        clausulas = await gerar_clausulas_contrato(tipo=tipo, dados=doc)
-        
+        enfase = (body.enfase if body and body.enfase else "equilibrada")
+        clausulas = await gerar_clausulas_contrato(tipo=tipo, dados=doc, enfase=enfase)
+
         # Gera cláusulas de corretagem se houver corretor
         corretor = doc.get("corretor")
         clausulas_corretor = []

@@ -185,7 +185,27 @@ def _parse_json_safe(text: str) -> Any:
 
 # ── FUNCAO 1: Gerar clausulas do contrato ────────────────────────────────────
 
-async def gerar_clausulas_contrato(tipo: str, dados: Dict[str, Any]) -> List[Dict[str, Any]]:
+_ENFASE_INSTRUCAO = {
+    "equilibrada": (
+        "ÊNFASE: redija cláusulas EQUILIBRADAS, protegendo ambas as partes de forma isonômica, "
+        "no padrão de mercado e em conformidade com o Código Civil e o CDC quando aplicável."
+    ),
+    "unilateral_vendedor": (
+        "ÊNFASE: redija cláusulas que PRIORIZEM E PROTEJAM O VENDEDOR/CONTRATANTE (a parte que "
+        "aliena/contrata), com salvaguardas a seu favor (garantias de pagamento, multas e reserva "
+        "de domínio quando cabível), SEM tornar o contrato nulo, abusivo ou ilegal — mantenha a "
+        "validade jurídica e evite cláusulas leoninas vedadas pelo CDC/CC."
+    ),
+    "unilateral_comprador": (
+        "ÊNFASE: redija cláusulas que PRIORIZEM E PROTEJAM O COMPRADOR/ADQUIRENTE, com salvaguardas "
+        "a seu favor (vícios redibitórios, evicção, condições de entrega, devolução de valores), SEM "
+        "tornar o contrato nulo ou abusivo — mantenha a validade jurídica e o equilíbrio mínimo legal."
+    ),
+}
+
+
+async def gerar_clausulas_contrato(tipo: str, dados: Dict[str, Any],
+                                   enfase: str = "equilibrada") -> List[Dict[str, Any]]:
     """Gera clausulas juridicas completas para o tipo de contrato informado.
 
     Args:
@@ -231,6 +251,7 @@ async def gerar_clausulas_contrato(tipo: str, dados: Dict[str, Any]) -> List[Dic
         f"- Sinal/Arras: R$ {sinal} ({arras})\n"
         f"- Multa por inadimplemento: {multa}%\n"
         f"- Juros de mora: {juros}% a.m.\n\n"
+        f"{_ENFASE_INSTRUCAO.get(enfase, _ENFASE_INSTRUCAO['equilibrada'])}\n\n"
         "INSTRUCOES:\n"
         "1. Gere entre 8 e 15 clausulas completas\n"
         "2. Numere em romano (I, II, III...)\n"

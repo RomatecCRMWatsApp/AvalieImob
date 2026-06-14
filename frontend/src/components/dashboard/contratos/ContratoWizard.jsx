@@ -66,6 +66,9 @@ const TIPOS = [
   },
 ];
 
+/* Ênfase jurídica das cláusulas geradas pela IA */
+const ENFASE_LABEL = { equilibrada: 'Equilibrada', unilateral_vendedor: 'Pró-vendedor', unilateral_comprador: 'Pró-comprador' };
+
 /* Há preenchimento REAL? (decide se o contrato novo deve ser salvo — evita rascunho vazio) */
 const temConteudo = (f) => {
   if (!f) return false;
@@ -1267,6 +1270,9 @@ const Step7Clausulas = ({ form, setForm, contratoId }) => {
   const [editando, setEditando] = useState(null); // index sendo editado
   const [editBuffer, setEditBuffer] = useState({});
   const [preview, setPreview] = useState(null);
+  const [enfase, setEnfase] = useState(form.clausulas_enfase || 'equilibrada');
+  const [aiEdit, setAiEdit] = useState(false);
+  const autoGenRef = useRef(false);
 
   // Tipos com texto jurídico canônico (cláusulas fixas, montadas no backend).
   const ehCanonico = (form.tipo_contrato || '').includes('exclusiv');
@@ -1283,20 +1289,53 @@ const Step7Clausulas = ({ form, setForm, contratoId }) => {
       .catch(() => setPreview({ preambulo: [], clausulas: [], fecho: '' }));
   }, [ehCanonico, contratoId]);
 
-  const gerarClausulas = async () => {
+  const gerarClausulas = async (enfaseArg, silent = false) => {
     if (!contratoId) {
-      toast({ title: 'Salve o contrato antes de gerar cláusulas', variant: 'destructive' });
+      if (!silent) toast({ title: 'Preencha as partes/imóvel — o contrato é salvo e então geramos as cláusulas', variant: 'destructive' });
       return;
     }
+    const ef = enfaseArg || enfase;
     setIaState('thinking');
     try {
-      const res = await contratosAPI.gerarClausulas(contratoId, { tipo: form.tipo_contrato });
-      setClausulas(res.clausulas || []);
+      const res = await contratosAPI.gerarClausulas(contratoId, { tipo: form.tipo_contrato, enfase: ef });
+      const todas = [...(res.clausulas || []), ...(res.clausulas_corretagem || [])]
+        .map((c, i) => ({ ...c, numero: c.numero || i + 1 }));
+      setClausulas(todas);
+      setForm((f) => ({ ...f, clausulas_enfase: ef }));
       setIaState('done');
-      toast({ title: `${res.clausulas?.length || 0} cláusulas geradas pela Roma_IA` });
+      if (!silent) toast({ title: `${todas.length} cláusulas geradas pela Roma_IA (${ENFASE_LABEL[ef] || ef})` });
     } catch (err) {
       setIaState('idle');
-      toast({ title: 'Erro ao gerar cláusulas', description: err.response?.data?.detail, variant: 'destructive' });
+      if (!silent) toast({ title: 'Erro ao gerar cláusulas', description: err.response?.data?.detail, variant: 'destructive' });
+    }
+  };
+
+  // Auto-geração ao abrir o passo (tipos não-canônicos) quando ainda não há cláusulas.
+  useEffect(() => {
+    if (ehCanonico || autoGenRef.current) return;
+    if (contratoId && (form.clausulas || []).length === 0) {
+      autoGenRef.current = true;
+      gerarClausulas(enfase, true);
+    }
+  }, [ehCanonico, contratoId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Aperfeiçoar UMA cláusula com IA (no editor)
+  const aperfeicoarClausula = async () => {
+    const atual = (editBuffer.conteudo || '').replace(/<[^>]+>/g, ' ').trim();
+    setAiEdit(true);
+    try {
+      const prompt =
+        `Aperfeiçoe juridicamente a cláusula abaixo de um contrato de ${form.tipo_contrato}, ` +
+        `em português-BR formal, completa e segura, citando a base legal pertinente quando couber. ` +
+        `Retorne APENAS o texto da cláusula (sem título nem rótulos).\n\n` +
+        `Título: ${editBuffer.titulo || ''}\nTexto atual: ${atual || '(vazio — redija uma cláusula adequada)'}`;
+      const res = await aiAPI.chat(`contrato_clausula_${Date.now()}`, prompt);
+      const texto = (res?.reply || '').trim();
+      if (texto) setEditBuffer((b) => ({ ...b, conteudo: texto }));
+    } catch (e) {
+      toast({ title: 'Erro na IA', description: e.response?.data?.detail || 'Tente novamente', variant: 'destructive' });
+    } finally {
+      setAiEdit(false);
     }
   };
 
@@ -1361,7 +1400,19 @@ const Step7Clausulas = ({ form, setForm, contratoId }) => {
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-bold text-gray-900 mb-1">Cláusulas do Contrato</h2>
-        <p className="text-sm text-gray-500">Gere as cláusulas automaticamente via Roma_IA ou adicione manualmente.</p>
+        <p className="text-sm text-gray-500">As cláusulas são geradas automaticamente pela Roma_IA conforme o tipo. Todas editáveis (com IA por cláusula).</p>
+      </div>
+
+      {/* Ênfase jurídica */}
+      <div className="flex items-center gap-2 flex-wrap bg-gray-50 border border-gray-200 rounded-xl px-3 py-2">
+        <span className="text-xs font-semibold text-gray-600">Ênfase jurídica:</span>
+        {Object.entries(ENFASE_LABEL).map(([val, lbl]) => (
+          <button key={val} onClick={() => { setEnfase(val); gerarClausulas(val); }} disabled={iaState === 'thinking'}
+            className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition ${enfase === val ? 'bg-emerald-800 text-white border-emerald-800' : 'bg-white text-gray-600 border-gray-300 hover:border-emerald-400'}`}>
+            {lbl}
+          </button>
+        ))}
+        <span className="text-[11px] text-gray-400">— clicar regenera as cláusulas com essa ênfase</span>
       </div>
 
       {/* Roma_IA card */}
@@ -1371,21 +1422,15 @@ const Step7Clausulas = ({ form, setForm, contratoId }) => {
           <div className="text-white font-semibold text-sm mb-0.5">Roma_IA — Geração de Cláusulas</div>
           <div className="text-emerald-300 text-xs">
             {iaState === 'thinking' ? 'Analisando tipo de contrato e gerando cláusulas jurídicas...' :
-             iaState === 'done' ? `${clausulas.length} cláusulas geradas. Revise e edite conforme necessário.` :
-             'Gere cláusulas adequadas ao tipo de contrato selecionado.'}
+             iaState === 'done' ? `${clausulas.length} cláusulas (${ENFASE_LABEL[enfase]}). Revise e edite conforme necessário.` :
+             'As cláusulas são geradas automaticamente ao abrir este passo.'}
           </div>
         </div>
         <div className="flex gap-2 flex-shrink-0">
-          {clausulas.length > 0 && (
-            <Button size="sm" variant="outline" onClick={gerarClausulas} disabled={iaState === 'thinking'}
-              className="border-emerald-400 text-emerald-300 hover:bg-emerald-800 text-xs">
-              <RotateCcw className="w-3.5 h-3.5 mr-1" /> Regenerar
-            </Button>
-          )}
-          <Button size="sm" onClick={gerarClausulas} disabled={iaState === 'thinking'}
+          <Button size="sm" onClick={() => gerarClausulas()} disabled={iaState === 'thinking'}
             className="bg-amber-500 hover:bg-amber-400 text-white text-xs">
-            {iaState === 'thinking' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 mr-1" />}
-            {iaState === 'thinking' ? 'Gerando...' : 'Gerar Cláusulas via Roma_IA'}
+            {iaState === 'thinking' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : (clausulas.length > 0 ? <RotateCcw className="w-3.5 h-3.5 mr-1" /> : <Sparkles className="w-3.5 h-3.5 mr-1" />)}
+            {iaState === 'thinking' ? 'Gerando...' : (clausulas.length > 0 ? 'Regenerar' : 'Gerar Cláusulas via Roma_IA')}
           </Button>
         </div>
       </div>
@@ -1413,9 +1458,17 @@ const Step7Clausulas = ({ form, setForm, contratoId }) => {
                           <Input label="Base Legal" value={editBuffer.base_legal} onChange={(v) => setEditBuffer({ ...editBuffer, base_legal: v })} />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Conteúdo</label>
-                          <textarea rows={4} value={editBuffer.conteudo || ''} onChange={(e) => setEditBuffer({ ...editBuffer, conteudo: e.target.value })}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none" />
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="block text-sm font-medium text-gray-700">Conteúdo</label>
+                            <AiButton onClick={aperfeicoarClausula} loading={aiEdit} />
+                          </div>
+                          <RichTextEditor
+                            value={paraEditorHtml(editBuffer.conteudo)}
+                            onChange={(html) => setEditBuffer({ ...editBuffer, conteudo: html })}
+                            onBlurHtml={(html) => setEditBuffer({ ...editBuffer, conteudo: html })}
+                            minHeight={140}
+                            showAiButton={false}
+                          />
                         </div>
                         <div className="flex gap-2">
                           <Button size="sm" onClick={salvarEdicao} className="bg-emerald-800 text-white"><Check className="w-3.5 h-3.5 mr-1" />Salvar</Button>
@@ -1430,7 +1483,7 @@ const Step7Clausulas = ({ form, setForm, contratoId }) => {
                               Cláusula {c.numero} — {c.titulo}
                             </div>
                             {c.base_legal && <div className="text-xs text-gray-400 mt-0.5">{c.base_legal}</div>}
-                            <p className="text-sm text-gray-600 mt-1.5 leading-relaxed line-clamp-3">{c.conteudo}</p>
+                            <p className="text-sm text-gray-600 mt-1.5 leading-relaxed line-clamp-3">{(c.conteudo || '').replace(/<[^>]+>/g, ' ')}</p>
                           </div>
                           <div className="flex gap-1 flex-shrink-0">
                             <button onClick={() => iniciarEdicao(idx)} className="p-1.5 rounded-lg hover:bg-gray-200 text-gray-500"><Edit2 className="w-3.5 h-3.5" /></button>

@@ -795,10 +795,11 @@ def montar_clausulas(doc: dict) -> List[Clausula]:
     for cl in (doc.get("clausulas") or []):
         if not isinstance(cl, dict):
             continue
-        titulo = (cl.get("titulo") or "").strip()
+        titulo = _plain((cl.get("titulo") or "").strip())
         num = cl.get("numero")
         cab = f"CLÁUSULA {num} — {titulo}" if num else titulo
-        conteudo = (cl.get("conteudo") or "").strip()
+        # conteúdo pode vir com HTML do editor RichText → limpa p/ inline ReportLab-safe
+        conteudo = _plain(cl.get("conteudo") or cl.get("texto") or "")
         out.append(Clausula(titulo=cab, itens=[conteudo] if conteudo else []))
     return out
 
