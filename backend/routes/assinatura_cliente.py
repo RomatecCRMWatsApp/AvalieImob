@@ -32,7 +32,12 @@ limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/assinatura-cliente", tags=["Assinatura Cliente"])
 router_publico = APIRouter(prefix="/publico/assinatura-cliente", tags=["Assinatura Cliente Pública"])
 
-APP_URL = os.environ.get("APP_PUBLIC_URL", "https://romatecavalieimob.com.br").rstrip("/")
+_APP_RAW = os.environ.get("APP_PUBLIC_URL", "https://www.romatecavalieimob.com.br").rstrip("/")
+# FORÇA www no domínio apex: o sem-www (romatecavalieimob.com.br) NÃO resolve p/ conexões
+# NOVAS (celular do cliente abrindo o link fresco) → ERR_CONNECTION_TIMED_OUT, mesmo com o
+# servidor saudável. O www.romatecavalieimob.com.br é o domínio CANÔNICO do Railway e sempre
+# resolve. Garante que TODO link de assinatura abra de primeira em qualquer dispositivo.
+APP_URL = _APP_RAW.replace("://romatecavalieimob.com.br", "://www.romatecavalieimob.com.br")
 EXPIRA_HORAS = int(os.environ.get("ASSINATURA_CLIENTE_EXPIRA_HORAS", "72"))
 COL = "assinatura_cliente_sessoes"
 
@@ -405,7 +410,7 @@ async def _processar_carimbo(db, sessao: dict):
             {"$set": {campo: url, "assinatura_cliente_em": datetime.utcnow(),
                       "assinatura_cliente_status": "assinado_cliente"}})
         if cfg:
-            nome_arq = "procuracao_assinada.pdf" if tipo == "procuracao" else "contrato_assinado.pdf"
+            nome_arq = "procuracao_assinada" if tipo == "procuracao" else "contrato_assinado"
             rotulo = "Procuração" if tipo == "procuracao" else "Contrato"
             for s in sessao["signatarios"]:
                 try:

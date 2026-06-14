@@ -228,11 +228,21 @@ async def _gerar_pdf(tipo: str, doc: dict, db=None, perfil: dict | None = None) 
             pdf_bytes = await anexar_anexos_ao_pdf(db, doc, pdf_bytes)
         return pdf_bytes
     elif tipo == "contrato":
+        # FASE PÓS-ASSINATURA: se os CLIENTES já assinaram, o PDF base do corretor é o
+        # PDF JÁ CARIMBADO com os traços (assinatura_cliente_pdf_url) — assim o ICP do
+        # corretor sela o documento COM todas as assinaturas (final completo). Só cai na
+        # geração do zero se ainda não houver assinatura de cliente.
+        url_cliente = doc.get("assinatura_cliente_pdf_url")
+        if url_cliente:
+            try:
+                from services import r2_storage
+                base = await asyncio.to_thread(r2_storage.download_bytes, url_cliente)
+                if base and base[:5] == b"%PDF-":
+                    return base
+            except Exception:
+                logger.warning("Falha ao baixar PDF cliente-assinado; gerando do zero.", exc_info=True)
         # Usa o MESMO renderer do card (registry → template_pdf ou Prime II por
         # padrão), para o documento ASSINADO sair no layout Prime que o usuário vê.
-        # Antes chamava _generate_contrato_pdf_bytes (tradicional) direto, então a
-        # tela de Assinar/ICP saía "sem formatação". O tradicional segue como
-        # rede de segurança (fallback dentro de gerar_pdf_contrato).
         from pdf.templates.registry import gerar_pdf_contrato
         uid = doc.get("user_id")
         empresa = "AvalieImob"
@@ -746,6 +756,7 @@ async def assinar_icp_brasil(
 
         # 3) Salva o PDF assinado deste layout (no R2; só a chave no Mongo)
         await _persist_assinatura(db, tipo, id, layout, body.cert_id, pdf_assinado, hash_final)
+        await _reenviar_contrato_final_ao_cliente(db, tipo, doc, pdf_assinado)
 
         assinados.append({"layout": layout, "hash": hash_final, "assinado_em": data_assinatura.isoformat()})
 
@@ -821,6 +832,32 @@ async def _propagar_recibo_assinado(db, tipo: str, doc: dict, quando=None) -> No
             )
         except Exception as e:
             logger.warning("Falha ao propagar recibo_assinado ao Contrato %s: %s", cid, e)
+
+
+async def _reenviar_contrato_final_ao_cliente(db, tipo: str, doc: dict, pdf_assinado: bytes) -> None:
+    """FASE PÓS-ASSINATURA #5: assim que o CORRETOR assina o ICP de um contrato cujos
+    CLIENTES já assinaram (sessão concluída), reenvia o PDF FINAL (com todas as assinaturas:
+    traços dos clientes + ICP do corretor) a todos os signatários por WhatsApp. Defensivo."""
+    if tipo != "contrato" or not pdf_assinado:
+        return
+    try:
+        from routes.assinatura_cliente import COL as _ACOL, _zapi_cfg as _ac_zapi, _enviar_pdf as _ac_pdf
+        cid = str(doc.get("id") or doc.get("_id") or "")
+        sessao = await db[_ACOL].find_one({"contrato_id": cid}, sort=[("created_at", -1)])
+        if not sessao or sessao.get("status") != "concluida":
+            return  # só reenvia o final quando TODOS os clientes já assinaram
+        cfg = await _ac_zapi(db, doc.get("user_id"))
+        for s in sessao.get("signatarios", []):
+            if not s.get("telefone"):
+                continue
+            try:
+                await _ac_pdf(cfg, s["telefone"], pdf_assinado, "contrato_final_assinado",
+                              "Contrato FINAL com TODAS as assinaturas (clientes + corretor). Obrigado!")
+            except Exception as e:  # noqa: BLE001
+                logger.warning("Falha ao reenviar contrato final p/ %s: %s", s.get("telefone"), e)
+        await db.contratos.update_one({"id": cid}, {"$set": {"assinatura_cliente_status": "final_assinado"}})
+    except Exception:  # noqa: BLE001
+        logger.warning("Falha ao reenviar contrato final ao cliente.", exc_info=True)
 
 
 async def _persist_assinatura(db, tipo, doc_id, layout, cert_id, pdf_bytes, hash_final, posicionado=False):
@@ -1032,6 +1069,7 @@ async def assinar_posicionado(
 
     layout = "v2"
     await _persist_assinatura(db, tipo, id, layout, body.cert_id, pdf_assinado, hash_final, posicionado=True)
+    await _reenviar_contrato_final_ao_cliente(db, tipo, doc, pdf_assinado)
 
     await db[_TIPO_COLECAO[tipo]].update_one(
         {"id": id},
