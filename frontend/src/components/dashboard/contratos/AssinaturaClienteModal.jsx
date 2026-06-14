@@ -148,54 +148,60 @@ export default function AssinaturaClienteModal({ contratoId, onClose }) {
   const setFone = (i, v) => setSignatarios((ss) => ss.map((s, kk) => (kk === i ? { ...s, telefone: v } : s)));
 
   return (
-    <div style={ovl} onMouseMove={onMove} onMouseUp={onUp}>
-      <div style={box}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <h3 style={{ fontWeight: 700, color: '#0B6E4F' }}>📲 Assinatura do cliente — posicionar</h3>
-          <button onClick={onClose} style={{ border: 'none', background: 'none', cursor: 'pointer' }}><X size={20} /></button>
+    <div className="fixed inset-0 bg-black/80 z-[60] flex flex-col" onMouseMove={onMove} onMouseUp={onUp}>
+      {/* Header */}
+      <div className="bg-emerald-900 text-white px-4 py-3 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-2">
+          <Send className="w-5 h-5" />
+          <div>
+            <h2 className="font-bold text-sm">Assinatura do cliente — posicionar</h2>
+            <p className="text-xs text-emerald-300 mt-0.5">Arraste um retângulo sobre a linha de assinatura de cada signatário, em cada documento.</p>
+          </div>
         </div>
+        <button onClick={onClose} className="text-emerald-300 hover:text-white"><X className="w-5 h-5" /></button>
+      </div>
 
-        {sessao && sessao.status !== 'concluida' && (
-          <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 10, padding: '10px 12px', marginBottom: 10 }}>
-            <div style={{ fontSize: 13, color: '#92400e', fontWeight: 600 }}>
-              Já enviado · {sessao.assinados}/{sessao.total} assinaram
-            </div>
-            <div style={{ fontSize: 12, color: '#9a6a00', margin: '2px 0 8px' }}>
-              {sessao.signatarios?.map((s) => `${s.nome?.split(' ')[0]}: ${s.status === 'assinado' ? '✓ assinou' : 'pendente'}`).join(' · ')}
-            </div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-              {sessao.signatarios?.filter((s) => s.status !== 'assinado').map((s) => (
-                <input key={s.role} value={reenvioFones[s.role] ?? ''}
-                  onChange={(e) => setReenvioFones((f) => ({ ...f, [s.role]: e.target.value }))}
-                  placeholder={`WhatsApp de ${s.nome?.split(' ')[0]} (DDD+número)`}
-                  style={{ flex: '1 1 200px', border: '1px solid #fcd34d', borderRadius: 8, padding: '7px 10px', fontSize: 13, background: '#fff' }} />
-              ))}
-            </div>
-            <button onClick={reenviar} disabled={reenviando}
-              style={{ background: '#B8860B', color: '#fff', fontWeight: 700, border: 'none', borderRadius: 8, padding: '8px 16px', cursor: 'pointer', fontSize: 13 }}>
-              {reenviando ? 'Reenviando…' : '🔁 Reenviar links (sem reposicionar)'}
-            </button>
-            <span style={{ fontSize: 11, color: '#9a6a00', marginLeft: 10 }}>ou reposicione abaixo para um novo envio</span>
-          </div>
-        )}
-        {sessao && sessao.status === 'concluida' && (
-          <div style={{ background: '#ecfdf5', border: '1px solid #6ee7b7', borderRadius: 10, padding: '10px 12px', marginBottom: 10, fontSize: 13, color: '#065f46', fontWeight: 600 }}>
-            ✓ Todos os clientes já assinaram ({sessao.assinados}/{sessao.total}). {sessao.pdf_final_url ? 'PDF com assinaturas gerado.' : ''}
-          </div>
-        )}
+      {carregando ? (
+        <div className="flex-1 flex items-center justify-center text-white"><Loader2 className="w-8 h-8 animate-spin mr-2" /> Preparando documentos…</div>
+      ) : (
+        <>
+          {/* Controles (rolável, não engole o visualizador) */}
+          <div className="bg-white border-b border-gray-200 px-4 py-3 shrink-0 max-h-[42vh] overflow-auto space-y-3">
+            {sessao && sessao.status !== 'concluida' && (
+              <div className="bg-amber-50 border border-amber-300 rounded-xl px-3 py-2.5">
+                <div className="text-[13px] font-semibold text-amber-800">Já enviado · {sessao.assinados}/{sessao.total} assinaram</div>
+                <div className="text-xs text-amber-700 mt-0.5 mb-2">
+                  {sessao.signatarios?.map((s) => `${s.nome?.split(' ')[0]}: ${s.status === 'assinado' ? '✓ assinou' : 'pendente'}`).join(' · ')}
+                </div>
+                <div className="flex gap-2 flex-wrap mb-2">
+                  {sessao.signatarios?.filter((s) => s.status !== 'assinado').map((s) => (
+                    <input key={s.role} value={reenvioFones[s.role] ?? ''}
+                      onChange={(e) => setReenvioFones((f) => ({ ...f, [s.role]: e.target.value }))}
+                      placeholder={`WhatsApp de ${s.nome?.split(' ')[0]} (DDD+número)`}
+                      className="flex-1 min-w-[200px] border border-amber-300 rounded-lg px-2.5 py-1.5 text-[13px] bg-white" />
+                  ))}
+                </div>
+                <button onClick={reenviar} disabled={reenviando}
+                  className="bg-[#B8860B] text-white font-bold rounded-lg px-4 py-2 text-[13px]">
+                  {reenviando ? 'Reenviando…' : '🔁 Reenviar links (sem reposicionar)'}
+                </button>
+                <span className="text-[11px] text-amber-700 ml-2.5">ou reposicione abaixo para um novo envio</span>
+              </div>
+            )}
+            {sessao && sessao.status === 'concluida' && (
+              <div className="bg-emerald-50 border border-emerald-300 rounded-xl px-3 py-2.5 text-[13px] text-emerald-800 font-semibold">
+                ✓ Todos os clientes já assinaram ({sessao.assinados}/{sessao.total}). {sessao.pdf_final_url ? 'PDF com assinaturas gerado.' : ''}
+              </div>
+            )}
 
-        {carregando ? (
-          <div style={{ padding: 40, textAlign: 'center' }}><Loader2 className="animate-spin" /> Preparando documentos…</div>
-        ) : (
-          <>
             {documentos.length > 1 && (
-              <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+              <div className="flex gap-2">
                 {documentos.map((d, i) => {
                   const okCount = posicionaveis.filter((s) => ancoras[k(d.tipo, s.role)]).length;
                   return (
                     <button key={d.tipo} onClick={() => { setDocAtivo(i); setPrevia(null); }}
-                      style={{ flex: 1, padding: '8px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700,
-                        border: `2px solid #0B6E4F`, background: i === docAtivo ? '#0B6E4F' : '#fff', color: i === docAtivo ? '#fff' : '#0B6E4F' }}>
+                      className="flex-1 px-3 py-2 rounded-lg text-[13px] font-bold border-2 border-emerald-700"
+                      style={{ background: i === docAtivo ? '#0B6E4F' : '#fff', color: i === docAtivo ? '#fff' : '#0B6E4F' }}>
                       {d.titulo} ({okCount}/{posicionaveis.length})
                     </button>
                   );
@@ -203,87 +209,88 @@ export default function AssinaturaClienteModal({ contratoId, onClose }) {
               </div>
             )}
 
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+            <div className="flex gap-2 flex-wrap">
               {posicionaveis.map((s, i) => (
                 <button key={s.role} onClick={() => setAtivo(i)}
-                  style={{ padding: '6px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 13,
-                    border: `2px solid ${CORES[i % CORES.length]}`,
-                    background: i === ativo ? CORES[i % CORES.length] : '#fff',
-                    color: i === ativo ? '#fff' : '#333' }}>
+                  className="px-3 py-1.5 rounded-lg text-[13px] border-2"
+                  style={{ borderColor: CORES[i % CORES.length], background: i === ativo ? CORES[i % CORES.length] : '#fff', color: i === ativo ? '#fff' : '#333' }}>
                   {ROLE_LABEL[s.role] || s.role}: {s.nome.split(' ')[0]} {ancoras[k(docTipo, s.role)] ? '✓' : ''}
                 </button>
               ))}
             </div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+
+            <div className="flex gap-2 flex-wrap">
               {signatarios.map((s, i) => (
                 <input key={s.role} value={s.telefone || ''} onChange={(e) => setFone(i, e.target.value)}
                   placeholder={`WhatsApp de ${s.nome.split(' ')[0]} (DDD+número)`}
-                  style={{ flex: '1 1 200px', border: '1px solid #ccc', borderRadius: 8, padding: '7px 10px', fontSize: 13 }} />
+                  className="flex-1 min-w-[200px] border border-gray-300 rounded-lg px-2.5 py-1.5 text-[13px]" />
               ))}
             </div>
+
             {corretor && (
-              <div style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 10, padding: 10, marginBottom: 10 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
+              <div className="bg-slate-50 border border-slate-300 rounded-xl p-2.5">
+                <div className="text-[13px] font-bold text-slate-700 mb-1.5">
                   ✍️ Sua assinatura ({corretor.nome?.split(' ')[0]}) — carimbada ANTES de enviar ao cliente
                 </div>
                 <canvas ref={corCanvas} width={500} height={120}
                   onMouseDown={corStart} onMouseMove={corMove} onMouseUp={corEnd} onMouseLeave={corEnd}
                   onTouchStart={corStart} onTouchMove={corMove} onTouchEnd={corEnd}
                   style={{ width: '100%', height: 120, background: '#fff', border: '1px dashed #94a3b8', borderRadius: 8, touchAction: 'none', cursor: 'crosshair', display: 'block' }} />
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6 }}>
-                  <button onClick={corLimpar} style={{ background: 'none', border: '1px solid #94a3b8', color: '#475569', borderRadius: 8, padding: '5px 12px', cursor: 'pointer', fontSize: 12 }}>Limpar</button>
-                  <span style={{ fontSize: 11, color: corretorTraco ? '#0B6E4F' : '#b45309' }}>
+                <div className="flex items-center gap-2.5 mt-1.5">
+                  <button onClick={corLimpar} className="border border-slate-400 text-slate-600 rounded-lg px-3 py-1 text-xs">Limpar</button>
+                  <span className="text-[11px]" style={{ color: corretorTraco ? '#0B6E4F' : '#b45309' }}>
                     {corretorTraco ? '✓ assinatura pronta (será salva p/ reutilizar)' : 'desenhe sua assinatura aqui'}
                   </span>
                 </div>
                 {corretor.assinatura_padrao && corretorTraco && (
-                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+                  <div className="text-[11px] text-slate-500 mt-1">
                     ✨ Gerada automaticamente do seu nome. Desenhe por cima (ou Limpar) para usar a sua de próprio punho.
                   </div>
                 )}
               </div>
             )}
-            <p style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>
-              No <b>{documentos[docAtivo]?.titulo}</b>: selecione o signatário (inclusive <b>Você</b>) e <b>arraste um retângulo</b> sobre a linha de assinatura dele.
+
+            <p className="text-xs text-gray-500">
+              No <b>{documentos[docAtivo]?.titulo}</b>: selecione o signatário (inclusive <b>Você</b>) e <b>arraste um retângulo</b> sobre a linha de assinatura dele. Role o documento abaixo para navegar entre as páginas.
             </p>
+          </div>
 
-            <div style={{ overflow: 'auto', maxHeight: '52vh', border: '1px solid #eee', borderRadius: 8 }}>
-              {paginas.map((pg, idx) => (
-                <div key={idx} style={{ position: 'relative', margin: '8px auto', width: 'fit-content' }}>
-                  <img src={`data:image/png;base64,${pg.imagem_b64}`} alt={`Página ${idx + 1}`}
-                    onMouseDown={(e) => onDown(e, idx)} draggable={false}
-                    style={{ display: 'block', maxWidth: '100%', cursor: 'crosshair', userSelect: 'none' }} />
-                  {posicionaveis.map((s, i) => {
-                    const a = ancoras[k(docTipo, s.role)];
-                    if (!a || a._px?.pagina !== idx) return null;
-                    return <div key={s.role} style={{ position: 'absolute', border: `2px solid ${CORES[i % CORES.length]}`,
-                      background: CORES[i % CORES.length] + '22', left: a._px.x, top: a._px.y, width: a._px.w, height: a._px.h,
-                      pointerEvents: 'none', fontSize: 9, color: CORES[i % CORES.length] }}>{s.nome.split(' ')[0]}</div>;
-                  })}
-                  {previa && previa.pagina === idx && (
-                    <div style={{ position: 'absolute', border: `2px dashed ${CORES[ativo % CORES.length]}`,
-                      left: previa.x, top: previa.y, width: previa.w, height: previa.h, pointerEvents: 'none' }} />
-                  )}
-                </div>
-              ))}
-            </div>
+          {/* Visualizador grande (todas as páginas do documento ativo) */}
+          <div className="flex-1 overflow-auto bg-gray-800 p-4">
+            {paginas.map((pg, idx) => (
+              <div key={idx} className="relative select-none mx-auto mb-4 shadow-2xl" style={{ width: 'fit-content', maxWidth: '100%' }}>
+                <div className="absolute -top-0 left-0 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded-br z-10 pointer-events-none">Pág. {idx + 1}/{paginas.length}</div>
+                <img src={`data:image/png;base64,${pg.imagem_b64}`} alt={`Página ${idx + 1}`}
+                  onMouseDown={(e) => onDown(e, idx)} draggable={false}
+                  style={{ display: 'block', width: 820, maxWidth: '100%', cursor: 'crosshair', userSelect: 'none' }} />
+                {posicionaveis.map((s, i) => {
+                  const a = ancoras[k(docTipo, s.role)];
+                  if (!a || a._px?.pagina !== idx) return null;
+                  return <div key={s.role} style={{ position: 'absolute', border: `2px solid ${CORES[i % CORES.length]}`,
+                    background: CORES[i % CORES.length] + '22', left: a._px.x, top: a._px.y, width: a._px.w, height: a._px.h,
+                    pointerEvents: 'none', fontSize: 9, color: CORES[i % CORES.length] }}>{s.nome.split(' ')[0]}</div>;
+                })}
+                {previa && previa.pagina === idx && (
+                  <div style={{ position: 'absolute', border: `2px dashed ${CORES[ativo % CORES.length]}`,
+                    left: previa.x, top: previa.y, width: previa.w, height: previa.h, pointerEvents: 'none' }} />
+                )}
+              </div>
+            ))}
+          </div>
 
+          {/* Footer */}
+          <div className="bg-gray-900 px-4 py-3 shrink-0 flex gap-2">
+            <button onClick={onClose} className="flex-1 border border-gray-600 text-gray-300 py-3 rounded-xl text-sm">Cancelar</button>
             <button onClick={enviar} disabled={enviando}
-              style={{ width: '100%', marginTop: 12, background: '#0B6E4F', color: '#fff', fontWeight: 700,
-                border: 'none', borderRadius: 10, padding: '12px 0', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: enviando ? 0.6 : 1 }}>
+              className="flex-[2] bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-2 disabled:opacity-60">
               {enviando ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />}
               Enviar links por WhatsApp
             </button>
-          </>
-        )}
-      </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
 function stripPx(a) { if (!a) return {}; const { _px, ...rest } = a; return rest; }
-
-const ovl = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 60,
-  display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 };
-const box = { background: '#fff', borderRadius: 14, padding: 20, width: '100%', maxWidth: 720, maxHeight: '92vh', overflow: 'auto' };

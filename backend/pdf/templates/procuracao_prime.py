@@ -8,7 +8,7 @@ import logging
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm
 from reportlab.platypus import (
-    Frame, NextPageTemplate, PageBreak, PageTemplate, Paragraph, Spacer, Table, TableStyle,
+    Frame, KeepTogether, NextPageTemplate, PageBreak, PageTemplate, Paragraph, Spacer, Table, TableStyle,
 )
 
 from pdf.themes import prime2_theme as T
@@ -189,7 +189,8 @@ def render_procuracao(doc: dict, uid: str, empresa: str) -> bytes:
               Spacer(1, 10),
               Paragraph("Recomenda-se o reconhecimento de firma das assinaturas dos OUTORGANTES, podendo ser "
                         "exigido pelas instituições destinatárias (art. 654, § 2º, do Código Civil).", st["assina_cred"])]
-    story.extend(bloco)
+    # bloco de assinaturas inteiro numa única página (apresentação + facilita ao cliente assinar)
+    story.append(KeepTogether(bloco))
 
     pdf.build(story)
     return buf.getvalue()
