@@ -124,10 +124,9 @@ async def posicionar(cid: str, payload: dict, uid: str = Depends(get_active_subs
     if faltam:
         raise HTTPException(status_code=422,
                             detail=f"Informe o WhatsApp de: {', '.join(s.get('nome', '?') for s in faltam)}")
-    # WhatsApp distinto entre signatários
-    fones = [_so_dig(s.get("telefone")) for s in signatarios_in]
-    if len(set(fones)) != len(fones):
-        raise HTTPException(status_code=422, detail="Cada signatário precisa de um WhatsApp distinto.")
+    # NOTA: o mesmo WhatsApp PODE repetir entre signatários (casal que compartilha o
+    # número, ou teste enviando tudo p/ o próprio número) — cada signatário tem token
+    # próprio, então recebe um link distinto mesmo no mesmo telefone.
 
     pdf_bytes = await _gerar_contrato_pdf(db, doc, uid)
     if not pdf_bytes or not pdf_bytes.startswith(b"%PDF-"):
