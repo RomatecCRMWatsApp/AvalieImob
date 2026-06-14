@@ -546,7 +546,15 @@ const ContratosList = () => {
                   <ActBtn icon={MessageCircle} label="WhatsApp" onClick={() => enviarWhatsApp(c)} className="border-green-200 bg-green-50 text-green-700 hover:bg-green-100" />
                   <ActBtn icon={Link2} label="Link" onClick={() => compartilhar(contratoId)} className="border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100" />
                   <ActBtn icon={History} label="Histórico" onClick={() => setHistoricoDoc(c)} className="border-gray-200 text-gray-600 hover:bg-gray-50" />
-                  <ActBtn icon={MessageCircle} label="Assin. cliente" onClick={() => setAssinClienteDoc(c)} className="col-span-3 border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100" />
+                  {(() => {
+                    const ACS = {
+                      enviado: { label: 'Assin. cliente · enviado ✈', cls: 'col-span-3 border-blue-300 bg-blue-50 text-blue-800 hover:bg-blue-100' },
+                      parcial_cliente: { label: 'Assin. cliente · parcial', cls: 'col-span-3 border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100' },
+                      assinado_cliente: { label: '✓ Clientes assinaram — reenviar/ver', cls: 'col-span-3 border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100' },
+                    };
+                    const m = ACS[c.assinatura_cliente_status] || { label: 'Assin. cliente', cls: 'col-span-3 border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100' };
+                    return <ActBtn icon={MessageCircle} label={m.label} onClick={() => setAssinClienteDoc(c)} className={m.cls} />;
+                  })()}
                 </div>
 
                 {/* Footer — contadores + recibo + overflow */}

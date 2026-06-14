@@ -17,10 +17,13 @@ export default function AssinaturaClienteModal({ contratoId, onClose }) {
   const [ativo, setAtivo] = useState(0); // índice do signatário
   const [ancoras, setAncoras] = useState({}); // `${tipo}:${role}` -> {pagina,x_pt,y_pt,larg_pt,alt_pt,_px}
   const [enviando, setEnviando] = useState(false);
+  const [sessao, setSessao] = useState(null);   // sessão já enviada (status + signatários)
+  const [reenviando, setReenviando] = useState(false);
   const arrasto = useRef(null);
   const [previa, setPrevia] = useState(null);
 
   useEffect(() => {
+    assinaturaClienteAPI.sessao(contratoId).then((d) => setSessao(d?.sessao || null)).catch(() => {});
     assinaturaClienteAPI.preparar(contratoId)
       .then((d) => {
         const docs = d.documentos || (d.paginas ? [{ tipo: 'contrato', titulo: 'Contrato', paginas: d.paginas }] : []);
@@ -30,6 +33,20 @@ export default function AssinaturaClienteModal({ contratoId, onClose }) {
       .catch((e) => toast({ title: 'Erro ao preparar', description: e?.response?.data?.detail || '', variant: 'destructive' }))
       .finally(() => setCarregando(false));
   }, [contratoId]); // eslint-disable-line
+
+  const reenviar = async () => {
+    setReenviando(true);
+    try {
+      const r = await assinaturaClienteAPI.reenviar(contratoId);
+      toast({ title: `Links reenviados (${r.reenviados})`, description: 'Pra quem ainda não assinou.' });
+      const d = await assinaturaClienteAPI.sessao(contratoId);
+      setSessao(d?.sessao || null);
+    } catch (e) {
+      toast({ title: 'Falha ao reenviar', description: e?.response?.data?.detail || '', variant: 'destructive' });
+    } finally {
+      setReenviando(false);
+    }
+  };
 
   const sig = signatarios[ativo];
   const docTipo = documentos[docAtivo]?.tipo || 'contrato';
@@ -103,6 +120,27 @@ export default function AssinaturaClienteModal({ contratoId, onClose }) {
           <h3 style={{ fontWeight: 700, color: '#0B6E4F' }}>📲 Assinatura do cliente — posicionar</h3>
           <button onClick={onClose} style={{ border: 'none', background: 'none', cursor: 'pointer' }}><X size={20} /></button>
         </div>
+
+        {sessao && sessao.status !== 'concluida' && (
+          <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 10, padding: '10px 12px', marginBottom: 10 }}>
+            <div style={{ fontSize: 13, color: '#92400e', fontWeight: 600 }}>
+              Já enviado · {sessao.assinados}/{sessao.total} assinaram
+            </div>
+            <div style={{ fontSize: 12, color: '#9a6a00', margin: '2px 0 8px' }}>
+              {sessao.signatarios?.map((s) => `${s.nome?.split(' ')[0]}: ${s.status === 'assinado' ? '✓ assinou' : 'pendente'}`).join(' · ')}
+            </div>
+            <button onClick={reenviar} disabled={reenviando}
+              style={{ background: '#B8860B', color: '#fff', fontWeight: 700, border: 'none', borderRadius: 8, padding: '8px 16px', cursor: 'pointer', fontSize: 13 }}>
+              {reenviando ? 'Reenviando…' : '🔁 Reenviar links (sem reposicionar)'}
+            </button>
+            <span style={{ fontSize: 11, color: '#9a6a00', marginLeft: 10 }}>ou reposicione abaixo para um novo envio</span>
+          </div>
+        )}
+        {sessao && sessao.status === 'concluida' && (
+          <div style={{ background: '#ecfdf5', border: '1px solid #6ee7b7', borderRadius: 10, padding: '10px 12px', marginBottom: 10, fontSize: 13, color: '#065f46', fontWeight: 600 }}>
+            ✓ Todos os clientes já assinaram ({sessao.assinados}/{sessao.total}). {sessao.pdf_final_url ? 'PDF com assinaturas gerado.' : ''}
+          </div>
+        )}
 
         {carregando ? (
           <div style={{ padding: 40, textAlign: 'center' }}><Loader2 className="animate-spin" /> Preparando documentos…</div>

@@ -124,6 +124,26 @@ def _signatarios_sugeridos(doc: dict) -> list:
     return out
 
 
+async def _disparar_links(db, cfg, sessao_id: str, signatarios: list) -> list:
+    """Envia (ou reenvia) o link de assinatura por WhatsApp a cada signatário da lista.
+    Reutiliza o MESMO token/link de cada um. Marca status 'enviado'."""
+    links = []
+    for s in signatarios:
+        url = f"{APP_URL}/assinar-cliente/{s['token']}"
+        primeiro = str(s.get("nome") or "").split(" ")[0]
+        msg = (f"Olá, {primeiro}! A *Romatec Consultoria Total* enviou um documento para sua "
+               f"assinatura eletrônica.\n\nAssine com segurança neste link:\n{url}\n\n"
+               f"O link é pessoal e tem validade limitada (Lei 14.063/2020).")
+        try:
+            await _enviar_texto(cfg, s["telefone"], msg)
+            await db[COL].update_one({"id": sessao_id, "signatarios.token": s["token"]},
+                                     {"$set": {"signatarios.$.status": "enviado"}})
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Falha ao enviar WhatsApp p/ %s: %s", s.get("telefone"), e)
+        links.append({"role": s.get("role"), "nome": s.get("nome"), "url": url})
+    return links
+
+
 # ───────────────────────── rotas autenticadas ─────────────────────────
 
 @router.post("/contratos/{cid}/preparar")
@@ -207,23 +227,52 @@ async def posicionar(cid: str, payload: dict, uid: str = Depends(get_active_subs
         "signatarios": signatarios,
     }
     await db[COL].insert_one(sessao)
+    # denormaliza o status no contrato p/ o card mostrar sem chamada extra
+    await db.contratos.update_one(
+        {"id": cid, "user_id": uid},
+        {"$set": {"assinatura_cliente_status": "enviado",
+                  "assinatura_cliente_sessao_id": sessao_id,
+                  "assinatura_cliente_enviado_em": datetime.utcnow()}})
 
     cfg = await _zapi_cfg(db, uid)
-    links = []
-    for s in signatarios:
-        url = f"{APP_URL}/assinar-cliente/{s['token']}"
-        primeiro = str(s["nome"]).split(" ")[0]
-        msg = (f"Olá, {primeiro}! A *Romatec Consultoria Total* enviou um documento para sua "
-               f"assinatura eletrônica.\n\nAssine com segurança neste link:\n{url}\n\n"
-               f"O link é pessoal e tem validade limitada (Lei 14.063/2020).")
-        try:
-            await _enviar_texto(cfg, s["telefone"], msg)
-            await db[COL].update_one({"id": sessao_id, "signatarios.token": s["token"]},
-                                     {"$set": {"signatarios.$.status": "enviado"}})
-        except Exception as e:  # noqa: BLE001
-            logger.warning("Falha ao enviar WhatsApp p/ %s: %s", s["telefone"], e)
-        links.append({"role": s["role"], "nome": s["nome"], "url": url})
+    links = await _disparar_links(db, cfg, sessao_id, signatarios)
     return {"ok": True, "sessao_id": sessao_id, "links": links}
+
+
+@router.get("/contratos/{cid}/sessao")
+async def obter_sessao(cid: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    """Status da ÚLTIMA sessão de assinatura do cliente (p/ o card). Retorna sessão=null se nunca enviou."""
+    sessao = await db[COL].find_one({"contrato_id": cid, "user_id": uid}, sort=[("created_at", -1)])
+    if not sessao:
+        return {"ok": True, "sessao": None}
+    sigs = [{"role": s.get("role"), "nome": s.get("nome"), "telefone": s.get("telefone"),
+             "status": s.get("status"), "assinado_em": s.get("assinado_em")}
+            for s in sessao.get("signatarios", [])]
+    assinados = sum(1 for s in sigs if s["status"] == "assinado")
+    return {"ok": True, "sessao": {
+        "id": sessao["id"], "status": sessao.get("status"),
+        "expira_em": sessao.get("expira_em"), "created_at": sessao.get("created_at"),
+        "signatarios": sigs, "assinados": assinados, "total": len(sigs),
+        "tem_procuracao": any(d.get("tipo") == "procuracao" for d in sessao.get("documentos", [])),
+        "pdf_final_url": (await db.contratos.find_one({"id": cid}, {"assinatura_cliente_pdf_url": 1}) or {}).get("assinatura_cliente_pdf_url"),
+    }}
+
+
+@router.post("/contratos/{cid}/reenviar")
+async def reenviar(cid: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    """REENVIA os links da última sessão pelos MESMOS dados (sem reposicionar). Só p/ quem
+    ainda não assinou — resolve o 'toda vez tenho que abrir, recolocar e enviar'."""
+    sessao = await db[COL].find_one({"contrato_id": cid, "user_id": uid}, sort=[("created_at", -1)])
+    if not sessao:
+        raise HTTPException(status_code=404, detail="Nenhum envio encontrado — posicione e envie a primeira vez.")
+    if sessao.get("status") == "concluida":
+        raise HTTPException(status_code=400, detail="Todos os signatários já assinaram — nada a reenviar.")
+    cfg = await _zapi_cfg(db, uid)
+    pendentes = [s for s in sessao.get("signatarios", []) if s.get("status") != "assinado"]
+    if not pendentes:
+        raise HTTPException(status_code=400, detail="Nenhum signatário pendente.")
+    links = await _disparar_links(db, cfg, sessao["id"], pendentes)
+    return {"ok": True, "reenviados": len(links), "links": links}
 
 
 # ───────────────────────── rotas públicas ─────────────────────────
@@ -279,6 +328,9 @@ async def assinar(token: str, payload: dict, request: Request, db=Depends(get_db
     todos = all(s.get("status") == "assinado" for s in sessao["signatarios"])
     await db[COL].update_one({"id": sessao["id"]},
                              {"$set": {"status": "concluida" if todos else "parcial"}})
+    await db.contratos.update_one(
+        {"id": sessao["contrato_id"]},
+        {"$set": {"assinatura_cliente_status": "assinado_cliente" if todos else "parcial_cliente"}})
     if todos:
         try:
             await _processar_carimbo(db, sessao)
@@ -330,7 +382,8 @@ async def _processar_carimbo(db, sessao: dict):
         campo = "procuracao_cliente_pdf_url" if tipo == "procuracao" else "assinatura_cliente_pdf_url"
         await db.contratos.update_one(
             {"id": sessao["contrato_id"]},
-            {"$set": {campo: url, "assinatura_cliente_em": datetime.utcnow()}})
+            {"$set": {campo: url, "assinatura_cliente_em": datetime.utcnow(),
+                      "assinatura_cliente_status": "assinado_cliente"}})
         if cfg:
             nome_arq = "procuracao_assinada.pdf" if tipo == "procuracao" else "contrato_assinado.pdf"
             rotulo = "Procuração" if tipo == "procuracao" else "Contrato"
