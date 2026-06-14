@@ -740,7 +740,8 @@ const Step5Objeto = ({ form, setForm }) => {
             </div>
           </div>
 
-          {form.tipo_contrato === 'exclusividade' && (
+          {/* Ficha completa do imóvel (BCI/IPTU/medidas/alienação/fotos/docs) — para TODOS os tipos */}
+          {(
             <div className="space-y-4">
               {/* Cadastro Imobiliário Municipal (BCI) */}
               <div className="bg-gray-50 rounded-xl p-4">
