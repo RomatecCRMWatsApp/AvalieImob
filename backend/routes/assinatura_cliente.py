@@ -79,6 +79,25 @@ async def _gerar_contrato_pdf(db, doc: dict, uid: str) -> bytes:
     return await _gerar_pdf("contrato", doc, db=db, perfil=perfil)
 
 
+def _tem_procuracao(doc: dict) -> bool:
+    """Contrato gera procuração? (toggle 'Gerar procuração?' do Wizard + tem outorgantes)."""
+    p = doc.get("procuracao") or {}
+    return bool(p.get("gerar")) and bool(doc.get("vendedores"))
+
+
+async def _gerar_procuracao_pdf(db, doc: dict, uid: str) -> bytes:
+    """Gera o PDF da PROCURAÇÃO vinculada (reusa o gerador existente em routes.contratos)."""
+    from routes.contratos import _generate_procuracao_pdf_bytes
+    user = await db.users.find_one({"id": uid}, {"company": 1, "name": 1}) or {}
+    empresa = user.get("company") or user.get("name") or "Romatec Consultoria Total"
+    return _generate_procuracao_pdf_bytes(doc, uid, empresa)
+
+
+async def _gerar_doc_pdf(db, doc: dict, uid: str, tipo: str) -> bytes:
+    return await (_gerar_procuracao_pdf(db, doc, uid) if tipo == "procuracao"
+                  else _gerar_contrato_pdf(db, doc, uid))
+
+
 def _signatarios_sugeridos(doc: dict) -> list:
     """Contratante (1º vendedor) + Cônjuge anuente (se casado), com telefone se houver."""
     vend = (doc.get("vendedores") or [])
@@ -101,12 +120,22 @@ def _signatarios_sugeridos(doc: dict) -> list:
 async def preparar(cid: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
     """Gera o PDF (sem ICP) e renderiza as páginas para o corretor POSICIONAR as caixas."""
     doc = await _carregar_contrato(db, cid, uid)
-    pdf_bytes = await _gerar_contrato_pdf(db, doc, uid)
-    if not pdf_bytes or not pdf_bytes.startswith(b"%PDF-"):
-        raise HTTPException(status_code=500, detail="Falha ao gerar o PDF do contrato")
     from services.pdf_preview import renderizar_paginas
-    paginas = renderizar_paginas(pdf_bytes)
-    return {"ok": True, "paginas": paginas, "signatarios": _signatarios_sugeridos(doc)}
+    documentos = []
+    pdf_c = await _gerar_contrato_pdf(db, doc, uid)
+    if not pdf_c or not pdf_c.startswith(b"%PDF-"):
+        raise HTTPException(status_code=500, detail="Falha ao gerar o PDF do contrato")
+    documentos.append({"tipo": "contrato", "titulo": "Contrato", "paginas": renderizar_paginas(pdf_c)})
+    if _tem_procuracao(doc):
+        try:
+            pdf_p = await _gerar_procuracao_pdf(db, doc, uid)
+            if pdf_p and pdf_p.startswith(b"%PDF-"):
+                documentos.append({"tipo": "procuracao", "titulo": "Procuração", "paginas": renderizar_paginas(pdf_p)})
+        except Exception:
+            logger.warning("Falha ao gerar/renderizar a procuração no preparar.", exc_info=True)
+    # compat: 'paginas' = páginas do contrato (caso algum cliente antigo leia)
+    return {"ok": True, "documentos": documentos, "paginas": documentos[0]["paginas"],
+            "signatarios": _signatarios_sugeridos(doc)}
 
 
 @router.post("/contratos/{cid}/posicionar")
@@ -116,9 +145,12 @@ async def posicionar(cid: str, payload: dict, uid: str = Depends(get_active_subs
     signatarios:[{role,nome,cpf,telefone}]}."""
     from services import r2_storage
     doc = await _carregar_contrato(db, cid, uid)
-    ancoras = payload.get("ancoras") or []
     signatarios_in = payload.get("signatarios") or _signatarios_sugeridos(doc)
-    if not ancoras:
+    # documentos: [{tipo, ancoras:[{role,pagina,...}]}]. Compat: payload antigo {ancoras} → contrato.
+    docs_in = payload.get("documentos")
+    if not docs_in:
+        docs_in = [{"tipo": "contrato", "ancoras": payload.get("ancoras") or []}]
+    if not any((di.get("ancoras") or []) for di in docs_in):
         raise HTTPException(status_code=422, detail="Posicione ao menos uma caixa de assinatura.")
     faltam = [s for s in signatarios_in if not _so_dig(s.get("telefone"))]
     if faltam:
@@ -128,17 +160,24 @@ async def posicionar(cid: str, payload: dict, uid: str = Depends(get_active_subs
     # número, ou teste enviando tudo p/ o próprio número) — cada signatário tem token
     # próprio, então recebe um link distinto mesmo no mesmo telefone.
 
-    pdf_bytes = await _gerar_contrato_pdf(db, doc, uid)
-    if not pdf_bytes or not pdf_bytes.startswith(b"%PDF-"):
-        raise HTTPException(status_code=500, detail="Falha ao gerar o PDF do contrato")
-
     sessao_id = gerar_token()[:24]
-    pdf_key = f"assinatura-cliente/{sessao_id}/contrato_base.pdf"
-    try:
-        r2_storage.upload_bytes(pdf_bytes, pdf_key, "application/pdf")
-    except Exception as e:  # noqa: BLE001
-        logger.error("Falha ao subir PDF-base no R2: %s", e, exc_info=True)
-        raise HTTPException(status_code=500, detail="Falha ao armazenar o documento")
+    documentos_sessao = []
+    for di in docs_in:
+        tipo = "procuracao" if di.get("tipo") == "procuracao" else "contrato"
+        ancoras = di.get("ancoras") or []
+        if not ancoras:
+            continue
+        pdf_bytes = await _gerar_doc_pdf(db, doc, uid, tipo)
+        if not pdf_bytes or not pdf_bytes.startswith(b"%PDF-"):
+            raise HTTPException(status_code=500, detail=f"Falha ao gerar o PDF ({tipo})")
+        pdf_key = f"assinatura-cliente/{sessao_id}/{tipo}_base.pdf"
+        try:
+            r2_storage.upload_bytes(pdf_bytes, pdf_key, "application/pdf")
+        except Exception as e:  # noqa: BLE001
+            logger.error("Falha ao subir PDF-base no R2: %s", e, exc_info=True)
+            raise HTTPException(status_code=500, detail="Falha ao armazenar o documento")
+        documentos_sessao.append({"tipo": tipo, "pdf_key_base": pdf_key,
+                                  "ancoras": ancoras, "pdf_key_final": None})
 
     expira = datetime.utcnow() + timedelta(hours=EXPIRA_HORAS)
     signatarios = []
@@ -152,8 +191,7 @@ async def posicionar(cid: str, payload: dict, uid: str = Depends(get_active_subs
     sessao = {
         "id": sessao_id, "user_id": uid, "contrato_id": cid, "status": "pendente",
         "expira_em": expira, "created_at": datetime.utcnow(), "updated_at": datetime.utcnow(),
-        "documentos": [{"tipo": "contrato", "pdf_key_base": pdf_key,
-                        "ancoras": ancoras, "pdf_key_final": None}],
+        "documentos": documentos_sessao,
         "signatarios": signatarios,
     }
     await db[COL].insert_one(sessao)
@@ -268,21 +306,24 @@ async def _processar_carimbo(db, sessao: dict):
         except Exception as e:  # noqa: BLE001
             logger.error("Falha ao baixar PDF-base: %s", e)
             continue
+        tipo = d.get("tipo", "contrato")
         final, _h = carimbar_documento(base_bytes, d.get("ancoras") or [], assinaturas)
-        key_final = d["pdf_key_base"].replace("contrato_base.pdf", "contrato_clientes.pdf")
+        key_final = d["pdf_key_base"].replace("_base.pdf", "_clientes.pdf")
         url = r2_storage.upload_bytes(final, key_final, "application/pdf")
         await db[COL].update_one(
             {"id": sessao["id"], "documentos.pdf_key_base": d["pdf_key_base"]},
             {"$set": {"documentos.$.pdf_key_final": key_final}})
         # marca no contrato p/ o card mostrar (sem mexer no fluxo ICP)
+        campo = "procuracao_cliente_pdf_url" if tipo == "procuracao" else "assinatura_cliente_pdf_url"
         await db.contratos.update_one(
             {"id": sessao["contrato_id"]},
-            {"$set": {"assinatura_cliente_pdf_url": url,
-                      "assinatura_cliente_em": datetime.utcnow()}})
+            {"$set": {campo: url, "assinatura_cliente_em": datetime.utcnow()}})
         if cfg:
+            nome_arq = "procuracao_assinada.pdf" if tipo == "procuracao" else "contrato_assinado.pdf"
+            rotulo = "Procuração" if tipo == "procuracao" else "Contrato"
             for s in sessao["signatarios"]:
                 try:
-                    await _enviar_pdf(cfg, s["telefone"], final, "contrato_assinado.pdf",
-                                      "Documento assinado por todas as partes. Obrigado!")
+                    await _enviar_pdf(cfg, s["telefone"], final, nome_arq,
+                                      f"{rotulo} assinado por todas as partes. Obrigado!")
                 except Exception as e:  # noqa: BLE001
                     logger.warning("Falha ao reenviar PDF final p/ %s: %s", s.get("telefone"), e)
