@@ -101,9 +101,10 @@ def _tem_procuracao(doc: dict) -> bool:
 
 async def _gerar_procuracao_pdf(db, doc: dict, uid: str) -> bytes:
     """Gera o PDF da PROCURAÇÃO vinculada (reusa o gerador existente em routes.contratos)."""
-    from routes.contratos import _generate_procuracao_pdf_bytes
+    from routes.contratos import _generate_procuracao_pdf_bytes, _preload_avaliador
     user = await db.users.find_one({"id": uid}, {"company": 1, "name": 1}) or {}
     empresa = user.get("company") or user.get("name") or "Romatec Consultoria Total"
+    doc["_avaliador"] = await _preload_avaliador(db, uid)  # qualificação completa do outorgado
     # síncrono/pesado (ReportLab) → thread p/ não travar o event loop
     return await asyncio.to_thread(_generate_procuracao_pdf_bytes, doc, uid, empresa)
 

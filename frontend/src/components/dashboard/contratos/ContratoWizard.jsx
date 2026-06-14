@@ -76,7 +76,7 @@ const EMPTY = {
   vendedores: [],
   compradores: [],
   corretor: { incluir: false, nome: '', cpf_cnpj: '', creci: '', email: '', telefone: '', comissao_percentual: 6, exclusividade: false, prazo_exclusividade: '', comissao_responsavel: 'vendedor', comissao_parcela1_pct: 50, comissao_parcela2_pct: 50, banco: 'Santander', agencia: '1225', conta: '130007144', banco_cnpj: '17.261.987/0001-09', banco_pix: 'romatec.cad@hotmail.com' },
-  objeto: { tipo_bem: 'imovel_urbano', endereco: '', bairro: '', cidade: '', uf: '', cep: '', registro_imovel: '', matricula: '', area_total: '', area_construida: '', situacao_ocupacao: '', onus: '', benfeitorias: '', ccir: '', car: '', modulos_fiscais: '', descricao_veiculo: '', placa: '', renavam: '', chassi: '', ano_fabricacao: '', cor: '' },
+  objeto: { tipo_bem: 'imovel_urbano', endereco: '', bairro: '', cidade: '', uf: '', cep: '', registro_imovel: '', cns: '', matricula: '', area_total: '', area_construida: '', situacao_ocupacao: '', onus: '', benfeitorias: '', ccir: '', car: '', modulos_fiscais: '', descricao_veiculo: '', placa: '', renavam: '', chassi: '', ano_fabricacao: '', cor: '' },
   pagamento: { valor_total: '', arras_valor: '', arras_data: '', arras_tipo: 'confirmatorias', formas: [], penalidades: null },
   config: { incluir_logo: true, incluir_recibo_arras: true, incluir_checklist: true },
 };
@@ -596,7 +596,8 @@ const Step5Objeto = ({ form, setForm }) => {
             <Input label="UF" value={obj.uf} onChange={(v) => upd('uf', v)} placeholder="MT" />
             <Input label="CEP" value={obj.cep} onChange={(v) => upd('cep', v)} placeholder="00000-000" />
             <Input label="Matrícula" value={obj.matricula} onChange={(v) => upd('matricula', v)} placeholder="Nº da matrícula no CRI" />
-            <Input label="Registro de Imóveis" value={obj.registro_imovel} onChange={(v) => upd('registro_imovel', v)} placeholder="Ex: 1º CRI de Cuiabá/MT" />
+            <Input label="Serventia / Cartório (Registro de Imóveis)" value={obj.registro_imovel} onChange={(v) => upd('registro_imovel', v)} placeholder="Ex: 1º Ofício de Registro de Imóveis de Açailândia/MA" />
+            <Input label="CNS da Serventia" value={obj.cns} onChange={(v) => upd('cns', v)} placeholder="Código Nacional da Serventia (ex: 12.345-6)" />
             <Input label="Área Total (m²)" value={obj.area_total} onChange={(v) => upd('area_total', v)} type="number" />
             <Input label="Área Construída (m²)" value={obj.area_construida} onChange={(v) => upd('area_construida', v)} type="number" />
             <Select
@@ -888,7 +889,8 @@ const Step5Objeto = ({ form, setForm }) => {
           <Input label="Área Total (ha)" value={obj.area_total} onChange={(v) => upd('area_total', v)} type="number" />
           <Input label="Módulos Fiscais" value={obj.modulos_fiscais} onChange={(v) => upd('modulos_fiscais', v)} type="number" />
           <Input label="Matrícula" value={obj.matricula} onChange={(v) => upd('matricula', v)} />
-          <Input label="Registro de Imóveis" value={obj.registro_imovel} onChange={(v) => upd('registro_imovel', v)} />
+          <Input label="Serventia / Cartório (Registro de Imóveis)" value={obj.registro_imovel} onChange={(v) => upd('registro_imovel', v)} placeholder="Ex: 1º Ofício de Registro de Imóveis de Açailândia/MA" />
+          <Input label="CNS da Serventia" value={obj.cns} onChange={(v) => upd('cns', v)} placeholder="Código Nacional da Serventia" />
           <div className="sm:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-1">Ônus / Gravames</label>
             <RichTextEditor

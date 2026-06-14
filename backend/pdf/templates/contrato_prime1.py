@@ -16,7 +16,7 @@ from reportlab.platypus import (
 from pdf.themes import prime1 as P1
 from pdf.themes import prime2_theme as T
 from pdf.templates.contrato_prime2 import (
-    _parte_nome, _parte_doc, _parte_endereco, _money, _extenso,
+    _parte_nome, _parte_doc, _parte_endereco, _endereco_full, _money, _extenso,
     _quebra_titulo, _bloco_assinaturas,
 )
 
@@ -246,10 +246,13 @@ def render(doc: dict, uid: str, empresa: str) -> bytes:
     # 01 Objeto
     story.append(SecaoHeaderP1("01", "Objeto & Imóvel", width=cw))
     story.append(Spacer(1, 4))
-    desc = objeto.get("endereco") or objeto.get("descricao") or "Imóvel a especificar."
-    story.append(Paragraph(f"◆ Endereço: {objeto.get('endereco','—')}", st["item"]))
-    story.append(Paragraph(f"◆ Matrícula: {objeto.get('matricula','—')} · Cartório: {objeto.get('cartorio','—')}", st["item"]))
-    story.append(Paragraph(f"◆ Município/UF: {objeto.get('cidade','—')}/{objeto.get('uf','—')}", st["item"]))
+    end_imovel = _endereco_full(objeto) or objeto.get("endereco") or "—"
+    desc = end_imovel if end_imovel != "—" else (objeto.get("descricao") or "Imóvel a especificar.")
+    serventia = objeto.get("registro_imovel") or objeto.get("cartorio") or objeto.get("serventia") or "—"
+    cns = objeto.get("cns") or objeto.get("cartorio_cns") or objeto.get("serventia_cns") or ""
+    story.append(Paragraph(f"◆ Endereço: {end_imovel}", st["item"]))
+    story.append(Paragraph(f"◆ Matrícula: {objeto.get('matricula','—') or '—'} · Município/UF: {objeto.get('cidade','—') or '—'}/{objeto.get('uf','—') or '—'}", st["item"]))
+    story.append(Paragraph(f"◆ Serventia / Cartório: {serventia}" + (f" · CNS {cns}" if cns else ""), st["item"]))
     story.append(Spacer(1, 12))
 
     # 02 Condições

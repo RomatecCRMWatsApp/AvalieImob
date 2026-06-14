@@ -25,6 +25,7 @@ def render_procuracao(doc: dict, uid: str, empresa: str) -> bytes:
     (_generate_procuracao_pdf_bytes), mas com capa/tipografia Prime."""
     from routes.contratos import (
         _qualifica_pf, _qualifica_pj, _data_extenso, _PODER_TEXTO_BASE, _s, _BLANK,
+        _qualifica_outorgado,
     )
     from pdf.templates.contrato_base import codigo_contrato, _xml_escape
 
@@ -86,15 +87,8 @@ def render_procuracao(doc: dict, uid: str, empresa: str) -> bytes:
     story.append(Spacer(1, 6))
     cor_nome = _s(cor.get("nome"), _BLANK)
     cor_creci = _s(cor.get("creci"), "")
-    cor_doc = _s(cor.get("cpf_cnpj"), "")
-    cor_end = _s(cor.get("endereco"), "")
-    out_txt = f"{cor_nome}, corretor(a) de imóveis"
-    if cor_creci:
-        out_txt += f" inscrito(a) no CRECI sob nº {cor_creci}"
-    if cor_doc:
-        out_txt += f", inscrito(a) no CPF/CNPJ sob nº {cor_doc}"
-    if cor_end:
-        out_txt += f", com endereço profissional em {cor_end}"
+    # qualificação COMPLETA do outorgado (perfil do avaliador + corretor do contrato)
+    out_txt = _qualifica_outorgado(cor, doc.get("_avaliador"))
     story.append(P(out_txt + "."))
 
     # 03 — OBJETO

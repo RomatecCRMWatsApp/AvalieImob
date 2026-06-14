@@ -1077,6 +1077,48 @@ def _data_extenso(s) -> str:
     return str(s)
 
 
+def _qualifica_outorgado(cor: dict, avaliador: Optional[dict] = None) -> str:
+    """Qualificação COMPLETA do outorgado (corretor) p/ a procuração.
+    Prioriza os dados do PERFIL do avaliador (CRECI/CNAI/CFT, CPF, endereço completo,
+    telefone, e-mail), caindo para o corretor do contrato. Sem trechos vazios."""
+    cor = cor or {}
+    av = avaliador or {}
+    nome = _s(av.get("nome") or cor.get("nome"), _BLANK)
+    txt = f"{nome}, corretor(a) de imóveis"
+    regs = [r for r in (av.get("registros_linhas") or []) if r]
+    if not regs:
+        c = _s(cor.get("creci"), "")
+        if c:
+            regs = [c if c.upper().startswith("CRECI") else f"CRECI {c}"]
+    if regs:
+        txt += ", inscrito(a) sob " + ", ".join(regs)
+    cpf = _s(av.get("cpf") or cor.get("cpf_cnpj") or cor.get("cpf"), "")
+    if cpf:
+        txt += f", portador(a) do CPF nº {cpf}"
+    end = _s(av.get("endereco") or cor.get("endereco"), "")
+    if end:
+        txt += f", com endereço profissional em {end}"
+    tel = _s(av.get("telefone"), "")
+    if tel:
+        txt += f", telefone {tel}"
+    email = _s(av.get("email"), "")
+    if email:
+        txt += f", e-mail {email}"
+    return txt
+
+
+async def _preload_avaliador(db, uid: str) -> dict:
+    """Carrega a qualificação completa do avaliador/corretor logado (perfil + user)."""
+    try:
+        from utils.avaliador import resolver_dados_avaliador
+        perfil = await db.perfil_avaliador.find_one({"user_id": uid}) or {}
+        user = await db.users.find_one({"id": uid}) or {}
+        return resolver_dados_avaliador(perfil=perfil, user=user)
+    except Exception:
+        logger.warning("Falha ao pré-carregar dados do avaliador.", exc_info=True)
+        return {}
+
+
 def _generate_procuracao_pdf_bytes(doc: dict, uid: str, empresa: str) -> bytes:
     """PDF da PROCURAÇÃO PARTICULAR vinculada ao contrato de exclusividade.
     Outorgantes = vendedores (etapa 2); Outorgado = corretor (etapa 3);
@@ -1123,19 +1165,9 @@ def _generate_procuracao_pdf_bytes(doc: dict, uid: str, empresa: str) -> bytes:
                 q = _safe_text(str(o))
             elems.append(_p(q + ".", styles["clausula_texto"]))
 
-        # OUTORGADO
+        # OUTORGADO — qualificação completa do corretor (perfil do avaliador)
         elems.append(_p("<b>OUTORGADO:</b>", styles["secao"]))
-        cor_nome = _s(cor.get("nome"), _BLANK)
-        cor_creci = _s(cor.get("creci"), "")
-        cor_doc = _s(cor.get("cpf_cnpj"), "")
-        cor_end = _s(cor.get("endereco"), "")
-        out_txt = f"{cor_nome}, corretor(a) de imóveis"
-        if cor_creci:
-            out_txt += f" inscrito(a) no CRECI sob nº {cor_creci}"
-        if cor_doc:
-            out_txt += f", inscrito(a) no CPF/CNPJ sob nº {cor_doc}"
-        if cor_end:
-            out_txt += f", com endereço profissional em {cor_end}"
+        out_txt = _qualifica_outorgado(cor, doc.get("_avaliador"))
         elems.append(_p(out_txt + ".", styles["clausula_texto"]))
 
         # OBJETO
@@ -1423,6 +1455,7 @@ async def baixar_procuracao_pdf(
     user = await db.users.find_one({"id": uid}, {"company": 1, "name": 1})
     empresa = (user or {}).get("company") or (user or {}).get("name") or "Romatec Consultoria Total"
 
+    doc["_avaliador"] = await _preload_avaliador(db, uid)
     pdf_bytes = _generate_procuracao_pdf_bytes(doc, uid, empresa)
     if not pdf_bytes.startswith(b"%PDF-"):
         raise HTTPException(status_code=500, detail="Falha ao gerar a procuração")

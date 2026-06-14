@@ -44,6 +44,47 @@ def _parte_endereco(p: dict) -> str:
     return (p.get("endereco") or pf.get("endereco") or pj.get("endereco") or "").strip()
 
 
+def _endereco_full(p: dict) -> str:
+    """Endereço COMPLETO (logradouro, nº, bairro, cidade-UF, CEP) a partir das partes."""
+    p = p or {}
+    pf = p.get("pf") or {}
+    pj = p.get("pj") or {}
+
+    def g(*ks):
+        for k in ks:
+            v = p.get(k) or pf.get(k) or pj.get(k)
+            if v:
+                return str(v).strip()
+        return ""
+
+    partes = [
+        g("endereco", "logradouro"),
+        (f"nº {g('numero')}" if g("numero") else ""),
+        g("bairro"),
+        g("cidade", "city"),
+        g("uf", "estado"),
+        (f"CEP {g('cep')}" if g("cep") else ""),
+    ]
+    return ", ".join([x for x in partes if x]).strip()
+
+
+def _wrap_capa(c, texto: str, font: str, size: int, max_w: float):
+    """Quebra um texto em linhas que caibam em max_w (pt) para a capa."""
+    from reportlab.pdfbase.pdfmetrics import stringWidth
+    palavras = (texto or "").split()
+    linhas, atual = [], ""
+    for w in palavras:
+        teste = (atual + " " + w).strip()
+        if stringWidth(teste, font, size) <= max_w or not atual:
+            atual = teste
+        else:
+            linhas.append(atual)
+            atual = w
+    if atual:
+        linhas.append(atual)
+    return linhas
+
+
 def _money(v) -> str:
     try:
         return "R$ " + f"{float(v):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
@@ -225,7 +266,10 @@ def _draw_capa(c, meta):
     if meta.get("contratante_doc"):
         c.drawString(MARGIN, cy - 1.15 * cm, f"CPF/CNPJ: {meta['contratante_doc']}")
     if meta.get("contratante_end"):
-        c.drawString(MARGIN, cy - 1.6 * cm, meta["contratante_end"][:90])
+        yy = cy - 1.6 * cm
+        for ln in _wrap_capa(c, meta["contratante_end"], f["sans"], 9, PAGE_W - 2 * MARGIN)[:2]:
+            c.drawString(MARGIN, yy, ln)
+            yy -= 0.42 * cm
     # rodapé capa: emissão / validade
     c.setStrokeColor(T.C_DOURADO)
     c.setLineWidth(0.5)
@@ -281,7 +325,7 @@ def render(doc: dict, uid: str, empresa: str) -> bytes:
         "subtitulo": "Lei 6.530/78 · CC arts. 722-729 (corretagem)" if "exclusiv" in (doc.get("tipo_contrato") or "").lower() else "",
         "contratante_nome": _parte_nome(contratante),
         "contratante_doc": _parte_doc(contratante),
-        "contratante_end": _parte_endereco(contratante),
+        "contratante_end": _endereco_full(contratante) or _parte_endereco(contratante),
         "emissao": f"Emitido em {(doc.get('data_assinatura') or '').strip() or '___/___/______'} · {(doc.get('cidade_assinatura') or 'Açailândia/MA')}",
         "validade": "",
     }
@@ -313,11 +357,14 @@ def render(doc: dict, uid: str, empresa: str) -> bytes:
     # 01 Objeto & Imóvel
     story.append(SecaoHeader("01", "Objeto &", "Imóvel", width=cw))
     story.append(Spacer(1, 6))
-    desc = objeto.get("endereco") or objeto.get("descricao") or "Imóvel a especificar."
+    end_imovel = _endereco_full(objeto) or objeto.get("endereco") or "—"
+    desc = end_imovel if end_imovel != "—" else (objeto.get("descricao") or "Imóvel a especificar.")
+    serventia = objeto.get("registro_imovel") or objeto.get("cartorio") or objeto.get("serventia") or "—"
+    cns = objeto.get("cns") or objeto.get("cartorio_cns") or objeto.get("serventia_cns") or ""
     linhas_obj = [
-        f"Endereço: {objeto.get('endereco','—')}",
-        f"Matrícula: {objeto.get('matricula','—')} · Cartório: {objeto.get('cartorio','—')}",
-        f"Município/UF: {objeto.get('cidade','—')}/{objeto.get('uf','—')}",
+        f"Endereço: {end_imovel}",
+        f"Matrícula: {objeto.get('matricula','—') or '—'} · Município/UF: {objeto.get('cidade','—') or '—'}/{objeto.get('uf','—') or '—'}",
+        f"Serventia / Cartório: {serventia}" + (f" · CNS {cns}" if cns else ""),
     ]
     story.append(Paragraph(f"O presente instrumento tem por objeto o imóvel adiante descrito: {desc}.", st["corpo"]))
     story.append(_card_borda_dourada("DADOS DO IMÓVEL", linhas_obj, st, cw))
