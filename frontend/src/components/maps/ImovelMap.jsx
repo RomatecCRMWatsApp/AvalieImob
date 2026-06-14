@@ -27,15 +27,18 @@ const greenIcon = new L.Icon({
 const BRAZIL_CENTER = { lat: -15.7801, lng: -47.9292 };
 const BRAZIL_ZOOM = 4;
 
-const ImovelMap = ({ endereco, lat, lng, height = 280 }) => {
+const ImovelMap = ({ endereco, lat, lng, height = 280, onPick }) => {
   const mapRef = useRef(null);
   const mapInstance = useRef(null);
   const tileRef = useRef(null);
   const markerRef = useRef(null);
+  const onPickRef = useRef(onPick);
   const [tileMode, setTileMode] = useState('mapa');
   const [coords, setCoords] = useState(null);
   const [loading, setLoading] = useState(false);
   const [geocodeFailed, setGeocodeFailed] = useState(false);
+
+  useEffect(() => { onPickRef.current = onPick; }, [onPick]);
 
   // Geocodifica via backend quando não há coords diretas
   useEffect(() => {
@@ -46,10 +49,14 @@ const ImovelMap = ({ endereco, lat, lng, height = 280 }) => {
       // Valida coordenadas dentro do território brasileiro antes de centralizar.
       if (!isNaN(la) && !isNaN(ln) && la >= -33.8 && la <= 5.3 && ln >= -73.9 && ln <= -34.7) {
         setCoords({ lat: la, lng: ln });
+        return;
       }
+    }
+    if (!endereco || endereco.trim().length < 10) {
+      // Sem endereço nem coords: se o mapa é interativo (onPick), mostra o Brasil p/ clicar.
+      if (onPick) { setCoords(BRAZIL_CENTER); setGeocodeFailed(true); }
       return;
     }
-    if (!endereco || endereco.trim().length < 10) return;
     setLoading(true);
     const params = new URLSearchParams({ endereco });
     fetch(`${API_BASE}/maps/geocode?${params}`)
@@ -72,7 +79,25 @@ const ImovelMap = ({ endereco, lat, lng, height = 280 }) => {
   // Inicializa ou atualiza mapa quando há coords
   useEffect(() => {
     if (!coords || !mapRef.current) return;
-    const zoom = geocodeFailed ? BRAZIL_ZOOM : 17;
+    const interativo = !!onPickRef.current;
+    const zoom = geocodeFailed ? (interativo ? 15 : BRAZIL_ZOOM) : 18;
+    // marcador aparece quando localizado OU quando é interativo (mostra onde clicou)
+    const mostrarMarker = !geocodeFailed || interativo;
+
+    const colocarMarker = () => {
+      if (markerRef.current) { markerRef.current.remove(); markerRef.current = null; }
+      if (!mostrarMarker) return;
+      const mk = L.marker([coords.lat, coords.lng], { icon: greenIcon, draggable: interativo })
+        .addTo(mapInstance.current);
+      if (endereco && !geocodeFailed) mk.bindPopup(endereco).openPopup();
+      if (interativo) {
+        mk.on('dragend', (e) => {
+          const ll = e.target.getLatLng();
+          onPickRef.current(+ll.lat.toFixed(6), +ll.lng.toFixed(6));
+        });
+      }
+      markerRef.current = mk;
+    };
 
     if (!mapInstance.current) {
       mapInstance.current = L.map(mapRef.current, {
@@ -85,24 +110,16 @@ const ImovelMap = ({ endereco, lat, lng, height = 280 }) => {
         maxZoom: 19,
       }).addTo(mapInstance.current);
 
-      if (!geocodeFailed) {
-        markerRef.current = L.marker([coords.lat, coords.lng], { icon: greenIcon })
-          .addTo(mapInstance.current)
-          .bindPopup(endereco || 'Imóvel avaliado')
-          .openPopup();
-      }
+      // clique no mapa marca a localização (modo interativo)
+      mapInstance.current.on('click', (e) => {
+        if (onPickRef.current) {
+          onPickRef.current(+e.latlng.lat.toFixed(6), +e.latlng.lng.toFixed(6));
+        }
+      });
+      colocarMarker();
     } else {
       mapInstance.current.setView([coords.lat, coords.lng], zoom);
-      if (markerRef.current) {
-        markerRef.current.remove();
-        markerRef.current = null;
-      }
-      if (!geocodeFailed) {
-        markerRef.current = L.marker([coords.lat, coords.lng], { icon: greenIcon })
-          .addTo(mapInstance.current)
-          .bindPopup(endereco || 'Imóvel avaliado')
-          .openPopup();
-      }
+      colocarMarker();
     }
     // FIX: o container passa de altura 0 -> height; o Leaflet precisa remedir e
     // re-centralizar, senão o mapa fica em branco ou descentralizado.
@@ -156,10 +173,15 @@ const ImovelMap = ({ endereco, lat, lng, height = 280 }) => {
         </div>
       )}
 
-      {geocodeFailed && showMap && (
+      {geocodeFailed && showMap && !onPick && (
         <div className="px-3 py-1.5 bg-amber-50 border-b border-amber-100 text-xs text-amber-700">
           Endereço não localizado automaticamente — mapa centralizado no Brasil.
           Informe rua, bairro e cidade para melhor precisão.
+        </div>
+      )}
+      {onPick && showMap && (
+        <div className="px-3 py-1.5 bg-emerald-50 border-b border-emerald-100 text-xs text-emerald-800">
+          📍 Clique no mapa (ou arraste o marcador) para marcar a localização exata — as coordenadas são preenchidas automaticamente.
         </div>
       )}
 

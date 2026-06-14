@@ -11,7 +11,7 @@ RUN yarn install --network-timeout 300000
 # Copy source and build (no REACT_APP_BACKEND_URL so it defaults to '' = same origin)
 # CACHEBUST: mudar este valor invalida o cache de camada do Docker daqui pra baixo,
 # forcando rebuild LIMPO do frontend (resolve bundle stale: menu/telas nao atualizavam).
-ARG CACHEBUST=2026-06-14-07
+ARG CACHEBUST=2026-06-14-08
 RUN echo "frontend rebuild ${CACHEBUST}"
 COPY frontend/ ./
 RUN yarn build

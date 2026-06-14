@@ -937,8 +937,14 @@ const Step5Objeto = ({ form, setForm }) => {
             </div>
           )}
 
-          {enderecoCompleto.length > 5 && (
-            <ImovelMap endereco={enderecoCompleto} height={260} />
+          {(enderecoCompleto.length > 5 || (obj.latitude && obj.longitude)) && (
+            <ImovelMap
+              endereco={enderecoCompleto}
+              lat={obj.latitude}
+              lng={obj.longitude}
+              height={260}
+              onPick={(la, ln) => setForm((f) => ({ ...f, objeto: { ...f.objeto, latitude: String(la), longitude: String(ln) } }))}
+            />
           )}
         </div>
       )}
