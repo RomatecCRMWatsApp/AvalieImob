@@ -5,8 +5,8 @@ import { X, Loader2, Send } from 'lucide-react';
 import { assinaturaClienteAPI } from '../../../lib/api';
 import { useToast } from '../../../hooks/use-toast';
 
-const ROLE_LABEL = { contratante: 'Contratante', conjuge_anuente: 'Cônjuge anuente', outorgante: 'Outorgante' };
-const CORES = ['#0B6E4F', '#B8860B', '#1d4ed8', '#9333ea'];
+const ROLE_LABEL = { contratante: 'Contratante', conjuge_anuente: 'Cônjuge anuente', outorgante: 'Outorgante', corretor: 'Você (corretor)' };
+const CORES = ['#0B6E4F', '#B8860B', '#1d4ed8', '#9333ea', '#475569'];
 
 export default function AssinaturaClienteModal({ contratoId, onClose }) {
   const { toast } = useToast();
@@ -20,6 +20,10 @@ export default function AssinaturaClienteModal({ contratoId, onClose }) {
   const [sessao, setSessao] = useState(null);   // sessão já enviada (status + signatários)
   const [reenviando, setReenviando] = useState(false);
   const [reenvioFones, setReenvioFones] = useState({}); // role -> telefone editável (default cadastro)
+  const [corretor, setCorretor] = useState(null);       // {nome, assinatura_b64} — opção A
+  const [corretorTraco, setCorretorTraco] = useState(null); // dataURL PNG da SUA assinatura
+  const corCanvas = useRef(null);
+  const corDes = useRef(false);
   const arrasto = useRef(null);
   const [previa, setPrevia] = useState(null);
 
@@ -35,6 +39,7 @@ export default function AssinaturaClienteModal({ contratoId, onClose }) {
         const docs = d.documentos || (d.paginas ? [{ tipo: 'contrato', titulo: 'Contrato', paginas: d.paginas }] : []);
         setDocumentos(docs);
         setSignatarios((d.signatarios || []).map((s) => ({ ...s })));
+        setCorretor(d.corretor || null);
       })
       .catch((e) => toast({ title: 'Erro ao preparar', description: e?.response?.data?.detail || '', variant: 'destructive' }))
       .finally(() => setCarregando(false));
@@ -55,7 +60,27 @@ export default function AssinaturaClienteModal({ contratoId, onClose }) {
     }
   };
 
-  const sig = signatarios[ativo];
+  // pré-carrega a assinatura salva do corretor no canvas
+  useEffect(() => {
+    if (!corretor?.assinatura_b64 || !corCanvas.current) return;
+    const img = new Image();
+    img.onload = () => {
+      const c = corCanvas.current; if (!c) return; const ctx = c.getContext('2d');
+      ctx.clearRect(0, 0, c.width, c.height); ctx.drawImage(img, 0, 0, c.width, c.height);
+      setCorretorTraco(`data:image/png;base64,${corretor.assinatura_b64}`);
+    };
+    img.src = `data:image/png;base64,${corretor.assinatura_b64}`;
+  }, [corretor]);
+
+  const corPos = (e) => { const c = corCanvas.current; const r = c.getBoundingClientRect(); const t = e.touches?.[0] || e; return { x: (t.clientX - r.left) * (c.width / r.width), y: (t.clientY - r.top) * (c.height / r.height) }; };
+  const corStart = (e) => { e.preventDefault(); e.stopPropagation(); corDes.current = true; const ctx = corCanvas.current.getContext('2d'); const p = corPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); };
+  const corMove = (e) => { if (!corDes.current) return; e.stopPropagation(); const ctx = corCanvas.current.getContext('2d'); const p = corPos(e); ctx.lineWidth = 2.2; ctx.lineCap = 'round'; ctx.strokeStyle = '#14315c'; ctx.lineTo(p.x, p.y); ctx.stroke(); };
+  const corEnd = () => { if (corDes.current) { corDes.current = false; setCorretorTraco(corCanvas.current.toDataURL('image/png')); } };
+  const corLimpar = () => { const c = corCanvas.current; c.getContext('2d').clearRect(0, 0, c.width, c.height); setCorretorTraco(null); };
+
+  // o corretor também é POSICIONÁVEL (assina visualmente PRIMEIRO, opção A)
+  const posicionaveis = corretor ? [...signatarios, { role: 'corretor', nome: corretor.nome }] : signatarios;
+  const sig = posicionaveis[ativo];
   const docTipo = documentos[docAtivo]?.tipo || 'contrato';
   const paginas = documentos[docAtivo]?.paginas || [];
   const k = (tipo, role) => `${tipo}:${role}`;
@@ -89,9 +114,10 @@ export default function AssinaturaClienteModal({ contratoId, onClose }) {
   };
 
   const enviar = async () => {
-    // cada signatário precisa de caixa em CADA documento
+    if (corretor && !corretorTraco) { toast({ title: 'Desenhe a SUA assinatura (corretor) primeiro', description: 'Ela é carimbada antes de enviar ao cliente.', variant: 'destructive' }); return; }
+    // cada posicionável (clientes + você) precisa de caixa em CADA documento
     for (const d of documentos) {
-      const falta = signatarios.filter((s) => !ancoras[k(d.tipo, s.role)]);
+      const falta = posicionaveis.filter((s) => !ancoras[k(d.tipo, s.role)]);
       if (falta.length) {
         toast({ title: `Posicione no ${d.titulo}: ${falta.map((s) => s.nome.split(' ')[0]).join(', ')}`, variant: 'destructive' });
         return;
@@ -104,9 +130,10 @@ export default function AssinaturaClienteModal({ contratoId, onClose }) {
       const body = {
         documentos: documentos.map((d) => ({
           tipo: d.tipo,
-          ancoras: signatarios.map((s) => ({ role: s.role, ...stripPx(ancoras[k(d.tipo, s.role)]) })),
+          ancoras: posicionaveis.map((s) => ({ role: s.role, ...stripPx(ancoras[k(d.tipo, s.role)]) })),
         })),
         signatarios: signatarios.map((s) => ({ role: s.role, nome: s.nome, cpf: s.cpf, telefone: s.telefone })),
+        corretor_traco: corretorTraco,
       };
       const r = await assinaturaClienteAPI.posicionar(contratoId, body);
       toast({ title: 'Links enviados pelo WhatsApp', description: r.links?.map((l) => l.nome).join(' · ') });
@@ -164,12 +191,12 @@ export default function AssinaturaClienteModal({ contratoId, onClose }) {
             {documentos.length > 1 && (
               <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
                 {documentos.map((d, i) => {
-                  const okCount = signatarios.filter((s) => ancoras[k(d.tipo, s.role)]).length;
+                  const okCount = posicionaveis.filter((s) => ancoras[k(d.tipo, s.role)]).length;
                   return (
                     <button key={d.tipo} onClick={() => { setDocAtivo(i); setPrevia(null); }}
                       style={{ flex: 1, padding: '8px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700,
                         border: `2px solid #0B6E4F`, background: i === docAtivo ? '#0B6E4F' : '#fff', color: i === docAtivo ? '#fff' : '#0B6E4F' }}>
-                      {d.titulo} ({okCount}/{signatarios.length})
+                      {d.titulo} ({okCount}/{posicionaveis.length})
                     </button>
                   );
                 })}
@@ -177,7 +204,7 @@ export default function AssinaturaClienteModal({ contratoId, onClose }) {
             )}
 
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-              {signatarios.map((s, i) => (
+              {posicionaveis.map((s, i) => (
                 <button key={s.role} onClick={() => setAtivo(i)}
                   style={{ padding: '6px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 13,
                     border: `2px solid ${CORES[i % CORES.length]}`,
@@ -194,8 +221,25 @@ export default function AssinaturaClienteModal({ contratoId, onClose }) {
                   style={{ flex: '1 1 200px', border: '1px solid #ccc', borderRadius: 8, padding: '7px 10px', fontSize: 13 }} />
               ))}
             </div>
+            {corretor && (
+              <div style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 10, padding: 10, marginBottom: 10 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
+                  ✍️ Sua assinatura ({corretor.nome?.split(' ')[0]}) — carimbada ANTES de enviar ao cliente
+                </div>
+                <canvas ref={corCanvas} width={500} height={120}
+                  onMouseDown={corStart} onMouseMove={corMove} onMouseUp={corEnd} onMouseLeave={corEnd}
+                  onTouchStart={corStart} onTouchMove={corMove} onTouchEnd={corEnd}
+                  style={{ width: '100%', height: 120, background: '#fff', border: '1px dashed #94a3b8', borderRadius: 8, touchAction: 'none', cursor: 'crosshair', display: 'block' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6 }}>
+                  <button onClick={corLimpar} style={{ background: 'none', border: '1px solid #94a3b8', color: '#475569', borderRadius: 8, padding: '5px 12px', cursor: 'pointer', fontSize: 12 }}>Limpar</button>
+                  <span style={{ fontSize: 11, color: corretorTraco ? '#0B6E4F' : '#b45309' }}>
+                    {corretorTraco ? '✓ assinatura pronta (será salva p/ reutilizar)' : 'desenhe sua assinatura aqui'}
+                  </span>
+                </div>
+              </div>
+            )}
             <p style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>
-              No <b>{documentos[docAtivo]?.titulo}</b>: selecione o signatário e <b>arraste um retângulo</b> sobre a linha de assinatura dele.
+              No <b>{documentos[docAtivo]?.titulo}</b>: selecione o signatário (inclusive <b>Você</b>) e <b>arraste um retângulo</b> sobre a linha de assinatura dele.
             </p>
 
             <div style={{ overflow: 'auto', maxHeight: '52vh', border: '1px solid #eee', borderRadius: 8 }}>
@@ -204,7 +248,7 @@ export default function AssinaturaClienteModal({ contratoId, onClose }) {
                   <img src={`data:image/png;base64,${pg.imagem_b64}`} alt={`Página ${idx + 1}`}
                     onMouseDown={(e) => onDown(e, idx)} draggable={false}
                     style={{ display: 'block', maxWidth: '100%', cursor: 'crosshair', userSelect: 'none' }} />
-                  {signatarios.map((s, i) => {
+                  {posicionaveis.map((s, i) => {
                     const a = ancoras[k(docTipo, s.role)];
                     if (!a || a._px?.pagina !== idx) return null;
                     return <div key={s.role} style={{ position: 'absolute', border: `2px solid ${CORES[i % CORES.length]}`,

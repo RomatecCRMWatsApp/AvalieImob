@@ -170,9 +170,13 @@ async def preparar(cid: str, uid: str = Depends(get_active_subscriber), db=Depen
                                    "paginas": await asyncio.to_thread(renderizar_paginas, pdf_p)})
         except Exception:
             logger.warning("Falha ao gerar/renderizar a procuração no preparar.", exc_info=True)
+    # assinatura visual do corretor salva (p/ pré-carregar no canvas) + nome
+    perfil = await db.perfil_avaliador.find_one({"user_id": uid}) or {}
+    corretor_nome = (doc.get("corretor") or {}).get("nome") or "Corretor"
     # compat: 'paginas' = páginas do contrato (caso algum cliente antigo leia)
     return {"ok": True, "documentos": documentos, "paginas": documentos[0]["paginas"],
-            "signatarios": _signatarios_sugeridos(doc)}
+            "signatarios": _signatarios_sugeridos(doc),
+            "corretor": {"nome": corretor_nome, "assinatura_b64": perfil.get("assinatura_visual_b64")}}
 
 
 @router.post("/contratos/{cid}/posicionar")
@@ -197,16 +201,45 @@ async def posicionar(cid: str, payload: dict, uid: str = Depends(get_active_subs
     # número, ou teste enviando tudo p/ o próprio número) — cada signatário tem token
     # próprio, então recebe um link distinto mesmo no mesmo telefone.
 
+    # ASSINATURA VISUAL DO CORRETOR (opção A): carimbada AGORA, antes de enviar — o cliente
+    # recebe o documento JÁ com a assinatura do corretor. O ICP (validade) sela por último.
+    corretor_b64 = payload.get("corretor_traco") or ""
+    corretor_png = None
+    if corretor_b64.startswith("data:image/png;base64,"):
+        try:
+            corretor_png = base64.b64decode(corretor_b64.split(",", 1)[1])
+        except Exception:
+            corretor_png = None
+    if corretor_png:  # salva p/ reutilizar nos próximos contratos
+        try:
+            await db.perfil_avaliador.update_one(
+                {"user_id": uid}, {"$set": {"assinatura_visual_b64": corretor_b64.split(",", 1)[1]}}, upsert=True)
+        except Exception:
+            pass
+
     sessao_id = gerar_token()[:24]
     documentos_sessao = []
     for di in docs_in:
         tipo = "procuracao" if di.get("tipo") == "procuracao" else "contrato"
         ancoras = di.get("ancoras") or []
-        if not ancoras:
+        anc_corretor = next((a for a in ancoras if a.get("role") == "corretor"), None)
+        anc_clientes = [a for a in ancoras if a.get("role") != "corretor"]
+        if not anc_clientes:
             continue
         pdf_bytes = await _gerar_doc_pdf(db, doc, uid, tipo)
         if not pdf_bytes or not pdf_bytes.startswith(b"%PDF-"):
             raise HTTPException(status_code=500, detail=f"Falha ao gerar o PDF ({tipo})")
+        # carimba a assinatura do CORRETOR na base, ANTES do envio aos clientes
+        if corretor_png and anc_corretor:
+            try:
+                from services.assinatura_cliente_carimbo import carimbar_traco_em_pagina
+                x = float(anc_corretor.get("x_pt", 0)); y = float(anc_corretor.get("y_pt", 0))
+                w = float(anc_corretor.get("larg_pt", 0)); h = float(anc_corretor.get("alt_pt", 0))
+                pdf_bytes = await asyncio.to_thread(
+                    carimbar_traco_em_pagina, pdf_bytes, int(anc_corretor.get("pagina", 0)),
+                    (x, y, x + w, y + h), corretor_png, "Corretor")
+            except Exception:
+                logger.warning("Falha ao carimbar assinatura do corretor.", exc_info=True)
         pdf_key = f"assinatura-cliente/{sessao_id}/{tipo}_base.pdf"
         try:
             await asyncio.to_thread(r2_storage.upload_bytes, pdf_bytes, pdf_key, "application/pdf")
@@ -214,7 +247,7 @@ async def posicionar(cid: str, payload: dict, uid: str = Depends(get_active_subs
             logger.error("Falha ao subir PDF-base no R2: %s", e, exc_info=True)
             raise HTTPException(status_code=500, detail="Falha ao armazenar o documento")
         documentos_sessao.append({"tipo": tipo, "pdf_key_base": pdf_key,
-                                  "ancoras": ancoras, "pdf_key_final": None})
+                                  "ancoras": anc_clientes, "pdf_key_final": None})
 
     expira = datetime.utcnow() + timedelta(hours=EXPIRA_HORAS)
     signatarios = []
