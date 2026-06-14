@@ -318,7 +318,12 @@ async def posicionar(cid: str, payload: dict, uid: str = Depends(get_active_subs
         {"id": cid, "user_id": uid},
         {"$set": {"assinatura_cliente_status": "enviado",
                   "assinatura_cliente_sessao_id": sessao_id,
-                  "assinatura_cliente_enviado_em": datetime.utcnow()}})
+                  "assinatura_cliente_enviado_em": datetime.utcnow(),
+                  "assinatura_cliente_signatarios": [
+                      {"nome": s.get("nome"), "role": s.get("role"), "status": s.get("status"),
+                       "assinado_em": None} for s in signatarios],
+                  "assinatura_cliente_assinados": 0,
+                  "assinatura_cliente_total": len(signatarios)}})
 
     cfg = await _zapi_cfg(db, uid)
     links = await _disparar_links(db, cfg, sessao_id, signatarios)
@@ -479,9 +484,34 @@ async def assinar(token: str, payload: dict, request: Request, db=Depends(get_db
     todos = all(s.get("status") == "assinado" for s in sessao["signatarios"])
     await db[COL].update_one({"id": sessao["id"]},
                              {"$set": {"status": "concluida" if todos else "parcial"}})
+    # denormaliza nomes+status no contrato p/ o card mostrar a caixa de confirmação
+    resumo_sig = [{"nome": s.get("nome"), "role": s.get("role"), "status": s.get("status"),
+                   "assinado_em": (s.get("assinado_em").isoformat() if s.get("assinado_em") else None)}
+                  for s in sessao["signatarios"]]
+    assinados_n = sum(1 for s in sessao["signatarios"] if s.get("status") == "assinado")
     await db.contratos.update_one(
         {"id": sessao["contrato_id"]},
-        {"$set": {"assinatura_cliente_status": "assinado_cliente" if todos else "parcial_cliente"}})
+        {"$set": {"assinatura_cliente_status": "assinado_cliente" if todos else "parcial_cliente",
+                  "assinatura_cliente_signatarios": resumo_sig,
+                  "assinatura_cliente_assinados": assinados_n,
+                  "assinatura_cliente_total": len(sessao["signatarios"])}})
+    # AGRADECIMENTO ao signatário que acabou de assinar (WhatsApp)
+    try:
+        cfg = await _zapi_cfg(db, sessao.get("user_id"))
+        fone = _so_dig(sig.get("telefone"))
+        if cfg and fone:
+            primeiro = str(sig.get("nome") or "").split(" ")[0]
+            if todos:
+                msg = (f"✅ {primeiro}, recebemos a sua assinatura — e TODOS os signatários já assinaram! "
+                       f"O documento final, com todas as assinaturas, será enviado a você em instantes. "
+                       f"Muito obrigado pela confiança. — *Romatec Consultoria Total*")
+            else:
+                msg = (f"✅ {primeiro}, recebemos a sua assinatura. Muito obrigado! "
+                       f"Assim que os demais assinarem, você receberá o documento final. "
+                       f"— *Romatec Consultoria Total*")
+            await _enviar_texto(cfg, fone, msg)
+    except Exception:  # noqa: BLE001
+        logger.warning("Falha ao enviar agradecimento ao signatário.", exc_info=True)
     if todos:
         try:
             await _processar_carimbo(db, sessao)

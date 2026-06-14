@@ -557,6 +557,27 @@ const ContratosList = () => {
                   })()}
                 </div>
 
+                {/* Caixa de confirmação — quem já assinou (cliente) */}
+                {Array.isArray(c.assinatura_cliente_signatarios) && c.assinatura_cliente_signatarios.length > 0 && (() => {
+                  const tot = c.assinatura_cliente_total || c.assinatura_cliente_signatarios.length;
+                  const ok = c.assinatura_cliente_assinados ?? c.assinatura_cliente_signatarios.filter((s) => s.status === 'assinado').length;
+                  return (
+                    <div className="mt-1.5 rounded-lg border border-emerald-200 bg-emerald-50/60 px-2.5 py-2" onClick={(e) => e.stopPropagation()}>
+                      <div className="text-[11px] font-semibold text-emerald-800 mb-1">Assinaturas do cliente · {ok}/{tot}</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {c.assinatura_cliente_signatarios.map((s, i) => (
+                          <span key={i} className={`text-[11px] px-2 py-0.5 rounded-full border bg-white ${s.status === 'assinado' ? 'border-emerald-300 text-emerald-700' : 'border-amber-300 text-amber-700'}`}>
+                            {s.status === 'assinado' ? '✓ ' : '⏳ '}{(s.nome || '').split(' ')[0]}{s.status === 'assinado' ? ' assinou' : ' pendente'}
+                          </span>
+                        ))}
+                      </div>
+                      {ok >= tot && tot > 0 && (
+                        <div className="text-[11px] text-emerald-700 mt-1.5 font-medium">✅ Todos assinaram — agora <b>você assina (ICP)</b> e o sistema envia o contrato e a procuração finais.</div>
+                      )}
+                    </div>
+                  );
+                })()}
+
                 {/* Footer — contadores + recibo + overflow */}
                 <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center gap-3 text-xs text-gray-500">
