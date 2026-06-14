@@ -2931,7 +2931,7 @@ const ContratoWizard = () => {
       {/* Step content */}
       <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
         {renderStep()}
-        {form.tipo_contrato === 'exclusividade' && (
+        {!!form.tipo_contrato && (
           <EtapaConcluidaBox
             stepIndex={stepIdx}
             label={dynamicStepLabels[stepIdx]}

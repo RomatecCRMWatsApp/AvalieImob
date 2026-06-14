@@ -6,6 +6,7 @@ import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { useToast } from '../../../hooks/use-toast';
 import { propostasAPI } from '../../../lib/api';
+import EtapaConcluidaBox from '../ptam/EtapaConcluidaBox';
 
 const fmtBRL = (v) => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -174,6 +175,7 @@ const PropostaForm = () => {
   const [form, setForm] = useState({
     cliente_nome: '', cliente_cpf_cnpj: '', cliente_telefone: '', cliente_email: '',
     endereco_imovel: '', validade_dias: 15, observacoes: '',
+    etapas_concluidas: {}, etapas_concluidas_em: {},
     dados_imovel: defaultsDe(SCHEMAS[subtipoParam] || SCHEMAS.averbacao_residencial),
   });
   const [preview, setPreview] = useState(null);
@@ -191,7 +193,9 @@ const PropostaForm = () => {
         cliente_nome: p.cliente_nome || '', cliente_cpf_cnpj: p.cliente_cpf_cnpj || '',
         cliente_telefone: p.cliente_telefone || '', cliente_email: p.cliente_email || '',
         endereco_imovel: p.endereco_imovel || '', validade_dias: p.validade_dias || 15,
-        observacoes: p.observacoes || '', dados_imovel: { ...defaultsDe(sch), ...(p.dados_imovel || {}) },
+        observacoes: p.observacoes || '',
+        etapas_concluidas: p.etapas_concluidas || {}, etapas_concluidas_em: p.etapas_concluidas_em || {},
+        dados_imovel: { ...defaultsDe(sch), ...(p.dados_imovel || {}) },
       });
     }).catch(() => { toast({ title: 'Proposta não encontrada', variant: 'destructive' }); nav('/dashboard/propostas'); })
       .finally(() => setLoading(false));
@@ -221,6 +225,19 @@ const PropostaForm = () => {
     } catch (e) { toast({ title: 'Erro ao salvar', description: e.response?.data?.detail, variant: 'destructive' }); }
     finally { setSaving(false); }
   }, [form, subtipo, editing, id, nav, toast]);
+
+  // "Etapa concluída" da proposta (marca + carimba; persiste na hora quando já existe)
+  const marcarConcluida = (stepIndex, checked) => {
+    const next = {
+      ...form,
+      etapas_concluidas: { ...(form.etapas_concluidas || {}), [stepIndex]: checked },
+      etapas_concluidas_em: { ...(form.etapas_concluidas_em || {}), [stepIndex]: checked ? new Date().toISOString() : null },
+    };
+    setForm(next);
+    if (editing) {
+      propostasAPI.atualizar(id, { ...next, subtipo }).catch(() => {});
+    }
+  };
 
   const camposVisiveis = useMemo(
     () => (schema.campos || []).filter((c) => !c.when || c.when(form.dados_imovel)),
@@ -273,6 +290,14 @@ const PropostaForm = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {camposVisiveis.map((campo) => <Field key={campo.key} label={campo.label}>{renderCampo(campo)}</Field>)}
           </div>
+
+          <EtapaConcluidaBox
+            stepIndex={0}
+            label={schema.titulo || 'Proposta'}
+            form={form}
+            onToggle={marcarConcluida}
+            entidade="proposta"
+          />
         </div>
 
         {/* Preview ao vivo */}
