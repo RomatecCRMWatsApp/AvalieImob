@@ -230,7 +230,7 @@ export const assinaturaClienteAPI = {
   preparar: (cid) => api.post(`/assinatura-cliente/contratos/${cid}/preparar`).then(r => r.data),
   posicionar: (cid, body) => api.post(`/assinatura-cliente/contratos/${cid}/posicionar`, body).then(r => r.data),
   sessao: (cid) => api.get(`/assinatura-cliente/contratos/${cid}/sessao`).then(r => r.data),
-  reenviar: (cid) => api.post(`/assinatura-cliente/contratos/${cid}/reenviar`).then(r => r.data),
+  reenviar: (cid, body) => api.post(`/assinatura-cliente/contratos/${cid}/reenviar`, body || {}).then(r => r.data),
   // Públicas (sem auth)
   obter: (token) => api.get(`/publico/assinatura-cliente/${token}`).then(r => r.data),
   assinar: (token, body) => api.post(`/publico/assinatura-cliente/${token}`, body).then(r => r.data),

@@ -245,7 +245,11 @@ async def obter_sessao(cid: str, uid: str = Depends(get_active_subscriber), db=D
     sessao = await db[COL].find_one({"contrato_id": cid, "user_id": uid}, sort=[("created_at", -1)])
     if not sessao:
         return {"ok": True, "sessao": None}
-    sigs = [{"role": s.get("role"), "nome": s.get("nome"), "telefone": s.get("telefone"),
+    # default do telefone = o salvo na sessão; se vazio, cai no número do CADASTRO (vendedores)
+    contrato = await db.contratos.find_one({"id": cid, "user_id": uid})
+    sug = {s["role"]: s.get("telefone") for s in _signatarios_sugeridos(contrato or {})}
+    sigs = [{"role": s.get("role"), "nome": s.get("nome"),
+             "telefone": s.get("telefone") or sug.get(s.get("role"), ""),
              "status": s.get("status"), "assinado_em": s.get("assinado_em")}
             for s in sessao.get("signatarios", [])]
     assinados = sum(1 for s in sigs if s["status"] == "assinado")
@@ -259,16 +263,32 @@ async def obter_sessao(cid: str, uid: str = Depends(get_active_subscriber), db=D
 
 
 @router.post("/contratos/{cid}/reenviar")
-async def reenviar(cid: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
-    """REENVIA os links da última sessão pelos MESMOS dados (sem reposicionar). Só p/ quem
-    ainda não assinou — resolve o 'toda vez tenho que abrir, recolocar e enviar'."""
+async def reenviar(cid: str, payload: dict = None, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    """REENVIA os links da última sessão (sem reposicionar). Aceita telefones EDITADOS em
+    payload.signatarios=[{role,telefone}] (default = os números já salvos / do cadastro).
+    Só reenvia p/ quem ainda não assinou."""
     sessao = await db[COL].find_one({"contrato_id": cid, "user_id": uid}, sort=[("created_at", -1)])
     if not sessao:
         raise HTTPException(status_code=404, detail="Nenhum envio encontrado — posicione e envie a primeira vez.")
     if sessao.get("status") == "concluida":
         raise HTTPException(status_code=400, detail="Todos os signatários já assinaram — nada a reenviar.")
+    # aplica telefones editados (por role), se vierem
+    novos = {}
+    for s in (payload or {}).get("signatarios", []) or []:
+        fone = _so_dig(s.get("telefone"))
+        if s.get("role") and fone:
+            novos[s["role"]] = fone
+    for s in sessao.get("signatarios", []):
+        if novos.get(s.get("role")) and novos[s["role"]] != s.get("telefone"):
+            s["telefone"] = novos[s["role"]]
+            await db[COL].update_one({"id": sessao["id"], "signatarios.token": s["token"]},
+                                     {"$set": {"signatarios.$.telefone": novos[s["role"]]}})
     cfg = await _zapi_cfg(db, uid)
     pendentes = [s for s in sessao.get("signatarios", []) if s.get("status") != "assinado"]
+    faltam = [s for s in pendentes if not _so_dig(s.get("telefone"))]
+    if faltam:
+        raise HTTPException(status_code=422,
+                            detail=f"Informe o WhatsApp de: {', '.join(s.get('nome', '?') for s in faltam)}")
     if not pendentes:
         raise HTTPException(status_code=400, detail="Nenhum signatário pendente.")
     links = await _disparar_links(db, cfg, sessao["id"], pendentes)

@@ -19,11 +19,17 @@ export default function AssinaturaClienteModal({ contratoId, onClose }) {
   const [enviando, setEnviando] = useState(false);
   const [sessao, setSessao] = useState(null);   // sessão já enviada (status + signatários)
   const [reenviando, setReenviando] = useState(false);
+  const [reenvioFones, setReenvioFones] = useState({}); // role -> telefone editável (default cadastro)
   const arrasto = useRef(null);
   const [previa, setPrevia] = useState(null);
 
+  const aplicarSessao = (s) => {
+    setSessao(s || null);
+    if (s) setReenvioFones(Object.fromEntries((s.signatarios || []).map((x) => [x.role, x.telefone || ''])));
+  };
+
   useEffect(() => {
-    assinaturaClienteAPI.sessao(contratoId).then((d) => setSessao(d?.sessao || null)).catch(() => {});
+    assinaturaClienteAPI.sessao(contratoId).then((d) => aplicarSessao(d?.sessao)).catch(() => {});
     assinaturaClienteAPI.preparar(contratoId)
       .then((d) => {
         const docs = d.documentos || (d.paginas ? [{ tipo: 'contrato', titulo: 'Contrato', paginas: d.paginas }] : []);
@@ -37,10 +43,11 @@ export default function AssinaturaClienteModal({ contratoId, onClose }) {
   const reenviar = async () => {
     setReenviando(true);
     try {
-      const r = await assinaturaClienteAPI.reenviar(contratoId);
+      const body = { signatarios: (sessao?.signatarios || []).map((s) => ({ role: s.role, telefone: reenvioFones[s.role] ?? s.telefone ?? '' })) };
+      const r = await assinaturaClienteAPI.reenviar(contratoId, body);
       toast({ title: `Links reenviados (${r.reenviados})`, description: 'Pra quem ainda não assinou.' });
       const d = await assinaturaClienteAPI.sessao(contratoId);
-      setSessao(d?.sessao || null);
+      aplicarSessao(d?.sessao);
     } catch (e) {
       toast({ title: 'Falha ao reenviar', description: e?.response?.data?.detail || '', variant: 'destructive' });
     } finally {
@@ -128,6 +135,14 @@ export default function AssinaturaClienteModal({ contratoId, onClose }) {
             </div>
             <div style={{ fontSize: 12, color: '#9a6a00', margin: '2px 0 8px' }}>
               {sessao.signatarios?.map((s) => `${s.nome?.split(' ')[0]}: ${s.status === 'assinado' ? '✓ assinou' : 'pendente'}`).join(' · ')}
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+              {sessao.signatarios?.filter((s) => s.status !== 'assinado').map((s) => (
+                <input key={s.role} value={reenvioFones[s.role] ?? ''}
+                  onChange={(e) => setReenvioFones((f) => ({ ...f, [s.role]: e.target.value }))}
+                  placeholder={`WhatsApp de ${s.nome?.split(' ')[0]} (DDD+número)`}
+                  style={{ flex: '1 1 200px', border: '1px solid #fcd34d', borderRadius: 8, padding: '7px 10px', fontSize: 13, background: '#fff' }} />
+              ))}
             </div>
             <button onClick={reenviar} disabled={reenviando}
               style={{ background: '#B8860B', color: '#fff', fontWeight: 700, border: 'none', borderRadius: 8, padding: '8px 16px', cursor: 'pointer', fontSize: 13 }}>
