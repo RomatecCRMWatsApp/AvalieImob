@@ -41,11 +41,17 @@ def _img_flowable(raw: bytes, max_w: float, max_h: float):
         im.load()
         if im.mode not in ("RGB", "L"):
             im = im.convert("RGB")
+        # DOWNSCALE + COMPRESSÃO: foto de celular vem em 3000-4000px; na grade do PDF a
+        # célula tem ~7,7cm, então 1500px sobra de qualidade. Sem isso, um contrato com 20
+        # fotos virava um PDF de ~26MB que ESTOURAVA a memória do servidor ao gerar/renderizar
+        # (ERR_CONNECTION_TIMED_OUT no fluxo de assinatura). Cap 1500px + JPEG ~78 corta o
+        # peso pra ~1/10 sem perda visível na impressão.
+        im.thumbnail((1500, 1500))
         iw, ih = im.size
         if not iw or not ih:
             return None
         out = io.BytesIO()
-        im.save(out, format="PNG")
+        im.save(out, format="JPEG", quality=78, optimize=True)
         out.seek(0)
         escala = min(max_w / iw, max_h / ih)
         return Image(out, width=iw * escala, height=ih * escala)
