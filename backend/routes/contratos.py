@@ -163,23 +163,47 @@ def _contrato_query_by_cid(cid: str, uid: str) -> dict:
     return query
 
 
+# Prefixo do CÓDIGO do contrato por tipo (mesmo padrão do Exclusividade): CONT_<FUNÇÃO>-AAAA-NNNN
+_PREFIXO_CONT = {
+    "exclusividade": "CONT_EXCLUSIV",
+    "compra_venda": "CONT_COMPRA_VENDA",
+    "promessa_compra_venda": "CONT_PROMESSA_CV",
+    "permuta": "CONT_PERMUTA",
+    "cessao_direitos": "CONT_CESSAO_DIREITOS",
+    "locacao_residencial": "CONT_LOCACAO_RES",
+    "locacao_comercial": "CONT_LOCACAO_COM",
+    "comodato": "CONT_COMODATO",
+    "arrendamento_rural": "CONT_ARREND_RURAL",
+    "parceria_rural": "CONT_PARCERIA_RURAL",
+    "doacao": "CONT_DOACAO",
+    "arras": "CONT_ARRAS",
+    "intermediacao": "CONT_INTERMEDIACAO",
+    "usufruto": "CONT_USUFRUTO",
+    "compra_venda_veiculo": "CONT_CV_VEICULO",
+    "distrato": "CONT_DISTRATO",
+}
+
+
 def _format_numero_cont(doc: dict) -> str:
     """Exibe a numeração derivada do numero_contrato armazenado (não altera o dado salvo).
-    Exclusividade → 'CONT_EXCLUSIV-AAAA-NNNN' (igual ao PDF Prime); demais → 'CONT NNNN/AAAA'."""
+    TODOS os tipos: 'CONT_<FUNÇÃO>-AAAA-NNNN' (padrão do Exclusividade, com a função do tipo)."""
     numero = (doc.get("numero_contrato") or "").strip()
     if not numero:
         return ""
-    is_excl = "exclusiv" in str(doc.get("tipo_contrato") or "").lower()
-    partes = (numero.replace("CV-", "").replace("CONT_EXCLUSIV-", "")
-              .replace("CONT-", "").split("-"))
+    tipo = str(doc.get("tipo_contrato") or "").lower()
+    prefixo = _PREFIXO_CONT.get(tipo, "CONT")
+    limpo = numero
+    for p in ("CV-", "CONT_EXCLUSIV-", "CONT-", *(f"{v}-" for v in _PREFIXO_CONT.values())):
+        limpo = limpo.replace(p, "")
+    partes = [x for x in limpo.split("-") if x]
     ano = seq = None
-    if len(partes) >= 2 and partes[0].isdigit():
+    if len(partes) >= 2 and partes[0].isdigit() and len(partes[0]) == 4:
         ano, seq = partes[0], partes[1]
-    elif len(partes) >= 2 and partes[1].isdigit():
+    elif len(partes) >= 2 and partes[1].isdigit() and len(partes[1]) == 4:
         seq, ano = partes[0], partes[1]
     if ano and seq:
-        return f"CONT_EXCLUSIV-{ano}-{seq}" if is_excl else f"CONT {seq}/{ano}"
-    return f"CONT_EXCLUSIV-{numero}" if is_excl else f"CONT {numero}"
+        return f"{prefixo}-{ano}-{seq}"
+    return f"{prefixo}-{numero}"
 
 
 def _parse_dt(value) -> Optional[datetime]:

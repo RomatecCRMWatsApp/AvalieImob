@@ -66,6 +66,17 @@ const TIPOS = [
   },
 ];
 
+/* Há preenchimento REAL? (decide se o contrato novo deve ser salvo — evita rascunho vazio) */
+const temConteudo = (f) => {
+  if (!f) return false;
+  const algum = (arr) => (arr || []).some((p) => `${p?.nome || ''}${p?.razao_social || ''}${p?.cpf || ''}${p?.cnpj || ''}`.trim());
+  const o = f.objeto || {};
+  const objPreenchido = `${o.endereco || ''}${o.endereco_completo || ''}${o.matricula || ''}${o.descricao || ''}${o.descricao_veiculo || ''}${o.placa || ''}`.trim();
+  const pagamento = parseFloat(f.pagamento?.valor_total) > 0;
+  const clausulas = (f.clausulas || []).length > 0;
+  return !!(algum(f.vendedores) || algum(f.compradores) || objPreenchido || pagamento || clausulas);
+};
+
 /* ─── Empty form ─────────────────────────────────────────── */
 const EMPTY = {
   tipo_contrato: '',
@@ -2522,7 +2533,8 @@ const ContratoWizard = () => {
   const { user } = useAuth();
 
   const isNew = !id || id === 'novo';
-  const [form, setForm] = useState({ ...EMPTY, vendedores: [{ ...EMPTY_PESSOA }], compradores: [{ ...EMPTY_PESSOA }] });
+  const tipoPreset = location.state?.tipoPreset || '';
+  const [form, setForm] = useState({ ...EMPTY, tipo_contrato: tipoPreset, vendedores: [{ ...EMPTY_PESSOA }], compradores: [{ ...EMPTY_PESSOA }] });
   const [contratoId, setContratoId] = useState(isNew ? null : id);
   const [step, setStep] = useState(location.state?.startStep || 0);
   const [loading, setLoading] = useState(!isNew);
@@ -2651,7 +2663,9 @@ const ContratoWizard = () => {
   useEffect(() => {
     // Pula o autosave provocado pelo preenchimento do load() (evita update/versão à toa)
     if (skipAutosaveRef.current) { skipAutosaveRef.current = false; return; }
-    if (isNew && !contratoId) return;
+    // Contrato NOVO sem id: só cria quando houver PREENCHIMENTO real (evita rascunho vazio
+    // a cada vez que se abre/seleciona um tipo). Só o tipo selecionado NÃO cria.
+    if (isNew && !contratoId && !temConteudo(form)) return;
     dirtyRef.current = true;                   // há alteração pendente
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => save(true), 1500);

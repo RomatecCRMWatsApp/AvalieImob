@@ -302,15 +302,11 @@ const ContratosList = () => {
 
   useEffect(() => { load(); }, [load]);
 
-  const criarDoTipo = async (tipo) => {
+  const criarDoTipo = (tipo) => {
     if (!tipo || tipo.status === 'em_breve') return;
-    try {
-      const novo = await contratosAPI.criar({ tipo_contrato: tipo.id });
-      // abre o wizard já na etapa 2 (Partes), pulando a etapa Tipo
-      nav(`/dashboard/contratos/${getContratoId(novo)}`, { state: { startStep: 1 } });
-    } catch {
-      toast({ title: 'Erro ao criar contrato', variant: 'destructive' });
-    }
+    // NÃO cria o contrato aqui (gerava rascunho vazio a cada clique). Abre o wizard com o
+    // tipo pré-selecionado; o contrato só é salvo quando houver preenchimento real.
+    nav('/dashboard/contratos/novo', { state: { startStep: 1, tipoPreset: tipo.id } });
   };
 
   const remove = async (id, c) => {
