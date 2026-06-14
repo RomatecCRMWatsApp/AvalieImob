@@ -12,6 +12,7 @@ Fluxo (decisões fechadas com o usuário):
 Convenções: auth get_active_subscriber->uid; db Depends(get_db); Z-API via
 services.zapi_service + carregar_integracoes; storage r2_storage; público SEM auth + rate-limit.
 """
+import asyncio
 import base64
 import logging
 import os
@@ -73,10 +74,18 @@ async def _carregar_contrato(db, cid: str, uid: str) -> dict:
 
 
 async def _gerar_contrato_pdf(db, doc: dict, uid: str) -> bytes:
-    """Gera o PDF do contrato (template Prime, SEM ICP) reusando o dispatcher existente."""
-    from routes.assinatura import _gerar_pdf
-    perfil = await db.perfil_avaliador.find_one({"user_id": uid})
-    return await _gerar_pdf("contrato", doc, db=db, perfil=perfil)
+    """Gera o PDF do contrato (template Prime, SEM ICP). A geração (ReportLab) é pesada e
+    SÍNCRONA — roda em thread (asyncio.to_thread) p/ NÃO travar o event loop (senão o
+    servidor fica sem responder durante o envio, dando ERR_CONNECTION_TIMED_OUT)."""
+    from pdf.templates.registry import gerar_pdf_contrato
+    user = await db.users.find_one({"id": uid}, {"company": 1, "name": 1}) or {}
+    empresa = user.get("company") or user.get("name") or "AvalieImob"
+    try:
+        from routes.contratos import _preload_anexos_imovel
+        await _preload_anexos_imovel(db, doc)
+    except Exception:
+        logger.warning("Falha ao pré-carregar anexos (assinatura cliente).", exc_info=True)
+    return await asyncio.to_thread(gerar_pdf_contrato, doc, uid or "", empresa)
 
 
 def _tem_procuracao(doc: dict) -> bool:
@@ -90,7 +99,8 @@ async def _gerar_procuracao_pdf(db, doc: dict, uid: str) -> bytes:
     from routes.contratos import _generate_procuracao_pdf_bytes
     user = await db.users.find_one({"id": uid}, {"company": 1, "name": 1}) or {}
     empresa = user.get("company") or user.get("name") or "Romatec Consultoria Total"
-    return _generate_procuracao_pdf_bytes(doc, uid, empresa)
+    # síncrono/pesado (ReportLab) → thread p/ não travar o event loop
+    return await asyncio.to_thread(_generate_procuracao_pdf_bytes, doc, uid, empresa)
 
 
 async def _gerar_doc_pdf(db, doc: dict, uid: str, tipo: str) -> bytes:
@@ -125,12 +135,14 @@ async def preparar(cid: str, uid: str = Depends(get_active_subscriber), db=Depen
     pdf_c = await _gerar_contrato_pdf(db, doc, uid)
     if not pdf_c or not pdf_c.startswith(b"%PDF-"):
         raise HTTPException(status_code=500, detail="Falha ao gerar o PDF do contrato")
-    documentos.append({"tipo": "contrato", "titulo": "Contrato", "paginas": renderizar_paginas(pdf_c)})
+    documentos.append({"tipo": "contrato", "titulo": "Contrato",
+                       "paginas": await asyncio.to_thread(renderizar_paginas, pdf_c)})
     if _tem_procuracao(doc):
         try:
             pdf_p = await _gerar_procuracao_pdf(db, doc, uid)
             if pdf_p and pdf_p.startswith(b"%PDF-"):
-                documentos.append({"tipo": "procuracao", "titulo": "Procuração", "paginas": renderizar_paginas(pdf_p)})
+                documentos.append({"tipo": "procuracao", "titulo": "Procuração",
+                                   "paginas": await asyncio.to_thread(renderizar_paginas, pdf_p)})
         except Exception:
             logger.warning("Falha ao gerar/renderizar a procuração no preparar.", exc_info=True)
     # compat: 'paginas' = páginas do contrato (caso algum cliente antigo leia)
@@ -172,7 +184,7 @@ async def posicionar(cid: str, payload: dict, uid: str = Depends(get_active_subs
             raise HTTPException(status_code=500, detail=f"Falha ao gerar o PDF ({tipo})")
         pdf_key = f"assinatura-cliente/{sessao_id}/{tipo}_base.pdf"
         try:
-            r2_storage.upload_bytes(pdf_bytes, pdf_key, "application/pdf")
+            await asyncio.to_thread(r2_storage.upload_bytes, pdf_bytes, pdf_key, "application/pdf")
         except Exception as e:  # noqa: BLE001
             logger.error("Falha ao subir PDF-base no R2: %s", e, exc_info=True)
             raise HTTPException(status_code=500, detail="Falha ao armazenar o documento")
@@ -302,14 +314,15 @@ async def _processar_carimbo(db, sessao: dict):
         cfg = None
     for d in sessao.get("documentos", []):
         try:
-            base_bytes = r2_storage.download_bytes(d["pdf_key_base"])
+            base_bytes = await asyncio.to_thread(r2_storage.download_bytes, d["pdf_key_base"])
         except Exception as e:  # noqa: BLE001
             logger.error("Falha ao baixar PDF-base: %s", e)
             continue
         tipo = d.get("tipo", "contrato")
-        final, _h = carimbar_documento(base_bytes, d.get("ancoras") or [], assinaturas)
+        # carimbo (pypdf) é CPU-pesado → thread p/ não travar o event loop
+        final, _h = await asyncio.to_thread(carimbar_documento, base_bytes, d.get("ancoras") or [], assinaturas)
         key_final = d["pdf_key_base"].replace("_base.pdf", "_clientes.pdf")
-        url = r2_storage.upload_bytes(final, key_final, "application/pdf")
+        url = await asyncio.to_thread(r2_storage.upload_bytes, final, key_final, "application/pdf")
         await db[COL].update_one(
             {"id": sessao["id"], "documentos.pdf_key_base": d["pdf_key_base"]},
             {"$set": {"documentos.$.pdf_key_final": key_final}})
