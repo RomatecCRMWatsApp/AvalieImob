@@ -669,28 +669,28 @@ const Step5Objeto = ({ form, setForm }) => {
                 { value: 'locado', label: 'Locado' },
               ]}
             />
-            <div>
+            <div className="sm:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">Ônus / Gravames</label>
               <RichTextEditor
                 value={paraEditorHtml(obj.onus)}
                 onChange={(html) => upd('onus', html)}
                 onBlurHtml={(html) => upd('onus', html)}
                 placeholder="Ex: Livre e desembaraçado de quaisquer ônus ou inscrever gravame específico"
-                minHeight={80}
+                minHeight={140}
                 showAiButton={false}
               />
               <div className="flex justify-end mt-1">
                 <AiButton onClick={() => aperfeicoarCampo('onus', 'Aperfeiçoe esta declaração de ônus/gravames de um imóvel para um contrato.')} loading={aiCampo === 'onus'} />
               </div>
             </div>
-            <div>
+            <div className="sm:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">Benfeitorias Incluídas</label>
               <RichTextEditor
                 value={paraEditorHtml(obj.benfeitorias)}
                 onChange={(html) => upd('benfeitorias', html)}
                 onBlurHtml={(html) => upd('benfeitorias', html)}
                 placeholder="Ex: Incluídas as instalações elétricas, hidráulicas e etc."
-                minHeight={80}
+                minHeight={140}
                 showAiButton={false}
               />
               <div className="flex justify-end mt-1">
@@ -975,7 +975,7 @@ const Step5Objeto = ({ form, setForm }) => {
               value={paraEditorHtml(obj.onus)}
               onChange={(html) => upd('onus', html)}
               onBlurHtml={(html) => upd('onus', html)}
-              minHeight={80}
+              minHeight={140}
               showAiButton={false}
             />
             <div className="flex justify-end mt-1">
