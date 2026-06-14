@@ -3,7 +3,7 @@
 # só decidem COMO desenhar. Texto jurídico vive AQUI, nunca em JSX ou nos renderers.
 # Negritos preservados via marcação ReportLab <b>...</b> (válida nos 3 templates).
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Optional
 
 
 @dataclass
@@ -352,6 +352,59 @@ def _ctx(doc: dict) -> dict:
     }
 
 
+def qualifica_corretor_full(cor: dict, avaliador: Optional[dict] = None) -> str:
+    """Qualificação COMPLETA do corretor (CONTRATADO/Outorgado) a partir do FORM do
+    contrato, com fallback ao perfil do avaliador. Sem trechos vazios."""
+    cor = cor or {}
+    av = avaliador or {}
+
+    def g(*ks):
+        for k in ks:
+            v = cor.get(k)
+            if v not in (None, ""):
+                return str(v).strip()
+        return ""
+
+    nome = g("nome") or av.get("nome") or "____"
+    partes = [nome, g("nacionalidade") or "brasileiro(a)"]
+    if g("estado_civil"):
+        partes.append(g("estado_civil"))
+    partes.append(g("profissao") or "corretor(a) de imóveis")
+    quals = ", ".join(partes)
+
+    regs = []
+    creci = g("creci")
+    if creci:
+        regs.append(creci if creci.upper().startswith("CRECI") else f"CRECI {creci}")
+    for r in (av.get("registros_linhas") or []):
+        if r and r not in regs and not (creci and str(r).upper().startswith("CRECI")):
+            regs.append(r)
+    if regs:
+        quals += ", inscrito(a) sob " + ", ".join(regs)
+
+    rg = g("rg")
+    if rg:
+        quals += f", portador(a) do RG nº {rg}" + (f" ({g('rg_orgao', 'orgao_emissor')})" if g("rg_orgao", "orgao_emissor") else "")
+    cpf = g("cpf_cnpj", "cpf") or av.get("cpf")
+    if cpf:
+        quals += f", inscrito(a) no CPF nº {cpf}"
+    cnh = g("cnh")
+    if cnh:
+        quals += f", portador(a) da CNH nº {cnh}" + (f" categoria {g('cnh_categoria')}" if g("cnh_categoria") else "")
+    end = _endereco_completo(cor)
+    if end == "endereço não informado":
+        end = av.get("endereco") or ""
+    if end:
+        quals += f", com endereço profissional em {end}"
+    tel = g("telefone") or av.get("telefone")
+    if tel:
+        quals += f", telefone {tel}"
+    email = g("email") or av.get("email")
+    if email:
+        quals += f", e-mail {email}"
+    return quals
+
+
 def preambulo_exclusividade(doc: dict) -> List[str]:
     """Qualificação das partes (parágrafos do preâmbulo)."""
     c = _ctx(doc)
@@ -394,12 +447,25 @@ def preambulo_exclusividade(doc: dict) -> List[str]:
             cj += f", filho(a) de {c['conjuge_filiacao_pai']}"
         cj += f", casados sob o regime de {c['regime_bens']}."
         contratante += cj
-    contratado = (
-        "<b>CONTRATADO (CORRETOR):</b> ROMATEC CONSULTORIA TOTAL, pessoa jurídica de direito "
-        "privado, CNPJ nº 17.261.987/0001-09, com sede na Rua São Raimundo, nº 10, Centro, "
-        "Açailândia/MA, neste ato representada por JOSÉ ROMÁRIO PINTO BEZERRA, brasileiro, "
-        "corretor de imóveis CRECI/MA nº 4.705, avaliador imobiliário CNAI nº 031.161."
-    )
+    cor = doc.get("corretor") or {}
+    aval = doc.get("_avaliador") or {}
+    if cor.get("nome") or cor.get("cpf_cnpj") or aval.get("nome"):
+        contratado = f"<b>CONTRATADO (CORRETOR):</b> {qualifica_corretor_full(cor, aval)}"
+        # cônjuge do corretor (se casado e informado)
+        if cor.get("conjuge_nome"):
+            contratado += f", casado(a) com {cor['conjuge_nome']}"
+            if cor.get("conjuge_cpf"):
+                contratado += f" (CPF nº {cor['conjuge_cpf']})"
+            if cor.get("regime_bens"):
+                contratado += f", sob o regime de {cor['regime_bens']}"
+        contratado += "."
+    else:
+        contratado = (
+            "<b>CONTRATADO (CORRETOR):</b> ROMATEC CONSULTORIA TOTAL, pessoa jurídica de direito "
+            "privado, CNPJ nº 17.261.987/0001-09, com sede na Rua São Raimundo, nº 10, Centro, "
+            "Açailândia/MA, neste ato representada por JOSÉ ROMÁRIO PINTO BEZERRA, brasileiro, "
+            "corretor de imóveis CRECI/MA nº 4.705, avaliador imobiliário CNAI nº 031.161."
+        )
     regencia = (
         "O presente contrato rege-se pelos arts. 722 a 729 do Código Civil, pela Lei nº 6.530/78, "
         "pelo Decreto nº 81.871/78 e pelas Resoluções COFECI nº 458/95 e nº 1.256/2018, "
@@ -509,8 +575,16 @@ def clausula_gravame_itens(objeto: dict) -> list:
             frase += f", e período de amortização de {_data_br(cond['amortizacao_inicio'])} a {_data_br(cond['amortizacao_fim'])}"
         itens.append(frase + ".")
 
-    # ── §2º — saldo devedor ──────────────────────────────────────────────────
-    if saldo.get("valor") is not None and saldo.get("data_referencia"):
+    # ── §2º — saldo devedor (valor conhecido OU a apurar após a assinatura) ───
+    if saldo.get("obter_apos_assinatura"):
+        itens.append(
+            "O saldo devedor atualizado do financiamento será apurado junto ao credor fiduciário "
+            "MEDIANTE A PROCURAÇÃO outorgada ao CONTRATADO, APÓS A ASSINATURA deste contrato e da "
+            "respectiva procuração, uma vez que o acesso ao extrato e às certidões depende da "
+            "qualidade de procurador, comprometendo-se o CONTRATANTE a viabilizar a obtenção do "
+            "documento, que integrará o contrato como anexo assim que disponível."
+        )
+    elif saldo.get("valor") is not None and saldo.get("data_referencia"):
         itens.append(
             f"O saldo devedor do financiamento, conforme extrato emitido pelo credor fiduciário, é de "
             f"{_rs_ext(saldo['valor'], zero_ok=True)}, apurado em {_data_br(saldo['data_referencia'])}, "

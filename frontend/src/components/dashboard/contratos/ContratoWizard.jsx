@@ -75,8 +75,8 @@ const EMPTY = {
   foro_eleito: '',
   vendedores: [],
   compradores: [],
-  corretor: { incluir: false, nome: '', cpf_cnpj: '', creci: '', email: '', telefone: '', comissao_percentual: 6, exclusividade: false, prazo_exclusividade: '', comissao_responsavel: 'vendedor', comissao_parcela1_pct: 50, comissao_parcela2_pct: 50, banco: 'Santander', agencia: '1225', conta: '130007144', banco_cnpj: '17.261.987/0001-09', banco_pix: 'romatec.cad@hotmail.com' },
-  objeto: { tipo_bem: 'imovel_urbano', endereco: '', bairro: '', cidade: '', uf: '', cep: '', registro_imovel: '', cns: '', matricula: '', area_total: '', area_construida: '', situacao_ocupacao: '', onus: '', benfeitorias: '', ccir: '', car: '', modulos_fiscais: '', descricao_veiculo: '', placa: '', renavam: '', chassi: '', ano_fabricacao: '', cor: '' },
+  corretor: { incluir: false, nome: '', cpf_cnpj: '', creci: '', email: '', telefone: '', nacionalidade: 'brasileiro(a)', profissao: 'Corretor de Imóveis', estado_civil: '', rg: '', rg_orgao: '', cnh: '', cnh_categoria: '', cnh_validade: '', cnh_orgao: '', endereco: '', numero: '', bairro: '', cidade: '', uf: '', cep: '', conjuge_nome: '', conjuge_cpf: '', conjuge_rg: '', regime_bens: '', comissao_percentual: 6, exclusividade: false, prazo_exclusividade: '', comissao_responsavel: 'vendedor', comissao_parcela1_pct: 50, comissao_parcela2_pct: 50, banco: 'Santander', agencia: '1225', conta: '130007144', banco_cnpj: '17.261.987/0001-09', banco_pix: 'romatec.cad@hotmail.com' },
+  objeto: { tipo_bem: 'imovel_urbano', endereco: '', bairro: '', cidade: '', uf: '', cep: '', registro_imovel: '', cns: '', matricula: '', latitude: '', longitude: '', area_total: '', area_construida: '', situacao_ocupacao: '', onus: '', benfeitorias: '', ccir: '', car: '', modulos_fiscais: '', descricao_veiculo: '', placa: '', renavam: '', chassi: '', ano_fabricacao: '', cor: '' },
   pagamento: { valor_total: '', arras_valor: '', arras_data: '', arras_tipo: 'confirmatorias', formas: [], penalidades: null },
   config: { incluir_logo: true, incluir_recibo_arras: true, incluir_checklist: true },
 };
@@ -152,7 +152,10 @@ const Step1Tipo = ({ form, setForm }) => (
 
     <div className="bg-gray-50 rounded-xl p-4 grid sm:grid-cols-3 gap-4">
       <Input label="Cidade de Assinatura" value={form.cidade_assinatura} onChange={(v) => setForm({ ...form, cidade_assinatura: v })} placeholder="Ex: Cuiabá/MT" />
-      <Input label="Data de Assinatura" value={form.data_assinatura} onChange={(v) => setForm({ ...form, data_assinatura: v })} type="date" />
+      <div>
+        <Input label="Data de Assinatura" value={form.data_assinatura} onChange={(v) => setForm({ ...form, data_assinatura: v })} type="date" />
+        <p className="text-xs text-gray-500 mt-1">🔒 Preenchida automaticamente após todas as assinaturas. Pode deixar em branco.</p>
+      </div>
       <Input label="Foro Eleito" value={form.foro_eleito} onChange={(v) => setForm({ ...form, foro_eleito: v })} placeholder="Ex: Comarca de Cuiabá/MT" />
     </div>
   </div>
@@ -347,16 +350,23 @@ const Step4Corretor = ({ form, setForm, perfil, corretorLabel }) => {
 
   const usarMeusDados = () => {
     if (!perfil) return;
+    const creciReg = (perfil.registros || []).find(r => (r.tipo || '').toUpperCase().includes('CRECI'));
+    const creci = creciReg ? `CRECI${creciReg.uf ? '/' + creciReg.uf : ''} ${creciReg.numero}` : cor.creci;
     setForm({
       ...form,
       corretor: {
         ...cor,
         nome: perfil.nome_completo || cor.nome,
-        email: perfil.email || cor.email,
+        email: perfil.email_profissional || perfil.email || cor.email,
         telefone: perfil.telefone || cor.telefone,
-        creci: (perfil.registros || []).find(r => r.tipo === 'CRECI')?.numero
-          ? `CRECI ${(perfil.registros.find(r => r.tipo === 'CRECI')).numero}`
-          : cor.creci,
+        creci,
+        cpf_cnpj: perfil.cpf || cor.cpf_cnpj,
+        endereco: perfil.endereco_escritorio || cor.endereco,
+        cidade: perfil.cidade || cor.cidade,
+        uf: perfil.uf || cor.uf,
+        cep: perfil.cep || cor.cep,
+        profissao: cor.profissao || 'Corretor de Imóveis',
+        nacionalidade: cor.nacionalidade || 'brasileiro(a)',
       },
     });
   };
@@ -399,9 +409,9 @@ const Step4Corretor = ({ form, setForm, perfil, corretorLabel }) => {
           <div className="bg-gray-50 rounded-xl p-4 grid sm:grid-cols-2 gap-3">
             <Input label={`Nome do ${parte3}`} value={cor.nome} onChange={(v) => upd('nome', v)} required />
             {parte3 === 'Corretor' && (
-              <Input label="CRECI" value={cor.creci} onChange={(v) => upd('creci', v)} placeholder="CRECI/MT 12345-J" />
+              <Input label="CRECI" value={cor.creci} onChange={(v) => upd('creci', v)} placeholder="CRECI/MA 4705" />
             )}
-            {parte3 === 'Fiador' && (
+            {(parte3 === 'Fiador' || parte3 === 'Corretor') && (
               <Input label="CPF" value={cor.cpf_cnpj} onChange={(v) => upd('cpf_cnpj', v)} placeholder="000.000.000-00" />
             )}
             <Input label="E-mail" value={cor.email} onChange={(v) => upd('email', v)} type="email" />
@@ -424,6 +434,44 @@ const Step4Corretor = ({ form, setForm, perfil, corretorLabel }) => {
               </div>
             )}
           </div>
+
+          {parte3 === 'Corretor' && (
+            <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Qualificação completa do corretor (vai ao contrato e à procuração)</p>
+              <div className="grid sm:grid-cols-2 gap-3">
+                <Input label="Nacionalidade" value={cor.nacionalidade} onChange={(v) => upd('nacionalidade', v)} placeholder="brasileiro(a)" />
+                <Input label="Profissão" value={cor.profissao} onChange={(v) => upd('profissao', v)} placeholder="Corretor de Imóveis" />
+                <Select label="Estado Civil" value={cor.estado_civil || ''} onChange={(v) => upd('estado_civil', v)}
+                  options={[{ value: '', label: '—' }, { value: 'solteiro(a)', label: 'Solteiro(a)' }, { value: 'casado(a)', label: 'Casado(a)' }, { value: 'união estável', label: 'União estável' }, { value: 'divorciado(a)', label: 'Divorciado(a)' }, { value: 'viúvo(a)', label: 'Viúvo(a)' }]} />
+                <Input label="RG" value={cor.rg} onChange={(v) => upd('rg', v)} placeholder="Nº do RG" />
+                <Input label="Órgão Emissor do RG" value={cor.rg_orgao} onChange={(v) => upd('rg_orgao', v)} placeholder="SSP/MA" />
+                <Input label="CNH (nº registro)" value={cor.cnh} onChange={(v) => upd('cnh', v)} />
+                <Select label="Categoria da CNH" value={cor.cnh_categoria || ''} onChange={(v) => upd('cnh_categoria', v)}
+                  options={[{ value: '', label: '—' }, ...['A', 'B', 'AB', 'C', 'D', 'E', 'AC', 'AD', 'AE'].map(x => ({ value: x, label: x }))]} />
+                <Input label="Validade da CNH" type="date" value={cor.cnh_validade} onChange={(v) => upd('cnh_validade', v)} />
+              </div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide pt-1">Endereço profissional</p>
+              <div className="grid sm:grid-cols-2 gap-3">
+                <Input label="Logradouro" value={cor.endereco} onChange={(v) => upd('endereco', v)} placeholder="Rua / Av." />
+                <Input label="Número" value={cor.numero} onChange={(v) => upd('numero', v)} />
+                <Input label="Bairro" value={cor.bairro} onChange={(v) => upd('bairro', v)} />
+                <Input label="Cidade" value={cor.cidade} onChange={(v) => upd('cidade', v)} />
+                <Input label="UF" value={cor.uf} onChange={(v) => upd('uf', v)} placeholder="MA" />
+                <Input label="CEP" value={cor.cep} onChange={(v) => upd('cep', v)} placeholder="00000-000" />
+              </div>
+              {['casado(a)', 'união estável'].includes(cor.estado_civil) && (
+                <>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide pt-1">Cônjuge</p>
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <Input label="Nome do Cônjuge" value={cor.conjuge_nome} onChange={(v) => upd('conjuge_nome', v)} />
+                    <Input label="CPF do Cônjuge" value={cor.conjuge_cpf} onChange={(v) => upd('conjuge_cpf', v)} placeholder="000.000.000-00" />
+                    <Input label="RG do Cônjuge" value={cor.conjuge_rg} onChange={(v) => upd('conjuge_rg', v)} />
+                    <Input label="Regime de Bens" value={cor.regime_bens} onChange={(v) => upd('regime_bens', v)} placeholder="comunhão parcial de bens" />
+                  </div>
+                </>
+              )}
+            </div>
+          )}
 
           {parte3 === 'Corretor' && (
             <>
@@ -598,6 +646,11 @@ const Step5Objeto = ({ form, setForm }) => {
             <Input label="Matrícula" value={obj.matricula} onChange={(v) => upd('matricula', v)} placeholder="Nº da matrícula no CRI" />
             <Input label="Serventia / Cartório (Registro de Imóveis)" value={obj.registro_imovel} onChange={(v) => upd('registro_imovel', v)} placeholder="Ex: 1º Ofício de Registro de Imóveis de Açailândia/MA" />
             <Input label="CNS da Serventia" value={obj.cns} onChange={(v) => upd('cns', v)} placeholder="Código Nacional da Serventia (ex: 12.345-6)" />
+            <Input label="Latitude (grau decimal)" value={obj.latitude} onChange={(v) => upd('latitude', v)} placeholder="-4.932001" />
+            <Input label="Longitude (grau decimal)" value={obj.longitude} onChange={(v) => upd('longitude', v)} placeholder="-47.515477" />
+            <div className="sm:col-span-2 -mt-1">
+              <p className="text-xs text-gray-500">📍 Coordenadas do imóvel (SINCETI/mapa). Vão para o contrato com o mapa de localização. {obj.latitude && obj.longitude ? <a className="text-emerald-700 underline" href={`https://www.openstreetmap.org/?mlat=${obj.latitude}&mlon=${obj.longitude}#map=17/${obj.latitude}/${obj.longitude}`} target="_blank" rel="noreferrer">ver no mapa</a> : null}</p>
+            </div>
             <Input label="Área Total (m²)" value={obj.area_total} onChange={(v) => upd('area_total', v)} type="number" />
             <Input label="Área Construída (m²)" value={obj.area_construida} onChange={(v) => upd('area_construida', v)} type="number" />
             <Select
@@ -816,15 +869,25 @@ const Step5Objeto = ({ form, setForm }) => {
                     {/* Bloco G — Saldo Devedor Atual */}
                     <div className="rounded-lg p-3 border border-[#C9A84C] bg-[#C9A84C]/5">
                       <p className="text-xs font-semibold text-[#C9A84C] uppercase tracking-wide mb-2">Saldo Devedor Atual</p>
-                      <div className="grid sm:grid-cols-2 gap-3">
-                        <Input label="Saldo Devedor (R$)" type="number" value={(al.saldo_devedor || {}).valor || ''} onChange={(v) => setAlGrp('saldo_devedor', { valor: v })} placeholder="conforme extrato" required />
-                        <Input label="Data de Referência do Extrato" type="date" value={(al.saldo_devedor || {}).data_referencia || ''} onChange={(v) => setAlGrp('saldo_devedor', { data_referencia: v })} required />
-                      </div>
-                      <p className={`mt-2 text-xs rounded px-2 py-1.5 flex items-center gap-1 ${numDocsImovel > 0 ? 'text-emerald-700 bg-emerald-50 border border-emerald-200' : 'text-amber-700 bg-amber-50 border border-amber-200'}`}>
-                        {numDocsImovel > 0
-                          ? <><CheckCircle2 className="w-3.5 h-3.5" /> {numDocsImovel} documento(s) anexado(s). Confirme que o extrato do financiamento está entre eles (seção Documentos do Imóvel).</>
-                          : <><AlertTriangle className="w-3.5 h-3.5" /> Anexe o extrato do financiamento na seção “Documentos do Imóvel” abaixo para comprovar o saldo devedor.</>}
-                      </p>
+                      <label className="flex items-start gap-2 cursor-pointer select-none text-sm text-gray-700 mb-2">
+                        <input type="checkbox" className="mt-0.5 rounded"
+                          checked={!!(al.saldo_devedor || {}).obter_apos_assinatura}
+                          onChange={(e) => setAlGrp('saldo_devedor', { obter_apos_assinatura: e.target.checked })} />
+                        <span>Saldo a ser obtido <b>após a assinatura</b> (com a procuração) — só com os documentos assinados é possível puxar o extrato no banco. O contrato registrará que o saldo será apurado após a assinatura.</span>
+                      </label>
+                      {!(al.saldo_devedor || {}).obter_apos_assinatura && (
+                        <>
+                          <div className="grid sm:grid-cols-2 gap-3">
+                            <Input label="Saldo Devedor (R$)" type="number" value={(al.saldo_devedor || {}).valor || ''} onChange={(v) => setAlGrp('saldo_devedor', { valor: v })} placeholder="conforme extrato" />
+                            <Input label="Data de Referência do Extrato" type="date" value={(al.saldo_devedor || {}).data_referencia || ''} onChange={(v) => setAlGrp('saldo_devedor', { data_referencia: v })} />
+                          </div>
+                          <p className={`mt-2 text-xs rounded px-2 py-1.5 flex items-center gap-1 ${numDocsImovel > 0 ? 'text-emerald-700 bg-emerald-50 border border-emerald-200' : 'text-amber-700 bg-amber-50 border border-amber-200'}`}>
+                            {numDocsImovel > 0
+                              ? <><CheckCircle2 className="w-3.5 h-3.5" /> {numDocsImovel} documento(s) anexado(s). Confirme que o extrato do financiamento está entre eles (seção Documentos do Imóvel).</>
+                              : <><AlertTriangle className="w-3.5 h-3.5" /> Anexe o extrato do financiamento na seção “Documentos do Imóvel” abaixo para comprovar o saldo devedor.</>}
+                          </p>
+                        </>
+                      )}
                     </div>
 
                     {/* Observações */}
@@ -891,6 +954,11 @@ const Step5Objeto = ({ form, setForm }) => {
           <Input label="Matrícula" value={obj.matricula} onChange={(v) => upd('matricula', v)} />
           <Input label="Serventia / Cartório (Registro de Imóveis)" value={obj.registro_imovel} onChange={(v) => upd('registro_imovel', v)} placeholder="Ex: 1º Ofício de Registro de Imóveis de Açailândia/MA" />
           <Input label="CNS da Serventia" value={obj.cns} onChange={(v) => upd('cns', v)} placeholder="Código Nacional da Serventia" />
+          <Input label="Latitude (grau decimal)" value={obj.latitude} onChange={(v) => upd('latitude', v)} placeholder="-4.932001" />
+          <Input label="Longitude (grau decimal)" value={obj.longitude} onChange={(v) => upd('longitude', v)} placeholder="-47.515477" />
+          <div className="sm:col-span-2 -mt-1">
+            <p className="text-xs text-gray-500">📍 Coordenadas (SINCETI/mapa) — vão para o contrato com o mapa de localização. {obj.latitude && obj.longitude ? <a className="text-emerald-700 underline" href={`https://www.openstreetmap.org/?mlat=${obj.latitude}&mlon=${obj.longitude}#map=17/${obj.latitude}/${obj.longitude}`} target="_blank" rel="noreferrer">ver no mapa</a> : null}</p>
+          </div>
           <div className="sm:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-1">Ônus / Gravames</label>
             <RichTextEditor
@@ -2581,8 +2649,10 @@ const ContratoWizard = () => {
         if (!(a.credor?.nome || '').trim()) faltas.push('Banco/Credor');
         if (cnpjDig.length !== 14) faltas.push('CNPJ válido (14 dígitos)');
         if (!(a.valores?.valor_financiado)) faltas.push('Valor Financiado');
-        if (!(a.saldo_devedor?.valor)) faltas.push('Saldo Devedor');
-        if (!(a.saldo_devedor?.data_referencia)) faltas.push('Data de Referência do Extrato');
+        if (!a.saldo_devedor?.obter_apos_assinatura) {
+          if (!(a.saldo_devedor?.valor)) faltas.push('Saldo Devedor (ou marque “obter após assinatura”)');
+          if (!(a.saldo_devedor?.data_referencia)) faltas.push('Data de Referência do Extrato');
+        }
         if (faltas.length) {
           toast({ title: 'Complete os dados da alienação', description: faltas.join(', '), variant: 'destructive' });
           return false;

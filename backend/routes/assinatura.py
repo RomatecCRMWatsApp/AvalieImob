@@ -785,6 +785,7 @@ async def assinar_icp_brasil(
 
     # Recibo assinado → reflete no card do PTAM vinculado.
     await _propagar_recibo_assinado(db, tipo, doc, data_principal)
+    await _stamp_data_assinatura_contrato(db, tipo, doc, data_principal)
 
     return {
         "ok": True,
@@ -797,6 +798,27 @@ async def assinar_icp_brasil(
         "download_url": f"/api/assinatura/icp/{tipo}/{id}/download",
         "verificacao_url": f"/v/laudo/v/{hash_principal}",
     }
+
+
+async def _stamp_data_assinatura_contrato(db, tipo: str, doc: dict, quando=None) -> None:
+    """Após a ÚLTIMA assinatura (ICP do corretor) de um CONTRATO, preenche
+    automaticamente `data_assinatura` (se ainda vazia) com a data da conclusão.
+    O campo no Wizard passa a ser preenchido sozinho. Idempotente/defensivo."""
+    if tipo != "contrato":
+        return
+    try:
+        cid = str(doc.get("id") or doc.get("_id") or "")
+        if not cid:
+            return
+        from datetime import datetime, timezone
+        dt = quando or datetime.now(timezone.utc)
+        data_iso = dt.strftime("%Y-%m-%d")
+        await db.contratos.update_one(
+            {"id": cid, "$or": [{"data_assinatura": {"$in": [None, ""]}},
+                                {"data_assinatura": {"$exists": False}}]},
+            {"$set": {"data_assinatura": data_iso, "data_assinatura_auto": True}})
+    except Exception:  # noqa: BLE001
+        logger.warning("Falha ao preencher data de assinatura automática.", exc_info=True)
 
 
 async def _propagar_recibo_assinado(db, tipo: str, doc: dict, quando=None) -> None:
@@ -1090,6 +1112,7 @@ async def assinar_posicionado(
 
     # Recibo assinado → reflete no card do PTAM vinculado.
     await _propagar_recibo_assinado(db, tipo, doc, data_assinatura)
+    await _stamp_data_assinatura_contrato(db, tipo, doc, data_assinatura)
 
     try:
         await asyncio.to_thread(r2_storage.delete_object, key)

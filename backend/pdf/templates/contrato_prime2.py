@@ -200,6 +200,36 @@ class BandaTotal(Flowable):
             c.drawString(0.7 * cm, 0.35 * cm, self.extenso)
 
 
+def _data_br_capa(v) -> str:
+    """ISO 'YYYY-MM-DD' -> 'DD/MM/AAAA'; mantém o resto como veio; placeholder se vazio."""
+    s = str(v or "").strip()
+    if not s:
+        return "___/___/______"
+    import re as _re
+    m = _re.match(r"^(\d{4})-(\d{2})-(\d{2})$", s)
+    return f"{m.group(3)}/{m.group(2)}/{m.group(1)}" if m else s
+
+
+def _mapa_flowable(lat, lon, largura):
+    """Imagem do mapa de localização (Image flowable) ou None se indisponível."""
+    if lat in (None, "") or lon in (None, ""):
+        return None
+    try:
+        from services.mapa_estatico import gerar_mapa_png
+        png = gerar_mapa_png(lat, lon, zoom=16, larg=620, alt=300)
+        if not png:
+            return None
+        from reportlab.platypus import Image as RLImage
+        from reportlab.lib.utils import ImageReader
+        ir = ImageReader(io.BytesIO(png))
+        iw, ih = ir.getSize()
+        w = largura
+        h = w * (ih / float(iw))
+        return RLImage(io.BytesIO(png), width=w, height=h)
+    except Exception:
+        return None
+
+
 def _card_destaque_vermelho(titulo, corpo_html, largura):
     """Caixa de DESTAQUE p/ a cláusula essencial de comissão (parecer item 5):
     fundo claro #FBEEEC, borda vermelha #C0392B, título e corpo em vermelho negrito."""
@@ -353,7 +383,7 @@ def render(doc: dict, uid: str, empresa: str) -> bytes:
         "contratante_nome": _parte_nome(contratante),
         "contratante_doc": _parte_doc(contratante),
         "contratante_end": _endereco_full(contratante) or _parte_endereco(contratante),
-        "emissao": f"Emitido em {(doc.get('data_assinatura') or '').strip() or '___/___/______'} · {(doc.get('cidade_assinatura') or 'Açailândia/MA')}",
+        "emissao": f"Emitido em {_data_br_capa(doc.get('data_assinatura'))} · {(doc.get('cidade_assinatura') or 'Açailândia/MA')}",
         "validade": "",
     }
 
@@ -388,13 +418,22 @@ def render(doc: dict, uid: str, empresa: str) -> bytes:
     desc = end_imovel if end_imovel != "—" else (objeto.get("descricao") or "Imóvel a especificar.")
     serventia = objeto.get("registro_imovel") or objeto.get("cartorio") or objeto.get("serventia") or "—"
     cns = objeto.get("cns") or objeto.get("cartorio_cns") or objeto.get("serventia_cns") or ""
+    lat, lon = objeto.get("latitude"), objeto.get("longitude")
     linhas_obj = [
         f"Endereço: {end_imovel}",
         f"Matrícula: {_norm_matricula(objeto.get('matricula')) or '—'} · Município/UF: {objeto.get('cidade','—') or '—'}/{objeto.get('uf','—') or '—'}",
         f"Serventia / Cartório: {serventia}" + (f" · CNS {cns}" if cns else ""),
     ]
+    if lat not in (None, "") and lon not in (None, ""):
+        linhas_obj.append(f"Coordenadas (SIRGAS 2000): {lat}, {lon}")
     story.append(Paragraph(f"O presente instrumento tem por objeto o imóvel adiante descrito: {desc}.", st["corpo"]))
     story.append(_card_borda_dourada("DADOS DO IMÓVEL", linhas_obj, st, cw))
+    # Mapa de localização (best-effort; sem imagem se a busca de tiles falhar)
+    _mapa = _mapa_flowable(lat, lon, cw)
+    if _mapa is not None:
+        story.append(Spacer(1, 8))
+        story.append(_mapa)
+        story.append(Paragraph("Localização aproximada do imóvel (OpenStreetMap).", st.get("legenda", st["corpo"])))
     story.append(Spacer(1, 14))
 
     # 02 Condições Comerciais

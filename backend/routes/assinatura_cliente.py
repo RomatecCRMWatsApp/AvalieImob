@@ -86,10 +86,11 @@ async def _gerar_contrato_pdf(db, doc: dict, uid: str) -> bytes:
     user = await db.users.find_one({"id": uid}, {"company": 1, "name": 1}) or {}
     empresa = user.get("company") or user.get("name") or "AvalieImob"
     try:
-        from routes.contratos import _preload_anexos_imovel
+        from routes.contratos import _preload_anexos_imovel, _preload_avaliador
         await _preload_anexos_imovel(db, doc)
+        doc["_avaliador"] = await _preload_avaliador(db, uid)  # CONTRATADO completo (fallback)
     except Exception:
-        logger.warning("Falha ao pré-carregar anexos (assinatura cliente).", exc_info=True)
+        logger.warning("Falha ao pré-carregar anexos/avaliador (assinatura cliente).", exc_info=True)
     return await asyncio.to_thread(gerar_pdf_contrato, doc, uid or "", empresa)
 
 

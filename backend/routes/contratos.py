@@ -1079,32 +1079,10 @@ def _data_extenso(s) -> str:
 
 def _qualifica_outorgado(cor: dict, avaliador: Optional[dict] = None) -> str:
     """Qualificação COMPLETA do outorgado (corretor) p/ a procuração.
-    Prioriza os dados do PERFIL do avaliador (CRECI/CNAI/CFT, CPF, endereço completo,
-    telefone, e-mail), caindo para o corretor do contrato. Sem trechos vazios."""
-    cor = cor or {}
-    av = avaliador or {}
-    nome = _s(av.get("nome") or cor.get("nome"), _BLANK)
-    txt = f"{nome}, corretor(a) de imóveis"
-    regs = [r for r in (av.get("registros_linhas") or []) if r]
-    if not regs:
-        c = _s(cor.get("creci"), "")
-        if c:
-            regs = [c if c.upper().startswith("CRECI") else f"CRECI {c}"]
-    if regs:
-        txt += ", inscrito(a) sob " + ", ".join(regs)
-    cpf = _s(av.get("cpf") or cor.get("cpf_cnpj") or cor.get("cpf"), "")
-    if cpf:
-        txt += f", portador(a) do CPF nº {cpf}"
-    end = _s(av.get("endereco") or cor.get("endereco"), "")
-    if end:
-        txt += f", com endereço profissional em {end}"
-    tel = _s(av.get("telefone"), "")
-    if tel:
-        txt += f", telefone {tel}"
-    email = _s(av.get("email"), "")
-    if email:
-        txt += f", e-mail {email}"
-    return txt
+    Fonte única: pdf.templates.contrato_base.qualifica_corretor_full — prefere os campos
+    do FORM do corretor e cai no perfil do avaliador (CRECI/CNAI/CFT, CPF, endereço...)."""
+    from pdf.templates.contrato_base import qualifica_corretor_full
+    return qualifica_corretor_full(cor, avaliador)
 
 
 async def _preload_avaliador(db, uid: str) -> dict:
@@ -1418,6 +1396,7 @@ async def baixar_contrato_pdf(
     empresa = (user or {}).get("company") or (user or {}).get("name") or "AvalieImob"
 
     await _preload_anexos_imovel(db, doc)
+    doc["_avaliador"] = await _preload_avaliador(db, uid)  # qualificação completa do CONTRATADO (fallback)
 
     from pdf.templates.registry import gerar_pdf_contrato
     pdf_bytes = gerar_pdf_contrato(doc=doc, uid=uid, empresa=empresa, template=template)
