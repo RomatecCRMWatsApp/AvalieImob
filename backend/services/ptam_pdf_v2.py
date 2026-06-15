@@ -2464,11 +2464,12 @@ def build_story(ptam, page_map):
     # ── ANEXO V — Cartão de Regularidade Profissional (CRECI) ──
     try:
         _praw = ptam.get('_perfil') or {}
-        if _praw.get('cartao_regularidade_anexar', True) and _praw.get('cartao_regularidade_b64'):
+        _pags = _praw.get('cartao_regularidade_paginas_b64') or []
+        if _praw.get('cartao_regularidade_anexar', True) and (_pags or _praw.get('cartao_regularidade_b64')):
             from services.cartao_regularidade import cartao_regularidade_flowables
             _cart = cartao_regularidade_flowables(
                 _praw.get('cartao_regularidade_b64'), _praw.get('cartao_regularidade_link'), 430.0,
-                titulo='ANEXO V — CARTÃO DE REGULARIDADE PROFISSIONAL (CRECI)')
+                titulo='ANEXO V — CARTÃO DE REGULARIDADE PROFISSIONAL (CRECI)', paginas=_pags)
             if _cart:
                 st += _cart  # já começa com PageBreak
     except Exception:

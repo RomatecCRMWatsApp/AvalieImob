@@ -1016,10 +1016,11 @@ def _generate_contrato_pdf_bytes(doc: dict, uid: str, empresa: str, raise_on_err
         # ── Anexo — Cartão de Regularidade Profissional (CRECI) do corretor ───
         try:
             av = doc.get("_avaliador") or {}
-            if av.get("cartao_regularidade_anexar", True) and av.get("cartao_regularidade_b64"):
+            _pags = av.get("cartao_regularidade_paginas_b64") or []
+            if av.get("cartao_regularidade_anexar", True) and (_pags or av.get("cartao_regularidade_b64")):
                 from services.cartao_regularidade import cartao_regularidade_flowables
                 anexos = list(anexos) + cartao_regularidade_flowables(
-                    av.get("cartao_regularidade_b64"), av.get("cartao_regularidade_link"), 440.0)
+                    av.get("cartao_regularidade_b64"), av.get("cartao_regularidade_link"), 440.0, paginas=_pags)
         except Exception:
             logger.warning("Falha ao montar o anexo do cartão (tradicional).", exc_info=True)
 
@@ -1133,6 +1134,7 @@ async def _preload_avaliador(db, uid: str) -> dict:
         av = resolver_dados_avaliador(perfil=perfil, user=user)
         # Cartão de Regularidade (CRECI) p/ anexar ao documento
         av["cartao_regularidade_b64"] = perfil.get("cartao_regularidade_b64")
+        av["cartao_regularidade_paginas_b64"] = perfil.get("cartao_regularidade_paginas_b64") or []
         av["cartao_regularidade_link"] = perfil.get("cartao_regularidade_link") or ""
         av["cartao_regularidade_anexar"] = perfil.get("cartao_regularidade_anexar", True)
         return av

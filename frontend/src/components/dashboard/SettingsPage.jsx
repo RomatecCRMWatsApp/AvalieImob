@@ -27,23 +27,30 @@ const SettingsPage = () => {
 
   // ── Cartão de Regularidade Profissional (CRECI) ──
   const cartaoInputRef = useRef(null);
-  const [cartaoB64, setCartaoB64] = useState(null);
+  const [cartaoPreview, setCartaoPreview] = useState(null);  // 1ª página (img) p/ pré-visualização
+  const [cartaoPaginas, setCartaoPaginas] = useState(0);     // nº de páginas (quando PDF convertido)
   const [cartaoLink, setCartaoLink] = useState('');
   const [cartaoAnexar, setCartaoAnexar] = useState(true);
   const [savingCartao, setSavingCartao] = useState(false);
 
+  const aplicaPerfilCartao = (p) => {
+    const pags = p?.cartao_regularidade_paginas_b64 || [];
+    setCartaoPreview(pags[0] || p?.cartao_regularidade_b64 || null);
+    setCartaoPaginas(pags.length);
+    if (typeof p?.cartao_regularidade_link === 'string') setCartaoLink(p.cartao_regularidade_link);
+    if (typeof p?.cartao_regularidade_anexar === 'boolean') setCartaoAnexar(p.cartao_regularidade_anexar);
+  };
+
   useEffect(() => {
-    perfilAPI.get().then((p) => {
-      if (p?.cartao_regularidade_b64) setCartaoB64(p.cartao_regularidade_b64);
-      if (p?.cartao_regularidade_link) setCartaoLink(p.cartao_regularidade_link);
-      if (typeof p?.cartao_regularidade_anexar === 'boolean') setCartaoAnexar(p.cartao_regularidade_anexar);
-    }).catch(() => {});
+    perfilAPI.get().then((p) => { if (p) aplicaPerfilCartao(p); }).catch(() => {});
   }, []);
 
   const persistCartao = async (patch) => {
     setSavingCartao(true);
     try {
-      await perfilAPI.setCartaoRegularidade(patch);
+      const p = await perfilAPI.setCartaoRegularidade(patch);
+      if (p) aplicaPerfilCartao(p);
+      return p;
     } catch (e) {
       toast({ title: 'Erro ao salvar o cartão', description: e.response?.data?.detail, variant: 'destructive' });
     } finally { setSavingCartao(false); }
@@ -52,12 +59,13 @@ const SettingsPage = () => {
   const handleCartaoFileChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!['image/png', 'image/jpeg', 'image/jpg', 'image/webp'].includes(file.type)) {
-      toast({ title: 'Formato inválido', description: 'Envie uma imagem (PNG, JPG ou WEBP).', variant: 'destructive' });
+    const okTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'application/pdf'];
+    if (!okTypes.includes(file.type)) {
+      toast({ title: 'Formato inválido', description: 'Envie uma imagem (PNG, JPG, WEBP) ou um PDF.', variant: 'destructive' });
       e.target.value = ''; return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      toast({ title: 'Arquivo muito grande', description: 'Tamanho máximo: 5MB.', variant: 'destructive' });
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: 'Arquivo muito grande', description: 'Tamanho máximo: 10MB.', variant: 'destructive' });
       e.target.value = ''; return;
     }
     setSavingCartao(true);
@@ -68,17 +76,18 @@ const SettingsPage = () => {
         r.onerror = rej;
         r.readAsDataURL(file);
       });
-      setCartaoB64(b64);
-      await perfilAPI.setCartaoRegularidade({ cartao_regularidade_b64: b64, cartao_regularidade_anexar: true });
-      setCartaoAnexar(true);
-      toast({ title: 'Cartão de regularidade salvo!' });
+      const p = await perfilAPI.setCartaoRegularidade({ cartao_regularidade_b64: b64, cartao_regularidade_anexar: true });
+      if (p) aplicaPerfilCartao(p);
+      const npags = p?.cartao_regularidade_paginas_b64?.length || 0;
+      toast({ title: 'Cartão de regularidade salvo!', description: npags > 1 ? `PDF com ${npags} páginas anexado.` : undefined });
     } catch (err) {
       toast({ title: 'Erro ao enviar o cartão', description: err.response?.data?.detail, variant: 'destructive' });
     } finally { setSavingCartao(false); e.target.value = ''; }
   };
 
   const handleRemoveCartao = async () => {
-    setCartaoB64(null);
+    setCartaoPreview(null);
+    setCartaoPaginas(0);
     await persistCartao({ cartao_regularidade_b64: '' });
     toast({ title: 'Cartão removido' });
   };
@@ -218,16 +227,17 @@ const SettingsPage = () => {
           <h3 className="font-semibold text-gray-900">Cartão de Regularidade (CRECI)</h3>
         </div>
         <p className="text-xs text-gray-500 mb-4">
-          Envie a imagem do seu cartão de regularidade profissional. Quando ativo, ele é
-          anexado automaticamente ao final dos <b>contratos</b> e dos <b>laudos (PTAM)</b> que você gerar.
+          Envie a <b>imagem</b> (PNG/JPG) ou o <b>PDF</b> do seu cartão de regularidade profissional.
+          PDF com frente e verso é convertido automaticamente. Quando ativo, ele é anexado ao final dos
+          <b> contratos</b> e dos <b>laudos (PTAM)</b> que você gerar.
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4">
           {/* Pré-visualização */}
           <div className="w-full sm:w-56 flex-shrink-0">
             <div className="aspect-[16/10] rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden">
-              {cartaoB64 ? (
-                <img src={cartaoB64} alt="Cartão de regularidade" className="w-full h-full object-contain" />
+              {cartaoPreview ? (
+                <img src={cartaoPreview} alt="Cartão de regularidade" className="w-full h-full object-contain" />
               ) : (
                 <span className="text-xs text-gray-400 flex flex-col items-center gap-1">
                   <FileBadge className="w-7 h-7 text-gray-300" />
@@ -235,6 +245,9 @@ const SettingsPage = () => {
                 </span>
               )}
             </div>
+            {cartaoPaginas > 1 && (
+              <p className="text-[11px] text-gray-500 text-center mt-1">PDF com {cartaoPaginas} páginas (frente/verso)</p>
+            )}
           </div>
 
           {/* Controles */}
@@ -242,7 +255,7 @@ const SettingsPage = () => {
             <input
               ref={cartaoInputRef}
               type="file"
-              accept="image/png,image/jpeg,image/jpg,image/webp"
+              accept="image/png,image/jpeg,image/jpg,image/webp,application/pdf"
               className="hidden"
               onChange={handleCartaoFileChange}
             />
@@ -255,13 +268,13 @@ const SettingsPage = () => {
               >
                 {savingCartao ? (
                   <span className="flex items-center gap-1"><Loader2 className="w-4 h-4 animate-spin" />Salvando...</span>
-                ) : cartaoB64 ? (
-                  <span className="flex items-center gap-1"><Image className="w-4 h-4" />Trocar imagem</span>
+                ) : cartaoPreview ? (
+                  <span className="flex items-center gap-1"><Image className="w-4 h-4" />Trocar arquivo</span>
                 ) : (
-                  <span className="flex items-center gap-1"><Upload className="w-4 h-4" />Enviar cartão</span>
+                  <span className="flex items-center gap-1"><Upload className="w-4 h-4" />Enviar cartão (imagem ou PDF)</span>
                 )}
               </Button>
-              {cartaoB64 && (
+              {cartaoPreview && (
                 <Button
                   variant="ghost"
                   size="sm"
