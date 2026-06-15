@@ -550,7 +550,8 @@ export const documentosAPI = {
   upload: (file) => {
     const fd = new FormData();
     fd.append('file', file);
-    return api.post('/documentos/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data);
+    // NÃO fixar Content-Type: o axios/browser precisa setar o boundary do multipart sozinho.
+    return api.post('/documentos/upload', fd).then(r => r.data);
   },
   excluir: (id) => api.delete(`/documentos/${id}`).then(r => r.data),
   pdfOriginal: (id) => api.get(`/documentos/${id}/pdf`, { responseType: 'blob' }).then(r => r.data),
