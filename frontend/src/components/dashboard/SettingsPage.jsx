@@ -179,6 +179,70 @@ const SettingsPage = () => {
     perfilAPI.get().then((p) => { if (p) aplicaPerfilCertidao(p); }).catch(() => {});
   }, []);
 
+  // ── Certificado CNAI — miniatura no currículo do PTAM ──
+  const cnaiInputRef = useRef(null);
+  const [cnaiPreview, setCnaiPreview] = useState(null);
+  const [cnaiPaginas, setCnaiPaginas] = useState(0);
+  const [cnaiAnexar, setCnaiAnexar] = useState(true);
+  const [savingCnai, setSavingCnai] = useState(false);
+
+  const aplicaPerfilCnai = (p) => {
+    const pags = p?.certificado_cnai_paginas_b64 || [];
+    setCnaiPreview(pags[0] || p?.certificado_cnai_b64 || null);
+    setCnaiPaginas(pags.length);
+    if (typeof p?.certificado_cnai_anexar === 'boolean') setCnaiAnexar(p.certificado_cnai_anexar);
+  };
+
+  useEffect(() => {
+    perfilAPI.get().then((p) => { if (p) aplicaPerfilCnai(p); }).catch(() => {});
+  }, []);
+
+  const persistCnai = async (patch) => {
+    setSavingCnai(true);
+    try {
+      const p = await perfilAPI.setCertificadoCnai(patch);
+      if (p) aplicaPerfilCnai(p);
+      return p;
+    } catch (e) {
+      toast({ title: 'Erro ao salvar o certificado CNAI', description: e.response?.data?.detail, variant: 'destructive' });
+    } finally { setSavingCnai(false); }
+  };
+
+  const handleCnaiFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const okTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'application/pdf'];
+    if (!okTypes.includes(file.type)) {
+      toast({ title: 'Formato inválido', description: 'Envie uma imagem (PNG, JPG, WEBP) ou um PDF.', variant: 'destructive' });
+      e.target.value = ''; return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: 'Arquivo muito grande', description: 'Tamanho máximo: 10MB.', variant: 'destructive' });
+      e.target.value = ''; return;
+    }
+    setSavingCnai(true);
+    try {
+      const b64 = await new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res(r.result);
+        r.onerror = rej;
+        r.readAsDataURL(file);
+      });
+      const p = await perfilAPI.setCertificadoCnai({ certificado_cnai_b64: b64, certificado_cnai_anexar: true });
+      if (p) aplicaPerfilCnai(p);
+      toast({ title: 'Certificado CNAI salvo!', description: 'Será exibido como miniatura no currículo do laudo.' });
+    } catch (err) {
+      toast({ title: 'Erro ao enviar o certificado', description: err.response?.data?.detail, variant: 'destructive' });
+    } finally { setSavingCnai(false); e.target.value = ''; }
+  };
+
+  const handleRemoveCnai = async () => {
+    setCnaiPreview(null);
+    setCnaiPaginas(0);
+    await persistCnai({ certificado_cnai_b64: '' });
+    toast({ title: 'Certificado CNAI removido' });
+  };
+
   const save = async () => {
     setSaving(true);
     try {
@@ -543,6 +607,72 @@ const SettingsPage = () => {
               <Switch
                 checked={certidaoAnexar}
                 onCheckedChange={(v) => { setCertidaoAnexar(v); persistCertidao({ certidao_regularidade_anexar: v }); }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Certificado CNAI — miniatura no currículo do PTAM ── */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="flex items-center gap-2 mb-1">
+          <FileBadge className="w-5 h-5 text-[#B8860B]" />
+          <h3 className="font-semibold text-gray-900">Certificado CNAI</h3>
+        </div>
+        <p className="text-xs text-gray-500 mb-4">
+          Certificado do <b>Cadastro Nacional de Avaliadores de Imóveis (CNAI)</b>. Envie a imagem ou o PDF —
+          ele aparece como <b>miniatura no currículo</b> dos seus laudos PTAM (ANEXO IV).
+        </p>
+
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="w-full sm:w-44 flex-shrink-0">
+            <div className="aspect-[3/4] rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden">
+              {cnaiPreview ? (
+                <img src={cnaiPreview} alt="Certificado CNAI" className="w-full h-full object-contain" />
+              ) : (
+                <span className="text-xs text-gray-400 flex flex-col items-center gap-1">
+                  <FileBadge className="w-7 h-7 text-gray-300" />
+                  Nenhum certificado
+                </span>
+              )}
+            </div>
+            {cnaiPaginas > 1 && (
+              <p className="text-[11px] text-gray-500 text-center mt-1">PDF com {cnaiPaginas} páginas (usa a 1ª)</p>
+            )}
+          </div>
+
+          <div className="flex-1 space-y-3">
+            <input
+              ref={cnaiInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/jpg,image/webp,application/pdf"
+              className="hidden"
+              onChange={handleCnaiFileChange}
+            />
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => cnaiInputRef.current?.click()} disabled={savingCnai}>
+                {savingCnai ? (
+                  <span className="flex items-center gap-1"><Loader2 className="w-4 h-4 animate-spin" />Salvando...</span>
+                ) : cnaiPreview ? (
+                  <span className="flex items-center gap-1"><Image className="w-4 h-4" />Trocar arquivo</span>
+                ) : (
+                  <span className="flex items-center gap-1"><Upload className="w-4 h-4" />Enviar certificado (imagem ou PDF)</span>
+                )}
+              </Button>
+              {cnaiPreview && (
+                <Button variant="ghost" size="sm" onClick={handleRemoveCnai} className="text-red-500 hover:text-red-700 hover:bg-red-50" disabled={savingCnai}>
+                  <Trash2 className="w-4 h-4 mr-1" />Remover
+                </Button>
+              )}
+            </div>
+            <div className="flex items-center justify-between py-2 border-t border-gray-100">
+              <div>
+                <div className="font-medium text-sm">Exibir no currículo do PTAM</div>
+                <div className="text-xs text-gray-500">Miniatura no ANEXO IV (Currículo do Avaliador)</div>
+              </div>
+              <Switch
+                checked={cnaiAnexar}
+                onCheckedChange={(v) => { setCnaiAnexar(v); persistCnai({ certificado_cnai_anexar: v }); }}
               />
             </div>
           </div>

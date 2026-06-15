@@ -583,6 +583,10 @@ class PerfilAvaliadorBase(BaseModel):
     certidao_regularidade_validade: str = ""               # YYYY-MM-DD
     certidao_regularidade_link: str = ""
     certidao_regularidade_anexar: bool = True
+    # Certificado CNAI (Cadastro Nacional de Avaliadores) — miniatura no currículo do PTAM
+    certificado_cnai_b64: Optional[str] = None
+    certificado_cnai_paginas_b64: List[str] = []
+    certificado_cnai_anexar: bool = True
 
 
 class PerfilAvaliador(PerfilAvaliadorBase):

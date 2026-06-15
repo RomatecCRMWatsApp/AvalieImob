@@ -2455,6 +2455,26 @@ def build_story(ptam, page_map):
             f'<a href="{_safe}"><font color="#0C7C3A"><u>{_safe}</u></font></a>',
             _sCurBody))
 
+    # Certificado CNAI — miniatura no currículo (Cadastro Nacional de Avaliadores)
+    try:
+        _praw_c = ptam.get('_perfil') or {}
+        _cnai_imgs = _praw_c.get('certificado_cnai_paginas_b64') or (
+            [_praw_c.get('certificado_cnai_b64')] if _praw_c.get('certificado_cnai_b64') else [])
+        _cnai_imgs = [x for x in _cnai_imgs if x]
+        if _praw_c.get('certificado_cnai_anexar', True) and _cnai_imgs:
+            from services.cartao_regularidade import _img_flowable, _b64_to_bytes
+            _mini = _img_flowable(_b64_to_bytes(_cnai_imgs[0]), 200.0, max_h=270.0)
+            if _mini is not None:
+                _cur_sep()
+                st.append(Paragraph('<u>CERTIFICADO CNAI</u>', _sCurSec))
+                st.append(Spacer(1, 3))
+                st.append(_mini)
+                st.append(Paragraph('Certificado do Cadastro Nacional de Avaliadores de Imóveis (CNAI).',
+                                    ParagraphStyle('cnai_cap', parent=_sCurBody, fontSize=7,
+                                                   textColor=colors.HexColor('#5B7466'))))
+    except Exception:
+        pass
+
     # Fallback: perfil não cadastrado → orienta o avaliador
     if not perfil.get('perfil_completo'):
         st.append(Spacer(1, 6))

@@ -25,6 +25,11 @@ class CertidaoRegularidadeBody(BaseModel):
     certidao_regularidade_anexar: Optional[bool] = None
 
 
+class CertificadoCnaiBody(BaseModel):
+    certificado_cnai_b64: Optional[str] = None
+    certificado_cnai_anexar: Optional[bool] = None
+
+
 def _campos_arquivo_regularidade(prefix: str, b64) -> dict:
     """Converte o arquivo recebido (imagem OU PDF) nos campos de armazenamento do perfil.
     PDF → páginas-imagem em {prefix}_paginas_b64; imagem → {prefix}_b64; "" remove ambos."""
@@ -97,6 +102,24 @@ async def set_certidao_regularidade(body: CertidaoRegularidadeBody,
         upd["certidao_regularidade_anexar"] = body.certidao_regularidade_anexar
     if body.certidao_regularidade_b64 is not None:
         upd.update(_campos_arquivo_regularidade("certidao_regularidade", body.certidao_regularidade_b64))
+    await db.perfil_avaliador.update_one(
+        {"user_id": uid},
+        {"$set": upd, "$setOnInsert": {"id": str(uuid.uuid4()), "created_at": datetime.utcnow()}},
+        upsert=True,
+    )
+    doc = await db.perfil_avaliador.find_one({"user_id": uid})
+    return serialize_doc(doc)
+
+
+@router.put("/perfil-avaliador/certificado-cnai")
+async def set_certificado_cnai(body: CertificadoCnaiBody,
+                               uid: str = Depends(get_current_user_id), db=Depends(get_db)):
+    """Salva o Certificado CNAI (miniatura no currículo do PTAM). Aceita IMAGEM ou PDF."""
+    upd = {"updated_at": datetime.utcnow()}
+    if body.certificado_cnai_anexar is not None:
+        upd["certificado_cnai_anexar"] = body.certificado_cnai_anexar
+    if body.certificado_cnai_b64 is not None:
+        upd.update(_campos_arquivo_regularidade("certificado_cnai", body.certificado_cnai_b64))
     await db.perfil_avaliador.update_one(
         {"user_id": uid},
         {"$set": upd, "$setOnInsert": {"id": str(uuid.uuid4()), "created_at": datetime.utcnow()}},

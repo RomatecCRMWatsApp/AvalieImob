@@ -341,6 +341,9 @@ export const perfilAPI = {
   // Certidão de Regularidade (CRECI) — gerada on-line, tem validade
   setCertidaoRegularidade: (data) =>
     api.put('/perfil-avaliador/certidao-regularidade', data).then(r => r.data),
+  // Certificado CNAI — miniatura no currículo do PTAM
+  setCertificadoCnai: (data) =>
+    api.put('/perfil-avaliador/certificado-cnai', data).then(r => r.data),
 };
 
 // ---- Testemunhas salvas (autofill no wizard de Contratos)
