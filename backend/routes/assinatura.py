@@ -187,6 +187,79 @@ async def _resolve_ptam_assets(db, doc: dict) -> None:
         pass
 
 
+async def _pdf_cliente_assinado(db, doc: dict, tipo_doc: str = "contrato") -> Optional[bytes]:
+    """Devolve o PDF JÁ ASSINADO pelos CLIENTES (traços carimbados), p/ servir de BASE ao
+    ICP do corretor. Robusto: (1) URL no contrato; (2) pdf_key_final da sessão; (3) RE-CARIMBA
+    de pdf_key_base + traços da sessão (caso o carimbo original tenha falhado). None se não houver."""
+    from services import r2_storage
+    import base64 as _b64
+
+    def _ok(b):
+        return b if (b and b[:5] == b"%PDF-") else None
+
+    campo = "procuracao_cliente_pdf_url" if tipo_doc == "procuracao" else "assinatura_cliente_pdf_url"
+    # 1) URL denormalizada no contrato
+    url = doc.get(campo)
+    if url:
+        try:
+            b = _ok(await asyncio.to_thread(r2_storage.download_bytes, url))
+            if b:
+                return b
+        except Exception:
+            logger.warning("Falha ao baixar %s; tentando a sessão.", campo, exc_info=True)
+    if db is None:
+        return None
+    cid = str(doc.get("id") or doc.get("_id") or "")
+    if not cid:
+        return None
+    try:
+        sess = await db["assinatura_cliente_sessoes"].find_one(
+            {"contrato_id": cid}, sort=[("created_at", -1)])
+    except Exception:
+        sess = None
+    if not sess:
+        return None
+    d = next((x for x in sess.get("documentos", []) if (x.get("tipo") or "contrato") == tipo_doc), None)
+    if not d:
+        return None
+    # 2) PDF final já carimbado salvo na sessão
+    if d.get("pdf_key_final"):
+        try:
+            b = _ok(await asyncio.to_thread(r2_storage.download_bytes, d["pdf_key_final"]))
+            if b:
+                return b
+        except Exception:
+            logger.warning("Falha ao baixar pdf_key_final; re-carimbando.", exc_info=True)
+    # 3) RE-CARIMBA de pdf_key_base + traços (recupera carimbo que falhou)
+    if d.get("pdf_key_base"):
+        try:
+            base = _ok(await asyncio.to_thread(r2_storage.download_bytes, d["pdf_key_base"]))
+            if not base:
+                return None
+            assinaturas = []
+            for s in sess.get("signatarios", []):
+                if not s.get("traco_b64"):
+                    continue
+                try:
+                    png = _b64.b64decode(s["traco_b64"])
+                except Exception:
+                    continue
+                assinaturas.append({
+                    "role": s.get("role"), "nome": s.get("nome"), "cpf": s.get("cpf"),
+                    "traco_png": png, "ip": s.get("ip"), "geo_lat": s.get("geo_lat"),
+                    "geo_lng": s.get("geo_lng"), "user_agent": s.get("user_agent"),
+                    "assinado_em": s.get("assinado_em"),
+                })
+            if not assinaturas:
+                return None
+            from services.assinatura_cliente_carimbo import carimbar_documento
+            final, _h = await asyncio.to_thread(carimbar_documento, base, d.get("ancoras") or [], assinaturas)
+            return _ok(final)
+        except Exception:
+            logger.warning("Falha ao re-carimbar o PDF cliente-assinado.", exc_info=True)
+    return None
+
+
 async def _gerar_pdf(tipo: str, doc: dict, db=None, perfil: dict | None = None) -> bytes:
     """Gera PDF do documento conforme tipo. PTAM usa o layout v2 (aprovado)."""
     if tipo == "ptam":
@@ -229,18 +302,12 @@ async def _gerar_pdf(tipo: str, doc: dict, db=None, perfil: dict | None = None) 
         return pdf_bytes
     elif tipo == "contrato":
         # FASE PÓS-ASSINATURA: se os CLIENTES já assinaram, o PDF base do corretor é o
-        # PDF JÁ CARIMBADO com os traços (assinatura_cliente_pdf_url) — assim o ICP do
-        # corretor sela o documento COM todas as assinaturas (final completo). Só cai na
-        # geração do zero se ainda não houver assinatura de cliente.
-        url_cliente = doc.get("assinatura_cliente_pdf_url")
-        if url_cliente:
-            try:
-                from services import r2_storage
-                base = await asyncio.to_thread(r2_storage.download_bytes, url_cliente)
-                if base and base[:5] == b"%PDF-":
-                    return base
-            except Exception:
-                logger.warning("Falha ao baixar PDF cliente-assinado; gerando do zero.", exc_info=True)
+        # PDF JÁ CARIMBADO com os traços — assim o ICP do corretor sela o documento COM
+        # TODAS as assinaturas (final completo). Robusto: usa URL, ou recupera/recarimba
+        # da sessão se o carimbo original tiver falhado. Só gera do zero se não houver sessão.
+        base_cli = await _pdf_cliente_assinado(db, doc, "contrato")
+        if base_cli:
+            return base_cli
         # Usa o MESMO renderer do card (registry → template_pdf ou Prime II por
         # padrão), para o documento ASSINADO sair no layout Prime que o usuário vê.
         from pdf.templates.registry import gerar_pdf_contrato
@@ -869,14 +936,19 @@ async def _reenviar_contrato_final_ao_cliente(db, tipo: str, doc: dict, pdf_assi
         if not sessao or sessao.get("status") != "concluida":
             return  # só reenvia o final quando TODOS os clientes já assinaram
         cfg = await _ac_zapi(db, doc.get("user_id"))
+        # Procuração final consolidada (client-assinada + assinatura visual do corretor), se houver
+        proc_final = await _pdf_cliente_assinado(db, doc, "procuracao")
         for s in sessao.get("signatarios", []):
             if not s.get("telefone"):
                 continue
             try:
                 await _ac_pdf(cfg, s["telefone"], pdf_assinado, "contrato_final_assinado",
                               "Contrato FINAL com TODAS as assinaturas (clientes + corretor). Obrigado!")
+                if proc_final:
+                    await _ac_pdf(cfg, s["telefone"], proc_final, "procuracao_final_assinada",
+                                  "Procuração FINAL com todas as assinaturas. Obrigado!")
             except Exception as e:  # noqa: BLE001
-                logger.warning("Falha ao reenviar contrato final p/ %s: %s", s.get("telefone"), e)
+                logger.warning("Falha ao reenviar final p/ %s: %s", s.get("telefone"), e)
         await db.contratos.update_one({"id": cid}, {"$set": {"assinatura_cliente_status": "final_assinado"}})
     except Exception:  # noqa: BLE001
         logger.warning("Falha ao reenviar contrato final ao cliente.", exc_info=True)
