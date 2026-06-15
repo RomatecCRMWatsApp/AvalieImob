@@ -47,6 +47,7 @@ import ConsultaPage from '../components/dashboard/consulta/ConsultaPage';
 import GlobalSearch from '../components/common/GlobalSearch';
 import ContratosList from '../components/dashboard/contratos/ContratosList';
 import ContratoWizard from '../components/dashboard/contratos/ContratoWizard';
+import DocumentosList from '../components/dashboard/documentos/DocumentosList';
 import ContratoExclusividadeList from '../components/dashboard/contratos-exclusividade/ContratoExclusividadeList';
 import ContratoExclusividadeWizard from '../components/dashboard/contratos-exclusividade/ContratoExclusividadeWizard';
 import RecibosList from '../components/dashboard/recibos/RecibosList';
@@ -92,6 +93,7 @@ const NAV_GROUPS = [
       { to: '/dashboard/propostas', icon: FileText, label: 'Propostas', badge: 'NOVO' },
       { to: '/dashboard/contratos', icon: FileSignature, label: 'Contratos', badge: 'NOVO' },
       { to: '/dashboard/contratos-exclusivos', icon: FileSignature, label: 'Exclusividade', badge: 'NOVO' },
+      { to: '/dashboard/documentos', icon: FileSignature, label: 'Assinar Documentos', badge: 'NOVO' },
       { to: '/dashboard/recibos',   icon: Receipt,       label: 'Recibos',   badge: 'NOVO' },
     ],
   },
@@ -454,6 +456,7 @@ const Dashboard = () => {
             <Route path="consulta"         element={<ConsultaPage />} />
             <Route path="contratos"        element={<ContratosList />} />
             <Route path="contratos-exclusivos" element={<ContratosList tipoFixo="exclusividade" titulo="Exclusividade + Procuração" descricao="Contratos de exclusividade de venda (art. 726 CC) com procuração vinculada, assinatura do cliente e ICP-Brasil." ctaLabel="Novo Contrato de Exclusividade" />} />
+            <Route path="documentos"       element={<DocumentosList />} />
             <Route path="contratos/novo"   element={<ContratoWizard />} />
             <Route path="contratos/:id"    element={<ContratoWizard />} />
             <Route path="exclusividade"        element={<ContratoExclusividadeList />} />

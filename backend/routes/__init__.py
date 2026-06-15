@@ -49,6 +49,7 @@ from routes.assinatura_cliente import (
     router as assinatura_cliente_router,
     router_publico as assinatura_cliente_publico_router,
 )
+from routes.documentos_assinatura import router as documentos_assinatura_router
 
 all_routers = [
     auth_router, users_router, ptam_router, locacao_router,
@@ -65,4 +66,5 @@ all_routers = [
     propostas_router, perfis_corretor_router, testemunhas_router,
     contratos_exclusividade_router, contratos_exclusividade_publico_router,
     assinatura_cliente_router, assinatura_cliente_publico_router,
+    documentos_assinatura_router,
 ]

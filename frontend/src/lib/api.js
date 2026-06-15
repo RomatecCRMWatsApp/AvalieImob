@@ -543,6 +543,20 @@ export const contratosAPI = {
   clausulasPreview: (id) => api.get(`/contratos/${id}/clausulas-preview`).then(r => r.data),
 };
 
+// ---- Assinatura de Documentos (PDF avulso + ICP posicionado, tipo="documento")
+export const documentosAPI = {
+  listar: () => api.get('/documentos').then(r => r.data),
+  obter: (id) => api.get(`/documentos/${id}`).then(r => r.data),
+  upload: (file) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return api.post('/documentos/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data);
+  },
+  excluir: (id) => api.delete(`/documentos/${id}`).then(r => r.data),
+  pdfOriginal: (id) => api.get(`/documentos/${id}/pdf`, { responseType: 'blob' }).then(r => r.data),
+  pdfAssinado: (id, layout = 'v2') => api.get(`/assinatura/icp/documento/${id}/download`, { params: { layout }, responseType: 'blob' }).then(r => r.data),
+};
+
 // ---- Perfis de Corretor (autofill "Usar meus dados" no wizard de partes)
 export const perfisCorretorAPI = {
   listar: () => api.get('/perfis-corretor').then(r => r.data || []),

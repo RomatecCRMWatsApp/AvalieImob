@@ -29,6 +29,8 @@ _TIPO_COLECAO = {
     # procuração assina-se À PARTE do contrato, mas vive no MESMO doc (id do contrato);
     # os campos de estado ICP são NAMESPACED (procuracao_*) p/ não colidir com o contrato.
     "procuracao": "contratos",
+    # documento PDF avulso enviado pelo usuário p/ assinar com ICP (módulo Assinatura de Documentos)
+    "documento": "documentos_assinatura",
 }
 
 
@@ -402,6 +404,16 @@ async def _gerar_pdf(tipo: str, doc: dict, db=None, perfil: dict | None = None) 
             except Exception:
                 logger.warning("Falha ao pré-carregar avaliador (procuração ICP).", exc_info=True)
         return await asyncio.to_thread(_generate_procuracao_pdf_bytes, doc, uid or "", empresa)
+    elif tipo == "documento":
+        # PDF AVULSO enviado pelo usuário — só BAIXA do R2 (não gera nada).
+        from services import r2_storage
+        key = doc.get("pdf_key")
+        if not key:
+            raise HTTPException(status_code=400, detail="Documento sem arquivo (pdf_key vazio).")
+        pdf = await asyncio.to_thread(r2_storage.download_bytes, key)
+        if not pdf or not pdf.startswith(b"%PDF-"):
+            raise HTTPException(status_code=500, detail="Arquivo do documento inválido.")
+        return pdf
     raise HTTPException(status_code=400, detail=f"Geracao de PDF nao suportada para tipo: {tipo}")
 
 
