@@ -577,6 +577,12 @@ class PerfilAvaliadorBase(BaseModel):
     cartao_regularidade_paginas_b64: List[str] = []        # páginas-imagem (PDF convertido: frente/verso)
     cartao_regularidade_link: str = ""
     cartao_regularidade_anexar: bool = True
+    # Certidão de Regularidade (CRECI) — gerada on-line, tem validade; renovar via link quando vencida
+    certidao_regularidade_b64: Optional[str] = None
+    certidao_regularidade_paginas_b64: List[str] = []
+    certidao_regularidade_validade: str = ""               # YYYY-MM-DD
+    certidao_regularidade_link: str = ""
+    certidao_regularidade_anexar: bool = True
 
 
 class PerfilAvaliador(PerfilAvaliadorBase):

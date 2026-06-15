@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Save, Building, Upload, X, Image, Lock, ShieldCheck, Trash2, Loader2, Plus, FileBadge, MessageCircle, Send, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Save, Building, Upload, X, Image, Lock, ShieldCheck, Trash2, Loader2, Plus, FileBadge, MessageCircle, Send, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
@@ -91,6 +91,93 @@ const SettingsPage = () => {
     await persistCartao({ cartao_regularidade_b64: '' });
     toast({ title: 'Cartão removido' });
   };
+
+  // ── Certidão de Regularidade (CRECI) — gerada on-line, vale 30 dias ──
+  const CRECI_CERTIDAO_URL = 'https://www.crecima.gov.br/2025/10/14/certidao-de-regularidade/';
+  const certidaoInputRef = useRef(null);
+  const [certidaoPreview, setCertidaoPreview] = useState(null);
+  const [certidaoPaginas, setCertidaoPaginas] = useState(0);
+  const [certidaoValidade, setCertidaoValidade] = useState('');
+  const [certidaoLink, setCertidaoLink] = useState('');
+  const [certidaoAnexar, setCertidaoAnexar] = useState(true);
+  const [savingCertidao, setSavingCertidao] = useState(false);
+
+  const aplicaPerfilCertidao = (p) => {
+    const pags = p?.certidao_regularidade_paginas_b64 || [];
+    setCertidaoPreview(pags[0] || p?.certidao_regularidade_b64 || null);
+    setCertidaoPaginas(pags.length);
+    if (typeof p?.certidao_regularidade_validade === 'string') setCertidaoValidade(p.certidao_regularidade_validade);
+    if (typeof p?.certidao_regularidade_link === 'string') setCertidaoLink(p.certidao_regularidade_link);
+    if (typeof p?.certidao_regularidade_anexar === 'boolean') setCertidaoAnexar(p.certidao_regularidade_anexar);
+  };
+
+  // Estado da validade: 'sem' (não cadastrada) | 'vencida' | 'vencendo' (≤10 dias) | 'ok'
+  const certidaoStatus = (() => {
+    if (!certidaoValidade) return certidaoPreview ? 'sem_data' : 'sem';
+    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+    const val = new Date(certidaoValidade + 'T00:00:00');
+    if (isNaN(val.getTime())) return 'sem_data';
+    const dias = Math.round((val - hoje) / 86400000);
+    if (dias < 0) return 'vencida';
+    if (dias <= 10) return 'vencendo';
+    return 'ok';
+  })();
+  const certidaoValidadeBR = certidaoValidade
+    ? certidaoValidade.split('-').reverse().join('/') : '';
+
+  const persistCertidao = async (patch) => {
+    setSavingCertidao(true);
+    try {
+      const p = await perfilAPI.setCertidaoRegularidade(patch);
+      if (p) aplicaPerfilCertidao(p);
+      return p;
+    } catch (e) {
+      toast({ title: 'Erro ao salvar a certidão', description: e.response?.data?.detail, variant: 'destructive' });
+    } finally { setSavingCertidao(false); }
+  };
+
+  const handleCertidaoFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const okTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'application/pdf'];
+    if (!okTypes.includes(file.type)) {
+      toast({ title: 'Formato inválido', description: 'Envie uma imagem (PNG, JPG, WEBP) ou um PDF.', variant: 'destructive' });
+      e.target.value = ''; return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: 'Arquivo muito grande', description: 'Tamanho máximo: 10MB.', variant: 'destructive' });
+      e.target.value = ''; return;
+    }
+    setSavingCertidao(true);
+    try {
+      const b64 = await new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res(r.result);
+        r.onerror = rej;
+        r.readAsDataURL(file);
+      });
+      const p = await perfilAPI.setCertidaoRegularidade({ certidao_regularidade_b64: b64, certidao_regularidade_anexar: true });
+      if (p) aplicaPerfilCertidao(p);
+      toast({ title: 'Certidão de regularidade salva!', description: 'Informe a data de validade (a certidão CRECI vale 30 dias).' });
+    } catch (err) {
+      toast({ title: 'Erro ao enviar a certidão', description: err.response?.data?.detail, variant: 'destructive' });
+    } finally { setSavingCertidao(false); e.target.value = ''; }
+  };
+
+  const handleRemoveCertidao = async () => {
+    setCertidaoPreview(null);
+    setCertidaoPaginas(0);
+    await persistCertidao({ certidao_regularidade_b64: '' });
+    toast({ title: 'Certidão removida' });
+  };
+
+  const abrirRenovacaoCertidao = () =>
+    window.open((certidaoLink || CRECI_CERTIDAO_URL).trim(), '_blank', 'noopener,noreferrer');
+
+  // carrega a certidão no mount (perfil já é buscado uma vez; aqui aplicamos os campos da certidão)
+  useEffect(() => {
+    perfilAPI.get().then((p) => { if (p) aplicaPerfilCertidao(p); }).catch(() => {});
+  }, []);
 
   const save = async () => {
     setSaving(true);
@@ -321,6 +408,141 @@ const SettingsPage = () => {
               <Switch
                 checked={cartaoAnexar}
                 onCheckedChange={(v) => { setCartaoAnexar(v); persistCartao({ cartao_regularidade_anexar: v }); }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Certidão de Regularidade (CRECI) — gerada on-line, vale 30 dias ── */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="flex items-center gap-2 mb-1">
+          <ShieldCheck className="w-5 h-5 text-[#B8860B]" />
+          <h3 className="font-semibold text-gray-900">Certidão de Regularidade (CRECI)</h3>
+        </div>
+        <p className="text-xs text-gray-500 mb-4">
+          Documento emitido on-line pelo CRECI (válido por <b>30 dias</b>). Gere a certidão no site do CRECI-MA,
+          faça o upload aqui (imagem ou PDF) e informe a <b>validade</b>. O sistema avisa quando estiver vencida
+          para você renovar.
+        </p>
+
+        {/* Aviso de validade */}
+        {certidaoStatus === 'vencida' && (
+          <div className="mb-4 flex flex-col sm:flex-row sm:items-center gap-2 p-3 rounded-lg bg-red-50 border border-red-200">
+            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+            <div className="flex-1 text-sm text-red-700">
+              <b>Certidão vencida</b>{certidaoValidadeBR ? ` em ${certidaoValidadeBR}` : ''}. Emita uma nova no CRECI-MA e atualize aqui.
+            </div>
+            <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white flex-shrink-0" onClick={abrirRenovacaoCertidao}>
+              <RefreshCw className="w-4 h-4 mr-1" />Renovar certidão
+            </Button>
+          </div>
+        )}
+        {certidaoStatus === 'vencendo' && (
+          <div className="mb-4 flex flex-col sm:flex-row sm:items-center gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200">
+            <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+            <div className="flex-1 text-sm text-amber-700">
+              Sua certidão vence em <b>{certidaoValidadeBR}</b>. Considere renová-la em breve.
+            </div>
+            <Button size="sm" variant="outline" className="border-amber-400 text-amber-700 flex-shrink-0" onClick={abrirRenovacaoCertidao}>
+              <RefreshCw className="w-4 h-4 mr-1" />Renovar
+            </Button>
+          </div>
+        )}
+        {(certidaoStatus === 'sem' || certidaoStatus === 'sem_data') && (
+          <div className="mb-4 flex flex-col sm:flex-row sm:items-center gap-2 p-3 rounded-lg bg-gray-50 border border-gray-200">
+            <AlertCircle className="w-5 h-5 text-gray-500 flex-shrink-0" />
+            <div className="flex-1 text-sm text-gray-600">
+              {certidaoStatus === 'sem'
+                ? 'Nenhuma certidão de regularidade cadastrada. Emita a sua no CRECI-MA.'
+                : 'Informe a data de validade da certidão para receber o aviso de renovação.'}
+            </div>
+            <Button size="sm" variant="outline" className="flex-shrink-0" onClick={abrirRenovacaoCertidao}>
+              <RefreshCw className="w-4 h-4 mr-1" />Emitir certidão
+            </Button>
+          </div>
+        )}
+        {certidaoStatus === 'ok' && (
+          <div className="mb-4 text-sm text-emerald-700 flex items-center gap-1">
+            <CheckCircle2 className="w-4 h-4" /> Certidão válida até <b>{certidaoValidadeBR}</b>.
+          </div>
+        )}
+
+        <div className="flex flex-col sm:flex-row gap-4">
+          {/* Pré-visualização */}
+          <div className="w-full sm:w-56 flex-shrink-0">
+            <div className="aspect-[16/10] rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden">
+              {certidaoPreview ? (
+                <img src={certidaoPreview} alt="Certidão de regularidade" className="w-full h-full object-contain" />
+              ) : (
+                <span className="text-xs text-gray-400 flex flex-col items-center gap-1">
+                  <ShieldCheck className="w-7 h-7 text-gray-300" />
+                  Nenhuma certidão enviada
+                </span>
+              )}
+            </div>
+            {certidaoPaginas > 1 && (
+              <p className="text-[11px] text-gray-500 text-center mt-1">PDF com {certidaoPaginas} páginas</p>
+            )}
+          </div>
+
+          {/* Controles */}
+          <div className="flex-1 space-y-3">
+            <input
+              ref={certidaoInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/jpg,image/webp,application/pdf"
+              className="hidden"
+              onChange={handleCertidaoFileChange}
+            />
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => certidaoInputRef.current?.click()} disabled={savingCertidao}>
+                {savingCertidao ? (
+                  <span className="flex items-center gap-1"><Loader2 className="w-4 h-4 animate-spin" />Salvando...</span>
+                ) : certidaoPreview ? (
+                  <span className="flex items-center gap-1"><Image className="w-4 h-4" />Trocar arquivo</span>
+                ) : (
+                  <span className="flex items-center gap-1"><Upload className="w-4 h-4" />Enviar certidão (imagem ou PDF)</span>
+                )}
+              </Button>
+              {certidaoPreview && (
+                <Button variant="ghost" size="sm" onClick={handleRemoveCertidao} className="text-red-500 hover:text-red-700 hover:bg-red-50" disabled={savingCertidao}>
+                  <Trash2 className="w-4 h-4 mr-1" />Remover
+                </Button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-medium">Validade da certidão</label>
+                <Input
+                  type="date"
+                  value={certidaoValidade}
+                  onChange={(e) => setCertidaoValidade(e.target.value)}
+                  onBlur={() => persistCertidao({ certidao_regularidade_validade: certidaoValidade })}
+                />
+                <p className="text-[11px] text-gray-400 mt-1">A certidão CRECI vale 30 dias a partir da emissão.</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Link de emissão/renovação</label>
+                <Input
+                  placeholder={CRECI_CERTIDAO_URL}
+                  value={certidaoLink}
+                  onChange={(e) => setCertidaoLink(e.target.value)}
+                  onBlur={() => persistCertidao({ certidao_regularidade_link: certidaoLink })}
+                />
+                <p className="text-[11px] text-gray-400 mt-1">Em branco usa o site oficial do CRECI-MA.</p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between py-2 border-t border-gray-100">
+              <div>
+                <div className="font-medium text-sm">Anexar aos documentos</div>
+                <div className="text-xs text-gray-500">Inclui a certidão nos contratos e laudos gerados</div>
+              </div>
+              <Switch
+                checked={certidaoAnexar}
+                onCheckedChange={(v) => { setCertidaoAnexar(v); persistCertidao({ certidao_regularidade_anexar: v }); }}
               />
             </div>
           </div>

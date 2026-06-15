@@ -18,6 +18,24 @@ class CartaoRegularidadeBody(BaseModel):
     cartao_regularidade_anexar: Optional[bool] = None
 
 
+class CertidaoRegularidadeBody(BaseModel):
+    certidao_regularidade_b64: Optional[str] = None
+    certidao_regularidade_validade: Optional[str] = None
+    certidao_regularidade_link: Optional[str] = None
+    certidao_regularidade_anexar: Optional[bool] = None
+
+
+def _campos_arquivo_regularidade(prefix: str, b64) -> dict:
+    """Converte o arquivo recebido (imagem OU PDF) nos campos de armazenamento do perfil.
+    PDF → páginas-imagem em {prefix}_paginas_b64; imagem → {prefix}_b64; "" remove ambos."""
+    from services.cartao_regularidade import is_pdf_b64, pdf_b64_to_paginas_png_b64
+    if b64 == "":
+        return {f"{prefix}_b64": "", f"{prefix}_paginas_b64": []}
+    if is_pdf_b64(b64):
+        return {f"{prefix}_paginas_b64": pdf_b64_to_paginas_png_b64(b64), f"{prefix}_b64": ""}
+    return {f"{prefix}_b64": b64, f"{prefix}_paginas_b64": []}
+
+
 @router.get("/perfil-avaliador")
 async def get_perfil_avaliador(uid: str = Depends(get_current_user_id), db=Depends(get_db)):
     doc = await db.perfil_avaliador.find_one({"user_id": uid})
@@ -55,18 +73,30 @@ async def set_cartao_regularidade(body: CartaoRegularidadeBody,
     if body.cartao_regularidade_anexar is not None:
         upd["cartao_regularidade_anexar"] = body.cartao_regularidade_anexar
     if body.cartao_regularidade_b64 is not None:
-        from services.cartao_regularidade import is_pdf_b64, pdf_b64_to_paginas_png_b64
-        b64 = body.cartao_regularidade_b64
-        if b64 == "":  # remoção
-            upd["cartao_regularidade_b64"] = ""
-            upd["cartao_regularidade_paginas_b64"] = []
-        elif is_pdf_b64(b64):
-            paginas = pdf_b64_to_paginas_png_b64(b64)
-            upd["cartao_regularidade_paginas_b64"] = paginas
-            upd["cartao_regularidade_b64"] = ""  # passa a usar a lista de páginas
-        else:  # imagem única
-            upd["cartao_regularidade_b64"] = b64
-            upd["cartao_regularidade_paginas_b64"] = []
+        upd.update(_campos_arquivo_regularidade("cartao_regularidade", body.cartao_regularidade_b64))
+    await db.perfil_avaliador.update_one(
+        {"user_id": uid},
+        {"$set": upd, "$setOnInsert": {"id": str(uuid.uuid4()), "created_at": datetime.utcnow()}},
+        upsert=True,
+    )
+    doc = await db.perfil_avaliador.find_one({"user_id": uid})
+    return serialize_doc(doc)
+
+
+@router.put("/perfil-avaliador/certidao-regularidade")
+async def set_certidao_regularidade(body: CertidaoRegularidadeBody,
+                                    uid: str = Depends(get_current_user_id), db=Depends(get_db)):
+    """Salva SÓ a Certidão de Regularidade (CRECI) no perfil — gerada on-line, com validade.
+    Aceita IMAGEM ou PDF (convertido em páginas-imagem)."""
+    upd = {"updated_at": datetime.utcnow()}
+    if body.certidao_regularidade_validade is not None:
+        upd["certidao_regularidade_validade"] = body.certidao_regularidade_validade
+    if body.certidao_regularidade_link is not None:
+        upd["certidao_regularidade_link"] = body.certidao_regularidade_link
+    if body.certidao_regularidade_anexar is not None:
+        upd["certidao_regularidade_anexar"] = body.certidao_regularidade_anexar
+    if body.certidao_regularidade_b64 is not None:
+        upd.update(_campos_arquivo_regularidade("certidao_regularidade", body.certidao_regularidade_b64))
     await db.perfil_avaliador.update_one(
         {"user_id": uid},
         {"$set": upd, "$setOnInsert": {"id": str(uuid.uuid4()), "created_at": datetime.utcnow()}},

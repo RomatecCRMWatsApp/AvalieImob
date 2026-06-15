@@ -133,3 +133,21 @@ def cartao_regularidade_flowables(b64: str = None, link: str = "", largura_pt: f
     except Exception:
         logger.warning("Falha ao montar o anexo do cartão de regularidade.", exc_info=True)
         return []
+
+
+def anexos_regularidade_flowables(av: dict, largura_pt: float = 440.0,
+                                  titulo_cartao: str = "ANEXO — CARTÃO DE REGULARIDADE PROFISSIONAL (CRECI)",
+                                  titulo_certidao: str = "ANEXO — CERTIDÃO DE REGULARIDADE PROFISSIONAL (CRECI)") -> list:
+    """Flowables dos anexos de regularidade (cartão + certidão) a partir do dict do avaliador.
+    Cada um só entra se tiver imagem/páginas e o respectivo toggle 'anexar' estiver ligado."""
+    av = av or {}
+    out = []
+    if av.get("cartao_regularidade_anexar", True):
+        out += cartao_regularidade_flowables(
+            av.get("cartao_regularidade_b64"), av.get("cartao_regularidade_link"), largura_pt,
+            titulo=titulo_cartao, paginas=av.get("cartao_regularidade_paginas_b64") or [])
+    if av.get("certidao_regularidade_anexar", True):
+        out += cartao_regularidade_flowables(
+            av.get("certidao_regularidade_b64"), av.get("certidao_regularidade_link"), largura_pt,
+            titulo=titulo_certidao, paginas=av.get("certidao_regularidade_paginas_b64") or [])
+    return out

@@ -1013,16 +1013,12 @@ def _generate_contrato_pdf_bytes(doc: dict, uid: str, empresa: str, raise_on_err
         except Exception:
             logger.warning("Falha ao montar anexos do imóvel (tradicional).", exc_info=True)
 
-        # ── Anexo — Cartão de Regularidade Profissional (CRECI) do corretor ───
+        # ── Anexos — Cartão + Certidão de Regularidade (CRECI) do corretor ────
         try:
-            av = doc.get("_avaliador") or {}
-            _pags = av.get("cartao_regularidade_paginas_b64") or []
-            if av.get("cartao_regularidade_anexar", True) and (_pags or av.get("cartao_regularidade_b64")):
-                from services.cartao_regularidade import cartao_regularidade_flowables
-                anexos = list(anexos) + cartao_regularidade_flowables(
-                    av.get("cartao_regularidade_b64"), av.get("cartao_regularidade_link"), 440.0, paginas=_pags)
+            from services.cartao_regularidade import anexos_regularidade_flowables
+            anexos = list(anexos) + anexos_regularidade_flowables(doc.get("_avaliador") or {}, 440.0)
         except Exception:
-            logger.warning("Falha ao montar o anexo do cartão (tradicional).", exc_info=True)
+            logger.warning("Falha ao montar os anexos de regularidade (tradicional).", exc_info=True)
 
         # Build resiliente: se os anexos quebrarem o build, gera o contrato sem eles.
         try:
@@ -1132,11 +1128,12 @@ async def _preload_avaliador(db, uid: str) -> dict:
         perfil = await db.perfil_avaliador.find_one({"user_id": uid}) or {}
         user = await db.users.find_one({"id": uid}) or {}
         av = resolver_dados_avaliador(perfil=perfil, user=user)
-        # Cartão de Regularidade (CRECI) p/ anexar ao documento
-        av["cartao_regularidade_b64"] = perfil.get("cartao_regularidade_b64")
-        av["cartao_regularidade_paginas_b64"] = perfil.get("cartao_regularidade_paginas_b64") or []
-        av["cartao_regularidade_link"] = perfil.get("cartao_regularidade_link") or ""
-        av["cartao_regularidade_anexar"] = perfil.get("cartao_regularidade_anexar", True)
+        # Cartão + Certidão de Regularidade (CRECI) p/ anexar ao documento
+        for pref in ("cartao_regularidade", "certidao_regularidade"):
+            av[f"{pref}_b64"] = perfil.get(f"{pref}_b64")
+            av[f"{pref}_paginas_b64"] = perfil.get(f"{pref}_paginas_b64") or []
+            av[f"{pref}_link"] = perfil.get(f"{pref}_link") or ""
+            av[f"{pref}_anexar"] = perfil.get(f"{pref}_anexar", True)
         return av
     except Exception:
         logger.warning("Falha ao pré-carregar dados do avaliador.", exc_info=True)

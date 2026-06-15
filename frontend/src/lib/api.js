@@ -338,6 +338,9 @@ export const perfilAPI = {
   // Cartão de Regularidade (CRECI) — salva só esses campos sem mexer no resto do perfil
   setCartaoRegularidade: (data) =>
     api.put('/perfil-avaliador/cartao-regularidade', data).then(r => r.data),
+  // Certidão de Regularidade (CRECI) — gerada on-line, tem validade
+  setCertidaoRegularidade: (data) =>
+    api.put('/perfil-avaliador/certidao-regularidade', data).then(r => r.data),
 };
 
 // ---- Testemunhas salvas (autofill no wizard de Contratos)

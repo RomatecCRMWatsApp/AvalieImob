@@ -2461,17 +2461,15 @@ def build_story(ptam, page_map):
         st.append(Paragraph('Complete seu perfil de avaliador no sistema para que o currículo '
                             'seja preenchido automaticamente nos laudos.', sPag))
 
-    # ── ANEXO V — Cartão de Regularidade Profissional (CRECI) ──
+    # ── ANEXO V/VI — Cartão + Certidão de Regularidade Profissional (CRECI) ──
     try:
-        _praw = ptam.get('_perfil') or {}
-        _pags = _praw.get('cartao_regularidade_paginas_b64') or []
-        if _praw.get('cartao_regularidade_anexar', True) and (_pags or _praw.get('cartao_regularidade_b64')):
-            from services.cartao_regularidade import cartao_regularidade_flowables
-            _cart = cartao_regularidade_flowables(
-                _praw.get('cartao_regularidade_b64'), _praw.get('cartao_regularidade_link'), 430.0,
-                titulo='ANEXO V — CARTÃO DE REGULARIDADE PROFISSIONAL (CRECI)', paginas=_pags)
-            if _cart:
-                st += _cart  # já começa com PageBreak
+        from services.cartao_regularidade import anexos_regularidade_flowables
+        _anx = anexos_regularidade_flowables(
+            ptam.get('_perfil') or {}, 430.0,
+            titulo_cartao='ANEXO V — CARTÃO DE REGULARIDADE PROFISSIONAL (CRECI)',
+            titulo_certidao='ANEXO VI — CERTIDÃO DE REGULARIDADE PROFISSIONAL (CRECI)')
+        if _anx:
+            st += _anx  # cada bloco já começa com PageBreak
     except Exception:
         pass
     return st
