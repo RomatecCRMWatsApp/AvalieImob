@@ -520,10 +520,14 @@ def render(doc: dict, uid: str, empresa: str) -> bytes:
     except Exception:
         pass
 
-    # Anexos — Cartão + Certidão de Regularidade Profissional (CRECI) do corretor
+    # Anexos do CORRETOR — Cartão + Certidão de Regularidade (CRECI), bloco separado
+    # dos documentos do imóvel/cliente (que são ANEXO III/IV).
     try:
         from services.cartao_regularidade import anexos_regularidade_flowables
-        story.extend(anexos_regularidade_flowables(doc.get("_avaliador") or {}, cw))
+        story.extend(anexos_regularidade_flowables(
+            doc.get("_avaliador") or {}, cw,
+            titulo_cartao="ANEXO V — CARTÃO DE REGULARIDADE DO CORRETOR (CRECI)",
+            titulo_certidao="ANEXO VI — CERTIDÃO DE REGULARIDADE DO CORRETOR (CRECI)"))
     except Exception:
         pass
 

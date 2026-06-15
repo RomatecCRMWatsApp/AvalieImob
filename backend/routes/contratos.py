@@ -1013,10 +1013,14 @@ def _generate_contrato_pdf_bytes(doc: dict, uid: str, empresa: str, raise_on_err
         except Exception:
             logger.warning("Falha ao montar anexos do imóvel (tradicional).", exc_info=True)
 
-        # ── Anexos — Cartão + Certidão de Regularidade (CRECI) do corretor ────
+        # ── Anexos do CORRETOR — Cartão + Certidão de Regularidade (CRECI) ────
+        # bloco separado dos documentos do imóvel/cliente (ANEXO III/IV).
         try:
             from services.cartao_regularidade import anexos_regularidade_flowables
-            anexos = list(anexos) + anexos_regularidade_flowables(doc.get("_avaliador") or {}, 440.0)
+            anexos = list(anexos) + anexos_regularidade_flowables(
+                doc.get("_avaliador") or {}, 440.0,
+                titulo_cartao="ANEXO V — CARTÃO DE REGULARIDADE DO CORRETOR (CRECI)",
+                titulo_certidao="ANEXO VI — CERTIDÃO DE REGULARIDADE DO CORRETOR (CRECI)")
         except Exception:
             logger.warning("Falha ao montar os anexos de regularidade (tradicional).", exc_info=True)
 
