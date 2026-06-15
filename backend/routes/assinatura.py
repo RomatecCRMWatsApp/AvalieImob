@@ -324,6 +324,34 @@ async def _pdf_cliente_assinado(db, doc: dict, tipo_doc: str = "contrato") -> Op
     return None
 
 
+def _normalizar_rotacao_pdf(pdf: bytes) -> bytes:
+    """Aplica o /Rotate ao conteúdo de cada página (vira Rotate=0, mantém o visual upright).
+    Resolve carimbo/assinatura caindo na lateral em PDFs com páginas rotacionadas
+    (ex.: certificados/certidões exportados em retrato com flag de rotação 90°).
+    Best-effort: devolve o original em qualquer falha."""
+    try:
+        import io as _io
+        from pypdf import PdfReader, PdfWriter
+        reader = PdfReader(_io.BytesIO(pdf))
+        if not any((p.get("/Rotate") or 0) for p in reader.pages):
+            return pdf  # nada rotacionado → mantém intacto
+        writer = PdfWriter()
+        for page in reader.pages:
+            if page.get("/Rotate"):
+                try:
+                    page.transfer_rotation_to_content()
+                except Exception:
+                    pass
+            writer.add_page(page)
+        out = _io.BytesIO()
+        writer.write(out)
+        data = out.getvalue()
+        return data if data.startswith(b"%PDF-") else pdf
+    except Exception:
+        logger.warning("Falha ao normalizar rotação do PDF; usando original.", exc_info=True)
+        return pdf
+
+
 async def _gerar_pdf(tipo: str, doc: dict, db=None, perfil: dict | None = None) -> bytes:
     """Gera PDF do documento conforme tipo. PTAM usa o layout v2 (aprovado)."""
     if tipo == "ptam":
@@ -413,6 +441,9 @@ async def _gerar_pdf(tipo: str, doc: dict, db=None, perfil: dict | None = None) 
         pdf = await asyncio.to_thread(r2_storage.download_bytes, key)
         if not pdf or not pdf.startswith(b"%PDF-"):
             raise HTTPException(status_code=500, detail="Arquivo do documento inválido.")
+        # Normaliza /Rotate: páginas com rotação faziam o carimbo cair "na lateral"
+        # (preview renderiza já rotacionado, mas o overlay usa o sistema não-rotacionado).
+        pdf = await asyncio.to_thread(_normalizar_rotacao_pdf, pdf)
         return pdf
     raise HTTPException(status_code=400, detail=f"Geracao de PDF nao suportada para tipo: {tipo}")
 
