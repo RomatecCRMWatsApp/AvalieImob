@@ -74,17 +74,25 @@ export default function ReenviarAssinadoModal({ contratoId, onClose }) {
   };
 
   return (
-    <div style={ovl}>
-      <div style={box}>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-bold text-emerald-800 flex items-center gap-2"><CheckCircle2 className="w-5 h-5" /> PDF assinado — ver / baixar / reenviar</h3>
-          <button onClick={onClose}><X className="w-5 h-5 text-gray-500" /></button>
+    <div className="fixed inset-0 bg-black/80 z-[60] flex flex-col">
+      {/* Header */}
+      <div className="bg-emerald-900 text-white px-4 py-3 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-2">
+          <CheckCircle2 className="w-5 h-5" />
+          <div>
+            <h2 className="font-bold text-sm">PDF assinado — ver / baixar / reenviar</h2>
+            <p className="text-xs text-emerald-300 mt-0.5">Documentos com todas as assinaturas + ICP-Brasil.</p>
+          </div>
         </div>
+        <button onClick={onClose} className="text-emerald-300 hover:text-white"><X className="w-5 h-5" /></button>
+      </div>
 
-        {carregando ? (
-          <div className="py-10 text-center"><Loader2 className="w-6 h-6 animate-spin text-emerald-700 mx-auto" /></div>
-        ) : (
-          <div className="space-y-3">
+      {carregando ? (
+        <div className="flex-1 flex items-center justify-center text-white"><Loader2 className="w-8 h-8 animate-spin mr-2" /> Carregando…</div>
+      ) : (
+        <>
+          <div className="flex-1 overflow-auto bg-gray-100 p-4">
+            <div className="max-w-xl mx-auto bg-white rounded-2xl border border-gray-200 shadow-sm p-5 space-y-3">
             {info?.enviado_status && (
               <div className="text-xs bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg px-3 py-2">
                 ✓ Enviado{info.enviado_em ? ` em ${new Date(info.enviado_em).toLocaleString('pt-BR')}` : ''}
@@ -147,17 +155,19 @@ export default function ReenviarAssinadoModal({ contratoId, onClose }) {
               </div>
               <button onClick={addFone} className="mt-1.5 text-xs text-emerald-700 flex items-center gap-1"><Plus className="w-3.5 h-3.5" /> Adicionar outro destino</button>
             </div>
+            </div>
+          </div>
 
+          {/* Footer */}
+          <div className="bg-gray-900 px-4 py-3 shrink-0 flex gap-2">
+            <button onClick={onClose} className="flex-1 border border-gray-600 text-gray-300 py-3 rounded-xl text-sm">Fechar</button>
             <button onClick={reenviar} disabled={enviando}
-              className="w-full bg-emerald-700 hover:bg-emerald-600 text-white font-bold rounded-xl py-3 text-sm flex items-center justify-center gap-2 disabled:opacity-60">
+              className="flex-[2] bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl py-3 text-sm flex items-center justify-center gap-2 disabled:opacity-60">
               {enviando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Reenviar PDF assinado
             </button>
           </div>
-        )}
-      </div>
+        </>
+      )}
     </div>
   );
 }
-
-const ovl = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 };
-const box = { background: '#fff', borderRadius: 14, padding: 18, width: '100%', maxWidth: 460, maxHeight: '92vh', overflow: 'auto' };
