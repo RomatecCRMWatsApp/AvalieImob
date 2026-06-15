@@ -195,6 +195,34 @@ async def _resolve_ptam_assets(db, doc: dict) -> None:
         pass
 
 
+async def _gerar_doc_base_limpo(db, doc: dict, tipo_doc: str) -> bytes:
+    """Gera o PDF LIMPO (sem carimbo) do contrato OU da procuração, p/ servir de base ao
+    re-carimbo dos traços quando o objeto R2 sumiu. NÃO consulta o cliente-assinado (evita
+    recursão)."""
+    uid = doc.get("user_id")
+    empresa = "AvalieImob"
+    if db is not None and uid:
+        u = await db.users.find_one({"id": uid}, {"company": 1, "name": 1}) or {}
+        empresa = u.get("company") or u.get("name") or "AvalieImob"
+    if tipo_doc == "procuracao":
+        from routes.contratos import _generate_procuracao_pdf_bytes, _preload_avaliador
+        if db is not None and uid:
+            try:
+                doc["_avaliador"] = await _preload_avaliador(db, uid)
+            except Exception:
+                pass
+        return await asyncio.to_thread(_generate_procuracao_pdf_bytes, doc, uid or "", empresa)
+    from pdf.templates.registry import gerar_pdf_contrato
+    if db is not None:
+        try:
+            from routes.contratos import _preload_anexos_imovel, _preload_avaliador
+            await _preload_anexos_imovel(db, doc)
+            doc["_avaliador"] = await _preload_avaliador(db, uid)
+        except Exception:
+            logger.warning("Falha ao pré-carregar anexos/avaliador (base limpa).", exc_info=True)
+    return await asyncio.to_thread(gerar_pdf_contrato, doc, uid or "", empresa)
+
+
 async def _pdf_cliente_assinado(db, doc: dict, tipo_doc: str = "contrato") -> Optional[bytes]:
     """Devolve o PDF JÁ ASSINADO pelos CLIENTES (traços carimbados), p/ servir de BASE ao
     ICP do corretor. Robusto: (1) URL no contrato; (2) pdf_key_final da sessão; (3) RE-CARIMBA
@@ -248,12 +276,21 @@ async def _pdf_cliente_assinado(db, doc: dict, tipo_doc: str = "contrato") -> Op
                 return b
         except Exception:
             logger.warning("PDFCLIENTE[%s] nivel2 FALHOU; re-carimbando.", tipo_doc, exc_info=True)
-    # 3) RE-CARIMBA de pdf_key_base + traços (recupera carimbo que falhou)
-    if d.get("pdf_key_base"):
+    # 3) RE-CARIMBA: base = pdf_key_base do R2; se sumiu (NoSuchKey), GERA o doc do zero e
+    #    carimba os traços por cima (reconstrói 100% do que está no Mongo — âncoras + traços).
+    if True:
         try:
-            base = _ok(await asyncio.to_thread(r2_storage.download_bytes, d["pdf_key_base"]))
+            base = None
+            if d.get("pdf_key_base"):
+                try:
+                    base = _ok(await asyncio.to_thread(r2_storage.download_bytes, d["pdf_key_base"]))
+                except Exception:
+                    logger.warning("PDFCLIENTE[%s] nivel3 pdf_key_base sumiu; gerando do zero.", tipo_doc)
             if not base:
-                logger.warning("PDFCLIENTE[%s] nivel3 base nao baixou.", tipo_doc)
+                base = _ok(await _gerar_doc_base_limpo(db, doc, tipo_doc))
+                logger.info("PDFCLIENTE[%s] nivel3 base GERADA do zero=%s", tipo_doc, bool(base))
+            if not base:
+                logger.warning("PDFCLIENTE[%s] nivel3 sem base.", tipo_doc)
                 return None
             assinaturas = []
             for s in sess.get("signatarios", []):

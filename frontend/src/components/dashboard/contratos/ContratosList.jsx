@@ -11,6 +11,7 @@ import { Badge } from '../../ui/badge';
 import { useToast } from '../../../hooks/use-toast';
 import { contratosAPI } from '../../../lib/api';
 import AssinaturaPosicionadaModal from '../assinatura/AssinaturaPosicionadaModal';
+import ReenviarAssinadoModal from './ReenviarAssinadoModal';
 import AssinaturaClienteModal from './AssinaturaClienteModal';
 import AssinaturaDigital from '../ptam/AssinaturaDigital';
 import TypeCardGrid from '../shared/TypeCardGrid';
@@ -283,6 +284,7 @@ const ContratosList = ({ tipoFixo = '', titulo, descricao, ctaLabel }) => {
   const [assinarDoc, setAssinarDoc] = useState(null);
   const [posicionarDoc, setPosicionarDoc] = useState(null);
   const [posicionarProcDoc, setPosicionarProcDoc] = useState(null);
+  const [assinadoDoc, setAssinadoDoc] = useState(null);
   const [assinClienteDoc, setAssinClienteDoc] = useState(null);
   const [historicoDoc, setHistoricoDoc] = useState(null);
 
@@ -555,7 +557,8 @@ const ContratosList = ({ tipoFixo = '', titulo, descricao, ctaLabel }) => {
                   {assinado && (
                     <>
                       <ActBtn icon={ShieldCheck} label="PDF Assinado" onClick={() => downloadVia(contratosAPI.pdfAssinado, contratoId, `contrato-${contratoId}-assinado.pdf`, toast)} className="border-emerald-300 bg-emerald-600 text-white hover:bg-emerald-700 col-span-1" />
-                      <ActBtn icon={RefreshCw} label="Zerar assin." onClick={() => zerarAssinatura(contratoId)} className="border-red-200 bg-red-50 text-red-700 hover:bg-red-100" />
+                      <ActBtn icon={Send} label="Enviar/Reenviar assinado" onClick={() => setAssinadoDoc(c)} className="border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100" />
+                      <ActBtn icon={RefreshCw} label="Zerar assin." onClick={() => zerarAssinatura(contratoId)} className="border-red-200 bg-red-50 text-red-700 hover:bg-red-100 col-span-2" />
                     </>
                   )}
                 </div>
@@ -654,6 +657,12 @@ const ContratosList = ({ tipoFixo = '', titulo, descricao, ctaLabel }) => {
           documentId={getContratoId(posicionarProcDoc)}
           onAssinado={() => { setPosicionarProcDoc(null); toast({ title: 'Procuração assinada!' }); load(); }}
           onFechar={() => setPosicionarProcDoc(null)}
+        />
+      )}
+      {assinadoDoc && (
+        <ReenviarAssinadoModal
+          contratoId={getContratoId(assinadoDoc)}
+          onClose={() => { setAssinadoDoc(null); load(); }}
         />
       )}
       {historicoDoc && (

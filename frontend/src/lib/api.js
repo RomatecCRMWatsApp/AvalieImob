@@ -232,6 +232,9 @@ export const assinaturaClienteAPI = {
   sessao: (cid) => api.get(`/assinatura-cliente/contratos/${cid}/sessao`).then(r => r.data),
   reenviar: (cid, body) => api.post(`/assinatura-cliente/contratos/${cid}/reenviar`, body || {}).then(r => r.data),
   enviarMinuta: (cid, body) => api.post(`/assinatura-cliente/contratos/${cid}/minuta/enviar`, body || {}).then(r => r.data),
+  statusAssinado: (cid) => api.get(`/assinatura-cliente/contratos/${cid}/assinado/status`).then(r => r.data),
+  reenviarAssinado: (cid, body) => api.post(`/assinatura-cliente/contratos/${cid}/assinado/reenviar`, body || {}).then(r => r.data),
+  pdfAssinadoProc: (cid) => api.get(`/assinatura/icp/procuracao/${cid}/download`, { params: { layout: 'v2' }, responseType: 'blob' }).then(r => r.data),
   // Públicas (sem auth)
   obter: (token) => api.get(`/publico/assinatura-cliente/${token}`).then(r => r.data),
   assinar: (token, body) => api.post(`/publico/assinatura-cliente/${token}`, body).then(r => r.data),

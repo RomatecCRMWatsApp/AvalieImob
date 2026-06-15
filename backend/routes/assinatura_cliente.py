@@ -386,6 +386,82 @@ async def reenviar(cid: str, payload: dict = None, uid: str = Depends(get_active
     return {"ok": True, "reenviados": len(links), "links": links}
 
 
+@router.get("/contratos/{cid}/assinado/status")
+async def status_assinado(cid: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    """Status dos PDFs ASSINADOS (ICP) do contrato/procuração + telefones default (clientes)."""
+    doc = await _carregar_contrato(db, cid, uid)
+    from routes.assinatura import _load_assinatura_bytes
+    cont_b, _ = await _load_assinatura_bytes(db, "contrato", cid)
+    proc_b, _ = await _load_assinatura_bytes(db, "procuracao", cid)
+    # telefones default = os da sessão (clientes), com fallback do cadastro
+    sessao = await db[COL].find_one({"contrato_id": cid, "user_id": uid}, sort=[("created_at", -1)])
+    sug = {s["role"]: s.get("telefone") for s in _signatarios_sugeridos(doc)}
+    destinos = []
+    for s in (sessao or {}).get("signatarios", []):
+        tel = s.get("telefone") or sug.get(s.get("role"), "")
+        if s.get("nome"):
+            destinos.append({"nome": s.get("nome"), "role": s.get("role"), "telefone": tel})
+    if not destinos:
+        destinos = [{"nome": s["nome"], "role": s["role"], "telefone": s.get("telefone", "")}
+                    for s in _signatarios_sugeridos(doc)]
+    return {"ok": True,
+            "contrato_assinado": bool(cont_b),
+            "procuracao_assinada": bool(proc_b),
+            "enviado_status": doc.get("assinado_reenvio_status") or (
+                "final_assinado" if doc.get("assinatura_cliente_status") == "final_assinado" else None),
+            "enviado_em": doc.get("assinado_reenvio_em") or doc.get("assinatura_cliente_em"),
+            "destinos": destinos}
+
+
+@router.post("/contratos/{cid}/assinado/reenviar")
+async def reenviar_assinado(cid: str, payload: dict = None,
+                            uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    """Reenvia os PDFs ASSINADOS (ICP) por WhatsApp. Body: {telefones:[...], incluir_procuracao:bool}.
+    Sem telefones → usa os números dos CLIENTES (sessão/cadastro). Marca status 'enviado'."""
+    doc = await _carregar_contrato(db, cid, uid)
+    payload = payload or {}
+    from routes.assinatura import _load_assinatura_bytes
+    cont_b, _ = await _load_assinatura_bytes(db, "contrato", cid)
+    incluir_proc = payload.get("incluir_procuracao", True)
+    proc_b = None
+    if incluir_proc:
+        proc_b, _ = await _load_assinatura_bytes(db, "procuracao", cid)
+    if not cont_b and not proc_b:
+        raise HTTPException(status_code=400, detail="Nenhum PDF assinado encontrado para reenviar.")
+    # telefones: do payload OU dos clientes (sessão/cadastro)
+    fones = [_so_dig(t) for t in (payload.get("telefones") or []) if _so_dig(t)]
+    if not fones:
+        sessao = await db[COL].find_one({"contrato_id": cid, "user_id": uid}, sort=[("created_at", -1)])
+        sug = {s["role"]: s.get("telefone") for s in _signatarios_sugeridos(doc)}
+        for s in (sessao or {}).get("signatarios", []):
+            t = _so_dig(s.get("telefone") or sug.get(s.get("role"), ""))
+            if t:
+                fones.append(t)
+        if not fones:
+            fones = [_so_dig(s.get("telefone")) for s in _signatarios_sugeridos(doc) if _so_dig(s.get("telefone"))]
+    fones = list(dict.fromkeys(fones))
+    if not fones:
+        raise HTTPException(status_code=422, detail="Informe ao menos um WhatsApp para reenviar.")
+    cfg = await _zapi_cfg(db, uid)
+    enviados = 0
+    for fone in fones:
+        try:
+            if cont_b:
+                await _enviar_pdf(cfg, fone, cont_b, "contrato_assinado",
+                                  "Contrato ASSINADO (todas as assinaturas + ICP-Brasil).")
+            if proc_b:
+                await _enviar_pdf(cfg, fone, proc_b, "procuracao_assinada",
+                                  "Procuração ASSINADA (todas as assinaturas + ICP-Brasil).")
+            enviados += 1
+        except Exception:
+            logger.warning("Falha ao reenviar assinado p/ %s", fone, exc_info=True)
+    await db.contratos.update_one(
+        {"id": cid, "user_id": uid},
+        {"$set": {"assinado_reenvio_status": "enviado", "assinado_reenvio_em": datetime.utcnow()}})
+    return {"ok": True, "enviados": enviados,
+            "documentos": [d for d, b in [("contrato", cont_b), ("procuracao", proc_b)] if b]}
+
+
 @router.post("/contratos/{cid}/minuta/enviar")
 async def enviar_minuta_avulsa(cid: str, payload: dict = None,
                                uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
