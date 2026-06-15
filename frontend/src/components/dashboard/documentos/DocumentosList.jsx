@@ -119,14 +119,20 @@ export default function DocumentosList() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-1.5 mt-auto">
-                  <Btn icon={Eye} label="Visualizar" onClick={() => visualizar(documentosAPI.pdfOriginal, d.id, toast)} cls="border-gray-200 text-gray-700 hover:bg-gray-50" />
                   {assinado ? (
-                    <Btn icon={FileDown} label="Baixar assinado" onClick={async () => { try { baixarBlob(await documentosAPI.pdfAssinado(d.id), `${d.nome.replace(/\.pdf$/i, '')}-assinado.pdf`); } catch { toast({ title: 'Erro ao baixar', variant: 'destructive' }); } }} cls="border-emerald-300 bg-emerald-600 text-white hover:bg-emerald-700" />
+                    <>
+                      <Btn icon={Eye} label="Visualizar assinado" onClick={() => visualizar(documentosAPI.pdfAssinado, d.id, toast)} cls="border-emerald-300 text-emerald-700 hover:bg-emerald-50" />
+                      <Btn icon={FileDown} label="Baixar assinado" onClick={async () => { try { baixarBlob(await documentosAPI.pdfAssinado(d.id), `${d.nome.replace(/\.pdf$/i, '')}-assinado.pdf`); } catch { toast({ title: 'Erro ao baixar', variant: 'destructive' }); } }} cls="border-emerald-300 bg-emerald-600 text-white hover:bg-emerald-700" />
+                      <Btn icon={ShieldCheck} label="Reassinar" onClick={() => setPosicionar(d)} cls="border-emerald-200 text-emerald-700 hover:bg-emerald-50" />
+                      <Btn icon={Trash2} label="Excluir" onClick={() => excluir(d)} cls="border-red-200 text-red-600 hover:bg-red-50" />
+                    </>
                   ) : (
-                    <Btn icon={MapPin} label="Posicionar / Assinar" onClick={() => setPosicionar(d)} cls="border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100" />
+                    <>
+                      <Btn icon={Eye} label="Visualizar" onClick={() => visualizar(documentosAPI.pdfOriginal, d.id, toast)} cls="border-gray-200 text-gray-700 hover:bg-gray-50" />
+                      <Btn icon={MapPin} label="Posicionar / Assinar" onClick={() => setPosicionar(d)} cls="border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100" />
+                      <Btn icon={Trash2} label="Excluir" onClick={() => excluir(d)} cls="border-red-200 text-red-600 hover:bg-red-50 col-span-2" />
+                    </>
                   )}
-                  {assinado && <Btn icon={ShieldCheck} label="Reassinar" onClick={() => setPosicionar(d)} cls="border-emerald-200 text-emerald-700 hover:bg-emerald-50" />}
-                  <Btn icon={Trash2} label="Excluir" onClick={() => excluir(d)} cls="border-red-200 text-red-600 hover:bg-red-50" />
                 </div>
               </div>
             );
