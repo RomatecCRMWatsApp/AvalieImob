@@ -355,6 +355,17 @@ def _ctx(doc: dict) -> dict:
     }
 
 
+def selo_creci_regular(avaliador: Optional[dict]) -> str:
+    """Selo inline (ReportLab markup) '✓ CRECI regular — verificar em <link>'.
+    Vazio se não houver link de verificação no perfil. Reusado no contrato e na procuração."""
+    link = ((avaliador or {}).get("cartao_regularidade_link") or "").strip()
+    if not link:
+        return ""
+    safe = _xml_escape(link)
+    return (f'<font color="#0C7C3A"><b>✓ CRECI regular</b></font> — verificar em '
+            f'<a href="{safe}"><font color="#0C7C3A"><u>{safe}</u></font></a>')
+
+
 def qualifica_corretor_full(cor: dict, avaliador: Optional[dict] = None) -> str:
     """Qualificação COMPLETA do corretor (CONTRATADO/Outorgado) a partir do FORM do
     contrato, com fallback ao perfil do avaliador. Sem trechos vazios."""
@@ -405,6 +416,9 @@ def qualifica_corretor_full(cor: dict, avaliador: Optional[dict] = None) -> str:
     email = g("email") or av.get("email")
     if email:
         quals += f", e-mail {email}"
+    selo = selo_creci_regular(av)
+    if selo:
+        quals += f". {selo}"
     return quals
 
 

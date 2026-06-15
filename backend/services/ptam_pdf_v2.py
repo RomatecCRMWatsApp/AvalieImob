@@ -2445,6 +2445,16 @@ def build_story(ptam, page_map):
     if perfil.get('site'):
         st.append(Paragraph(f"Site: {perfil['site']}", _sCurBody))
 
+    # Regularidade CRECI (link de verificação on-line do perfil)
+    _creci_link = ((ptam.get('_perfil') or {}).get('cartao_regularidade_link') or '').strip()
+    if _creci_link:
+        _safe = _esc_xml(_creci_link)
+        st.append(Spacer(1, 3))
+        st.append(Paragraph(
+            f'<font color="#0C7C3A"><b>✓ Regularidade CRECI</b></font> — verificável em '
+            f'<a href="{_safe}"><font color="#0C7C3A"><u>{_safe}</u></font></a>',
+            _sCurBody))
+
     # Fallback: perfil não cadastrado → orienta o avaliador
     if not perfil.get('perfil_completo'):
         st.append(Spacer(1, 6))

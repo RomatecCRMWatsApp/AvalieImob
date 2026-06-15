@@ -589,7 +589,8 @@ def _xml_safe(text: str) -> str:
     tem caracteres especiais vindos dos dados do contrato (ônus, nomes, ficha...)."""
     import re as _re
     keep = _re.compile(
-        r'(</?(?:b|i|u|br|strong|em)\s*/?>|&(?:[a-zA-Z][a-zA-Z0-9]{0,8}|#\d{1,6});)',
+        r'(</?(?:b|i|u|br|strong|em)\s*/?>|<a\s[^<>]*>|</a>|<font\s[^<>]*>|</font>'
+        r'|&(?:[a-zA-Z][a-zA-Z0-9]{0,8}|#\d{1,6});)',
         _re.IGNORECASE,
     )
     parts = keep.split(str(text))

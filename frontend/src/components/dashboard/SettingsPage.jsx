@@ -276,13 +276,28 @@ const SettingsPage = () => {
 
             <div>
               <label className="text-sm font-medium">Link de verificação on-line (opcional)</label>
-              <Input
-                placeholder="https://app.conselho.net.br/..."
-                value={cartaoLink}
-                onChange={(e) => setCartaoLink(e.target.value)}
-                onBlur={() => persistCartao({ cartao_regularidade_link: cartaoLink })}
-              />
-              <p className="text-[11px] text-gray-400 mt-1">Aparece como legenda no anexo do cartão (verificação COFECI-CRECI).</p>
+              <div className="flex items-center gap-2">
+                <Input
+                  placeholder="https://app.conselho.net.br/..."
+                  value={cartaoLink}
+                  onChange={(e) => setCartaoLink(e.target.value)}
+                  onBlur={() => persistCartao({ cartao_regularidade_link: cartaoLink })}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="flex-shrink-0 text-emerald-700 border-emerald-700/40 hover:bg-emerald-50"
+                  disabled={!cartaoLink?.trim()}
+                  onClick={() => window.open(cartaoLink.trim(), '_blank', 'noopener,noreferrer')}
+                >
+                  <ShieldCheck className="w-4 h-4 mr-1" />Verificar regularidade
+                </Button>
+              </div>
+              <p className="text-[11px] text-gray-400 mt-1">
+                Aparece como selo <span className="text-emerald-700">✓ CRECI regular — verificar em [link]</span> junto à sua qualificação
+                nos contratos/procuração e no currículo do laudo (verificação COFECI-CRECI).
+              </p>
             </div>
 
             <div className="flex items-center justify-between py-2 border-t border-gray-100">
