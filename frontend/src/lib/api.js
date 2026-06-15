@@ -335,6 +335,9 @@ export const paymentsAPI = {
 export const perfilAPI = {
   get: () => api.get('/perfil-avaliador').then(r => r.data),
   update: (data) => api.put('/perfil-avaliador', data).then(r => r.data),
+  // Cartão de Regularidade (CRECI) — salva só esses campos sem mexer no resto do perfil
+  setCartaoRegularidade: (data) =>
+    api.put('/perfil-avaliador/cartao-regularidade', data).then(r => r.data),
 };
 
 // ---- Testemunhas salvas (autofill no wizard de Contratos)

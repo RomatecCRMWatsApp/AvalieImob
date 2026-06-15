@@ -332,5 +332,15 @@ def render(doc: dict, uid: str, empresa: str) -> bytes:
     except Exception:
         pass
 
+    # Anexo — Cartão de Regularidade Profissional (CRECI) do corretor
+    try:
+        av = doc.get("_avaliador") or {}
+        if av.get("cartao_regularidade_anexar", True) and av.get("cartao_regularidade_b64"):
+            from services.cartao_regularidade import cartao_regularidade_flowables
+            story.extend(cartao_regularidade_flowables(
+                av.get("cartao_regularidade_b64"), av.get("cartao_regularidade_link"), cw))
+    except Exception:
+        pass
+
     pdf.build(story)
     return buf.getvalue()

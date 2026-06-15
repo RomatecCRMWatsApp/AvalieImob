@@ -1,13 +1,21 @@
 # @module routes.perfil_avaliador — CRUD do perfil profissional do avaliador
 import uuid
 from datetime import datetime
+from typing import Optional
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel
 from db import get_db
 from dependencies import serialize_doc
 from services.auth_service import get_current_user_id
 from models import PerfilAvaliadorBase, PerfilAvaliador
 
 router = APIRouter(tags=["perfil-avaliador"])
+
+
+class CartaoRegularidadeBody(BaseModel):
+    cartao_regularidade_b64: Optional[str] = None
+    cartao_regularidade_link: Optional[str] = None
+    cartao_regularidade_anexar: Optional[bool] = None
 
 
 @router.get("/perfil-avaliador")
@@ -33,4 +41,22 @@ async def update_perfil_avaliador(body: PerfilAvaliadorBase, uid: str = Depends(
         data["created_at"] = now
         await db.perfil_avaliador.insert_one(data)
         doc = await db.perfil_avaliador.find_one({"user_id": uid})
+    return serialize_doc(doc)
+
+
+@router.put("/perfil-avaliador/cartao-regularidade")
+async def set_cartao_regularidade(body: CartaoRegularidadeBody,
+                                  uid: str = Depends(get_current_user_id), db=Depends(get_db)):
+    """Salva SÓ o Cartão de Regularidade (CRECI) no perfil — sem mexer no resto."""
+    upd = {"updated_at": datetime.utcnow()}
+    for k in ("cartao_regularidade_b64", "cartao_regularidade_link", "cartao_regularidade_anexar"):
+        v = getattr(body, k)
+        if v is not None:
+            upd[k] = v
+    await db.perfil_avaliador.update_one(
+        {"user_id": uid},
+        {"$set": upd, "$setOnInsert": {"id": str(uuid.uuid4()), "created_at": datetime.utcnow()}},
+        upsert=True,
+    )
+    doc = await db.perfil_avaliador.find_one({"user_id": uid})
     return serialize_doc(doc)

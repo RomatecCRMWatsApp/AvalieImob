@@ -572,6 +572,10 @@ class PerfilAvaliadorBase(BaseModel):
     areas_atuacao: List[str] = []
     membro_associacoes: List[str] = []
     numero_laudos_emitidos: int = 0
+    # Cartão de Regularidade Profissional (CRECI) — anexado aos contratos e laudos
+    cartao_regularidade_b64: Optional[str] = None
+    cartao_regularidade_link: str = ""
+    cartao_regularidade_anexar: bool = True
 
 
 class PerfilAvaliador(PerfilAvaliadorBase):

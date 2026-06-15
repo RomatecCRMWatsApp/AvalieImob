@@ -6,7 +6,7 @@ import { Textarea } from '../ui/textarea';
 import { Switch } from '../ui/switch';
 import { useToast } from '../../hooks/use-toast';
 import { useAuth } from '../../contexts/AuthContext';
-import { authAPI, uploadAPI, certificadosAPI, integracoesAPI } from '../../lib/api';
+import { authAPI, uploadAPI, certificadosAPI, integracoesAPI, perfilAPI } from '../../lib/api';
 
 const MAX_LOGO_SIZE = 2 * 1024 * 1024; // 2 MB
 
@@ -24,6 +24,64 @@ const SettingsPage = () => {
   const [logoId, setLogoId] = useState(user?.company_logo || null);
 
   const logoUrl = logoId ? uploadAPI.getImageUrl(logoId) : null;
+
+  // ── Cartão de Regularidade Profissional (CRECI) ──
+  const cartaoInputRef = useRef(null);
+  const [cartaoB64, setCartaoB64] = useState(null);
+  const [cartaoLink, setCartaoLink] = useState('');
+  const [cartaoAnexar, setCartaoAnexar] = useState(true);
+  const [savingCartao, setSavingCartao] = useState(false);
+
+  useEffect(() => {
+    perfilAPI.get().then((p) => {
+      if (p?.cartao_regularidade_b64) setCartaoB64(p.cartao_regularidade_b64);
+      if (p?.cartao_regularidade_link) setCartaoLink(p.cartao_regularidade_link);
+      if (typeof p?.cartao_regularidade_anexar === 'boolean') setCartaoAnexar(p.cartao_regularidade_anexar);
+    }).catch(() => {});
+  }, []);
+
+  const persistCartao = async (patch) => {
+    setSavingCartao(true);
+    try {
+      await perfilAPI.setCartaoRegularidade(patch);
+    } catch (e) {
+      toast({ title: 'Erro ao salvar o cartão', description: e.response?.data?.detail, variant: 'destructive' });
+    } finally { setSavingCartao(false); }
+  };
+
+  const handleCartaoFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!['image/png', 'image/jpeg', 'image/jpg', 'image/webp'].includes(file.type)) {
+      toast({ title: 'Formato inválido', description: 'Envie uma imagem (PNG, JPG ou WEBP).', variant: 'destructive' });
+      e.target.value = ''; return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: 'Arquivo muito grande', description: 'Tamanho máximo: 5MB.', variant: 'destructive' });
+      e.target.value = ''; return;
+    }
+    setSavingCartao(true);
+    try {
+      const b64 = await new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res(r.result);
+        r.onerror = rej;
+        r.readAsDataURL(file);
+      });
+      setCartaoB64(b64);
+      await perfilAPI.setCartaoRegularidade({ cartao_regularidade_b64: b64, cartao_regularidade_anexar: true });
+      setCartaoAnexar(true);
+      toast({ title: 'Cartão de regularidade salvo!' });
+    } catch (err) {
+      toast({ title: 'Erro ao enviar o cartão', description: err.response?.data?.detail, variant: 'destructive' });
+    } finally { setSavingCartao(false); e.target.value = ''; }
+  };
+
+  const handleRemoveCartao = async () => {
+    setCartaoB64(null);
+    await persistCartao({ cartao_regularidade_b64: '' });
+    toast({ title: 'Cartão removido' });
+  };
 
   const save = async () => {
     setSaving(true);
@@ -150,6 +208,93 @@ const SettingsPage = () => {
                 <span className="flex items-center gap-1"><Upload className="w-4 h-4" />Fazer upload</span>
               )}
             </Button>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="flex items-center gap-2 mb-1">
+          <FileBadge className="w-5 h-5 text-[#B8860B]" />
+          <h3 className="font-semibold text-gray-900">Cartão de Regularidade (CRECI)</h3>
+        </div>
+        <p className="text-xs text-gray-500 mb-4">
+          Envie a imagem do seu cartão de regularidade profissional. Quando ativo, ele é
+          anexado automaticamente ao final dos <b>contratos</b> e dos <b>laudos (PTAM)</b> que você gerar.
+        </p>
+
+        <div className="flex flex-col sm:flex-row gap-4">
+          {/* Pré-visualização */}
+          <div className="w-full sm:w-56 flex-shrink-0">
+            <div className="aspect-[16/10] rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden">
+              {cartaoB64 ? (
+                <img src={cartaoB64} alt="Cartão de regularidade" className="w-full h-full object-contain" />
+              ) : (
+                <span className="text-xs text-gray-400 flex flex-col items-center gap-1">
+                  <FileBadge className="w-7 h-7 text-gray-300" />
+                  Nenhum cartão enviado
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Controles */}
+          <div className="flex-1 space-y-3">
+            <input
+              ref={cartaoInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/jpg,image/webp"
+              className="hidden"
+              onChange={handleCartaoFileChange}
+            />
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => cartaoInputRef.current?.click()}
+                disabled={savingCartao}
+              >
+                {savingCartao ? (
+                  <span className="flex items-center gap-1"><Loader2 className="w-4 h-4 animate-spin" />Salvando...</span>
+                ) : cartaoB64 ? (
+                  <span className="flex items-center gap-1"><Image className="w-4 h-4" />Trocar imagem</span>
+                ) : (
+                  <span className="flex items-center gap-1"><Upload className="w-4 h-4" />Enviar cartão</span>
+                )}
+              </Button>
+              {cartaoB64 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleRemoveCartao}
+                  className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                  disabled={savingCartao}
+                >
+                  <Trash2 className="w-4 h-4 mr-1" />Remover
+                </Button>
+              )}
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Link de verificação on-line (opcional)</label>
+              <Input
+                placeholder="https://app.conselho.net.br/..."
+                value={cartaoLink}
+                onChange={(e) => setCartaoLink(e.target.value)}
+                onBlur={() => persistCartao({ cartao_regularidade_link: cartaoLink })}
+              />
+              <p className="text-[11px] text-gray-400 mt-1">Aparece como legenda no anexo do cartão (verificação COFECI-CRECI).</p>
+            </div>
+
+            <div className="flex items-center justify-between py-2 border-t border-gray-100">
+              <div>
+                <div className="font-medium text-sm">Anexar aos documentos</div>
+                <div className="text-xs text-gray-500">Inclui o cartão nos contratos e laudos gerados</div>
+              </div>
+              <Switch
+                checked={cartaoAnexar}
+                onCheckedChange={(v) => { setCartaoAnexar(v); persistCartao({ cartao_regularidade_anexar: v }); }}
+              />
+            </div>
           </div>
         </div>
       </div>
