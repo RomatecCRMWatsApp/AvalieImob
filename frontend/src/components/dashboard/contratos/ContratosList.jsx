@@ -282,6 +282,7 @@ const ContratosList = ({ tipoFixo = '', titulo, descricao, ctaLabel }) => {
   const [search, setSearch] = useState('');
   const [assinarDoc, setAssinarDoc] = useState(null);
   const [posicionarDoc, setPosicionarDoc] = useState(null);
+  const [posicionarProcDoc, setPosicionarProcDoc] = useState(null);
   const [assinClienteDoc, setAssinClienteDoc] = useState(null);
   const [historicoDoc, setHistoricoDoc] = useState(null);
 
@@ -538,11 +539,12 @@ const ContratosList = ({ tipoFixo = '', titulo, descricao, ctaLabel }) => {
                   <ActBtn icon={FileDown} label="PDF contrato" onClick={() => downloadVia(contratosAPI.pdf, contratoId, `contrato-${contratoId}.pdf`, toast)} className="border-gray-200 text-gray-700 hover:bg-gray-50" />
                 </div>
 
-                {/* Procuração (quando o contrato a gera) — ver / baixar à parte */}
+                {/* Procuração (quando o contrato a gera) — documento SEPARADO: ver / baixar / posicionar ICP */}
                 {(c?.procuracao?.gerar || (c?.tipo_contrato || '').includes('exclusiv')) && (
-                  <div className="grid grid-cols-2 gap-1.5 mt-1.5" onClick={(e) => e.stopPropagation()}>
-                    <ActBtn icon={Eye} label="Ver procuração" onClick={() => visualizarPdf(contratoId, 'procuracao')} className="border-[#C9A84C]/40 bg-[#C9A84C]/10 text-[#8a7320] hover:bg-[#C9A84C]/20" />
-                    <ActBtn icon={FileDown} label="PDF procuração" onClick={() => downloadVia(contratosAPI.procuracaoPdf, contratoId, `procuracao-${contratoId}.pdf`, toast)} className="border-[#C9A84C]/40 bg-[#C9A84C]/10 text-[#8a7320] hover:bg-[#C9A84C]/20" />
+                  <div className="grid grid-cols-3 gap-1.5 mt-1.5" onClick={(e) => e.stopPropagation()}>
+                    <ActBtn icon={Eye} label="Ver proc." onClick={() => visualizarPdf(contratoId, 'procuracao')} className="border-[#C9A84C]/40 bg-[#C9A84C]/10 text-[#8a7320] hover:bg-[#C9A84C]/20" />
+                    <ActBtn icon={FileDown} label="PDF proc." onClick={() => downloadVia(contratosAPI.procuracaoPdf, contratoId, `procuracao-${contratoId}.pdf`, toast)} className="border-[#C9A84C]/40 bg-[#C9A84C]/10 text-[#8a7320] hover:bg-[#C9A84C]/20" />
+                    <ActBtn icon={MapPin} label="Posicionar proc." onClick={() => setPosicionarProcDoc(c)} className="border-[#C9A84C]/50 bg-[#C9A84C]/15 text-[#8a7320] hover:bg-[#C9A84C]/25" />
                   </div>
                 )}
 
@@ -636,6 +638,14 @@ const ContratosList = ({ tipoFixo = '', titulo, descricao, ctaLabel }) => {
           documentId={getContratoId(posicionarDoc)}
           onAssinado={() => { setPosicionarDoc(null); toast({ title: 'Contrato assinado!' }); load(); }}
           onFechar={() => setPosicionarDoc(null)}
+        />
+      )}
+      {posicionarProcDoc && (
+        <AssinaturaPosicionadaModal
+          tipo="procuracao"
+          documentId={getContratoId(posicionarProcDoc)}
+          onAssinado={() => { setPosicionarProcDoc(null); toast({ title: 'Procuração assinada!' }); load(); }}
+          onFechar={() => setPosicionarProcDoc(null)}
         />
       )}
       {historicoDoc && (

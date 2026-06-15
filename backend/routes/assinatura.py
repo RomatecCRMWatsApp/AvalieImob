@@ -26,7 +26,15 @@ _TIPO_COLECAO = {
     "garantia": "garantias",
     "recibo": "recibos",
     "contrato": "contratos",
+    # procuração assina-se À PARTE do contrato, mas vive no MESMO doc (id do contrato);
+    # os campos de estado ICP são NAMESPACED (procuracao_*) p/ não colidir com o contrato.
+    "procuracao": "contratos",
 }
+
+
+def _icp_field(tipo: str, nome: str) -> str:
+    """Nome do campo de estado ICP, namespaced p/ a procuração (procuracao_*)."""
+    return f"procuracao_{nome}" if tipo == "procuracao" else nome
 
 
 # ── Request / Response models ────────────────────────────────────────────────
@@ -323,6 +331,23 @@ async def _gerar_pdf(tipo: str, doc: dict, db=None, perfil: dict | None = None) 
             except Exception:
                 logger.warning("Falha ao pré-carregar anexos do imóvel (assinatura).", exc_info=True)
         return gerar_pdf_contrato(doc=doc, uid=uid or "", empresa=empresa)
+    elif tipo == "procuracao":
+        # PROCURAÇÃO assinada à parte: base = a procuração JÁ assinada pelos clientes
+        # (traços carimbados); senão, gera do zero. doc é o CONTRATO (mesmo id).
+        base_proc = await _pdf_cliente_assinado(db, doc, "procuracao")
+        if base_proc:
+            return base_proc
+        from routes.contratos import _generate_procuracao_pdf_bytes, _preload_avaliador
+        uid = doc.get("user_id")
+        empresa = "AvalieImob"
+        if db is not None and uid:
+            u = await db.users.find_one({"id": uid}, {"company": 1, "name": 1}) or {}
+            empresa = u.get("company") or u.get("name") or "AvalieImob"
+            try:
+                doc["_avaliador"] = await _preload_avaliador(db, uid)
+            except Exception:
+                logger.warning("Falha ao pré-carregar avaliador (procuração ICP).", exc_info=True)
+        return await asyncio.to_thread(_generate_procuracao_pdf_bytes, doc, uid or "", empresa)
     raise HTTPException(status_code=400, detail=f"Geracao de PDF nao suportada para tipo: {tipo}")
 
 
@@ -833,19 +858,22 @@ async def assinar_icp_brasil(
     data_principal = datetime.fromisoformat(principal["assinado_em"])
 
     colecao = _TIPO_COLECAO[tipo]
+
+    def _f(n):
+        return _icp_field(tipo, n)
     await db[colecao].update_one(
         {"id": id},
         {"$set": {
-            "icp_status": "assinado",
-            "icp_signed_at": data_principal,
-            "icp_cert_id": body.cert_id,
-            "icp_titular": cert.get("titular"),
-            "icp_documento": cert.get("documento"),
-            "icp_emissor": cert.get("emissor"),
-            "icp_hash": hash_principal,
-            "icp_layouts": [a["layout"] for a in assinados],
-            "icp_pdf_url": f"/api/assinatura/icp/{tipo}/{id}/download",
-            "icp_verificacao_url": f"/v/laudo/v/{hash_principal}",
+            _f("icp_status"): "assinado",
+            _f("icp_signed_at"): data_principal,
+            _f("icp_cert_id"): body.cert_id,
+            _f("icp_titular"): cert.get("titular"),
+            _f("icp_documento"): cert.get("documento"),
+            _f("icp_emissor"): cert.get("emissor"),
+            _f("icp_hash"): hash_principal,
+            _f("icp_layouts"): [a["layout"] for a in assinados],
+            _f("icp_pdf_url"): f"/api/assinatura/icp/{tipo}/{id}/download",
+            _f("icp_verificacao_url"): f"/v/laudo/v/{hash_principal}",
             "updated_at": datetime.utcnow(),
         }},
     )
@@ -924,10 +952,11 @@ async def _propagar_recibo_assinado(db, tipo: str, doc: dict, quando=None) -> No
 
 
 async def _reenviar_contrato_final_ao_cliente(db, tipo: str, doc: dict, pdf_assinado: bytes) -> None:
-    """FASE PÓS-ASSINATURA #5: assim que o CORRETOR assina o ICP de um contrato cujos
-    CLIENTES já assinaram (sessão concluída), reenvia o PDF FINAL (com todas as assinaturas:
-    traços dos clientes + ICP do corretor) a todos os signatários por WhatsApp. Defensivo."""
-    if tipo != "contrato" or not pdf_assinado:
+    """FASE PÓS-ASSINATURA #5: assim que o CORRETOR assina o ICP de um CONTRATO ou de uma
+    PROCURAÇÃO cujos CLIENTES já assinaram, reenvia AQUELE PDF FINAL (com todas as assinaturas)
+    SEPARADAMENTE a todos os signatários por WhatsApp. Cada documento é enviado quando o seu
+    próprio ICP conclui. Defensivo."""
+    if tipo not in ("contrato", "procuracao") or not pdf_assinado:
         return
     try:
         from routes.assinatura_cliente import COL as _ACOL, _zapi_cfg as _ac_zapi, _enviar_pdf as _ac_pdf
@@ -936,22 +965,20 @@ async def _reenviar_contrato_final_ao_cliente(db, tipo: str, doc: dict, pdf_assi
         if not sessao or sessao.get("status") != "concluida":
             return  # só reenvia o final quando TODOS os clientes já assinaram
         cfg = await _ac_zapi(db, doc.get("user_id"))
-        # Procuração final consolidada (client-assinada + assinatura visual do corretor), se houver
-        proc_final = await _pdf_cliente_assinado(db, doc, "procuracao")
+        nome_arq = "procuracao_final_assinada" if tipo == "procuracao" else "contrato_final_assinado"
+        rotulo = "Procuração" if tipo == "procuracao" else "Contrato"
         for s in sessao.get("signatarios", []):
             if not s.get("telefone"):
                 continue
             try:
-                await _ac_pdf(cfg, s["telefone"], pdf_assinado, "contrato_final_assinado",
-                              "Contrato FINAL com TODAS as assinaturas (clientes + corretor). Obrigado!")
-                if proc_final:
-                    await _ac_pdf(cfg, s["telefone"], proc_final, "procuracao_final_assinada",
-                                  "Procuração FINAL com todas as assinaturas. Obrigado!")
+                await _ac_pdf(cfg, s["telefone"], pdf_assinado, nome_arq,
+                              f"{rotulo} FINAL com TODAS as assinaturas (clientes + corretor). Obrigado!")
             except Exception as e:  # noqa: BLE001
-                logger.warning("Falha ao reenviar final p/ %s: %s", s.get("telefone"), e)
-        await db.contratos.update_one({"id": cid}, {"$set": {"assinatura_cliente_status": "final_assinado"}})
+                logger.warning("Falha ao reenviar %s final p/ %s: %s", rotulo, s.get("telefone"), e)
+        if tipo == "contrato":
+            await db.contratos.update_one({"id": cid}, {"$set": {"assinatura_cliente_status": "final_assinado"}})
     except Exception:  # noqa: BLE001
-        logger.warning("Falha ao reenviar contrato final ao cliente.", exc_info=True)
+        logger.warning("Falha ao reenviar documento final ao cliente.", exc_info=True)
 
 
 async def _persist_assinatura(db, tipo, doc_id, layout, cert_id, pdf_bytes, hash_final, posicionado=False):
@@ -1082,7 +1109,8 @@ async def preparar_assinatura_posicionada(
 
     await db[_TIPO_COLECAO[tipo]].update_one(
         {"id": id, "user_id": uid},
-        {"$set": {"pdf_assinatura_key": key, "pdf_assinatura_prep_em": datetime.utcnow()}},
+        {"$set": {_icp_field(tipo, "pdf_assinatura_key"): key,
+                  _icp_field(tipo, "pdf_assinatura_prep_em"): datetime.utcnow()}},
     )
 
     try:
@@ -1110,7 +1138,7 @@ async def assinar_posicionado(
     from services import r2_storage
 
     doc = await _get_doc(db, tipo, id, uid)
-    key = doc.get("pdf_assinatura_key")
+    key = doc.get(_icp_field(tipo, "pdf_assinatura_key"))
     if not key:
         raise HTTPException(status_code=400, detail="Documento não preparado. Reabra o assinador.")
 
@@ -1165,21 +1193,23 @@ async def assinar_posicionado(
     await _persist_assinatura(db, tipo, id, layout, body.cert_id, pdf_assinado, hash_final, posicionado=True)
     await _reenviar_contrato_final_ao_cliente(db, tipo, doc, pdf_assinado)
 
+    def _f(n):
+        return _icp_field(tipo, n)
     await db[_TIPO_COLECAO[tipo]].update_one(
         {"id": id},
         {"$set": {
-            "icp_status": "assinado",
-            "icp_signed_at": data_assinatura,
-            "icp_cert_id": body.cert_id,
-            "icp_titular": cert.get("titular"),
-            "icp_documento": cert.get("documento"),
-            "icp_emissor": cert.get("emissor"),
-            "icp_hash": hash_final,
-            "icp_layouts": [layout],
-            "icp_pdf_url": f"/api/assinatura/icp/{tipo}/{id}/download",
-            "icp_verificacao_url": f"/v/laudo/v/{hash_final}",
+            _f("icp_status"): "assinado",
+            _f("icp_signed_at"): data_assinatura,
+            _f("icp_cert_id"): body.cert_id,
+            _f("icp_titular"): cert.get("titular"),
+            _f("icp_documento"): cert.get("documento"),
+            _f("icp_emissor"): cert.get("emissor"),
+            _f("icp_hash"): hash_final,
+            _f("icp_layouts"): [layout],
+            _f("icp_pdf_url"): f"/api/assinatura/icp/{tipo}/{id}/download",
+            _f("icp_verificacao_url"): f"/v/laudo/v/{hash_final}",
             "updated_at": datetime.utcnow(),
-        }, "$unset": {"pdf_assinatura_key": ""}},
+        }, "$unset": {_f("pdf_assinatura_key"): ""}},
     )
 
     # Recibo assinado → reflete no card do PTAM vinculado.
