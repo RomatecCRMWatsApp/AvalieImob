@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Save, Building, Upload, X, Image, Lock, ShieldCheck, Trash2, Loader2, Plus, FileBadge, MessageCircle, Send, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
+import { Save, Building, Upload, X, Image, Lock, ShieldCheck, Trash2, Loader2, Plus, FileBadge, MessageCircle, Send, CheckCircle2, AlertCircle, RefreshCw, Eye } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
@@ -9,6 +9,22 @@ import { useAuth } from '../../contexts/AuthContext';
 import { authAPI, uploadAPI, certificadosAPI, integracoesAPI, perfilAPI } from '../../lib/api';
 
 const MAX_LOGO_SIZE = 2 * 1024 * 1024; // 2 MB
+
+// Abre as imagens (1+ páginas, data-uri base64) em uma nova aba para visualização ampliada.
+const visualizarImagens = (imgs, titulo = 'Documento') => {
+  const lista = (imgs || []).filter(Boolean);
+  if (!lista.length) return;
+  const win = window.open('', '_blank');
+  if (!win) return;
+  const tags = lista.map((s) => `<img src="${s}" alt="${titulo}"/>`).join('');
+  win.document.write(
+    `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${titulo}</title>` +
+    `<style>body{margin:0;background:#525659;display:flex;flex-direction:column;align-items:center;gap:16px;padding:20px}` +
+    `img{max-width:100%;width:920px;background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.45);border-radius:4px}</style>` +
+    `</head><body>${tags}</body></html>`
+  );
+  win.document.close();
+};
 
 const SettingsPage = () => {
   const { user, refreshUser } = useAuth();
@@ -28,6 +44,7 @@ const SettingsPage = () => {
   // ── Cartão de Regularidade Profissional (CRECI) ──
   const cartaoInputRef = useRef(null);
   const [cartaoPreview, setCartaoPreview] = useState(null);  // 1ª página (img) p/ pré-visualização
+  const [cartaoImgs, setCartaoImgs] = useState([]);          // todas as páginas (p/ visualizar ampliado)
   const [cartaoPaginas, setCartaoPaginas] = useState(0);     // nº de páginas (quando PDF convertido)
   const [cartaoLink, setCartaoLink] = useState('');
   const [cartaoAnexar, setCartaoAnexar] = useState(true);
@@ -36,6 +53,7 @@ const SettingsPage = () => {
   const aplicaPerfilCartao = (p) => {
     const pags = p?.cartao_regularidade_paginas_b64 || [];
     setCartaoPreview(pags[0] || p?.cartao_regularidade_b64 || null);
+    setCartaoImgs(pags.length ? pags : (p?.cartao_regularidade_b64 ? [p.cartao_regularidade_b64] : []));
     setCartaoPaginas(pags.length);
     if (typeof p?.cartao_regularidade_link === 'string') setCartaoLink(p.cartao_regularidade_link);
     if (typeof p?.cartao_regularidade_anexar === 'boolean') setCartaoAnexar(p.cartao_regularidade_anexar);
@@ -96,6 +114,7 @@ const SettingsPage = () => {
   const CRECI_CERTIDAO_URL = 'https://www.crecima.gov.br/2025/10/14/certidao-de-regularidade/';
   const certidaoInputRef = useRef(null);
   const [certidaoPreview, setCertidaoPreview] = useState(null);
+  const [certidaoImgs, setCertidaoImgs] = useState([]);
   const [certidaoPaginas, setCertidaoPaginas] = useState(0);
   const [certidaoValidade, setCertidaoValidade] = useState('');
   const [certidaoLink, setCertidaoLink] = useState('');
@@ -105,6 +124,7 @@ const SettingsPage = () => {
   const aplicaPerfilCertidao = (p) => {
     const pags = p?.certidao_regularidade_paginas_b64 || [];
     setCertidaoPreview(pags[0] || p?.certidao_regularidade_b64 || null);
+    setCertidaoImgs(pags.length ? pags : (p?.certidao_regularidade_b64 ? [p.certidao_regularidade_b64] : []));
     setCertidaoPaginas(pags.length);
     if (typeof p?.certidao_regularidade_validade === 'string') setCertidaoValidade(p.certidao_regularidade_validade);
     if (typeof p?.certidao_regularidade_link === 'string') setCertidaoLink(p.certidao_regularidade_link);
@@ -182,6 +202,7 @@ const SettingsPage = () => {
   // ── Certificado CNAI — miniatura no currículo do PTAM ──
   const cnaiInputRef = useRef(null);
   const [cnaiPreview, setCnaiPreview] = useState(null);
+  const [cnaiImgs, setCnaiImgs] = useState([]);
   const [cnaiPaginas, setCnaiPaginas] = useState(0);
   const [cnaiAnexar, setCnaiAnexar] = useState(true);
   const [savingCnai, setSavingCnai] = useState(false);
@@ -189,6 +210,7 @@ const SettingsPage = () => {
   const aplicaPerfilCnai = (p) => {
     const pags = p?.certificado_cnai_paginas_b64 || [];
     setCnaiPreview(pags[0] || p?.certificado_cnai_b64 || null);
+    setCnaiImgs(pags.length ? pags : (p?.certificado_cnai_b64 ? [p.certificado_cnai_b64] : []));
     setCnaiPaginas(pags.length);
     if (typeof p?.certificado_cnai_anexar === 'boolean') setCnaiAnexar(p.certificado_cnai_anexar);
   };
@@ -426,6 +448,11 @@ const SettingsPage = () => {
                 )}
               </Button>
               {cartaoPreview && (
+                <Button variant="outline" size="sm" onClick={() => visualizarImagens(cartaoImgs, 'Cartão de Regularidade (CRECI)')}>
+                  <Eye className="w-4 h-4 mr-1" />Visualizar
+                </Button>
+              )}
+              {cartaoPreview && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -570,6 +597,11 @@ const SettingsPage = () => {
                 )}
               </Button>
               {certidaoPreview && (
+                <Button variant="outline" size="sm" onClick={() => visualizarImagens(certidaoImgs, 'Certidão de Regularidade (CRECI)')}>
+                  <Eye className="w-4 h-4 mr-1" />Visualizar
+                </Button>
+              )}
+              {certidaoPreview && (
                 <Button variant="ghost" size="sm" onClick={handleRemoveCertidao} className="text-red-500 hover:text-red-700 hover:bg-red-50" disabled={savingCertidao}>
                   <Trash2 className="w-4 h-4 mr-1" />Remover
                 </Button>
@@ -659,6 +691,11 @@ const SettingsPage = () => {
                   <span className="flex items-center gap-1"><Upload className="w-4 h-4" />Enviar certificado (imagem ou PDF)</span>
                 )}
               </Button>
+              {cnaiPreview && (
+                <Button variant="outline" size="sm" onClick={() => visualizarImagens(cnaiImgs, 'Certificado CNAI')}>
+                  <Eye className="w-4 h-4 mr-1" />Visualizar
+                </Button>
+              )}
               {cnaiPreview && (
                 <Button variant="ghost" size="sm" onClick={handleRemoveCnai} className="text-red-500 hover:text-red-700 hover:bg-red-50" disabled={savingCnai}>
                   <Trash2 className="w-4 h-4 mr-1" />Remover
