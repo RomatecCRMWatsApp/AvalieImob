@@ -591,7 +591,15 @@ const ContratosList = ({ tipoFixo = '', titulo, descricao, ctaLabel }) => {
                         ))}
                       </div>
                       {ok >= tot && tot > 0 && (
-                        <div className="text-[11px] text-emerald-700 mt-1.5 font-medium">✅ Todos assinaram — agora <b>você assina (ICP)</b> e o sistema envia o contrato e a procuração finais.</div>
+                        <>
+                          <div className="text-[11px] text-emerald-700 mt-1.5 font-medium">✅ Todos assinaram — agora <b>você assina (ICP)</b> e o sistema envia cada documento final separado.</div>
+                          <div className={`grid ${(c?.procuracao?.gerar || (c?.tipo_contrato || '').includes('exclusiv')) ? 'grid-cols-2' : 'grid-cols-1'} gap-1.5 mt-2`}>
+                            <ActBtn icon={MapPin} label="Posicionar contrato (ICP)" onClick={() => setPosicionarDoc(c)} className="border-emerald-300 bg-emerald-600 text-white hover:bg-emerald-700" />
+                            {(c?.procuracao?.gerar || (c?.tipo_contrato || '').includes('exclusiv')) && (
+                              <ActBtn icon={MapPin} label="Posicionar procuração (ICP)" onClick={() => setPosicionarProcDoc(c)} className="border-[#C9A84C]/60 bg-[#C9A84C] text-white hover:brightness-95" />
+                            )}
+                          </div>
+                        </>
                       )}
                     </div>
                   );
