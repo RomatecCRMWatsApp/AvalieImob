@@ -206,43 +206,54 @@ async def _pdf_cliente_assinado(db, doc: dict, tipo_doc: str = "contrato") -> Op
         return b if (b and b[:5] == b"%PDF-") else None
 
     campo = "procuracao_cliente_pdf_url" if tipo_doc == "procuracao" else "assinatura_cliente_pdf_url"
+    cid = str(doc.get("id") or doc.get("_id") or "")
     # 1) URL denormalizada no contrato
     url = doc.get(campo)
+    logger.info("PDFCLIENTE[%s] cid=%s url_no_doc=%s", tipo_doc, cid, bool(url))
     if url:
         try:
             b = _ok(await asyncio.to_thread(r2_storage.download_bytes, url))
+            logger.info("PDFCLIENTE[%s] nivel1 URL baixou=%s", tipo_doc, bool(b))
             if b:
                 return b
         except Exception:
-            logger.warning("Falha ao baixar %s; tentando a sessão.", campo, exc_info=True)
-    if db is None:
-        return None
-    cid = str(doc.get("id") or doc.get("_id") or "")
-    if not cid:
+            logger.warning("PDFCLIENTE[%s] nivel1 URL FALHOU.", tipo_doc, exc_info=True)
+    if db is None or not cid:
         return None
     try:
         sess = await db["assinatura_cliente_sessoes"].find_one(
-            {"contrato_id": cid}, sort=[("created_at", -1)])
+            {"contrato_id": cid, "status": "concluida"}, sort=[("created_at", -1)])
+        if not sess:
+            sess = await db["assinatura_cliente_sessoes"].find_one(
+                {"contrato_id": cid}, sort=[("created_at", -1)])
     except Exception:
         sess = None
+    logger.info("PDFCLIENTE[%s] sessao=%s status=%s",
+                tipo_doc, bool(sess), (sess or {}).get("status"))
     if not sess:
         return None
     d = next((x for x in sess.get("documentos", []) if (x.get("tipo") or "contrato") == tipo_doc), None)
+    n_traco = sum(1 for s in sess.get("signatarios", []) if s.get("traco_b64"))
+    logger.info("PDFCLIENTE[%s] docsess=%s pdf_key_final=%s ancoras=%s tracos=%s",
+                tipo_doc, bool(d), bool(d and d.get("pdf_key_final")),
+                len((d or {}).get("ancoras") or []), n_traco)
     if not d:
         return None
     # 2) PDF final já carimbado salvo na sessão
     if d.get("pdf_key_final"):
         try:
             b = _ok(await asyncio.to_thread(r2_storage.download_bytes, d["pdf_key_final"]))
+            logger.info("PDFCLIENTE[%s] nivel2 pdf_key_final baixou=%s", tipo_doc, bool(b))
             if b:
                 return b
         except Exception:
-            logger.warning("Falha ao baixar pdf_key_final; re-carimbando.", exc_info=True)
+            logger.warning("PDFCLIENTE[%s] nivel2 FALHOU; re-carimbando.", tipo_doc, exc_info=True)
     # 3) RE-CARIMBA de pdf_key_base + traços (recupera carimbo que falhou)
     if d.get("pdf_key_base"):
         try:
             base = _ok(await asyncio.to_thread(r2_storage.download_bytes, d["pdf_key_base"]))
             if not base:
+                logger.warning("PDFCLIENTE[%s] nivel3 base nao baixou.", tipo_doc)
                 return None
             assinaturas = []
             for s in sess.get("signatarios", []):
@@ -258,13 +269,19 @@ async def _pdf_cliente_assinado(db, doc: dict, tipo_doc: str = "contrato") -> Op
                     "geo_lng": s.get("geo_lng"), "user_agent": s.get("user_agent"),
                     "assinado_em": s.get("assinado_em"),
                 })
+            roles_anc = [a.get("role") for a in (d.get("ancoras") or [])]
+            roles_sig = [a.get("role") for a in assinaturas]
+            logger.info("PDFCLIENTE[%s] nivel3 roles_ancora=%s roles_assin=%s",
+                        tipo_doc, roles_anc, roles_sig)
             if not assinaturas:
                 return None
             from services.assinatura_cliente_carimbo import carimbar_documento
             final, _h = await asyncio.to_thread(carimbar_documento, base, d.get("ancoras") or [], assinaturas)
-            return _ok(final)
+            ok = _ok(final)
+            logger.info("PDFCLIENTE[%s] nivel3 RE-CARIMBOU ok=%s", tipo_doc, bool(ok))
+            return ok
         except Exception:
-            logger.warning("Falha ao re-carimbar o PDF cliente-assinado.", exc_info=True)
+            logger.warning("PDFCLIENTE[%s] nivel3 RE-CARIMBO FALHOU.", tipo_doc, exc_info=True)
     return None
 
 
