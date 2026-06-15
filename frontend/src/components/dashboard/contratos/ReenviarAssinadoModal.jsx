@@ -1,7 +1,7 @@
 // Modal: PDF(s) ASSINADO(s) — status, baixar e reenviar por WhatsApp com números
 // editáveis (default = clientes do cadastro) + opção de adicionar outros destinos.
 import React, { useEffect, useState } from 'react';
-import { X, Loader2, Send, Download, Plus, Trash2, CheckCircle2 } from 'lucide-react';
+import { X, Loader2, Send, Download, Eye, Plus, Trash2, CheckCircle2 } from 'lucide-react';
 import { assinaturaClienteAPI, contratosAPI } from '../../../lib/api';
 import { useToast } from '../../../hooks/use-toast';
 
@@ -15,6 +15,21 @@ const downloadVia = async (apiFn, id, filename, toast) => {
     setTimeout(() => URL.revokeObjectURL(url), 30000);
   } catch {
     toast({ title: `Erro ao baixar ${filename}`, variant: 'destructive' });
+  }
+};
+
+// Abre a aba JÁ no clique (gesto do usuário) p/ não ser bloqueado como popup.
+const visualizarVia = async (apiFn, id, toast) => {
+  const win = window.open('', '_blank');
+  try {
+    const blob = await apiFn(id);
+    const b = blob instanceof Blob ? blob : new Blob([blob], { type: 'application/pdf' });
+    const url = URL.createObjectURL(b);
+    if (win) win.location.href = url; else window.location.href = url;
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch {
+    if (win) win.close();
+    toast({ title: 'Erro ao abrir o PDF assinado', variant: 'destructive' });
   }
 };
 
@@ -62,7 +77,7 @@ export default function ReenviarAssinadoModal({ contratoId, onClose }) {
     <div style={ovl}>
       <div style={box}>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-bold text-emerald-800 flex items-center gap-2"><CheckCircle2 className="w-5 h-5" /> PDF assinado — enviar / baixar</h3>
+          <h3 className="font-bold text-emerald-800 flex items-center gap-2"><CheckCircle2 className="w-5 h-5" /> PDF assinado — ver / baixar / reenviar</h3>
           <button onClick={onClose}><X className="w-5 h-5 text-gray-500" /></button>
         </div>
 
@@ -76,19 +91,39 @@ export default function ReenviarAssinadoModal({ contratoId, onClose }) {
               </div>
             )}
 
-            {/* Baixar */}
-            <div className="grid grid-cols-2 gap-2">
-              <button disabled={!info?.contrato_assinado}
-                onClick={() => downloadVia(contratosAPI.pdfAssinado, contratoId, `contrato-${contratoId}-assinado.pdf`, toast)}
-                className="flex items-center justify-center gap-1.5 border rounded-lg py-2 text-sm disabled:opacity-40 border-emerald-300 text-emerald-700 hover:bg-emerald-50">
-                <Download className="w-4 h-4" /> Baixar contrato
-              </button>
-              <button disabled={!info?.procuracao_assinada}
-                onClick={() => downloadVia(assinaturaClienteAPI.pdfAssinadoProc, contratoId, `procuracao-${contratoId}-assinada.pdf`, toast)}
-                className="flex items-center justify-center gap-1.5 border rounded-lg py-2 text-sm disabled:opacity-40 border-[#C9A84C]/50 text-[#8a7320] hover:bg-[#C9A84C]/10">
-                <Download className="w-4 h-4" /> Baixar procuração
-              </button>
+            {/* Contrato assinado — ver / baixar */}
+            <div>
+              <div className="text-[11px] font-semibold text-emerald-700 mb-1">Contrato assinado</div>
+              <div className="grid grid-cols-2 gap-2">
+                <button disabled={!info?.contrato_assinado}
+                  onClick={() => visualizarVia(contratosAPI.pdfAssinado, contratoId, toast)}
+                  className="flex items-center justify-center gap-1.5 border rounded-lg py-2 text-sm disabled:opacity-40 border-emerald-300 text-emerald-700 hover:bg-emerald-50">
+                  <Eye className="w-4 h-4" /> Visualizar
+                </button>
+                <button disabled={!info?.contrato_assinado}
+                  onClick={() => downloadVia(contratosAPI.pdfAssinado, contratoId, `contrato-${contratoId}-assinado.pdf`, toast)}
+                  className="flex items-center justify-center gap-1.5 border rounded-lg py-2 text-sm disabled:opacity-40 border-emerald-300 text-emerald-700 hover:bg-emerald-50">
+                  <Download className="w-4 h-4" /> Baixar
+                </button>
+              </div>
             </div>
+
+            {/* Procuração assinada — ver / baixar */}
+            {info?.procuracao_assinada && (
+              <div>
+                <div className="text-[11px] font-semibold text-[#8a7320] mb-1">Procuração assinada</div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button onClick={() => visualizarVia(assinaturaClienteAPI.pdfAssinadoProc, contratoId, toast)}
+                    className="flex items-center justify-center gap-1.5 border rounded-lg py-2 text-sm border-[#C9A84C]/50 text-[#8a7320] hover:bg-[#C9A84C]/10">
+                    <Eye className="w-4 h-4" /> Visualizar
+                  </button>
+                  <button onClick={() => downloadVia(assinaturaClienteAPI.pdfAssinadoProc, contratoId, `procuracao-${contratoId}-assinada.pdf`, toast)}
+                    className="flex items-center justify-center gap-1.5 border rounded-lg py-2 text-sm border-[#C9A84C]/50 text-[#8a7320] hover:bg-[#C9A84C]/10">
+                    <Download className="w-4 h-4" /> Baixar
+                  </button>
+                </div>
+              </div>
+            )}
 
             {info?.procuracao_assinada && (
               <label className="flex items-center gap-2 text-sm text-gray-700">

@@ -557,7 +557,7 @@ const ContratosList = ({ tipoFixo = '', titulo, descricao, ctaLabel }) => {
                   {assinado && (
                     <>
                       <ActBtn icon={ShieldCheck} label="PDF Assinado" onClick={() => downloadVia(contratosAPI.pdfAssinado, contratoId, `contrato-${contratoId}-assinado.pdf`, toast)} className="border-emerald-300 bg-emerald-600 text-white hover:bg-emerald-700 col-span-1" />
-                      <ActBtn icon={Send} label="Enviar/Reenviar assinado" onClick={() => setAssinadoDoc(c)} className="border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100" />
+                      <ActBtn icon={Send} label="Assinado · ver/enviar" onClick={() => setAssinadoDoc(c)} className="border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100" />
                       <ActBtn icon={RefreshCw} label="Zerar assin." onClick={() => zerarAssinatura(contratoId)} className="border-red-200 bg-red-50 text-red-700 hover:bg-red-100 col-span-2" />
                     </>
                   )}
