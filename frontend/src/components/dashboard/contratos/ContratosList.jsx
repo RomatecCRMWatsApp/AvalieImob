@@ -585,17 +585,46 @@ const ContratosList = ({ tipoFixo = '', titulo, descricao, ctaLabel }) => {
                   const ok = c.assinatura_cliente_assinados ?? c.assinatura_cliente_signatarios.filter((s) => s.status === 'assinado').length;
                   return (
                     <div className="mt-1.5 rounded-lg border border-emerald-200 bg-emerald-50/60 px-2.5 py-2" onClick={(e) => e.stopPropagation()}>
-                      <div className="text-[11px] font-semibold text-emerald-800 mb-1">Assinaturas do cliente · {ok}/{tot}</div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {c.assinatura_cliente_signatarios.map((s, i) => (
-                          <span key={i} className={`text-[11px] px-2 py-0.5 rounded-full border bg-white ${s.status === 'assinado' ? 'border-emerald-300 text-emerald-700' : 'border-amber-300 text-amber-700'}`}>
-                            {s.status === 'assinado' ? '✓ ' : '⏳ '}{(s.nome || '').split(' ')[0]}{s.status === 'assinado' ? ' assinou' : ' pendente'}
-                          </span>
-                        ))}
-                      </div>
-                      {ok >= tot && tot > 0 && (
+                      {(() => {
+                        const corNome = (c?.corretor?.nome || 'Você').split(' ')[0];
+                        const temProc = c?.procuracao?.gerar || (c?.tipo_contrato || '').includes('exclusiv');
+                        const icpCont = c.icp_status === 'assinado';
+                        const icpProc = c.procuracao_icp_status === 'assinado';
+                        const totGeral = tot + 1 + (temProc ? 1 : 0);
+                        const okGeral = ok + (icpCont ? 1 : 0) + (temProc && icpProc ? 1 : 0);
+                        return (
+                          <>
+                            <div className="text-[11px] font-semibold text-emerald-800 mb-1">Assinaturas · {okGeral}/{totGeral}</div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {c.assinatura_cliente_signatarios.map((s, i) => (
+                                <span key={i} className={`text-[11px] px-2 py-0.5 rounded-full border bg-white ${s.status === 'assinado' ? 'border-emerald-300 text-emerald-700' : 'border-amber-300 text-amber-700'}`}>
+                                  {s.status === 'assinado' ? '✓ ' : '⏳ '}{(s.nome || '').split(' ')[0]}{s.status === 'assinado' ? ' assinou' : ' pendente'}
+                                </span>
+                              ))}
+                              <span className={`text-[11px] px-2 py-0.5 rounded-full border bg-white ${icpCont ? 'border-emerald-400 text-emerald-700 font-semibold' : 'border-amber-300 text-amber-700'}`}>
+                                {icpCont ? '✓ ' : '⏳ '}{corNome} (ICP contrato){icpCont ? '' : ' pendente'}
+                              </span>
+                              {temProc && (
+                                <span className={`text-[11px] px-2 py-0.5 rounded-full border bg-white ${icpProc ? 'border-[#C9A84C] text-[#8a7320] font-semibold' : 'border-amber-300 text-amber-700'}`}>
+                                  {icpProc ? '✓ ' : '⏳ '}{corNome} (ICP procuração){icpProc ? '' : ' pendente'}
+                                </span>
+                              )}
+                            </div>
+                          </>
+                        );
+                      })()}
+                      {ok >= tot && tot > 0 && (() => {
+                        const temProc = c?.procuracao?.gerar || (c?.tipo_contrato || '').includes('exclusiv');
+                        const icpCont = c.icp_status === 'assinado';
+                        const icpProc = c.procuracao_icp_status === 'assinado';
+                        const finalizado = icpCont && (!temProc || icpProc);
+                        return (
                         <>
-                          <div className="text-[11px] text-emerald-700 mt-1.5 font-medium">✅ Todos assinaram — agora <b>você assina (ICP)</b> e o sistema envia cada documento final separado.</div>
+                          {finalizado ? (
+                            <div className="text-[11px] text-emerald-800 mt-1.5 font-semibold">🏁 Finalizado — todas as assinaturas e seu ICP concluídos. Documentos finais enviados.</div>
+                          ) : (
+                          <div className="text-[11px] text-emerald-700 mt-1.5 font-medium">✅ Clientes assinaram — agora <b>você assina (ICP)</b> {temProc ? 'o contrato e a procuração' : 'o contrato'}.</div>
+                          )}
                           <div className={`grid ${(c?.procuracao?.gerar || (c?.tipo_contrato || '').includes('exclusiv')) ? 'grid-cols-2' : 'grid-cols-1'} gap-1.5 mt-2`}>
                             <ActBtn icon={MapPin} label="Posicionar contrato (ICP)" onClick={() => setPosicionarDoc(c)} className="border-emerald-300 bg-emerald-600 text-white hover:bg-emerald-700" />
                             {(c?.procuracao?.gerar || (c?.tipo_contrato || '').includes('exclusiv')) && (
@@ -603,7 +632,8 @@ const ContratosList = ({ tipoFixo = '', titulo, descricao, ctaLabel }) => {
                             )}
                           </div>
                         </>
-                      )}
+                        );
+                      })()}
                     </div>
                   );
                 })()}
