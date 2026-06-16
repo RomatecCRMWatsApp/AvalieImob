@@ -620,18 +620,27 @@ ITENS_SUM = [
     ('A.2', 'Anexo II — Amostras Comparativas', 'anexo2', 0),
     ('A.3', 'Anexo III — Base Legal e Normativa', 'anexo3', 0),
     ('A.4', 'Anexo IV — Currículo do Avaliador', 'anexo4', 0),
+    ('A.5', 'Anexo V — Cartão de Regularidade (CRECI)', 'anexo5', 0),
+    ('A.6', 'Anexo VI — Certidão de Regularidade (CRECI)', 'anexo6', 0),
 ]
+
+# Anexos opcionais: só aparecem no Sumário quando realmente renderizados (presentes
+# no perfil + anexados). Evita "Anexo V ... —" para quem não cadastrou os documentos.
+_SUM_OPCIONAIS = {'anexo5', 'anexo6'}
 
 
 class Sumario(Flowable):
     def __init__(self, page_map):
         super().__init__()
         self.page_map = page_map or {}
+        # anexos opcionais entram só quando renderizados (âncora no page_map)
+        self.itens = [it for it in ITENS_SUM
+                      if it[2] not in _SUM_OPCIONAIS or it[2] in self.page_map]
         self.width = UTIL_W
         self.hh = 0.60 * cm
         self.rh = 0.68 * cm
         self.title_h = 1.0 * cm
-        self.height = self.title_h + self.hh + len(ITENS_SUM) * self.rh + 0.1 * cm
+        self.height = self.title_h + self.hh + len(self.itens) * self.rh + 0.1 * cm
 
     def wrap(self, aw, ah):
         return (self.width, self.height)
@@ -655,7 +664,7 @@ class Sumario(Flowable):
         c.drawString(0.3 * cm, h - self.hh + 0.18 * cm, 'Seção')
         c.drawString(2.2 * cm, h - self.hh + 0.18 * cm, 'Título')
         c.drawRightString(w - 0.3 * cm, h - self.hh + 0.18 * cm, 'Página')
-        for i, item in enumerate(ITENS_SUM):
+        for i, item in enumerate(self.itens):
             num, titulo, ancora = item[0], item[1], item[2]
             nivel = item[3] if len(item) > 3 else 0
             y = h - self.hh - (i + 1) * self.rh
@@ -2481,15 +2490,57 @@ def build_story(ptam, page_map):
         st.append(Paragraph('Complete seu perfil de avaliador no sistema para que o currículo '
                             'seja preenchido automaticamente nos laudos.', sPag))
 
-    # ── ANEXO V/VI — Cartão + Certidão de Regularidade Profissional (CRECI) ──
+    # ── ANEXO V (Cartão: frente+verso em MINIATURA, mesma página) + ANEXO VI
+    #    (Certidão: página própria, última) ──
     try:
-        from services.cartao_regularidade import anexos_regularidade_flowables
-        _anx = anexos_regularidade_flowables(
-            ptam.get('_perfil') or {}, 430.0,
-            titulo_cartao='ANEXO V — CARTÃO DE REGULARIDADE PROFISSIONAL (CRECI)',
-            titulo_certidao='ANEXO VI — CERTIDÃO DE REGULARIDADE PROFISSIONAL (CRECI)')
-        if _anx:
-            st += _anx  # cada bloco já começa com PageBreak
+        from services.cartao_regularidade import _img_flowable, _b64_to_bytes
+        _praw_r = ptam.get('_perfil') or {}
+        _tit_st = ParagraphStyle('reg_tit', fontName='Helvetica-Bold', fontSize=11,
+                                 textColor=VERDE, alignment=TA_CENTER, spaceAfter=10)
+        _cap_st = ParagraphStyle('reg_cap', fontName='Helvetica', fontSize=7.5,
+                                 textColor=colors.HexColor('#5B7466'), alignment=TA_CENTER, spaceBefore=6)
+
+        def _imgs_regul(prefix):
+            pags = _praw_r.get(f'{prefix}_paginas_b64') or []
+            if not pags and _praw_r.get(f'{prefix}_b64'):
+                pags = [_praw_r.get(f'{prefix}_b64')]
+            return [x for x in pags if x]
+
+        # ANEXO V — Cartão (frente + verso) como MINIATURAS na MESMA página
+        if _praw_r.get('cartao_regularidade_anexar', True):
+            _cimgs = _imgs_regul('cartao_regularidade')
+            if _cimgs:
+                bloco = [PageBreak(), Paragraph('<a name="anexo5"/>', sNormal),
+                         Paragraph('ANEXO V — CARTÃO DE REGULARIDADE PROFISSIONAL (CRECI)', _tit_st)]
+                for k, im in enumerate(_cimgs[:2]):  # frente / verso
+                    mf = _img_flowable(_b64_to_bytes(im), 360.0, max_h=235.0)
+                    if mf is not None:
+                        mf.hAlign = 'CENTER'
+                        bloco.append(mf)
+                        if k == 0 and len(_cimgs) > 1:
+                            bloco.append(Spacer(1, 14))
+                bloco.append(Paragraph(
+                    'Cartão Anual de Regularidade e Identidade Profissional — frente e verso '
+                    '(Sistema COFECI-CRECI).', _cap_st))
+                st += bloco
+
+        # ANEXO VI — Certidão (página própria)
+        if _praw_r.get('certidao_regularidade_anexar', True):
+            _certimgs = _imgs_regul('certidao_regularidade')
+            if _certimgs:
+                bloco = [PageBreak(), Paragraph('<a name="anexo6"/>', sNormal),
+                         Paragraph('ANEXO VI — CERTIDÃO DE REGULARIDADE PROFISSIONAL (CRECI)', _tit_st)]
+                cf = _img_flowable(_b64_to_bytes(_certimgs[0]), 430.0, max_h=620.0)
+                if cf is not None:
+                    cf.hAlign = 'CENTER'
+                    bloco.append(cf)
+                _link = (_praw_r.get('certidao_regularidade_link') or '').strip()
+                _leg = ('Certidão de Regularidade emitida on-line pelo Sistema COFECI-CRECI '
+                        '(válida por 30 dias).')
+                if _link:
+                    _leg += f'<br/>Verificação on-line: {_esc_xml(_link)}'
+                bloco.append(Paragraph(_leg, _cap_st))
+                st += bloco
     except Exception:
         pass
     return st
