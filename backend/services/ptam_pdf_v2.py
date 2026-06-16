@@ -620,7 +620,7 @@ ITENS_SUM = [
     ('A.2', 'Anexo II — Amostras Comparativas', 'anexo2', 0),
     ('A.3', 'Anexo III — Base Legal e Normativa', 'anexo3', 0),
     ('A.4', 'Anexo IV — Currículo do Avaliador', 'anexo4', 0),
-    ('A.5', 'Anexo V — Cartão de Regularidade (CRECI)', 'anexo5', 0),
+    ('A.5', 'Anexo V — Habilitação Profissional (CRECI · CNAI)', 'anexo5', 0),
     ('A.6', 'Anexo VI — Certidão de Regularidade (CRECI)', 'anexo6', 0),
 ]
 
@@ -2464,25 +2464,7 @@ def build_story(ptam, page_map):
             f'<a href="{_safe}"><font color="#0C7C3A"><u>{_safe}</u></font></a>',
             _sCurBody))
 
-    # Certificado CNAI — miniatura no currículo (Cadastro Nacional de Avaliadores)
-    try:
-        _praw_c = ptam.get('_perfil') or {}
-        _cnai_imgs = _praw_c.get('certificado_cnai_paginas_b64') or (
-            [_praw_c.get('certificado_cnai_b64')] if _praw_c.get('certificado_cnai_b64') else [])
-        _cnai_imgs = [x for x in _cnai_imgs if x]
-        if _praw_c.get('certificado_cnai_anexar', True) and _cnai_imgs:
-            from services.cartao_regularidade import _img_flowable, _b64_to_bytes
-            _mini = _img_flowable(_b64_to_bytes(_cnai_imgs[0]), 200.0, max_h=270.0)
-            if _mini is not None:
-                _cur_sep()
-                st.append(Paragraph('<u>CERTIFICADO CNAI</u>', _sCurSec))
-                st.append(Spacer(1, 3))
-                st.append(_mini)
-                st.append(Paragraph('Certificado do Cadastro Nacional de Avaliadores de Imóveis (CNAI).',
-                                    ParagraphStyle('cnai_cap', parent=_sCurBody, fontSize=7,
-                                                   textColor=colors.HexColor('#5B7466'))))
-    except Exception:
-        pass
+    # (O Certificado CNAI saiu do currículo — agora vai no ANEXO V, junto do cartão.)
 
     # Fallback: perfil não cadastrado → orienta o avaliador
     if not perfil.get('perfil_completo'):
@@ -2490,8 +2472,8 @@ def build_story(ptam, page_map):
         st.append(Paragraph('Complete seu perfil de avaliador no sistema para que o currículo '
                             'seja preenchido automaticamente nos laudos.', sPag))
 
-    # ── ANEXO V (Cartão: frente+verso em MINIATURA, mesma página) + ANEXO VI
-    #    (Certidão: página própria, última) ──
+    # ── ANEXO V — HABILITAÇÃO PROFISSIONAL: Certificado CNAI + Cartão CRECI
+    #    (frente e verso) como MINIATURAS na MESMA página ──  ANEXO VI = Certidão
     try:
         from services.cartao_regularidade import _img_flowable, _b64_to_bytes
         _praw_r = ptam.get('_perfil') or {}
@@ -2499,6 +2481,9 @@ def build_story(ptam, page_map):
                                  textColor=VERDE, alignment=TA_CENTER, spaceAfter=10)
         _cap_st = ParagraphStyle('reg_cap', fontName='Helvetica', fontSize=7.5,
                                  textColor=colors.HexColor('#5B7466'), alignment=TA_CENTER, spaceBefore=6)
+        _minical = ParagraphStyle('reg_minical', fontName='Helvetica-Oblique', fontSize=6.5,
+                                  textColor=colors.HexColor('#5B7466'), alignment=TA_CENTER,
+                                  spaceBefore=2, spaceAfter=8)
 
         def _imgs_regul(prefix):
             pags = _praw_r.get(f'{prefix}_paginas_b64') or []
@@ -2506,23 +2491,31 @@ def build_story(ptam, page_map):
                 pags = [_praw_r.get(f'{prefix}_b64')]
             return [x for x in pags if x]
 
-        # ANEXO V — Cartão (frente + verso) como MINIATURAS na MESMA página
+        # Coleta as miniaturas (CNAI + cartão frente/verso) — só as habilitadas/presentes
+        _minis = []  # (imagem_b64, legenda)
+        if _praw_r.get('certificado_cnai_anexar', True):
+            _ci = _imgs_regul('certificado_cnai')
+            if _ci:
+                _minis.append((_ci[0], 'Certificado de Registro de Avaliador Imobiliário (CNAI)'))
         if _praw_r.get('cartao_regularidade_anexar', True):
-            _cimgs = _imgs_regul('cartao_regularidade')
-            if _cimgs:
-                bloco = [PageBreak(), Paragraph('<a name="anexo5"/>', sNormal),
-                         Paragraph('ANEXO V — CARTÃO DE REGULARIDADE PROFISSIONAL (CRECI)', _tit_st)]
-                for k, im in enumerate(_cimgs[:2]):  # frente / verso
-                    mf = _img_flowable(_b64_to_bytes(im), 360.0, max_h=235.0)
-                    if mf is not None:
-                        mf.hAlign = 'CENTER'
-                        bloco.append(mf)
-                        if k == 0 and len(_cimgs) > 1:
-                            bloco.append(Spacer(1, 14))
-                bloco.append(Paragraph(
-                    'Cartão Anual de Regularidade e Identidade Profissional — frente e verso '
-                    '(Sistema COFECI-CRECI).', _cap_st))
-                st += bloco
+            _cim = _imgs_regul('cartao_regularidade')
+            for _k, _im in enumerate(_cim[:2]):
+                _minis.append((_im, f'Cartão de Regularidade Profissional (CRECI) — {"frente" if _k == 0 else "verso"}'))
+
+        # ANEXO V — os três (CNAI + cartão frente + verso) numa página só
+        if _minis:
+            bloco = [PageBreak(), Paragraph('<a name="anexo5"/>', sNormal),
+                     Paragraph('ANEXO V — HABILITAÇÃO PROFISSIONAL (CRECI · CNAI)', _tit_st)]
+            # 3 miniaturas empilhadas → tamanho reduzido p/ caber na mesma página
+            _w = 250.0 if len(_minis) >= 3 else 320.0
+            _mh = 168.0 if len(_minis) >= 3 else 220.0
+            for _im, _leg in _minis:
+                mf = _img_flowable(_b64_to_bytes(_im), _w, max_h=_mh)
+                if mf is not None:
+                    mf.hAlign = 'CENTER'
+                    bloco.append(mf)
+                    bloco.append(Paragraph(_leg, _minical))
+            st += bloco
 
         # ANEXO VI — Certidão (página própria)
         if _praw_r.get('certidao_regularidade_anexar', True):
