@@ -4,13 +4,14 @@ O 'A' é 100% poligonal (sem curvas) → desenha direto com Path + preenchimento
 even-odd (o contra-forma vira furo). A origem do ReportLab é o canto inferior-
 esquerdo e Y cresce para cima — a função converte do espaço SVG (1024, Y p/ baixo).
 """
-from reportlab.pdfgen.canvas import Canvas
+from reportlab.pdfgen.canvas import Canvas, FILL_EVEN_ODD
 
 _GREEN = (12 / 255, 51 / 255, 32 / 255)    # #0C3320
 _GOLD = (184 / 255, 134 / 255, 11 / 255)   # #B8860B
 _A_OUTER = [(512, 222), (805, 802), (654, 802), (512, 498), (370, 802), (219, 802)]
 _A_COUNTER = [(512, 372), (575, 478), (449, 478)]
-_FILL_EVEN_ODD = 1  # ReportLab: 1 = even-odd, 0 = non-zero
+# Atenção: no ReportLab FILL_EVEN_ODD == 0 e FILL_NON_ZERO == 1 (invertido do que
+# parece). Sempre usar a constante importada, nunca o literal.
 
 
 def draw_brand_seal(c: Canvas, x: float, y: float, size: float, ring: bool = True) -> None:
@@ -48,5 +49,5 @@ def draw_brand_seal(c: Canvas, x: float, y: float, size: float, ring: bool = Tru
     path.close()
 
     c.setFillColorRGB(*_GREEN)
-    c.drawPath(path, stroke=0, fill=1, fillMode=_FILL_EVEN_ODD)
+    c.drawPath(path, stroke=0, fill=1, fillMode=FILL_EVEN_ODD)
     c.restoreState()
