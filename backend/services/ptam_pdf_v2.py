@@ -1136,6 +1136,23 @@ def subsec(texto, ancora=None):
     return out
 
 
+class BrandSeal(Flowable):
+    """Selo 'A' da marca como Flowable (desenha via canvas com furo even-odd)."""
+    def __init__(self, size, ring=True):
+        super().__init__()
+        self.size = float(size)
+        self.ring = ring
+        self.width = self.size
+        self.height = self.size
+
+    def draw(self):
+        try:
+            from pdf.brand_seal import draw_brand_seal
+            draw_brand_seal(self.canv, 0, 0, self.size, ring=self.ring)
+        except Exception:
+            pass
+
+
 def _mapa_localizacao_flowables(lat, lon):
     """Mapa estático de localização (nível de quadra) p/ o laudo. [] se indisponível."""
     if lat in (None, '') or lon in (None, ''):
@@ -2275,6 +2292,30 @@ def build_story(ptam, page_map):
               ParagraphStyle('sg2', fontName='Helvetica', fontSize=9, textColor=CINZA, alignment=TA_CENTER)))
     st.append(Paragraph(f'{_txt(end, "")} | {_txt(tel, "")}',
               ParagraphStyle('sg3', fontName='Helvetica', fontSize=9, textColor=CINZA, alignment=TA_CENTER)))
+
+    # Selo "A" de responsabilidade técnica + qualificação (ao lado), como no rodapé-modelo
+    _sel_nome = ParagraphStyle('selnome', fontName='Helvetica-Bold', fontSize=8.5,
+                               textColor=VERDE, leading=11)
+    _sel_txt = ParagraphStyle('seltxt', fontName='Helvetica', fontSize=7.5,
+                              textColor=CINZA, leading=10)
+    _emp = perfil.get('empresa') or 'Romatec Consultoria Total'
+    _nome_disp = _txt(nome, '').title()
+    _l1 = f'{_nome_disp} — {_esc_xml(_emp)}' if _nome_disp else _esc_xml(_emp)
+    _qual = [Paragraph(_l1, _sel_nome)]
+    if _regs:
+        _qual.append(Paragraph(f'Avaliador — {_esc_xml(_regs)}', _sel_txt))
+    _seltab = Table([[BrandSeal(1.5 * cm, ring=True), _qual]],
+                    colWidths=[1.9 * cm, UTIL_W - 1.9 * cm])
+    _seltab.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (0, 0), 8),
+        ('RIGHTPADDING', (1, 0), (1, 0), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+    ]))
+    st.append(Spacer(1, 12))
+    st.append(_seltab)
 
     # ── ANEXO I — Relatorio Fotografico ──
     st.append(PageBreak())
