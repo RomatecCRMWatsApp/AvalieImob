@@ -482,10 +482,17 @@ def make_hf(ptam):
         canvas.rect(0, H - 0.18 * cm, W, 0.18 * cm, stroke=0, fill=1)
         canvas.setFillColor(DOURADO)
         canvas.rect(0, H - 0.27 * cm, W, 0.09 * cm, stroke=0, fill=1)
-        # 2. Cabeçalho: logo (esq.) + badge PTAM (dir.) + linha TRT/cidade/data
+        # 2. Cabeçalho: marca (esq.) + badge PTAM (dir.) + linha TRT/cidade/data
         ly = H - MT + 0.25 * cm
         lh = 1.5 * cm
-        _draw_logo(canvas, ML, ly, 3.2 * cm, lh, logo_bytes=_brand_logo)
+        if _brand_logo:
+            _draw_logo(canvas, ML, ly, 3.2 * cm, lh, logo_bytes=_brand_logo)
+        else:
+            try:
+                from pdf.brand_seal import draw_header_monogram
+                draw_header_monogram(canvas, ML, ly + 0.9 * cm, fs=13)
+            except Exception:
+                _draw_logo(canvas, ML, ly, 3.2 * cm, lh)
         canvas.setFont('Helvetica-Bold', 9.5)
         bw = canvas.stringWidth(badge_txt, 'Helvetica-Bold', 9.5) + 0.55 * cm
         bh = 0.52 * cm
@@ -541,8 +548,15 @@ def make_capa(ptam):
 
     def capa(canvas, doc):
         canvas.saveState()
-        # 1. Logo grande centralizado
-        _draw_logo(canvas, W / 2 - 2.5 * cm, H - 9.0 * cm, 5.0 * cm, 5.0 * cm, logo_bytes=_brand_logo)
+        # 1. Marca no topo: logo próprio (white-label) OU o brasão "A" da AvalieImob
+        if _brand_logo:
+            _draw_logo(canvas, W / 2 - 2.5 * cm, H - 9.0 * cm, 5.0 * cm, 5.0 * cm, logo_bytes=_brand_logo)
+        else:
+            try:
+                from pdf.brand_seal import draw_cover_lockup
+                draw_cover_lockup(canvas, W / 2, H - 3.2 * cm)
+            except Exception:
+                _draw_logo(canvas, W / 2 - 2.5 * cm, H - 9.0 * cm, 5.0 * cm, 5.0 * cm)
         # 2. Bloco verde
         by, bh = H - 14.2 * cm, 2.8 * cm
         canvas.setFillColor(VERDE)
