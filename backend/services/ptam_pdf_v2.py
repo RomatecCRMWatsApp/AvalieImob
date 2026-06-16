@@ -590,6 +590,12 @@ def make_capa(ptam):
             'Res. COFECI 957/2006 | Lei 5.194/1966 | Lei 6.530/1978')
         canvas.drawCentredString(W / 2, MB + 0.45 * cm,
             'Res. CONFEA 345/90 | Lei 13.786/2018 | CPC art. 156')
+        # 10. Selo "A" da marca (autenticidade) — canto inferior-esquerdo, área livre
+        try:
+            from pdf.brand_seal import draw_brand_seal
+            draw_brand_seal(canvas, x=ML, y=MB + 0.35 * cm, size=1.5 * cm, ring=True)
+        except Exception:
+            pass
         canvas.restoreState()
 
     return capa

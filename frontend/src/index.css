@@ -82,3 +82,8 @@ body {
   50% { transform: translateY(-10px); }
 }
 .animate-float { animation: float-slow 5s ease-in-out infinite; }
+
+/* ── BrandMark "A" — animações (loader, FAB Roma_IA, selo) ── */
+@keyframes brand-spin { to { transform: rotate(360deg); } }
+@keyframes brand-ring { 0% { transform: scale(.85); opacity:.55 } 70% { transform: scale(1.4); opacity:0 } 100% { opacity:0 } }
+@keyframes brand-bar  { 0% { width: 8% } 80% { width: 92% } 100% { width: 8% } }

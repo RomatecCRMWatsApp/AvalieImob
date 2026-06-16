@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Send, User, Loader2 } from 'lucide-react';
 import RomaIAAvatar from './RomaIAAvatar';
+import { BrandMark } from '../brand/BrandMark';
 import { aiAPI } from '../../lib/api';
 
 /**
@@ -120,8 +121,8 @@ const RomaIAWidget = () => {
           >
             <div className="relative">
               <div className="absolute inset-0 bg-emerald-500 rounded-full animate-ping opacity-30"></div>
-              <div className="relative bg-emerald-900 hover:bg-emerald-800 active:bg-emerald-700 rounded-full p-2 sm:p-3 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110 active:scale-95">
-                <RomaIAAvatar state="idle" size="sm" className="sm:w-[72px] sm:h-[72px]" />
+              <div className="relative rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110 active:scale-95">
+                <BrandMark variant="circle" size={60} state={loading ? 'thinking' : 'idle'} title="Roma_IA" className="block" />
               </div>
               {/* Badge de notificação */}
               {showWelcome && (
@@ -174,7 +175,7 @@ const RomaIAWidget = () => {
             {/* Header */}
             <div className="bg-emerald-900 p-3 sm:p-4 flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-2 sm:gap-3">
-                <RomaIAAvatar state={loading ? 'thinking' : 'speaking'} size="sm" />
+                <BrandMark variant="circle" size={32} state={loading ? 'thinking' : 'idle'} title="Roma_IA" />
                 <div>
                   <h3 className="text-white font-semibold text-sm">Roma_IA</h3>
                   <p className="text-emerald-200 text-xs">Especialista NBR 14.653</p>
