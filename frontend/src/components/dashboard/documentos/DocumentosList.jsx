@@ -6,6 +6,7 @@ import { documentosAPI } from '../../../lib/api';
 import { useToast } from '../../../hooks/use-toast';
 import { Button } from '../../ui/button';
 import AssinaturaPosicionadaModal from '../assinatura/AssinaturaPosicionadaModal';
+import { BrandSpinner } from '../../brand/BrandSpinner';
 
 const fmtData = (d) => (d ? new Date(d).toLocaleDateString('pt-BR') : '');
 const fmtTam = (b) => (b ? `${(b / 1024 / 1024).toFixed(1)} MB` : '');
@@ -93,7 +94,7 @@ export default function DocumentosList() {
       </div>
 
       {loading ? (
-        <div className="py-16 flex justify-center"><Loader2 className="w-7 h-7 animate-spin text-emerald-700" /></div>
+        <div className="py-16 flex justify-center"><BrandSpinner label="Carregando documentos…" /></div>
       ) : docs.length === 0 ? (
         <div className="text-center py-16 bg-gray-50 rounded-xl border border-dashed border-gray-200">
           <FileText className="w-9 h-9 text-gray-300 mx-auto mb-2" />

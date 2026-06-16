@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { BrandSpinner } from '../../brand/BrandSpinner';
 import { Plus, FileText, Download, Trash2, Loader2, Calendar, FileDown, Mail, X, Send, Lock, Link2, Eye, Check, Copy, ExternalLink, Copy as CopyIcon, Receipt, MessageCircle, Edit3, ShieldCheck, RefreshCw, MapPin, Ruler, User } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { useToast } from '../../../hooks/use-toast';
@@ -565,7 +566,7 @@ const PtamList = () => {
       </div>
 
       {loading ? (
-        <div className="py-16 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-emerald-800" /></div>
+        <div className="py-16 flex justify-center"><BrandSpinner label="Carregando laudos…" /></div>
       ) : items.length === 0 ? (
         <div className="text-center py-16 bg-white rounded-xl border border-dashed border-gray-200">
           <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />

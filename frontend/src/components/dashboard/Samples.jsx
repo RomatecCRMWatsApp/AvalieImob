@@ -2,6 +2,7 @@
 // Tabs Urbano/Rural, estatísticas (R$/m² ↔ R$/ha), filtros e tabela com origem PTAM.
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { TrendingUp, Loader2, Trash2, Home, Wheat, Link2, FileText } from 'lucide-react';
+import { BrandSpinner } from '../brand/BrandSpinner';
 import { Button } from '../ui/button';
 import { useToast } from '../../hooks/use-toast';
 import { amostrasAPI } from '../../lib/api';
@@ -169,7 +170,7 @@ const Samples = () => {
       {/* Tabela */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
         {loading ? (
-          <div className="py-16 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-emerald-800" /></div>
+          <div className="py-16 flex justify-center"><BrandSpinner label="Carregando amostras…" /></div>
         ) : (
           <table className="w-full text-sm min-w-[860px]">
             <thead className="bg-gray-50 text-xs uppercase tracking-wider text-gray-500">

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, Search, Edit, Trash2, Phone, Mail, MapPin, Loader2, DownloadCloud } from 'lucide-react';
+import { BrandSpinner } from '../brand/BrandSpinner';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog';
@@ -123,7 +124,7 @@ const Clients = () => {
         </div>
 
         {loading ? (
-          <div className="py-16 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-emerald-800" /></div>
+          <div className="py-16 flex justify-center"><BrandSpinner label="Carregando clientes…" /></div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

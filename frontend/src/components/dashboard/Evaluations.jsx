@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FileText, Plus, Download, Eye, Sparkles, Search, Loader2, Trash2 } from 'lucide-react';
+import { FileText, Plus, Download, Eye, Sparkles, Search, Trash2 } from 'lucide-react';
+import { BrandSpinner } from '../brand/BrandSpinner';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';
@@ -65,7 +66,7 @@ const Evaluations = () => {
       </div>
 
       {loading ? (
-        <div className="py-16 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-emerald-800" /></div>
+        <div className="py-16 flex justify-center"><BrandSpinner label="Carregando avaliações…" /></div>
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map(e => (

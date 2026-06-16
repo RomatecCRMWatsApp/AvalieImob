@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { BrandSpinner } from '../../brand/BrandSpinner';
 import {
-  Plus, Loader2, Trash2, Calendar, DollarSign, Filter,
+  Plus, Trash2, Calendar, DollarSign, Filter,
   FileSignature, FileText, Share2, PenSquare, Download, ChevronDown,
   Eye, FileDown, Lock, MapPin, RefreshCw, Copy, MessageCircle, Link2,
   History, ShieldCheck, X, Send,
@@ -188,7 +189,7 @@ const HistoricoModal = ({ contrato, onClose }) => {
             </div>
           </div>
           {loading ? (
-            <div className="py-8 flex justify-center"><Loader2 className="w-5 h-5 animate-spin text-emerald-700" /></div>
+            <div className="py-8 flex justify-center"><BrandSpinner size={24} label="Carregando…" /></div>
           ) : ev.length === 0 ? (
             <p className="text-sm text-gray-500 text-center py-6">Nenhum evento registrado ainda.</p>
           ) : (
@@ -468,7 +469,7 @@ const ContratosList = ({ tipoFixo = '', titulo, descricao, ctaLabel }) => {
 
       {/* List */}
       {loading ? (
-        <div className="py-16 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-emerald-800" /></div>
+        <div className="py-16 flex justify-center"><BrandSpinner label="Carregando contratos…" /></div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 bg-white rounded-xl border border-dashed border-gray-200">
           <FileSignature className="w-12 h-12 text-gray-300 mx-auto mb-3" />
