@@ -18,13 +18,17 @@ export const BRAND = {
 
 export const FEATURES = [
   { id: 1, icon: 'FileText', title: 'PTAM e Laudos', desc: 'Gere pareceres técnicos e laudos de avaliação com todos os requisitos legais da ABNT NBR 14.653.' },
-  { id: 2, icon: 'Brain', title: 'IA para Laudos', desc: 'Aperfeiçoe textos, fundamente decisões e gere análises automáticas com inteligência artificial.' },
-  { id: 3, icon: 'Cloud', title: 'Armazenamento na Nuvem', desc: 'Mantenha todas suas avaliações, clientes e documentos em um só lugar, com acesso de qualquer dispositivo.' },
-  { id: 4, icon: 'Edit3', title: 'Editor de Laudos', desc: 'Adapte os laudos ao seu estilo e às necessidades específicas de cada trabalho.' },
-  { id: 5, icon: 'BadgeCheck', title: 'Laudos Personalizados', desc: 'Personalize laudos com sua marca, logotipo, currículo e assinatura digital.' },
-  { id: 6, icon: 'Users', title: 'Cadastro de Clientes', desc: 'Organize seus clientes, imóveis, garantias e histórico em uma base centralizada.' },
-  { id: 7, icon: 'ShieldCheck', title: 'Segurança e Privacidade', desc: 'Dados criptografados, conformidade LGPD e níveis de certificação de segurança.' },
-  { id: 8, icon: 'Headphones', title: 'Suporte Técnico', desc: 'Equipe especializada pronta para ajudar com dúvidas técnicas e operacionais.' },
+  { id: 2, icon: 'FileSignature', title: 'Contratos & Procuração', desc: 'Gere contratos de compra e venda, exclusividade e locação — com procuração e cláusulas redigidas por IA.' },
+  { id: 3, icon: 'ShieldCheck', title: 'Assinatura ICP-Brasil', desc: 'Assine PTAMs, contratos e PDFs avulsos posicionando o carimbo na página. O cliente assina por link no WhatsApp.' },
+  { id: 4, icon: 'Calculator', title: 'Propostas de Consultoria', desc: 'Orçamentos de georreferenciamento, demarcação, desmembramento e averbação com motor de cálculo automático.' },
+  { id: 5, icon: 'Brain', title: 'IA para Laudos', desc: 'Aperfeiçoe textos, fundamente decisões e gere análises automáticas com inteligência artificial.' },
+  { id: 6, icon: 'ClipboardCheck', title: 'Kit TVI — Vistorias', desc: 'Termos de vistoria de imóveis e vistoria de obra para averbação, com fotos georreferenciadas.' },
+  { id: 7, icon: 'Receipt', title: 'Recibos de Honorários', desc: 'Emita recibos, assine digitalmente e envie ao cliente direto pelo WhatsApp.' },
+  { id: 8, icon: 'BadgeCheck', title: 'Laudos Personalizados', desc: 'Personalize laudos com sua marca, logotipo, currículo, cartão de regularidade e assinatura.' },
+  { id: 9, icon: 'Users', title: 'Cadastro de Clientes', desc: 'Organize seus clientes, imóveis, garantias e histórico em uma base centralizada.' },
+  { id: 10, icon: 'Cloud', title: 'Armazenamento na Nuvem', desc: 'Mantenha avaliações, contratos e documentos em um só lugar, com acesso de qualquer dispositivo.' },
+  { id: 11, icon: 'Lock', title: 'Segurança e LGPD', desc: 'Dados criptografados, conformidade com a LGPD e controle de acesso por usuário.' },
+  { id: 12, icon: 'Headphones', title: 'Suporte Técnico', desc: 'Equipe especializada pronta para ajudar com dúvidas técnicas e operacionais.' },
 ];
 
 export const SERVICES = [

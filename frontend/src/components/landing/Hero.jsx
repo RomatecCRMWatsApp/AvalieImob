@@ -1,8 +1,15 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, CheckCircle2, Sparkles, CheckCircle } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Sparkles, CheckCircle, ShieldCheck, FileSignature, FileDown } from 'lucide-react';
 import { Button } from '../ui/button';
 import { BRAND } from '../../mock/mock';
+
+const DESTAQUES = [
+  { label: 'IA integrada', icon: Sparkles },
+  { label: 'Assinatura ICP-Brasil', icon: ShieldCheck },
+  { label: 'Contratos & Procuração', icon: FileSignature },
+  { label: 'Exporta PDF/DOCX', icon: FileDown },
+];
 
 const NORMAS = [
   'NBR 14.653-1:2019 — Avaliação de Bens (Procedimentos Gerais)',
@@ -42,12 +49,24 @@ const Hero = () => {
             Avaliação <span className="brand-green italic">Imobiliária</span>
           </h1>
 
-          <h2 className="text-sm font-medium text-emerald-700 mb-6 tracking-wide uppercase">
-            Sistema Online · NBR 14.653 · PTAM · TVI · Garantias · Semoventes · Locação
+          <h2 className="text-sm font-medium text-emerald-700 mb-5 tracking-wide uppercase">
+            Sistema Online · NBR 14.653 · PTAM · TVI · Contratos &amp; Procuração · Assinatura ICP-Brasil · Garantias · Semoventes · Locação
           </h2>
 
+          <div className="flex flex-wrap gap-2 mb-6">
+            {DESTAQUES.map(d => {
+              const Icon = d.icon;
+              return (
+                <span key={d.label} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-900/5 border border-emerald-900/10 text-emerald-900 text-xs font-semibold">
+                  <Icon className="w-3.5 h-3.5 text-emerald-700" />
+                  {d.label}
+                </span>
+              );
+            })}
+          </div>
+
           <p className="text-lg text-gray-600 mb-8 max-w-xl leading-relaxed">
-            A plataforma completa para emitir <strong>PTAM, Laudos e Avaliações</strong> de imóveis urbanos, rurais e outras garantias — grãos, safra, bovinos e equipamentos.
+            A plataforma completa para emitir <strong>PTAM, Laudos e Avaliações</strong>, gerar <strong>contratos e propostas</strong> e <strong>assinar com ICP-Brasil</strong> — imóveis urbanos, rurais e garantias (grãos, safra, bovinos e equipamentos).
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 mb-10">

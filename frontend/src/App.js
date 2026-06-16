@@ -32,6 +32,9 @@ import BlogPostGrauFundamentacao from './pages/blog/BlogPostGrauFundamentacao';
 import BlogPostMetodoComparativo from './pages/blog/BlogPostMetodoComparativo';
 import BlogPostInventarioPartilha from './pages/blog/BlogPostInventarioPartilha';
 import BlogPostART_RRT_TRT from './pages/blog/BlogPostART_RRT_TRT';
+import BlogPostContratoExclusividade from './pages/blog/BlogPostContratoExclusividade';
+import BlogPostAssinaturaICP from './pages/blog/BlogPostAssinaturaICP';
+import BlogPostPropostasConsultoria from './pages/blog/BlogPostPropostasConsultoria';
 import VerificarLaudo from './pages/VerificarLaudo';
 
 class ErrorBoundary extends React.Component {
@@ -133,6 +136,9 @@ function App() {
                 <Route path="/blog/metodo-comparativo-direto-passo-a-passo" element={<BlogPostMetodoComparativo />} />
                 <Route path="/blog/avaliacao-imovel-inventario-partilha" element={<BlogPostInventarioPartilha />} />
                 <Route path="/blog/como-emitir-art-rrt-trt-avaliacao-imobiliaria" element={<BlogPostART_RRT_TRT />} />
+                <Route path="/blog/contrato-exclusividade-procuracao-corretor-imoveis" element={<BlogPostContratoExclusividade />} />
+                <Route path="/blog/assinatura-icp-brasil-laudos-contratos-validade-juridica" element={<BlogPostAssinaturaICP />} />
+                <Route path="/blog/precificar-georreferenciamento-demarcacao-averbacao-proposta" element={<BlogPostPropostasConsultoria />} />
                 <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
                 <Route path="/cadastro" element={<PublicRoute><Register /></PublicRoute>} />
                 <Route path="/laudo/:token" element={<PortalCliente />} />

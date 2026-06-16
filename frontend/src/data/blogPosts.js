@@ -4,6 +4,36 @@
 
 export const BLOG_POSTS = [
   {
+    slug: 'contrato-exclusividade-procuracao-corretor-imoveis',
+    titulo: 'Contrato de Exclusividade com Procuração: como funciona e por que usar',
+    meta: 'Entenda o contrato de exclusividade de corretagem com procuração: base legal (art. 726 do Código Civil, COFECI/CRECI), cláusulas essenciais, prazo, comissão e como gerar e assinar digitalmente.',
+    categoria: 'Contratos',
+    dataPublicacao: '2026-06-16',
+    dataAtualizacao: '2026-06-16',
+    tempoLeitura: '10 min',
+    resumo: 'O contrato de exclusividade garante ao corretor o direito à comissão em qualquer venda durante a vigência (art. 726 do CC) e, somado a uma procuração, o autoriza a obter certidões, IPTU e o extrato de saldo devedor do imóvel. Veja as cláusulas essenciais, o prazo ideal e como gerar e assinar tudo digitalmente.',
+  },
+  {
+    slug: 'assinatura-icp-brasil-laudos-contratos-validade-juridica',
+    titulo: 'Assinatura ICP-Brasil em laudos e contratos: validade jurídica',
+    meta: 'Como funciona a assinatura digital ICP-Brasil (PAdES) em PTAMs, contratos e documentos avulsos. Base legal (MP 2.200-2/2001, Lei 14.063/2020), diferença para a assinatura eletrônica do cliente e passo a passo.',
+    categoria: 'Assinatura Digital',
+    dataPublicacao: '2026-06-16',
+    dataAtualizacao: '2026-06-16',
+    tempoLeitura: '9 min',
+    resumo: 'A assinatura ICP-Brasil dá presunção de autenticidade e integridade aos seus laudos e contratos (MP 2.200-2/2001). Entenda a diferença entre o certificado ICP-Brasil do profissional e a assinatura eletrônica do cliente (Lei 14.063/2020), e como posicionar o carimbo na página de forma simples.',
+  },
+  {
+    slug: 'precificar-georreferenciamento-demarcacao-averbacao-proposta',
+    titulo: 'Como precificar georreferenciamento, demarcação e averbação',
+    meta: 'Guia para montar propostas de consultoria de georreferenciamento (INCRA/SIGEF), demarcação de lotes, desmembramento, remembramento e averbação de construção. Honorários, emolumentos (TJMA), ART/TRT e parcelamento.',
+    categoria: 'Consultoria',
+    dataPublicacao: '2026-06-16',
+    dataAtualizacao: '2026-06-16',
+    tempoLeitura: '11 min',
+    resumo: 'Precificar serviços de agrimensura e regularização exige separar honorários técnicos, emolumentos de cartório e taxas. Veja como estruturar propostas de georreferenciamento (INCRA/SIGEF), demarcação, desmembramento, remembramento e averbação — com os componentes que não podem faltar e como gerar a proposta automaticamente.',
+  },
+  {
     slug: 'como-emitir-art-rrt-trt-avaliacao-imobiliaria',
     titulo: 'Como emitir ART, RRT e TRT de avaliação imobiliária — guia completo',
     meta: 'Guia completo para emitir ART (CREA), RRT (CAU) e TRT (CFT) em laudos de avaliação imobiliária. Quando emitir, valores, prazos, passo a passo e consequências de não emitir.',
