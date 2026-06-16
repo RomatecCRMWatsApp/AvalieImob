@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#E0C264"/>
+      <stop offset="0.55" stop-color="#C9A84C"/>
+      <stop offset="1" stop-color="#B8860B"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <!-- A monograma sólido (verde profundo) com telhado agudo -->
+  <path d="M512 222 L805 802 L654 802 L512 498 L370 802 L219 802 Z" fill="#0C3320"/>
+  <!-- counter triangular (vão do A = dourado) -->
+  <path d="M512 372 L575 478 L449 478 Z" fill="url(#bg)"/>
+</svg>

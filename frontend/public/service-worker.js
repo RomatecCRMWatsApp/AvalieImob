@@ -1,7 +1,7 @@
 // @module service-worker — Network-first, minimal caching
 /* eslint-disable no-restricted-globals */
 
-const CACHE_NAME = 'avalieimob-v5';
+const CACHE_NAME = 'avalieimob-v6';
 
 // Install: skip waiting immediately
 self.addEventListener('install', () => self.skipWaiting());
@@ -49,7 +49,7 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
-      icon: '/brand/icone.png',
+      icon: '/icon-192.png',
     })
   );
 });
