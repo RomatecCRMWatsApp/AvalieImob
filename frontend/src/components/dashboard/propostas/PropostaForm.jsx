@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save, Loader2, Calculator, FileText } from 'lucide-react';
+import { BrandSpinner } from '../../brand/BrandSpinner';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { useToast } from '../../../hooks/use-toast';
@@ -279,7 +280,7 @@ const PropostaForm = () => {
     () => (schema.campos || []).filter((c) => !c.when || c.when(form.dados_imovel)),
     [schema, form.dados_imovel]);
 
-  if (loading) return <div className="py-20 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-emerald-700" /></div>;
+  if (loading) return <div className="py-20 flex justify-center"><BrandSpinner label="Carregando…" /></div>;
   const c = preview?.custos;
 
   const renderCampo = (campo) => {

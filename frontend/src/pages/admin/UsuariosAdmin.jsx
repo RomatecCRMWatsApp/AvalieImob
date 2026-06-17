@@ -1,6 +1,7 @@
 // @module pages/admin/UsuariosAdmin — Lista de usuários cadastrados + assinaturas (admin).
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Users, Loader2, Search, CheckCircle2, Clock, AlertCircle, ShieldCheck, RefreshCw, Trash2 } from 'lucide-react';
+import { BrandSpinner } from '../../components/brand/BrandSpinner';
 import { Input } from '../../components/ui/input';
 import { Button } from '../../components/ui/button';
 import { useToast } from '../../hooks/use-toast';
@@ -136,7 +137,7 @@ const UsuariosAdmin = () => {
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
         {loading ? (
-          <div className="py-16 flex justify-center"><Loader2 className="w-7 h-7 animate-spin text-emerald-700" /></div>
+          <div className="py-16 flex justify-center"><BrandSpinner label="Carregando…" /></div>
         ) : (
           <table className="w-full text-sm">
             <thead>

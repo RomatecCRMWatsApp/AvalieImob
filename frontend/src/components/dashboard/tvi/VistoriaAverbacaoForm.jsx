@@ -7,6 +7,7 @@ import {
   ArrowLeft, Save, Loader2, Building2, Ruler, ListChecks, ShieldCheck,
   FileCheck2, Gavel, FileDown, FileText as FileTextIcon,
 } from 'lucide-react';
+import { BrandSpinner } from '../../brand/BrandSpinner';
 import { Button } from '../../ui/button';
 import { useToast } from '../../../hooks/use-toast';
 import { tviAPI } from '../../../lib/api';
@@ -209,7 +210,7 @@ export default function VistoriaAverbacaoForm({ id, vistoria, model }) {
     } finally { setExporting(false); }
   };
 
-  if (!cat) return <div className="py-20 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-emerald-700" /></div>;
+  if (!cat) return <div className="py-20 flex justify-center"><BrandSpinner label="Carregando…" /></div>;
 
   const sistemasVis = (cat.sistemas || []).filter((s) => !(s.comercial && soResidencial));
   const docsVis = (cat.documentos || []).filter((d) => !(d.comercial && soResidencial));

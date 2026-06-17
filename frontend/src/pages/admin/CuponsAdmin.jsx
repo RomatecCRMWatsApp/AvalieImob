@@ -1,6 +1,7 @@
 // @module pages/admin/CuponsAdmin — Kit Promocional de Captação (cupons + WhatsApp Z-API).
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Tag, Plus, Loader2, Trash2, Copy, Send, Check, X, MessageCircle, Pencil, RefreshCw } from 'lucide-react';
+import { BrandSpinner } from '../../components/brand/BrandSpinner';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
@@ -248,7 +249,7 @@ const CuponsAdmin = () => {
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
         {loading ? (
-          <div className="py-16 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-emerald-800" /></div>
+          <div className="py-16 flex justify-center"><BrandSpinner label="Carregando…" /></div>
         ) : (
           <table className="w-full text-sm min-w-[820px]">
             <thead className="bg-gray-50 text-xs uppercase tracking-wider text-gray-500">

@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ClipboardCheck, Plus, Search, SearchX, Loader2, Trash2, Edit3 } from 'lucide-react';
+import { BrandSpinner } from '../../brand/BrandSpinner';
 import { Badge } from '../../ui/badge';
 import { useToast } from '../../../hooks/use-toast';
 import { tviAPI } from '../../../lib/api';
@@ -106,7 +107,7 @@ const TVIList = () => {
             </div>
           </div>
           {loading ? (
-            <div className="flex items-center justify-center py-12"><Loader2 className="w-7 h-7 animate-spin text-emerald-700" /></div>
+            <div className="flex items-center justify-center py-12"><BrandSpinner label="Carregando…" /></div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {filtered.map(v => (

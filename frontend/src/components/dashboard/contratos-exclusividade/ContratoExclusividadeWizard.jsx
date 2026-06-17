@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Plus, Trash2, Send, Loader2, ChevronLeft, ChevronRight, Save } from 'lucide-react';
+import { BrandSpinner } from '../../brand/BrandSpinner';
 import { contratosExclusividadeAPI } from '../../../lib/api';
 import { useToast } from '../../../hooks/use-toast';
 import FotosLaudo from '../ptam/FotosLaudo';
@@ -260,7 +261,7 @@ export default function ContratoExclusividadeWizard() {
     } finally { setEnviando(false); }
   };
 
-  if (loading) return <div className="flex justify-center py-24"><Loader2 className="w-6 h-6 animate-spin text-emerald-700" /></div>;
+  if (loading) return <div className="flex justify-center py-24"><BrandSpinner label="Carregando…" /></div>;
 
   const im = form.imovel;
   const comissaoEstimada = Number(im.valor_anunciado || 0) * Number(form.comissao_percentual || 0) / 100;

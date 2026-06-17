@@ -3,11 +3,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Home, Store, Compass, MapPin, TreePine, Scissors, Link2, Ruler, Coins,
-  DraftingCompass, Layers, Loader2, Trash2, FileText, Eye, FileDown,
+  DraftingCompass, Layers, Trash2, FileText, Eye, FileDown,
 } from 'lucide-react';
 import { useToast } from '../../../hooks/use-toast';
 import { propostasAPI } from '../../../lib/api';
 import { TypeCard } from '../shared/TypeCardGrid';
+import { BrandSpinner } from '../../brand/BrandSpinner';
 
 const ICONS = { Home, Store, Compass, MapPin, TreePine, Scissors, Link2, Ruler, Coins, DraftingCompass, Layers };
 
@@ -86,6 +87,7 @@ const PropostasList = () => {
               icon={ICONS[t.icone] || FileText}
               label={t.label}
               disponivel={t.disponivel}
+              verificado={t.verificado}
               ariaLabel={`Nova proposta: ${t.label}`}
               onClick={() => nav(`/dashboard/propostas/nova/${t.subtipo}`)}
             />
@@ -99,7 +101,7 @@ const PropostasList = () => {
           Propostas existentes {propostas.length > 0 && <span className="text-gray-400 font-normal">· {propostas.length}</span>}
         </h2>
         {loading ? (
-          <div className="flex justify-center py-12"><Loader2 className="w-7 h-7 animate-spin text-emerald-700" /></div>
+          <div className="flex justify-center py-12"><BrandSpinner label="Carregando propostas…" /></div>
         ) : propostas.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-xl border border-dashed border-gray-200 text-gray-400">
             <FileText className="w-10 h-10 mx-auto mb-2 text-gray-300" />

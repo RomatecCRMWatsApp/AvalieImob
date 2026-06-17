@@ -13,18 +13,20 @@ from services.pricing.projeto_executivo import calcular_projeto_executivo
 
 # Catálogo dos tipos de proposta de consultoria (espelha a ZAYRA).
 # `disponivel=False` → aparece no card como "Em breve" (engine ainda não portado).
+# `verificado=True` → card verde "✓ Configurado e testado" (engine com paridade verificada
+# contra os testes da ZAYRA). `disponivel=False` → "Em breve".
 CATALOGO_CONSULTORIA = [
-    {"subtipo": "averbacao_residencial", "label": "Averbação Residencial", "icone": "Home", "disponivel": True},
-    {"subtipo": "averbacao_comercial", "label": "Averbação Comercial", "icone": "Store", "disponivel": True},
-    {"subtipo": "georreferenciamento_rural", "label": "Georreferenciamento Rural", "icone": "Compass", "disponivel": True},
-    {"subtipo": "demarcacao_urbana", "label": "Demarcação Urbana", "icone": "MapPin", "disponivel": True},
-    {"subtipo": "demarcacao_rural", "label": "Demarcação Rural", "icone": "TreePine", "disponivel": True},
-    {"subtipo": "desmembramento", "label": "Desmembramento", "icone": "Scissors", "disponivel": True},
-    {"subtipo": "remembramento", "label": "Remembramento", "icone": "Link2", "disponivel": True},
-    {"subtipo": "retificacao_area", "label": "Retificação de Área", "icone": "Ruler", "disponivel": True},
-    {"subtipo": "avaliacao_ptam", "label": "Avaliação PTAM", "icone": "Coins", "disponivel": True},
-    {"subtipo": "projeto_executivo", "label": "Projeto Executivo", "icone": "DraftingCompass", "disponivel": True},
-    {"subtipo": "desmembramento_obra", "label": "Desmembramento de Obra", "icone": "Layers", "disponivel": False},
+    {"subtipo": "averbacao_residencial", "label": "Averbação Residencial", "icone": "Home", "disponivel": True, "verificado": True},
+    {"subtipo": "averbacao_comercial", "label": "Averbação Comercial", "icone": "Store", "disponivel": True, "verificado": True},
+    {"subtipo": "georreferenciamento_rural", "label": "Georreferenciamento Rural", "icone": "Compass", "disponivel": True, "verificado": True},
+    {"subtipo": "demarcacao_urbana", "label": "Demarcação Urbana", "icone": "MapPin", "disponivel": True, "verificado": True},
+    {"subtipo": "demarcacao_rural", "label": "Demarcação Rural", "icone": "TreePine", "disponivel": True, "verificado": True},
+    {"subtipo": "desmembramento", "label": "Desmembramento", "icone": "Scissors", "disponivel": True, "verificado": True},
+    {"subtipo": "remembramento", "label": "Remembramento", "icone": "Link2", "disponivel": True, "verificado": True},
+    {"subtipo": "retificacao_area", "label": "Retificação de Área", "icone": "Ruler", "disponivel": True, "verificado": False},
+    {"subtipo": "avaliacao_ptam", "label": "Avaliação PTAM", "icone": "Coins", "disponivel": True, "verificado": False},
+    {"subtipo": "projeto_executivo", "label": "Projeto Executivo", "icone": "DraftingCompass", "disponivel": True, "verificado": False},
+    {"subtipo": "desmembramento_obra", "label": "Desmembramento de Obra", "icone": "Layers", "disponivel": False, "verificado": False},
 ]
 
 SUBTIPOS_DISPONIVEIS = {c["subtipo"] for c in CATALOGO_CONSULTORIA if c["disponivel"]}

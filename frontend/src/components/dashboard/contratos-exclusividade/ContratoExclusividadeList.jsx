@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Send, Bell, Trash2, X, Check, FileSignature, Loader2 } from 'lucide-react';
+import { BrandSpinner } from '../../brand/BrandSpinner';
 import { contratosExclusividadeAPI } from '../../../lib/api';
 import { useToast } from '../../../hooks/use-toast';
 
@@ -349,7 +350,7 @@ export default function ContratoExclusividadeList() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-emerald-700" /></div>
+        <div className="flex justify-center py-20"><BrandSpinner label="Carregando…" /></div>
       ) : lista.length === 0 ? (
         <div className="text-center py-20 text-gray-400">
           <FileSignature className="w-10 h-10 mx-auto mb-3 opacity-40" />
