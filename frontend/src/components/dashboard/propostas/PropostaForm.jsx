@@ -9,6 +9,7 @@ import { useToast } from '../../../hooks/use-toast';
 import { propostasAPI, clientsAPI } from '../../../lib/api';
 import EtapaConcluidaBox from '../ptam/EtapaConcluidaBox';
 import { comodosPorCategoria, CATEGORIAS_LABEL, ORDEM_CATEGORIAS } from '../../../constants/comodosEdificacao';
+import { PROJETOS_EXECUTIVO_DEFAULT } from '../../../constants/projetosExecutivo';
 
 const fmtBRL = (v) => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -317,6 +318,11 @@ const PropostaForm = () => {
   const setQtd = (codigo, q) => setDado('programa_necessidades',
     programa.map((p) => (p.codigo === codigo ? { ...p, quantidade: Math.max(1, q) } : p)));
 
+  const projetos = form.dados_imovel.projetos_selecionados || PROJETOS_EXECUTIVO_DEFAULT;
+  const [projEdit, setProjEdit] = useState(null);
+  const updProjetos = (codigo, patch) => setDado('projetos_selecionados',
+    projetos.map((p) => (p.codigo === codigo ? { ...p, ...patch } : p)));
+
   if (loading) return <div className="py-20 flex justify-center"><BrandSpinner label="Carregando…" /></div>;
   const c = preview?.custos;
 
@@ -379,6 +385,29 @@ const PropostaForm = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {camposVisiveis.map((campo) => <Field key={campo.key} label={campo.label}>{renderCampo(campo)}</Field>)}
           </div>
+
+          {temPagamentoVisual && (
+            <div>
+              <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-800 border-b border-emerald-100 pb-1 mb-2">Projetos a entregar</div>
+              <div className="space-y-1.5">
+                {projetos.map((p) => (
+                  <div key={p.codigo} className="border border-gray-100 rounded-lg p-2">
+                    <div className="flex items-center gap-2">
+                      <input type="checkbox" checked={!!p.selecionado} onChange={(e) => updProjetos(p.codigo, { selecionado: e.target.checked })}
+                        className="w-4 h-4 accent-emerald-600" />
+                      <span className="text-sm font-medium text-gray-800 flex-1">{p.nome}</span>
+                      <button type="button" onClick={() => setProjEdit(projEdit === p.codigo ? null : p.codigo)}
+                        className="text-[11px] text-emerald-700 hover:underline">{projEdit === p.codigo ? 'fechar' : 'editar detalhamento'}</button>
+                    </div>
+                    {projEdit === p.codigo && (
+                      <textarea value={p.detalhamento_entrega || ''} onChange={(e) => updProjetos(p.codigo, { detalhamento_entrega: e.target.value })}
+                        rows={4} className="w-full mt-2 rounded-lg border border-gray-200 px-2 py-1.5 text-[12px] leading-snug" />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {temPagamentoVisual && (
             <div>
