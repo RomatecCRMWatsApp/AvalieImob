@@ -109,26 +109,29 @@ def cartao_regularidade_flowables(b64: str = None, link: str = "", largura_pt: f
                                 textColor=colors.HexColor("#0C3320"), alignment=TA_CENTER, spaceAfter=10)
         st_cap = ParagraphStyle("cart_cap", fontName="Helvetica", fontSize=8,
                                 textColor=colors.HexColor("#5B7466"), alignment=TA_CENTER, spaceBefore=8)
+        st_minical = ParagraphStyle("cart_minical", fontName="Helvetica-Oblique", fontSize=7,
+                                    textColor=colors.HexColor("#5B7466"), alignment=TA_CENTER,
+                                    spaceBefore=2, spaceAfter=8)
         legenda = ("Documento emitido pelo Sistema COFECI-CRECI, comprobatório da regularidade "
                    "e habilitação profissional do corretor de imóveis.")
         if link:
             legenda += f"<br/>Verificação on-line: {link}"
 
-        flow = []
+        # Faces (frente/verso) saem como MINIATURAS empilhadas na MESMA página.
         multi = len(imgs) > 1
+        w = 250.0 if len(imgs) >= 3 else (320.0 if multi else largura_pt)
+        mh = 168.0 if len(imgs) >= 3 else (235.0 if multi else 640.0)
+        flow = [PageBreak(), Paragraph(titulo, st_tit)]
         for idx, raw in enumerate(imgs):
-            img = _img_flowable(raw, largura_pt)
+            img = _img_flowable(raw, w, max_h=mh)
             if img is None:
                 continue
-            flow.append(PageBreak())
-            if idx == 0:
-                flow.append(Paragraph(titulo, st_tit))
-            elif multi:
-                flow.append(Paragraph(f"{titulo} (cont. — pág. {idx + 1})", st_tit))
+            img.hAlign = "CENTER"
             flow.append(img)
-            # legenda só na última página do cartão
-            if idx == len(imgs) - 1:
-                flow.append(Paragraph(legenda, st_cap))
+            if multi:
+                face = "frente" if idx == 0 else ("verso" if idx == 1 else f"pág. {idx + 1}")
+                flow.append(Paragraph(f"— {face} —", st_minical))
+        flow.append(Paragraph(legenda, st_cap))
         return flow
     except Exception:
         logger.warning("Falha ao montar o anexo do cartão de regularidade.", exc_info=True)
