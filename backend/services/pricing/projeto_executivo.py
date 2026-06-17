@@ -155,16 +155,14 @@ def _despesa(item, legado_incluir, legado_valor):
 
 
 def calcular_projeto_executivo(dados: dict) -> dict:
-    area_construir = float(dados.get("area_construir") or 0)
-    if area_construir <= 0:
-        raise ValueError("area_construir deve ser maior que zero")
+    # Tolerante a 0/vazio p/ o PREVIEW ao vivo renderizar enquanto o usuário preenche
+    # (não lança como a ZAYRA; com área 0 o valor_projetos sai 0 e fica só ART/TRT).
+    area_construir = max(0.0, float(dados.get("area_construir") or 0))
     valor_m2 = float(dados.get("valor_m2") or DEFAULTS["VALOR_M2"])
     if valor_m2 <= 0:
-        raise ValueError("valor_m2 deve ser maior que zero")
+        valor_m2 = DEFAULTS["VALOR_M2"]
     area_terreno = dados.get("area_terreno")
     area_terreno = float(area_terreno) if area_terreno not in (None, "", 0) else None
-    if area_terreno is not None and area_terreno > 0 and area_construir > area_terreno:
-        raise ValueError("Área a construir não pode ser maior que a área do terreno.")
     taxa_ocupacao = calcular_taxa_ocupacao(area_construir, area_terreno)
 
     valor_projetos = round2(area_construir * valor_m2)
