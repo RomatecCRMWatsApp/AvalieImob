@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Home, Store, Compass, MapPin, TreePine, Scissors, Link2, Ruler, Coins,
-  DraftingCompass, Layers, Loader2, Trash2, FileText,
+  DraftingCompass, Layers, Loader2, Trash2, FileText, Eye, FileDown,
 } from 'lucide-react';
 import { useToast } from '../../../hooks/use-toast';
 import { propostasAPI } from '../../../lib/api';
@@ -45,6 +45,28 @@ const PropostasList = () => {
     if (!window.confirm(`Excluir a proposta ${p.numero}?`)) return;
     try { await propostasAPI.excluir(p.id); setPropostas((prev) => prev.filter((x) => x.id !== p.id)); toast({ title: 'Proposta excluída' }); }
     catch { toast({ title: 'Erro ao excluir', variant: 'destructive' }); }
+  };
+
+  const verPdf = async (p, e) => {
+    e.stopPropagation();
+    const win = window.open('', '_blank');
+    try {
+      const blob = await propostasAPI.pdf(p.id);
+      const url = URL.createObjectURL(blob);
+      if (win) win.location.href = url; else window.location.href = url;
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch { if (win) win.close(); toast({ title: 'Erro ao abrir o PDF', variant: 'destructive' }); }
+  };
+
+  const baixarPdf = async (p, e) => {
+    e.stopPropagation();
+    try {
+      const blob = await propostasAPI.pdf(p.id);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `${p.numero}.pdf`; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+    } catch { toast({ title: 'Erro ao baixar', variant: 'destructive' }); }
   };
 
   return (
@@ -96,8 +118,14 @@ const PropostasList = () => {
                 <div className="text-xs text-gray-500 line-clamp-1">{p.cliente_nome || p.endereco_imovel || '—'}</div>
                 <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
                   <span className="font-bold text-emerald-700">{fmtBRL(p.valor_total)}</span>
-                  <button title="Excluir" onClick={(e) => excluir(p, e)}
-                    className="w-7 h-7 rounded-lg hover:bg-red-50 flex items-center justify-center text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
+                  <div className="flex items-center gap-1">
+                    <button title="Ver PDF" onClick={(e) => verPdf(p, e)}
+                      className="w-7 h-7 rounded-lg hover:bg-emerald-50 flex items-center justify-center text-emerald-700"><Eye className="w-3.5 h-3.5" /></button>
+                    <button title="Baixar PDF" onClick={(e) => baixarPdf(p, e)}
+                      className="w-7 h-7 rounded-lg hover:bg-emerald-50 flex items-center justify-center text-emerald-700"><FileDown className="w-3.5 h-3.5" /></button>
+                    <button title="Excluir" onClick={(e) => excluir(p, e)}
+                      className="w-7 h-7 rounded-lg hover:bg-red-50 flex items-center justify-center text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
+                  </div>
                 </div>
               </div>
             ))}

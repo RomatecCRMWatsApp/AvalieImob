@@ -1,7 +1,7 @@
 // @module dashboard/propostas/PropostaForm — Form de proposta (schema-driven) com preview ao vivo.
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, Loader2, Calculator } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Calculator, FileText } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { useToast } from '../../../hooks/use-toast';
@@ -205,7 +205,11 @@ const PropostaForm = () => {
   const [calc, setCalc] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(editing);
+  const [pdfUrl, setPdfUrl] = useState(null);
   const debRef = useRef(null);
+  const pdfUrlRef = useRef(null);
+
+  useEffect(() => () => { if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current); }, []);
 
   useEffect(() => {
     if (!editing) return;
@@ -231,10 +235,19 @@ const PropostaForm = () => {
     if (debRef.current) clearTimeout(debRef.current);
     debRef.current = setTimeout(async () => {
       setCalc(true);
-      try { setPreview(await propostasAPI.preview(subtipo, form.dados_imovel)); }
+      let ok = false;
+      try { setPreview(await propostasAPI.preview(subtipo, form.dados_imovel)); ok = true; }
       catch (e) { setPreview({ erro: e.response?.data?.detail || 'Erro no cálculo' }); }
       finally { setCalc(false); }
-    }, 600);
+      if (ok) {
+        try {
+          const blob = await propostasAPI.previewPdf(subtipo, form.dados_imovel);
+          const u = URL.createObjectURL(blob);
+          if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current);
+          pdfUrlRef.current = u; setPdfUrl(u);
+        } catch { /* mantém o último PDF válido */ }
+      }
+    }, 700);
     return () => debRef.current && clearTimeout(debRef.current);
   }, [subtipo, form.dados_imovel, loading]);
 
@@ -360,6 +373,23 @@ const PropostaForm = () => {
           {c?.avisos?.length > 0 && (
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-[11px] text-amber-800 max-h-48 overflow-y-auto">
               {c.avisos.slice(0, 2).map((a, i) => <p key={i} className="mb-1">{a.slice(0, 220)}{a.length > 220 ? '…' : ''}</p>)}
+            </div>
+          )}
+
+          {/* Pré-visualização do PDF (ao vivo — é exatamente o PDF que será gerado) */}
+          {!preview?.erro && (
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-emerald-800 px-3 py-2 border-b border-gray-100">
+                <FileText className="w-3.5 h-3.5" /> Pré-visualização do PDF
+              </div>
+              {pdfUrl ? (
+                <iframe title="Prévia da proposta" src={`${pdfUrl}#toolbar=0&navpanes=0`}
+                  style={{ width: '100%', height: 460, border: 0 }} />
+              ) : (
+                <div className="h-[460px] flex items-center justify-center text-gray-400 text-xs">
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" /> Gerando prévia…
+                </div>
+              )}
             </div>
           )}
         </div>

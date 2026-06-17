@@ -204,6 +204,9 @@ export const propostasAPI = {
   get: (id) => api.get(`/propostas/${id}`).then(r => r.data),
   atualizar: (id, data) => api.put(`/propostas/${id}`, data).then(r => r.data),
   excluir: (id) => api.delete(`/propostas/${id}`).then(r => r.data),
+  pdf: (id) => api.get(`/propostas/${id}/pdf`, { responseType: 'blob' }).then(r => r.data),
+  previewPdf: (subtipo, dados_imovel) =>
+    api.post('/propostas/preview/pdf', { subtipo, dados_imovel }, { responseType: 'blob' }).then(r => r.data),
 };
 
 // ---- Contrato de Exclusividade com aceite eletrônico via WhatsApp ----
