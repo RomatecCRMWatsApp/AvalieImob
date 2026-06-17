@@ -145,7 +145,7 @@ export default function FotosWidget() {
       const b = await brandingAPI.get();
       if (b) {
         nome = (!b.use_default && (b.stamp_name || b.footer_line1)) || b.stamp_name || nome;
-        const src = (!b.use_default && b.logo_url) ? b.logo_url : `${window.location.origin}/brand/icone.png`;
+        const src = (!b.use_default && b.logo_url) ? b.logo_url : `${window.location.origin}/icon-192.png`;
         try {
           const resp = await fetch(src, { mode: 'cors' });
           if (resp.ok) {
@@ -155,6 +155,12 @@ export default function FotosWidget() {
         } catch { /* sem CORS na logo custom → segue só com o nome */ }
       }
     } catch { /* branding indisponível → padrão */ }
+    if (!logoImg) {
+      try {
+        const resp = await fetch(`${window.location.origin}/icon-192.png`, { mode: 'cors' });
+        if (resp.ok) logoImg = await loadImg(URL.createObjectURL(await resp.blob()));
+      } catch { /* segue só com o nome */ }
+    }
     return { logoImg, nome };
   }
 
@@ -371,7 +377,15 @@ export default function FotosWidget() {
 
       {viewUrl && (
         <div onClick={() => setViewUrl(null)} className="fixed inset-0 z-[1200] bg-black/85 flex items-center justify-center p-4">
-          <img src={viewUrl} alt="Foto" className="max-w-full max-h-[92vh] object-contain rounded shadow-2xl" />
+          <button onClick={(e) => { e.stopPropagation(); setViewUrl(null); }} title="Fechar"
+            className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-white/15 hover:bg-white/35 text-white flex items-center justify-center">
+            <X className="w-6 h-6" />
+          </button>
+          <img onClick={(e) => e.stopPropagation()} src={viewUrl} alt="Foto" className="max-w-full max-h-[88vh] object-contain rounded shadow-2xl" />
+          <button onClick={(e) => { e.stopPropagation(); setViewUrl(null); }}
+            className="absolute bottom-5 left-1/2 -translate-x-1/2 z-10 px-5 py-2 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold flex items-center gap-1.5 shadow-lg">
+            <X className="w-4 h-4" /> Fechar
+          </button>
         </div>
       )}
     </>
