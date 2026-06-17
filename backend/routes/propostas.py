@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
 from pymongo import ReturnDocument
 
 from db import get_db
@@ -112,6 +113,49 @@ async def atualizar(pid: str, body: PropostaBase, uid: str = Depends(get_active_
     await db.propostas.update_one({"id": pid}, {"$set": update})
     novo = await db.propostas.find_one({"id": pid})
     return serialize_doc(novo)
+
+
+def _proposta_pdf_bytes(doc: dict) -> bytes:
+    from pdf.proposta_pdf import gerar_proposta_pdf
+    doc = dict(doc)
+    doc["subtipo_label"] = SUBTIPO_LABEL.get(doc.get("subtipo"), doc.get("subtipo"))
+    return gerar_proposta_pdf(doc)
+
+
+# ── PDF (inline) ───────────────────────────────────────────────────────────
+@router.get("/{pid}/pdf")
+async def proposta_pdf(pid: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    doc = await db.propostas.find_one({"id": pid, "user_id": uid})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Proposta não encontrada")
+    try:
+        pdf = _proposta_pdf_bytes(doc)
+    except Exception as e:
+        logger.exception("Erro ao gerar PDF da proposta %s", pid)
+        raise HTTPException(status_code=500, detail=f"Falha ao gerar PDF: {e}")
+    nome = f"{doc.get('numero', 'proposta')}.pdf"
+    return Response(content=pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": f'inline; filename="{nome}"'})
+
+
+# ── PDF de preview (sem salvar — calcula na hora a partir do form) ──────────
+@router.post("/preview/pdf")
+async def preview_pdf(body: PropostaPreviewRequest, uid: str = Depends(get_active_subscriber)):
+    try:
+        resultado = calcular_consultoria(body.subtipo, body.dados_imovel)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    doc = {
+        "numero": "PRÉVIA", "subtipo": body.subtipo,
+        "subtipo_label": SUBTIPO_LABEL.get(body.subtipo, body.subtipo),
+        "custos_calculados": resultado["custos"],
+        "cliente_nome": getattr(body, "cliente_nome", None),
+        "validade_dias": getattr(body, "validade_dias", 15),
+    }
+    from pdf.proposta_pdf import gerar_proposta_pdf
+    pdf = gerar_proposta_pdf(doc)
+    return Response(content=pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": 'inline; filename="previa.pdf"'})
 
 
 # ── Excluir ────────────────────────────────────────────────────────────────
