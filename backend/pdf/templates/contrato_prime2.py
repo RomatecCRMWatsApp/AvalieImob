@@ -288,14 +288,15 @@ def _draw_capa(c, meta):
     # fundo verde integral
     c.setFillColor(T.C_VERDE_ESCURO)
     c.rect(0, 0, PAGE_W, PAGE_H, fill=1, stroke=0)
-    # marca topo-esquerda
-    c.setFillColor(T.C_BRANCO)
-    c.setFont(f["serif_bold"], 16)
-    c.drawString(MARGIN, PAGE_H - 2.2 * cm, "Romatec")
-    c.setFillColor(T.C_DOURADO)
-    c.setFont(f["serif_italic"], 16)
-    c.drawString(MARGIN + c.stringWidth("Romatec ", f["serif_bold"], 16),
-                 PAGE_H - 2.2 * cm, "Consultoria Total")
+    # marca topo-esquerda — brasão "A" da AvalieImob (faixa escura → light)
+    try:
+        from pdf.brand_seal import draw_header_lockup
+        draw_header_lockup(c, MARGIN, PAGE_H - 2.0 * cm, mark=1.1 * cm, light=True,
+                           tagline="Romatec Consultoria Total")
+    except Exception:
+        c.setFillColor(T.C_BRANCO)
+        c.setFont(f["serif_bold"], 16)
+        c.drawString(MARGIN, PAGE_H - 2.2 * cm, "Romatec Consultoria Total")
     # pill dourada com código
     codigo = meta["codigo"]
     c.setFont(f["mono"], 9)
@@ -349,13 +350,14 @@ def _draw_footer(c, meta):
     c.saveState()
     c.setFillColor(T.C_VERDE_ESCURO)
     c.rect(0, 0, PAGE_W, 1.2 * cm, fill=1, stroke=0)
-    c.setFillColor(T.C_BRANCO)
-    c.setFont(f["serif_bold"], 9)
-    c.drawString(MARGIN, 0.45 * cm, "Romatec")
-    c.setFillColor(T.C_DOURADO)
-    c.setFont(f["serif_italic"], 9)
-    c.drawString(MARGIN + c.stringWidth("Romatec ", f["serif_bold"], 9),
-                 0.45 * cm, "Consultoria Total")
+    try:
+        from pdf.brand_seal import draw_header_lockup
+        draw_header_lockup(c, MARGIN, 0.6 * cm, mark=0.9 * cm, light=True,
+                           tagline="Romatec Consultoria Total")
+    except Exception:
+        c.setFillColor(T.C_BRANCO)
+        c.setFont(f["serif_bold"], 9)
+        c.drawString(MARGIN, 0.45 * cm, "Romatec Consultoria Total")
     c.setFillColor(T.C_CINZA_GHOST)
     c.setFont(f["mono"], 7)
     c.drawRightString(PAGE_W - MARGIN, 0.45 * cm, meta["codigo"])

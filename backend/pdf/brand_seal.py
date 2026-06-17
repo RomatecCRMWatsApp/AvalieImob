@@ -97,6 +97,24 @@ def draw_header_monogram(c, x, y_base, fs=13,
     c.restoreState()
 
 
+def draw_header_lockup(c, x, y_center, mark=11 * mm, light=False,
+                       tagline="PTAM · LAUDOS",
+                       word_font="Helvetica-Bold", tag_font="Helvetica"):
+    """Brasão pequeno horizontal: badge + nome. light=True p/ faixa escura/verde."""
+    c.saveState()
+    draw_brand_badge(c, x, y_center - mark / 2, mark)
+    tx = x + mark + 3 * mm
+    word_c = (1, 1, 1) if light else _GREEN
+    tag_c = (0.86, 0.86, 0.84) if light else _GRAY
+    c.setFillColorRGB(*word_c)
+    c.setFont(word_font, 12)
+    c.drawString(tx, y_center + 0.6 * mm, "AvalieImob")
+    c.setFillColorRGB(*tag_c)
+    c.setFont(tag_font, 6.5)
+    c.drawString(tx, y_center - 3.2 * mm, tagline)
+    c.restoreState()
+
+
 def draw_avaliador_seal(c, x, y_center, seal=14 * mm, rule_w=62 * mm,
                         word_font="Helvetica-Bold", tag_font="Helvetica",
                         credenciais="CNAI 031161 · NBR 14.653 · ICP-Brasil"):

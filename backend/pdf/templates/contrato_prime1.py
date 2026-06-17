@@ -120,13 +120,14 @@ def _draw_capa(c, meta):
     c.drawPath(p, fill=1, stroke=0)
 
     # ── painel esquerdo (preto): marca + título ──
-    c.setFillColor(T.C_BRANCO)
-    c.setFont(f["serif_bold"], 15)
-    c.drawString(MARGIN, PAGE_H - 2.4 * cm, "Romatec")
-    c.setFillColor(T.C_DOURADO)
-    c.setFont(f["serif_italic"], 15)
-    c.drawString(MARGIN + c.stringWidth("Romatec ", f["serif_bold"], 15),
-                 PAGE_H - 2.4 * cm, "Consultoria Total")
+    try:
+        from pdf.brand_seal import draw_header_lockup
+        draw_header_lockup(c, MARGIN, PAGE_H - 2.2 * cm, mark=1.0 * cm, light=True,
+                           tagline="Romatec Consultoria Total")
+    except Exception:
+        c.setFillColor(T.C_BRANCO)
+        c.setFont(f["serif_bold"], 15)
+        c.drawString(MARGIN, PAGE_H - 2.4 * cm, "Romatec Consultoria Total")
     c.setFillColor(T.C_DOURADO)
     c.setFont(f["sans_bold"], 8)
     c.drawString(MARGIN, PAGE_H - 7.0 * cm, T.tracking("INSTRUMENTO PARTICULAR"))

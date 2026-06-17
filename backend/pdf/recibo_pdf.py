@@ -137,14 +137,19 @@ def gerar_recibo_pdf(
         except Exception as e:
             logger.warning("Falha ao desenhar logo do recibo: %s", e)
 
-    # Marca verbal Romatec — só quando NÃO tem logo de imagem (evita redundância)
+    # Marca "A" da AvalieImob — só quando NÃO tem logo próprio (white-label)
     if not has_logo_image:
-        c.setFillColor(colors.HexColor(GOLD))
-        c.setFont("Helvetica-Bold", 22)
-        c.drawString(cursor_x, page_h - 18 * mm, "ROMATEC")
-        c.setFillColor(colors.white)
-        c.setFont("Helvetica", 9)
-        c.drawString(cursor_x, page_h - 23 * mm, "AVALIEIMOB · PTAM · LAUDOS")
+        try:
+            from pdf.brand_seal import draw_header_lockup
+            draw_header_lockup(c, cursor_x, page_h - 16 * mm, mark=13 * mm, light=True,
+                               tagline="AVALIEIMOB · PTAM · LAUDOS")
+        except Exception:
+            c.setFillColor(colors.HexColor(GOLD))
+            c.setFont("Helvetica-Bold", 22)
+            c.drawString(cursor_x, page_h - 18 * mm, "ROMATEC")
+            c.setFillColor(colors.white)
+            c.setFont("Helvetica", 9)
+            c.drawString(cursor_x, page_h - 23 * mm, "AVALIEIMOB · PTAM · LAUDOS")
 
     # Nome do emitente + documento
     emitente_nome = recibo.get("emitente_nome") or perfil.get("empresa_nome") or perfil.get("nome_completo") or user.get("name") or ""
