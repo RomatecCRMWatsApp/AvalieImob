@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Home, Store, Compass, MapPin, TreePine, Scissors, Link2, Ruler, Coins,
-  DraftingCompass, Layers, Trash2, FileText, Eye, FileDown,
+  DraftingCompass, Layers, Trash2, FileText, Eye, FileDown, Send,
 } from 'lucide-react';
 import { useToast } from '../../../hooks/use-toast';
 import { propostasAPI } from '../../../lib/api';
@@ -70,6 +70,17 @@ const PropostasList = () => {
     } catch { toast({ title: 'Erro ao baixar', variant: 'destructive' }); }
   };
 
+  const enviar = async (p, e) => {
+    e.stopPropagation();
+    const phone = window.prompt('WhatsApp do cliente (com DDD):', p.cliente_telefone || '');
+    if (!phone || !phone.trim()) return;
+    try {
+      await propostasAPI.enviar(p.id, { phone: phone.trim() });
+      setPropostas((prev) => prev.map((x) => (x.id === p.id ? { ...x, status: 'enviada' } : x)));
+      toast({ title: 'Proposta enviada', description: `Enviada para ${phone.trim()}` });
+    } catch (err) { toast({ title: 'Erro ao enviar', description: err?.response?.data?.detail || '', variant: 'destructive' }); }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -125,6 +136,8 @@ const PropostasList = () => {
                       className="w-7 h-7 rounded-lg hover:bg-emerald-50 flex items-center justify-center text-emerald-700"><Eye className="w-3.5 h-3.5" /></button>
                     <button title="Baixar PDF" onClick={(e) => baixarPdf(p, e)}
                       className="w-7 h-7 rounded-lg hover:bg-emerald-50 flex items-center justify-center text-emerald-700"><FileDown className="w-3.5 h-3.5" /></button>
+                    <button title="Enviar ao cliente (WhatsApp)" onClick={(e) => enviar(p, e)}
+                      className="w-7 h-7 rounded-lg hover:bg-emerald-50 flex items-center justify-center text-emerald-700"><Send className="w-3.5 h-3.5" /></button>
                     <button title="Excluir" onClick={(e) => excluir(p, e)}
                       className="w-7 h-7 rounded-lg hover:bg-red-50 flex items-center justify-center text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
                   </div>

@@ -6,6 +6,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
+from pydantic import BaseModel
 from pymongo import ReturnDocument
 
 from db import get_db
@@ -157,6 +158,75 @@ async def preview_pdf(body: PropostaPreviewRequest, uid: str = Depends(get_activ
     pdf = gerar_proposta_pdf(doc)
     return Response(content=pdf, media_type="application/pdf",
                     headers={"Content-Disposition": 'inline; filename="previa.pdf"'})
+
+
+class EnviarPropostaBody(BaseModel):
+    phone: Optional[str] = None
+    legenda: Optional[str] = None
+
+
+def _fmt_brl(v) -> str:
+    try:
+        s = f"{float(v):,.2f}"
+    except Exception:
+        s = "0,00"
+    return "R$ " + s.replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+# ── Enviar por WhatsApp ────────────────────────────────────────────────────
+@router.post("/{pid}/enviar")
+async def enviar_proposta(pid: str, body: EnviarPropostaBody,
+                          uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    """Envia o PDF da proposta ao cliente via WhatsApp (Z-API/Meta) e marca status=enviada."""
+    from services import zapi_service
+    from services import meta_whatsapp_service as meta
+    from services.integracoes_util import carregar_integracoes
+
+    doc = await db.propostas.find_one({"id": pid, "user_id": uid})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Proposta não encontrada")
+    cfg = await carregar_integracoes(db, uid)
+    if not cfg:
+        raise HTTPException(status_code=400, detail="Nenhum provedor WhatsApp configurado em Configurações → Integrações.")
+    phone = (body.phone or doc.get("cliente_telefone") or "").strip()
+    if not phone:
+        raise HTTPException(status_code=400, detail="Informe o WhatsApp do destinatário")
+
+    try:
+        pdf = _proposta_pdf_bytes(doc)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Falha ao gerar PDF: {e}")
+    filename = f"{doc.get('numero', 'proposta')}.pdf".replace("/", "-")
+    label = SUBTIPO_LABEL.get(doc.get("subtipo"), doc.get("subtipo"))
+    legenda = body.legenda or (
+        f"Olá! Segue sua proposta {doc.get('numero', '')} — {label}.\n"
+        f"Investimento total: {_fmt_brl(doc.get('valor_total'))}.\n"
+        f"Validade: {doc.get('validade_dias', 15)} dias. Qualquer dúvida estou à disposição.")
+
+    provider = (cfg.get("whatsapp_provider") or "zapi").lower()
+    try:
+        if provider == "meta":
+            if not cfg.get("meta_phone_number_id") or not cfg.get("meta_access_token"):
+                raise HTTPException(status_code=400, detail="Meta WhatsApp não configurada")
+            await meta.send_pdf(phone_number_id=cfg["meta_phone_number_id"], access_token=cfg["meta_access_token"],
+                                phone=phone, pdf_bytes=pdf, filename=filename, caption=legenda)
+        else:
+            if not cfg.get("zapi_instance_id") or not cfg.get("zapi_token"):
+                raise HTTPException(status_code=400, detail="Z-API não configurada")
+            await zapi_service.send_document_pdf(
+                instance_id=cfg["zapi_instance_id"], token=cfg["zapi_token"],
+                security_token=cfg.get("zapi_security_token"),
+                phone=phone, pdf_bytes=pdf, filename=filename, caption=legenda)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Erro ao enviar proposta %s por WhatsApp", pid)
+        raise HTTPException(status_code=502, detail=f"Falha ao enviar: {type(e).__name__}: {e}")
+
+    await db.propostas.update_one({"id": pid}, {"$set": {
+        "status": "enviada", "enviada_em": datetime.utcnow(), "enviada_phone": phone,
+    }})
+    return {"ok": True, "status": "enviada", "phone": phone}
 
 
 # ── Excluir ────────────────────────────────────────────────────────────────
