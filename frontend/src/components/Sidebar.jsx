@@ -11,6 +11,7 @@ import {
   CreditCard, Settings, LogOut, Globe, Search, Palette, Tag, BadgeCheck, Stamp,
 } from 'lucide-react';
 import { ptamAPI } from '../lib/api';
+import { BrandMark } from './brand/BrandMark';
 
 // ── Tokens ─────────────────────────────────────────────────────────────────
 const T = {
@@ -175,9 +176,8 @@ export default function Sidebar({
           <Link to="/dashboard" onClick={onNavigate} style={{ textDecoration: 'none' }}>
             <div style={{ background: T.bgLogo, borderRadius: 10, padding: '10px 14px',
               display: 'flex', alignItems: 'center', gap: 10, border: `1px solid ${T.borderLogo}` }}>
-              <div style={{ width: 32, height: 32, background: 'rgba(255,255,255,0.12)', borderRadius: 8,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#C8E6C9', flexShrink: 0 }}>
-                <Home size={20} strokeWidth={1.8} />
+              <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                <BrandMark variant="badge" size={34} title="AvalieImob" />
               </div>
               <div>
                 <div style={{ color: '#fff', fontSize: 14, fontWeight: 600, letterSpacing: '0.2px' }}>AvalieImob</div>
