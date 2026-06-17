@@ -178,6 +178,14 @@ const SCHEMAS = {
   },
 };
 
+const PAGAMENTO_TAGS = [
+  { tag: 'integral', label: 'À vista (100%)', icon: '💵' },
+  { tag: 'sinal_mais_1', label: '50% sinal + 50% entrega', icon: '🤝' },
+  { tag: 'sinal_mais_2', label: 'Sinal + 2× na entrega', icon: '📑' },
+  { tag: 'duas_vezes', label: '2× (50% + 50%)', icon: '💳' },
+  { tag: 'personalizada', label: 'Personalizada', icon: '✍️' },
+];
+
 const defaultsDe = (schema) => {
   const d = {};
   (schema?.campos || []).forEach((c) => { d[c.key] = c._bool ? (c.def === 'true') : c.def; });
@@ -293,8 +301,9 @@ const PropostaForm = () => {
   };
 
   const camposVisiveis = useMemo(
-    () => (schema.campos || []).filter((c) => !c.when || c.when(form.dados_imovel)),
+    () => (schema.campos || []).filter((c) => c.key !== 'forma_pagamento_tag' && (!c.when || c.when(form.dados_imovel))),
     [schema, form.dados_imovel]);
+  const temPagamentoVisual = subtipo === 'projeto_executivo';
 
   if (loading) return <div className="py-20 flex justify-center"><BrandSpinner label="Carregando…" /></div>;
   const c = preview?.custos;
@@ -358,6 +367,38 @@ const PropostaForm = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {camposVisiveis.map((campo) => <Field key={campo.key} label={campo.label}>{renderCampo(campo)}</Field>)}
           </div>
+
+          {temPagamentoVisual && (
+            <div>
+              <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-800 border-b border-emerald-100 pb-1 mb-2">Forma de pagamento dos honorários</div>
+              <div className="flex flex-wrap gap-2">
+                {PAGAMENTO_TAGS.map((p) => {
+                  const ativo = (form.dados_imovel.forma_pagamento_tag || 'sinal_mais_1') === p.tag;
+                  return (
+                    <button key={p.tag} type="button" onClick={() => setDado('forma_pagamento_tag', p.tag)}
+                      className={`px-3 py-2 rounded-xl text-xs font-semibold border transition ${ativo ? 'bg-emerald-600 text-white border-emerald-600 shadow' : 'bg-white text-gray-700 border-gray-200 hover:border-emerald-300'}`}>
+                      {p.icon} {p.label}
+                    </button>
+                  );
+                })}
+              </div>
+              {(form.dados_imovel.forma_pagamento_tag === 'personalizada') && (
+                <textarea
+                  value={form.dados_imovel.forma_pagamento_custom || ''}
+                  onChange={(e) => setDado('forma_pagamento_custom', e.target.value)}
+                  placeholder="Descreva a condição de pagamento combinada…"
+                  className="w-full mt-2 rounded-xl border border-gray-200 px-3 py-2 text-sm" rows={2} />
+              )}
+              {c?.condicoes_pagamento?.length > 0 && (
+                <div className="mt-2 bg-emerald-50 border border-emerald-100 rounded-lg p-2 text-[11px] text-emerald-900">
+                  <span className="font-semibold">Pré-visualização: </span>
+                  {c.condicoes_pagamento.map((p, i) => (
+                    <span key={i}>{i > 0 ? ' · ' : ''}{p.rotulo.split('—')[0].trim()} {fmtBRL(p.valor)}</span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           <EtapaConcluidaBox
             stepIndex={0}
