@@ -1,7 +1,7 @@
 // @module dashboard/propostas/PropostaForm — Form de proposta (schema-driven) com preview ao vivo.
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, Loader2, Calculator, FileText } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Calculator, FileText, ChevronRight } from 'lucide-react';
 import { BrandSpinner } from '../../brand/BrandSpinner';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -246,6 +246,7 @@ const PropostaForm = () => {
   const [loading, setLoading] = useState(editing);
   const [pdfUrl, setPdfUrl] = useState(null);
   const [clientes, setClientes] = useState([]);
+  const [step, setStep] = useState(0);
   const debRef = useRef(null);
   const pdfUrlRef = useRef(null);
 
@@ -379,10 +380,172 @@ const PropostaForm = () => {
     </div>
   );
 
+  // ── Conteúdo de cada etapa (seções) ──────────────────────────────────────
+  const secCliente = (
+    <div className="space-y-4">
+      <div className={LABEL_CLS}>Cliente</div>
+      <div className="flex items-end gap-2">
+        <Field label="Selecionar cliente cadastrado" className="flex-1">
+          <select value={form.cliente_id || ''} onChange={(e) => selecionarCliente(e.target.value)}
+            className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-emerald-400">
+            <option value="">— Selecione (ou preencha manualmente) —</option>
+            {clientes.map((cl) => (<option key={cl.id} value={cl.id}>{cl.name || cl.nome}{(cl.doc || cl.cpf_cnpj) ? ` · ${cl.doc || cl.cpf_cnpj}` : ''}</option>))}
+          </select>
+        </Field>
+        <Button type="button" variant="outline" className="h-9 whitespace-nowrap" onClick={() => window.open('/dashboard/clientes', '_blank')}>+ Novo</Button>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Field label="Nome / Razão social"><Input value={form.cliente_nome} onChange={(e) => setForm((f) => ({ ...f, cliente_nome: e.target.value }))} /></Field>
+        <Field label="CPF / CNPJ"><Input value={form.cliente_cpf_cnpj} onChange={(e) => setForm((f) => ({ ...f, cliente_cpf_cnpj: e.target.value }))} /></Field>
+        <Field label="Telefone"><Input value={form.cliente_telefone} onChange={(e) => setForm((f) => ({ ...f, cliente_telefone: e.target.value }))} /></Field>
+        <Field label="E-mail"><Input value={form.cliente_email} onChange={(e) => setForm((f) => ({ ...f, cliente_email: e.target.value }))} /></Field>
+        <Field label="Endereço do imóvel / obra" className="sm:col-span-2"><Input value={form.endereco_imovel} onChange={(e) => setForm((f) => ({ ...f, endereco_imovel: e.target.value }))} /></Field>
+      </div>
+    </div>
+  );
+  const secParametros = (
+    <div>
+      <div className={`${LABEL_CLS} mb-2`}>📐 Parâmetros do Imóvel / Obra</div>
+      {gridCampos(peGrupo('parametros'))}
+    </div>
+  );
+  const secServico = (
+    <div>
+      <div className={LABEL_CLS}>Dados do serviço (cálculo)</div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+        {camposVisiveis.map((campo) => <Field key={campo.key} label={campo.label}>{renderCampo(campo)}</Field>)}
+      </div>
+    </div>
+  );
+  const secPrograma = (
+    <div>
+      <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-800 border-b border-emerald-100 pb-1 mb-1">🏗 Programa de necessidades — cômodos da edificação</div>
+      <p className="text-[11px] text-gray-400 mb-2">Marque os cômodos do projeto. {programa.length > 0 ? `${programa.reduce((s, p) => s + (p.quantidade || 1), 0)} cômodo(s) selecionado(s).` : 'Nenhum cômodo selecionado ainda.'}</p>
+      <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+        {ORDEM_CATEGORIAS.map((cat) => (
+          <div key={cat}>
+            <div className="text-[10px] font-bold text-emerald-700 uppercase tracking-wide mb-1">{CATEGORIAS_LABEL[cat]}</div>
+            <div className="flex flex-wrap gap-1.5">
+              {COMODOS[cat].map((cm) => {
+                const sel = progMap[cm.codigo];
+                return (
+                  <span key={cm.codigo} className={`inline-flex items-center gap-1 rounded-full border text-[11px] font-medium transition ${sel ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-gray-700 border-gray-200 hover:border-emerald-300'}`}>
+                    <button type="button" onClick={() => toggleComodo(cm)} className="px-2.5 py-1">{cm.icone} {cm.nome}</button>
+                    {sel && (
+                      <span className="flex items-center gap-0.5 pr-1.5">
+                        <button type="button" onClick={() => setQtd(cm.codigo, (sel.quantidade || 1) - 1)} className="w-4 h-4 leading-none rounded-full bg-white/25 hover:bg-white/40">−</button>
+                        <span className="min-w-[14px] text-center">{sel.quantidade || 1}</span>
+                        <button type="button" onClick={() => setQtd(cm.codigo, (sel.quantidade || 1) + 1)} className="w-4 h-4 leading-none rounded-full bg-white/25 hover:bg-white/40">+</button>
+                      </span>
+                    )}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+  const secProjetos = (
+    <div>
+      <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-800 border-b border-emerald-100 pb-1 mb-2">📋 Projetos a entregar</div>
+      <div className="space-y-1.5">
+        {projetos.map((p) => (
+          <div key={p.codigo} className="border border-gray-100 rounded-lg p-2">
+            <div className="flex items-center gap-2">
+              <input type="checkbox" checked={!!p.selecionado} onChange={(e) => updProjetos(p.codigo, { selecionado: e.target.checked })} className="w-4 h-4 accent-emerald-600" />
+              <span className="text-sm font-medium text-gray-800 flex-1">{p.nome}</span>
+              <button type="button" onClick={() => setProjEdit(projEdit === p.codigo ? null : p.codigo)} className="text-[11px] text-emerald-700 hover:underline">{projEdit === p.codigo ? 'fechar' : 'editar detalhamento'}</button>
+            </div>
+            {projEdit === p.codigo && (
+              <textarea value={p.detalhamento_entrega || ''} onChange={(e) => updProjetos(p.codigo, { detalhamento_entrega: e.target.value })} rows={4} className="w-full mt-2 rounded-lg border border-gray-200 px-2 py-1.5 text-[12px] leading-snug" />
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+  const secResponsabilidade = (
+    <div>
+      <div className={`${LABEL_CLS} mb-2`}>⚖️ Responsabilidade Técnica</div>
+      {gridCampos(peGrupo('responsabilidade'))}
+    </div>
+  );
+  const secDespesas = (
+    <div>
+      <div className={`${LABEL_CLS} mb-2`}>💼 Despesas Administrativas (opcionais — pagas à parte, fora das parcelas 50/50)</div>
+      {gridCampos(peGrupo('despesas'))}
+    </div>
+  );
+  const secPagamento = (
+    <div>
+      <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-800 border-b border-emerald-100 pb-1 mb-2">💳 Forma de pagamento dos honorários</div>
+      <div className="flex flex-wrap gap-2">
+        {PAGAMENTO_TAGS.map((p) => {
+          const ativo = (form.dados_imovel.forma_pagamento_tag || 'sinal_mais_1') === p.tag;
+          return (
+            <button key={p.tag} type="button" onClick={() => setDado('forma_pagamento_tag', p.tag)} className={`px-3 py-2 rounded-xl text-xs font-semibold border transition ${ativo ? 'bg-emerald-600 text-white border-emerald-600 shadow' : 'bg-white text-gray-700 border-gray-200 hover:border-emerald-300'}`}>{p.icon} {p.label}</button>
+          );
+        })}
+      </div>
+      {(form.dados_imovel.forma_pagamento_tag === 'personalizada') && (
+        <textarea value={form.dados_imovel.forma_pagamento_custom || ''} onChange={(e) => setDado('forma_pagamento_custom', e.target.value)} placeholder="Descreva a condição de pagamento combinada…" className="w-full mt-2 rounded-xl border border-gray-200 px-3 py-2 text-sm" rows={2} />
+      )}
+      {c?.condicoes_pagamento?.length > 0 && (
+        <div className="mt-2 bg-emerald-50 border border-emerald-100 rounded-lg p-2 text-[11px] text-emerald-900">
+          <span className="font-semibold">Pré-visualização: </span>
+          {c.condicoes_pagamento.map((p, i) => (<span key={i}>{i > 0 ? ' · ' : ''}{p.rotulo.split('—')[0].trim()} {fmtBRL(p.valor)}</span>))}
+        </div>
+      )}
+    </div>
+  );
+  const secPrazos = (
+    <div>
+      <div className={`${LABEL_CLS} mb-2`}>📋 Prazos e observações</div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Field label="Validade da proposta (dias)">
+          <Input type="number" value={form.validade_dias} onChange={(e) => setForm((f) => ({ ...f, validade_dias: parseInt(e.target.value) || 15 }))} />
+        </Field>
+      </div>
+      <Field label="Observações (saem no rodapé do PDF)" className="mt-3">
+        <textarea value={form.observacoes || ''} onChange={(e) => setForm((f) => ({ ...f, observacoes: e.target.value }))} rows={3} placeholder="Prazos de entrega, condições especiais, ressalvas…" className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-emerald-400" />
+      </Field>
+    </div>
+  );
+  const secAnexos = (
+    <div>
+      <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-800 border-b border-emerald-100 pb-1 mb-2">📎 Anexos da proposta</div>
+      <p className="text-[11px] text-gray-400 mb-2">Croqui, imagens de referência, documentos. Saem anexados ao fim do PDF (JPG/PNG/WEBP/PDF).</p>
+      <ImageUploader images={form.anexos || []} onImagesChange={(ids) => setForm((f) => ({ ...f, anexos: ids }))} maxImages={10} label="Anexos" accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf" />
+    </div>
+  );
+
+  const etapas = temPagamentoVisual ? [
+    { key: 'cliente', label: 'Cliente', node: secCliente },
+    { key: 'parametros', label: 'Parâmetros', node: secParametros },
+    { key: 'programa', label: 'Programa', node: secPrograma },
+    { key: 'projetos', label: 'Projetos', node: secProjetos },
+    { key: 'responsabilidade', label: 'Resp. Técnica', node: secResponsabilidade },
+    { key: 'despesas', label: 'Despesas', node: secDespesas },
+    { key: 'pagamento', label: 'Pagamento', node: secPagamento },
+    { key: 'prazos', label: 'Prazos & Obs.', node: secPrazos },
+    { key: 'anexos', label: 'Anexos', node: secAnexos },
+  ] : [
+    { key: 'cliente', label: 'Cliente', node: secCliente },
+    { key: 'servico', label: 'Serviço', node: secServico },
+    { key: 'prazos', label: 'Prazos & Obs.', node: secPrazos },
+    { key: 'anexos', label: 'Anexos', node: secAnexos },
+  ];
+  const sClamp = Math.min(step, etapas.length - 1);
+  const etapaAtual = etapas[sClamp];
+  const ultimo = sClamp === etapas.length - 1;
+  const pctEtapas = Math.round(((sClamp + 1) / etapas.length) * 100);
+
   return (
     <div className="max-w-5xl mx-auto pb-24 space-y-5">
       <div className="flex items-center justify-between">
-        <Button variant="ghost" onClick={() => nav('/dashboard/propostas')}><ArrowLeft className="w-4 h-4 mr-1" /> Voltar</Button>
+        <Button variant="ghost" onClick={() => nav('/dashboard/propostas')}><ArrowLeft className="w-4 h-4 mr-1" /> Propostas</Button>
         <Button onClick={salvar} disabled={saving || !!preview?.erro} className="bg-emerald-900 hover:bg-emerald-800 text-white gap-1">
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} {editing ? 'Salvar' : 'Criar proposta'}
         </Button>
@@ -390,182 +553,57 @@ const PropostaForm = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-5">
         <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
-          <div className="font-display text-xl font-bold text-gray-900">{schema.titulo}</div>
-
-          <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-800 border-b border-emerald-100 pb-1">Cliente</div>
-          <div className="flex items-end gap-2">
-            <Field label="Selecionar cliente cadastrado" className="flex-1">
-              <select
-                value={form.cliente_id || ''}
-                onChange={(e) => selecionarCliente(e.target.value)}
-                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-emerald-400">
-                <option value="">— Selecione (ou preencha manualmente) —</option>
-                {clientes.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name || c.nome}{(c.doc || c.cpf_cnpj) ? ` · ${c.doc || c.cpf_cnpj}` : ''}</option>
-                ))}
-              </select>
-            </Field>
-            <Button type="button" variant="outline" className="h-9 whitespace-nowrap"
-              onClick={() => window.open('/dashboard/clientes', '_blank')}>+ Novo</Button>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Nome / Razão social"><Input value={form.cliente_nome} onChange={(e) => setForm((f) => ({ ...f, cliente_nome: e.target.value }))} /></Field>
-            <Field label="CPF / CNPJ"><Input value={form.cliente_cpf_cnpj} onChange={(e) => setForm((f) => ({ ...f, cliente_cpf_cnpj: e.target.value }))} /></Field>
-            <Field label="Telefone"><Input value={form.cliente_telefone} onChange={(e) => setForm((f) => ({ ...f, cliente_telefone: e.target.value }))} /></Field>
-            <Field label="E-mail"><Input value={form.cliente_email} onChange={(e) => setForm((f) => ({ ...f, cliente_email: e.target.value }))} /></Field>
-            <Field label="Endereço do imóvel / obra" className="sm:col-span-2"><Input value={form.endereco_imovel} onChange={(e) => setForm((f) => ({ ...f, endereco_imovel: e.target.value }))} /></Field>
+          <div className="flex items-center justify-between gap-3">
+            <div className="font-display text-xl font-bold text-gray-900">{schema.titulo}</div>
+            <div className="text-[11px] font-semibold text-emerald-700 whitespace-nowrap">Etapa {sClamp + 1} de {etapas.length}</div>
           </div>
 
-          {temPagamentoVisual ? (
-            <div>
-              <div className={`${LABEL_CLS} mb-2`}>📐 Parâmetros do Imóvel / Obra</div>
-              {gridCampos(peGrupo('parametros'))}
-            </div>
-          ) : (
-            <div>
-              <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-800 border-b border-emerald-100 pb-1">Dados do serviço (cálculo)</div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
-                {camposVisiveis.map((campo) => <Field key={campo.key} label={campo.label}>{renderCampo(campo)}</Field>)}
-              </div>
-            </div>
-          )}
-
-          {temPagamentoVisual && (
-            <div>
-              <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-800 border-b border-emerald-100 pb-1 mb-1">🏗 Programa de necessidades — cômodos da edificação</div>
-              <p className="text-[11px] text-gray-400 mb-2">Marque os cômodos do projeto. {programa.length > 0 ? `${programa.reduce((s, p) => s + (p.quantidade || 1), 0)} cômodo(s) selecionado(s).` : 'Nenhum cômodo selecionado ainda.'}</p>
-              <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
-                {ORDEM_CATEGORIAS.map((cat) => (
-                  <div key={cat}>
-                    <div className="text-[10px] font-bold text-emerald-700 uppercase tracking-wide mb-1">{CATEGORIAS_LABEL[cat]}</div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {COMODOS[cat].map((cm) => {
-                        const sel = progMap[cm.codigo];
-                        return (
-                          <span key={cm.codigo}
-                            className={`inline-flex items-center gap-1 rounded-full border text-[11px] font-medium transition ${sel ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-gray-700 border-gray-200 hover:border-emerald-300'}`}>
-                            <button type="button" onClick={() => toggleComodo(cm)} className="px-2.5 py-1">{cm.icone} {cm.nome}</button>
-                            {sel && (
-                              <span className="flex items-center gap-0.5 pr-1.5">
-                                <button type="button" onClick={() => setQtd(cm.codigo, (sel.quantidade || 1) - 1)} className="w-4 h-4 leading-none rounded-full bg-white/25 hover:bg-white/40">−</button>
-                                <span className="min-w-[14px] text-center">{sel.quantidade || 1}</span>
-                                <button type="button" onClick={() => setQtd(cm.codigo, (sel.quantidade || 1) + 1)} className="w-4 h-4 leading-none rounded-full bg-white/25 hover:bg-white/40">+</button>
-                              </span>
-                            )}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {temPagamentoVisual && (
-            <div>
-              <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-800 border-b border-emerald-100 pb-1 mb-2">📋 Projetos a entregar</div>
-              <div className="space-y-1.5">
-                {projetos.map((p) => (
-                  <div key={p.codigo} className="border border-gray-100 rounded-lg p-2">
-                    <div className="flex items-center gap-2">
-                      <input type="checkbox" checked={!!p.selecionado} onChange={(e) => updProjetos(p.codigo, { selecionado: e.target.checked })}
-                        className="w-4 h-4 accent-emerald-600" />
-                      <span className="text-sm font-medium text-gray-800 flex-1">{p.nome}</span>
-                      <button type="button" onClick={() => setProjEdit(projEdit === p.codigo ? null : p.codigo)}
-                        className="text-[11px] text-emerald-700 hover:underline">{projEdit === p.codigo ? 'fechar' : 'editar detalhamento'}</button>
-                    </div>
-                    {projEdit === p.codigo && (
-                      <textarea value={p.detalhamento_entrega || ''} onChange={(e) => updProjetos(p.codigo, { detalhamento_entrega: e.target.value })}
-                        rows={4} className="w-full mt-2 rounded-lg border border-gray-200 px-2 py-1.5 text-[12px] leading-snug" />
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {temPagamentoVisual && (
-            <div>
-              <div className={`${LABEL_CLS} mb-2`}>⚖️ Responsabilidade Técnica</div>
-              {gridCampos(peGrupo('responsabilidade'))}
-            </div>
-          )}
-
-          {temPagamentoVisual && (
-            <div>
-              <div className={`${LABEL_CLS} mb-2`}>💼 Despesas Administrativas (opcionais — pagas à parte, fora das parcelas 50/50)</div>
-              {gridCampos(peGrupo('despesas'))}
-            </div>
-          )}
-
-          {temPagamentoVisual && (
-            <div>
-              <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-800 border-b border-emerald-100 pb-1 mb-2">💳 Forma de pagamento dos honorários</div>
-              <div className="flex flex-wrap gap-2">
-                {PAGAMENTO_TAGS.map((p) => {
-                  const ativo = (form.dados_imovel.forma_pagamento_tag || 'sinal_mais_1') === p.tag;
-                  return (
-                    <button key={p.tag} type="button" onClick={() => setDado('forma_pagamento_tag', p.tag)}
-                      className={`px-3 py-2 rounded-xl text-xs font-semibold border transition ${ativo ? 'bg-emerald-600 text-white border-emerald-600 shadow' : 'bg-white text-gray-700 border-gray-200 hover:border-emerald-300'}`}>
-                      {p.icon} {p.label}
-                    </button>
-                  );
-                })}
-              </div>
-              {(form.dados_imovel.forma_pagamento_tag === 'personalizada') && (
-                <textarea
-                  value={form.dados_imovel.forma_pagamento_custom || ''}
-                  onChange={(e) => setDado('forma_pagamento_custom', e.target.value)}
-                  placeholder="Descreva a condição de pagamento combinada…"
-                  className="w-full mt-2 rounded-xl border border-gray-200 px-3 py-2 text-sm" rows={2} />
-              )}
-              {c?.condicoes_pagamento?.length > 0 && (
-                <div className="mt-2 bg-emerald-50 border border-emerald-100 rounded-lg p-2 text-[11px] text-emerald-900">
-                  <span className="font-semibold">Pré-visualização: </span>
-                  {c.condicoes_pagamento.map((p, i) => (
-                    <span key={i}>{i > 0 ? ' · ' : ''}{p.rotulo.split('—')[0].trim()} {fmtBRL(p.valor)}</span>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
+          {/* Barra de progresso + chips de etapa */}
           <div>
-            <div className={`${LABEL_CLS} mb-2`}>📋 Prazos e observações</div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <Field label="Validade da proposta (dias)">
-                <Input type="number" value={form.validade_dias}
-                  onChange={(e) => setForm((f) => ({ ...f, validade_dias: parseInt(e.target.value) || 15 }))} />
-              </Field>
+            <div className="h-1.5 w-full bg-emerald-50 rounded-full overflow-hidden">
+              <div className="h-full bg-emerald-600 transition-all duration-300" style={{ width: `${pctEtapas}%` }} />
             </div>
-            <Field label="Observações (saem no rodapé do PDF)" className="mt-3">
-              <textarea value={form.observacoes || ''}
-                onChange={(e) => setForm((f) => ({ ...f, observacoes: e.target.value }))}
-                rows={3} placeholder="Prazos de entrega, condições especiais, ressalvas…"
-                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-emerald-400" />
-            </Field>
+            <div className="flex flex-wrap gap-1.5 mt-3">
+              {etapas.map((et, i) => {
+                const feito = !!(form.etapas_concluidas || {})[i];
+                const ativo = i === sClamp;
+                return (
+                  <button key={et.key} type="button" onClick={() => setStep(i)}
+                    className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border transition ${ativo ? 'bg-emerald-600 text-white border-emerald-600' : feito ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-white text-gray-500 border-gray-200 hover:border-emerald-300'}`}>
+                    {feito ? '✓ ' : ''}{i + 1}. {et.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          <div>
-            <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-800 border-b border-emerald-100 pb-1 mb-2">📎 Anexos da proposta</div>
-            <p className="text-[11px] text-gray-400 mb-2">Croqui, imagens de referência, documentos. Saem anexados ao fim do PDF (JPG/PNG/WEBP/PDF).</p>
-            <ImageUploader
-              images={form.anexos || []}
-              onImagesChange={(ids) => setForm((f) => ({ ...f, anexos: ids }))}
-              maxImages={10}
-              label="Anexos"
-              accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf"
-            />
-          </div>
+          <div className="min-h-[280px]">{etapaAtual.node}</div>
 
           <EtapaConcluidaBox
-            stepIndex={0}
-            label={schema.titulo || 'Proposta'}
+            stepIndex={sClamp}
+            label={`${etapaAtual.label} — ${schema.titulo}`}
             form={form}
             onToggle={marcarConcluida}
             entidade="proposta"
           />
+
+          {/* Navegação do wizard */}
+          <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+            <Button type="button" variant="outline" disabled={sClamp === 0}
+              onClick={() => setStep((s) => Math.max(0, s - 1))} className="gap-1">
+              <ArrowLeft className="w-4 h-4" /> Voltar
+            </Button>
+            {ultimo ? (
+              <Button onClick={salvar} disabled={saving || !!preview?.erro} className="bg-emerald-900 hover:bg-emerald-800 text-white gap-1">
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} {editing ? 'Salvar' : 'Criar proposta'}
+              </Button>
+            ) : (
+              <Button type="button" onClick={() => setStep((s) => Math.min(etapas.length - 1, s + 1))}
+                className="bg-emerald-700 hover:bg-emerald-800 text-white gap-1">
+                Avançar <ChevronRight className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Preview ao vivo */}
