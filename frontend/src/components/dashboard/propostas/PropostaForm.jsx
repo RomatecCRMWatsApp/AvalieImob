@@ -10,6 +10,7 @@ import { propostasAPI, clientsAPI } from '../../../lib/api';
 import EtapaConcluidaBox from '../ptam/EtapaConcluidaBox';
 import { comodosPorCategoria, CATEGORIAS_LABEL, ORDEM_CATEGORIAS } from '../../../constants/comodosEdificacao';
 import { PROJETOS_EXECUTIVO_DEFAULT } from '../../../constants/projetosExecutivo';
+import ImageUploader from '../ptam/ImageUploader';
 
 const fmtBRL = (v) => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -247,7 +248,7 @@ const PropostaForm = () => {
         cliente_nome: p.cliente_nome || '', cliente_cpf_cnpj: p.cliente_cpf_cnpj || '',
         cliente_telefone: p.cliente_telefone || '', cliente_email: p.cliente_email || '',
         endereco_imovel: p.endereco_imovel || '', validade_dias: p.validade_dias || 15,
-        observacoes: p.observacoes || '',
+        observacoes: p.observacoes || '', anexos: p.anexos || [], cliente_id: p.cliente_id || '',
         etapas_concluidas: p.etapas_concluidas || {}, etapas_concluidas_em: p.etapas_concluidas_em || {},
         dados_imovel: { ...defaultsDe(sch), ...(p.dados_imovel || {}) },
       });
@@ -472,6 +473,18 @@ const PropostaForm = () => {
               )}
             </div>
           )}
+
+          <div>
+            <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-800 border-b border-emerald-100 pb-1 mb-2">Anexos da proposta</div>
+            <p className="text-[11px] text-gray-400 mb-2">Croqui, imagens de referência, documentos. Saem anexados ao fim do PDF (JPG/PNG/WEBP/PDF).</p>
+            <ImageUploader
+              images={form.anexos || []}
+              onImagesChange={(ids) => setForm((f) => ({ ...f, anexos: ids }))}
+              maxImages={10}
+              label="Anexos"
+              accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf"
+            />
+          </div>
 
           <EtapaConcluidaBox
             stepIndex={0}

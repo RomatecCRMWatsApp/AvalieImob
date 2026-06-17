@@ -78,7 +78,38 @@ def _tabela_itens(itens, st):
     return t
 
 
-def gerar_proposta_pdf(proposta: dict, perfil: dict = None, user: dict = None) -> bytes:
+def _anexo_flowables(anexos_bytes, st):
+    """Anexos (imagens) ao fim da proposta — 1 por página, escalada à largura."""
+    from reportlab.platypus import PageBreak, Image as RLImage
+    from reportlab.lib.utils import ImageReader
+    out = []
+    n = 0
+    for raw in (anexos_bytes or []):
+        if not raw:
+            continue
+        try:
+            ir = ImageReader(io.BytesIO(raw))
+            iw, ih = ir.getSize()
+            w = UTIL_W
+            h = w * (ih / float(iw)) if iw else w
+            max_h = PAGE_H - 6 * cm
+            if h > max_h:
+                h = max_h
+                w = h * (iw / float(ih)) if ih else w
+            n += 1
+            out.append(PageBreak())
+            if n == 1:
+                out.append(Paragraph("Anexos da Proposta", st["sec"]))
+            img = RLImage(io.BytesIO(raw), width=w, height=h)
+            img.hAlign = "CENTER"
+            out.append(img)
+            out.append(Paragraph(f"Anexo {n}", st["obs"]))
+        except Exception:
+            continue
+    return out
+
+
+def gerar_proposta_pdf(proposta: dict, perfil: dict = None, user: dict = None, anexos_bytes=None) -> bytes:
     st = _styles()
     custos = proposta.get("custos_calculados") or {}
     numero = proposta.get("numero", "—")
@@ -215,6 +246,8 @@ def gerar_proposta_pdf(proposta: dict, perfil: dict = None, user: dict = None) -
     el.append(Paragraph(
         f"Proposta válida por {proposta.get('validade_dias', 15)} dias a partir da emissão. "
         f"Valores sujeitos a confirmação após vistoria/análise documental.", st["aviso"]))
+
+    el += _anexo_flowables(anexos_bytes, st)
 
     doc.build(el)
     return buf.getvalue()

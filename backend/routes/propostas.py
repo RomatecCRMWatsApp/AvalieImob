@@ -116,11 +116,34 @@ async def atualizar(pid: str, body: PropostaBase, uid: str = Depends(get_active_
     return serialize_doc(novo)
 
 
-def _proposta_pdf_bytes(doc: dict) -> bytes:
+import base64 as _b64
+
+
+async def _carregar_anexos_bytes(db, doc: dict) -> list:
+    """Carrega os bytes das imagens anexadas (db.images.data_b64) por id."""
+    ids = doc.get("anexos") or []
+    out = []
+    for iid in ids:
+        if isinstance(iid, dict):
+            iid = iid.get("id") or iid.get("image_id") or iid.get("img_id")
+        if not iid:
+            continue
+        img = await db.images.find_one({"id": str(iid)})
+        if img and img.get("data_b64"):
+            try:
+                b = img["data_b64"]
+                out.append(_b64.b64decode(b.split(",", 1)[1] if "," in b else b))
+            except Exception:
+                pass
+    return out
+
+
+async def _proposta_pdf_bytes(db, doc: dict) -> bytes:
     from pdf.proposta_pdf import gerar_proposta_pdf
     doc = dict(doc)
     doc["subtipo_label"] = SUBTIPO_LABEL.get(doc.get("subtipo"), doc.get("subtipo"))
-    return gerar_proposta_pdf(doc)
+    anexos = await _carregar_anexos_bytes(db, doc)
+    return gerar_proposta_pdf(doc, anexos_bytes=anexos)
 
 
 # ── PDF (inline) ───────────────────────────────────────────────────────────
@@ -130,7 +153,7 @@ async def proposta_pdf(pid: str, uid: str = Depends(get_active_subscriber), db=D
     if not doc:
         raise HTTPException(status_code=404, detail="Proposta não encontrada")
     try:
-        pdf = _proposta_pdf_bytes(doc)
+        pdf = await _proposta_pdf_bytes(db, doc)
     except Exception as e:
         logger.exception("Erro ao gerar PDF da proposta %s", pid)
         raise HTTPException(status_code=500, detail=f"Falha ao gerar PDF: {e}")
@@ -193,7 +216,7 @@ async def enviar_proposta(pid: str, body: EnviarPropostaBody,
         raise HTTPException(status_code=400, detail="Informe o WhatsApp do destinatário")
 
     try:
-        pdf = _proposta_pdf_bytes(doc)
+        pdf = await _proposta_pdf_bytes(db, doc)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Falha ao gerar PDF: {e}")
     filename = f"{doc.get('numero', 'proposta')}.pdf".replace("/", "-")
