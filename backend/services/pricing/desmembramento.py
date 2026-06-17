@@ -326,6 +326,9 @@ def calcular_desmembramento(dados: dict) -> dict:
 
     # ── Assessoria Técnica (toggle) ──────────────────────────────────────────
     at_tog = dados.get("assessoria_tecnica")
+    if at_tog is None and dados.get("assessoria_tecnica_habilitada") is not None:
+        at_tog = {"habilitada": bool(dados.get("assessoria_tecnica_habilitada")),
+                  "valor": _num(dados.get("assessoria_tecnica_valor"), 0)}
     if at_tog and at_tog.get("habilitada"):
         valor_at = _num(at_tog.get("valor"), 0)
         if valor_at < 0:
@@ -480,13 +483,15 @@ def calcular_desmembramento(dados: dict) -> dict:
     # ── Despesas administrativas (seção separada, NÃO soma ao total) ─────────
     despesas_adm = None
     da = dados.get("despesas_administrativas")
+    if da is None and dados.get("despesas_administrativas_habilitada") is not None:
+        da = {"habilitada": bool(dados.get("despesas_administrativas_habilitada")),
+              "valor": _num(dados.get("despesas_administrativas_valor"), 0),
+              "descritivo": dados.get("despesas_administrativas_descritivo")}
     if da and da.get("habilitada"):
         valor = _num(da.get("valor"), 0)
-        descritivo = str(da.get("descritivo") or "").strip()
+        descritivo = str(da.get("descritivo") or "").strip() or "Despesas administrativas (cartório/prefeitura) — a cargo do cliente"
         if valor < 0:
-            raise ValueError("despesas_administrativas.valor inválido")
-        if not descritivo:
-            raise ValueError("despesas_administrativas.descritivo obrigatório quando habilitada=true")
+            valor = 0
         despesas_adm = {"valor": valor, "descritivo": descritivo}
 
     custos = {

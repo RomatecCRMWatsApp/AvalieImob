@@ -239,6 +239,19 @@ def gerar_proposta_pdf(proposta: dict, perfil: dict = None, user: dict = None, a
                                 ("LEFTPADDING", (0, 0), (-1, -1), 2)]))
         el.append(to)
 
+    # Despesas administrativas (desmembramento/remembramento) — à parte do total
+    dadm = custos.get("despesas_administrativas")
+    if dadm and (dadm.get("valor") or dadm.get("descritivo")):
+        el.append(Paragraph("Despesas Administrativas (à parte — não inclusas no total)", st["sec"]))
+        td = Table([[Paragraph(_esc(dadm.get("descritivo") or "Despesas administrativas"), st["cell"]),
+                     Paragraph(_brl(dadm.get("valor") or 0), st["cellr"])]],
+                   colWidths=[UTIL_W - 3.2 * cm, 3.2 * cm])
+        td.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"),
+                                ("LINEBELOW", (0, 0), (-1, -1), 0.3, colors.HexColor("#DDE5E0")),
+                                ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                                ("LEFTPADDING", (0, 0), (-1, -1), 2)]))
+        el.append(td)
+
     # 5 — Documentação (checklist)
     chk = custos.get("secao_4_checklist") or []
     if chk:

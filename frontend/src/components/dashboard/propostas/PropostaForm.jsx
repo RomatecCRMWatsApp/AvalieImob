@@ -109,6 +109,10 @@ const SCHEMAS = {
       SEL('honorario_projeto_sm', 'Pacote (honorário/lote)', [
         { value: 0.5, label: 'Básico (0,5 SM/lote)' }, { value: 1, label: 'Completo (1 SM/lote)' }], 1),
       BOOL('iptu_em_dia', 'IPTU em dia?', true),
+      BOOL('assessoria_tecnica_habilitada', 'Assessoria técnica (acompanhamento)?'),
+      { ...N('assessoria_tecnica_valor', 'Valor da assessoria (R$)'), when: (d) => !!d.assessoria_tecnica_habilitada },
+      BOOL('despesas_administrativas_habilitada', 'Despesas administrativas (à parte)?'),
+      { ...N('despesas_administrativas_valor', 'Valor das despesas (R$)'), when: (d) => !!d.despesas_administrativas_habilitada },
     ],
   },
   remembramento: {
@@ -121,6 +125,10 @@ const SCHEMAS = {
       SEL('honorario_projeto_sm', 'Pacote (honorário/matrícula)', [
         { value: 0.5, label: 'Básico (0,5 SM)' }, { value: 1, label: 'Completo (1 SM)' }], 1),
       BOOL('iptu_em_dia', 'IPTU em dia?', true),
+      BOOL('assessoria_tecnica_habilitada', 'Assessoria técnica (acompanhamento)?'),
+      { ...N('assessoria_tecnica_valor', 'Valor da assessoria (R$)'), when: (d) => !!d.assessoria_tecnica_habilitada },
+      BOOL('despesas_administrativas_habilitada', 'Despesas administrativas (à parte)?'),
+      { ...N('despesas_administrativas_valor', 'Valor das despesas (R$)'), when: (d) => !!d.despesas_administrativas_habilitada },
     ],
   },
   demarcacao_urbana: {
