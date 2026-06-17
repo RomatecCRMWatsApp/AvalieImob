@@ -42,6 +42,27 @@ def calcular_demarcacao(dados: dict) -> dict:
     if subtipo not in ("demarcacao_urbana", "demarcacao_rural"):
         raise ValueError(f"subtipo invalido: {subtipo} (esperado: demarcacao_urbana | demarcacao_rural)")
 
+    # ── Conveniência UI: deriva os dicts aninhados de itens diretos/opcionais a
+    #    partir de chaves PLANAS vindas do form genérico (não sobrescreve dicts já dados).
+    if dados.get("laudo_tecnico_direto") is None and dados.get("laudo_tecnico_direto_contratado") is not None:
+        dados["laudo_tecnico_direto"] = {"contratado": bool(dados.get("laudo_tecnico_direto_contratado"))}
+    if dados.get("locacao_kit_gnss") is None and dados.get("kit_gnss_qtd_diarias") is not None:
+        dados["locacao_kit_gnss"] = {"qtd_diarias": _num(dados.get("kit_gnss_qtd_diarias"), 1)}
+    if dados.get("opcionais") is None:
+        _opc = {}
+        if dados.get("opc_croqui") is not None:
+            _opc["croqui_assinado"] = {"contratado": bool(dados.get("opc_croqui"))}
+        if dados.get("opc_acompanhamento") is not None:
+            _opc["acompanhamento_obra"] = {"contratado": bool(dados.get("opc_acompanhamento")),
+                                           "diarias": _num(dados.get("opc_acompanhamento_diarias"), 0)}
+        if dados.get("opc_juridica") is not None:
+            _opc["consultoria_juridica"] = {"contratado": bool(dados.get("opc_juridica"))}
+        if dados.get("alinhamento_cerca_contratado") is not None:
+            _opc["alinhamento_cerca"] = {"contratado": bool(dados.get("alinhamento_cerca_contratado")),
+                                         "metros": _num(dados.get("alinhamento_cerca_metros"), 0)}
+        if _opc:
+            dados["opcionais"] = _opc
+
     area_m2 = dados.get("area_m2")
     area_hectares = dados.get("area_hectares")
     if subtipo == "demarcacao_urbana":

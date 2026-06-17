@@ -239,6 +239,21 @@ def gerar_proposta_pdf(proposta: dict, perfil: dict = None, user: dict = None, a
                                 ("LEFTPADDING", (0, 0), (-1, -1), 2)]))
         el.append(to)
 
+    # Serviços opcionais (demarcação) — informativos, à parte do total
+    opcd = (custos.get("secao_opcionais_demarcacao") or {}).get("linhas") or []
+    opcd = [o for o in opcd if o.get("contratado")]
+    if opcd:
+        el.append(Paragraph("Serviços Opcionais (à parte — não inclusos no total)", st["sec"]))
+        rows = [[Paragraph(_esc(o.get("rotulo", "")), st["cell"]),
+                 Paragraph("Sob orçamento" if o.get("valor") == "sob_orcamento" else _brl(o.get("valor") or 0), st["cellr"])]
+                for o in opcd]
+        td = Table(rows, colWidths=[UTIL_W - 3.2 * cm, 3.2 * cm])
+        td.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"),
+                                ("LINEBELOW", (0, 0), (-1, -1), 0.3, colors.HexColor("#DDE5E0")),
+                                ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                                ("LEFTPADDING", (0, 0), (-1, -1), 2)]))
+        el.append(td)
+
     # Despesas administrativas (desmembramento/remembramento) — à parte do total
     dadm = custos.get("despesas_administrativas")
     if dadm and (dadm.get("valor") or dadm.get("descritivo")):
@@ -260,10 +275,18 @@ def gerar_proposta_pdf(proposta: dict, perfil: dict = None, user: dict = None, a
             marca = "◆" if it.get("imprescindivel") else ("•" if it.get("obrigatorio") else "○")
             el.append(Paragraph(f"{marca} {_esc(it.get('texto', ''))}", st["li"]))
 
+    # Observações do usuário (prazos / condições especiais)
+    obs_user = str(proposta.get("observacoes") or "").strip()
+    if obs_user:
+        el.append(Paragraph("Observações", st["sec"]))
+        for linha in obs_user.split("\n"):
+            if linha.strip():
+                el.append(Paragraph(_esc(linha), st["aviso"]))
+
     # Avisos
     avisos = custos.get("avisos") or []
     if avisos:
-        el.append(Paragraph("Observações e Base Legal", st["sec"]))
+        el.append(Paragraph("Base Legal e Avisos", st["sec"]))
         for a in avisos:
             el.append(Paragraph(_esc(a), st["aviso"]))
 

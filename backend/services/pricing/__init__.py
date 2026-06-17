@@ -23,7 +23,7 @@ CATALOGO_CONSULTORIA = [
     {"subtipo": "demarcacao_rural", "label": "Demarcação Rural", "icone": "TreePine", "disponivel": True, "verificado": True},
     {"subtipo": "desmembramento", "label": "Desmembramento", "icone": "Scissors", "disponivel": True, "verificado": True},
     {"subtipo": "remembramento", "label": "Remembramento", "icone": "Link2", "disponivel": True, "verificado": True},
-    {"subtipo": "retificacao_area", "label": "Retificação de Área", "icone": "Ruler", "disponivel": True, "verificado": False},
+    {"subtipo": "retificacao_area", "label": "Retificação de Área", "icone": "Ruler", "disponivel": True, "verificado": True},
     {"subtipo": "avaliacao_ptam", "label": "Avaliação PTAM", "icone": "Coins", "disponivel": True, "verificado": False},
     {"subtipo": "projeto_executivo", "label": "Projeto Executivo", "icone": "DraftingCompass", "disponivel": True, "verificado": False},
     {"subtipo": "desmembramento_obra", "label": "Desmembramento de Obra", "icone": "Layers", "disponivel": False, "verificado": False},

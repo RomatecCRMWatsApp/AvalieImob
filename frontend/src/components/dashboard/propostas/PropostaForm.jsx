@@ -148,6 +148,13 @@ const SCHEMAS = {
       N('adicional_campo_pct', 'Adicional de campo % (insal/peric, 0–40)'),
       N('desconto_pct', 'Desconto % (0–30)'),
       SEL('num_parcelas', 'Parcelamento', [{ value: 3, label: '3× (40/30/30)' }, { value: 2, label: '2× (50/50)' }], 3),
+      BOOL('laudo_tecnico_direto_contratado', 'Laudo técnico (item direto, soma)?'),
+      BOOL('alinhamento_cerca_contratado', 'Alinhamento de cerca (item direto, soma)?'),
+      { ...N('alinhamento_cerca_metros', 'Metros de cerca'), when: (d) => !!d.alinhamento_cerca_contratado },
+      BOOL('opc_croqui', 'Opcional: croqui assinado (à parte)?'),
+      BOOL('opc_acompanhamento', 'Opcional: acompanhamento de obra (à parte)?'),
+      { ...N('opc_acompanhamento_diarias', 'Diárias de acompanhamento'), when: (d) => !!d.opc_acompanhamento },
+      BOOL('opc_juridica', 'Opcional: consultoria jurídica (à parte)?'),
     ],
   },
   demarcacao_rural: {
@@ -167,29 +174,36 @@ const SCHEMAS = {
       N('adicional_campo_pct', 'Adicional de campo % (insal/peric, 0–40)'),
       N('desconto_pct', 'Desconto % (0–30)'),
       SEL('num_parcelas', 'Parcelamento', [{ value: 3, label: '3× (40/30/30)' }, { value: 2, label: '2× (50/50)' }], 3),
+      BOOL('laudo_tecnico_direto_contratado', 'Laudo técnico (item direto, soma)?'),
+      BOOL('alinhamento_cerca_contratado', 'Alinhamento de cerca (item direto, soma)?'),
+      { ...N('alinhamento_cerca_metros', 'Metros de cerca'), when: (d) => !!d.alinhamento_cerca_contratado },
+      BOOL('opc_croqui', 'Opcional: croqui assinado (à parte)?'),
+      BOOL('opc_acompanhamento', 'Opcional: acompanhamento de obra (à parte)?'),
+      { ...N('opc_acompanhamento_diarias', 'Diárias de acompanhamento'), when: (d) => !!d.opc_acompanhamento },
+      BOOL('opc_juridica', 'Opcional: consultoria jurídica (à parte)?'),
     ],
   },
   projeto_executivo: {
     titulo: 'Projeto Executivo',
     campos: [
-      N('area_construir', 'Área a construir (m²)'),
-      N('area_terreno', 'Área do terreno (m²) — opcional'),
-      N('valor_m2', 'Valor por m² (R$)', 25),
-      BOOL('responsabilidade_auto', 'ART/TRT automático por área?', true, ['Não (escolher)', 'Sim (> 80m² = ART)']),
+      { ...N('area_construir', 'Área a construir (m²)'), grupo: 'parametros' },
+      { ...N('area_terreno', 'Área do terreno (m²) — opcional'), grupo: 'parametros' },
+      { ...N('valor_m2', 'Valor por m² (R$)', 25), grupo: 'parametros' },
+      { ...N('desconto_honorarios', 'Desconto sobre honorários (R$)'), grupo: 'parametros' },
+      { ...BOOL('responsabilidade_auto', 'ART/TRT automático por área?', true, ['Não (escolher)', 'Sim (> 80m² = ART)']), grupo: 'responsabilidade' },
       { ...SEL('responsabilidade_tipo', 'Responsabilidade técnica', [
         { value: 'ART', label: 'ART CREA-MA (R$ 233,94)' }, { value: 'TRT', label: 'TRT CFT/MA (R$ 93,40)' }], 'TRT'),
-        when: (d) => d.responsabilidade_auto === false },
-      N('desconto_honorarios', 'Desconto sobre honorários (R$)'),
+        when: (d) => d.responsabilidade_auto === false, grupo: 'responsabilidade' },
       SEL('forma_pagamento_tag', 'Forma de pagamento', [
         { value: 'sinal_mais_1', label: '50% sinal + 50% entrega' }, { value: 'integral', label: 'À vista (100%)' },
         { value: 'sinal_mais_2', label: 'Sinal + 2× na entrega' }, { value: 'duas_vezes', label: '2× iguais' },
         { value: 'personalizada', label: 'Personalizada' }], 'sinal_mais_1'),
-      BOOL('diligencia_incluir', 'Diligência na Secretaria (despesa)?'),
-      { ...N('diligencia_valor', 'Valor da diligência (R$)'), when: (d) => !!d.diligencia_incluir },
-      BOOL('alvara_incluir', 'Taxa de Alvará de Construção (despesa)?'),
-      { ...N('alvara_valor', 'Valor do alvará (R$)'), when: (d) => !!d.alvara_incluir },
-      BOOL('placa_incluir', 'Placa de Obra (despesa)?'),
-      { ...N('placa_valor', 'Valor da placa (R$)'), when: (d) => !!d.placa_incluir },
+      { ...BOOL('diligencia_incluir', 'Diligência na Secretaria (despesa)?'), grupo: 'despesas' },
+      { ...N('diligencia_valor', 'Valor da diligência (R$)'), when: (d) => !!d.diligencia_incluir, grupo: 'despesas' },
+      { ...BOOL('alvara_incluir', 'Taxa de Alvará de Construção (despesa)?'), grupo: 'despesas' },
+      { ...N('alvara_valor', 'Valor do alvará (R$)'), when: (d) => !!d.alvara_incluir, grupo: 'despesas' },
+      { ...BOOL('placa_incluir', 'Placa de Obra (despesa)?'), grupo: 'despesas' },
+      { ...N('placa_valor', 'Valor da placa (R$)'), when: (d) => !!d.placa_incluir, grupo: 'despesas' },
     ],
   },
 };
@@ -357,6 +371,14 @@ const PropostaForm = () => {
     return <Input value={val ?? ''} onChange={(e) => setDado(campo.key, e.target.value)} />;
   };
 
+  const LABEL_CLS = 'text-[11px] font-bold uppercase tracking-wide text-emerald-800 border-b border-emerald-100 pb-1';
+  const peGrupo = (g) => camposVisiveis.filter((x) => x.grupo === g);
+  const gridCampos = (campos) => (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {campos.map((campo) => <Field key={campo.key} label={campo.label}>{renderCampo(campo)}</Field>)}
+    </div>
+  );
+
   return (
     <div className="max-w-5xl mx-auto pb-24 space-y-5">
       <div className="flex items-center justify-between">
@@ -391,41 +413,26 @@ const PropostaForm = () => {
             <Field label="CPF / CNPJ"><Input value={form.cliente_cpf_cnpj} onChange={(e) => setForm((f) => ({ ...f, cliente_cpf_cnpj: e.target.value }))} /></Field>
             <Field label="Telefone"><Input value={form.cliente_telefone} onChange={(e) => setForm((f) => ({ ...f, cliente_telefone: e.target.value }))} /></Field>
             <Field label="E-mail"><Input value={form.cliente_email} onChange={(e) => setForm((f) => ({ ...f, cliente_email: e.target.value }))} /></Field>
-            <Field label="Endereço do imóvel"><Input value={form.endereco_imovel} onChange={(e) => setForm((f) => ({ ...f, endereco_imovel: e.target.value }))} /></Field>
-            <Field label="Validade (dias)"><Input type="number" value={form.validade_dias} onChange={(e) => setForm((f) => ({ ...f, validade_dias: parseInt(e.target.value) || 15 }))} /></Field>
+            <Field label="Endereço do imóvel / obra" className="sm:col-span-2"><Input value={form.endereco_imovel} onChange={(e) => setForm((f) => ({ ...f, endereco_imovel: e.target.value }))} /></Field>
           </div>
 
-          <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-800 border-b border-emerald-100 pb-1">Dados do serviço (cálculo)</div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {camposVisiveis.map((campo) => <Field key={campo.key} label={campo.label}>{renderCampo(campo)}</Field>)}
-          </div>
-
-          {temPagamentoVisual && (
+          {temPagamentoVisual ? (
             <div>
-              <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-800 border-b border-emerald-100 pb-1 mb-2">Projetos a entregar</div>
-              <div className="space-y-1.5">
-                {projetos.map((p) => (
-                  <div key={p.codigo} className="border border-gray-100 rounded-lg p-2">
-                    <div className="flex items-center gap-2">
-                      <input type="checkbox" checked={!!p.selecionado} onChange={(e) => updProjetos(p.codigo, { selecionado: e.target.checked })}
-                        className="w-4 h-4 accent-emerald-600" />
-                      <span className="text-sm font-medium text-gray-800 flex-1">{p.nome}</span>
-                      <button type="button" onClick={() => setProjEdit(projEdit === p.codigo ? null : p.codigo)}
-                        className="text-[11px] text-emerald-700 hover:underline">{projEdit === p.codigo ? 'fechar' : 'editar detalhamento'}</button>
-                    </div>
-                    {projEdit === p.codigo && (
-                      <textarea value={p.detalhamento_entrega || ''} onChange={(e) => updProjetos(p.codigo, { detalhamento_entrega: e.target.value })}
-                        rows={4} className="w-full mt-2 rounded-lg border border-gray-200 px-2 py-1.5 text-[12px] leading-snug" />
-                    )}
-                  </div>
-                ))}
+              <div className={`${LABEL_CLS} mb-2`}>📐 Parâmetros do Imóvel / Obra</div>
+              {gridCampos(peGrupo('parametros'))}
+            </div>
+          ) : (
+            <div>
+              <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-800 border-b border-emerald-100 pb-1">Dados do serviço (cálculo)</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+                {camposVisiveis.map((campo) => <Field key={campo.key} label={campo.label}>{renderCampo(campo)}</Field>)}
               </div>
             </div>
           )}
 
           {temPagamentoVisual && (
             <div>
-              <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-800 border-b border-emerald-100 pb-1 mb-1">Programa de necessidades — cômodos da edificação</div>
+              <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-800 border-b border-emerald-100 pb-1 mb-1">🏗 Programa de necessidades — cômodos da edificação</div>
               <p className="text-[11px] text-gray-400 mb-2">Marque os cômodos do projeto. {programa.length > 0 ? `${programa.reduce((s, p) => s + (p.quantidade || 1), 0)} cômodo(s) selecionado(s).` : 'Nenhum cômodo selecionado ainda.'}</p>
               <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
                 {ORDEM_CATEGORIAS.map((cat) => (
@@ -457,7 +464,44 @@ const PropostaForm = () => {
 
           {temPagamentoVisual && (
             <div>
-              <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-800 border-b border-emerald-100 pb-1 mb-2">Forma de pagamento dos honorários</div>
+              <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-800 border-b border-emerald-100 pb-1 mb-2">📋 Projetos a entregar</div>
+              <div className="space-y-1.5">
+                {projetos.map((p) => (
+                  <div key={p.codigo} className="border border-gray-100 rounded-lg p-2">
+                    <div className="flex items-center gap-2">
+                      <input type="checkbox" checked={!!p.selecionado} onChange={(e) => updProjetos(p.codigo, { selecionado: e.target.checked })}
+                        className="w-4 h-4 accent-emerald-600" />
+                      <span className="text-sm font-medium text-gray-800 flex-1">{p.nome}</span>
+                      <button type="button" onClick={() => setProjEdit(projEdit === p.codigo ? null : p.codigo)}
+                        className="text-[11px] text-emerald-700 hover:underline">{projEdit === p.codigo ? 'fechar' : 'editar detalhamento'}</button>
+                    </div>
+                    {projEdit === p.codigo && (
+                      <textarea value={p.detalhamento_entrega || ''} onChange={(e) => updProjetos(p.codigo, { detalhamento_entrega: e.target.value })}
+                        rows={4} className="w-full mt-2 rounded-lg border border-gray-200 px-2 py-1.5 text-[12px] leading-snug" />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {temPagamentoVisual && (
+            <div>
+              <div className={`${LABEL_CLS} mb-2`}>⚖️ Responsabilidade Técnica</div>
+              {gridCampos(peGrupo('responsabilidade'))}
+            </div>
+          )}
+
+          {temPagamentoVisual && (
+            <div>
+              <div className={`${LABEL_CLS} mb-2`}>💼 Despesas Administrativas (opcionais — pagas à parte, fora das parcelas 50/50)</div>
+              {gridCampos(peGrupo('despesas'))}
+            </div>
+          )}
+
+          {temPagamentoVisual && (
+            <div>
+              <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-800 border-b border-emerald-100 pb-1 mb-2">💳 Forma de pagamento dos honorários</div>
               <div className="flex flex-wrap gap-2">
                 {PAGAMENTO_TAGS.map((p) => {
                   const ativo = (form.dados_imovel.forma_pagamento_tag || 'sinal_mais_1') === p.tag;
@@ -488,7 +532,23 @@ const PropostaForm = () => {
           )}
 
           <div>
-            <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-800 border-b border-emerald-100 pb-1 mb-2">Anexos da proposta</div>
+            <div className={`${LABEL_CLS} mb-2`}>📋 Prazos e observações</div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <Field label="Validade da proposta (dias)">
+                <Input type="number" value={form.validade_dias}
+                  onChange={(e) => setForm((f) => ({ ...f, validade_dias: parseInt(e.target.value) || 15 }))} />
+              </Field>
+            </div>
+            <Field label="Observações (saem no rodapé do PDF)" className="mt-3">
+              <textarea value={form.observacoes || ''}
+                onChange={(e) => setForm((f) => ({ ...f, observacoes: e.target.value }))}
+                rows={3} placeholder="Prazos de entrega, condições especiais, ressalvas…"
+                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-emerald-400" />
+            </Field>
+          </div>
+
+          <div>
+            <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-800 border-b border-emerald-100 pb-1 mb-2">📎 Anexos da proposta</div>
             <p className="text-[11px] text-gray-400 mb-2">Croqui, imagens de referência, documentos. Saem anexados ao fim do PDF (JPG/PNG/WEBP/PDF).</p>
             <ImageUploader
               images={form.anexos || []}
