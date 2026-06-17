@@ -6,7 +6,7 @@ import { BrandSpinner } from '../../brand/BrandSpinner';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { useToast } from '../../../hooks/use-toast';
-import { propostasAPI } from '../../../lib/api';
+import { propostasAPI, clientsAPI } from '../../../lib/api';
 import EtapaConcluidaBox from '../ptam/EtapaConcluidaBox';
 
 const fmtBRL = (v) => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -184,8 +184,8 @@ const defaultsDe = (schema) => {
   return d;
 };
 
-const Field = ({ label, children }) => (
-  <div className="space-y-1"><label className="text-xs font-medium text-gray-600">{label}</label>{children}</div>
+const Field = ({ label, children, className = '' }) => (
+  <div className={`space-y-1 ${className}`}><label className="text-xs font-medium text-gray-600">{label}</label>{children}</div>
 );
 
 const PropostaForm = () => {
@@ -207,10 +207,26 @@ const PropostaForm = () => {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(editing);
   const [pdfUrl, setPdfUrl] = useState(null);
+  const [clientes, setClientes] = useState([]);
   const debRef = useRef(null);
   const pdfUrlRef = useRef(null);
 
   useEffect(() => () => { if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current); }, []);
+  useEffect(() => { clientsAPI.list().then(setClientes).catch(() => {}); }, []);
+
+  const selecionarCliente = (cid) => {
+    const c = clientes.find((x) => String(x.id) === String(cid));
+    if (!c) return;
+    setForm((f) => ({
+      ...f,
+      cliente_nome: c.name || c.nome || '',
+      cliente_cpf_cnpj: c.doc || c.cpf_cnpj || '',
+      cliente_telefone: c.phone || c.telefone || '',
+      cliente_email: c.email || '',
+      endereco_imovel: f.endereco_imovel || c.endereco || '',
+      cliente_id: c.id,
+    }));
+  };
 
   useEffect(() => {
     if (!editing) return;
@@ -314,6 +330,21 @@ const PropostaForm = () => {
           <div className="font-display text-xl font-bold text-gray-900">{schema.titulo}</div>
 
           <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-800 border-b border-emerald-100 pb-1">Cliente</div>
+          <div className="flex items-end gap-2">
+            <Field label="Selecionar cliente cadastrado" className="flex-1">
+              <select
+                value={form.cliente_id || ''}
+                onChange={(e) => selecionarCliente(e.target.value)}
+                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-emerald-400">
+                <option value="">— Selecione (ou preencha manualmente) —</option>
+                {clientes.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name || c.nome}{(c.doc || c.cpf_cnpj) ? ` · ${c.doc || c.cpf_cnpj}` : ''}</option>
+                ))}
+              </select>
+            </Field>
+            <Button type="button" variant="outline" className="h-9 whitespace-nowrap"
+              onClick={() => window.open('/dashboard/clientes', '_blank')}>+ Novo</Button>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Nome / Razão social"><Input value={form.cliente_nome} onChange={(e) => setForm((f) => ({ ...f, cliente_nome: e.target.value }))} /></Field>
             <Field label="CPF / CNPJ"><Input value={form.cliente_cpf_cnpj} onChange={(e) => setForm((f) => ({ ...f, cliente_cpf_cnpj: e.target.value }))} /></Field>
