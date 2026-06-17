@@ -8,6 +8,7 @@ import { Input } from '../../ui/input';
 import { useToast } from '../../../hooks/use-toast';
 import { propostasAPI, clientsAPI } from '../../../lib/api';
 import EtapaConcluidaBox from '../ptam/EtapaConcluidaBox';
+import { comodosPorCategoria, CATEGORIAS_LABEL, ORDEM_CATEGORIAS } from '../../../constants/comodosEdificacao';
 
 const fmtBRL = (v) => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -304,6 +305,17 @@ const PropostaForm = () => {
     () => (schema.campos || []).filter((c) => c.key !== 'forma_pagamento_tag' && (!c.when || c.when(form.dados_imovel))),
     [schema, form.dados_imovel]);
   const temPagamentoVisual = subtipo === 'projeto_executivo';
+  const COMODOS = useMemo(() => comodosPorCategoria(), []);
+  const programa = form.dados_imovel.programa_necessidades || [];
+  const progMap = useMemo(() => Object.fromEntries(programa.map((p) => [p.codigo, p])), [programa]);
+  const toggleComodo = (cm) => {
+    const next = progMap[cm.codigo]
+      ? programa.filter((p) => p.codigo !== cm.codigo)
+      : [...programa, { codigo: cm.codigo, nome: cm.nome, nome_plural: cm.nome_plural, categoria: cm.categoria, ordem_pdf: cm.ordem_pdf, quantidade: 1 }];
+    setDado('programa_necessidades', next);
+  };
+  const setQtd = (codigo, q) => setDado('programa_necessidades',
+    programa.map((p) => (p.codigo === codigo ? { ...p, quantidade: Math.max(1, q) } : p)));
 
   if (loading) return <div className="py-20 flex justify-center"><BrandSpinner label="Carregando…" /></div>;
   const c = preview?.custos;
@@ -367,6 +379,38 @@ const PropostaForm = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {camposVisiveis.map((campo) => <Field key={campo.key} label={campo.label}>{renderCampo(campo)}</Field>)}
           </div>
+
+          {temPagamentoVisual && (
+            <div>
+              <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-800 border-b border-emerald-100 pb-1 mb-1">Programa de necessidades — cômodos da edificação</div>
+              <p className="text-[11px] text-gray-400 mb-2">Marque os cômodos do projeto. {programa.length > 0 ? `${programa.reduce((s, p) => s + (p.quantidade || 1), 0)} cômodo(s) selecionado(s).` : 'Nenhum cômodo selecionado ainda.'}</p>
+              <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
+                {ORDEM_CATEGORIAS.map((cat) => (
+                  <div key={cat}>
+                    <div className="text-[10px] font-bold text-emerald-700 uppercase tracking-wide mb-1">{CATEGORIAS_LABEL[cat]}</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {COMODOS[cat].map((cm) => {
+                        const sel = progMap[cm.codigo];
+                        return (
+                          <span key={cm.codigo}
+                            className={`inline-flex items-center gap-1 rounded-full border text-[11px] font-medium transition ${sel ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-gray-700 border-gray-200 hover:border-emerald-300'}`}>
+                            <button type="button" onClick={() => toggleComodo(cm)} className="px-2.5 py-1">{cm.icone} {cm.nome}</button>
+                            {sel && (
+                              <span className="flex items-center gap-0.5 pr-1.5">
+                                <button type="button" onClick={() => setQtd(cm.codigo, (sel.quantidade || 1) - 1)} className="w-4 h-4 leading-none rounded-full bg-white/25 hover:bg-white/40">−</button>
+                                <span className="min-w-[14px] text-center">{sel.quantidade || 1}</span>
+                                <button type="button" onClick={() => setQtd(cm.codigo, (sel.quantidade || 1) + 1)} className="w-4 h-4 leading-none rounded-full bg-white/25 hover:bg-white/40">+</button>
+                              </span>
+                            )}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {temPagamentoVisual && (
             <div>

@@ -140,10 +140,22 @@ def gerar_proposta_pdf(proposta: dict, perfil: dict = None, user: dict = None) -
 
     # 1 — Objeto / Escopo
     s1 = custos.get("secao_1_projetos") or []
-    if s1:
+    prog = (proposta.get("programa_necessidades")
+            or (proposta.get("dados_imovel") or {}).get("programa_necessidades") or [])
+    if s1 or prog:
         el.append(Paragraph("1. Objeto e Escopo dos Serviços", st["sec"]))
         for item in s1:
             el.append(Paragraph(f"• {_esc(item)}", st["li"]))
+        if prog:
+            prog = sorted(prog, key=lambda p: p.get("ordem_pdf", 999))
+            partes = []
+            for p in prog:
+                q = int(p.get("quantidade") or 1)
+                nome = p.get("nome_plural") if q > 1 else p.get("nome")
+                partes.append(f"{q} {_esc(nome)}")
+            el.append(Spacer(1, 4))
+            el.append(Paragraph("<b>Programa de Necessidades</b> (cômodos da edificação): "
+                                + "; ".join(partes) + ".", st["body"]))
 
     # 2 — Taxas de terceiros
     t2 = _tabela_itens(custos.get("secao_2_taxas"), st)

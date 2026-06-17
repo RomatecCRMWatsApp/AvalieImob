@@ -149,6 +149,7 @@ async def preview_pdf(body: PropostaPreviewRequest, uid: str = Depends(get_activ
         "numero": "PRÉVIA", "subtipo": body.subtipo,
         "subtipo_label": SUBTIPO_LABEL.get(body.subtipo, body.subtipo),
         "custos_calculados": resultado["custos"],
+        "dados_imovel": body.dados_imovel,
         "cliente_nome": getattr(body, "cliente_nome", None),
         "validade_dias": getattr(body, "validade_dias", 15),
     }
