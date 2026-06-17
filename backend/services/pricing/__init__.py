@@ -9,6 +9,7 @@ from services.pricing.ptam import calcular_avaliacao_ptam
 from services.pricing.georreferenciamento import calcular_georreferenciamento
 from services.pricing.desmembramento import calcular_desmembramento
 from services.pricing.demarcacao import calcular_demarcacao
+from services.pricing.projeto_executivo import calcular_projeto_executivo
 
 # Catálogo dos tipos de proposta de consultoria (espelha a ZAYRA).
 # `disponivel=False` → aparece no card como "Em breve" (engine ainda não portado).
@@ -22,7 +23,7 @@ CATALOGO_CONSULTORIA = [
     {"subtipo": "remembramento", "label": "Remembramento", "icone": "Link2", "disponivel": True},
     {"subtipo": "retificacao_area", "label": "Retificação de Área", "icone": "Ruler", "disponivel": True},
     {"subtipo": "avaliacao_ptam", "label": "Avaliação PTAM", "icone": "Coins", "disponivel": True},
-    {"subtipo": "projeto_executivo", "label": "Projeto Executivo", "icone": "DraftingCompass", "disponivel": False},
+    {"subtipo": "projeto_executivo", "label": "Projeto Executivo", "icone": "DraftingCompass", "disponivel": True},
     {"subtipo": "desmembramento_obra", "label": "Desmembramento de Obra", "icone": "Layers", "disponivel": False},
 ]
 
@@ -57,6 +58,8 @@ def calcular_consultoria(subtipo: str, dados: dict) -> dict:
     if subtipo == "demarcacao_rural":
         dados["subtipo"] = "demarcacao_rural"
         return calcular_demarcacao(dados)
+    if subtipo == "projeto_executivo":
+        return calcular_projeto_executivo(dados)
     raise ValueError(
         f"O cálculo do tipo '{SUBTIPO_LABEL.get(subtipo, subtipo)}' ainda não está disponível "
         f"(em implementação). Tipos disponíveis: {', '.join(sorted(SUBTIPOS_DISPONIVEIS))}."

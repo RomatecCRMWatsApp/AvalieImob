@@ -152,6 +152,29 @@ const SCHEMAS = {
       SEL('num_parcelas', 'Parcelamento', [{ value: 3, label: '3× (40/30/30)' }, { value: 2, label: '2× (50/50)' }], 3),
     ],
   },
+  projeto_executivo: {
+    titulo: 'Projeto Executivo',
+    campos: [
+      N('area_construir', 'Área a construir (m²)'),
+      N('area_terreno', 'Área do terreno (m²) — opcional'),
+      N('valor_m2', 'Valor por m² (R$)', 25),
+      BOOL('responsabilidade_auto', 'ART/TRT automático por área?', true, ['Não (escolher)', 'Sim (> 80m² = ART)']),
+      { ...SEL('responsabilidade_tipo', 'Responsabilidade técnica', [
+        { value: 'ART', label: 'ART CREA-MA (R$ 233,94)' }, { value: 'TRT', label: 'TRT CFT/MA (R$ 93,40)' }], 'TRT'),
+        when: (d) => d.responsabilidade_auto === false },
+      N('desconto_honorarios', 'Desconto sobre honorários (R$)'),
+      SEL('forma_pagamento_tag', 'Forma de pagamento', [
+        { value: 'sinal_mais_1', label: '50% sinal + 50% entrega' }, { value: 'integral', label: 'À vista (100%)' },
+        { value: 'sinal_mais_2', label: 'Sinal + 2× na entrega' }, { value: 'duas_vezes', label: '2× iguais' },
+        { value: 'personalizada', label: 'Personalizada' }], 'sinal_mais_1'),
+      BOOL('diligencia_incluir', 'Diligência na Secretaria (despesa)?'),
+      { ...N('diligencia_valor', 'Valor da diligência (R$)'), when: (d) => !!d.diligencia_incluir },
+      BOOL('alvara_incluir', 'Taxa de Alvará de Construção (despesa)?'),
+      { ...N('alvara_valor', 'Valor do alvará (R$)'), when: (d) => !!d.alvara_incluir },
+      BOOL('placa_incluir', 'Placa de Obra (despesa)?'),
+      { ...N('placa_valor', 'Valor da placa (R$)'), when: (d) => !!d.placa_incluir },
+    ],
+  },
 };
 
 const defaultsDe = (schema) => {
