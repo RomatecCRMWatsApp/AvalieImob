@@ -92,6 +92,11 @@ const SCHEMAS = {
         { value: 'REMEMBRAMENTO', label: 'Remembramento' }, { value: 'RETIFICACAO', label: 'Retificação' }], 'CERTIFICACAO'),
       BOOL('tem_matricula', 'Possui matrícula registrada?', true),
       N('valor_outros_servicos', 'Outros serviços / despesas (R$)'),
+      BOOL('opc_ccir', 'Opcional: CCIR (INCRA)?'),
+      BOOL('opc_car', 'Opcional: CAR (Cadastro Ambiental Rural)?'),
+      BOOL('opc_itr', 'Opcional: ITR / DITR?'),
+      BOOL('opc_anuencia', 'Opcional: Anuência de confrontantes?'),
+      BOOL('opc_retificacao', 'Opcional: Retificação de área?'),
     ],
   },
   desmembramento: {

@@ -238,8 +238,14 @@ def calcular_georreferenciamento(dados: dict) -> dict:
     op_param = OPCIONAIS_GEORREF
 
     def _opc(chave: str) -> dict:
-        v = opc.get(chave) or {}
-        return v
+        v = opc.get(chave)
+        if v:
+            return v
+        # fallback p/ o form genérico (flat): opc_ccir / opc_car / ... = bool
+        flat = dados.get(f"opc_{chave}")
+        if flat is not None:
+            return {"contratado": bool(flat)}
+        return {}
 
     opc_itens = []
     subtotal_opcionais = 0.0

@@ -225,6 +225,20 @@ def gerar_proposta_pdf(proposta: dict, perfil: dict = None, user: dict = None, a
                                 ("LEFTPADDING", (0, 0), (-1, -1), 2)]))
         el.append(tc)
 
+    # Serviços opcionais (georref) — informativos, à parte do total
+    opc = (custos.get("secao_opcionais_georref") or {}).get("itens") or []
+    opc = [o for o in opc if o.get("contratado")]
+    if opc:
+        el.append(Paragraph("Serviços Opcionais (à parte — não inclusos no total)", st["sec"]))
+        rows = [[Paragraph(_esc(o.get("rotulo", "")), st["cell"]),
+                 Paragraph(_brl(o.get("subtotal") or o.get("valor") or 0), st["cellr"])] for o in opc]
+        to = Table(rows, colWidths=[UTIL_W - 3.2 * cm, 3.2 * cm])
+        to.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"),
+                                ("LINEBELOW", (0, 0), (-1, -1), 0.3, colors.HexColor("#DDE5E0")),
+                                ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                                ("LEFTPADDING", (0, 0), (-1, -1), 2)]))
+        el.append(to)
+
     # 5 — Documentação (checklist)
     chk = custos.get("secao_4_checklist") or []
     if chk:
