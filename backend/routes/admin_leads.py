@@ -80,6 +80,17 @@ async def stats(db=Depends(get_db)):
         por_status = {d["_id"]: d["n"] async for d in cursor}
         desde = datetime.now(timezone.utc) - timedelta(days=30)
         ultimos_30 = await db[COL].count_documents({"criado_em": {"$gte": desde}})
+        # Conversão por origem (A/B das 3 calculadoras)
+        cursor_o = db[COL].aggregate([{"$group": {
+            "_id": "$origem", "total": {"$sum": 1},
+            "convertidos": {"$sum": {"$cond": [{"$eq": ["$status", "convertido"]}, 1, 0]}},
+        }}])
+        por_origem = [{
+            "origem": (d["_id"] or "calculadora_publica"),
+            "total": d["total"], "convertidos": d["convertidos"],
+            "taxa_conversao": round((d["convertidos"] / d["total"]) * 100, 1) if d["total"] else 0.0,
+        } async for d in cursor_o]
+        por_origem.sort(key=lambda x: x["total"], reverse=True)
     except Exception as e:  # noqa: BLE001
         logger.exception("admin_leads: erro nas stats")
         raise HTTPException(500, "Falha ao calcular estatísticas.") from e
@@ -95,6 +106,7 @@ async def stats(db=Depends(get_db)):
         "descartados": por_status.get("descartado", 0),
         "ultimos_30_dias": ultimos_30,
         "taxa_conversao": taxa,
+        "por_origem": por_origem,
     }
 
 

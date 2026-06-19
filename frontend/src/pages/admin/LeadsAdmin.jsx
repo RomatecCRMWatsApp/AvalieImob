@@ -107,6 +107,26 @@ export default function LeadsAdmin() {
         </div>
       )}
 
+      {stats?.por_origem?.length > 0 && (
+        <div className="rounded-xl bg-white p-4 shadow-sm border border-gray-100 mb-6">
+          <p className="text-xs font-bold uppercase tracking-wide text-gray-500 mb-3">Conversão por origem (A/B)</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {stats.por_origem.map((o) => (
+              <div key={o.origem} className="rounded-lg border border-gray-100 p-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-gray-800">{origemFmt(o.origem)}</span>
+                  <span className="text-sm font-bold" style={{ color: DOURADO }}>{o.taxa_conversao}%</span>
+                </div>
+                <p className="text-xs text-gray-500 mt-0.5">{o.total} lead(s) · {o.convertidos} convertido(s)</p>
+                <div className="h-1.5 w-full bg-gray-100 rounded-full mt-2 overflow-hidden">
+                  <div className="h-full rounded-full" style={{ width: `${Math.min(o.taxa_conversao, 100)}%`, backgroundColor: VERDE }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row gap-3 mb-4">
         <select className="rounded-lg border border-gray-300 px-3 py-2 bg-white text-sm"
           value={filtroStatus} onChange={(e) => { setPage(1); setFiltroStatus(e.target.value); }}>
