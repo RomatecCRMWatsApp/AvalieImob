@@ -19,6 +19,7 @@ import ContratoPublico from './pages/ContratoPublico';
 import AceiteContrato from './pages/AceiteContrato';
 import AssinarCliente from './pages/AssinarCliente';
 import VerificarContrato from './pages/VerificarContrato';
+import AvaliacaoPublica from './pages/AvaliacaoPublica';
 import ServicoPTAM from './pages/ServicoPTAM';
 import ServicoLaudoTecnico from './pages/ServicoLaudoTecnico';
 import ServicoAvaliacaoRural from './pages/ServicoAvaliacaoRural';
@@ -148,6 +149,7 @@ function App() {
                 <Route path="/aceite/:token" element={<AceiteContrato />} />
                 <Route path="/assinar-cliente/:token" element={<AssinarCliente />} />
                 <Route path="/verificar/:hash" element={<VerificarContrato />} />
+                <Route path="/quanto-vale-meu-imovel" element={<AvaliacaoPublica />} />
                 <Route path="/dashboard/*" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>

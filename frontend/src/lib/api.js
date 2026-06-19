@@ -637,3 +637,9 @@ export const recibosAPI = {
   removerAnexo: (id, anexoId) =>
     api.delete(`/recibos/${id}/anexos/${anexoId}`).then(r => r.data),
 };
+
+// Calculadora pública "Quanto vale meu imóvel?" + captura de lead (sem auth)
+export const avaliacaoPublicaAPI = {
+  estimar: (imovel) => api.post('/avaliacao-publica/estimar', imovel).then((r) => r.data),
+  lead: (payload) => api.post('/avaliacao-publica/lead', payload).then((r) => r.data),
+};

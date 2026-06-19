@@ -311,6 +311,7 @@ async def sitemap():
         ("/avaliacao-urbana",            "0.9", "monthly"),
         ("/avaliacao-imovel",            "1.0", "weekly"),
         ("/avaliacao-imobiliaria",       "1.0", "weekly"),
+        ("/quanto-vale-meu-imovel",      "0.9", "monthly"),
         ("/blog",                        "0.8", "daily"),
         ("/blog/como-fazer-ptam-passo-a-passo-nbr-14653",           "0.8", "monthly"),
         ("/blog/diferenca-ptam-laudo-avaliacao-imobiliaria",         "0.8", "monthly"),
@@ -582,6 +583,13 @@ async def startup():
         await db.contratos_exclusividade.create_index("expira_em")
     except Exception as e:
         logger.error(f"Erro ao criar índices de contratos_exclusividade: {e}")
+    # Índices da Calculadora pública (leads) — idempotente.
+    try:
+        db = get_db()
+        await db.leads_avaliacao.create_index([("criado_em", -1)])
+        await db.leads_avaliacao.create_index([("status", 1), ("criado_em", -1)])
+    except Exception as e:
+        logger.error(f"Erro ao criar índices de leads_avaliacao: {e}")
     # Auto-seed TVI é opcional e deve ser explicitamente habilitado.
     enable_tvi_autoseed = os.getenv("ENABLE_TVI_AUTOSEED", "").strip().lower() in {"1", "true", "yes", "on"}
     if not enable_tvi_autoseed:
