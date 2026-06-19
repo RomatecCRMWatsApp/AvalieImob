@@ -47,6 +47,9 @@ const Navbar = () => {
         </nav>
 
         <div className="hidden lg:flex items-center gap-3">
+          <Link to="/quanto-vale-meu-imovel">
+            <Button variant="outline" className="border-amber-500 text-amber-700 hover:bg-amber-50 font-semibold">Quanto vale meu imóvel?</Button>
+          </Link>
           {isLoggedIn ? (
             <Link to="/dashboard"><Button className="bg-emerald-900 hover:bg-emerald-800 text-white">Meu Escritório AvalieImob</Button></Link>
           ) : (
@@ -76,6 +79,9 @@ const Navbar = () => {
                 {l.label}
               </a>
             ))}
+            <Link to="/quanto-vale-meu-imovel" onClick={() => setOpen(false)}>
+              <Button variant="outline" className="w-full border-amber-500 text-amber-700 hover:bg-amber-50 font-semibold">Quanto vale meu imóvel?</Button>
+            </Link>
             <div className="flex gap-3 pt-4 border-t border-gray-100">
               {isLoggedIn ? (
                 <Link to="/dashboard" className="flex-1"><Button className="w-full bg-emerald-900 hover:bg-emerald-800 text-white">Meu Escritório AvalieImob</Button></Link>

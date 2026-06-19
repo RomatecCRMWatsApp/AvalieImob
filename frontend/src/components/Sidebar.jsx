@@ -8,7 +8,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Building2, BarChart3, FileCheck2, Shield, Beef, Home,
   ClipboardCheck, FileText, FileSignature, Receipt, Sparkles, FileSearch, Award,
-  CreditCard, Settings, LogOut, Globe, Search, Palette, Tag, BadgeCheck, Stamp, Inbox,
+  CreditCard, Settings, LogOut, Globe, Search, Palette, Tag, BadgeCheck, Stamp, Inbox, Calculator,
 } from 'lucide-react';
 import { ptamAPI } from '../lib/api';
 import { BrandMark } from './brand/BrandMark';
@@ -224,6 +224,14 @@ export default function Sidebar({
             notification={0}
             onClick={() => go('/')}
           />
+          {isAdmin && (
+            <NavItem
+              item={{ id: 'calc-publica', label: 'Calculadora pública', icon: Calculator, route: '/quanto-vale-meu-imovel' }}
+              active={false}
+              notification={0}
+              onClick={() => window.open('/quanto-vale-meu-imovel', '_blank', 'noopener')}
+            />
+          )}
         </div>
       </div>
 
