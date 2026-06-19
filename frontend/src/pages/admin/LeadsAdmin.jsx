@@ -16,6 +16,14 @@ const STATUS = {
   descartado: { label: 'Descartado', cor: '#6b7280', bg: '#f9fafb' },
 };
 
+const ORIGEM_LABEL = {
+  calc_portal: 'Portal',
+  calc_classica: 'Clássica',
+  calc_premium: 'Premium',
+  calculadora_publica: 'Calculadora',
+};
+const origemFmt = (o) => ORIGEM_LABEL[o] || o || '—';
+
 const brl = (n) => n == null ? '—' :
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(n);
 
@@ -126,6 +134,7 @@ export default function LeadsAdmin() {
                   <th className="px-4 py-3">Lead</th>
                   <th className="px-4 py-3">Imóvel</th>
                   <th className="px-4 py-3">Estimativa</th>
+                  <th className="px-4 py-3">Origem</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Data</th>
                   <th className="px-4 py-3"></th>
@@ -133,7 +142,7 @@ export default function LeadsAdmin() {
               </thead>
               <tbody>
                 {leads.length === 0 ? (
-                  <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">Nenhum lead encontrado.</td></tr>
+                  <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">Nenhum lead encontrado.</td></tr>
                 ) : leads.map((l) => (
                   <tr key={l.id} className="border-b last:border-0 hover:bg-gray-50">
                     <td className="px-4 py-3">
@@ -148,6 +157,11 @@ export default function LeadsAdmin() {
                     </td>
                     <td className="px-4 py-3 text-gray-700">
                       {brl(l.estimativa?.valor_min)} – {brl(l.estimativa?.valor_max)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="inline-block rounded-full bg-gray-100 text-gray-600 text-xs font-medium px-2 py-0.5">
+                        {origemFmt(l.origem)}
+                      </span>
                     </td>
                     <td className="px-4 py-3">
                       <select value={l.status} onChange={(e) => mudarStatus(l.id, e.target.value)}

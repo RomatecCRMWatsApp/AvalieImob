@@ -10,7 +10,7 @@ const inp =
 const lab = 'block text-xs font-semibold text-[#cdd9d1] mb-1.5 text-left';
 
 export default function CalculadoraPremium() {
-  const v = useAvaliacao();
+  const v = useAvaliacao('calc_premium');
   return (
     <div className="min-h-screen flex items-center justify-center p-4"
       style={{ background: 'radial-gradient(120% 90% at 50% 0%,#0f3d28,#07251A 70%)' }}>

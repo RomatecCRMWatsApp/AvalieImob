@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { maskFone } from '../lib/format';
 import { avaliacaoPublicaAPI } from '../lib/api';
 
-export function useAvaliacao() {
+export function useAvaliacao(origem = 'calculadora_publica') {
   const [step, setStep] = useState('form'); // form | result | done
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState('');
@@ -61,6 +61,7 @@ export function useAvaliacao() {
         whatsapp: contato.whatsapp,
         email: contato.email || null,
         imovel: payload(),
+        origem,
       });
       setStep('done');
     } catch (err) {

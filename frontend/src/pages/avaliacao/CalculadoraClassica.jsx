@@ -10,7 +10,7 @@ const inp =
 const lab = 'block text-xs font-semibold text-[#41504a] mb-1.5';
 
 export default function CalculadoraClassica() {
-  const v = useAvaliacao();
+  const v = useAvaliacao('calc_classica');
   return (
     <div className="min-h-screen bg-[#EEF1ED] flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-white border border-[#dfe4df] border-t-4 border-t-[#C9A84C] rounded-md shadow-[0_14px_40px_-28px_rgba(12,51,32,0.5)]">

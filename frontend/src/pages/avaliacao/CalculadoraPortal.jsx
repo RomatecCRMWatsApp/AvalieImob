@@ -10,7 +10,7 @@ const inp =
 const lab = 'block text-xs font-semibold text-[#52615a] mb-1.5';
 
 export default function CalculadoraPortal() {
-  const v = useAvaliacao();
+  const v = useAvaliacao('calc_portal');
   return (
     <div className="min-h-screen bg-[#F6F8F7] flex items-center justify-center p-4">
       <div className="w-full max-w-3xl bg-white rounded-3xl shadow-[0_30px_70px_-40px_rgba(12,51,32,0.45)] overflow-hidden grid md:grid-cols-2">
