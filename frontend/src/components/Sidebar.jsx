@@ -8,7 +8,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Building2, BarChart3, FileCheck2, Shield, Beef, Home,
   ClipboardCheck, FileText, FileSignature, Receipt, Sparkles, FileSearch, Award,
-  CreditCard, Settings, LogOut, Globe, Search, Palette, Tag, BadgeCheck, Stamp,
+  CreditCard, Settings, LogOut, Globe, Search, Palette, Tag, BadgeCheck, Stamp, Inbox,
 } from 'lucide-react';
 import { ptamAPI } from '../lib/api';
 import { BrandMark } from './brand/BrandMark';
@@ -160,6 +160,7 @@ export default function Sidebar({
           ...g.items,
           { id: 'cupons', label: 'Cupons Promo', icon: Tag, route: '/dashboard/admin/cupons' },
           { id: 'usuarios', label: 'Usuários', icon: Users, route: '/dashboard/admin/usuarios' },
+          { id: 'leads', label: 'Leads', icon: Inbox, route: '/dashboard/admin/leads' },
         ] }
       : g
   );

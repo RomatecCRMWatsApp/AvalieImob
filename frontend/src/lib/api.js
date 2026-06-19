@@ -250,6 +250,11 @@ export const adminAPI = {
   createTestUser: (data) => api.post('/admin/create-test-user', data).then(r => r.data),
   excluirUsuario: (id) => api.delete(`/admin/users/${id}`).then(r => r.data),
   excluirInativos: () => api.post('/admin/users/excluir-inativos').then(r => r.data),
+  // Leads da Calculadora pública
+  listLeads: (params = {}) => api.get('/admin/leads', { params }).then(r => r.data),
+  leadsStats: () => api.get('/admin/leads/stats').then(r => r.data),
+  atualizarLead: (id, data) => api.patch(`/admin/leads/${id}`, data).then(r => r.data),
+  excluirLead: (id) => api.delete(`/admin/leads/${id}`).then(r => r.data),
 };
 
 // ---- Evaluations
