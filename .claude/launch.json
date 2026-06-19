@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "avalieimob-build",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["--yes", "serve", "-s", "frontend/build", "-l", "5055"],
+      "port": 5055
+    }
+  ]
+}

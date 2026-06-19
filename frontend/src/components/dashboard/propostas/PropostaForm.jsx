@@ -251,7 +251,7 @@ const PropostaForm = () => {
   const pdfUrlRef = useRef(null);
 
   useEffect(() => () => { if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current); }, []);
-  useEffect(() => { clientsAPI.list().then(setClientes).catch(() => {}); }, []);
+  useEffect(() => { clientsAPI.list().then((d) => setClientes(Array.isArray(d) ? d : [])).catch(() => {}); }, []);
 
   const selecionarCliente = (cid) => {
     const c = clientes.find((x) => String(x.id) === String(cid));
@@ -336,7 +336,7 @@ const PropostaForm = () => {
     [schema, form.dados_imovel]);
   const temPagamentoVisual = subtipo === 'projeto_executivo';
   const COMODOS = useMemo(() => comodosPorCategoria(), []);
-  const programa = form.dados_imovel.programa_necessidades || [];
+  const programa = Array.isArray(form.dados_imovel.programa_necessidades) ? form.dados_imovel.programa_necessidades : [];
   const progMap = useMemo(() => Object.fromEntries(programa.map((p) => [p.codigo, p])), [programa]);
   const toggleComodo = (cm) => {
     const next = progMap[cm.codigo]
@@ -347,7 +347,7 @@ const PropostaForm = () => {
   const setQtd = (codigo, q) => setDado('programa_necessidades',
     programa.map((p) => (p.codigo === codigo ? { ...p, quantidade: Math.max(1, q) } : p)));
 
-  const projetos = form.dados_imovel.projetos_selecionados || PROJETOS_EXECUTIVO_DEFAULT;
+  const projetos = Array.isArray(form.dados_imovel.projetos_selecionados) ? form.dados_imovel.projetos_selecionados : PROJETOS_EXECUTIVO_DEFAULT;
   const [projEdit, setProjEdit] = useState(null);
   const updProjetos = (codigo, patch) => setDado('projetos_selecionados',
     projetos.map((p) => (p.codigo === codigo ? { ...p, ...patch } : p)));
