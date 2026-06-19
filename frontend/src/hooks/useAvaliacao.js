@@ -5,6 +5,16 @@ import { useState } from 'react';
 import { maskFone } from '../lib/format';
 import { avaliacaoPublicaAPI } from '../lib/api';
 
+// Extrai SEMPRE uma string de erro. O FastAPI devolve `detail` como ARRAY de objetos
+// em validação (422); renderizar isso como filho React quebra a tela (React #31).
+function msgErro(err, fallback) {
+  const d = err?.response?.data?.detail;
+  if (Array.isArray(d)) return d[0]?.msg || fallback;
+  if (typeof d === 'string') return d;
+  if (d && typeof d === 'object') return d.msg || fallback;
+  return fallback;
+}
+
 export function useAvaliacao(origem = 'calculadora_publica') {
   const [step, setStep] = useState('form'); // form | result | done
   const [loading, setLoading] = useState(false);
@@ -43,7 +53,7 @@ export function useAvaliacao(origem = 'calculadora_publica') {
       setEstimativa(data);
       setStep('result');
     } catch (err) {
-      setErro(err?.response?.data?.detail || 'Não foi possível calcular agora.');
+      setErro(msgErro(err, 'Não foi possível calcular agora.'));
     } finally {
       setLoading(false);
     }
@@ -65,7 +75,7 @@ export function useAvaliacao(origem = 'calculadora_publica') {
       });
       setStep('done');
     } catch (err) {
-      setErro(err?.response?.data?.detail || 'Não foi possível enviar. Tente novamente.');
+      setErro(msgErro(err, 'Não foi possível enviar. Tente novamente.'));
     } finally {
       setLoading(false);
     }

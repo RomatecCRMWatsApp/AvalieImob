@@ -13,9 +13,12 @@ Adaptado às convenções do AvalieImob (vs. o spec original que assumia env-var
   - Z-API reusa services.zapi_service + carregar_integracoes do OWNER (não env próprio):
     a notificação ao José sai pela integração já configurada do dono da conta.
   - rate-limit local (mesmo padrão de routes.assinatura_cliente).
-"""
-from __future__ import annotations
 
+NOTA (NÃO reintroduzir `from __future__ import annotations`): com PEP 563 as anotações
+viram strings e o wrapper do slowapi (@limiter.limit + functools.wraps) faz o FastAPI
+resolver os type hints no namespace do slowapi — onde `EstimativaInput` não existe —
+então o body Pydantic é tratado como query param e o /estimar responde 422 "Field required".
+"""
 import logging
 import os
 import re
