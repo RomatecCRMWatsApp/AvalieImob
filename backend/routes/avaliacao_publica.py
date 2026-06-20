@@ -31,6 +31,7 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from db import get_db
+from dependencies import get_admin_user
 
 logger = logging.getLogger("romatec")
 limiter = Limiter(key_func=get_remote_address)
@@ -156,17 +157,26 @@ _CONSERV_LABEL = {"novo": "Novo", "bom": "Bom", "regular": "Regular", "reformar"
 
 
 def _base_m2_info(uf: str, cidade: str):
-    """Retorna (base_R$/m², rótulo da base) — cidade mapeada, senão UF, senão nacional."""
+    """Retorna (base_R$/m², rótulo, calibrado?). PRIORIZA a base REAL calibrada dos
+    PTAMs emitidos (services.calibracao_base_m2); só cai na SEMENTE se não houver."""
+    try:
+        from services.calibracao_base_m2 import base_calibrada
+        cal = base_calibrada(uf, cidade)
+        if cal:
+            media, n, label = cal
+            return media, f"{label} · {n} avaliações reais", True
+    except Exception:  # noqa: BLE001 — calibração indisponível → semente
+        pass
     chave_cidade = f"{uf}:{_norm(cidade)}"
     if chave_cidade in BASE_M2_POR_REGIAO:
-        return BASE_M2_POR_REGIAO[chave_cidade], f"{(cidade or '').strip().title()}/{uf}"
+        return BASE_M2_POR_REGIAO[chave_cidade], f"{(cidade or '').strip().title()}/{uf}", False
     if uf in BASE_M2_POR_REGIAO:
-        return BASE_M2_POR_REGIAO[uf], f"{uf} — base estadual"
-    return BASE_M2_POR_REGIAO["_default"], "Base nacional média"
+        return BASE_M2_POR_REGIAO[uf], f"{uf} — base estadual", False
+    return BASE_M2_POR_REGIAO["_default"], "Base nacional média", False
 
 
 def calcular_estimativa(dados: EstimativaInput) -> EstimativaOutput:
-    base, regiao_base = _base_m2_info(dados.uf, dados.cidade)
+    base, regiao_base, calibrado = _base_m2_info(dados.uf, dados.cidade)
     fator_vagas = 1.0 + min(dados.vagas, 4) * 0.025
 
     f_tipo = FATOR_TIPO[dados.tipo]
@@ -188,11 +198,16 @@ def calcular_estimativa(dados: EstimativaInput) -> EstimativaOutput:
         "fins judiciais, garantia bancária, inventário ou desapropriação é "
         "obrigatório documento técnico assinado por profissional habilitado."
     )
+    origem_base = (
+        "valor de referência por m² calibrado com avaliações (PTAM) reais da região"
+        if calibrado else
+        "valor de referência por m² da região"
+    )
     metodologia = (
         "Cálculo por Análise Comparativa de Mercado (ACM) simplificada, inspirada na "
-        "ABNT NBR 14.653-2: parte-se de um valor de referência por m² da região e "
-        "aplicam-se fatores de homogeneização por tipo de imóvel, padrão construtivo, "
-        "estado de conservação e nº de vagas; a faixa reflete ±12% de dispersão de mercado."
+        f"ABNT NBR 14.653-2: parte-se de um {origem_base} e aplicam-se fatores de "
+        "homogeneização por tipo de imóvel, padrão construtivo, estado de conservação "
+        "e nº de vagas; a faixa reflete ±12% de dispersão de mercado."
     )
     fatores = [
         {"label": _TIPO_LABEL.get(dados.tipo, dados.tipo), "fator": round(f_tipo, 3)},
@@ -307,3 +322,36 @@ async def registrar_lead(lead: LeadInput, request: Request, db=Depends(get_db)) 
     await _notificar_avaliador(db, msg)
 
     return {"ok": True, "id": str(result.inserted_id)}
+
+
+# ===========================================================================
+# Admin — recalibrar a base R$/m² a partir dos PTAMs reais (gated por get_admin_user)
+# ===========================================================================
+async def _owner_uid(db) -> Optional[str]:
+    owner = await db.users.find_one({"email": OWNER_EMAIL})
+    if not owner:
+        return None
+    return owner.get("id") or owner.get("user_id") or str(owner.get("_id"))
+
+
+@router.post("/recalibrar-base")
+async def recalibrar_base(db=Depends(get_db), _admin: str = Depends(get_admin_user)) -> dict:
+    """Reagrega os PTAMs concluídos/assinados do dono → base R$/m² real por cidade/UF."""
+    from services.calibracao_base_m2 import recalibrar
+    uid = await _owner_uid(db)
+    if not uid:
+        raise HTTPException(404, "Conta dona (owner) não encontrada.")
+    return await recalibrar(db, uid)
+
+
+@router.get("/base-stats")
+async def base_stats(db=Depends(get_db), _admin: str = Depends(get_admin_user)) -> dict:
+    """Lista as regiões calibradas (base real) p/ o painel admin."""
+    itens = []
+    async for d in db["avaliacao_base_m2"].find({}).sort("n", -1):
+        itens.append({
+            "regiao": d.get("regiao_key"), "escopo": d.get("escopo"),
+            "media_m2": d.get("media_m2"), "n": d.get("n"),
+            "atualizado_em": d["atualizado_em"].isoformat() if d.get("atualizado_em") else None,
+        })
+    return {"regioes": itens, "total": len(itens)}

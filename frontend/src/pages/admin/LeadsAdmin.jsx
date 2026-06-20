@@ -41,6 +41,8 @@ export default function LeadsAdmin() {
   const [filtroStatus, setFiltroStatus] = useState('');
   const [busca, setBusca] = useState('');
   const [loading, setLoading] = useState(true);
+  const [baseM2, setBaseM2] = useState(null);
+  const [recalibrando, setRecalibrando] = useState(false);
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -61,6 +63,21 @@ export default function LeadsAdmin() {
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { carregar(); }, [page, filtroStatus]);
+
+  useEffect(() => { adminAPI.baseM2Stats().then(setBaseM2).catch(() => {}); }, []);
+
+  async function recalibrar() {
+    setRecalibrando(true);
+    try {
+      const r = await adminAPI.recalibrarBaseM2();
+      toast({ title: 'Base recalibrada', description: `${r.regioes} região(ões) · ${r.ptams_usados} de ${r.total_ptams} PTAMs usados` });
+      setBaseM2(await adminAPI.baseM2Stats());
+    } catch (e) {
+      toast({ title: 'Erro ao recalibrar', description: e.response?.data?.detail, variant: 'destructive' });
+    } finally {
+      setRecalibrando(false);
+    }
+  }
 
   async function mudarStatus(id, status) {
     try {
@@ -126,6 +143,34 @@ export default function LeadsAdmin() {
           </div>
         </div>
       )}
+
+      <div className="rounded-xl bg-white p-4 shadow-sm border border-gray-100 mb-6">
+        <div className="flex items-center justify-between gap-3 mb-2">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wide text-gray-500">Base de mercado (R$/m²) da calculadora</p>
+            <p className="text-[11px] text-gray-400 mt-0.5">Calibrada com seus PTAMs concluídos/assinados (mediana do valor ÷ área, mín. 3 por região). Sem dados, usa a semente.</p>
+          </div>
+          <button onClick={recalibrar} disabled={recalibrando}
+            className="rounded-lg px-4 py-2 text-sm font-semibold text-white whitespace-nowrap disabled:opacity-50" style={{ backgroundColor: VERDE }}>
+            {recalibrando ? 'Recalibrando…' : 'Recalibrar dos PTAMs'}
+          </button>
+        </div>
+        {baseM2?.regioes?.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mt-2">
+            {baseM2.regioes.map((r) => (
+              <div key={r.regiao} className="flex items-center justify-between rounded-lg border border-gray-100 px-3 py-2">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-gray-800 truncate">{r.regiao}</div>
+                  <div className="text-[11px] text-gray-400">{r.escopo === 'uf' ? 'base estadual' : 'cidade'} · {r.n} avaliações</div>
+                </div>
+                <div className="text-sm font-bold whitespace-nowrap" style={{ color: DOURADO }}>{brl(r.media_m2)}/m²</div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-400 mt-1">Nenhuma região com ≥3 avaliações ainda — a base usa valores-semente até você concluir mais PTAMs. Clique em “Recalibrar” após emitir laudos.</p>
+        )}
+      </div>
 
       <div className="flex flex-col md:flex-row gap-3 mb-4">
         <select className="rounded-lg border border-gray-300 px-3 py-2 bg-white text-sm"

@@ -590,6 +590,19 @@ async def startup():
         await db.leads_avaliacao.create_index([("status", 1), ("criado_em", -1)])
     except Exception as e:
         logger.error(f"Erro ao criar índices de leads_avaliacao: {e}")
+    # Calibra a base R$/m² da Calculadora pública com os PTAMs reais do dono (best-effort).
+    try:
+        db = get_db()
+        from services.calibracao_base_m2 import recalibrar, carregar_cache
+        from routes.avaliacao_publica import _owner_uid
+        uid = await _owner_uid(db)
+        if uid:
+            res = await recalibrar(db, uid)
+            logger.info(f"Calibração base R$/m²: {res}")
+        else:
+            await carregar_cache(db)
+    except Exception as e:
+        logger.error(f"Erro ao calibrar base R$/m²: {e}")
     # Auto-seed TVI é opcional e deve ser explicitamente habilitado.
     enable_tvi_autoseed = os.getenv("ENABLE_TVI_AUTOSEED", "").strip().lower() in {"1", "true", "yes", "on"}
     if not enable_tvi_autoseed:

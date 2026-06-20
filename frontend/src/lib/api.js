@@ -255,6 +255,9 @@ export const adminAPI = {
   leadsStats: () => api.get('/admin/leads/stats').then(r => r.data),
   atualizarLead: (id, data) => api.patch(`/admin/leads/${id}`, data).then(r => r.data),
   excluirLead: (id) => api.delete(`/admin/leads/${id}`).then(r => r.data),
+  // Base R$/m² da Calculadora — calibração pelos PTAMs reais
+  baseM2Stats: () => api.get('/avaliacao-publica/base-stats').then(r => r.data),
+  recalibrarBaseM2: () => api.post('/avaliacao-publica/recalibrar-base').then(r => r.data),
 };
 
 // ---- Evaluations
