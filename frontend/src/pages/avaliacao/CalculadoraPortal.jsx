@@ -88,6 +88,19 @@ export default function CalculadoraPortal() {
                 </div>
                 <div className="h-1.5 rounded-full my-3" style={{ background: 'linear-gradient(90deg,#B8860B,#E3C56B)' }} />
                 <div className="flex justify-between text-[11px] text-[#bfd2c8]"><span>mín.</span><span>máx.</span></div>
+
+                {v.estimativa.base_m2 != null && (
+                  <div className="mt-4 rounded-lg bg-white/10 p-3 text-[11px] leading-relaxed">
+                    <div className="text-[10px] font-semibold uppercase tracking-wider text-[#E3C56B] mb-1.5">Como calculamos</div>
+                    <div className="flex justify-between gap-2"><span className="text-[#bfd2c8] truncate">Base de mercado · {v.estimativa.regiao_base}</span><span className="font-semibold whitespace-nowrap">{brl(v.estimativa.base_m2)}/m²</span></div>
+                    {(v.estimativa.fatores || []).map((f, i) => (
+                      <div key={i} className="flex justify-between gap-2"><span className="text-[#bfd2c8] truncate">{f.label}</span><span className="whitespace-nowrap">× {f.fator.toLocaleString('pt-BR')}</span></div>
+                    ))}
+                    <div className="flex justify-between gap-2 border-t border-white/15 mt-1.5 pt-1.5"><span className="text-[#bfd2c8]">Valor por m²</span><span className="font-semibold text-[#E3C56B] whitespace-nowrap">{brl(v.estimativa.valor_m2)}/m²</span></div>
+                    {v.estimativa.metodologia && <p className="text-[#a9c0b4] mt-2">{v.estimativa.metodologia}</p>}
+                  </div>
+                )}
+
                 <p className="text-[11px] text-[#a9c0b4] mt-4 leading-relaxed">{v.estimativa.aviso}</p>
 
                 {v.erro && <div className="mt-3 rounded-lg bg-white/10 px-3 py-2 text-sm text-red-200">{v.erro}</div>}

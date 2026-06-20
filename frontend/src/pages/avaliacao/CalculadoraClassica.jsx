@@ -77,6 +77,19 @@ export default function CalculadoraClassica() {
                 </div>
                 <div className="mt-1 text-xs text-[#7c8a80]">≈ {brl(v.estimativa.valor_m2)}/m²</div>
               </div>
+
+              {v.estimativa.base_m2 != null && (
+                <div className="rounded-lg border border-[#e6e0cf] bg-[#fcfaf3] p-3 text-[11px] leading-relaxed text-[#5b665e]">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#B8860B] mb-1.5">Como calculamos</div>
+                  <div className="flex justify-between gap-2"><span className="truncate">Base de mercado · {v.estimativa.regiao_base}</span><span className="font-semibold text-[#0C3320] whitespace-nowrap">{brl(v.estimativa.base_m2)}/m²</span></div>
+                  {(v.estimativa.fatores || []).map((f, i) => (
+                    <div key={i} className="flex justify-between gap-2"><span className="truncate">{f.label}</span><span className="whitespace-nowrap">× {f.fator.toLocaleString('pt-BR')}</span></div>
+                  ))}
+                  <div className="flex justify-between gap-2 border-t border-[#e6e0cf] mt-1.5 pt-1.5"><span>Valor por m²</span><span className="font-semibold text-[#0C3320] whitespace-nowrap">{brl(v.estimativa.valor_m2)}/m²</span></div>
+                  {v.estimativa.metodologia && <p className="mt-2 text-[#8a958d]">{v.estimativa.metodologia}</p>}
+                </div>
+              )}
+
               <p className="text-[10.5px] leading-relaxed text-[#8a958d] text-justify">{v.estimativa.aviso}</p>
               <div className="rounded-lg bg-[#F3F6F4] p-4">
                 <p className="font-semibold text-gray-800" style={serif}>Quer o valor oficial com validade técnica?</p>

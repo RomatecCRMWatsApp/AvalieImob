@@ -124,6 +124,10 @@ class EstimativaOutput(BaseModel):
     valor_max: float
     faixa_texto: str
     aviso: str
+    base_m2: float            # R$/m² de referência da região (antes dos ajustes)
+    regiao_base: str          # rótulo da base usada (cidade / UF / nacional)
+    metodologia: str          # como o número foi obtido (transparência)
+    fatores: list             # [{label, fator}] dos ajustes aplicados
 
 
 class LeadInput(BaseModel):
@@ -146,26 +150,29 @@ class LeadInput(BaseModel):
 # ===========================================================================
 # Núcleo do cálculo (ACM simplificado)
 # ===========================================================================
-def _base_m2(uf: str, cidade: str) -> float:
+_TIPO_LABEL = {"apartamento": "Apartamento", "casa": "Casa", "comercial": "Comercial", "terreno": "Terreno", "rural": "Rural"}
+_PADRAO_LABEL = {"popular": "Popular", "medio": "Médio", "alto": "Alto", "luxo": "Luxo"}
+_CONSERV_LABEL = {"novo": "Novo", "bom": "Bom", "regular": "Regular", "reformar": "A reformar"}
+
+
+def _base_m2_info(uf: str, cidade: str):
+    """Retorna (base_R$/m², rótulo da base) — cidade mapeada, senão UF, senão nacional."""
     chave_cidade = f"{uf}:{_norm(cidade)}"
     if chave_cidade in BASE_M2_POR_REGIAO:
-        return BASE_M2_POR_REGIAO[chave_cidade]
+        return BASE_M2_POR_REGIAO[chave_cidade], f"{(cidade or '').strip().title()}/{uf}"
     if uf in BASE_M2_POR_REGIAO:
-        return BASE_M2_POR_REGIAO[uf]
-    return BASE_M2_POR_REGIAO["_default"]
+        return BASE_M2_POR_REGIAO[uf], f"{uf} — base estadual"
+    return BASE_M2_POR_REGIAO["_default"], "Base nacional média"
 
 
 def calcular_estimativa(dados: EstimativaInput) -> EstimativaOutput:
-    base = _base_m2(dados.uf, dados.cidade)
+    base, regiao_base = _base_m2_info(dados.uf, dados.cidade)
     fator_vagas = 1.0 + min(dados.vagas, 4) * 0.025
 
-    valor_m2 = (
-        base
-        * FATOR_TIPO[dados.tipo]
-        * FATOR_PADRAO[dados.padrao]
-        * FATOR_CONSERVACAO[dados.conservacao]
-        * fator_vagas
-    )
+    f_tipo = FATOR_TIPO[dados.tipo]
+    f_padrao = FATOR_PADRAO[dados.padrao]
+    f_conserv = FATOR_CONSERVACAO[dados.conservacao]
+    valor_m2 = base * f_tipo * f_padrao * f_conserv * fator_vagas
     valor_medio = round(valor_m2 * dados.area, 2)
     valor_min = round(valor_medio * (1 - BANDA), 2)
     valor_max = round(valor_medio * (1 + BANDA), 2)
@@ -181,6 +188,18 @@ def calcular_estimativa(dados: EstimativaInput) -> EstimativaOutput:
         "fins judiciais, garantia bancária, inventário ou desapropriação é "
         "obrigatório documento técnico assinado por profissional habilitado."
     )
+    metodologia = (
+        "Cálculo por Análise Comparativa de Mercado (ACM) simplificada, inspirada na "
+        "ABNT NBR 14.653-2: parte-se de um valor de referência por m² da região e "
+        "aplicam-se fatores de homogeneização por tipo de imóvel, padrão construtivo, "
+        "estado de conservação e nº de vagas; a faixa reflete ±12% de dispersão de mercado."
+    )
+    fatores = [
+        {"label": _TIPO_LABEL.get(dados.tipo, dados.tipo), "fator": round(f_tipo, 3)},
+        {"label": f"Padrão {_PADRAO_LABEL.get(dados.padrao, dados.padrao).lower()}", "fator": round(f_padrao, 3)},
+        {"label": f"Conservação {_CONSERV_LABEL.get(dados.conservacao, dados.conservacao).lower()}", "fator": round(f_conserv, 3)},
+        {"label": f"{int(dados.vagas)} vaga(s)", "fator": round(fator_vagas, 3)},
+    ]
     return EstimativaOutput(
         valor_m2=round(valor_m2, 2),
         valor_medio=valor_medio,
@@ -188,6 +207,10 @@ def calcular_estimativa(dados: EstimativaInput) -> EstimativaOutput:
         valor_max=valor_max,
         faixa_texto=faixa,
         aviso=aviso,
+        base_m2=round(base, 2),
+        regiao_base=regiao_base,
+        metodologia=metodologia,
+        fatores=fatores,
     )
 
 

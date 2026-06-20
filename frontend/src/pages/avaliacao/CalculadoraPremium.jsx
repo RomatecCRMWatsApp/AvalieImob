@@ -66,6 +66,18 @@ export default function CalculadoraPremium() {
                 {brl(v.estimativa.valor_min)} – {brl(v.estimativa.valor_max)}
               </div>
             </div>
+
+            {v.estimativa.base_m2 != null && (
+              <div className="mt-4 rounded-lg border border-[#C9A84C]/25 bg-white/[0.04] p-3 text-left text-[11px] leading-relaxed text-[#cdd9d1]">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#E3C56B] mb-1.5">Como calculamos</div>
+                <div className="flex justify-between gap-2"><span className="text-[#9fb7aa] truncate">Base de mercado · {v.estimativa.regiao_base}</span><span className="font-semibold whitespace-nowrap">{brl(v.estimativa.base_m2)}/m²</span></div>
+                {(v.estimativa.fatores || []).map((f, i) => (
+                  <div key={i} className="flex justify-between gap-2"><span className="text-[#9fb7aa] truncate">{f.label}</span><span className="whitespace-nowrap">× {f.fator.toLocaleString('pt-BR')}</span></div>
+                ))}
+                <div className="flex justify-between gap-2 border-t border-white/10 mt-1.5 pt-1.5"><span className="text-[#9fb7aa]">Valor por m²</span><span className="font-semibold text-[#E3C56B] whitespace-nowrap">{brl(v.estimativa.valor_m2)}/m²</span></div>
+                {v.estimativa.metodologia && <p className="mt-2 text-[#7e978a]">{v.estimativa.metodologia}</p>}
+              </div>
+            )}
             <form onSubmit={v.enviarLead} className="mt-5 space-y-2.5 text-left">
               <input className={inp} placeholder="Seu nome" value={v.contato.nome} onChange={(e) => v.setContatoCampo('nome', e.target.value)} />
               <input className={inp} placeholder="WhatsApp" value={v.contato.whatsapp} onChange={(e) => v.setContatoCampo('whatsapp', e.target.value)} />
