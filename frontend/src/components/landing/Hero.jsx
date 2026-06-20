@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, CheckCircle2, Sparkles, CheckCircle, ShieldCheck, FileSignature, FileDown } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Sparkles, CheckCircle, ShieldCheck, FileSignature, FileDown, Calculator } from 'lucide-react';
 import { Button } from '../ui/button';
 import { BRAND } from '../../mock/mock';
 
@@ -110,29 +110,56 @@ const Hero = () => {
         </div>
 
         <div className="relative animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
-          <div className="absolute -inset-4 bg-gradient-to-br from-emerald-100/60 to-emerald-50/30 rounded-3xl blur-2xl" />
-          <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-emerald-900/20 border border-emerald-900/10">
-            <img src="https://images.pexels.com/photos/8469999/pexels-photo-8469999.jpeg" alt="Engenheira avaliadora" className="w-full h-[520px] object-cover" />
-            <div className="absolute inset-0 bg-gradient-to-t from-emerald-900/40 via-transparent to-transparent" />
-
-            <div className="absolute bottom-6 left-6 right-6 bg-white/95 backdrop-blur rounded-xl p-5 shadow-lg">
-              <div className="flex items-center justify-between mb-3">
-                <div className="text-xs font-semibold text-emerald-900 tracking-wider">PTAM-2026-001</div>
-                <span className="text-xs px-2 py-0.5 bg-emerald-100 text-emerald-900 rounded-full font-medium">Emitido</span>
+          {/* CTA da Calculadora pública — destaque com LED pulsante p/ chamar atenção */}
+          <Link to="/quanto-vale-meu-imovel" className="group block mb-6" aria-label="Calcular quanto vale meu imóvel">
+            <div className="relative">
+              {/* glow LED pulsante atrás do card */}
+              <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-500 opacity-70 blur-lg animate-pulse" />
+              <div className="relative flex items-center gap-4 rounded-2xl bg-white border-2 border-amber-400 px-5 py-4 shadow-xl shadow-amber-500/20 transition-transform group-hover:-translate-y-0.5">
+                <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center shadow-inner">
+                  <Calculator className="w-6 h-6 text-emerald-950" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <span className="relative flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500" />
+                    </span>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-amber-600">Grátis · leva 1 minuto</span>
+                  </div>
+                  <div className="font-display text-lg font-bold text-emerald-950 leading-tight">Quanto vale o seu imóvel?</div>
+                  <div className="text-xs text-gray-500">Estimativa de mercado na hora — sem cadastro</div>
+                </div>
+                <ArrowRight className="w-5 h-5 text-amber-600 flex-shrink-0 group-hover:translate-x-1 transition-transform" />
               </div>
-              <div className="font-display text-2xl font-bold text-gray-900">R$ 380.000,00</div>
-              <div className="text-xs text-gray-500 mt-1">Apartamento 85m² • Calhau/MA • Método Comparativo</div>
             </div>
-          </div>
+          </Link>
 
-          <div className="absolute -top-4 -left-4 bg-white rounded-xl shadow-xl border border-emerald-900/10 p-4 animate-float">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-emerald-900 flex items-center justify-center">
-                <Sparkles className="w-5 h-5 text-white" />
+          <div className="relative">
+            <div className="absolute -inset-4 bg-gradient-to-br from-emerald-100/60 to-emerald-50/30 rounded-3xl blur-2xl" />
+            <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-emerald-900/20 border border-emerald-900/10">
+              <img src="https://images.pexels.com/photos/8469999/pexels-photo-8469999.jpeg" alt="Engenheira avaliadora" className="w-full h-[520px] object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-t from-emerald-900/40 via-transparent to-transparent" />
+
+              <div className="absolute bottom-6 left-6 right-6 bg-white/95 backdrop-blur rounded-xl p-5 shadow-lg">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-xs font-semibold text-emerald-900 tracking-wider">PTAM-2026-001</div>
+                  <span className="text-xs px-2 py-0.5 bg-emerald-100 text-emerald-900 rounded-full font-medium">Emitido</span>
+                </div>
+                <div className="font-display text-2xl font-bold text-gray-900">R$ 380.000,00</div>
+                <div className="text-xs text-gray-500 mt-1">Apartamento 85m² • Calhau/MA • Método Comparativo</div>
               </div>
-              <div>
-                <div className="text-xs text-gray-500">IA gerou</div>
-                <div className="text-sm font-semibold text-gray-900">Fundamentação técnica</div>
+            </div>
+
+            <div className="absolute -top-4 -left-4 bg-white rounded-xl shadow-xl border border-emerald-900/10 p-4 animate-float">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-emerald-900 flex items-center justify-center">
+                  <Sparkles className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <div className="text-xs text-gray-500">IA gerou</div>
+                  <div className="text-sm font-semibold text-gray-900">Fundamentação técnica</div>
+                </div>
               </div>
             </div>
           </div>
