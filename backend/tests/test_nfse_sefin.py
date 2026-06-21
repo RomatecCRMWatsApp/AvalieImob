@@ -93,13 +93,17 @@ def test_dps_xml_estrutura_e_valores():
     assert t("{}infDPS/{}prest/{}CNPJ") == "17261987000109"
     assert t("{}infDPS/{}prest/{}IM") == "26800"
     assert t("{}infDPS/{}toma/{}CNPJ") == "57123389000180"
-    assert t("{}infDPS/{}serv/{}cServ/{}cTribNac") == "1701"
+    assert t("{}infDPS/{}prest/{}regTrib/{}opSimpNac") == "1"      # 1=Não Optante (MOC)
+    assert t("{}infDPS/{}serv/{}cServ/{}cTribNac") == "170100"     # [0-9]{6} (item 17.01)
+    assert t("{}infDPS/{}serv/{}cServ/{}cNBS") == "000000000"      # [0-9]{9} obrigatório
     assert t("{}infDPS/{}valores/{}vServPrest/{}vServ") == "17500.00"
+    assert t("{}infDPS/{}valores/{}trib/{}tribMun/{}tribISSQN") == "1"
     assert t("{}infDPS/{}valores/{}trib/{}tribMun/{}pAliq") == "2.0000"
-    assert t("{}infDPS/{}valores/{}trib/{}tribMun/{}vISSQN") == "350.00"
-    assert t("{}infDPS/{}valores/{}trib/{}tribMun/{}vBC") == "17500.00"
-    # grupo IBS/CBS sempre presente (transição RTC), zerado
-    assert t("{}infDPS/{}valores/{}IBSCBS/{}vCBS") == "0.00"
+    assert t("{}infDPS/{}valores/{}trib/{}tribMun/{}tpRetISSQN") == "1"  # 1=Não Retido
+    assert t("{}infDPS/{}valores/{}trib/{}totTrib/{}indTotTrib") == "0"
+    # tribMun NÃO carrega vISSQN/vBC/cLocIncid (XSD); IBSCBS (RTC) é opcional → omitido
+    assert root.find(f"{{{NS}}}infDPS/{{{NS}}}valores/{{{NS}}}trib/{{{NS}}}tribMun/{{{NS}}}vISSQN") is None
+    assert root.find(f"{{{NS}}}infDPS/{{{NS}}}IBSCBS") is None
 
 
 def test_dps_xml_producao_muda_tpamb():
@@ -107,6 +111,19 @@ def test_dps_xml_producao_muda_tpamb():
     doc.ambiente = Ambiente.producao
     root = etree.fromstring(montar_dps_xml(doc, cfg).encode("utf-8"))
     assert root.find(f"{{{NS}}}infDPS/{{{NS}}}tpAmb").text == "1"
+
+
+def test_dps_xml_valida_contra_xsd_se_presente():
+    """Validação programática contra o XSD oficial (defina NFSE_DPS_XSD apontando p/ o
+    DPS_v1.00.xsd do pacote gov.br/nfse). Sem o XSD, o teste é pulado."""
+    import os
+    from services.nfse.sefin.dps_xml import validar_dps_xsd
+    xsd = os.environ.get("NFSE_DPS_XSD")
+    if not xsd or not os.path.exists(xsd):
+        pytest.skip("NFSE_DPS_XSD não definido — baixar o XSD oficial p/ validar.")
+    doc, cfg = _doc_e_config()
+    ok, erros = validar_dps_xsd(montar_dps_xml(doc, cfg), xsd)
+    assert ok, f"DPS não conforme ao XSD: {erros[:5]}"
 
 
 # ── Assinatura (só roda se signxml estiver instalado) ────────────────────────

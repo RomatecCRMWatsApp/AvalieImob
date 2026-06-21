@@ -40,6 +40,30 @@ def _el(parent, tag, text=None):
     return e
 
 
+def _ctribnac(servico) -> str:
+    """cTribNac [0-9]{6}: usa o código nacional informado, senão deriva do item (17.01→170100)."""
+    c = _so_dig(servico.codigo_tributacao_nacional)
+    if len(c) == 6:
+        return c
+    item = _so_dig(servico.item_lista_servico)
+    return (item.ljust(6, "0"))[:6] if item else "000000"
+
+
+def _cnbs(servico) -> str:
+    """cNBS [0-9]{9}: código NBS do serviço (obrigatório na DPS Nacional)."""
+    c = _so_dig(servico.cnbs)
+    return c[-9:].rjust(9, "0") if c else "000000000"
+
+
+def validar_dps_xsd(xml: str | bytes, xsd_path: str):
+    """Valida o XML contra o XSD oficial (baixar o pacote de gov.br/nfse). (ok, [erros])."""
+    schema = etree.XMLSchema(etree.parse(xsd_path))
+    node = etree.fromstring(xml.encode("utf-8") if isinstance(xml, str) else xml)
+    ok = schema.validate(node)
+    erros = [f"L{e.line}: {e.message}" for e in schema.error_log]
+    return ok, erros
+
+
 def montar_dps_xml(doc: NFSeDocumento, config: NFSeConfig, pretty: bool = False) -> str:
     """Retorna o XML (string) da DPS, NÃO assinado. A assinatura é aplicada à parte."""
     calc = calcular_valores(doc.servico)
@@ -52,7 +76,11 @@ def montar_dps_xml(doc: NFSeDocumento, config: NFSeConfig, pretty: bool = False)
 
     _el(inf, "tpAmb", tp_amb)
     if doc.dps.data_emissao:
-        _el(inf, "dhEmi", doc.dps.data_emissao.replace(microsecond=0).isoformat())
+        dh = doc.dps.data_emissao.replace(microsecond=0)
+        s = dh.isoformat()
+        if dh.tzinfo is None:               # dhEmi (xs:dateTime) exige fuso horário
+            s += "-03:00"
+        _el(inf, "dhEmi", s)
     _el(inf, "verAplic", VER_APLIC)
     _el(inf, "serie", doc.dps.serie)
     _el(inf, "nDPS", str(doc.dps.numero or 0))
@@ -66,7 +94,8 @@ def montar_dps_xml(doc: NFSeDocumento, config: NFSeConfig, pretty: bool = False)
     _el(prest, "IM", config.emitente.inscricao_municipal)
     _el(prest, "xNome", config.emitente.razao_social)
     regtrib = _el(prest, "regTrib")
-    _el(regtrib, "opSimpNac", "1" if config.emitente.optante_simples else "2")
+    # opSimpNac: 1=Não Optante · 2=Optante MEI · 3=Optante ME/EPP (MOC NFS-e Nacional)
+    _el(regtrib, "opSimpNac", "3" if config.emitente.optante_simples else "1")
     _el(regtrib, "regEspTrib", config.fiscal_defaults.regime_especial_tributacao or "0")
 
     # ── Tomador ──────────────────────────────────────────────────────────────
@@ -80,44 +109,38 @@ def montar_dps_xml(doc: NFSeDocumento, config: NFSeConfig, pretty: bool = False)
     if doc.tomador.email:
         _el(toma, "email", doc.tomador.email)
 
-    # ── Serviço ──────────────────────────────────────────────────────────────
+    # ── Serviço (XSD: locPrest, cServ[cTribNac,cTribMun?,xDescServ,cNBS]) ─────
     serv = _el(inf, "serv")
     loc = _el(serv, "locPrest")
     _el(loc, "cLocPrestacao", doc.servico.local_prestacao_ibge or config.codigo_ibge)
     cserv = _el(serv, "cServ")
-    _el(cserv, "cTribNac", doc.servico.item_lista_servico.replace(".", ""))
-    _el(cserv, "cTribMun", doc.servico.codigo_tributacao_municipal)
+    _el(cserv, "cTribNac", _ctribnac(doc.servico))              # [0-9]{6}
+    if doc.servico.codigo_tributacao_municipal:
+        _el(cserv, "cTribMun", doc.servico.codigo_tributacao_municipal)
     _el(cserv, "xDescServ", doc.servico.discriminacao)
+    _el(cserv, "cNBS", _cnbs(doc.servico))                      # [0-9]{9} (obrigatório)
 
-    # ── Valores + Tributação ─────────────────────────────────────────────────
+    # ── Valores (XSD: vServPrest, vDescCondIncond?, trib[tribMun,totTrib]) ────
     valores = _el(inf, "valores")
     vserv = _el(valores, "vServPrest")
     _el(vserv, "vServ", _money(doc.servico.valor_servico))
-    vdesc = _el(valores, "vDescCondIncond")
-    _el(vdesc, "vDescIncond", _money(doc.servico.desconto_incondicionado))
-    _el(vdesc, "vDescCond", _money(doc.servico.desconto_condicionado))
+    if doc.servico.desconto_incondicionado or doc.servico.desconto_condicionado:
+        vdesc = _el(valores, "vDescCondIncond")
+        _el(vdesc, "vDescIncond", _money(doc.servico.desconto_incondicionado))
+        _el(vdesc, "vDescCond", _money(doc.servico.desconto_condicionado))
 
     trib = _el(valores, "trib")
     tribmun = _el(trib, "tribMun")
-    _el(tribmun, "tribISSQN", "1")  # 1 = exigível/tributável no município
-    _el(tribmun, "cLocIncid", doc.servico.local_prestacao_ibge or config.codigo_ibge)
+    _el(tribmun, "tribISSQN", "1")  # 1=Operação tributável (MOC)
     aliq = doc.servico.aliquota_iss
     pct = aliq * 100 if 0 < aliq <= 1 else aliq
     _el(tribmun, "pAliq", f"{pct:.4f}")
-    _el(tribmun, "tpRetISSQN", "1" if doc.servico.iss_retido else "2")  # 1=retido 2=não
-    _el(tribmun, "vBC", _money(calc["base_calculo"]))
-    _el(tribmun, "vISSQN", _money(calc["valor_iss"]))
-
+    # tpRetISSQN: 1=Não Retido · 2=Retido pelo Tomador · 3=Retido pelo Intermediário (MOC)
+    _el(tribmun, "tpRetISSQN", "2" if doc.servico.iss_retido else "1")
     totrib = _el(trib, "totTrib")
-    _el(totrib, "indTotTrib", "0")  # 0 = sem valor estimado de tributos (Lei 12.741)
+    _el(totrib, "indTotTrib", "0")  # 0 = não informar valor estimado de tributos (Lei 12.741)
 
-    # ── Grupo IBS/CBS (transição RTC 2026 — sempre presente, zerado) ──────────
-    ib = doc.servico.ibscbs
-    if ib and ib.incluir:
-        gibscbs = _el(valores, "IBSCBS")
-        _el(gibscbs, "vIBSMun", _money(ib.valor_ibs_municipal))
-        _el(gibscbs, "vIBSUF", _money(ib.valor_ibs_estadual))
-        _el(gibscbs, "vCBS", _money(ib.valor_cbs))
-
+    # NOTA: grupo IBSCBS (RTC) é minOccurs=0 no XSD → OMITIDO por ora (estrutura complexa;
+    # incluir quando o município/serviço exigir, conforme ANEXO_I do leiaute).
     return etree.tostring(root, xml_declaration=True, encoding="UTF-8",
                           pretty_print=pretty).decode("utf-8")

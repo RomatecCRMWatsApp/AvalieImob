@@ -162,7 +162,9 @@ class TributosFederaisDoc(BaseModel):
 class Servico(BaseModel):
     discriminacao: str = ""
     item_lista_servico: str = "17.01"
+    codigo_tributacao_nacional: str = ""   # cTribNac (6 díg.); se vazio, derivado do item
     codigo_tributacao_municipal: str = ""
+    cnbs: str = ""                         # cNBS (9 díg., obrigatório na DPS Nacional)
     local_prestacao_ibge: str = ""
     valor_servico: float = 0.0
     valor_deducoes: float = 0.0
