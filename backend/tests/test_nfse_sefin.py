@@ -125,7 +125,21 @@ def test_assinatura_xmldsig():
     assert "Signature" in assinado and "SignatureValue" in assinado
 
 
-# ── SEGURANÇA: emitir() NÃO transmite (sem certificado configurado) ──────────
+# ── Cliente mTLS — SSLContext a partir do cert em memória (sem rede) ─────────
+def test_montar_ssl_context():
+    import ssl
+    from cryptography.hazmat.primitives import serialization
+    from services.nfse.sefin.sefin_client import montar_ssl_context
+    _pfx, key, cert = _gerar_pfx("s")
+    key_pem = key.private_bytes(serialization.Encoding.PEM,
+                                serialization.PrivateFormat.TraditionalOpenSSL,
+                                serialization.NoEncryption())
+    cert_pem = cert.public_bytes(serialization.Encoding.PEM)
+    ctx = montar_ssl_context(key_pem, cert_pem)
+    assert isinstance(ctx, ssl.SSLContext)
+
+
+# ── SEGURANÇA: emitir() NÃO transmite (sem cert + flag desabilitada) ─────────
 def test_emitir_bloqueado_sem_certificado():
     _doc, cfg = _doc_e_config()
     doc = NFSeDocumento(config_id=cfg.id, provider=Provider.sefin_nacional,
@@ -134,3 +148,7 @@ def test_emitir_bloqueado_sem_certificado():
     provider = get_provider(cfg)
     with pytest.raises((NFSeProviderError, NFSeConfigError)):
         asyncio.run(provider.emitir(doc))
+    # mesmo com a flag ligada, sem certificado a emissão continua bloqueada
+    cfg.sefin.transmissao_habilitada = True
+    with pytest.raises((NFSeProviderError, NFSeConfigError)):
+        asyncio.run(get_provider(cfg).emitir(doc))

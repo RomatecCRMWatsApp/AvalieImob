@@ -7,31 +7,55 @@ from __future__ import annotations
 
 from services.nfse.providers.base import NFSeProvider
 from services.nfse.exceptions import NFSeProviderError
-from models.nfse import NFSeDocumento, ResultadoEmissao, ResultadoEvento
+from models.nfse import NFSeDocumento, ResultadoEmissao, ResultadoEvento, StatusNFSe
 
 NOME = "sefin_nacional"
 
 
 class SefinNacionalProvider(NFSeProvider):
-    def _preparar_payload(self, doc: NFSeDocumento) -> str:
-        """Monta o XML da DPS, assina e empacota (GZip+Base64). Levanta se faltar certificado."""
+    def _preparar(self, doc: NFSeDocumento):
+        """Monta o XML da DPS, assina e empacota (GZip+Base64). Devolve (payload_b64, cert).
+        Levanta se faltar certificado."""
         from services.nfse.sefin.dps_xml import montar_dps_xml
         from services.nfse.sefin.certificado import carregar_de_config
         from services.nfse.sefin.assinatura import assinar_dps
         from services.nfse.sefin.empacotamento import gzip_base64
 
-        sefin_cfg = self.config.sefin.model_dump() if hasattr(self.config.sefin, "model_dump") else dict(self.config.sefin)
-        cert = carregar_de_config(sefin_cfg)        # ← levanta NFSeConfigError sem .pfx
+        cert = carregar_de_config(self._sefin_cfg())   # ← levanta NFSeConfigError sem .pfx
         xml = montar_dps_xml(doc, self.config)
         xml_assinado = assinar_dps(xml, cert.key_pem, cert.cert_pem)
-        return gzip_base64(xml_assinado)
+        return gzip_base64(xml_assinado), cert
+
+    def _sefin_cfg(self) -> dict:
+        s = self.config.sefin
+        return s.model_dump() if hasattr(s, "model_dump") else dict(s)
 
     async def emitir(self, doc: NFSeDocumento) -> ResultadoEmissao:
-        # Monta/assina/empacota (valida cert). A TRANSMISSÃO permanece bloqueada.
-        self._preparar_payload(doc)
-        raise NFSeProviderError(
-            "Sefin Nacional: transmissão NÃO habilitada. XML montado/empacotado OK, mas a "
-            "transmissão mTLS exige validação do XSD oficial + homologação antes de produção.")
+        payload_b64, cert = self._preparar(doc)        # monta/assina/empacota (valida cert)
+        sefin = self._sefin_cfg()
+
+        # TRAVA: só transmite com a flag explicitamente habilitada (pós-homologação).
+        if not sefin.get("transmissao_habilitada"):
+            raise NFSeProviderError(
+                "Sefin Nacional: transmissão DESABILITADA (segurança). DPS montada/assinada/"
+                "empacotada OK. Habilite `sefin.transmissao_habilitada` SÓ após validar o XSD "
+                "oficial e testar em HOMOLOGAÇÃO.")
+
+        # ── Transmissão mTLS (dormante até habilitar) ────────────────────────
+        from services.nfse.sefin.sefin_client import montar_ssl_context, SefinClient
+        ctx = montar_ssl_context(cert.key_pem, cert.cert_pem, cert.chain_pem)
+        client = SefinClient(sefin.get("base_url_sefin", ""), ctx)
+        try:
+            resp = await client.transmitir_dps(sefin.get("rota_emissao", "/sefin/dps"), payload_b64)
+        except Exception as e:  # noqa: BLE001
+            raise NFSeProviderError(f"Sefin: falha na transmissão mTLS: {e}") from e
+        # Mapeamento da resposta → ResultadoEmissao (ajustar aos campos do Swagger oficial)
+        return ResultadoEmissao(
+            status=StatusNFSe.autorizada if resp.get("chaveAcesso") else StatusNFSe.processando,
+            chave_acesso=resp.get("chaveAcesso"), numero_nfse=resp.get("numeroNfse"),
+            codigo_verificacao=resp.get("codigoVerificacao"),
+            url_consulta_publica=resp.get("linkConsulta"),
+        )
 
     async def consultar(self, chave_acesso: str) -> ResultadoEmissao:
         raise NFSeProviderError("Sefin Nacional: consulta não habilitada (pendente homologação).")

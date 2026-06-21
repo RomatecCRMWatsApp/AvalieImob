@@ -81,6 +81,11 @@ class SefinConfig(BaseModel):
     certificado_ref: str = ""          # caminho/ref do .pfx (secret)
     certificado_senha_ref: str = ""    # env var da senha
     serie_dps: str = "1"
+    # TRAVA DE SEGURANÇA: só transmite de verdade quando True (habilitar SÓ após validar
+    # XSD + testar em HOMOLOGAÇÃO). Default False → emitir() monta/assina/empacota mas NÃO envia.
+    transmissao_habilitada: bool = False
+    rota_emissao: str = "/sefin/dps"   # ajustar ao Swagger oficial antes de produção
+    rota_consulta: str = "/sefin/nfse" # idem
 
 
 class TributosFederaisCfg(BaseModel):
