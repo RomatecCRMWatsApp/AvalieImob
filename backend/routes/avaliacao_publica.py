@@ -22,7 +22,7 @@ então o body Pydantic é tratado como query param e o /estimar responde 422 "Fi
 import logging
 import os
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -137,6 +137,8 @@ class LeadInput(BaseModel):
     email: Optional[str] = Field(default=None, max_length=120)
     imovel: EstimativaInput
     origem: str = Field(default="calculadora_publica", max_length=60)
+    consentimento: bool = False          # LGPD — obrigatório True p/ gravar
+    website: Optional[str] = Field(default=None, max_length=200)  # honeypot anti-bot (deve vir vazio)
 
     @field_validator("email")
     @classmethod
@@ -239,6 +241,23 @@ def _norm_phone(numero: str) -> str:
     return digitos
 
 
+async def _deve_notificar(db, whatsapp: str) -> bool:
+    """Anti-spam da notificação Z-API: teto global por hora + dedupe por telefone.
+    O lead É sempre gravado; só a notificação ao José é contida."""
+    agora = datetime.now(timezone.utc)
+    try:
+        recentes = await db["leads_avaliacao"].count_documents({"criado_em": {"$gte": agora - timedelta(hours=1)}})
+        if recentes > 30:  # flood improvável de leads legítimos numa hora → corta a notificação
+            logger.warning("avaliacao_publica: teto de notificações/hora atingido (%s) — silenciando.", recentes)
+            return False
+        # mesmo telefone nos últimos 30 min (inclui o atual recém-inserido) → não renotifica
+        mesmos = await db["leads_avaliacao"].count_documents(
+            {"whatsapp": whatsapp, "criado_em": {"$gte": agora - timedelta(minutes=30)}})
+        return mesmos <= 1
+    except Exception:  # noqa: BLE001 — em erro, não bloqueia a notificação
+        return True
+
+
 async def _notificar_avaliador(db, mensagem: str) -> None:
     """Envia a notificação de lead pelo WhatsApp do dono da conta (José).
     Best-effort: nunca derruba o registro do lead se a Z-API falhar."""
@@ -290,6 +309,14 @@ async def estimar(dados: EstimativaInput, request: Request) -> EstimativaOutput:
 @router.post("/lead")
 @limiter.limit("10/minute")
 async def registrar_lead(lead: LeadInput, request: Request, db=Depends(get_db)) -> dict:
+    # Honeypot: campo oculto preenchido = bot → descarta em SILÊNCIO (200 falso, sem gravar/notificar).
+    if (lead.website or "").strip():
+        logger.info("avaliacao_publica: lead descartado pelo honeypot.")
+        return {"ok": True, "id": "ignored"}
+    # LGPD: exige consentimento explícito.
+    if not lead.consentimento:
+        raise HTTPException(422, "É necessário autorizar o tratamento dos seus dados (LGPD).")
+
     estimativa = calcular_estimativa(lead.imovel)
 
     doc = {
@@ -300,6 +327,8 @@ async def registrar_lead(lead: LeadInput, request: Request, db=Depends(get_db)) 
         "imovel": lead.imovel.model_dump(),
         "estimativa": estimativa.model_dump(),
         "status": "novo",
+        "consentimento": True,
+        "consentimento_em": datetime.now(timezone.utc),
         "criado_em": datetime.now(timezone.utc),
     }
 
@@ -319,7 +348,9 @@ async def registrar_lead(lead: LeadInput, request: Request, db=Depends(get_db)) 
         f"Padrão: {imv.padrao} | Conservação: {imv.conservacao} | Vagas: {imv.vagas}\n\n"
         f"💰 Estimativa: {estimativa.faixa_texto}"
     )
-    await _notificar_avaliador(db, msg)
+    # Anti-spam: o lead já está salvo; só notifica se passar no teto/dedupe.
+    if await _deve_notificar(db, doc["whatsapp"]):
+        await _notificar_avaliador(db, msg)
 
     return {"ok": True, "id": str(result.inserted_id)}
 

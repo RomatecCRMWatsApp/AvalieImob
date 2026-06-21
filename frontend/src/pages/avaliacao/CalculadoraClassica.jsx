@@ -98,6 +98,11 @@ export default function CalculadoraClassica() {
                   <input className={inp} placeholder="Seu nome" value={v.contato.nome} onChange={(e) => v.setContatoCampo('nome', e.target.value)} />
                   <input className={inp} placeholder="WhatsApp" value={v.contato.whatsapp} onChange={(e) => v.setContatoCampo('whatsapp', e.target.value)} />
                   <input className={inp} type="email" placeholder="E-mail (opcional)" value={v.contato.email} onChange={(e) => v.setContatoCampo('email', e.target.value)} />
+                  <input type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" value={v.hp} onChange={(e) => v.setHp(e.target.value)} style={{ position: 'absolute', left: '-9999px', width: 1, height: 1, opacity: 0 }} />
+                  <label className="flex items-start gap-2 text-[10px] text-[#7c8a80] leading-snug cursor-pointer">
+                    <input type="checkbox" checked={v.consentimento} onChange={(e) => v.setConsentimento(e.target.checked)} className="mt-0.5 accent-[#0C3320]" />
+                    <span>Autorizo o contato e o tratamento dos meus dados conforme a <a href="/privacidade" target="_blank" rel="noreferrer" className="underline">Política de Privacidade</a> (LGPD).</span>
+                  </label>
                   <button disabled={v.loading} className="w-full rounded-lg bg-[#C9A84C] py-3 font-semibold text-[#0C3320] transition hover:brightness-105 disabled:opacity-60">
                     {v.loading ? 'Enviando...' : 'Quero o PTAM oficial'}
                   </button>

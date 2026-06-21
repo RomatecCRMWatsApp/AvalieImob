@@ -26,6 +26,8 @@ export function useAvaliacao(origem = 'calculadora_publica') {
     quartos: '', vagas: '', padrao: 'medio', conservacao: 'bom',
   });
   const [contato, setContato] = useState({ nome: '', whatsapp: '', email: '' });
+  const [consentimento, setConsentimento] = useState(false);
+  const [hp, setHp] = useState(''); // honeypot anti-bot (deve ficar vazio)
 
   const setCampo = (c, v) => setImovel((p) => ({ ...p, [c]: v }));
   const setContatoCampo = (c, v) =>
@@ -64,6 +66,7 @@ export function useAvaliacao(origem = 'calculadora_publica') {
     setErro('');
     if (contato.nome.trim().length < 2) return setErro('Informe seu nome.');
     if (contato.whatsapp.replace(/\D/g, '').length < 10) return setErro('Informe um WhatsApp válido.');
+    if (!consentimento) return setErro('É necessário autorizar o tratamento dos seus dados (LGPD).');
     setLoading(true);
     try {
       await avaliacaoPublicaAPI.lead({
@@ -72,6 +75,8 @@ export function useAvaliacao(origem = 'calculadora_publica') {
         email: contato.email || null,
         imovel: payload(),
         origem,
+        consentimento,
+        website: hp,
       });
       setStep('done');
     } catch (err) {
@@ -85,6 +90,7 @@ export function useAvaliacao(origem = 'calculadora_publica') {
 
   return {
     step, loading, erro, estimativa, imovel, contato,
+    consentimento, setConsentimento, hp, setHp,
     setCampo, setContatoCampo, calcular, enviarLead, reset,
   };
 }
