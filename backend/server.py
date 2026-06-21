@@ -590,6 +590,12 @@ async def startup():
         await db.leads_avaliacao.create_index([("status", 1), ("criado_em", -1)])
     except Exception as e:
         logger.error(f"Erro ao criar índices de leads_avaliacao: {e}")
+    # NFS-e: materializa o certificado .pfx de ROMATEC_CERT_PFX_B64 (Railway), se houver.
+    try:
+        from services.nfse.sefin.certificado import materializar_cert_de_env
+        materializar_cert_de_env()
+    except Exception as e:
+        logger.error(f"Erro ao materializar certificado NFS-e: {e}")
     # Calibra a base R$/m² da Calculadora pública com os PTAMs reais do dono (best-effort).
     try:
         db = get_db()

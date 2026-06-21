@@ -162,6 +162,7 @@ export default function Sidebar({
           { id: 'usuarios', label: 'Usuários', icon: Users, route: '/dashboard/admin/usuarios' },
           { id: 'leads', label: 'Leads', icon: Inbox, route: '/dashboard/admin/leads' },
           { id: 'danfse', label: 'DANFSe (temas)', icon: FileText, route: '/dashboard/admin/danfse' },
+          { id: 'nfse-emissao', label: 'NFS-e (emissão)', icon: Stamp, route: '/dashboard/admin/nfse-emissao' },
         ] }
       : g
   );

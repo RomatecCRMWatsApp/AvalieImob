@@ -3,7 +3,10 @@
 # (caminho/env). Extrai chave+cert em PEM p/ o mTLS do httpx e p/ a assinatura XMLDSIG.
 from __future__ import annotations
 
+import base64
+import logging
 import os
+import tempfile
 from dataclasses import dataclass
 from typing import Optional
 
@@ -11,6 +14,32 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.serialization import pkcs12
 
 from services.nfse.exceptions import NFSeConfigError
+
+logger = logging.getLogger("romatec")
+
+
+def materializar_cert_de_env() -> Optional[str]:
+    """Railway-friendly: se `ROMATEC_CERT_PFX_B64` existir (o .pfx em base64), grava num
+    arquivo temporário (0600) e seta `ROMATEC_CERT_PFX_PATH`. Chamar no startup (best-effort).
+    Sem a env, devolve o `ROMATEC_CERT_PFX_PATH` já existente (ou None)."""
+    b64 = (os.environ.get("ROMATEC_CERT_PFX_B64") or "").strip()
+    if not b64:
+        return os.environ.get("ROMATEC_CERT_PFX_PATH")
+    try:
+        raw = base64.b64decode(b64)
+        caminho = os.path.join(tempfile.gettempdir(), "romatec_cert.pfx")
+        with open(caminho, "wb") as f:
+            f.write(raw)
+        try:
+            os.chmod(caminho, 0o600)
+        except OSError:
+            pass
+        os.environ["ROMATEC_CERT_PFX_PATH"] = caminho
+        logger.info("NFS-e: certificado .pfx materializado de ROMATEC_CERT_PFX_B64.")
+        return caminho
+    except Exception as e:  # noqa: BLE001
+        logger.error("NFS-e: falha ao materializar cert de base64: %s", e)
+        return None
 
 
 @dataclass
@@ -46,11 +75,12 @@ def carregar_pfx(pfx_bytes: bytes, senha: str) -> CertificadoCarregado:
 
 def carregar_de_config(sefin_cfg: dict) -> CertificadoCarregado:
     """Carrega o certificado a partir das REFs do nfse_config.sefin
-    (certificado_ref = caminho do .pfx; certificado_senha_ref = env var da senha)."""
-    caminho = (sefin_cfg or {}).get("certificado_ref") or ""
-    senha_env = (sefin_cfg or {}).get("certificado_senha_ref") or ""
+    (certificado_ref = caminho do .pfx; certificado_senha_ref = env var da senha).
+    Fallback: ROMATEC_CERT_PFX_PATH (materializado do base64) + ROMATEC_CERT_SENHA."""
+    caminho = (sefin_cfg or {}).get("certificado_ref") or os.environ.get("ROMATEC_CERT_PFX_PATH") or ""
+    senha_env = (sefin_cfg or {}).get("certificado_senha_ref") or "ROMATEC_CERT_SENHA"
     if not caminho or not os.path.exists(caminho):
         raise NFSeConfigError("Certificado ICP-Brasil (.pfx) não configurado/encontrado.")
-    senha = os.environ.get(senha_env, "")
+    senha = os.environ.get(senha_env, "") or os.environ.get("ROMATEC_CERT_SENHA", "")
     with open(caminho, "rb") as f:
         return carregar_pfx(f.read(), senha)

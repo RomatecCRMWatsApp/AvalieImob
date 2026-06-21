@@ -95,7 +95,7 @@ def test_dps_xml_estrutura_e_valores():
     assert t("{}infDPS/{}toma/{}CNPJ") == "57123389000180"
     assert t("{}infDPS/{}prest/{}regTrib/{}opSimpNac") == "1"      # 1=Não Optante (MOC)
     assert t("{}infDPS/{}serv/{}cServ/{}cTribNac") == "170100"     # [0-9]{6} (item 17.01)
-    assert t("{}infDPS/{}serv/{}cServ/{}cNBS") == "000000000"      # [0-9]{9} obrigatório
+    assert t("{}infDPS/{}serv/{}cServ/{}cNBS") == "114039000"      # [0-9]{9} (default engenharia)
     assert t("{}infDPS/{}valores/{}vServPrest/{}vServ") == "17500.00"
     assert t("{}infDPS/{}valores/{}trib/{}tribMun/{}tribISSQN") == "1"
     assert t("{}infDPS/{}valores/{}trib/{}tribMun/{}pAliq") == "2.0000"

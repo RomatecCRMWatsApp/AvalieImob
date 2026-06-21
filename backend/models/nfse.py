@@ -107,6 +107,8 @@ class IbsCbs(BaseModel):
 class FiscalDefaults(BaseModel):
     item_lista_servico: str = "17.01"
     codigo_tributacao_municipal: str = ""
+    codigo_tributacao_nacional: str = ""          # cTribNac (6 díg.); senão derivado do item
+    codigo_nbs: str = "114039000"                 # cNBS padrão (engenharia) — CONFIRMAR por serviço
     descricao_atividade: str = ""
     cnae: str = ""
     aliquota_iss: float = 0.02

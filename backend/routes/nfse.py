@@ -85,3 +85,102 @@ async def danfse_documento(doc_id: str, tema: str | None = Query(None),
     escolhido = _tema(tema or flat.get("template_danfse"))
     pdf = gerar_danfse(flat, escolhido)
     return _pdf_response(pdf, f"danfse-{doc_id}-{escolhido}.pdf")
+
+
+# ===========================================================================
+# Emissão — config por município, teste de certificado, preview da DPS, emitir.
+# SEGURANÇA: a transmissão real é travada (sefin.transmissao_habilitada). Estes
+# endpoints montam/validam/persistem; emitir() NÃO transmite até habilitar.
+# ===========================================================================
+async def _carregar_config(db, config_id: str):
+    from models.nfse import NFSeConfig
+    doc = await db.nfse_config.find_one({"id": config_id})
+    if not doc:
+        raise HTTPException(404, "Configuração NFS-e não encontrada.")
+    doc.pop("_id", None)
+    return NFSeConfig(**doc)
+
+
+@router.get("/config")
+async def listar_config(db=Depends(get_db), _admin: str = Depends(get_admin_user)):
+    from services.nfse.repository import listar_configs
+    return [{k: v for k, v in c.items() if k != "_id"} for c in await listar_configs(db)]
+
+
+@router.post("/config")
+async def criar_config(body: dict, db=Depends(get_db), _admin: str = Depends(get_admin_user)):
+    from models.nfse import NFSeConfig
+    from services.nfse.repository import criar_config as repo_criar
+    cfg = NFSeConfig(**(body or {}))
+    await repo_criar(db, cfg.model_dump(mode="json"))
+    return cfg.model_dump(mode="json")
+
+
+@router.put("/config/{config_id}")
+async def atualizar_config(config_id: str, body: dict, db=Depends(get_db), _admin: str = Depends(get_admin_user)):
+    from services.nfse.repository import atualizar_config as repo_upd
+    body.pop("id", None); body.pop("_id", None)
+    doc = await repo_upd(db, config_id, body)
+    if not doc:
+        raise HTTPException(404, "Configuração não encontrada.")
+    doc.pop("_id", None)
+    return doc
+
+
+@router.post("/config/{config_id}/testar-cert")
+async def testar_cert(config_id: str, db=Depends(get_db), _admin: str = Depends(get_admin_user)):
+    """Carrega o certificado .pfx (sem transmitir nada) e devolve o titular."""
+    from services.nfse.sefin.certificado import carregar_de_config
+    from services.nfse.exceptions import NFSeConfigError
+    cfg = await _carregar_config(db, config_id)
+    try:
+        cc = carregar_de_config(cfg.sefin.model_dump())
+        return {"ok": True, "titular": cc.titular}
+    except NFSeConfigError as e:
+        return {"ok": False, "erro": str(e)}
+
+
+def _doc_de_body(cfg, body: dict):
+    """Constrói NFSeDocumento (sem persistir) a partir do corpo {tomador, servico, origem}."""
+    from models.nfse import NFSeDocumento, Servico, Tomador, Origem, DPS
+    serv = Servico(**(body.get("servico") or {}))
+    tom = Tomador(**(body.get("tomador") or {}))
+    org = Origem(**(body.get("origem") or {"tipo": "servico_avulso"}))
+    return NFSeDocumento(config_id=cfg.id, provider=cfg.provider, ambiente=cfg.ambiente,
+                         origem=org, tomador=tom, servico=serv,
+                         dps=DPS(serie=cfg.sefin.serie_dps or "1", numero=0, id_dps="DPS-PREVIEW"),
+                         template_danfse=cfg.template_danfse)
+
+
+@router.post("/dps/preview")
+async def dps_preview(body: dict, db=Depends(get_db), _admin: str = Depends(get_admin_user)):
+    """Monta o XML da DPS (sem assinar/transmitir) e valida contra o XSD (se NFSE_DPS_XSD)."""
+    import os
+    from services.nfse.sefin.dps_xml import montar_dps_xml, validar_dps_xsd
+    cfg = await _carregar_config(db, body.get("config_id"))
+    doc = _doc_de_body(cfg, body)
+    xml = montar_dps_xml(doc, cfg, pretty=True)
+    valido, erros = None, []
+    xsd = os.environ.get("NFSE_DPS_XSD")
+    if xsd and os.path.exists(xsd):
+        valido, erros = validar_dps_xsd(xml, xsd)
+    return {"xml": xml, "valido": valido, "erros": erros[:8]}
+
+
+@router.post("/emitir")
+async def emitir(body: dict, db=Depends(get_db), _admin: str = Depends(get_admin_user)):
+    """Prepara a DPS (numera + calcula + persiste pendente) e tenta emitir.
+    A transmissão é TRAVADA (status volta 'erro' com a mensagem) até habilitar."""
+    from services.nfse import service as nfse_service
+    cfg = await _carregar_config(db, body.get("config_id"))
+    base = _doc_de_body(cfg, body)
+    doc = await nfse_service.preparar_documento(db, cfg, base.origem, base.tomador, base.servico)
+    resultado = await nfse_service.emitir(db, cfg, doc)
+    return resultado.model_dump(mode="json")
+
+
+@router.get("/documentos")
+async def listar_documentos(status: str | None = Query(None), db=Depends(get_db), _admin: str = Depends(get_admin_user)):
+    from services.nfse.repository import listar_documentos as repo_list
+    filtro = {"status": status} if status else {}
+    return [{k: v for k, v in d.items() if k != "_id"} for d in await repo_list(db, filtro)]

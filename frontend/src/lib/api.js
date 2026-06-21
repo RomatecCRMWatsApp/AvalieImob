@@ -261,6 +261,12 @@ export const adminAPI = {
   // DANFSe (NFS-e) — preview dos 3 temas (blob PDF)
   danfseExemplo: (tema = 'prime1') => api.get('/nfse/danfse/exemplo', { params: { tema }, responseType: 'blob' }).then(r => r.data),
   danfsePreview: (doc, tema = 'prime1') => api.post('/nfse/danfse/preview', doc, { params: { tema }, responseType: 'blob' }).then(r => r.data),
+  // Emissão NFS-e — config por município, teste de certificado, preview da DPS (XML)
+  nfseConfigList: () => api.get('/nfse/config').then(r => r.data),
+  nfseConfigCreate: (body) => api.post('/nfse/config', body).then(r => r.data),
+  nfseConfigUpdate: (id, body) => api.put(`/nfse/config/${id}`, body).then(r => r.data),
+  nfseTestarCert: (id) => api.post(`/nfse/config/${id}/testar-cert`).then(r => r.data),
+  nfseDpsPreview: (body) => api.post('/nfse/dps/preview', body).then(r => r.data),
 };
 
 // ---- Evaluations

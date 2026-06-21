@@ -49,10 +49,20 @@ def _ctribnac(servico) -> str:
     return (item.ljust(6, "0"))[:6] if item else "000000"
 
 
-def _cnbs(servico) -> str:
-    """cNBS [0-9]{9}: código NBS do serviço (obrigatório na DPS Nacional)."""
+def _cnbs(servico, config=None) -> str:
+    """cNBS [0-9]{9}: do serviço, senão do fiscal_defaults da config, senão zeros."""
     c = _so_dig(servico.cnbs)
+    if not c and config is not None:
+        c = _so_dig(getattr(config.fiscal_defaults, "codigo_nbs", ""))
     return c[-9:].rjust(9, "0") if c else "000000000"
+
+
+def _ctribnac_cfg(servico, config) -> str:
+    if not _so_dig(servico.codigo_tributacao_nacional) and config is not None:
+        cn = _so_dig(getattr(config.fiscal_defaults, "codigo_tributacao_nacional", ""))
+        if len(cn) == 6:
+            return cn
+    return _ctribnac(servico)
 
 
 def validar_dps_xsd(xml: str | bytes, xsd_path: str):
@@ -114,11 +124,11 @@ def montar_dps_xml(doc: NFSeDocumento, config: NFSeConfig, pretty: bool = False)
     loc = _el(serv, "locPrest")
     _el(loc, "cLocPrestacao", doc.servico.local_prestacao_ibge or config.codigo_ibge)
     cserv = _el(serv, "cServ")
-    _el(cserv, "cTribNac", _ctribnac(doc.servico))              # [0-9]{6}
+    _el(cserv, "cTribNac", _ctribnac_cfg(doc.servico, config))  # [0-9]{6}
     if doc.servico.codigo_tributacao_municipal:
         _el(cserv, "cTribMun", doc.servico.codigo_tributacao_municipal)
     _el(cserv, "xDescServ", doc.servico.discriminacao)
-    _el(cserv, "cNBS", _cnbs(doc.servico))                      # [0-9]{9} (obrigatório)
+    _el(cserv, "cNBS", _cnbs(doc.servico, config))              # [0-9]{9} (obrigatório)
 
     # ── Valores (XSD: vServPrest, vDescCondIncond?, trib[tribMun,totTrib]) ────
     valores = _el(inf, "valores")
