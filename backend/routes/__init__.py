@@ -52,6 +52,7 @@ from routes.assinatura_cliente import (
 from routes.documentos_assinatura import router as documentos_assinatura_router
 from routes.avaliacao_publica import router as avaliacao_publica_router
 from routes.admin_leads import router as admin_leads_router
+from routes.nfse import router as nfse_router
 
 all_routers = [
     auth_router, users_router, ptam_router, locacao_router,
@@ -71,4 +72,5 @@ all_routers = [
     documentos_assinatura_router,
     avaliacao_publica_router,
     admin_leads_router,
+    nfse_router,
 ]

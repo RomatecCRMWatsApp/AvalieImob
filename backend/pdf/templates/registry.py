@@ -53,3 +53,29 @@ def gerar_pdf_contrato(doc: dict, uid: str, empresa: str, template: str | None =
     except Exception as e:  # noqa: BLE001
         logger.warning("Template '%s' falhou (%s) — fallback tradicional.", escolhido, e)
         return _renderer_tradicional()(doc, uid, empresa)
+
+
+# ── DANFSe (NFS-e) — mesmos 3 temas, engine ReportLab próprio ────────────────
+DANFSE_TEMPLATES_DISPONIVEIS = ["prime1", "prime2", "tradicional"]
+DANFSE_TEMPLATE_PADRAO = "prime1"
+
+
+def get_danfse_renderer(tema: str = "prime1"):
+    """Retorna o callable render(doc, config=None, brasao=None)->bytes do tema do DANFSe."""
+    tema = (tema or DANFSE_TEMPLATE_PADRAO).lower().strip()
+    if tema == "prime2":
+        from pdf.templates.danfse_prime2 import render as r
+        return r
+    if tema == "tradicional":
+        from pdf.templates.danfse_tradicional import render as r
+        return r
+    from pdf.templates.danfse_prime1 import render as r
+    return r
+
+
+def gerar_danfse(doc: dict, tema: str | None = None, config: dict | None = None, brasao: bytes | None = None) -> bytes:
+    """Gera o DANFSe no tema pedido (ou no salvo no documento, ou no padrão prime1)."""
+    escolhido = (tema or doc.get("template_danfse") or DANFSE_TEMPLATE_PADRAO).lower().strip()
+    if escolhido not in DANFSE_TEMPLATES_DISPONIVEIS:
+        escolhido = DANFSE_TEMPLATE_PADRAO
+    return get_danfse_renderer(escolhido)(doc, config, brasao)
