@@ -205,7 +205,7 @@ def montar(doc: dict, config: dict | None = None, brasao: bytes | None = None) -
                  ("Telefone", g("tom_fone"), 1)],
             ]},
             {"n": "03", "titulo": "Discriminação dos Serviços", "tipo": "grid", "linhas": [
-                [("", g("discriminacao"), 4, "multiline")],
+                [("", g("discriminacao"), 4, "richtext")],
                 [("Código da Atividade / Serviço", g("cod_atividade"), 4)],
             ]},
             {"n": "04", "titulo": "Tributos Federais", "tipo": "grid", "linhas": [
@@ -235,7 +235,7 @@ def montar(doc: dict, config: dict | None = None, brasao: bytes | None = None) -
             {"n": "07", "titulo": "Serviços de Construção Civil", "tipo": "grid", "linhas": [
                 [("Código CNO/CEI da Obra", g("cno"), 1), ("Insc. Imobiliária (IPTU)", g("iptu"), 1)],
                 [("Endereço da Obra", g("end_obra"), 2)],
-                [("Outras Informações", g("outras_info"), 2, "multiline")],
+                [("Outras Informações", g("outras_info"), 2, "richtext")],
             ]},
         ],
         "rodape": {

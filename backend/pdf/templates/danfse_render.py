@@ -4,8 +4,10 @@
 # wrappers finos que chamam render(conteudo, tema). Visual derivado do HTML aprovado.
 from __future__ import annotations
 
+import html as _html
 import io
 import logging
+import re
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.colors import HexColor, Color
@@ -14,6 +16,35 @@ from reportlab.lib.utils import ImageReader
 from reportlab.graphics.barcode import qr as _qrmod
 from reportlab.graphics.shapes import Drawing
 from reportlab.graphics import renderPDF
+from reportlab.platypus import Paragraph
+from reportlab.lib.styles import ParagraphStyle
+
+
+def _richtext_to_rl(s: str) -> str:
+    """Converte o HTML do RichTextEditor → markup inline aceito pelo ReportLab Paragraph
+    (só <b>/<i>/<u>/<br/>). Texto puro é escapado. Listas viram '• '."""
+    s = str(s or "")
+    if "<" not in s and "&" not in s:
+        return _html.escape(s)
+    s = re.sub(r"(?is)<\s*br\s*/?\s*>", "\n", s)
+    s = re.sub(r"(?is)</\s*(p|div|li|h[1-6])\s*>", "\n", s)
+    s = re.sub(r"(?is)<\s*li[^>]*>", "• ", s)
+    s = re.sub(r"(?is)<\s*(strong|b)\s*>", "\x01b\x02", s)
+    s = re.sub(r"(?is)</\s*(strong|b)\s*>", "\x01/b\x02", s)
+    s = re.sub(r"(?is)<\s*(em|i)\s*>", "\x01i\x02", s)
+    s = re.sub(r"(?is)</\s*(em|i)\s*>", "\x01/i\x02", s)
+    s = re.sub(r"(?is)<\s*u\s*>", "\x01u\x02", s)
+    s = re.sub(r"(?is)</\s*u\s*>", "\x01/u\x02", s)
+    s = re.sub(r"(?is)<[^>]+>", "", s)          # remove o resto das tags
+    s = _html.unescape(s)                        # &nbsp; etc → texto
+    s = _html.escape(s)                          # reescapa &/</> soltos (XML-safe)
+    s = (s.replace("\x01b\x02", "<b>").replace("\x01/b\x02", "</b>")
+           .replace("\x01i\x02", "<i>").replace("\x01/i\x02", "</i>")
+           .replace("\x01u\x02", "<u>").replace("\x01/u\x02", "</u>"))
+    s = s.replace("\n", "<br/>")
+    s = re.sub(r"^(<br/>)+", "", s)
+    s = re.sub(r"(<br/>)+$", "", s)
+    return s
 
 from pdf.templates.danfse_base import TEMAS
 from pdf.themes.prime2_theme import fonts as _fonts
@@ -178,11 +209,28 @@ def render(conteudo: dict, tema: str = "prime1") -> bytes:
         c.drawCentredString(MX + W / 2, st["y"] - 16, txt)
         st["y"] -= 24
 
+    def _para(htmlval, maxw, size=8.2):
+        style = ParagraphStyle("d", fontName=SANS, fontSize=size, leading=size * 1.3,
+                               textColor=_hex(T["valor_fg"]))
+        p = Paragraph(_richtext_to_rl(htmlval), style)
+        _w, _h = p.wrap(maxw, 100000)
+        return p, _h
+
     # ── Célula (rótulo em cima, valor embaixo) ───────────────────────────────
-    def cell(x, y, w, h, rotulo, valor, align="l", destaque=False, multiline=False):
+    def cell(x, y, w, h, rotulo, valor, align="l", destaque=False, multiline=False, rich=False):
         c.setStrokeColor(_hex(T["borda"])); c.setLineWidth(0.5)
         c.rect(x, y, w, h, fill=0, stroke=1)
         pad = 4
+        if rich:
+            if rotulo:
+                c.setFillColor(_hex(T["label_fg"])); c.setFont(SANS, 6.5)
+                c.drawString(x + pad, y + h - 9, (rotulo or "").upper())
+                topo = y + h - 12
+            else:
+                topo = y + h - 4
+            p, ph = _para(valor, w - 2 * pad)
+            p.drawOn(c, x + pad, max(y + 3, topo - ph))
+            return
         if rotulo:
             c.setFillColor(_hex(T["label_fg"])); c.setFont(SANS, 6.5)
             c.drawString(x + pad, y + h - 9, (rotulo or "").upper())
@@ -209,10 +257,16 @@ def render(conteudo: dict, tema: str = "prime1") -> bytes:
     def _cell_h(linha, base=21):
         h = base
         for cl in linha:
-            if len(cl) >= 4 and cl[3] == "multiline":
+            hint = cl[3] if len(cl) >= 4 else ""
+            if hint == "multiline":
                 texto = str(cl[1] or "")
                 nlin = max(1, len(texto) // 78 + texto.count("\n") + 1)
                 h = max(h, 15 + nlin * 10.5)
+            elif hint == "richtext":
+                span = cl[2] if len(cl) > 2 else 1
+                cw = W * span / 4.0 - 8
+                _, ph = _para(cl[1], cw)
+                h = max(h, ph + (16 if cl[0] else 9))
         return h
 
     def grid(linhas):
@@ -227,7 +281,7 @@ def render(conteudo: dict, tema: str = "prime1") -> bytes:
                 hint = cl[3] if len(cl) > 3 else ""
                 cw = W * span / 4.0
                 cell(x, y, cw, h, rot, val, align="r" if hint == "r" else "l",
-                     multiline=(hint == "multiline"))
+                     multiline=(hint == "multiline"), rich=(hint == "richtext"))
                 x += cw
             st["y"] = y
 
