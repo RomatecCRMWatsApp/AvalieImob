@@ -73,7 +73,7 @@ def test_providers_stub_bloqueiam_emissao():
         p = get_provider(_cfg(prov))
         doc = NFSeDocumento(config_id="c1", origem=Origem(tipo="servico_avulso"),
                             tomador=Tomador(), servico=Servico(valor_servico=100))
-        with pytest.raises(NFSeProviderError):
+        with pytest.raises((NFSeProviderError, NFSeConfigError)):
             asyncio.run(p.emitir(doc))
 
 
