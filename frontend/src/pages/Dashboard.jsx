@@ -29,6 +29,7 @@ import AdminIncra from '../components/dashboard/incra/AdminIncra';
 import CuponsAdmin from './admin/CuponsAdmin';
 import UsuariosAdmin from './admin/UsuariosAdmin';
 import LeadsAdmin from './admin/LeadsAdmin';
+import DanfseTemas from './admin/DanfseTemas';
 import PropostasList from '../components/dashboard/propostas/PropostasList';
 import PropostaForm from '../components/dashboard/propostas/PropostaForm';
 import PtamList from '../components/dashboard/ptam/PtamList';
@@ -477,6 +478,7 @@ const Dashboard = () => {
             <Route path="admin/cupons" element={<CuponsAdmin />} />
             <Route path="admin/usuarios" element={<UsuariosAdmin />} />
             <Route path="admin/leads" element={<LeadsAdmin />} />
+            <Route path="admin/danfse" element={<DanfseTemas />} />
             <Route path="*"            element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </div>

@@ -161,6 +161,7 @@ export default function Sidebar({
           { id: 'cupons', label: 'Cupons Promo', icon: Tag, route: '/dashboard/admin/cupons' },
           { id: 'usuarios', label: 'Usuários', icon: Users, route: '/dashboard/admin/usuarios' },
           { id: 'leads', label: 'Leads', icon: Inbox, route: '/dashboard/admin/leads' },
+          { id: 'danfse', label: 'DANFSe (temas)', icon: FileText, route: '/dashboard/admin/danfse' },
         ] }
       : g
   );

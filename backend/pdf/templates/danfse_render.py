@@ -11,6 +11,9 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.colors import HexColor, Color
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
+from reportlab.graphics.barcode import qr as _qrmod
+from reportlab.graphics.shapes import Drawing
+from reportlab.graphics import renderPDF
 
 from pdf.templates.danfse_base import TEMAS
 from pdf.themes.prime2_theme import fonts as _fonts
@@ -87,6 +90,20 @@ def render(conteudo: dict, tema: str = "prime1") -> bytes:
                                  a.blue + (b.blue - a.blue) * t))
             c.rect(x + w * i / steps, y, w / steps + 1, h, fill=1, stroke=0)
 
+    def _qr(x, y, size, data):
+        # branco atrás p/ contraste (cabeçalho escuro nos temas Prime) + QR preto
+        c.setFillColor(HexColor("#FFFFFF"))
+        c.roundRect(x - 3, y - 3, size + 6, size + 6, 3, fill=1, stroke=0)
+        try:
+            w = _qrmod.QrCodeWidget(str(data or " "), barLevel="M")
+            b = w.getBounds()
+            bw, bh = (b[2] - b[0]) or 1, (b[3] - b[1]) or 1
+            d = Drawing(size, size, transform=[size / bw, 0, 0, size / bh, 0, 0])
+            d.add(w)
+            renderPDF.draw(d, c, x, y)
+        except Exception:  # noqa: BLE001
+            pass
+
     def _brasao(x, y, lado, cab):
         placa = T.get("brasao_placa", True)
         if placa:
@@ -138,8 +155,14 @@ def render(conteudo: dict, tema: str = "prime1") -> bytes:
         c.setFont(SANS, 8); c.drawString(gx, y + H - 24, (cab.get("estado") or "").upper())
         c.setFont(SERIF_B, 17); c.drawString(gx, y + H - 46, cab.get("prefeitura", ""))
         c.setFont(SANS, 8.5); c.drawString(gx, y + H - 60, cab.get("secretaria", ""))
-        # nota box (direita)
-        rx = MX + W - 16
+        # QR Code (canto superior direito) — espelha o DANFSe municipal
+        qr_sz = 46
+        qr_x = MX + W - qr_sz - 6
+        qr_y = y + (H - qr_sz) / 2
+        if cab.get("qr"):
+            _qr(qr_x, qr_y, qr_sz, cab.get("qr"))
+        # nota box (à esquerda do QR)
+        rx = qr_x - 12
         c.setFillColor(fg); c.setFont(SANS, 7.5)
         c.drawRightString(rx, y + H - 22, "NOTA FISCAL Nº")
         c.setFillColor(_hex(T["nota_fg"])); c.setFont(SERIF_B, 23)

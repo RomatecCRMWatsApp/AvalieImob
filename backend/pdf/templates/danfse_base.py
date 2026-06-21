@@ -4,7 +4,29 @@
 # Fonte de verdade visual: danfse-acailandia-prime.html (aprovado).
 from __future__ import annotations
 
+import io as _io
+import os
 import re
+from functools import lru_cache
+
+_ASSETS_BRASOES = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "assets", "brasoes")
+
+
+@lru_cache(maxsize=8)
+def brasao_acailandia() -> bytes | None:
+    """Brasão oficial de Açailândia (servido do storage interno; CC BY-SA)."""
+    try:
+        from PIL import Image
+        p = os.path.join(_ASSETS_BRASOES, "acailandia.png")
+        if not os.path.exists(p):
+            return None
+        im = Image.open(p).convert("RGBA")
+        b = _io.BytesIO()
+        im.save(b, "PNG")
+        return b.getvalue()
+    except Exception:  # noqa: BLE001
+        return None
 
 # ── Tokens dos 3 temas (derivados do HTML aprovado) ──────────────────────────
 # faixa_* = faixas de seção; cab_* = cabeçalho; ghost = numeral-fantasma (Prime II).
@@ -145,6 +167,8 @@ def montar(doc: dict, config: dict | None = None, brasao: bytes | None = None) -
 
     numero = g("numero_nfse", "0000000000")
     ghost = (numero.lstrip("0") or "0")
+    if brasao is None:
+        brasao = brasao_acailandia()
 
     return {
         "cabecalho": {
@@ -155,6 +179,7 @@ def montar(doc: dict, config: dict | None = None, brasao: bytes | None = None) -
             "serie": g("serie", "ELETRÔNICA"),
             "brasao": brasao,
             "ghost": ghost,
+            "qr": g("link_consulta") or g("chave_acesso"),  # conteúdo do QR Code
         },
         "titulo": "Nota Fiscal Eletrônica de Prestação de Serviços",
         # Controle (rótulo, valor, colspan/4)
