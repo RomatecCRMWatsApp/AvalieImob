@@ -26,12 +26,6 @@ def _cdata(xml: str) -> str:
     return f"<![CDATA[{_sem_decl(xml)}]]>"
 
 
-def montar_cabecalho(versao: str, ns_rps: str) -> str:
-    """Cabeçalho ABRASF 1.0 (vai no parâmetro `header`, como string)."""
-    return (f'<cabecalho versao="{versao}" xmlns="{ns_rps}">'
-            f"<versaoDados>{versao}</versaoDados></cabecalho>")
-
-
 def montar_envelope_soap(operacao: str, header_xml: str, rps_xml: str, namespace_ws: str) -> str:
     """Envelope SOAP 1.1 — operação `RecepcionarLoteRps` com 2 parâmetros STRING (confirmado no
     XSD do SpeedGov): `header` (cabeçalho) e `parameters` (EnviarLoteRpsEnvio assinado), em CDATA."""

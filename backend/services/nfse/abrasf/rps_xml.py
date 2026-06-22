@@ -1,140 +1,160 @@
-# @module services.nfse.abrasf.rps_xml — Builder do RPS/Lote no padrão ABRASF 1.0.
-"""Monta o `EnviarLoteRpsEnvio` (ABRASF 1.0) a partir do NFSeDocumento + NFSeConfig.
-
-⚠️ LEIAUTE: ABRASF 1.0 é base; cada município/provedor (SpeedGov) pode ter variações
-(aliquota como fração vs %, campos opcionais, ordem). VALIDAR contra o WSDL/manual do
-SpeedGov de Açailândia antes de transmitir. Por isso a transmissão fica TRAVADA.
+# @module services.nfse.abrasf.rps_xml — Builder do RPS/Lote no padrão ABRASF 1.0 do SpeedGov.
+"""Monta o `EnviarLoteRpsEnvio` conforme os XSD OFICIAIS do SpeedGov (Intersol):
+  - EnviarLoteRpsEnvio + LoteRps  → ns `http://ws.speedgov.com.br/enviar_lote_rps_envio_v1.xsd`
+  - Todo o conteúdo (NumeroLote…InfRps…)  → ns `http://ws.speedgov.com.br/tipos_v1.xsd`
+Validado contra `enviar_lote_rps_envio_v1.xsd` + `tipos_v1.xsd`.
 """
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
 
 from lxml import etree
 
 from models.nfse import NFSeConfig, NFSeDocumento, calcular_valores
 
-NS_DEFAULT = "http://www.abrasf.org.br/nfse.xsd"
+NS_ENVIO = "http://ws.speedgov.com.br/enviar_lote_rps_envio_v1.xsd"
+NS_TIPOS = "http://ws.speedgov.com.br/tipos_v1.xsd"
+NS_CABECALHO = "http://ws.speedgov.com.br/cabecalho_v1.xsd"
 
 
-def _money(v) -> str:
+_XSD_DIR = __import__("os").path.join(__import__("os").path.dirname(__file__), "xsd")
+
+
+def validar_rps_xsd(xml: str | bytes):
+    """Valida o EnviarLoteRpsEnvio contra o XSD oficial empacotado. Retorna (ok, [erros])."""
+    import os
+    caminho = os.path.join(_XSD_DIR, "enviar_lote_rps_envio_v1.xsd")
+    if not os.path.exists(caminho):
+        return None, ["XSD não empacotado"]
+    try:
+        schema = etree.XMLSchema(etree.parse(caminho))
+        tree = etree.fromstring(xml.encode("utf-8") if isinstance(xml, str) else xml)
+        ok = schema.validate(tree)
+        return ok, [e.message for e in schema.error_log][:8]
+    except Exception as e:  # noqa: BLE001
+        return False, [str(e)]
+
+
+def _money(v) -> str:                       # tsValor: decimal, 2 casas fixas
     return str(Decimal(str(v or 0)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
 
 
-def _aliq(v) -> str:
-    # SpeedGov (ISS V2 de Açailândia) usa alíquota como PERCENTUAL (ex.: 2.00 = 2%) — confirmado
-    # no XML real da NFS-e 59. Aceita fração (0.02) e normaliza p/ percentual.
+def _aliq(v) -> str:                        # tsAliquota: decimal, 4 casas (percentual, ex.: 2.0000)
     a = float(v or 0)
-    if a <= 1:           # veio como fração (0.02) → percentual (2.00)
+    if a <= 1:                              # fração (0.02) → percentual (2.0000)
         a = a * 100.0
-    return str(Decimal(str(a)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+    return str(Decimal(str(a)).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP))
 
 
-def _so_digitos(s: str) -> str:
+def _digitos(s) -> str:
     return "".join(ch for ch in str(s or "") if ch.isdigit())
 
 
-def _item_sem_ponto(item: str) -> str:
-    return str(item or "").replace(".", "").strip()
+def _item(item) -> str:                     # tsItemListaServico: string ≤5 (sem ponto: 1701)
+    return str(item or "").replace(".", "").strip()[:5]
 
 
-def _el(parent, tag, text=None, ns=NS_DEFAULT):
-    e = etree.SubElement(parent, f"{{{ns}}}{tag}")
+def _t(parent, tag, text=None):             # elemento no ns TIPOS
+    e = etree.SubElement(parent, f"{{{NS_TIPOS}}}{tag}")
     if text is not None and text != "":
         e.text = str(text)
     return e
 
 
+def montar_cabecalho() -> str:
+    """Cabeçalho ABRASF (param `header`) — ns cabecalho_v1.xsd; versaoDados UNqualified."""
+    cab = etree.Element(f"{{{NS_CABECALHO}}}cabecalho", nsmap={"c": NS_CABECALHO})
+    cab.set("versao", "1.00")
+    vd = etree.SubElement(cab, "versaoDados")   # sem ns (elementFormDefault unqualified)
+    vd.text = "1.00"
+    return etree.tostring(cab, encoding="unicode")
+
+
 def montar_lote_rps_xml(doc: NFSeDocumento, config: NFSeConfig, pretty: bool = False) -> str:
-    """Monta o XML `EnviarLoteRpsEnvio` (1 RPS no lote). Sem assinatura (ver assinatura_abrasf)."""
-    ab = config.abrasf
-    ns = ab.namespace or NS_DEFAULT
+    """Monta o `EnviarLoteRpsEnvio` (1 RPS). Sem assinatura (ver assinatura_abrasf)."""
     emit = config.emitente
     serv = doc.servico
     tom = doc.tomador
+    fd = config.fiscal_defaults
     calc = calcular_valores(serv)
 
     numero = str(doc.dps.numero or 0)
-    serie = ab.serie_rps or "1"
-    rps_id = f"rps{numero}"
-    lote_id = f"lote{numero}"
+    serie = config.abrasf.serie_rps or "1"
 
-    root = etree.Element(f"{{{ns}}}EnviarLoteRpsEnvio", nsmap={None: ns})
-    lote = _el(root, "LoteRps", ns=ns)
-    lote.set("Id", lote_id)
-    lote.set("versao", ab.versao_abrasf or "1.00")
-    _el(lote, "NumeroLote", numero, ns)
-    _el(lote, "Cnpj", _so_digitos(emit.cnpj), ns)
-    _el(lote, "InscricaoMunicipal", _so_digitos(emit.inscricao_municipal), ns)
-    _el(lote, "QuantidadeRps", "1", ns)
-    lista = _el(lote, "ListaRps", ns=ns)
+    root = etree.Element(f"{{{NS_ENVIO}}}EnviarLoteRpsEnvio",
+                         nsmap={None: NS_TIPOS, "e": NS_ENVIO})
+    lote = etree.SubElement(root, f"{{{NS_ENVIO}}}LoteRps")    # LoteRps no ns ENVIO; só atributo Id
+    lote.set("Id", f"lote{numero}")
+    _t(lote, "NumeroLote", numero)
+    _t(lote, "Cnpj", _digitos(emit.cnpj))
+    _t(lote, "InscricaoMunicipal", _digitos(emit.inscricao_municipal))
+    _t(lote, "QuantidadeRps", "1")
+    lista = _t(lote, "ListaRps")
 
-    rps = _el(lista, "Rps", ns=ns)
-    inf = _el(rps, "InfRps", ns=ns)
-    inf.set("Id", rps_id)
+    rps = _t(lista, "Rps")
+    inf = _t(rps, "InfRps")
+    inf.set("Id", f"rps{numero}")
 
-    ident = _el(inf, "IdentificacaoRps", ns=ns)
-    _el(ident, "Numero", numero, ns)
-    _el(ident, "Serie", serie, ns)
-    _el(ident, "Tipo", ab.tipo_rps or "1", ns)
+    ident = _t(inf, "IdentificacaoRps")
+    _t(ident, "Numero", numero)
+    _t(ident, "Serie", serie)
+    _t(ident, "Tipo", config.abrasf.tipo_rps or "1")
 
-    dh = (doc.dps.data_emissao.isoformat() if doc.dps.data_emissao else None)
-    _el(inf, "DataEmissao", (dh or "")[:19], ns)
-    _el(inf, "NaturezaOperacao", "1", ns)                          # 1 = tributação no município
-    _el(inf, "OptanteSimplesNacional", "1" if emit.optante_simples else "2", ns)
-    _el(inf, "IncentivadorCultural", "2", ns)                      # 2 = não
-    _el(inf, "Status", "1", ns)                                    # 1 = normal
+    dh = doc.dps.data_emissao or datetime.now(timezone.utc)
+    _t(inf, "DataEmissao", dh.isoformat()[:19])         # xsd:dateTime obrigatório
+    _t(inf, "NaturezaOperacao", "1")
+    _t(inf, "OptanteSimplesNacional", "1" if emit.optante_simples else "2")
+    _t(inf, "IncentivadorCultural", "2")
+    _t(inf, "Status", "1")
 
-    servico = _el(inf, "Servico", ns=ns)
-    valores = _el(servico, "Valores", ns=ns)
-    _el(valores, "ValorServicos", _money(serv.valor_servico), ns)
-    _el(valores, "ValorDeducoes", _money(serv.valor_deducoes), ns)
-    _el(valores, "ValorPis", _money(serv.tributos_federais.pis), ns)
-    _el(valores, "ValorCofins", _money(serv.tributos_federais.cofins), ns)
-    _el(valores, "ValorInss", _money(serv.tributos_federais.inss), ns)
-    _el(valores, "ValorIr", _money(serv.tributos_federais.irrf), ns)
-    _el(valores, "ValorCsll", _money(serv.tributos_federais.csll), ns)
-    _el(valores, "IssRetido", "1" if serv.iss_retido else "2", ns)  # 1=Sim 2=Não
-    _el(valores, "ValorIss", _money(calc["valor_iss"]), ns)
-    _el(valores, "BaseCalculo", _money(calc["base_calculo"]), ns)
-    _el(valores, "Aliquota", _aliq(serv.aliquota_iss), ns)
-    _el(valores, "DescontoIncondicionado", _money(serv.desconto_incondicionado), ns)
-    _el(valores, "DescontoCondicionado", _money(serv.desconto_condicionado), ns)
+    servico = _t(inf, "Servico")
+    val = _t(servico, "Valores")
+    _t(val, "ValorServicos", _money(serv.valor_servico))
+    _t(val, "ValorDeducoes", _money(serv.valor_deducoes))
+    _t(val, "IssRetido", "1" if serv.iss_retido else "2")     # tsSimNao: 1=Sim 2=Não
+    _t(val, "ValorIss", _money(calc["valor_iss"]))
+    _t(val, "BaseCalculo", _money(calc["base_calculo"]))
+    _t(val, "Aliquota", _aliq(serv.aliquota_iss))
+    _t(val, "DescontoCondicionado", _money(serv.desconto_condicionado))      # ordem do XSD:
+    _t(val, "DescontoIncondicionado", _money(serv.desconto_incondicionado))  # Cond. antes de Incond.
 
-    _el(servico, "ItemListaServico", _item_sem_ponto(serv.item_lista_servico or config.fiscal_defaults.item_lista_servico), ns)
-    cnae = _so_digitos(config.fiscal_defaults.cnae)
-    if cnae:
-        _el(servico, "CodigoCnae", cnae, ns)
-    cod_mun = serv.codigo_tributacao_municipal or config.fiscal_defaults.codigo_tributacao_municipal
+    _t(servico, "ItemListaServico", _item(serv.item_lista_servico or fd.item_lista_servico))
+    if _digitos(fd.cnae):
+        _t(servico, "CodigoCnae", _digitos(fd.cnae))
+    cod_mun = serv.codigo_tributacao_municipal or fd.codigo_tributacao_municipal
     if cod_mun:
-        _el(servico, "CodigoTributacaoMunicipio", cod_mun, ns)
-    _el(servico, "Discriminacao", serv.discriminacao or doc.origem.descricao or "", ns)
-    _el(servico, "CodigoMunicipio", _so_digitos(config.codigo_ibge), ns)
+        _t(servico, "CodigoTributacaoMunicipio", cod_mun)
+    _t(servico, "Discriminacao", serv.discriminacao or doc.origem.descricao or "")
+    _t(servico, "CodigoMunicipio", _digitos(config.codigo_ibge))
 
-    prest = _el(inf, "Prestador", ns=ns)
-    _el(prest, "Cnpj", _so_digitos(emit.cnpj), ns)
-    _el(prest, "InscricaoMunicipal", _so_digitos(emit.inscricao_municipal), ns)
+    prest = _t(inf, "Prestador")
+    _t(prest, "Cnpj", _digitos(emit.cnpj))
+    _t(prest, "InscricaoMunicipal", _digitos(emit.inscricao_municipal))
 
-    doc_tom = _so_digitos(tom.documento)
+    doc_tom = _digitos(tom.documento)
     if doc_tom:
-        tomador = _el(inf, "Tomador", ns=ns)
-        ident_t = _el(tomador, "IdentificacaoTomador", ns=ns)
-        cpfcnpj = _el(ident_t, "CpfCnpj", ns=ns)
-        _el(cpfcnpj, "Cnpj" if len(doc_tom) == 14 else "Cpf", doc_tom, ns)
+        tomador = _t(inf, "Tomador")
+        ident_t = _t(tomador, "IdentificacaoTomador")
+        cpfcnpj = _t(ident_t, "CpfCnpj")
+        _t(cpfcnpj, "Cnpj" if len(doc_tom) == 14 else "Cpf", doc_tom)
         if tom.razao_nome:
-            _el(tomador, "RazaoSocial", tom.razao_nome, ns)
+            _t(tomador, "RazaoSocial", tom.razao_nome)
         end = tom.endereco
         if end and (end.logradouro or end.cep):
-            e_end = _el(tomador, "Endereco", ns=ns)
+            e_end = _t(tomador, "Endereco")
             if end.logradouro:
-                _el(e_end, "Endereco", end.logradouro, ns)
+                _t(e_end, "Endereco", end.logradouro)
             if end.numero:
-                _el(e_end, "Numero", end.numero, ns)
+                _t(e_end, "Numero", end.numero)
+            if end.complemento:
+                _t(e_end, "Complemento", end.complemento)
             if end.bairro:
-                _el(e_end, "Bairro", end.bairro, ns)
+                _t(e_end, "Bairro", end.bairro)
             if end.codigo_ibge:
-                _el(e_end, "CodigoMunicipio", _so_digitos(end.codigo_ibge), ns)
+                _t(e_end, "CodigoMunicipio", _digitos(end.codigo_ibge))
             if end.cep:
-                _el(e_end, "Cep", _so_digitos(end.cep), ns)
+                _t(e_end, "Cep", _digitos(end.cep))
 
     return etree.tostring(root, encoding="UTF-8", xml_declaration=True,
                           pretty_print=pretty).decode("utf-8")

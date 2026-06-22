@@ -175,12 +175,13 @@ async def dps_preview(body: dict, db=Depends(get_db), _admin: str = Depends(get_
 
 @router.post("/abrasf/preview")
 async def abrasf_preview(body: dict, db=Depends(get_db), _admin: str = Depends(get_admin_user)):
-    """Monta o XML do RPS/Lote (ABRASF 1.0) sem assinar/transmitir — pra conferir o leiaute."""
-    from services.nfse.abrasf.rps_xml import montar_lote_rps_xml
+    """Monta o XML do RPS/Lote (ABRASF 1.0) sem assinar/transmitir + valida contra o XSD oficial."""
+    from services.nfse.abrasf.rps_xml import montar_lote_rps_xml, validar_rps_xsd
     cfg = await _carregar_config(db, body.get("config_id"))
     doc = _doc_de_body(cfg, body)
     xml = montar_lote_rps_xml(doc, cfg, pretty=True)
-    return {"xml": xml}
+    valido, erros = validar_rps_xsd(xml)
+    return {"xml": xml, "valido": valido, "erros": erros}
 
 
 @router.post("/abrasf/testar-envio")
@@ -188,9 +189,9 @@ async def abrasf_testar_envio(body: dict, db=Depends(get_db), _admin: str = Depe
     """Envia 1 RPS ao webservice de TESTE do SpeedGov (homologação) e devolve a resposta CRUA.
     NÃO persiste nota fiscal e usa SEMPRE `abrasf.url_ws` (ambiente de teste, nunca produção)."""
     from datetime import datetime, timezone
-    from services.nfse.abrasf.rps_xml import montar_lote_rps_xml
+    from services.nfse.abrasf.rps_xml import montar_lote_rps_xml, montar_cabecalho
     from services.nfse.abrasf.assinatura_abrasf import assinar_lote_rps
-    from services.nfse.abrasf.soap_client import AbrasfClient, montar_envelope_soap, montar_cabecalho
+    from services.nfse.abrasf.soap_client import AbrasfClient, montar_envelope_soap
     from services.nfse.sefin.certificado import carregar_para_emissao
     cfg = await _carregar_config(db, body.get("config_id"))
     a = cfg.abrasf
@@ -210,7 +211,7 @@ async def abrasf_testar_envio(body: dict, db=Depends(get_db), _admin: str = Depe
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "etapa": "assinatura", "erro": str(e)[:800]}
     try:
-        header = montar_cabecalho(a.versao_abrasf, a.namespace)
+        header = montar_cabecalho()
         envelope = montar_envelope_soap(a.operacao_envio, header, xml_assinado, a.namespace_ws)
         resp = await AbrasfClient(a.url_ws, None).chamar(a.soap_action, envelope)
         return {"ok": True, "url": a.url_ws, "resposta": resp[:9000]}

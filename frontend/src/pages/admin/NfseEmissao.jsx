@@ -267,7 +267,9 @@ export default function NfseEmissao() {
           </div>
           {rps && (
             <div className="space-y-2">
-              <div className="rounded-lg px-3 py-1.5 text-sm bg-gray-100 text-gray-600">RPS (ABRASF) gerado — confira o leiaute contra o WSDL do SpeedGov antes de transmitir.</div>
+              <div className={`rounded-lg px-3 py-1.5 text-sm ${rps.valido == null ? 'bg-gray-100 text-gray-600' : rps.valido ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-700'}`}>
+                {rps.valido == null ? 'RPS (ABRASF) gerado.' : rps.valido ? '✓ RPS válido contra o XSD oficial do SpeedGov' : `✗ Inválido: ${(rps.erros || []).join(' · ')}`}
+              </div>
               <pre className="text-[10px] bg-gray-900 text-emerald-200 rounded-lg p-3 overflow-auto max-h-[360px]">{rps.xml}</pre>
             </div>
           )}
