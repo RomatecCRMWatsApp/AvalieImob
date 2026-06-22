@@ -51,6 +51,18 @@ def _digitos(s) -> str:
     return "".join(ch for ch in str(s or "") if ch.isdigit())
 
 
+def _texto_simples(s) -> str:
+    """Remove HTML (do RichText) e normaliza — a Discriminação da NFS-e é texto puro."""
+    import re
+    from html import unescape
+    t = str(s or "")
+    t = re.sub(r"(?i)</(p|div|li|br)>", "\n", t)
+    t = re.sub(r"(?i)<br\s*/?>", "\n", t)
+    t = re.sub(r"<[^>]+>", "", t)
+    t = unescape(t)
+    return re.sub(r"[ \t]+", " ", re.sub(r"\n{3,}", "\n\n", t)).strip()
+
+
 def _item(item) -> str:                     # tsItemListaServico: string ≤5 (sem ponto: 1701)
     return str(item or "").replace(".", "").strip()[:5]
 
@@ -125,7 +137,7 @@ def montar_lote_rps_xml(doc: NFSeDocumento, config: NFSeConfig, pretty: bool = F
     cod_mun = serv.codigo_tributacao_municipal or fd.codigo_tributacao_municipal
     if cod_mun:
         _t(servico, "CodigoTributacaoMunicipio", cod_mun)
-    _t(servico, "Discriminacao", serv.discriminacao or doc.origem.descricao or "")
+    _t(servico, "Discriminacao", _texto_simples(serv.discriminacao or doc.origem.descricao or ""))
     _t(servico, "CodigoMunicipio", _digitos(config.codigo_ibge))
 
     prest = _t(inf, "Prestador")

@@ -4,7 +4,17 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShieldCheck, FileCode2, Loader2, Save, UserPlus } from 'lucide-react';
-import { adminAPI, certificadosAPI, clientsAPI } from '../../lib/api';
+import { adminAPI, certificadosAPI, clientsAPI, aiAPI } from '../../lib/api';
+import RichTextEditor from '../../components/ui/RichTextEditor';
+import { paraEditorHtml } from '../../components/ui/RichField';
+
+// HTML do editor → texto puro (a NFS-e exige texto simples na Discriminação).
+const stripHtml = (h) => {
+  if (!h) return '';
+  const d = document.createElement('div');
+  d.innerHTML = String(h).replace(/<\/(p|div|li|br)>/gi, '\n').replace(/<br\s*\/?>(?!$)/gi, '\n');
+  return (d.textContent || d.innerText || '').replace(/\n{3,}/g, '\n\n').replace(/[ \t]+/g, ' ').trim();
+};
 
 // Descrições dos códigos fiscais conhecidos (referência para o usuário/contador).
 const DESC_ITEM = { '17.01': 'Assessoria/consultoria de qualquer natureza; análise, exame, pesquisa, coleta e fornecimento de dados.' };
@@ -75,6 +85,24 @@ export default function NfseEmissao() {
   const [gerandoRps, setGerandoRps] = useState(false);
   const [envioResp, setEnvioResp] = useState(null);
   const [enviando, setEnviando] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+
+  const aperfeicoarDiscriminacao = async (html) => {
+    const atual = stripHtml(html);
+    setAiLoading(true);
+    try {
+      const prompt =
+        'Aperfeiçoe a descrição de serviço abaixo para uma NFS-e (nota fiscal de serviço eletrônica), ' +
+        'tom formal, claro e objetivo em português-BR, conciso (1 a 3 frases). NÃO use formatação, ' +
+        'títulos nem rótulos — retorne APENAS o texto.\n\nServiço atual:\n' +
+        (atual || '(vazio — gere uma descrição adequada de serviço de engenharia/agrimensura)');
+      const res = await aiAPI.chat(`nfse_discr_${Date.now()}`, prompt);
+      const texto = (res?.reply || '').trim();
+      if (texto) setTeste((t) => ({ ...t, discriminacao: texto }));
+      toast({ title: 'Discriminação aperfeiçoada com IA' });
+    } catch (e) { toast({ title: 'Erro na IA', description: e.response?.data?.detail || 'Tente novamente', variant: 'destructive' }); }
+    finally { setAiLoading(false); }
+  };
 
   const salvar = async () => {
     setSaving(true);
@@ -102,7 +130,7 @@ export default function NfseEmissao() {
       const r = await adminAPI.nfseDpsPreview({
         config_id: cfg.id,
         tomador: { tipo_documento: 'cnpj', documento: teste.cnpj, razao_nome: teste.nome },
-        servico: { discriminacao: teste.discriminacao, item_lista_servico: cfg.fiscal_defaults.item_lista_servico, codigo_tributacao_municipal: cfg.fiscal_defaults.codigo_tributacao_municipal, cnbs: cfg.fiscal_defaults.codigo_nbs, local_prestacao_ibge: cfg.codigo_ibge, valor_servico: num(teste.valor), aliquota_iss: num(teste.aliquota) },
+        servico: { discriminacao: stripHtml(teste.discriminacao), item_lista_servico: cfg.fiscal_defaults.item_lista_servico, codigo_tributacao_municipal: cfg.fiscal_defaults.codigo_tributacao_municipal, cnbs: cfg.fiscal_defaults.codigo_nbs, local_prestacao_ibge: cfg.codigo_ibge, valor_servico: num(teste.valor), aliquota_iss: num(teste.aliquota) },
         origem: { tipo: 'servico_avulso' },
       });
       setDps(r);
@@ -118,7 +146,7 @@ export default function NfseEmissao() {
       const r = await adminAPI.nfseAbrasfPreview({
         config_id: cfg.id,
         tomador: { tipo_documento: 'cnpj', documento: teste.cnpj, razao_nome: teste.nome },
-        servico: { discriminacao: teste.discriminacao, item_lista_servico: cfg.fiscal_defaults.item_lista_servico, codigo_tributacao_municipal: cfg.fiscal_defaults.codigo_tributacao_municipal, local_prestacao_ibge: cfg.codigo_ibge, valor_servico: num(teste.valor), aliquota_iss: num(teste.aliquota) },
+        servico: { discriminacao: stripHtml(teste.discriminacao), item_lista_servico: cfg.fiscal_defaults.item_lista_servico, codigo_tributacao_municipal: cfg.fiscal_defaults.codigo_tributacao_municipal, local_prestacao_ibge: cfg.codigo_ibge, valor_servico: num(teste.valor), aliquota_iss: num(teste.aliquota) },
         origem: { tipo: 'servico_avulso' },
       });
       setRps(r);
@@ -134,7 +162,7 @@ export default function NfseEmissao() {
       const r = await adminAPI.nfseAbrasfTestar({
         config_id: cfg.id,
         tomador: { tipo_documento: 'cnpj', documento: teste.cnpj, razao_nome: teste.nome },
-        servico: { discriminacao: teste.discriminacao, item_lista_servico: cfg.fiscal_defaults.item_lista_servico, codigo_tributacao_municipal: cfg.fiscal_defaults.codigo_tributacao_municipal, local_prestacao_ibge: cfg.codigo_ibge, valor_servico: num(teste.valor), aliquota_iss: num(teste.aliquota) },
+        servico: { discriminacao: stripHtml(teste.discriminacao), item_lista_servico: cfg.fiscal_defaults.item_lista_servico, codigo_tributacao_municipal: cfg.fiscal_defaults.codigo_tributacao_municipal, local_prestacao_ibge: cfg.codigo_ibge, valor_servico: num(teste.valor), aliquota_iss: num(teste.aliquota) },
         origem: { tipo: 'servico_avulso' },
       });
       setEnvioResp(r);
@@ -249,7 +277,18 @@ export default function NfseEmissao() {
             <Field label="Tomador CNPJ"><Input value={teste.cnpj} onChange={(e) => setTeste({ ...teste, cnpj: e.target.value })} /></Field>
             <Field label="Tomador Nome"><Input value={teste.nome} onChange={(e) => setTeste({ ...teste, nome: e.target.value })} /></Field>
           </div>
-          <Field label="Discriminação"><textarea value={teste.discriminacao} onChange={(e) => setTeste({ ...teste, discriminacao: e.target.value })} rows={2} className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm" /></Field>
+          <Field label="Discriminação">
+            <RichTextEditor
+              value={paraEditorHtml(teste.discriminacao)}
+              onChange={(h) => setTeste((t) => ({ ...t, discriminacao: h }))}
+              onBlurHtml={(h) => setTeste((t) => ({ ...t, discriminacao: h }))}
+              minHeight={90}
+              showAiButton={true}
+              onAiImprove={aperfeicoarDiscriminacao}
+            />
+            {aiLoading && <p className="text-[10px] text-emerald-700 mt-0.5">✨ Aperfeiçoando com IA…</p>}
+            <p className="text-[10px] text-gray-400 mt-0.5">O texto vai para a nota como texto simples (a formatação é só para edição).</p>
+          </Field>
           <div className="flex flex-wrap items-center gap-2">
             {isAbrasf && (
               <button onClick={gerarRps} disabled={gerandoRps} className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-50" style={{ backgroundColor: VERDE }}>
