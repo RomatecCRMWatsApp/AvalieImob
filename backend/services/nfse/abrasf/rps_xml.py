@@ -74,12 +74,17 @@ def _t(parent, tag, text=None):             # elemento no ns TIPOS
     return e
 
 
+# tsVersao = [0-9]{1,4} (só dígitos, SEM ponto). "1.00" → "100".
+VERSAO_DADOS = "100"
+
+
 def montar_cabecalho() -> str:
-    """Cabeçalho ABRASF (param `header`) — ns cabecalho_v1.xsd; versaoDados UNqualified."""
+    """Cabeçalho ABRASF (param `header`) — ns cabecalho_v1.xsd; versaoDados UNqualified.
+    versao/versaoDados = dígitos (tsVersao [0-9]{1,4})."""
     cab = etree.Element(f"{{{NS_CABECALHO}}}cabecalho", nsmap={"c": NS_CABECALHO})
-    cab.set("versao", "1.00")
+    cab.set("versao", VERSAO_DADOS)
     vd = etree.SubElement(cab, "versaoDados")   # sem ns (elementFormDefault unqualified)
-    vd.text = "1.00"
+    vd.text = VERSAO_DADOS
     return etree.tostring(cab, encoding="unicode")
 
 
