@@ -20,13 +20,20 @@ def assinar_lote_rps(xml: str | bytes, key_pem: bytes, cert_pem: bytes,
         raise NFSeProviderError("signxml não instalado — assinatura ABRASF indisponível.") from e
 
     sha = (sha or "sha1").lower()
+    # ABRASF 1.0 EXIGE RSA-SHA1; o signxml bloqueia SHA1 por padrão (check_deprecated_methods).
+    # Subclasse que NEUTRALIZA esse bloqueio (o município valida exatamente assim).
+
+    class _AbrasfSigner(XMLSigner):
+        def check_deprecated_methods(self):  # noqa: D401 - intencional: permite SHA1 p/ ABRASF
+            return None
 
     def _signer():
-        return XMLSigner(
+        return _AbrasfSigner(
             method=methods.enveloped,
             signature_algorithm=f"rsa-{sha}",
             digest_algorithm=sha,
-            c14n_algorithm="http://www.w3.org/2001/10/xml-exc-c14n#",
+            # ABRASF 1.0 usa C14N INCLUSIVO (REC-xml-c14n-20010315)
+            c14n_algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315",
         )
 
     root = etree.fromstring(xml.encode("utf-8") if isinstance(xml, str) else xml)
