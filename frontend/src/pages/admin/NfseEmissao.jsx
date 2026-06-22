@@ -86,7 +86,18 @@ export default function NfseEmissao() {
   const [gerandoRps, setGerandoRps] = useState(false);
   const [envioResp, setEnvioResp] = useState(null);
   const [enviando, setEnviando] = useState(false);
+  const [consultaResp, setConsultaResp] = useState(null);
+  const [consultando, setConsultando] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
+
+  const consultarRps = async () => {
+    if (!cfg.id) { toast({ title: 'Salve a configuração primeiro' }); return; }
+    setConsultando(true); setConsultaResp(null);
+    try {
+      setConsultaResp(await adminAPI.nfseAbrasfConsultarRps({ config_id: cfg.id, numero: 1 }));
+    } catch (e) { setConsultaResp({ ok: false, erro: e.response?.data?.detail || 'Falha na chamada' }); }
+    finally { setConsultando(false); }
+  };
 
   const aperfeicoarDiscriminacao = async (html) => {
     const atual = stripHtml(html);
@@ -297,8 +308,13 @@ export default function NfseEmissao() {
               </button>
             )}
             {isAbrasf && (
-              <button onClick={testarEnvio} disabled={enviando} title="Assina e envia ao Ambiente de TESTE do SpeedGov" className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-50" style={{ backgroundColor: '#1d4ed8' }}>
+              <button onClick={testarEnvio} disabled={enviando} title="Envia o RPS ao Ambiente de TESTE do SpeedGov" className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-50" style={{ backgroundColor: '#1d4ed8' }}>
                 {enviando ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />} Testar envio (homologação)
+              </button>
+            )}
+            {isAbrasf && (
+              <button onClick={consultarRps} disabled={consultando} title="Consulta no SpeedGov se a NFS-e foi gerada a partir do RPS nº 1" className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-50 border border-blue-300 text-blue-800">
+                {consultando ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileCode2 className="w-4 h-4" />} Consultar NFS-e por RPS
               </button>
             )}
             <button onClick={gerarDps} disabled={gerando} className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-50 border border-emerald-300 text-emerald-800">
@@ -320,6 +336,16 @@ export default function NfseEmissao() {
               </div>
               {(envioResp.resposta || envioResp.erro) && (
                 <pre className="text-[10px] bg-gray-900 text-blue-200 rounded-lg p-3 overflow-auto max-h-[360px] whitespace-pre-wrap">{envioResp.resposta || envioResp.erro}</pre>
+              )}
+            </div>
+          )}
+          {consultaResp && (
+            <div className="space-y-2">
+              <div className={`rounded-lg px-3 py-1.5 text-sm ${consultaResp.ok ? 'bg-blue-50 text-blue-800' : 'bg-red-50 text-red-700'}`}>
+                {consultaResp.ok ? '🔎 Consulta NFS-e por RPS — resposta do SpeedGov:' : `✗ ${consultaResp.erro}`}
+              </div>
+              {(consultaResp.resposta || consultaResp.erro) && (
+                <pre className="text-[10px] bg-gray-900 text-blue-200 rounded-lg p-3 overflow-auto max-h-[360px] whitespace-pre-wrap">{consultaResp.resposta || consultaResp.erro}</pre>
               )}
             </div>
           )}

@@ -219,6 +219,26 @@ async def abrasf_testar_envio(body: dict, db=Depends(get_db), _admin: str = Depe
         return {"ok": False, "etapa": "envio", "url": url_ws, "erro": str(e)[:1200]}
 
 
+@router.post("/abrasf/consultar-rps")
+async def abrasf_consultar_rps(body: dict, db=Depends(get_db), _admin: str = Depends(get_admin_user)):
+    """Consulta no SpeedGov se uma NFS-e foi gerada a partir de um RPS (ConsultarNfsePorRps).
+    Útil p/ investigar o retorno vazio do RecepcionarLoteRps. Devolve a resposta crua."""
+    from services.nfse.abrasf.rps_xml import montar_consultar_nfse_rps_xml, montar_cabecalho
+    from services.nfse.abrasf.soap_client import AbrasfClient, montar_envelope_soap
+    cfg = await _carregar_config(db, body.get("config_id"))
+    a = cfg.abrasf
+    url_ws = a.url_ws or "http://speedgov.com.br/wsmod/Nfes"
+    numero = body.get("numero") or 1
+    xml = montar_consultar_nfse_rps_xml(cfg, numero, a.serie_rps or "1", a.tipo_rps or "1")
+    header = montar_cabecalho()
+    envelope = montar_envelope_soap(a.operacao_consulta_rps or "ConsultarNfsePorRps", header, xml, a.namespace_ws)
+    try:
+        resp = await AbrasfClient(url_ws, None).chamar(a.soap_action, envelope)
+        return {"ok": True, "resposta": resp[:9000]}
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "erro": str(e)[:1200]}
+
+
 @router.post("/emitir")
 async def emitir(body: dict, db=Depends(get_db), _admin: str = Depends(get_admin_user)):
     """Prepara a DPS (numera + calcula + persiste pendente) e tenta emitir.

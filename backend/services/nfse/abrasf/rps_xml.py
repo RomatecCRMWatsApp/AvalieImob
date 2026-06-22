@@ -21,6 +21,8 @@ NS_CABECALHO = "http://ws.speedgov.com.br/cabecalho_v1.xsd"
 NS_DSIG = "http://www.w3.org/2000/09/xmldsig#"
 NS_XSI = "http://www.w3.org/2001/XMLSchema-instance"
 
+NS_CONS_RPS = "http://ws.speedgov.com.br/consultar_nfse_rps_envio_v1.xsd"
+
 VERSAO_DADOS = "1"          # tsVersao [0-9]{1,4} — modelo oficial usa "1"
 _XSD_DIR = __import__("os").path.join(__import__("os").path.dirname(__file__), "xsd")
 
@@ -88,6 +90,23 @@ def montar_cabecalho() -> str:
     vd = etree.SubElement(cab, "versaoDados")    # sem ns (unqualified)
     vd.text = VERSAO_DADOS
     return etree.tostring(cab, encoding="UTF-8", xml_declaration=True).decode("utf-8")
+
+
+def montar_consultar_nfse_rps_xml(config: NFSeConfig, numero, serie="1", tipo="1") -> str:
+    """Monta o `ConsultarNfseRpsEnvio` (operação ConsultarNfsePorRps) — modelo oficial.
+    Consulta se uma NFS-e foi gerada a partir do RPS (numero/serie/tipo + prestador)."""
+    emit = config.emitente
+    root = etree.Element(f"{{{NS_CONS_RPS}}}ConsultarNfseRpsEnvio",
+                         nsmap={"ds": NS_DSIG, "p": NS_CONS_RPS, "p1": NS_TIPOS, "xsi": NS_XSI})
+    root.set(f"{{{NS_XSI}}}schemaLocation", f"{NS_CONS_RPS} consultar_nfse_rps_envio_v1.xsd ")
+    ident = etree.SubElement(root, f"{{{NS_CONS_RPS}}}IdentificacaoRps")
+    _t(ident, "Numero", str(numero))
+    _t(ident, "Serie", serie or "1")
+    _t(ident, "Tipo", tipo or "1")
+    prest = etree.SubElement(root, f"{{{NS_CONS_RPS}}}Prestador")
+    _t(prest, "Cnpj", _digitos(emit.cnpj))
+    _t(prest, "InscricaoMunicipal", _digitos(emit.inscricao_municipal))
+    return etree.tostring(root, encoding="UTF-8", xml_declaration=True).decode("utf-8")
 
 
 def montar_lote_rps_xml(doc: NFSeDocumento, config: NFSeConfig, pretty: bool = False) -> str:

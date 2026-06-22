@@ -269,6 +269,7 @@ export const adminAPI = {
   nfseDpsPreview: (body) => api.post('/nfse/dps/preview', body).then(r => r.data),
   nfseAbrasfPreview: (body) => api.post('/nfse/abrasf/preview', body).then(r => r.data),
   nfseAbrasfTestar: (body) => api.post('/nfse/abrasf/testar-envio', body).then(r => r.data),
+  nfseAbrasfConsultarRps: (body) => api.post('/nfse/abrasf/consultar-rps', body).then(r => r.data),
 };
 
 // ---- Evaluations
