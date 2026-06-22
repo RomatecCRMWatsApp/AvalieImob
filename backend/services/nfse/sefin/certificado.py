@@ -73,6 +73,30 @@ def carregar_pfx(pfx_bytes: bytes, senha: str) -> CertificadoCarregado:
     return CertificadoCarregado(key_pem, cert_pem, chain_pem, titular)
 
 
+async def carregar_para_emissao(db, user_id: Optional[str], sefin_cfg: dict | None = None) -> CertificadoCarregado:
+    """Carrega o certificado p/ a NFS-e PRIORIZANDO o e-CNPJ (PJ) já cadastrado em
+    `db.certificados` (mesma fonte do PAdES, criptografado AES-256-GCM). Sem ele (ou sem
+    db/usuário), cai no .pfx por caminho/env (`carregar_de_config`)."""
+    sefin_cfg = sefin_cfg or {}
+    if db is not None and user_id:
+        try:
+            from services.cert_crypto import decrypt_bytes
+            cert_id = sefin_cfg.get("certificado_id")
+            if cert_id:
+                cert = await db.certificados.find_one({"id": cert_id, "user_id": user_id})
+            else:
+                cert = await db.certificados.find_one({"user_id": user_id, "perfil": "PJ", "ativo": True})
+            if cert:
+                pfx = decrypt_bytes(cert["pfx_encrypted"], cert["nonce_pfx"])
+                senha = decrypt_bytes(cert["password_encrypted"], cert["nonce_password"]).decode("utf-8")
+                return carregar_pfx(pfx, senha)
+        except NFSeConfigError:
+            raise
+        except Exception as e:  # noqa: BLE001
+            logger.error("NFS-e: erro ao carregar e-CNPJ do banco: %s", e)
+    return carregar_de_config(sefin_cfg)
+
+
 def carregar_de_config(sefin_cfg: dict) -> CertificadoCarregado:
     """Carrega o certificado a partir das REFs do nfse_config.sefin
     (certificado_ref = caminho do .pfx; certificado_senha_ref = env var da senha).

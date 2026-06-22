@@ -80,7 +80,7 @@ export default function NfseEmissao() {
 
       <div className="mb-4 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-[13px] text-amber-800">
         🔒 Transmissão <b>{cfg.sefin?.transmissao_habilitada ? 'HABILITADA' : 'DESABILITADA'}</b> (segurança).
-        Certificado: defina <code>ROMATEC_CERT_PFX_B64</code> + <code>ROMATEC_CERT_SENHA</code> nas Variables do Railway.
+        Usa o <b>e-CNPJ</b> já cadastrado em <b>Configurações → Certificados</b> (perfil PJ) — clique <b>Testar certificado</b> p/ confirmar.
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">

@@ -129,14 +129,13 @@ async def atualizar_config(config_id: str, body: dict, db=Depends(get_db), _admi
 
 @router.post("/config/{config_id}/testar-cert")
 async def testar_cert(config_id: str, db=Depends(get_db), _admin: str = Depends(get_admin_user)):
-    """Carrega o certificado .pfx (sem transmitir nada) e devolve o titular."""
-    from services.nfse.sefin.certificado import carregar_de_config
-    from services.nfse.exceptions import NFSeConfigError
+    """Carrega o e-CNPJ já cadastrado (db.certificados, perfil PJ) — sem transmitir nada."""
+    from services.nfse.sefin.certificado import carregar_para_emissao
     cfg = await _carregar_config(db, config_id)
     try:
-        cc = carregar_de_config(cfg.sefin.model_dump())
+        cc = await carregar_para_emissao(db, _admin, cfg.sefin.model_dump())
         return {"ok": True, "titular": cc.titular}
-    except NFSeConfigError as e:
+    except Exception as e:  # noqa: BLE001
         return {"ok": False, "erro": str(e)}
 
 
@@ -175,7 +174,7 @@ async def emitir(body: dict, db=Depends(get_db), _admin: str = Depends(get_admin
     cfg = await _carregar_config(db, body.get("config_id"))
     base = _doc_de_body(cfg, body)
     doc = await nfse_service.preparar_documento(db, cfg, base.origem, base.tomador, base.servico)
-    resultado = await nfse_service.emitir(db, cfg, doc)
+    resultado = await nfse_service.emitir(db, cfg, doc, owner_uid=_admin)
     return resultado.model_dump(mode="json")
 
 

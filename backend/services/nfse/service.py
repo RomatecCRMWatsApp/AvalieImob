@@ -39,10 +39,15 @@ async def preparar_documento(db, config: NFSeConfig, origem: Origem,
     return doc
 
 
-async def emitir(db, config: NFSeConfig, doc: NFSeDocumento) -> NFSeDocumento:
-    """Transmite o documento via provider. PR1: os providers são stubs → status `erro`
-    com a mensagem do adapter pendente (segurança: não emite nota real)."""
+async def emitir(db, config: NFSeConfig, doc: NFSeDocumento, owner_uid: str = None) -> NFSeDocumento:
+    """Transmite o documento via provider (transmissão travada por segurança).
+    Injeta db+owner_uid no provider p/ carregar o e-CNPJ já cadastrado (db.certificados)."""
     provider = get_provider(config)
+    try:
+        provider.db = db
+        provider.owner_uid = owner_uid
+    except Exception:  # noqa: BLE001
+        pass
     try:
         resultado = await provider.emitir(doc)
         patch = {

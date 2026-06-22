@@ -13,15 +13,18 @@ NOME = "sefin_nacional"
 
 
 class SefinNacionalProvider(NFSeProvider):
-    def _preparar(self, doc: NFSeDocumento):
+    db = None             # injetados pelo service.emitir (p/ ler o e-CNPJ do banco)
+    owner_uid = None
+
+    async def _preparar(self, doc: NFSeDocumento):
         """Monta o XML da DPS, assina e empacota (GZip+Base64). Devolve (payload_b64, cert).
-        Levanta se faltar certificado."""
+        Levanta se faltar certificado (e-CNPJ no banco ou .pfx por arquivo/env)."""
         from services.nfse.sefin.dps_xml import montar_dps_xml
-        from services.nfse.sefin.certificado import carregar_de_config
+        from services.nfse.sefin.certificado import carregar_para_emissao
         from services.nfse.sefin.assinatura import assinar_dps
         from services.nfse.sefin.empacotamento import gzip_base64
 
-        cert = carregar_de_config(self._sefin_cfg())   # ← levanta NFSeConfigError sem .pfx
+        cert = await carregar_para_emissao(self.db, self.owner_uid, self._sefin_cfg())
         xml = montar_dps_xml(doc, self.config)
         xml_assinado = assinar_dps(xml, cert.key_pem, cert.cert_pem)
         return gzip_base64(xml_assinado), cert
@@ -31,7 +34,7 @@ class SefinNacionalProvider(NFSeProvider):
         return s.model_dump() if hasattr(s, "model_dump") else dict(s)
 
     async def emitir(self, doc: NFSeDocumento) -> ResultadoEmissao:
-        payload_b64, cert = self._preparar(doc)        # monta/assina/empacota (valida cert)
+        payload_b64, cert = await self._preparar(doc)  # monta/assina/empacota (valida cert)
         sefin = self._sefin_cfg()
 
         # TRAVA: só transmite com a flag explicitamente habilitada (pós-homologação).

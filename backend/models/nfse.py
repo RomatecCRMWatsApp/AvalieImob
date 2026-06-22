@@ -78,8 +78,9 @@ class GatewayConfig(BaseModel):
 class SefinConfig(BaseModel):
     base_url_sefin: str = ""
     base_url_adn: str = ""
-    certificado_ref: str = ""          # caminho/ref do .pfx (secret)
-    certificado_senha_ref: str = ""    # env var da senha
+    certificado_id: str = ""           # id do cert em db.certificados (e-CNPJ já cadastrado); senão usa o PJ ativo
+    certificado_ref: str = ""          # alternativa: caminho/ref do .pfx (secret/arquivo)
+    certificado_senha_ref: str = ""    # env var da senha (quando via arquivo)
     serie_dps: str = "1"
     # TRAVA DE SEGURANÇA: só transmite de verdade quando True (habilitar SÓ após validar
     # XSD + testar em HOMOLOGAÇÃO). Default False → emitir() monta/assina/empacota mas NÃO envia.
