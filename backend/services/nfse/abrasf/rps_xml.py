@@ -21,11 +21,12 @@ def _money(v) -> str:
 
 
 def _aliq(v) -> str:
-    # ABRASF 1.0: alíquota como fração (ex.: 0.0200 = 2%). Aceita 2.0 (=2%) e normaliza.
+    # SpeedGov (ISS V2 de Açailândia) usa alíquota como PERCENTUAL (ex.: 2.00 = 2%) — confirmado
+    # no XML real da NFS-e 59. Aceita fração (0.02) e normaliza p/ percentual.
     a = float(v or 0)
-    if a > 1:            # veio como percentual (2.0) → fração
-        a = a / 100.0
-    return str(Decimal(str(a)).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP))
+    if a <= 1:           # veio como fração (0.02) → percentual (2.00)
+        a = a * 100.0
+    return str(Decimal(str(a)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
 
 
 def _so_digitos(s: str) -> str:
@@ -100,6 +101,9 @@ def montar_lote_rps_xml(doc: NFSeDocumento, config: NFSeConfig, pretty: bool = F
     _el(valores, "DescontoCondicionado", _money(serv.desconto_condicionado), ns)
 
     _el(servico, "ItemListaServico", _item_sem_ponto(serv.item_lista_servico or config.fiscal_defaults.item_lista_servico), ns)
+    cnae = _so_digitos(config.fiscal_defaults.cnae)
+    if cnae:
+        _el(servico, "CodigoCnae", cnae, ns)
     cod_mun = serv.codigo_tributacao_municipal or config.fiscal_defaults.codigo_tributacao_municipal
     if cod_mun:
         _el(servico, "CodigoTributacaoMunicipio", cod_mun, ns)

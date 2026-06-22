@@ -47,7 +47,7 @@ def test_rps_estrutura_e_valores():
     assert root.tag == f"{{{NS}}}EnviarLoteRpsEnvio"
     assert _q(root, "ValorServicos").text == "17500.00"
     assert _q(root, "ValorIss").text == "350.00"        # 17500 * 2%
-    assert _q(root, "Aliquota").text == "0.0200"
+    assert _q(root, "Aliquota").text == "2.00"           # percentual (SpeedGov ISS V2)
     assert _q(root, "ItemListaServico").text == "1701"   # sem ponto
     assert _q(root, "CodigoMunicipio").text == "2100055"
     # prestador e tomador
@@ -58,14 +58,14 @@ def test_rps_estrutura_e_valores():
     assert root.find(f"{{{NS}}}LoteRps").get("Id") == "lote59"
 
 
-def test_aliquota_percentual_normaliza():
+def test_aliquota_aceita_fracao_e_percentual():
     cfg = _config()
-    d = _doc(cfg)
-    d.servico.aliquota_iss = 2.0          # veio como % → deve virar fração 0.0200
-    xml = montar_lote_rps_xml(d, cfg)
-    root = etree.fromstring(xml.encode("utf-8"))
-    assert _q(root, "Aliquota").text == "0.0200"
-    assert _q(root, "ValorIss").text == "350.00"
+    for entrada in (0.02, 2.0):            # fração OU percentual → sempre "2.00" (percentual)
+        d = _doc(cfg)
+        d.servico.aliquota_iss = entrada
+        root = etree.fromstring(montar_lote_rps_xml(d, cfg).encode("utf-8"))
+        assert _q(root, "Aliquota").text == "2.00"
+        assert _q(root, "ValorIss").text == "350.00"
 
 
 def test_iss_retido_flag():

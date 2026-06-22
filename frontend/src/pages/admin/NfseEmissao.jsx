@@ -15,7 +15,7 @@ const CFG0 = {
   emitente: { razao_social: 'J R P BEZERRA LTDA', nome_fantasia: 'ROMATEC CONSULTORIA TOTAL', cnpj: '17261987000109', inscricao_municipal: '26800', inscricao_estadual: '0', optante_simples: false, telefone: '9991811246', endereco: { logradouro: 'RUA MANOEL ELZEBRIO', numero: '14', complemento: 'QUADRA 104', bairro: 'NOVA AÇAILÂNDIA', cep: '65930000', codigo_ibge: '2100055' } },
   sefin: { base_url_sefin: 'https://sefin.producaorestrita.nfse.gov.br/API/SefinNacional', base_url_adn: 'https://adn.producaorestrita.nfse.gov.br', certificado_id: '', certificado_ref: '', certificado_senha_ref: 'ROMATEC_CERT_SENHA', serie_dps: '1', transmissao_habilitada: false, rota_emissao: '/nfse', rota_consulta: '/nfse' },
   abrasf: { url_ws: '', versao_abrasf: '1.00', namespace: 'http://www.abrasf.org.br/nfse.xsd', serie_rps: '1', assinatura_sha: 'sha1', certificado_id: '', transmissao_habilitada: false },
-  fiscal_defaults: { item_lista_servico: '17.01', codigo_tributacao_municipal: '821130001', codigo_tributacao_nacional: '', codigo_nbs: '114039000', aliquota_iss: 0.02, regime_especial_tributacao: '0' },
+  fiscal_defaults: { item_lista_servico: '17.01', codigo_tributacao_municipal: '821130001', codigo_tributacao_nacional: '170101', cnae: '8211300', codigo_nbs: '114039000', aliquota_iss: 0.02, regime_especial_tributacao: '0' },
 };
 
 const Field = ({ label, children }) => (
@@ -164,6 +164,7 @@ export default function NfseEmissao() {
             <Field label="Item LC 116"><Input value={cfg.fiscal_defaults.item_lista_servico} onChange={(e) => setF('item_lista_servico', e.target.value)} /></Field>
             <Field label="Alíquota ISS (fração)"><Input value={cfg.fiscal_defaults.aliquota_iss} onChange={(e) => setF('aliquota_iss', Number(e.target.value) || 0)} /></Field>
             <Field label="Cód. Trib. Municipal"><Input value={cfg.fiscal_defaults.codigo_tributacao_municipal} onChange={(e) => setF('codigo_tributacao_municipal', e.target.value)} /></Field>
+            <Field label="CNAE"><Input value={cfg.fiscal_defaults.cnae || ''} onChange={(e) => setF('cnae', e.target.value)} placeholder="8211300" /></Field>
             <Field label="cNBS (9 díg.)"><Input value={cfg.fiscal_defaults.codigo_nbs} onChange={(e) => setF('codigo_nbs', e.target.value)} /></Field>
           </div>
 
