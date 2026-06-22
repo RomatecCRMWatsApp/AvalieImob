@@ -2,8 +2,16 @@
 // Configura o município/emitente/certificado, testa o certificado e gera/valida a DPS (XML).
 // A TRANSMISSÃO real é travada (sefin.transmissao_habilitada) até a homologação.
 import React, { useEffect, useState } from 'react';
-import { ShieldCheck, FileCode2, Loader2, Save } from 'lucide-react';
-import { adminAPI, certificadosAPI } from '../../lib/api';
+import { useNavigate } from 'react-router-dom';
+import { ShieldCheck, FileCode2, Loader2, Save, UserPlus } from 'lucide-react';
+import { adminAPI, certificadosAPI, clientsAPI } from '../../lib/api';
+
+// Descrições dos códigos fiscais conhecidos (referência para o usuário/contador).
+const DESC_ITEM = { '17.01': 'Assessoria/consultoria de qualquer natureza; análise, exame, pesquisa, coleta e fornecimento de dados.' };
+const DESC_CNAE = { '8211300': 'Serviços combinados de escritório e apoio administrativo.' };
+const DESC_MUN = { '821130001': 'Serviços de análise, exame, pesquisa, coleta e fornecimento de dados.' };
+const DESC_NBS = { '114039000': 'NBS de serviços de engenharia/consultoria — confirmar com a contabilidade.' };
+const DESC_CTRIB = { '170101': 'CTribNac 17.01.01 — Assessoria ou consultoria de qualquer natureza.' };
 import { useToast } from '../../hooks/use-toast';
 import { Input } from '../../components/ui/input';
 
@@ -32,11 +40,20 @@ export default function NfseEmissao() {
   const [dps, setDps] = useState(null);
   const [gerando, setGerando] = useState(false);
   const [certs, setCerts] = useState([]);
+  const [clientes, setClientes] = useState([]);
+  const nav = useNavigate();
 
   useEffect(() => {
     adminAPI.nfseConfigList().then((lst) => { if (lst && lst[0]) setCfg({ ...CFG0, ...lst[0] }); }).catch(() => {});
     certificadosAPI.list().then((d) => setCerts((d || []).filter((c) => c.ativo !== false))).catch(() => {});
+    clientsAPI.list().then((d) => setClientes(Array.isArray(d) ? d : [])).catch(() => {});
   }, []);
+
+  const selecionarCliente = (cid) => {
+    const c = clientes.find((x) => String(x.id) === String(cid));
+    if (!c) return;
+    setTeste((t) => ({ ...t, cliente_id: cid, cnpj: c.doc || c.cpf_cnpj || '', nome: c.name || c.nome || '' }));
+  };
 
   const certTipo = (c) => (c?.perfil === 'PJ' ? 'e-CNPJ' : 'e-CPF');
 
@@ -161,11 +178,12 @@ export default function NfseEmissao() {
 
           <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-800 border-b border-emerald-100 pb-1">Defaults Fiscais</div>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Item LC 116"><Input value={cfg.fiscal_defaults.item_lista_servico} onChange={(e) => setF('item_lista_servico', e.target.value)} /></Field>
+            <Field label="Item LC 116"><Input value={cfg.fiscal_defaults.item_lista_servico} onChange={(e) => setF('item_lista_servico', e.target.value)} />{DESC_ITEM[cfg.fiscal_defaults.item_lista_servico] && <p className="text-[10px] text-gray-400 mt-0.5">{DESC_ITEM[cfg.fiscal_defaults.item_lista_servico]}</p>}</Field>
             <Field label="Alíquota ISS (fração)"><Input value={cfg.fiscal_defaults.aliquota_iss} onChange={(e) => setF('aliquota_iss', Number(e.target.value) || 0)} /></Field>
-            <Field label="Cód. Trib. Municipal"><Input value={cfg.fiscal_defaults.codigo_tributacao_municipal} onChange={(e) => setF('codigo_tributacao_municipal', e.target.value)} /></Field>
-            <Field label="CNAE"><Input value={cfg.fiscal_defaults.cnae || ''} onChange={(e) => setF('cnae', e.target.value)} placeholder="8211300" /></Field>
-            <Field label="cNBS (9 díg.)"><Input value={cfg.fiscal_defaults.codigo_nbs} onChange={(e) => setF('codigo_nbs', e.target.value)} /></Field>
+            <Field label="Cód. Trib. Municipal"><Input value={cfg.fiscal_defaults.codigo_tributacao_municipal} onChange={(e) => setF('codigo_tributacao_municipal', e.target.value)} />{DESC_MUN[cfg.fiscal_defaults.codigo_tributacao_municipal] && <p className="text-[10px] text-gray-400 mt-0.5">{DESC_MUN[cfg.fiscal_defaults.codigo_tributacao_municipal]}</p>}</Field>
+            <Field label="CNAE"><Input value={cfg.fiscal_defaults.cnae || ''} onChange={(e) => setF('cnae', e.target.value)} placeholder="8211300" />{DESC_CNAE[cfg.fiscal_defaults.cnae] && <p className="text-[10px] text-gray-400 mt-0.5">{DESC_CNAE[cfg.fiscal_defaults.cnae]}</p>}</Field>
+            <Field label="cNBS (9 díg.)"><Input value={cfg.fiscal_defaults.codigo_nbs} onChange={(e) => setF('codigo_nbs', e.target.value)} />{DESC_NBS[cfg.fiscal_defaults.codigo_nbs] && <p className="text-[10px] text-gray-400 mt-0.5">{DESC_NBS[cfg.fiscal_defaults.codigo_nbs]}</p>}</Field>
+            <Field label="Cód. Trib. Nacional"><Input value={cfg.fiscal_defaults.codigo_tributacao_nacional || ''} onChange={(e) => setF('codigo_tributacao_nacional', e.target.value)} placeholder="170101" />{DESC_CTRIB[cfg.fiscal_defaults.codigo_tributacao_nacional] && <p className="text-[10px] text-gray-400 mt-0.5">{DESC_CTRIB[cfg.fiscal_defaults.codigo_tributacao_nacional]}</p>}</Field>
           </div>
 
           <div className="flex items-center gap-2 pt-1">
@@ -185,7 +203,19 @@ export default function NfseEmissao() {
 
         {/* Teste da DPS */}
         <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
-          <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-800 border-b border-emerald-100 pb-1">Gerar DPS de teste (XML)</div>
+          <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-800 border-b border-emerald-100 pb-1">Tomador & Serviço (teste)</div>
+          <Field label="Cliente (tomador) cadastrado">
+            <div className="flex items-center gap-2">
+              <select value={teste.cliente_id || ''} onChange={(e) => selecionarCliente(e.target.value)} className="flex-1 rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                <option value="">Selecionar cliente cadastrado…</option>
+                {clientes.map((c) => (<option key={c.id} value={c.id}>{c.name || c.nome}{(c.doc || c.cpf_cnpj) ? ` · ${c.doc || c.cpf_cnpj}` : ''}</option>))}
+              </select>
+              <button type="button" onClick={() => nav('/dashboard/clientes')} className="inline-flex items-center gap-1 rounded-lg border border-emerald-300 text-emerald-800 px-2.5 py-2 text-xs font-semibold whitespace-nowrap">
+                <UserPlus className="w-3.5 h-3.5" /> Clientes
+              </button>
+            </div>
+            <p className="text-[10px] text-gray-400 mt-0.5">Os tomadores das notas vêm do cadastro de <b>Clientes</b>. Escolha um ou preencha abaixo.</p>
+          </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Valor do serviço"><Input value={teste.valor} onChange={(e) => setTeste({ ...teste, valor: e.target.value })} /></Field>
             <Field label="Alíquota ISS %"><Input value={teste.aliquota} onChange={(e) => setTeste({ ...teste, aliquota: e.target.value })} /></Field>
