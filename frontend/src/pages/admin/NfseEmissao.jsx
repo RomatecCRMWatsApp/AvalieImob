@@ -3,7 +3,7 @@
 // A TRANSMISSÃO real é travada (sefin.transmissao_habilitada) até a homologação.
 import React, { useEffect, useState } from 'react';
 import { ShieldCheck, FileCode2, Loader2, Save } from 'lucide-react';
-import { adminAPI } from '../../lib/api';
+import { adminAPI, certificadosAPI } from '../../lib/api';
 import { useToast } from '../../hooks/use-toast';
 import { Input } from '../../components/ui/input';
 
@@ -13,7 +13,7 @@ const CFG0 = {
   id: null, municipio_nome: 'Açailândia', municipio_uf: 'MA', codigo_ibge: '2100055',
   provider: 'sefin_nacional', ambiente: 'homologacao', ativo: true, template_danfse: 'prime1',
   emitente: { razao_social: 'J R P BEZERRA LTDA', nome_fantasia: 'ROMATEC CONSULTORIA TOTAL', cnpj: '17261987000109', inscricao_municipal: '26800', inscricao_estadual: '0', optante_simples: false, telefone: '9991811246', endereco: { logradouro: 'RUA MANOEL ELZEBRIO', numero: '14', complemento: 'QUADRA 104', bairro: 'NOVA AÇAILÂNDIA', cep: '65930000', codigo_ibge: '2100055' } },
-  sefin: { base_url_sefin: 'https://sefin.producaorestrita.nfse.gov.br/API/SefinNacional', base_url_adn: 'https://adn.producaorestrita.nfse.gov.br', certificado_ref: '', certificado_senha_ref: 'ROMATEC_CERT_SENHA', serie_dps: '1', transmissao_habilitada: false, rota_emissao: '/nfse', rota_consulta: '/nfse' },
+  sefin: { base_url_sefin: 'https://sefin.producaorestrita.nfse.gov.br/API/SefinNacional', base_url_adn: 'https://adn.producaorestrita.nfse.gov.br', certificado_id: '', certificado_ref: '', certificado_senha_ref: 'ROMATEC_CERT_SENHA', serie_dps: '1', transmissao_habilitada: false, rota_emissao: '/nfse', rota_consulta: '/nfse' },
   fiscal_defaults: { item_lista_servico: '17.01', codigo_tributacao_municipal: '821130001', codigo_tributacao_nacional: '', codigo_nbs: '114039000', aliquota_iss: 0.02, regime_especial_tributacao: '0' },
 };
 
@@ -30,10 +30,14 @@ export default function NfseEmissao() {
   const [teste, setTeste] = useState({ valor: '17500,00', aliquota: '2,0000', cnpj: '57123389000180', nome: 'RODO RANCHO COMBUSTIVEIS LTDA', discriminacao: '4ª parcela do contrato — obra Posto Chapadão (Itinga/MA).' });
   const [dps, setDps] = useState(null);
   const [gerando, setGerando] = useState(false);
+  const [certs, setCerts] = useState([]);
 
   useEffect(() => {
     adminAPI.nfseConfigList().then((lst) => { if (lst && lst[0]) setCfg({ ...CFG0, ...lst[0] }); }).catch(() => {});
+    certificadosAPI.list().then((d) => setCerts((d || []).filter((c) => c.ativo !== false))).catch(() => {});
   }, []);
+
+  const certTipo = (c) => (c?.perfil === 'PJ' ? 'e-CNPJ' : 'e-CPF');
 
   const setE = (k, v) => setCfg((c) => ({ ...c, emitente: { ...c.emitente, [k]: v } }));
   const setS = (k, v) => setCfg((c) => ({ ...c, sefin: { ...c.sefin, [k]: v } }));
@@ -107,6 +111,16 @@ export default function NfseEmissao() {
             <Field label="Base URL Sefin (homologação)"><Input value={cfg.sefin.base_url_sefin} onChange={(e) => setS('base_url_sefin', e.target.value)} placeholder="https://..." /></Field>
             <Field label="Caminho do .pfx (opcional)"><Input value={cfg.sefin.certificado_ref} onChange={(e) => setS('certificado_ref', e.target.value)} placeholder="usa ROMATEC_CERT_PFX_B64 se vazio" /></Field>
           </div>
+          <Field label="Certificado para assinar a NFS-e">
+            <select value={cfg.sefin.certificado_id || ''} onChange={(e) => setS('certificado_id', e.target.value)}
+              className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
+              <option value="">Automático — e-CNPJ (PJ) ativo</option>
+              {certs.map((c) => (
+                <option key={c.id} value={c.id}>{certTipo(c)} — {c.titular || c.label}{c.documento ? ` · ${c.documento}` : ''}</option>
+              ))}
+            </select>
+            <p className="text-[10px] text-gray-400 mt-0.5">A NFS-e exige o <b>e-CNPJ (PJ)</b>. Use o automático, salvo orientação da contabilidade.</p>
+          </Field>
 
           <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-800 border-b border-emerald-100 pb-1">Defaults Fiscais</div>
           <div className="grid grid-cols-2 gap-3">

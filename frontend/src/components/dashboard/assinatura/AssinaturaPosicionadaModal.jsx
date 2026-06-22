@@ -22,8 +22,12 @@ export default function AssinaturaPosicionadaModal({ tipo, documentId, onAssinad
   const [assinando, setAssinando] = useState(false);
   const [erro, setErro] = useState('');
   const [certId, setCertId] = useState(null);
-  const [certLabel, setCertLabel] = useState('');
+  const [certs, setCerts] = useState([]);
   const imgRef = useRef(null);
+
+  const certSel = certs.find((c) => c.id === certId) || null;
+  const certTipo = (c) => (c?.perfil === 'PJ' ? 'e-CNPJ' : 'e-CPF');
+  const certLabel = certSel ? `${certTipo(certSel)} — ${certSel.titular || certSel.label || 'ICP-Brasil'}` : '';
 
   useEffect(() => {
     let alive = true;
@@ -35,9 +39,10 @@ export default function AssinaturaPosicionadaModal({ tipo, documentId, onAssinad
         ]);
         if (!alive) return;
         setPaginas(prep.paginas || []);
-        const lista = Array.isArray(certs) ? certs : (certs?.certificados || []);
-        const ativo = lista.find((c) => c.ativo !== false) || lista[0];
-        if (ativo) { setCertId(ativo.id); setCertLabel(ativo.titular || ativo.label || 'e-CPF ICP-Brasil'); }
+        const lista = (Array.isArray(certs) ? certs : (certs?.certificados || [])).filter((c) => c.ativo !== false);
+        setCerts(lista);
+        const ativo = lista[0];
+        if (ativo) setCertId(ativo.id);
         else setErro('Nenhum certificado ICP-Brasil cadastrado. Cadastre seu e-CPF/e-CNPJ.');
       } catch (e) {
         if (alive) setErro(e.response?.data?.detail || 'Erro ao preparar o documento para assinatura.');
@@ -163,6 +168,22 @@ export default function AssinaturaPosicionadaModal({ tipo, documentId, onAssinad
       {/* Footer */}
       <div className="bg-gray-900 px-4 py-4 shrink-0 space-y-3">
         {erro && <div className="bg-red-900/50 border border-red-500 text-red-300 text-xs px-3 py-2 rounded-lg">{erro}</div>}
+        {certs.length > 0 && (
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-gray-400 shrink-0">Assinar com:</label>
+            <select
+              value={certId || ''}
+              onChange={(e) => setCertId(e.target.value)}
+              className="flex-1 bg-gray-800 border border-gray-600 text-gray-100 text-xs rounded-lg px-2 py-2 focus:outline-none focus:border-emerald-500"
+            >
+              {certs.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {certTipo(c)} — {c.titular || c.label || 'ICP-Brasil'}{c.documento ? ` · ${c.documento}` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div className="text-center text-xs text-gray-400">
           {ret ? 'Reposicione arrastando de novo, se quiser.' : 'Toque e arraste na página onde a assinatura deve aparecer.'}
         </div>
@@ -171,7 +192,7 @@ export default function AssinaturaPosicionadaModal({ tipo, documentId, onAssinad
           <button onClick={assinar} disabled={!ret || assinando || !certId}
             className={`flex-1 font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-2 ${ret && certId && !assinando ? 'bg-emerald-600 hover:bg-emerald-500 text-white' : 'bg-gray-700 text-gray-500 cursor-not-allowed'}`}>
             {assinando && <Loader2 className="w-4 h-4 animate-spin" />}
-            {assinando ? 'Assinando...' : 'Assinar com e-CPF ICP-Brasil'}
+            {assinando ? 'Assinando...' : `Assinar com ${certSel ? certTipo(certSel) : 'ICP-Brasil'}`}
           </button>
         </div>
       </div>
