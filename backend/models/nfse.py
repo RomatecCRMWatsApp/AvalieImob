@@ -99,13 +99,17 @@ class AbrasfConfig(BaseModel):
     """Webservice municipal padrão ABRASF (SOAP). Ex.: SpeedGov — ISS Eletrônico de Açailândia.
     O RPS é assinado com o e-CNPJ (XMLDSIG). Login/senha é só do PORTAL; a API usa o certificado.
     """
-    url_ws: str = ""                   # endpoint do webservice (homologação primeiro) — do WSDL do SpeedGov
+    # CONFIRMADO no WSDL http://speedgov.com.br/wsmod/Nfes?wsdl (SpeedGov Açailândia):
+    url_ws: str = "http://speedgov.com.br/wsmod/Nfes"   # endpoint de TESTE/homologação
     url_ws_producao: str = ""
-    versao_abrasf: str = "1.00"        # 1.00 (ABRASF 1.0) | 2.x — CONFIRMAR no WSDL
-    namespace: str = "http://www.abrasf.org.br/nfse.xsd"
-    soap_action_envio: str = "RecepcionarLoteRps"
-    soap_action_consulta: str = "ConsultarLoteRps"
-    soap_action_cancela: str = "CancelarNfse"
+    versao_abrasf: str = "1.00"        # ABRASF 1.0 (confirmado)
+    namespace: str = "http://www.abrasf.org.br/nfse.xsd"                      # ns do EnviarLoteRpsEnvio (RPS)
+    namespace_ws: str = "http://www.abrasf.org.br/ABRASF/arquivos/nfse.xsd"   # ns do wrapper da operação SOAP
+    operacao_envio: str = "RecepcionarLoteRps"   # wrapper: <RecepcionarLoteRps><header/><parameters/></...>
+    operacao_consulta: str = "ConsultarLoteRps"
+    operacao_consulta_rps: str = "ConsultarNfsePorRps"
+    operacao_cancela: str = "CancelarNfse"
+    soap_action: str = ""              # WSDL: soapAction VAZIO
     serie_rps: str = "1"
     tipo_rps: str = "1"                # 1=RPS
     certificado_id: str = ""           # cert em db.certificados; senão o PJ ativo

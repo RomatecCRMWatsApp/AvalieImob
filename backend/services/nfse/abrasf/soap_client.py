@@ -17,25 +17,33 @@ from services.nfse.exceptions import NFSeProviderError
 logger = logging.getLogger("romatec")
 
 
-def montar_envelope_soap(operacao: str, xml_payload: str, namespace: str) -> str:
-    """Envelope SOAP 1.1 ABRASF: o XML (EnviarLoteRpsEnvio assinado) vai como conteúdo da
-    operação. ABRASF 1.0 costuma usar <cabecalho>+<xml> ou nfseCabecMsg/nfseDadosMsg —
-    AJUSTAR ao WSDL do SpeedGov. Aqui: forma padrão `<Operacao><xml>...</xml></Operacao>`."""
-    # remove a declaração <?xml ...?> do payload (não pode ir aninhada)
-    corpo = xml_payload.split("?>", 1)[-1].strip() if xml_payload.lstrip().startswith("<?xml") else xml_payload
+def _sem_decl(xml: str) -> str:
+    """Remove a declaração <?xml ...?> (não pode ir aninhada dentro de outro XML)."""
+    return xml.split("?>", 1)[-1].strip() if xml.lstrip().startswith("<?xml") else xml
+
+
+def _cdata(xml: str) -> str:
+    return f"<![CDATA[{_sem_decl(xml)}]]>"
+
+
+def montar_cabecalho(versao: str, ns_rps: str) -> str:
+    """Cabeçalho ABRASF 1.0 (vai no parâmetro `header`, como string)."""
+    return (f'<cabecalho versao="{versao}" xmlns="{ns_rps}">'
+            f"<versaoDados>{versao}</versaoDados></cabecalho>")
+
+
+def montar_envelope_soap(operacao: str, header_xml: str, rps_xml: str, namespace_ws: str) -> str:
+    """Envelope SOAP 1.1 — operação `RecepcionarLoteRps` com 2 parâmetros STRING (confirmado no
+    XSD do SpeedGov): `header` (cabeçalho) e `parameters` (EnviarLoteRpsEnvio assinado), em CDATA."""
     return (
         '<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">'
         "<soap:Body>"
-        f'<{operacao} xmlns="{namespace}">'
-        f"<xml>{_escape_cdata(corpo)}</xml>"
+        f'<{operacao} xmlns="{namespace_ws}">'
+        f"<header>{_cdata(header_xml)}</header>"
+        f"<parameters>{_cdata(rps_xml)}</parameters>"
         f"</{operacao}>"
         "</soap:Body></soap:Envelope>"
     )
-
-
-def _escape_cdata(xml: str) -> str:
-    # alguns webservices recebem o XML como string escapada; outros como CDATA. CDATA é o mais comum.
-    return f"<![CDATA[{xml}]]>"
 
 
 class AbrasfClient:
@@ -48,11 +56,12 @@ class AbrasfClient:
         self._ctx = ssl_context
         self._timeout = timeout
 
-    async def chamar(self, soap_action: str, envelope: str, namespace: str) -> str:
-        """POST do envelope SOAP. Retorna o corpo da resposta (XML) pra parse posterior."""
+    async def chamar(self, soap_action: str, envelope: str) -> str:
+        """POST do envelope SOAP. Retorna o corpo da resposta (XML) pra parse posterior.
+        WSDL do SpeedGov: SOAPAction VAZIO (soap_action="")."""
         headers = {
             "Content-Type": "text/xml; charset=utf-8",
-            "SOAPAction": f"{namespace}/{soap_action}" if namespace else soap_action,
+            "SOAPAction": soap_action or "",
         }
         verify = self._ctx if self._ctx is not None else True
         async with httpx.AsyncClient(verify=verify, timeout=self._timeout) as client:

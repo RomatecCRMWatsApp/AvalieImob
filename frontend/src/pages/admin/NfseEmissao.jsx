@@ -14,7 +14,7 @@ const CFG0 = {
   provider: 'abrasf', ambiente: 'homologacao', ativo: true, template_danfse: 'prime1',
   emitente: { razao_social: 'J R P BEZERRA LTDA', nome_fantasia: 'ROMATEC CONSULTORIA TOTAL', cnpj: '17261987000109', inscricao_municipal: '26800', inscricao_estadual: '0', optante_simples: false, telefone: '9991811246', endereco: { logradouro: 'RUA MANOEL ELZEBRIO', numero: '14', complemento: 'QUADRA 104', bairro: 'NOVA AÇAILÂNDIA', cep: '65930000', codigo_ibge: '2100055' } },
   sefin: { base_url_sefin: 'https://sefin.producaorestrita.nfse.gov.br/API/SefinNacional', base_url_adn: 'https://adn.producaorestrita.nfse.gov.br', certificado_id: '', certificado_ref: '', certificado_senha_ref: 'ROMATEC_CERT_SENHA', serie_dps: '1', transmissao_habilitada: false, rota_emissao: '/nfse', rota_consulta: '/nfse' },
-  abrasf: { url_ws: '', versao_abrasf: '1.00', namespace: 'http://www.abrasf.org.br/nfse.xsd', serie_rps: '1', assinatura_sha: 'sha1', certificado_id: '', transmissao_habilitada: false },
+  abrasf: { url_ws: 'http://speedgov.com.br/wsmod/Nfes', url_ws_producao: '', versao_abrasf: '1.00', namespace: 'http://www.abrasf.org.br/nfse.xsd', namespace_ws: 'http://www.abrasf.org.br/ABRASF/arquivos/nfse.xsd', operacao_envio: 'RecepcionarLoteRps', soap_action: '', serie_rps: '1', assinatura_sha: 'sha1', certificado_id: '', transmissao_habilitada: false },
   fiscal_defaults: { item_lista_servico: '17.01', codigo_tributacao_municipal: '821130001', codigo_tributacao_nacional: '170101', cnae: '8211300', codigo_nbs: '114039000', aliquota_iss: 0.02, regime_especial_tributacao: '0' },
 };
 

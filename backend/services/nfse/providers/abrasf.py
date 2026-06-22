@@ -45,14 +45,18 @@ class AbrasfProvider(NFSeProvider):
                 "WSDL do SpeedGov de Açailândia e testar em HOMOLOGAÇÃO.")
 
         # ── Transmissão SOAP (dormante até habilitar) ────────────────────────
-        from services.nfse.abrasf.soap_client import AbrasfClient, montar_envelope_soap
+        from services.nfse.abrasf.soap_client import AbrasfClient, montar_envelope_soap, montar_cabecalho
         from services.nfse.sefin.sefin_client import montar_ssl_context
-        ctx = montar_ssl_context(cert.key_pem, cert.cert_pem, cert.chain_pem)
-        ns = cfg.get("namespace")
-        envelope = montar_envelope_soap(cfg.get("soap_action_envio", "RecepcionarLoteRps"), xml_assinado, ns)
+        # SpeedGov é http:// (sem TLS de cliente garantido) — usa o cert só p/ assinar o RPS.
+        ctx = None
+        if str(cfg.get("url_ws", "")).startswith("https"):
+            ctx = montar_ssl_context(cert.key_pem, cert.cert_pem, cert.chain_pem)
+        header = montar_cabecalho(cfg.get("versao_abrasf", "1.00"), cfg.get("namespace"))
+        envelope = montar_envelope_soap(cfg.get("operacao_envio", "RecepcionarLoteRps"),
+                                        header, xml_assinado, cfg.get("namespace_ws"))
         client = AbrasfClient(cfg.get("url_ws", ""), ctx)
         try:
-            resp = await client.chamar(cfg.get("soap_action_envio", "RecepcionarLoteRps"), envelope, ns)
+            resp = await client.chamar(cfg.get("soap_action", ""), envelope)
         except Exception as e:  # noqa: BLE001
             raise NFSeProviderError(f"ABRASF: falha na transmissão SOAP: {e}") from e
         # Parse da resposta → ResultadoEmissao (ajustar ao retorno real do SpeedGov)
