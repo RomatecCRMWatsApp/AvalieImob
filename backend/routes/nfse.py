@@ -205,13 +205,14 @@ async def abrasf_testar_envio(body: dict, db=Depends(get_db), _admin: str = Depe
         return {"ok": False, "etapa": "certificado", "erro": str(e)[:800]}
     try:
         xml = montar_lote_rps_xml(doc, cfg)
-        xml_assinado = assinar_lote_rps(xml, cc.key_pem, cc.cert_pem,
-                                        sha=a.assinatura_sha, namespace=a.namespace)
+        if getattr(a, "assinar_rps", False):   # modelo oficial é SEM assinatura (homologação)
+            xml = assinar_lote_rps(xml, cc.key_pem, cc.cert_pem,
+                                   sha=a.assinatura_sha, namespace=a.namespace)
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "etapa": "assinatura", "erro": str(e)[:800]}
     try:
         header = montar_cabecalho()
-        envelope = montar_envelope_soap(a.operacao_envio, header, xml_assinado, a.namespace_ws)
+        envelope = montar_envelope_soap(a.operacao_envio, header, xml, a.namespace_ws)
         resp = await AbrasfClient(url_ws, None).chamar(a.soap_action, envelope)
         return {"ok": True, "url": url_ws, "resposta": resp[:9000]}
     except Exception as e:  # noqa: BLE001

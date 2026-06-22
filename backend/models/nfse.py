@@ -110,6 +110,7 @@ class AbrasfConfig(BaseModel):
     operacao_consulta_rps: str = "ConsultarNfsePorRps"
     operacao_cancela: str = "CancelarNfse"
     soap_action: str = ""              # WSDL: soapAction VAZIO
+    assinar_rps: bool = False          # modelo oficial do SpeedGov é SEM assinatura (homologação)
     serie_rps: str = "1"
     tipo_rps: str = "1"                # 1=RPS
     certificado_id: str = ""           # cert em db.certificados; senão o PJ ativo
