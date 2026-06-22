@@ -166,13 +166,18 @@ export default function TopBar({
     || (nome.split(' ').filter(Boolean).slice(0, 2).map((n) => n[0]).join('').toUpperCase() || 'U');
 
   return (
-    <div style={{ position: 'sticky', top: 0, zIndex: 100 }}>
+    <div style={{ position: 'sticky', top: 0, zIndex: 100, width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
     <header
       aria-label="Barra de navegação principal"
       style={{
         height: 52, background: T.bg, borderBottom: `1px solid ${T.borderMain}`,
         display: 'flex', alignItems: 'center', padding: '0 12px', gap: 10,
         fontFamily: "'DM Sans', system-ui, sans-serif",
+        // Conter o cabeçalho: largura travada no contêiner e overflow horizontal
+        // clipado para que o conteúdo nowrap (relógio/data/local/versão) jamais
+        // escape pela lateral direita.
+        width: '100%', maxWidth: '100%', boxSizing: 'border-box',
+        overflow: 'hidden', flexWrap: 'nowrap',
       }}
     >
       {onMenu && (
@@ -186,10 +191,10 @@ export default function TopBar({
       )}
 
       {/* Busca real (GlobalSearch) */}
-      <div style={{ flex: 1, maxWidth: 360, minWidth: 0 }}>{searchSlot}</div>
+      <div style={{ flex: '1 1 0', maxWidth: 360, minWidth: 0, overflow: 'hidden' }}>{searchSlot}</div>
 
       {/* Centro: relógio + data + localização */}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, minWidth: 0 }}>
+      <div style={{ flex: '1 1 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, minWidth: 0, overflow: 'hidden' }}>
         <div role="timer" aria-label={`Horário ${hh}:${mm}:${ss}`} style={{
           background: T.bgClock, border: `1px solid ${T.borderClock}`, borderRadius: 8,
           padding: '5px 12px', display: 'flex', alignItems: 'baseline', gap: 2, flexShrink: 0,
