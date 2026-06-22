@@ -38,7 +38,7 @@ limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter(prefix="/avaliacao-publica", tags=["Avaliação Pública"])
 
-OWNER_EMAIL = "romateccrm@gmail.com"
+OWNER_EMAIL = "admin@romatecavalieimob.com.br"
 
 # ===========================================================================
 # CONFIGURAÇÃO DE MERCADO — CALIBRAR COM DADOS REAIS (semente).

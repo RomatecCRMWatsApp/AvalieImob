@@ -33,7 +33,7 @@ EMIT_DEFAULT = {
 }
 # Conta proprietária (Romatec/CEO). SÓ ela usa EMIT_DEFAULT como fallback —
 # nunca vaza esses dados para outros usuários.
-OWNER_EMAIL = "romateccrm@gmail.com"
+OWNER_EMAIL = "admin@romatecavalieimob.com.br"
 VALIDA_URL = "https://app.romatecavalieimob.com.br/v/"
 MESES = ["", "janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho",
          "agosto", "setembro", "outubro", "novembro", "dezembro"]

@@ -596,6 +596,12 @@ async def startup():
         materializar_cert_de_env()
     except Exception as e:
         logger.error(f"Erro ao materializar certificado NFS-e: {e}")
+    # Bootstrap one-time da conta de DONO (login definitivo) — só roda se BOOTSTRAP_OWNER_PASSWORD setada.
+    try:
+        from services.bootstrap_owner import bootstrap_owner
+        await bootstrap_owner(get_db())
+    except Exception as e:
+        logger.error(f"Erro no bootstrap do dono: {e}")
     # Calibra a base R$/m² da Calculadora pública com os PTAMs reais do dono (best-effort).
     try:
         db = get_db()
