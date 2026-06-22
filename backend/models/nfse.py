@@ -76,7 +76,11 @@ class GatewayConfig(BaseModel):
 
 
 class SefinConfig(BaseModel):
+    # Sefin Nacional (recepção da DPS, mTLS). Homologação = "Produção Restrita".
+    #   Homologação: https://sefin.producaorestrita.nfse.gov.br/API/SefinNacional
+    #   Produção:    https://sefin.nfse.gov.br/SefinNacional
     base_url_sefin: str = ""
+    # ADN (consulta/distribuição/DANFSe). Homolog: https://adn.producaorestrita.nfse.gov.br
     base_url_adn: str = ""
     certificado_id: str = ""           # id do cert em db.certificados (e-CNPJ já cadastrado); senão usa o PJ ativo
     certificado_ref: str = ""          # alternativa: caminho/ref do .pfx (secret/arquivo)
@@ -85,8 +89,9 @@ class SefinConfig(BaseModel):
     # TRAVA DE SEGURANÇA: só transmite de verdade quando True (habilitar SÓ após validar
     # XSD + testar em HOMOLOGAÇÃO). Default False → emitir() monta/assina/empacota mas NÃO envia.
     transmissao_habilitada: bool = False
-    rota_emissao: str = "/sefin/dps"   # ajustar ao Swagger oficial antes de produção
-    rota_consulta: str = "/sefin/nfse" # idem
+    # Rotas REST oficiais (Manual Contribuintes Emissor Público v1.2, out/2025):
+    rota_emissao: str = "/nfse"        # POST /nfse — geração síncrona da NFS-e (recebe a DPS)
+    rota_consulta: str = "/nfse"       # GET /nfse/{chaveAcesso} — consulta por chave
 
 
 class TributosFederaisCfg(BaseModel):

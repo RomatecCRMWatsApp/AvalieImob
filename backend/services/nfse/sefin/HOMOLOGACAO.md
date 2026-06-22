@@ -23,10 +23,23 @@
 - Ajustar **cNBS** (código NBS real do serviço, 9 díg.) e **cTribNac** (se o município
   usar código nacional próprio) — hoje cNBS sai `000000000` (placeholder).
 
-## 3. Endpoints + payload (ajustar ao Swagger)
-- `nfse_config.sefin.base_url_sefin` = base de **homologação** primeiro.
-- `rota_emissao` / `rota_consulta` e o corpo do POST em
-  `services/nfse/sefin/sefin_client.py` (`{"dpsXmlGZipB64": ...}`) → confirmar no Swagger.
+## 3. Endpoints + payload — CONFIRMADOS (Manual Contribuintes Emissor Público v1.2, out/2025)
+Homologação = ambiente **"Produção Restrita"**. URLs base (já são o default da tela):
+- **Sefin** (recepção da DPS, mTLS):
+  - Homologação: `https://sefin.producaorestrita.nfse.gov.br/API/SefinNacional`
+  - Produção:    `https://sefin.nfse.gov.br/SefinNacional`
+- **ADN** (consulta/DANFSe):
+  - Homologação: `https://adn.producaorestrita.nfse.gov.br`
+  - Produção:    `https://adn.nfse.gov.br`
+- Swaggers: `…/API/SefinNacional/docs/index` (Sefin), `…/contribuintes/docs/index.html` (ADN).
+
+Métodos REST (já default em `SefinConfig`):
+- `POST /nfse` — geração síncrona da NFS-e (recebe a DPS). Corpo JSON
+  `{"dpsXmlGZipB64": "<gzip+base64 do XML da DPS assinado>"}` (já é o que o `sefin_client` envia).
+- `GET /nfse/{chaveAcesso}` — consulta NFS-e pela chave.
+- `GET /dps/{id}` — recupera a chave de acesso a partir do id da DPS.
+- Cancelamento = **Evento de Cancelamento por Substituição** (POST de uma DPS substituta com a chave da NFS-e a cancelar).
+- Auth = **mTLS** com o e-CNPJ A1 (sem token); o `montar_ssl_context` já faz isso.
 
 ## 4. Testar em HOMOLOGAÇÃO
 - `ambiente = "homologacao"` (o builder já força `tpAmb=2`).

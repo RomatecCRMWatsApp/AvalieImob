@@ -13,7 +13,7 @@ const CFG0 = {
   id: null, municipio_nome: 'Açailândia', municipio_uf: 'MA', codigo_ibge: '2100055',
   provider: 'sefin_nacional', ambiente: 'homologacao', ativo: true, template_danfse: 'prime1',
   emitente: { razao_social: 'J R P BEZERRA LTDA', nome_fantasia: 'ROMATEC CONSULTORIA TOTAL', cnpj: '17261987000109', inscricao_municipal: '26800', inscricao_estadual: '0', optante_simples: false, telefone: '9991811246', endereco: { logradouro: 'RUA MANOEL ELZEBRIO', numero: '14', complemento: 'QUADRA 104', bairro: 'NOVA AÇAILÂNDIA', cep: '65930000', codigo_ibge: '2100055' } },
-  sefin: { base_url_sefin: '', base_url_adn: '', certificado_ref: '', certificado_senha_ref: 'ROMATEC_CERT_SENHA', serie_dps: '1', transmissao_habilitada: false, rota_emissao: '/sefin/dps', rota_consulta: '/sefin/nfse' },
+  sefin: { base_url_sefin: 'https://sefin.producaorestrita.nfse.gov.br/API/SefinNacional', base_url_adn: 'https://adn.producaorestrita.nfse.gov.br', certificado_ref: '', certificado_senha_ref: 'ROMATEC_CERT_SENHA', serie_dps: '1', transmissao_habilitada: false, rota_emissao: '/nfse', rota_consulta: '/nfse' },
   fiscal_defaults: { item_lista_servico: '17.01', codigo_tributacao_municipal: '821130001', codigo_tributacao_nacional: '', codigo_nbs: '114039000', aliquota_iss: 0.02, regime_especial_tributacao: '0' },
 };
 
