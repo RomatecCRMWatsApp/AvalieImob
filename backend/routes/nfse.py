@@ -111,7 +111,14 @@ async def listar_config(db=Depends(get_db), _admin: str = Depends(get_admin_user
 async def criar_config(body: dict, db=Depends(get_db), _admin: str = Depends(get_admin_user)):
     from models.nfse import NFSeConfig
     from services.nfse.repository import criar_config as repo_criar
-    cfg = NFSeConfig(**(body or {}))
+    data = dict(body or {})
+    for k in ("id", "_id", "created_at", "updated_at"):  # gerados pelo modelo; null quebra a validação
+        if not data.get(k):
+            data.pop(k, None)
+    try:
+        cfg = NFSeConfig(**data)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(422, f"Config inválida: {e}")
     await repo_criar(db, cfg.model_dump(mode="json"))
     return cfg.model_dump(mode="json")
 
