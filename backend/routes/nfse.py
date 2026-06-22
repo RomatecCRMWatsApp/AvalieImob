@@ -173,6 +173,16 @@ async def dps_preview(body: dict, db=Depends(get_db), _admin: str = Depends(get_
     return {"xml": xml, "valido": valido, "erros": erros[:8]}
 
 
+@router.post("/abrasf/preview")
+async def abrasf_preview(body: dict, db=Depends(get_db), _admin: str = Depends(get_admin_user)):
+    """Monta o XML do RPS/Lote (ABRASF 1.0) sem assinar/transmitir — pra conferir o leiaute."""
+    from services.nfse.abrasf.rps_xml import montar_lote_rps_xml
+    cfg = await _carregar_config(db, body.get("config_id"))
+    doc = _doc_de_body(cfg, body)
+    xml = montar_lote_rps_xml(doc, cfg, pretty=True)
+    return {"xml": xml}
+
+
 @router.post("/emitir")
 async def emitir(body: dict, db=Depends(get_db), _admin: str = Depends(get_admin_user)):
     """Prepara a DPS (numera + calcula + persiste pendente) e tenta emitir.

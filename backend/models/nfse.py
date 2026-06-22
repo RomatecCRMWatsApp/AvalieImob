@@ -24,6 +24,7 @@ def _agora() -> datetime:
 class Provider(str, Enum):
     gateway = "gateway"
     sefin_nacional = "sefin_nacional"
+    abrasf = "abrasf"                  # webservice municipal padrão ABRASF (ex.: SpeedGov/Açailândia)
 
 
 class Ambiente(str, Enum):
@@ -94,6 +95,25 @@ class SefinConfig(BaseModel):
     rota_consulta: str = "/nfse"       # GET /nfse/{chaveAcesso} — consulta por chave
 
 
+class AbrasfConfig(BaseModel):
+    """Webservice municipal padrão ABRASF (SOAP). Ex.: SpeedGov — ISS Eletrônico de Açailândia.
+    O RPS é assinado com o e-CNPJ (XMLDSIG). Login/senha é só do PORTAL; a API usa o certificado.
+    """
+    url_ws: str = ""                   # endpoint do webservice (homologação primeiro) — do WSDL do SpeedGov
+    url_ws_producao: str = ""
+    versao_abrasf: str = "1.00"        # 1.00 (ABRASF 1.0) | 2.x — CONFIRMAR no WSDL
+    namespace: str = "http://www.abrasf.org.br/nfse.xsd"
+    soap_action_envio: str = "RecepcionarLoteRps"
+    soap_action_consulta: str = "ConsultarLoteRps"
+    soap_action_cancela: str = "CancelarNfse"
+    serie_rps: str = "1"
+    tipo_rps: str = "1"                # 1=RPS
+    certificado_id: str = ""           # cert em db.certificados; senão o PJ ativo
+    assinatura_sha: str = "sha1"       # ABRASF 1.0 usa RSA-SHA1; 2.x pode ser sha256
+    # TRAVA DE SEGURANÇA: nada transmite até validar contra o WSDL + homologação.
+    transmissao_habilitada: bool = False
+
+
 class TributosFederaisCfg(BaseModel):
     aliquota_pis: float = 0.0
     aliquota_cofins: float = 0.0
@@ -137,6 +157,7 @@ class NFSeConfig(BaseModel):
     emitente: Emitente
     gateway: GatewayConfig = Field(default_factory=GatewayConfig)
     sefin: SefinConfig = Field(default_factory=SefinConfig)
+    abrasf: AbrasfConfig = Field(default_factory=AbrasfConfig)
     fiscal_defaults: FiscalDefaults = Field(default_factory=FiscalDefaults)
     template_danfse: str = "prime1"
     created_at: datetime = Field(default_factory=_agora)

@@ -267,6 +267,7 @@ export const adminAPI = {
   nfseConfigUpdate: (id, body) => api.put(`/nfse/config/${id}`, body).then(r => r.data),
   nfseTestarCert: (id) => api.post(`/nfse/config/${id}/testar-cert`).then(r => r.data),
   nfseDpsPreview: (body) => api.post('/nfse/dps/preview', body).then(r => r.data),
+  nfseAbrasfPreview: (body) => api.post('/nfse/abrasf/preview', body).then(r => r.data),
 };
 
 // ---- Evaluations

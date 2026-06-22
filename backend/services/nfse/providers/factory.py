@@ -5,6 +5,7 @@ from models.nfse import NFSeConfig, Provider
 from services.nfse.providers.base import NFSeProvider
 from services.nfse.providers.gateway import GatewayProvider
 from services.nfse.providers.sefin_nacional import SefinNacionalProvider
+from services.nfse.providers.abrasf import AbrasfProvider
 from services.nfse.exceptions import NFSeConfigError
 
 
@@ -14,4 +15,6 @@ def get_provider(config: NFSeConfig) -> NFSeProvider:
         return GatewayProvider(config)
     if prov in (Provider.sefin_nacional, "sefin_nacional"):
         return SefinNacionalProvider(config)
+    if prov in (Provider.abrasf, "abrasf"):
+        return AbrasfProvider(config)
     raise NFSeConfigError(f"Provider desconhecido: {prov}")

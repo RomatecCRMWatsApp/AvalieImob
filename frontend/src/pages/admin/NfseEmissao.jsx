@@ -11,9 +11,10 @@ const VERDE = '#0C3320';
 
 const CFG0 = {
   id: null, municipio_nome: 'Açailândia', municipio_uf: 'MA', codigo_ibge: '2100055',
-  provider: 'sefin_nacional', ambiente: 'homologacao', ativo: true, template_danfse: 'prime1',
+  provider: 'abrasf', ambiente: 'homologacao', ativo: true, template_danfse: 'prime1',
   emitente: { razao_social: 'J R P BEZERRA LTDA', nome_fantasia: 'ROMATEC CONSULTORIA TOTAL', cnpj: '17261987000109', inscricao_municipal: '26800', inscricao_estadual: '0', optante_simples: false, telefone: '9991811246', endereco: { logradouro: 'RUA MANOEL ELZEBRIO', numero: '14', complemento: 'QUADRA 104', bairro: 'NOVA AÇAILÂNDIA', cep: '65930000', codigo_ibge: '2100055' } },
   sefin: { base_url_sefin: 'https://sefin.producaorestrita.nfse.gov.br/API/SefinNacional', base_url_adn: 'https://adn.producaorestrita.nfse.gov.br', certificado_id: '', certificado_ref: '', certificado_senha_ref: 'ROMATEC_CERT_SENHA', serie_dps: '1', transmissao_habilitada: false, rota_emissao: '/nfse', rota_consulta: '/nfse' },
+  abrasf: { url_ws: '', versao_abrasf: '1.00', namespace: 'http://www.abrasf.org.br/nfse.xsd', serie_rps: '1', assinatura_sha: 'sha1', certificado_id: '', transmissao_habilitada: false },
   fiscal_defaults: { item_lista_servico: '17.01', codigo_tributacao_municipal: '821130001', codigo_tributacao_nacional: '', codigo_nbs: '114039000', aliquota_iss: 0.02, regime_especial_tributacao: '0' },
 };
 
@@ -41,7 +42,11 @@ export default function NfseEmissao() {
 
   const setE = (k, v) => setCfg((c) => ({ ...c, emitente: { ...c.emitente, [k]: v } }));
   const setS = (k, v) => setCfg((c) => ({ ...c, sefin: { ...c.sefin, [k]: v } }));
+  const setA = (k, v) => setCfg((c) => ({ ...c, abrasf: { ...(c.abrasf || {}), [k]: v } }));
   const setF = (k, v) => setCfg((c) => ({ ...c, fiscal_defaults: { ...c.fiscal_defaults, [k]: v } }));
+  const isAbrasf = cfg.provider === 'abrasf';
+  const [rps, setRps] = useState(null);
+  const [gerandoRps, setGerandoRps] = useState(false);
 
   const salvar = async () => {
     setSaving(true);
@@ -77,14 +82,32 @@ export default function NfseEmissao() {
     finally { setGerando(false); }
   };
 
+  const gerarRps = async () => {
+    if (!cfg.id) { toast({ title: 'Salve a configuração primeiro' }); return; }
+    setGerandoRps(true); setRps(null);
+    const num = (s) => Number(String(s).replace(/\./g, '').replace(',', '.')) || 0;
+    try {
+      const r = await adminAPI.nfseAbrasfPreview({
+        config_id: cfg.id,
+        tomador: { tipo_documento: 'cnpj', documento: teste.cnpj, razao_nome: teste.nome },
+        servico: { discriminacao: teste.discriminacao, item_lista_servico: cfg.fiscal_defaults.item_lista_servico, codigo_tributacao_municipal: cfg.fiscal_defaults.codigo_tributacao_municipal, local_prestacao_ibge: cfg.codigo_ibge, valor_servico: num(teste.valor), aliquota_iss: num(teste.aliquota) },
+        origem: { tipo: 'servico_avulso' },
+      });
+      setRps(r);
+    } catch (e) { toast({ title: 'Erro ao gerar RPS', description: e.response?.data?.detail, variant: 'destructive' }); }
+    finally { setGerandoRps(false); }
+  };
+
   return (
     <div className="p-4 md:p-6 max-w-6xl mx-auto">
       <h1 className="text-2xl font-bold mb-1 font-display" style={{ color: VERDE }}>NFS-e — Configuração & Teste</h1>
       <p className="text-sm text-gray-500 mb-4">Configure o município/certificado, teste o certificado e gere/valide a DPS. A emissão real fica <b>travada</b> até a homologação.</p>
 
       <div className="mb-4 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-[13px] text-amber-800">
-        🔒 Transmissão <b>{cfg.sefin?.transmissao_habilitada ? 'HABILITADA' : 'DESABILITADA'}</b> (segurança).
-        Usa o <b>e-CNPJ</b> já cadastrado em <b>Configurações → Certificados</b> (perfil PJ) — clique <b>Testar certificado</b> p/ confirmar.
+        🔒 Transmissão <b>{(isAbrasf ? cfg.abrasf?.transmissao_habilitada : cfg.sefin?.transmissao_habilitada) ? 'HABILITADA' : 'DESABILITADA'}</b> (segurança).
+        {isAbrasf
+          ? <> Açailândia emite por <b>SpeedGov (ABRASF/RPS)</b>. Falta a <b>URL do webservice (WSDL)</b> + teste em homologação p/ transmitir.</>
+          : <> Usa o <b>e-CNPJ</b> de <b>Configurações → Certificados</b> (PJ) — clique <b>Testar certificado</b> p/ confirmar.</>}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -99,6 +122,20 @@ export default function NfseEmissao() {
             <Field label="CNPJ"><Input value={cfg.emitente.cnpj} onChange={(e) => setE('cnpj', e.target.value)} /></Field>
             <Field label="Insc. Municipal"><Input value={cfg.emitente.inscricao_municipal} onChange={(e) => setE('inscricao_municipal', e.target.value)} /></Field>
           </div>
+
+          <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-800 border-b border-emerald-100 pb-1">Sistema de emissão</div>
+          <Field label="Provedor (como o município emite)">
+            <select value={cfg.provider} onChange={(e) => setCfg({ ...cfg, provider: e.target.value })} className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
+              <option value="abrasf">ABRASF / SpeedGov (Açailândia — login municipal)</option>
+              <option value="sefin_nacional">Sefin Nacional (DPS — quando migrar)</option>
+            </select>
+          </Field>
+          {isAbrasf && (
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="URL do webservice (WSDL SpeedGov)"><Input value={cfg.abrasf.url_ws} onChange={(e) => setA('url_ws', e.target.value)} placeholder="https://iss.speedgov.com.br/.../ws" /></Field>
+              <Field label="Versão ABRASF"><Input value={cfg.abrasf.versao_abrasf} onChange={(e) => setA('versao_abrasf', e.target.value)} placeholder="1.00" /></Field>
+            </div>
+          )}
 
           <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-800 border-b border-emerald-100 pb-1">Sefin / Certificado</div>
           <div className="grid grid-cols-2 gap-3">
@@ -155,9 +192,22 @@ export default function NfseEmissao() {
             <Field label="Tomador Nome"><Input value={teste.nome} onChange={(e) => setTeste({ ...teste, nome: e.target.value })} /></Field>
           </div>
           <Field label="Discriminação"><textarea value={teste.discriminacao} onChange={(e) => setTeste({ ...teste, discriminacao: e.target.value })} rows={2} className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm" /></Field>
-          <button onClick={gerarDps} disabled={gerando} className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-50" style={{ backgroundColor: VERDE }}>
-            {gerando ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileCode2 className="w-4 h-4" />} Gerar DPS (XML)
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {isAbrasf && (
+              <button onClick={gerarRps} disabled={gerandoRps} className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-50" style={{ backgroundColor: VERDE }}>
+                {gerandoRps ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileCode2 className="w-4 h-4" />} Gerar RPS (XML)
+              </button>
+            )}
+            <button onClick={gerarDps} disabled={gerando} className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-50 border border-emerald-300 text-emerald-800">
+              {gerando ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileCode2 className="w-4 h-4" />} Gerar DPS (XML)
+            </button>
+          </div>
+          {rps && (
+            <div className="space-y-2">
+              <div className="rounded-lg px-3 py-1.5 text-sm bg-gray-100 text-gray-600">RPS (ABRASF) gerado — confira o leiaute contra o WSDL do SpeedGov antes de transmitir.</div>
+              <pre className="text-[10px] bg-gray-900 text-emerald-200 rounded-lg p-3 overflow-auto max-h-[360px]">{rps.xml}</pre>
+            </div>
+          )}
           {dps && (
             <div className="space-y-2">
               <div className={`rounded-lg px-3 py-1.5 text-sm ${dps.valido == null ? 'bg-gray-100 text-gray-600' : dps.valido ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-700'}`}>
