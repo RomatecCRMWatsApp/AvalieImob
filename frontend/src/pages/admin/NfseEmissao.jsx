@@ -44,7 +44,16 @@ export default function NfseEmissao() {
   const nav = useNavigate();
 
   useEffect(() => {
-    adminAPI.nfseConfigList().then((lst) => { if (lst && lst[0]) setCfg({ ...CFG0, ...lst[0] }); }).catch(() => {});
+    adminAPI.nfseConfigList().then((lst) => {
+      const m = lst && lst[0];
+      if (m) setCfg({
+        ...CFG0, ...m,
+        emitente: { ...CFG0.emitente, ...(m.emitente || {}) },
+        sefin: { ...CFG0.sefin, ...(m.sefin || {}) },
+        abrasf: { ...CFG0.abrasf, ...(m.abrasf || {}) },
+        fiscal_defaults: { ...CFG0.fiscal_defaults, ...(m.fiscal_defaults || {}) },
+      });
+    }).catch(() => {});
     certificadosAPI.list().then((d) => setCerts((d || []).filter((c) => c.ativo !== false))).catch(() => {});
     clientsAPI.list().then((d) => setClientes(Array.isArray(d) ? d : [])).catch(() => {});
   }, []);
@@ -64,6 +73,8 @@ export default function NfseEmissao() {
   const isAbrasf = cfg.provider === 'abrasf';
   const [rps, setRps] = useState(null);
   const [gerandoRps, setGerandoRps] = useState(false);
+  const [envioResp, setEnvioResp] = useState(null);
+  const [enviando, setEnviando] = useState(false);
 
   const salvar = async () => {
     setSaving(true);
@@ -113,6 +124,22 @@ export default function NfseEmissao() {
       setRps(r);
     } catch (e) { toast({ title: 'Erro ao gerar RPS', description: e.response?.data?.detail, variant: 'destructive' }); }
     finally { setGerandoRps(false); }
+  };
+
+  const testarEnvio = async () => {
+    if (!cfg.id) { toast({ title: 'Salve a configuração primeiro' }); return; }
+    setEnviando(true); setEnvioResp(null);
+    const num = (s) => Number(String(s).replace(/\./g, '').replace(',', '.')) || 0;
+    try {
+      const r = await adminAPI.nfseAbrasfTestar({
+        config_id: cfg.id,
+        tomador: { tipo_documento: 'cnpj', documento: teste.cnpj, razao_nome: teste.nome },
+        servico: { discriminacao: teste.discriminacao, item_lista_servico: cfg.fiscal_defaults.item_lista_servico, codigo_tributacao_municipal: cfg.fiscal_defaults.codigo_tributacao_municipal, local_prestacao_ibge: cfg.codigo_ibge, valor_servico: num(teste.valor), aliquota_iss: num(teste.aliquota) },
+        origem: { tipo: 'servico_avulso' },
+      });
+      setEnvioResp(r);
+    } catch (e) { setEnvioResp({ ok: false, erro: e.response?.data?.detail || 'Falha na chamada' }); }
+    finally { setEnviando(false); }
   };
 
   return (
@@ -229,6 +256,11 @@ export default function NfseEmissao() {
                 {gerandoRps ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileCode2 className="w-4 h-4" />} Gerar RPS (XML)
               </button>
             )}
+            {isAbrasf && (
+              <button onClick={testarEnvio} disabled={enviando} title="Assina e envia ao Ambiente de TESTE do SpeedGov" className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-50" style={{ backgroundColor: '#1d4ed8' }}>
+                {enviando ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />} Testar envio (homologação)
+              </button>
+            )}
             <button onClick={gerarDps} disabled={gerando} className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-50 border border-emerald-300 text-emerald-800">
               {gerando ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileCode2 className="w-4 h-4" />} Gerar DPS (XML)
             </button>
@@ -237,6 +269,16 @@ export default function NfseEmissao() {
             <div className="space-y-2">
               <div className="rounded-lg px-3 py-1.5 text-sm bg-gray-100 text-gray-600">RPS (ABRASF) gerado — confira o leiaute contra o WSDL do SpeedGov antes de transmitir.</div>
               <pre className="text-[10px] bg-gray-900 text-emerald-200 rounded-lg p-3 overflow-auto max-h-[360px]">{rps.xml}</pre>
+            </div>
+          )}
+          {envioResp && (
+            <div className="space-y-2">
+              <div className={`rounded-lg px-3 py-1.5 text-sm ${envioResp.ok ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-700'}`}>
+                {envioResp.ok ? '✓ Resposta recebida do SpeedGov (homologação) — veja abaixo' : `✗ Falha${envioResp.etapa ? ` (${envioResp.etapa})` : ''}: ${envioResp.erro}`}
+              </div>
+              {(envioResp.resposta || envioResp.erro) && (
+                <pre className="text-[10px] bg-gray-900 text-blue-200 rounded-lg p-3 overflow-auto max-h-[360px] whitespace-pre-wrap">{envioResp.resposta || envioResp.erro}</pre>
+              )}
             </div>
           )}
           {dps && (

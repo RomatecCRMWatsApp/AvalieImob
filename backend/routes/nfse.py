@@ -183,6 +183,41 @@ async def abrasf_preview(body: dict, db=Depends(get_db), _admin: str = Depends(g
     return {"xml": xml}
 
 
+@router.post("/abrasf/testar-envio")
+async def abrasf_testar_envio(body: dict, db=Depends(get_db), _admin: str = Depends(get_admin_user)):
+    """Envia 1 RPS ao webservice de TESTE do SpeedGov (homologação) e devolve a resposta CRUA.
+    NÃO persiste nota fiscal e usa SEMPRE `abrasf.url_ws` (ambiente de teste, nunca produção)."""
+    from datetime import datetime, timezone
+    from services.nfse.abrasf.rps_xml import montar_lote_rps_xml
+    from services.nfse.abrasf.assinatura_abrasf import assinar_lote_rps
+    from services.nfse.abrasf.soap_client import AbrasfClient, montar_envelope_soap, montar_cabecalho
+    from services.nfse.sefin.certificado import carregar_para_emissao
+    cfg = await _carregar_config(db, body.get("config_id"))
+    a = cfg.abrasf
+    if not a.url_ws:
+        raise HTTPException(400, "URL do webservice (Sistema de emissão → URL do webservice) não configurada.")
+    doc = _doc_de_body(cfg, body)
+    doc.dps.numero = int(body.get("numero") or 1)
+    doc.dps.data_emissao = datetime.now(timezone.utc)
+    try:
+        cc = await carregar_para_emissao(db, _admin, {"certificado_id": a.certificado_id})
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "etapa": "certificado", "erro": str(e)[:800]}
+    try:
+        xml = montar_lote_rps_xml(doc, cfg)
+        xml_assinado = assinar_lote_rps(xml, cc.key_pem, cc.cert_pem,
+                                        sha=a.assinatura_sha, namespace=a.namespace)
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "etapa": "assinatura", "erro": str(e)[:800]}
+    try:
+        header = montar_cabecalho(a.versao_abrasf, a.namespace)
+        envelope = montar_envelope_soap(a.operacao_envio, header, xml_assinado, a.namespace_ws)
+        resp = await AbrasfClient(a.url_ws, None).chamar(a.soap_action, envelope)
+        return {"ok": True, "url": a.url_ws, "resposta": resp[:9000]}
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "etapa": "envio", "url": a.url_ws, "erro": str(e)[:1200]}
+
+
 @router.post("/emitir")
 async def emitir(body: dict, db=Depends(get_db), _admin: str = Depends(get_admin_user)):
     """Prepara a DPS (numera + calcula + persiste pendente) e tenta emitir.
