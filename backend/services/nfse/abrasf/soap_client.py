@@ -27,15 +27,17 @@ def _cdata(xml: str) -> str:
 
 
 def montar_envelope_soap(operacao: str, header_xml: str, rps_xml: str, namespace_ws: str) -> str:
-    """Envelope SOAP 1.1 — operação `RecepcionarLoteRps` com 2 parâmetros STRING (confirmado no
-    XSD do SpeedGov): `header` (cabeçalho) e `parameters` (EnviarLoteRpsEnvio assinado), em CDATA."""
+    """Envelope SOAP 1.1 — operação com 2 parâmetros STRING (`header` + `parameters`, em CDATA).
+    IMPORTANTE: o wrapper da operação leva PREFIXO (ns2) e `header`/`parameters` ficam SEM
+    namespace (unqualified) — é o que o JAX-WS do SpeedGov espera (a resposta usa esse padrão:
+    `<ns2:...Response><return>`). Usar `xmlns=` default jogava header/parameters no ns errado → E185."""
     return (
         '<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">'
         "<soap:Body>"
-        f'<{operacao} xmlns="{namespace_ws}">'
+        f'<ns2:{operacao} xmlns:ns2="{namespace_ws}">'
         f"<header>{_cdata(header_xml)}</header>"
         f"<parameters>{_cdata(rps_xml)}</parameters>"
-        f"</{operacao}>"
+        f"</ns2:{operacao}>"
         "</soap:Body></soap:Envelope>"
     )
 
