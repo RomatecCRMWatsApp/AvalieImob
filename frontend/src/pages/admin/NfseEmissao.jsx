@@ -60,7 +60,8 @@ export default function NfseEmissao() {
         ...CFG0, ...m,
         emitente: { ...CFG0.emitente, ...(m.emitente || {}) },
         sefin: { ...CFG0.sefin, ...(m.sefin || {}) },
-        abrasf: { ...CFG0.abrasf, ...(m.abrasf || {}) },
+        // valores vazios salvos NÃO sobrescrevem os defaults (ex.: url_ws/namespaces)
+        abrasf: { ...CFG0.abrasf, ...Object.fromEntries(Object.entries(m.abrasf || {}).filter(([, v]) => v !== '' && v != null)) },
         fiscal_defaults: { ...CFG0.fiscal_defaults, ...(m.fiscal_defaults || {}) },
       });
     }).catch(() => {});
@@ -204,7 +205,7 @@ export default function NfseEmissao() {
           </Field>
           {isAbrasf && (
             <div className="grid grid-cols-2 gap-3">
-              <Field label="URL do webservice (WSDL SpeedGov)"><Input value={cfg.abrasf.url_ws} onChange={(e) => setA('url_ws', e.target.value)} placeholder="https://iss.speedgov.com.br/.../ws" /></Field>
+              <Field label="URL do webservice (SpeedGov)"><Input value={cfg.abrasf.url_ws} onChange={(e) => setA('url_ws', e.target.value)} placeholder="http://speedgov.com.br/wsmod/Nfes" /></Field>
               <Field label="Versão ABRASF"><Input value={cfg.abrasf.versao_abrasf} onChange={(e) => setA('versao_abrasf', e.target.value)} placeholder="1.00" /></Field>
             </div>
           )}

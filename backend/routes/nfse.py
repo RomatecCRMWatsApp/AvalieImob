@@ -195,8 +195,7 @@ async def abrasf_testar_envio(body: dict, db=Depends(get_db), _admin: str = Depe
     from services.nfse.sefin.certificado import carregar_para_emissao
     cfg = await _carregar_config(db, body.get("config_id"))
     a = cfg.abrasf
-    if not a.url_ws:
-        raise HTTPException(400, "URL do webservice (Sistema de emissão → URL do webservice) não configurada.")
+    url_ws = a.url_ws or "http://speedgov.com.br/wsmod/Nfes"   # fallback p/ o endpoint de teste
     doc = _doc_de_body(cfg, body)
     doc.dps.numero = int(body.get("numero") or 1)
     doc.dps.data_emissao = datetime.now(timezone.utc)
@@ -213,10 +212,10 @@ async def abrasf_testar_envio(body: dict, db=Depends(get_db), _admin: str = Depe
     try:
         header = montar_cabecalho()
         envelope = montar_envelope_soap(a.operacao_envio, header, xml_assinado, a.namespace_ws)
-        resp = await AbrasfClient(a.url_ws, None).chamar(a.soap_action, envelope)
-        return {"ok": True, "url": a.url_ws, "resposta": resp[:9000]}
+        resp = await AbrasfClient(url_ws, None).chamar(a.soap_action, envelope)
+        return {"ok": True, "url": url_ws, "resposta": resp[:9000]}
     except Exception as e:  # noqa: BLE001
-        return {"ok": False, "etapa": "envio", "url": a.url_ws, "erro": str(e)[:1200]}
+        return {"ok": False, "etapa": "envio", "url": url_ws, "erro": str(e)[:1200]}
 
 
 @router.post("/emitir")
