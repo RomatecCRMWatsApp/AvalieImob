@@ -17,28 +17,21 @@ from services.nfse.exceptions import NFSeProviderError
 logger = logging.getLogger("romatec")
 
 
-def _sem_decl(xml: str) -> str:
-    """Remove a declaração <?xml ...?> (não pode ir aninhada dentro de outro XML)."""
-    return xml.split("?>", 1)[-1].strip() if xml.lstrip().startswith("<?xml") else xml
-
-
-def _cdata(xml: str) -> str:
-    return f"<![CDATA[{_sem_decl(xml)}]]>"
-
-
 def montar_envelope_soap(operacao: str, header_xml: str, rps_xml: str, namespace_ws: str) -> str:
-    """Envelope SOAP 1.1 — operação com 2 parâmetros STRING (`header` + `parameters`, em CDATA).
-    IMPORTANTE: o wrapper da operação leva PREFIXO (ns2) e `header`/`parameters` ficam SEM
-    namespace (unqualified) — é o que o JAX-WS do SpeedGov espera (a resposta usa esse padrão:
-    `<ns2:...Response><return>`). Usar `xmlns=` default jogava header/parameters no ns errado → E185."""
+    """Envelope SOAP IDÊNTICO ao modelo oficial do SpeedGov (modelos_xml): `header`/`parameters`
+    são strings ESCAPADAS (NÃO CDATA), COM a declaração `<?xml?>`; wrapper `nfse:Operacao`
+    (prefixo) e header/parameters UNqualified."""
+    from xml.sax.saxutils import escape
     return (
-        '<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">'
-        "<soap:Body>"
-        f'<ns2:{operacao} xmlns:ns2="{namespace_ws}">'
-        f"<header>{_cdata(header_xml)}</header>"
-        f"<parameters>{_cdata(rps_xml)}</parameters>"
-        f"</ns2:{operacao}>"
-        "</soap:Body></soap:Envelope>"
+        '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" '
+        f'xmlns:nfse="{namespace_ws}">'
+        "<soapenv:Header/>"
+        "<soapenv:Body>"
+        f"<nfse:{operacao}>"
+        f"<header>{escape(header_xml)}</header>"
+        f"<parameters>{escape(rps_xml)}</parameters>"
+        f"</nfse:{operacao}>"
+        "</soapenv:Body></soapenv:Envelope>"
     )
 
 
