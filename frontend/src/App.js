@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import './App.css';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
@@ -11,35 +11,38 @@ import DarkModeToggle from './components/DarkModeToggle';
 import ConsultaWidget from './components/consulta/ConsultaWidget';
 
 import LandingPage from './pages/LandingPage';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Dashboard from './pages/Dashboard';
-import PortalCliente from './pages/PortalCliente';
-import ContratoPublico from './pages/ContratoPublico';
-import AceiteContrato from './pages/AceiteContrato';
-import AssinarCliente from './pages/AssinarCliente';
-import VerificarContrato from './pages/VerificarContrato';
-import CalculadoraPortal from './pages/avaliacao/CalculadoraPortal';
-import CalculadoraClassica from './pages/avaliacao/CalculadoraClassica';
-import CalculadoraPremium from './pages/avaliacao/CalculadoraPremium';
-import ServicoPTAM from './pages/ServicoPTAM';
-import ServicoLaudoTecnico from './pages/ServicoLaudoTecnico';
-import ServicoAvaliacaoRural from './pages/ServicoAvaliacaoRural';
-import ServicoAvaliacaoGarantia from './pages/ServicoAvaliacaoGarantia';
-import ServicoAvaliacaoUrbana from './pages/ServicoAvaliacaoUrbana';
-import Blog from './pages/Blog';
-import BlogPostComoFazerPTAM from './pages/blog/BlogPostComoFazerPTAM';
-import BlogPostPtamLaudo from './pages/blog/BlogPostPtamLaudo';
-import BlogPostAvaliacaoRural from './pages/blog/BlogPostAvaliacaoRural';
-import BlogPostVLF from './pages/blog/BlogPostVLF';
-import BlogPostGrauFundamentacao from './pages/blog/BlogPostGrauFundamentacao';
-import BlogPostMetodoComparativo from './pages/blog/BlogPostMetodoComparativo';
-import BlogPostInventarioPartilha from './pages/blog/BlogPostInventarioPartilha';
-import BlogPostART_RRT_TRT from './pages/blog/BlogPostART_RRT_TRT';
-import BlogPostContratoExclusividade from './pages/blog/BlogPostContratoExclusividade';
-import BlogPostAssinaturaICP from './pages/blog/BlogPostAssinaturaICP';
-import BlogPostPropostasConsultoria from './pages/blog/BlogPostPropostasConsultoria';
-import VerificarLaudo from './pages/VerificarLaudo';
+// Code-splitting: cada página vira um chunk próprio, carregado sob demanda (React.lazy).
+// O Dashboard (app logado: PTAM/contratos/NFS-e/mapas/gráficos) era o grosso dos ~3 MB do
+// bundle único — agora só baixa ao entrar no /dashboard. A landing carrega leve.
+const Login = lazy(() => import('./pages/Login'));
+const Register = lazy(() => import('./pages/Register'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const PortalCliente = lazy(() => import('./pages/PortalCliente'));
+const ContratoPublico = lazy(() => import('./pages/ContratoPublico'));
+const AceiteContrato = lazy(() => import('./pages/AceiteContrato'));
+const AssinarCliente = lazy(() => import('./pages/AssinarCliente'));
+const VerificarContrato = lazy(() => import('./pages/VerificarContrato'));
+const CalculadoraPortal = lazy(() => import('./pages/avaliacao/CalculadoraPortal'));
+const CalculadoraClassica = lazy(() => import('./pages/avaliacao/CalculadoraClassica'));
+const CalculadoraPremium = lazy(() => import('./pages/avaliacao/CalculadoraPremium'));
+const ServicoPTAM = lazy(() => import('./pages/ServicoPTAM'));
+const ServicoLaudoTecnico = lazy(() => import('./pages/ServicoLaudoTecnico'));
+const ServicoAvaliacaoRural = lazy(() => import('./pages/ServicoAvaliacaoRural'));
+const ServicoAvaliacaoGarantia = lazy(() => import('./pages/ServicoAvaliacaoGarantia'));
+const ServicoAvaliacaoUrbana = lazy(() => import('./pages/ServicoAvaliacaoUrbana'));
+const Blog = lazy(() => import('./pages/Blog'));
+const BlogPostComoFazerPTAM = lazy(() => import('./pages/blog/BlogPostComoFazerPTAM'));
+const BlogPostPtamLaudo = lazy(() => import('./pages/blog/BlogPostPtamLaudo'));
+const BlogPostAvaliacaoRural = lazy(() => import('./pages/blog/BlogPostAvaliacaoRural'));
+const BlogPostVLF = lazy(() => import('./pages/blog/BlogPostVLF'));
+const BlogPostGrauFundamentacao = lazy(() => import('./pages/blog/BlogPostGrauFundamentacao'));
+const BlogPostMetodoComparativo = lazy(() => import('./pages/blog/BlogPostMetodoComparativo'));
+const BlogPostInventarioPartilha = lazy(() => import('./pages/blog/BlogPostInventarioPartilha'));
+const BlogPostART_RRT_TRT = lazy(() => import('./pages/blog/BlogPostART_RRT_TRT'));
+const BlogPostContratoExclusividade = lazy(() => import('./pages/blog/BlogPostContratoExclusividade'));
+const BlogPostAssinaturaICP = lazy(() => import('./pages/blog/BlogPostAssinaturaICP'));
+const BlogPostPropostasConsultoria = lazy(() => import('./pages/blog/BlogPostPropostasConsultoria'));
+const VerificarLaudo = lazy(() => import('./pages/VerificarLaudo'));
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -116,6 +119,7 @@ function App() {
         <AuthProvider>
           <BrowserRouter>
             <ErrorBoundary>
+              <Suspense fallback={<AppLoader label="Carregando…" />}>
               <Routes>
                 <Route path="/" element={<LandingPage />} />
                 <Route path="/servicos/ptam" element={<ServicoPTAM />} />
@@ -157,6 +161,7 @@ function App() {
                 <Route path="/dashboard/*" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
+              </Suspense>
             </ErrorBoundary>
             <Toaster />
             <InstallPrompt />
