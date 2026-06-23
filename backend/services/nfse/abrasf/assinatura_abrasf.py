@@ -46,7 +46,7 @@ def assinar_lote_rps(xml: str | bytes, key_pem: bytes, cert_pem: bytes,
             elem,
             xmlsec.constants.TransformInclC14N,    # CanonicalizationMethod (inclusivo)
             xmlsec.constants.TransformRsaSha1,     # SignatureMethod (RSA-SHA1)
-            ns="ds",
+            ns="ds",                                # raiz já declara xmlns:ds (= modelo oficial)
         )
         sig.set("Id", sig_id)                       # XS02: Id obrigatório no <Signature>
         elem.append(sig)                            # Signature dentro do elemento assinado

@@ -80,6 +80,18 @@ def _t(parent, tag, text=None):             # elemento no ns TIPOS (prefixo p1)
     return e
 
 
+def _tnz(parent, tag, valor):
+    """Emite a tag de valor SÓ se > 0 (manual 4.2: 'TAG nula deve ser OMITIDA, não enviada
+    vazia/zerada'). Mantém a sequência do XSD e elimina a ambiguidade de ordem das tags
+    opcionais (ex.: ValorIssRetido) — quando zeradas, simplesmente não aparecem."""
+    try:
+        v = float(valor or 0)
+    except (TypeError, ValueError):
+        v = 0.0
+    if v > 0:
+        _t(parent, tag, _money(valor))
+
+
 def montar_cabecalho() -> str:
     """Cabeçalho (param `header`) — idêntico ao modelo oficial (com declaração, p/p1/ds/xsi,
     schemaLocation; versao/versaoDados='1'; versaoDados UNqualified)."""
@@ -150,22 +162,22 @@ def montar_lote_rps_xml(doc: NFSeDocumento, config: NFSeConfig, pretty: bool = F
     _t(inf, "Status", "1")
 
     servico = _t(inf, "Servico")
-    val = _t(servico, "Valores")                # ordem do tcValores (XSD)
-    _t(val, "ValorServicos", _money(serv.valor_servico))
-    _t(val, "ValorDeducoes", _money(serv.valor_deducoes))
-    _t(val, "ValorPis", _money(tf.pis))
-    _t(val, "ValorCofins", _money(tf.cofins))
-    _t(val, "ValorInss", _money(tf.inss))
-    _t(val, "ValorIr", _money(tf.irrf))
-    _t(val, "ValorCsll", _money(tf.csll))
-    _t(val, "IssRetido", "1" if serv.iss_retido else "2")
-    _t(val, "ValorIss", _money(calc["valor_iss"]))
-    _t(val, "ValorIssRetido", _money(calc["valor_iss"] if serv.iss_retido else 0))
-    _t(val, "OutrasRetencoes", _money(0))
+    val = _t(servico, "Valores")                # ordem do tcValores (XSD); zeros OMITIDOS (manual 4.2)
+    _t(val, "ValorServicos", _money(serv.valor_servico))          # 1-1 obrigatório
+    _tnz(val, "ValorDeducoes", serv.valor_deducoes)
+    _tnz(val, "ValorPis", tf.pis)
+    _tnz(val, "ValorCofins", tf.cofins)
+    _tnz(val, "ValorInss", tf.inss)
+    _tnz(val, "ValorIr", tf.irrf)
+    _tnz(val, "ValorCsll", tf.csll)
+    _t(val, "IssRetido", "1" if serv.iss_retido else "2")        # 1-1 obrigatório
+    _tnz(val, "ValorIss", calc["valor_iss"])
+    _tnz(val, "ValorIssRetido", calc["valor_iss"] if serv.iss_retido else 0)
+    _tnz(val, "OutrasRetencoes", 0)
     _t(val, "BaseCalculo", _money(calc["base_calculo"]))
     _t(val, "Aliquota", _aliq(serv.aliquota_iss))
-    _t(val, "DescontoCondicionado", _money(serv.desconto_condicionado))
-    _t(val, "DescontoIncondicionado", _money(serv.desconto_incondicionado))
+    _tnz(val, "DescontoCondicionado", serv.desconto_condicionado)
+    _tnz(val, "DescontoIncondicionado", serv.desconto_incondicionado)
 
     _t(servico, "ItemListaServico", _item(serv.item_lista_servico or fd.item_lista_servico))
     if _digitos(fd.cnae):
