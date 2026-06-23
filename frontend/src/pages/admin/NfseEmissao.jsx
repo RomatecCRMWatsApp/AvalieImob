@@ -46,7 +46,7 @@ export default function NfseEmissao() {
   const [saving, setSaving] = useState(false);
   const [certResult, setCertResult] = useState(null);
   const [testando, setTestando] = useState(false);
-  const [teste, setTeste] = useState({ valor: '17500,00', aliquota: '2,0000', cnpj: '57123389000180', nome: 'RODO RANCHO COMBUSTIVEIS LTDA', discriminacao: '4ª parcela do contrato — obra Posto Chapadão (Itinga/MA).' });
+  const [teste, setTeste] = useState({ numero: '1', valor: '17500,00', aliquota: '2,0000', cnpj: '57123389000180', nome: 'RODO RANCHO COMBUSTIVEIS LTDA', discriminacao: '4ª parcela do contrato — obra Posto Chapadão (Itinga/MA).' });
   const [dps, setDps] = useState(null);
   const [gerando, setGerando] = useState(false);
   const [certs, setCerts] = useState([]);
@@ -94,7 +94,7 @@ export default function NfseEmissao() {
     if (!cfg.id) { toast({ title: 'Salve a configuração primeiro' }); return; }
     setConsultando(true); setConsultaResp(null);
     try {
-      setConsultaResp(await adminAPI.nfseAbrasfConsultarRps({ config_id: cfg.id, numero: 1 }));
+      setConsultaResp(await adminAPI.nfseAbrasfConsultarRps({ config_id: cfg.id, numero: Number(teste.numero) || 1 }));
     } catch (e) { setConsultaResp({ ok: false, erro: e.response?.data?.detail || 'Falha na chamada' }); }
     finally { setConsultando(false); }
   };
@@ -201,6 +201,7 @@ export default function NfseEmissao() {
     try {
       const r = await adminAPI.nfseAbrasfTestar({
         config_id: cfg.id,
+        numero: Number(teste.numero) || 1,
         tomador: { tipo_documento: 'cnpj', documento: teste.cnpj, razao_nome: teste.nome },
         servico: { discriminacao: stripHtml(teste.discriminacao), item_lista_servico: cfg.fiscal_defaults.item_lista_servico, codigo_tributacao_municipal: cfg.fiscal_defaults.codigo_tributacao_municipal, local_prestacao_ibge: cfg.codigo_ibge, valor_servico: num(teste.valor), aliquota_iss: num(teste.aliquota) },
         origem: { tipo: 'servico_avulso' },
@@ -312,6 +313,8 @@ export default function NfseEmissao() {
             <p className="text-[10px] text-gray-400 mt-0.5">Os tomadores das notas vêm do cadastro de <b>Clientes</b>. Escolha um ou preencha abaixo.</p>
           </Field>
           <div className="grid grid-cols-2 gap-3">
+            <Field label="Nº do RPS"><Input value={teste.numero} onChange={(e) => setTeste({ ...teste, numero: e.target.value })} /><p className="text-[10px] text-gray-400 mt-0.5">Cada nota usa um número novo (1, 2, 3…). Não reutilizar.</p></Field>
+            <Field label="Série RPS"><Input value={cfg.abrasf?.serie_rps || '1'} onChange={(e) => setA('serie_rps', e.target.value)} /></Field>
             <Field label="Valor do serviço"><Input value={teste.valor} onChange={(e) => setTeste({ ...teste, valor: e.target.value })} /></Field>
             <Field label="Alíquota ISS %"><Input value={teste.aliquota} onChange={(e) => setTeste({ ...teste, aliquota: e.target.value })} /></Field>
             <Field label="Tomador CNPJ"><Input value={teste.cnpj} onChange={(e) => setTeste({ ...teste, cnpj: e.target.value })} /></Field>
