@@ -11,7 +11,7 @@ RUN yarn install --network-timeout 300000
 # Copy source and build (no REACT_APP_BACKEND_URL so it defaults to '' = same origin)
 # CACHEBUST: mudar este valor invalida o cache de camada do Docker daqui pra baixo,
 # forcando rebuild LIMPO do frontend (resolve bundle stale: menu/telas nao atualizavam).
-ARG CACHEBUST=2026-06-15-90
+ARG CACHEBUST=2026-06-15-91
 RUN echo "frontend rebuild ${CACHEBUST}"
 COPY frontend/ ./
 RUN yarn build
@@ -25,6 +25,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libssl-dev \
     tesseract-ocr \
     tesseract-ocr-por \
+    pkg-config \
+    libxml2-dev \
+    libxmlsec1-dev \
+    libxmlsec1-openssl \
     && rm -rf /var/lib/apt/lists/* \
     && update-ca-certificates
 

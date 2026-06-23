@@ -85,9 +85,9 @@ def test_emissao_bloqueada_sem_transmissao():
         asyncio.run(prov.emitir(_doc(_config())))
 
 
-def test_assinatura_abrasf_quando_signxml():
-    """Se signxml disponível: assina RPS+Lote (2 Signatures) e o assinado ainda valida no XSD."""
-    pytest.importorskip("signxml")
+def test_assinatura_abrasf_quando_xmlsec():
+    """Se xmlsec disponível: assina RPS+Lote (2 Signatures) e o assinado valida no XSD."""
+    pytest.importorskip("xmlsec")
     from cryptography.hazmat.primitives.asymmetric import rsa
     from cryptography.hazmat.primitives import hashes, serialization
     from cryptography import x509
