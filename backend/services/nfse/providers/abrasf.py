@@ -28,10 +28,10 @@ class AbrasfProvider(NFSeProvider):
         cert = await carregar_para_emissao(self.db, self.owner_uid,
                                            {"certificado_id": cfg.get("certificado_id")})
         xml = montar_lote_rps_xml(doc, self.config)
-        if cfg.get("assinar_rps"):   # modelo oficial do SpeedGov é SEM assinatura
-            xml = assinar_lote_rps(xml, cert.key_pem, cert.cert_pem,
-                                   sha=cfg.get("assinatura_sha", "sha1"),
-                                   namespace=cfg.get("namespace"))
+        # Manual SpeedGov: o XML DEVE ser assinado digitalmente. Sempre assina.
+        xml = assinar_lote_rps(xml, cert.key_pem, cert.cert_pem,
+                               sha=cfg.get("assinatura_sha", "sha1"),
+                               namespace=cfg.get("namespace"))
         return xml, cert
 
     async def emitir(self, doc: NFSeDocumento) -> ResultadoEmissao:
