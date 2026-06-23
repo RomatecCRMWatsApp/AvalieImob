@@ -99,6 +99,30 @@ export default function NfseEmissao() {
     finally { setConsultando(false); }
   };
 
+  const renderParsed = (p) => {
+    if (!p) return null;
+    if (p.sucesso || p.numero_nfse) {
+      return (
+        <div className="rounded-lg px-3 py-2 text-sm bg-emerald-100 text-emerald-900 font-semibold">
+          🎉 Sucesso{p.numero_nfse ? ` — NFS-e nº ${p.numero_nfse}` : ''}{p.codigo_verificacao ? ` · cód. ${p.codigo_verificacao}` : ''}{p.protocolo ? ` · protocolo ${p.protocolo}` : ''}
+        </div>
+      );
+    }
+    if (p.mensagens?.length) {
+      return (
+        <div className="space-y-1">
+          {p.mensagens.map((m, i) => (
+            <div key={i} className="rounded-lg px-3 py-2 text-sm bg-amber-50 text-amber-900 border border-amber-200">
+              <b>{m.codigo}</b> — {m.mensagem}
+              {m.correcao && <div className="text-[11px] mt-0.5">💡 {m.correcao}</div>}
+            </div>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  };
+
   const aperfeicoarDiscriminacao = async (html) => {
     const atual = stripHtml(html);
     setAiLoading(true);
@@ -336,8 +360,9 @@ export default function NfseEmissao() {
           {envioResp && (
             <div className="space-y-2">
               <div className={`rounded-lg px-3 py-1.5 text-sm ${envioResp.ok ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-700'}`}>
-                {envioResp.ok ? '✓ Resposta recebida do SpeedGov (homologação) — veja abaixo' : `✗ Falha${envioResp.etapa ? ` (${envioResp.etapa})` : ''}: ${envioResp.erro}`}
+                {envioResp.ok ? '✓ Resposta recebida do SpeedGov:' : `✗ Falha${envioResp.etapa ? ` (${envioResp.etapa})` : ''}: ${envioResp.erro}`}
               </div>
+              {renderParsed(envioResp.parsed)}
               {(envioResp.resposta || envioResp.erro) && (
                 <pre className="text-[10px] bg-gray-900 text-blue-200 rounded-lg p-3 overflow-auto max-h-[360px] whitespace-pre-wrap">{envioResp.resposta || envioResp.erro}</pre>
               )}
@@ -348,6 +373,7 @@ export default function NfseEmissao() {
               <div className={`rounded-lg px-3 py-1.5 text-sm ${consultaResp.ok ? 'bg-blue-50 text-blue-800' : 'bg-red-50 text-red-700'}`}>
                 {consultaResp.ok ? '🔎 Consulta NFS-e por RPS — resposta do SpeedGov:' : `✗ ${consultaResp.erro}`}
               </div>
+              {renderParsed(consultaResp.parsed)}
               {(consultaResp.resposta || consultaResp.erro) && (
                 <pre className="text-[10px] bg-gray-900 text-blue-200 rounded-lg p-3 overflow-auto max-h-[360px] whitespace-pre-wrap">{consultaResp.resposta || consultaResp.erro}</pre>
               )}

@@ -214,7 +214,8 @@ async def abrasf_testar_envio(body: dict, db=Depends(get_db), _admin: str = Depe
         header = montar_cabecalho()
         envelope = montar_envelope_soap(a.operacao_envio, header, xml, a.namespace_ws)
         resp = await AbrasfClient(url_ws, None).chamar(a.soap_action, envelope)
-        return {"ok": True, "url": url_ws, "resposta": resp[:9000]}
+        from services.nfse.abrasf.resposta import parse_resposta
+        return {"ok": True, "url": url_ws, "resposta": resp[:9000], "parsed": parse_resposta(resp)}
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "etapa": "envio", "url": url_ws, "erro": str(e)[:1200]}
 
@@ -234,7 +235,8 @@ async def abrasf_consultar_rps(body: dict, db=Depends(get_db), _admin: str = Dep
     envelope = montar_envelope_soap(a.operacao_consulta_rps or "ConsultarNfsePorRps", header, xml, a.namespace_ws)
     try:
         resp = await AbrasfClient(url_ws, None).chamar(a.soap_action, envelope)
-        return {"ok": True, "resposta": resp[:9000]}
+        from services.nfse.abrasf.resposta import parse_resposta
+        return {"ok": True, "resposta": resp[:9000], "parsed": parse_resposta(resp)}
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "erro": str(e)[:1200]}
 
