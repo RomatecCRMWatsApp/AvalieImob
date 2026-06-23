@@ -36,20 +36,27 @@ def assinar_lote_rps(xml: str | bytes, key_pem: bytes, cert_pem: bytes,
             c14n_algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315",
         )
 
+    SIG = "{http://www.w3.org/2000/09/xmldsig#}Signature"
     root = etree.fromstring(xml.encode("utf-8") if isinstance(xml, str) else xml)
 
-    # 1) assina cada RPS (Signature vai dentro de <Rps>, após <InfRps>)
-    for rps in list(root.iter(f"{{{NS_TIPOS}}}Rps")):
-        inf = rps.find(f"{{{NS_TIPOS}}}InfRps")
-        rid = inf.get("Id") if inf is not None else None
-        signed_rps = _signer().sign(rps, key=key_pem, cert=cert_pem,
-                                    reference_uri=(f"#{rid}" if rid else None))
-        rps.getparent().replace(rps, signed_rps)
+    # IDs dos RPS a assinar (cada InfRps). Assina-se SOBRE O DOCUMENTO INTEIRO (digest no contexto
+    # real de namespaces) e move-se a <Signature> p/ dentro do <Rps> correspondente.
+    ids_rps = [inf.get("Id") for inf in root.iter(f"{{{NS_TIPOS}}}InfRps") if inf.get("Id")]
+    for rid in ids_rps:
+        signed = _signer().sign(root, key=key_pem, cert=cert_pem, reference_uri=f"#{rid}")
+        sig = signed[-1]                              # a Signature recém-anexada (último filho)
+        # acha o <Rps> cujo <InfRps> tem esse Id e move a assinatura p/ dentro dele
+        for rps in signed.iter(f"{{{NS_TIPOS}}}Rps"):
+            inf = rps.find(f"{{{NS_TIPOS}}}InfRps")
+            if inf is not None and inf.get("Id") == rid:
+                rps.append(sig)
+                break
+        root = signed
 
-    # 2) assina o Lote (Signature ao fim do EnviarLoteRpsEnvio; digest inclui o RPS já assinado)
+    # Assina o Lote por último (digest do LoteRps já inclui os RPS assinados); fica ao fim do root.
     lote = root.find(f"{{{NS_ENVIO}}}LoteRps")
     lid = lote.get("Id") if lote is not None else None
-    signed_root = _signer().sign(root, key=key_pem, cert=cert_pem,
-                                 reference_uri=(f"#{lid}" if lid else None))
+    if lid:
+        root = _signer().sign(root, key=key_pem, cert=cert_pem, reference_uri=f"#{lid}")
 
-    return etree.tostring(signed_root, encoding="UTF-8", xml_declaration=True).decode("utf-8")
+    return etree.tostring(root, encoding="UTF-8", xml_declaration=True).decode("utf-8")
