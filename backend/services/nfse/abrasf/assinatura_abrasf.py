@@ -51,12 +51,14 @@ def assinar_lote_rps(xml: str | bytes, key_pem: bytes, cert_pem: bytes,
             if inf is not None and inf.get("Id") == rid:
                 rps.append(sig)
                 break
+        sig.set("Id", f"sig_{rid}")                   # XS02: Id é OBRIGATÓRIO no <Signature>
         root = signed
 
-    # Assina o Lote por último (digest do LoteRps já inclui os RPS assinados); fica ao fim do root.
+    # Assina o Lote por último (digest do LoteRps já inclui os RPS assinados, com Id); fica ao fim.
     lote = root.find(f"{{{NS_ENVIO}}}LoteRps")
     lid = lote.get("Id") if lote is not None else None
     if lid:
         root = _signer().sign(root, key=key_pem, cert=cert_pem, reference_uri=f"#{lid}")
+        root[-1].set("Id", f"sig_{lid}")              # Id obrigatório no Signature do Lote
 
     return etree.tostring(root, encoding="UTF-8", xml_declaration=True).decode("utf-8")
