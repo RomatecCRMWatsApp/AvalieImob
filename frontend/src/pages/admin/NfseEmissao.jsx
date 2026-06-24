@@ -366,6 +366,22 @@ export default function NfseEmissao() {
                 {envioResp.ok ? '✓ Resposta recebida do SpeedGov:' : `✗ Falha${envioResp.etapa ? ` (${envioResp.etapa})` : ''}: ${envioResp.erro}`}
               </div>
               {renderParsed(envioResp.parsed)}
+              {envioResp.xml_enviado && (
+                <button
+                  onClick={() => {
+                    const blob = new Blob([envioResp.xml_enviado], { type: 'application/xml' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url; a.download = 'lote_assinado.xml'; a.click();
+                    setTimeout(() => URL.revokeObjectURL(url), 1000);
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-white"
+                  style={{ backgroundColor: '#7c3aed' }}
+                  title="Baixa o EnviarLoteRpsEnvio ASSINADO exato que foi enviado (p/ validar na ferramenta IntersolXmlTest)"
+                >
+                  ⬇ Baixar XML assinado enviado (lote_assinado.xml)
+                </button>
+              )}
               {(envioResp.resposta || envioResp.erro) && (
                 <pre className="text-[10px] bg-gray-900 text-blue-200 rounded-lg p-3 overflow-auto max-h-[360px] whitespace-pre-wrap">{envioResp.resposta || envioResp.erro}</pre>
               )}

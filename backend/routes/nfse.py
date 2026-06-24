@@ -215,9 +215,11 @@ async def abrasf_testar_envio(body: dict, db=Depends(get_db), _admin: str = Depe
         envelope = montar_envelope_soap(a.operacao_envio, header, xml, a.namespace_ws)
         resp = await AbrasfClient(url_ws, None).chamar(a.soap_action, envelope)
         from services.nfse.abrasf.resposta import parse_resposta
-        return {"ok": True, "url": url_ws, "resposta": resp[:9000], "parsed": parse_resposta(resp)}
+        # xml_enviado = os bytes EXATOS do EnviarLoteRpsEnvio assinado (p/ validar na ferramenta oficial)
+        return {"ok": True, "url": url_ws, "resposta": resp[:9000],
+                "parsed": parse_resposta(resp), "xml_enviado": xml}
     except Exception as e:  # noqa: BLE001
-        return {"ok": False, "etapa": "envio", "url": url_ws, "erro": str(e)[:1200]}
+        return {"ok": False, "etapa": "envio", "url": url_ws, "erro": str(e)[:1200], "xml_enviado": xml}
 
 
 @router.post("/abrasf/consultar-rps")
