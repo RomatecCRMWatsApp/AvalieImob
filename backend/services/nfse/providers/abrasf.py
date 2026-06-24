@@ -28,10 +28,13 @@ class AbrasfProvider(NFSeProvider):
         cert = await carregar_para_emissao(self.db, self.owner_uid,
                                            {"certificado_id": cfg.get("certificado_id")})
         xml = montar_lote_rps_xml(doc, self.config)
-        # Manual SpeedGov: o XML DEVE ser assinado digitalmente. Sempre assina.
-        xml = assinar_lote_rps(xml, cert.key_pem, cert.cert_pem,
-                               sha=cfg.get("assinatura_sha", "sha1"),
-                               namespace=cfg.get("namespace"))
+        # SpeedGov/Intersol NÃO usa assinatura no EnviarLoteRpsEnvio (a <Signature> dispara E160 —
+        # ACBr SpeedGov.ini: [Assinar] todos=0, UseCertificado=0). Só assina se assinar_rps=True
+        # (default False) — mantido p/ outros provedores ABRASF que exigem XMLDSIG.
+        if cfg.get("assinar_rps"):
+            xml = assinar_lote_rps(xml, cert.key_pem, cert.cert_pem,
+                                   sha=cfg.get("assinatura_sha", "sha1"),
+                                   namespace=cfg.get("namespace"))
         return xml, cert
 
     async def emitir(self, doc: NFSeDocumento) -> ResultadoEmissao:

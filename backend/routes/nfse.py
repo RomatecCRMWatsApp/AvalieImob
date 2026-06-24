@@ -205,9 +205,14 @@ async def abrasf_testar_envio(body: dict, db=Depends(get_db), _admin: str = Depe
         return {"ok": False, "etapa": "certificado", "erro": str(e)[:800]}
     try:
         xml = montar_lote_rps_xml(doc, cfg)
-        # Manual SpeedGov: o XML DEVE ser assinado digitalmente (produção). Sempre assina.
-        xml = assinar_lote_rps(xml, cc.key_pem, cc.cert_pem,
-                               sha=a.assinatura_sha, namespace=a.namespace)
+        # SpeedGov/Intersol (Açailândia) NÃO usa assinatura no EnviarLoteRpsEnvio: a simples
+        # presença da <Signature> dispara E160 (validador Intersol mais estrito que o XSD).
+        # Confirmado: ACBr SpeedGov.ini → [Assinar] todos=0, UseCertificado=0; e empiricamente,
+        # o lote SEM assinatura nunca deu E160 (só E91/E156). Só assina se assinar_rps=True
+        # (default False) — preservado p/ outros municípios ABRASF que exigem XMLDSIG.
+        if a.assinar_rps:
+            xml = assinar_lote_rps(xml, cc.key_pem, cc.cert_pem,
+                                   sha=a.assinatura_sha, namespace=a.namespace)
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "etapa": "assinatura", "erro": str(e)[:800]}
     try:
