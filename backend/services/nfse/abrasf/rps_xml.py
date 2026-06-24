@@ -46,10 +46,12 @@ def _money(v) -> str:                       # tsValor: decimal, 2 casas
     return str(Decimal(str(v or 0)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
 
 
-def _aliq(v) -> str:                        # tsAliquota: percentual, 4 casas (2.0000)
+def _aliq(v) -> str:                        # tsAliquota: FRACIONÁRIO, 4 casas (2% = 0.0200)
+    # Manual ABRASF pg.21: alíquota é fração (1% = 0.01; 100% = 1.0000). NÃO é percentual
+    # (≠ DPS nacional, onde pAliq é %). Normaliza: se vier >1 (ex.: 2.0 = "2%"), vira fração.
     a = float(v or 0)
-    if a <= 1:
-        a = a * 100.0
+    if a > 1:
+        a = a / 100.0
     return str(Decimal(str(a)).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP))
 
 

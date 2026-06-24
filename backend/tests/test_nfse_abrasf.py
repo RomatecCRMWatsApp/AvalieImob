@@ -56,7 +56,7 @@ def test_rps_estrutura_e_valores():
     assert root.find(f"{{{NS_ENVIO}}}LoteRps").get("Id") == "lote1"
     assert _q(root, "ValorServicos").text == "6000.00"
     assert _q(root, "ValorIss").text == "120.00"          # 6000 * 2%
-    assert _q(root, "Aliquota").text == "2.0000"          # tsAliquota: 4 casas, percentual
+    assert _q(root, "Aliquota").text == "0.0200"          # tsAliquota: FRACIONÁRIO (2% = 0.0200), manual pg.21
     assert _q(root, "ItemListaServico").text == "1701"
     assert _q(root, "CodigoCnae").text == "8211300"
     assert _q(root, "CodigoMunicipio").text == "2100055"
@@ -71,7 +71,7 @@ def test_aliquota_aceita_fracao_e_percentual():
         d = _doc(cfg)
         d.servico.aliquota_iss = entrada
         root = etree.fromstring(montar_lote_rps_xml(d, cfg).encode("utf-8"))
-        assert _q(root, "Aliquota").text == "2.0000"
+        assert _q(root, "Aliquota").text == "0.0200"
         assert _q(root, "ValorIss").text == "120.00"
 
 
