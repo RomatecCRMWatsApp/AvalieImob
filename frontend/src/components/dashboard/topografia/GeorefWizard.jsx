@@ -26,6 +26,10 @@ const requerDrlTipo = (tipo) => !DRL_DISPENSA.includes(tipo);
 const MULTIPARCELA_TIPOS = ['desmembramento', 'remembramento'];
 
 const normLista = (v) => (Array.isArray(v) ? v : (v ? [v] : []));
+const anoDoArquivo = (nome) => { const m = (nome || '').match(/(19|20)\d{2}/); return m ? parseInt(m[0], 10) : 0; };
+const ordenarPorExercicio = (itens) =>
+  [...itens].sort((a, b) => (anoDoArquivo(a.filename) - anoDoArquivo(b.filename))
+    || String(a.filename || '').localeCompare(String(b.filename || '')));
 
 const UPLOADS = [
   { tipo: 'memorial', label: 'Memorial Descritivo (SIGEF)', accept: '.pdf', req: true },
@@ -172,8 +176,13 @@ export default function GeorefWizard() {
     }
   };
   const removerItem = async (tipo, itemId) => {
-    try { await georefAPI.removerUploadItem(proj.id, tipo, itemId); await recarregar(); }
-    catch { toast({ title: 'Erro ao remover', variant: 'destructive' }); }
+    try {
+      await georefAPI.removerUploadItem(proj.id, tipo, itemId);
+      await recarregar();
+      toast({ title: 'Removido' });
+    } catch (e) {
+      toast({ title: 'Erro ao remover', description: e?.response?.data?.detail || e?.message || '', variant: 'destructive' });
+    }
   };
 
   // ── parcelas (desmembramento) ──
@@ -788,15 +797,19 @@ function ItrBox({ itens, onAdd, onRemove }) {
       </div>
       {itens.length > 0 && (
         <ul className="space-y-1">
-          {itens.map((it) => (
-            <li key={it.id || it.key} className="flex items-center gap-2 text-xs text-gray-600 bg-gray-50 rounded px-2 py-1">
-              <FileCheck2 className="w-3.5 h-3.5 shrink-0" style={{ color: GREEN }} />
-              <span className="truncate flex-1">{it.filename || 'arquivo'}</span>
-              <button onClick={() => onRemove(it.id || it.key)} className="text-gray-300 hover:text-red-500">
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            </li>
-          ))}
+          {ordenarPorExercicio(itens).map((it) => {
+            const ano = anoDoArquivo(it.filename);
+            return (
+              <li key={it.id || it.key} className="flex items-center gap-2 text-xs text-gray-600 bg-gray-50 rounded px-2 py-1">
+                <FileCheck2 className="w-3.5 h-3.5 shrink-0" style={{ color: GREEN }} />
+                {ano > 0 && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 shrink-0">{ano}</span>}
+                <span className="truncate flex-1">{it.filename || 'arquivo'}</span>
+                <button onClick={() => onRemove(it.id || it.key)} className="text-gray-300 hover:text-red-500" title="Remover exercício">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

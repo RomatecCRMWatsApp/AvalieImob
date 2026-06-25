@@ -182,7 +182,10 @@ async def upload_documento(pid: str, tipo: str = Form(...), file: UploadFile = F
         atual = uploads.get(tipo)
         if isinstance(atual, dict):       # legado (era 1 só)
             atual = [atual]
-        atual = list(atual or [])
+        atual = [x for x in (atual or []) if isinstance(x, dict)]
+        for x in atual:                   # legado sem id → atribui um (p/ poder remover)
+            if not x.get("id"):
+                x["id"] = str(uuid.uuid4())
         atual.append(info)
         uploads[tipo] = atual
     else:
@@ -194,21 +197,24 @@ async def upload_documento(pid: str, tipo: str = Form(...), file: UploadFile = F
     return {"ok": True, "tipo": tipo, "item": info, "uploads": list(uploads.keys())}
 
 
-@router.delete("/projetos/{pid}/uploads/{tipo}/{item_id}")
+@router.delete("/projetos/{pid}/uploads/{tipo}/{item_id:path}")
 async def remover_upload_item(pid: str, tipo: str, item_id: str,
                              uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
-    """Remove UM arquivo de um upload multi (ex.: um exercício do ITR)."""
+    """Remove UM arquivo de um upload multi (ex.: um exercício do ITR).
+    `item_id` aceita o id OU a key (que tem barras — por isso o conversor :path)."""
     doc = await _get_projeto(db, pid, uid)
     uploads = dict(doc.get("uploads") or {})
     atual = uploads.get(tipo)
     if isinstance(atual, dict):
         atual = [atual]
-    atual = [x for x in (atual or []) if x.get("id") != item_id and x.get("key") != item_id]
-    uploads[tipo] = atual
+    atual = [x for x in (atual or []) if isinstance(x, dict)]
+    restantes = [x for x in atual if x.get("id") != item_id and x.get("key") != item_id]
+    removeu = len(restantes) != len(atual)
+    uploads[tipo] = restantes
     await db.georef_projetos.update_one(
         {"id": pid, "user_id": uid},
         {"$set": {"uploads": uploads, "updated_at": _agora().isoformat()}})
-    return {"ok": True}
+    return {"ok": True, "removido": removeu, "restantes": len(restantes)}
 
 
 _ROMANOS = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"]
