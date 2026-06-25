@@ -5,13 +5,14 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, ArrowRight, UploadCloud, FileCheck2, Wand2, FileDown, Eye,
-  CheckCircle2, AlertTriangle, MapPin, Loader2, Map as MapIcon, Plus, Trash2, Search,
+  CheckCircle2, AlertTriangle, MapPin, Loader2, Map as MapIcon, Plus, Trash2, Search, PenLine,
 } from 'lucide-react';
-import { georefAPI } from '../../../lib/api';
+import { georefAPI, assinaturaPosAPI } from '../../../lib/api';
 import { useToast } from '../../../hooks/use-toast';
 import { BrandSpinner } from '../../brand/BrandSpinner';
 import PoligonalPreview from './PoligonalPreview';
 import { TIPOS_SERVICO } from './GeorefList';
+import AssinaturaPosicionadaModal from '../assinatura/AssinaturaPosicionadaModal';
 
 const GREEN = '#0C3320';
 const GOLD = '#C9A84C';
@@ -174,6 +175,21 @@ export default function GeorefWizard() {
       toast({ title: (tipo === 'memorial' && r?.extraido) ? 'Memorial lido — parcela extraída ✓' : `${tipo} enviado` });
     } catch (e) {
       toast({ title: 'Falha no upload', description: e?.response?.data?.detail || '', variant: 'destructive' });
+    }
+  };
+
+  // ── assinatura ICP (multi-página) ──
+  const [assinId, setAssinId] = useState(null);
+  const [preparandoAssin, setPreparandoAssin] = useState(null);
+  const abrirAssinatura = async (docTipo, parcela) => {
+    setPreparandoAssin(`${docTipo}:${parcela || ''}`);
+    try {
+      const r = await georefAPI.prepararAssinatura(proj.id, { doc: docTipo, parcela, tema: proj.tema_pdf });
+      setAssinId(r.id);
+    } catch (e) {
+      toast({ title: 'Erro ao preparar assinatura', description: e?.response?.data?.detail || '', variant: 'destructive' });
+    } finally {
+      setPreparandoAssin(null);
     }
   };
 
@@ -491,18 +507,23 @@ export default function GeorefWizard() {
       {step === 4 && (
         <div className="space-y-4">
           <Card>
-            <H title="Documentos prontos" sub="Baixe em PDF e DOCX (editável). O shapefile vai ao SIG-RI / Mapa do ONR." />
+            <H title="Documentos prontos" sub="Baixe em PDF/DOCX ou assine com ICP-Brasil (em quantas páginas quiser)." />
             <div className="space-y-3">
               {[
-                ['requerimento', 'Requerimento ao Cartório'],
-                ['laudo_tecnico', 'Laudo Técnico de Agrimensura'],
-                ...(parcelas.length > 0 ? [] : [['memorial', 'Memorial Descritivo']]),
-              ].map(([k, lab]) => (
+                ['requerimento', 'Requerimento ao Cartório', 'requerimento', undefined],
+                ['laudo_tecnico', 'Laudo Técnico de Agrimensura', 'laudo', undefined],
+                ...(parcelas.length > 0 ? [] : [['memorial', 'Memorial Descritivo', 'memorial', 'principal']]),
+              ].map(([k, lab, adoc, aparc]) => (
                 <DocRow key={k} label={lab}
                   onVer={() => verBlob(georefAPI.documento(proj.id, k, 'pdf', proj.tema_pdf))}
                   onPdf={() => baixar(georefAPI.documento(proj.id, k, 'pdf', proj.tema_pdf), `${k}_${nb}.pdf`)}
-                  onDocx={() => baixar(georefAPI.documento(proj.id, k, 'docx'), `${k}_${nb}.docx`)} />
+                  onDocx={() => baixar(georefAPI.documento(proj.id, k, 'docx'), `${k}_${nb}.docx`)}
+                  onAssinar={() => abrirAssinatura(adoc, aparc)} />
               ))}
+              {proj.uploads?.art_trt && (
+                <DocRow label="ART / TRT (documento enviado)"
+                  onAssinar={() => abrirAssinatura('art_trt')} />
+              )}
             </div>
           </Card>
 
@@ -513,12 +534,14 @@ export default function GeorefWizard() {
                 <DocRow label={`Parte I — ${proj.imovel?.denominacao || 'principal'}`}
                   onVer={() => verBlob(georefAPI.memorialParcela(proj.id, 'principal', 'pdf', proj.tema_pdf))}
                   onPdf={() => baixar(georefAPI.memorialParcela(proj.id, 'principal', 'pdf', proj.tema_pdf), `memorial_PI_${nb}.pdf`)}
-                  onDocx={() => baixar(georefAPI.memorialParcela(proj.id, 'principal', 'docx'), `memorial_PI_${nb}.docx`)} />
+                  onDocx={() => baixar(georefAPI.memorialParcela(proj.id, 'principal', 'docx'), `memorial_PI_${nb}.docx`)}
+                  onAssinar={() => abrirAssinatura('memorial', 'principal')} />
                 {parcelas.map((pc, i) => (
                   <DocRow key={pc.id} label={`${pc.rotulo || `Parte ${i + 2}`}${pc.denominacao ? ` — ${pc.denominacao}` : ''}`}
                     onVer={() => verBlob(georefAPI.memorialParcela(proj.id, pc.id, 'pdf', proj.tema_pdf))}
                     onPdf={() => baixar(georefAPI.memorialParcela(proj.id, pc.id, 'pdf', proj.tema_pdf), `memorial_${nb}.pdf`)}
-                    onDocx={() => baixar(georefAPI.memorialParcela(proj.id, pc.id, 'docx'), `memorial_${nb}.docx`)} />
+                    onDocx={() => baixar(georefAPI.memorialParcela(proj.id, pc.id, 'docx'), `memorial_${nb}.docx`)}
+                    onAssinar={() => abrirAssinatura('memorial', pc.id)} />
                 ))}
               </div>
             </Card>
@@ -560,6 +583,8 @@ export default function GeorefWizard() {
                 onClick={() => verBlob(georefAPI.documento(proj.id, 'dossie', 'pdf', proj.tema_pdf))} />
               <BtnDown icon={FileDown} label="Baixar Dossiê"
                 onClick={() => baixar(georefAPI.documento(proj.id, 'dossie', 'download', proj.tema_pdf), `Dossie_${nb}.pdf`)} />
+              <BtnDown icon={PenLine} label={preparandoAssin === 'dossie:' ? 'Preparando…' : 'Assinar Dossiê (ICP)'}
+                onClick={() => abrirAssinatura('dossie')} />
             </div>
             <p className="text-xs text-gray-400 mt-3">
               Envio ao <strong>mapa.onr.org.br</strong> é manual (login ICP-Brasil do profissional), vinculado à prenotação.
@@ -582,6 +607,20 @@ export default function GeorefWizard() {
           </button>
         )}
       </div>
+
+      {assinId && (
+        <AssinaturaPosicionadaModal
+          tipo="georef"
+          documentId={assinId}
+          onAssinado={() => {
+            const id = assinId;
+            setAssinId(null);
+            toast({ title: 'Assinado com ICP-Brasil ✓', description: 'Abrindo o documento assinado…' });
+            verBlob(assinaturaPosAPI.downloadIcp('georef', id)).catch(() => {});
+          }}
+          onFechar={() => setAssinId(null)}
+        />
+      )}
     </div>
   );
 }
@@ -661,22 +700,24 @@ function Validacao({ v }) {
   );
 }
 
-function DocRow({ label, badge, onVer, onPdf, onDocx }) {
+function DocRow({ label, badge, onVer, onPdf, onDocx, onAssinar }) {
   return (
     <div className="flex items-center justify-between gap-3 border rounded-lg px-4 py-2.5">
       <div className="text-sm font-medium text-gray-700 truncate">
         {label}{badge && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-sky-100 text-sky-700">{badge}</span>}
       </div>
       <div className="flex gap-1.5 shrink-0">
-        <Mini icon={Eye} label="Ver" onClick={onVer} />
-        <Mini icon={FileDown} label="PDF" onClick={onPdf} />
-        <Mini icon={FileDown} label="DOCX" onClick={onDocx} />
+        {onVer && <Mini icon={Eye} label="Ver" onClick={onVer} />}
+        {onPdf && <Mini icon={FileDown} label="PDF" onClick={onPdf} />}
+        {onDocx && <Mini icon={FileDown} label="DOCX" onClick={onDocx} />}
+        {onAssinar && <Mini icon={PenLine} label="Assinar" onClick={onAssinar} green />}
       </div>
     </div>
   );
 }
-const Mini = ({ icon: Icon, label, onClick }) => (
-  <button onClick={onClick} className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md border hover:bg-gray-50">
+const Mini = ({ icon: Icon, label, onClick, green }) => (
+  <button onClick={onClick}
+    className={`inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md border ${green ? 'border-emerald-600 text-emerald-700 hover:bg-emerald-50' : 'hover:bg-gray-50'}`}>
     <Icon className="w-3.5 h-3.5" /> {label}
   </button>
 );

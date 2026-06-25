@@ -477,19 +477,22 @@ def assinar_pdf_icp_posicionado(
     pdf_bytes: bytes,
     pfx_bytes: bytes,
     pfx_password: str,
-    pagina: int,
-    x: float,
-    y: float,
-    largura: float,
-    altura: float,
-    titular: str,
-    documento: str,
-    emissor: str,
+    posicoes: Optional[list] = None,   # [{pagina, x, y, largura, altura}, ...]
+    pagina: Optional[int] = None,      # compat: posição única
+    x: float = 0.0,
+    y: float = 0.0,
+    largura: float = 0.0,
+    altura: float = 0.0,
+    titular: str = "",
+    documento: str = "",
+    emissor: str = "",
     valido_ate: Optional[datetime] = None,
     registro_full: str = "",
 ) -> Tuple[bytes, str, datetime]:
-    """Assina o PDF com PAdES, posicionando o carimbo visual na página/caixa
-    escolhidas pelo usuário (coordenadas em pontos PDF, origem bottom-left).
+    """Assina o PDF com PAdES, carimbando o visual em UMA OU VÁRIAS páginas/caixas
+    (coordenadas em pontos PDF, origem bottom-left) e aplicando UM ÚNICO selo
+    ICP-Brasil que sela o documento inteiro (PAdES válido — os carimbos são apenas
+    a aparência; a assinatura criptográfica cobre o documento todo).
     Retorna (pdf_assinado, hash_autenticidade, data_assinatura_utc)."""
     from pypdf import PdfReader
 
@@ -497,21 +500,41 @@ def assinar_pdf_icp_posicionado(
     hash_provisorio = hashlib.sha256(pdf_bytes).hexdigest()
     url_verificacao = f"{_public_base_url()}/v/laudo/v/{hash_provisorio}"
 
+    # Normaliza para lista de posições (compat com a chamada de posição única).
+    if not posicoes:
+        if pagina is None:
+            raise RuntimeError("nenhuma posição de assinatura informada")
+        posicoes = [{"pagina": pagina, "x": x, "y": y, "largura": largura, "altura": altura}]
+
     reader = PdfReader(io.BytesIO(pdf_bytes))
     total = len(reader.pages)
-    if pagina < 0 or pagina >= total:
-        raise RuntimeError(f"página {pagina} fora do intervalo (0..{total - 1})")
-    mb = reader.pages[pagina].mediabox
-    page_w, page_h = float(mb.width), float(mb.height)
 
-    carimbo_pdf = _gerar_carimbo_em_caixa(
-        page_w=page_w, page_h=page_h, x=x, y=y, largura=largura, altura=altura,
-        titular=titular, documento=documento, emissor=emissor, valido_ate=valido_ate,
-        data_assinatura=data_assinatura, hash_autenticidade=hash_provisorio,
-        url_verificacao=url_verificacao, registro_full=registro_full,
-    )
-    pdf_com_carimbo = _aplicar_carimbo_em_pagina(pdf_bytes, carimbo_pdf, pagina)
-    pdf_assinado = _assinar_pades(pdf_com_carimbo, pfx_bytes, pfx_password)
+    pdf_atual = pdf_bytes
+    aplicadas = 0
+    for pos in posicoes:
+        try:
+            pg = int(pos["pagina"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if pg < 0 or pg >= total:
+            logger.warning("Assinatura posicionada: página %s fora de 0..%s — ignorada", pg, total - 1)
+            continue
+        mb = reader.pages[pg].mediabox
+        page_w, page_h = float(mb.width), float(mb.height)
+        carimbo_pdf = _gerar_carimbo_em_caixa(
+            page_w=page_w, page_h=page_h,
+            x=float(pos.get("x", 0)), y=float(pos.get("y", 0)),
+            largura=float(pos.get("largura", 0)), altura=float(pos.get("altura", 0)),
+            titular=titular, documento=documento, emissor=emissor, valido_ate=valido_ate,
+            data_assinatura=data_assinatura, hash_autenticidade=hash_provisorio,
+            url_verificacao=url_verificacao, registro_full=registro_full,
+        )
+        pdf_atual = _aplicar_carimbo_em_pagina(pdf_atual, carimbo_pdf, pg)
+        aplicadas += 1
+
+    if aplicadas == 0:
+        raise RuntimeError("nenhuma posição válida para carimbar")
+
+    pdf_assinado = _assinar_pades(pdf_atual, pfx_bytes, pfx_password)
     hash_final = hashlib.sha256(pdf_assinado).hexdigest()
-
     return pdf_assinado, hash_final, data_assinatura

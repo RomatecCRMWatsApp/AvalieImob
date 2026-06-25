@@ -31,6 +31,8 @@ _TIPO_COLECAO = {
     "procuracao": "contratos",
     # documento PDF avulso enviado pelo usuário p/ assinar com ICP (módulo Assinatura de Documentos)
     "documento": "documentos_assinatura",
+    # peça do Topografia & Geo (Memorial/Laudo/Requerimento/TRT/Dossiê) preparada p/ assinar
+    "georef": "georef_assinaturas",
 }
 
 
@@ -432,8 +434,8 @@ async def _gerar_pdf(tipo: str, doc: dict, db=None, perfil: dict | None = None) 
             except Exception:
                 logger.warning("Falha ao pré-carregar avaliador (procuração ICP).", exc_info=True)
         return await asyncio.to_thread(_generate_procuracao_pdf_bytes, doc, uid or "", empresa)
-    elif tipo == "documento":
-        # PDF AVULSO enviado pelo usuário — só BAIXA do R2 (não gera nada).
+    elif tipo in ("documento", "georef"):
+        # PDF AVULSO (usuário) ou peça do Topografia & Geo já gerada — só BAIXA do R2.
         from services import r2_storage
         key = doc.get("pdf_key")
         if not key:
@@ -1147,13 +1149,23 @@ class PrepararPosicionadoRequest(BaseModel):
     layout: str = "v2"
 
 
-class AssinarPosicionadoRequest(BaseModel):
-    cert_id: str
+class PosicaoAssinatura(BaseModel):
     pagina: int                 # 0-indexed
     x_pt: float                 # coords em PONTOS PDF (origem bottom-left)
     y_pt: float
     largura_pt: float
     altura_pt: float
+
+
+class AssinarPosicionadoRequest(BaseModel):
+    cert_id: str
+    posicoes: Optional[List[PosicaoAssinatura]] = None   # 1+ páginas
+    # compat: posição única (assinador antigo)
+    pagina: Optional[int] = None
+    x_pt: Optional[float] = None
+    y_pt: Optional[float] = None
+    largura_pt: Optional[float] = None
+    altura_pt: Optional[float] = None
 
 
 def _dados_carimbo(cert: dict, perfil: dict, user: dict):
@@ -1265,17 +1277,23 @@ async def assinar_posicionado(
     perfil = await db.perfil_avaliador.find_one({"user_id": uid}) or {}
     titular, documento, emissor, registro_full = _dados_carimbo(cert, perfil, user)
 
+    # Normaliza posições: lista (multi-página) OU campos únicos (compat).
+    if body.posicoes:
+        posicoes = [{"pagina": p.pagina, "x": p.x_pt, "y": p.y_pt,
+                     "largura": p.largura_pt, "altura": p.altura_pt} for p in body.posicoes]
+    elif body.pagina is not None:
+        posicoes = [{"pagina": body.pagina, "x": body.x_pt, "y": body.y_pt,
+                     "largura": body.largura_pt, "altura": body.altura_pt}]
+    else:
+        raise HTTPException(status_code=422, detail="Nenhuma posição de assinatura informada.")
+
     try:
         pdf_assinado, hash_final, data_assinatura = await asyncio.to_thread(
             assinar_pdf_icp_posicionado,
             pdf_bytes=pdf_bytes,
             pfx_bytes=pfx_bytes,
             pfx_password=pfx_password,
-            pagina=body.pagina,
-            x=body.x_pt,
-            y=body.y_pt,
-            largura=body.largura_pt,
-            altura=body.altura_pt,
+            posicoes=posicoes,
             titular=titular,
             documento=documento,
             emissor=emissor,

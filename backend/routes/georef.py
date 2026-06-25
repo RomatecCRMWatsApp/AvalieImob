@@ -5,6 +5,7 @@
 # /gerar -> downloads (Requerimento, Laudo, Memorial, DRLs, Shapefile, Dossiê) em
 # PDF/DOCX. Geração pesada (ReportLab/pdfplumber/R2) roda fora do event loop.
 import asyncio
+import io
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -17,7 +18,7 @@ from db import get_db
 from dependencies import get_active_subscriber, serialize_doc
 from models.georef import (
     GeorefProjeto, Parcela, CriarProjetoBody, AtualizarProjetoBody, GerarDocumentosBody,
-    AdicionarParcelaBody, calcular_completude,
+    AdicionarParcelaBody, AssinarPecaBody, calcular_completude,
 )
 from services import r2_storage
 from services.georef import extractor as EX
@@ -539,3 +540,78 @@ def _montar_dossie(doc: dict, tema: str) -> bytes:
         if raw:
             partes[chave] = raw
     return DOSSIE.gerar_dossie(doc, partes, tema)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Preparar peça para assinatura ICP-Brasil (reusa o módulo de assinatura, tipo="georef")
+# ──────────────────────────────────────────────────────────────────────────────
+_DOC_NOMES = {
+    "memorial": "Memorial Descritivo",
+    "laudo": "Laudo Técnico de Agrimensura",
+    "requerimento": "Requerimento ao Cartório",
+    "dossie": "Dossiê Consolidado",
+    "art_trt": "ART/TRT",
+}
+
+
+def _pdf_para_assinatura(doc: dict, tipo_doc: str, parcela: str, tema: str) -> bytes:
+    if tipo_doc == "memorial":
+        return PDF.gerar_pdf("memorial", _doc_para_memorial(doc, parcela), tema)
+    if tipo_doc == "laudo":
+        return PDF.gerar_pdf("laudo_tecnico", doc, tema)
+    if tipo_doc == "requerimento":
+        return PDF.gerar_pdf("requerimento", doc, tema)
+    if tipo_doc == "dossie":
+        return _montar_dossie(doc, tema)
+    if tipo_doc == "art_trt":
+        raw = _download_upload(doc.get("uploads") or {}, "art_trt")
+        if not raw:
+            raise ValueError("ART/TRT não enviada (suba na etapa Upload).")
+        if raw[:5] == b"%PDF-":
+            return raw
+        from services.georef.generators.dossie import _img_para_pdf
+        return _img_para_pdf(raw)
+    raise ValueError(f"Documento desconhecido para assinatura: {tipo_doc}")
+
+
+@router.post("/projetos/{pid}/assinar")
+async def preparar_assinatura(pid: str, body: AssinarPecaBody,
+                             uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    """Gera a peça pedida, guarda no R2 e cria o registro `georef_assinaturas`.
+    O front então abre o assinador ICP com tipo='georef' e este id."""
+    doc = await _get_projeto(db, pid, uid)
+    if body.doc not in _DOC_NOMES:
+        raise HTTPException(status_code=422, detail="Documento inválido para assinatura.")
+    tema = body.tema or doc.get("tema_pdf") or "prime_i"
+    try:
+        pdf_bytes = await asyncio.to_thread(_pdf_para_assinatura, doc, body.doc, body.parcela, tema)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    if not pdf_bytes or pdf_bytes[:5] != b"%PDF-":
+        raise HTTPException(status_code=500, detail="Falha ao gerar o PDF para assinatura.")
+
+    aid = str(uuid.uuid4())
+    key = f"georef/{uid}/{pid}/assinar/{body.doc}_{aid[:8]}.pdf"
+    try:
+        await asyncio.to_thread(r2_storage.upload_bytes, pdf_bytes, key, "application/pdf")
+    except Exception as e:  # noqa: BLE001
+        logger.error("Topografia: upload R2 da peça p/ assinatura falhou (%s)", e)
+        raise HTTPException(status_code=502, detail="Falha ao preparar o documento.")
+    try:
+        from pypdf import PdfReader
+        paginas = len(PdfReader(io.BytesIO(pdf_bytes)).pages)
+    except Exception:  # noqa: BLE001
+        paginas = 0
+
+    rotulo = ""
+    if body.doc == "memorial" and body.parcela and body.parcela != "principal":
+        pv = next((p for p in parcelas_do_projeto(doc) if p.get("id") == body.parcela), None)
+        rotulo = f" ({pv.get('rotulo')})" if pv else ""
+    elif body.doc == "memorial":
+        rotulo = " (Parte I)" if tem_multiparcela(doc) else ""
+    nome = f"{_DOC_NOMES[body.doc]}{rotulo} — {_nome_base(doc)}"
+    rec = {"id": aid, "user_id": uid, "projeto_id": pid, "doc": body.doc, "parcela": body.parcela,
+           "nome": nome, "pdf_key": key, "paginas": paginas, "icp_status": None,
+           "tema": tema, "created_at": _agora().isoformat()}
+    await db.georef_assinaturas.insert_one(rec)
+    return {"id": aid, "nome": nome, "paginas": paginas}

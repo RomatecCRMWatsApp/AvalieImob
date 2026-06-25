@@ -200,6 +200,13 @@ class AdicionarParcelaBody(BaseModel):
     rotulo: Optional[str] = None           # auto: "Parte II", "Parte III"...
 
 
+class AssinarPecaBody(BaseModel):
+    """Prepara uma peça do projeto p/ assinatura ICP-Brasil (módulo de assinatura)."""
+    doc: str                               # memorial|laudo|requerimento|dossie|art_trt
+    parcela: Optional[str] = None          # id da parcela ou "principal" (só p/ memorial)
+    tema: Optional[TemaPdf] = None
+
+
 class GerarDocumentosBody(BaseModel):
     documentos: List[str] = Field(
         default_factory=lambda: [
