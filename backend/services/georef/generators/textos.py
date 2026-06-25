@@ -107,9 +107,11 @@ def render_requerimento(projeto) -> dict:
     acao = ACAO_REQUERIMENTO.get(projeto.get("tipo_servico"),
                                  "a AVERBAÇÃO da descrição georreferenciada")
 
+    comarca = im.get("cartorio_municipio") or im.get("municipio") or "___"
+    comarca_uf = im.get("cartorio_uf") or im.get("uf") or ""
     destinatario = (
         "EXCELENTÍSSIMO(A) SENHOR(A) OFICIAL DO CARTÓRIO DE REGISTRO DE IMÓVEIS\n"
-        f"DA COMARCA DE {im.get('cartorio_nome') or '___'}"
+        f"DA COMARCA DE {comarca}" + (f"/{comarca_uf}" if comarca_uf else "")
     )
 
     corpo = (

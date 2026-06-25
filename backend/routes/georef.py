@@ -296,6 +296,13 @@ def _executar_extracao(doc: dict) -> dict:
         except Exception as e:  # noqa: BLE001
             avisos.append(f"Cadeia dominial não extraída ({e}).")
 
+    # Cartório: resolve nome/comarca/UF pelo CNS (tabela oficial de serventias)
+    try:
+        from services.georef.serventias import enriquecer_cartorio
+        enriquecer_cartorio(imovel, editados)
+    except Exception as e:  # noqa: BLE001
+        avisos.append(f"Serventia não resolvida pelo CNS ({e}).")
+
     if not editados.get("confrontantes"):
         confrontantes = EX.agrupar_confrontantes(vertices, matricula_imovel=imovel.get("matricula"))
     else:
@@ -344,6 +351,16 @@ async def extrair(pid: str, uid: str = Depends(get_active_subscriber), db=Depend
     await db.georef_projetos.update_one({"id": pid, "user_id": uid}, {"$set": sets})
     return {"ok": True, "projeto": serialize_doc({**doc, **sets}),
             "validacao": validacao, "avisos": avisos}
+
+
+@router.get("/serventias")
+async def buscar_serventia(cns: str = Query(...), uid: str = Depends(get_active_subscriber)):
+    """Resolve o cartório (serventia + comarca/UF) pelo CNS (tabela oficial CNJ)."""
+    from services.georef.serventias import buscar_serventia as _busca
+    s = _busca(cns)
+    if not s:
+        raise HTTPException(status_code=404, detail="CNS não encontrado na tabela de serventias.")
+    return s
 
 
 @router.get("/projetos/{pid}/preview-geojson")

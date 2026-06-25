@@ -44,35 +44,79 @@ const BlogPostAssinaturaICP = lazy(() => import('./pages/blog/BlogPostAssinatura
 const BlogPostPropostasConsultoria = lazy(() => import('./pages/blog/BlogPostPropostasConsultoria'));
 const VerificarLaudo = lazy(() => import('./pages/VerificarLaudo'));
 
+// Detecta falha ao carregar um chunk lazy (bundle velho em cache vs. deploy novo) —
+// causa nº 1 de "não abre" no mobile após um deploy.
+function isChunkError(error) {
+  const s = (((error && (error.message || error.name)) || '') + ((error && error.stack) || ''));
+  return /ChunkLoadError|Loading chunk\s*[\w-]*\s*failed|Loading CSS chunk|dynamically imported module|Importing a module script failed|error loading dynamically imported module/i.test(s);
+}
+
+function _recentReload() {
+  try { return Date.now() - (+sessionStorage.getItem('avalie_reload_at') || 0) < 10000; } catch (e) { return false; }
+}
+
+async function limparCacheERecarregar() {
+  try {
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((r) => r.unregister()));
+    }
+    if (window.caches) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k)));
+    }
+  } catch (e) { /* ignore */ }
+  window.location.reload();
+}
+
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false, error: null, info: null, showDetail: false, chunkReloading: false };
   }
   static getDerivedStateFromError(error) {
-    return { hasError: true, error };
+    return { hasError: true, error, chunkReloading: isChunkError(error) && !_recentReload() };
   }
   componentDidCatch(error, info) {
-    if (process.env.NODE_ENV === 'development') {
-      console.error('ErrorBoundary caught:', error, info);
+    this.setState({ info });
+    // Bundle velho: recarrega 1x (busca o bundle novo). Guarda contra loop infinito.
+    if (isChunkError(error) && !_recentReload()) {
+      try { sessionStorage.setItem('avalie_reload_at', String(Date.now())); } catch (e) { /* */ }
+      window.location.reload();
+      return;
     }
+    if (process.env.NODE_ENV === 'development') console.error('ErrorBoundary:', error, info);
   }
   render() {
-    if (this.state.hasError) {
-      return (
-        <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: 'sans-serif', padding: '2rem' }}>
-          <h2 style={{ color: '#b91c1c', marginBottom: '1rem' }}>Algo deu errado</h2>
-          <p style={{ color: '#6b7280', marginBottom: '1.5rem' }}>Recarregue a página ou tente novamente.</p>
-          <button
-            onClick={() => { this.setState({ hasError: false, error: null }); window.location.href = '/'; }}
-            style={{ background: '#064e3b', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.6rem 1.5rem', cursor: 'pointer', fontSize: '1rem' }}
-          >
-            Voltar ao início
-          </button>
-        </div>
-      );
+    if (!this.state.hasError) return this.props.children;
+    const box = { minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: 'sans-serif', padding: '2rem', textAlign: 'center' };
+    if (this.state.chunkReloading) {
+      return (<div style={box}><h2 style={{ color: '#064e3b' }}>Atualizando para a nova versão…</h2><p style={{ color: '#6b7280' }}>Só um instante.</p></div>);
     }
-    return this.props.children;
+    const { error, info, showDetail } = this.state;
+    const btn = { color: '#fff', border: 'none', borderRadius: '6px', padding: '0.6rem 1.3rem', cursor: 'pointer', fontSize: '0.95rem', margin: '0.3rem' };
+    return (
+      <div style={box}>
+        <h2 style={{ color: '#b91c1c', marginBottom: '0.5rem' }}>Algo deu errado</h2>
+        <p style={{ color: '#6b7280', marginBottom: '1.2rem', maxWidth: 440 }}>Se acabou de atualizar o sistema, limpe o cache. Senão, toque em recarregar.</p>
+        <div>
+          <button onClick={() => window.location.reload()} style={{ ...btn, background: '#064e3b' }}>Recarregar</button>
+          <button onClick={limparCacheERecarregar} style={{ ...btn, background: '#B8860B' }}>Limpar cache e recarregar</button>
+          <button onClick={() => window.location.assign('/')} style={{ ...btn, background: '#4b5563' }}>Voltar ao início</button>
+        </div>
+        <button onClick={() => this.setState((s) => ({ showDetail: !s.showDetail }))}
+          style={{ marginTop: '1rem', background: 'none', border: 'none', color: '#9ca3af', textDecoration: 'underline', cursor: 'pointer', fontSize: '0.8rem' }}>
+          {showDetail ? 'Ocultar detalhe técnico' : 'Ver detalhe técnico'}
+        </button>
+        {showDetail && (
+          <pre style={{ marginTop: '0.8rem', maxWidth: '92vw', maxHeight: '40vh', overflow: 'auto', textAlign: 'left', background: '#0f172a', color: '#e2e8f0', padding: '1rem', borderRadius: '8px', fontSize: '0.72rem', whiteSpace: 'pre-wrap' }}>
+            {String((error && (error.message || error.name)) || 'erro')}
+            {'\n\n'}{String((error && error.stack) || '')}
+            {info && info.componentStack ? '\n\n--- componentes ---' + info.componentStack : ''}
+          </pre>
+        )}
+      </div>
+    );
   }
 }
 

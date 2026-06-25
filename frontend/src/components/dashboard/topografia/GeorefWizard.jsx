@@ -5,7 +5,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, ArrowRight, UploadCloud, FileCheck2, Wand2, FileDown, Eye,
-  CheckCircle2, AlertTriangle, MapPin, Loader2, Map as MapIcon, Plus, Trash2,
+  CheckCircle2, AlertTriangle, MapPin, Loader2, Map as MapIcon, Plus, Trash2, Search,
 } from 'lucide-react';
 import { georefAPI } from '../../../lib/api';
 import { useToast } from '../../../hooks/use-toast';
@@ -43,7 +43,8 @@ const IMOVEL_CAMPOS = [
   ['matricula', 'Matrícula', 1], ['livro', 'Livro', 1],
   ['cod_incra', 'Código INCRA/SNCR', 1], ['natureza_area', 'Natureza da área', 1],
   ['municipio', 'Município', 1], ['uf', 'UF', 1],
-  ['cartorio_nome', 'Cartório', 2], ['cartorio_cns', 'CNS do cartório', 1],
+  ['cartorio_nome', 'Cartório / Serventia', 2], ['cartorio_cns', 'CNS do cartório', 1],
+  ['cartorio_municipio', 'Comarca/Município do cartório', 1],
   ['area_ha', 'Área (ha)', 1], ['perimetro_m', 'Perímetro (m)', 1],
   ['sistema_geodesico', 'Sistema geodésico', 1], ['certificacao_sigef', 'Certificação SIGEF', 1],
   ['certidao_numero', 'Nº da certidão', 1],
@@ -169,6 +170,20 @@ export default function GeorefWizard() {
     if (!file) return;
     try { await georefAPI.uploadParcela(proj.id, parcelaId, tipo, file); await recarregar(); toast({ title: `${tipo} enviado` }); }
     catch (e) { toast({ title: 'Falha no upload', description: e?.response?.data?.detail || '', variant: 'destructive' }); }
+  };
+
+  // ── cartório pelo CNS ──
+  const buscarServentia = async () => {
+    const cns = proj.imovel?.cartorio_cns;
+    if (!cns) { toast({ title: 'Informe o CNS do cartório primeiro', variant: 'destructive' }); return; }
+    try {
+      const s = await georefAPI.buscarServentia(cns);
+      setProj((p) => ({ ...p, imovel: { ...p.imovel, cartorio_nome: s.denominacao, cartorio_municipio: s.cidade, cartorio_uf: s.uf } }));
+      mark();
+      toast({ title: 'Cartório encontrado', description: s.denominacao });
+    } catch (e) {
+      toast({ title: 'CNS não encontrado na tabela', description: e?.response?.data?.detail || '', variant: 'destructive' });
+    }
   };
 
   const extrair = async () => {
@@ -343,6 +358,12 @@ export default function GeorefWizard() {
                 </L>
               ))}
             </div>
+            <button onClick={buscarServentia}
+              className="mt-3 inline-flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-lg border hover:bg-gray-50"
+              style={{ color: GREEN }}>
+              <Search className="w-3.5 h-3.5" /> Buscar cartório pelo CNS
+            </button>
+            <span className="ml-2 text-xs text-gray-400">preenche serventia + comarca automaticamente</span>
           </Card>
           <Card>
             <H title="Responsável Técnico" />

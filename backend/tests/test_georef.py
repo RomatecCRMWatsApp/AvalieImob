@@ -479,3 +479,36 @@ def test_pdf_memorial_por_parcela(projeto_multi):
     sub = P.projeto_da_parcela(projeto_multi, pv)
     out = PDF.gerar_pdf("memorial", sub, "prime_i")
     assert out[:5] == b"%PDF-"
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Cartório por CNS (tabela oficial de serventias)
+# ──────────────────────────────────────────────────────────────────────────────
+def test_serventia_lookup_por_cns():
+    from services.georef import serventias as S
+    s = S.buscar_serventia("03.169-0")
+    assert s is not None
+    assert "SAO FRANCISCO DO MARANHAO" in s["denominacao"].upper()
+    assert s["uf"] == "MA"
+    assert S.buscar_serventia("031690") is not None     # aceita formato sem pontuação
+    assert S.buscar_serventia("xxx") is None             # sem dígitos -> nada
+
+
+def test_enriquecer_cartorio_pelo_cns():
+    from services.georef import serventias as S
+    im = {"cartorio_cns": "03.169-0", "cartorio_nome": "São Francisco do"}  # parser parcial
+    S.enriquecer_cartorio(im, {})
+    assert "SERVENTIA" in im["cartorio_nome"].upper()    # nome correto da serventia
+    assert im["cartorio_municipio"]
+    assert im["cartorio_uf"] == "MA"
+    # respeita edição manual (não sobrescreve)
+    im2 = {"cartorio_cns": "03.169-0", "cartorio_nome": "Meu cartório"}
+    S.enriquecer_cartorio(im2, {"imovel.cartorio_nome": True})
+    assert im2["cartorio_nome"] == "Meu cartório"
+
+
+def test_requerimento_usa_comarca_do_cartorio(projeto):
+    p = {**projeto, "imovel": {**projeto["imovel"],
+                               "cartorio_municipio": "São Francisco do Maranhão", "cartorio_uf": "MA"}}
+    d = TX.render_requerimento(p)
+    assert "São Francisco do Maranhão/MA" in d["destinatario"]

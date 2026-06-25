@@ -91,7 +91,9 @@ class DadosImovel(BaseModel):
     uf: Optional[str] = None
     cod_incra: Optional[str] = None        # 9510990828483
     cartorio_cns: Optional[str] = None     # 03.169-0
-    cartorio_nome: Optional[str] = None    # São Francisco do Maranhão - MA
+    cartorio_nome: Optional[str] = None    # Serventia Extrajudicial de... (do CNS)
+    cartorio_municipio: Optional[str] = None  # comarca/cidade da serventia (do CNS)
+    cartorio_uf: Optional[str] = None      # UF da serventia (do CNS)
     area_ha: Optional[float] = None        # 96.8180
     perimetro_m: Optional[float] = None    # 4095.92
     sistema_geodesico: Optional[str] = "SIRGAS 2000"

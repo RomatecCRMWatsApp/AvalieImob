@@ -699,6 +699,9 @@ export const georefAPI = {
       .then((r) => r.data),
 
   extrair: (id) => api.post(`${GEOREF}/projetos/${id}/extrair`).then((r) => r.data),
+  // Cartório pelo CNS (tabela oficial de serventias)
+  buscarServentia: (cns) =>
+    api.get(`${GEOREF}/serventias`, { params: { cns } }).then((r) => r.data),
   previewGeojson: (id) => api.get(`${GEOREF}/projetos/${id}/preview-geojson`).then((r) => r.data),
   validar: (id) => api.get(`${GEOREF}/projetos/${id}/validar`).then((r) => r.data),
   gerar: (id, data = {}) => api.post(`${GEOREF}/projetos/${id}/gerar`, data).then((r) => r.data),
