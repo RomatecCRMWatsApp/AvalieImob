@@ -23,7 +23,9 @@ export const TypeCard = ({ icon: Icon, iconNode, label, descricao, disponivel = 
     )}
     <div className="flex items-start gap-3">
       <div className={`w-[38px] h-[38px] rounded-xl flex items-center justify-center flex-shrink-0 ${verificado ? 'bg-emerald-600' : 'bg-[rgba(201,168,76,0.16)]'}`}>
-        {iconNode || <Icon className={`w-[18px] h-[18px] ${verificado ? 'text-[#F4E3B2]' : 'text-[#C9A84C]'}`} /> || <FileText className="w-[18px] h-[18px] text-[#C9A84C]" />}
+        {iconNode || (Icon
+          ? <Icon className={`w-[18px] h-[18px] ${verificado ? 'text-[#F4E3B2]' : 'text-[#C9A84C]'}`} />
+          : <FileText className="w-[18px] h-[18px] text-[#C9A84C]" />)}
       </div>
       <div className="min-w-0">
         <div className={`font-bold text-[15px] leading-tight ${verificado ? 'text-[#C9A84C]' : 'font-semibold text-[#15301F] dark:text-[#F2EFE6]'}`}>{label}</div>

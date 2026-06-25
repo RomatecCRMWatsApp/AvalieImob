@@ -89,7 +89,7 @@ class ErrorBoundary extends React.Component {
   }
   render() {
     if (!this.state.hasError) return this.props.children;
-    const box = { minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: 'sans-serif', padding: '2rem', textAlign: 'center' };
+    const box = { position: 'fixed', inset: 0, zIndex: 99999, background: '#fff', overflowY: 'auto', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: 'sans-serif', padding: '2rem', textAlign: 'center' };
     if (this.state.chunkReloading) {
       return (<div style={box}><h2 style={{ color: '#064e3b' }}>Atualizando para a nova versão…</h2><p style={{ color: '#6b7280' }}>Só um instante.</p></div>);
     }
@@ -104,12 +104,23 @@ class ErrorBoundary extends React.Component {
           <button onClick={limparCacheERecarregar} style={{ ...btn, background: '#B8860B' }}>Limpar cache e recarregar</button>
           <button onClick={() => window.location.assign('/')} style={{ ...btn, background: '#4b5563' }}>Voltar ao início</button>
         </div>
-        <button onClick={() => this.setState((s) => ({ showDetail: !s.showDetail }))}
-          style={{ marginTop: '1rem', background: 'none', border: 'none', color: '#9ca3af', textDecoration: 'underline', cursor: 'pointer', fontSize: '0.8rem' }}>
-          {showDetail ? 'Ocultar detalhe técnico' : 'Ver detalhe técnico'}
-        </button>
+        <div style={{ marginTop: '1rem' }}>
+          <button onClick={() => this.setState((s) => ({ showDetail: !s.showDetail }))}
+            style={{ background: 'none', border: 'none', color: '#9ca3af', textDecoration: 'underline', cursor: 'pointer', fontSize: '0.8rem' }}>
+            {showDetail ? 'Ocultar detalhe técnico' : 'Ver detalhe técnico'}
+          </button>
+          {showDetail && (
+            <button onClick={() => {
+              const txt = [String((error && (error.message || error.name)) || 'erro'), String((error && error.stack) || ''), info && info.componentStack ? '--- componentes ---' + info.componentStack : ''].join('\n\n');
+              try { (navigator.clipboard && navigator.clipboard.writeText(txt) || Promise.reject()).then(() => this.setState({ copied: true })).catch(() => {}); } catch (e) { /* */ }
+            }}
+              style={{ marginLeft: '0.8rem', background: 'none', border: '1px solid #cbd5e1', borderRadius: 6, color: '#334155', cursor: 'pointer', fontSize: '0.8rem', padding: '0.25rem 0.7rem' }}>
+              {this.state.copied ? '✓ Copiado' : 'Copiar erro'}
+            </button>
+          )}
+        </div>
         {showDetail && (
-          <pre style={{ marginTop: '0.8rem', maxWidth: '92vw', maxHeight: '40vh', overflow: 'auto', textAlign: 'left', background: '#0f172a', color: '#e2e8f0', padding: '1rem', borderRadius: '8px', fontSize: '0.72rem', whiteSpace: 'pre-wrap' }}>
+          <pre style={{ marginTop: '0.8rem', maxWidth: '92vw', maxHeight: '45vh', overflow: 'auto', textAlign: 'left', background: '#0f172a', color: '#e2e8f0', padding: '1rem', borderRadius: '8px', fontSize: '0.72rem', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
             {String((error && (error.message || error.name)) || 'erro')}
             {'\n\n'}{String((error && error.stack) || '')}
             {info && info.componentStack ? '\n\n--- componentes ---' + info.componentStack : ''}
