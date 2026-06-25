@@ -23,6 +23,7 @@ const UPLOADS = [
   { tipo: 'ccir', label: 'CCIR', accept: '.pdf' },
   { tipo: 'certidao', label: 'Certidão de Matrícula', accept: '.pdf' },
   { tipo: 'doc_cliente', label: 'Documento do Cliente', accept: '.pdf,image/*' },
+  { tipo: 'art_trt', label: 'ART / TRT / RRT', accept: '.pdf,image/*' },
 ];
 
 const IMOVEL_CAMPOS = [
