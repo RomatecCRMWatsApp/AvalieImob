@@ -17,13 +17,19 @@ const GREEN = '#0C3320';
 const GOLD = '#C9A84C';
 const STEPS = ['Projeto', 'Upload', 'Conferência', 'Geração', 'Entrega'];
 
+// DRL só é gerada/listada quando o tipo de serviço EXIGE (desmembramento/remembramento dispensam).
+const DRL_DISPENSA = ['desmembramento', 'remembramento'];
+const requerDrlTipo = (tipo) => !DRL_DISPENSA.includes(tipo);
+
 const UPLOADS = [
   { tipo: 'memorial', label: 'Memorial Descritivo (SIGEF)', accept: '.pdf', req: true },
   { tipo: 'mapa', label: 'Mapa / Planta (SIGEF)', accept: '.pdf,image/*' },
   { tipo: 'ccir', label: 'CCIR', accept: '.pdf' },
+  { tipo: 'car', label: 'CAR (Cadastro Ambiental Rural)', accept: '.pdf,image/*' },
+  { tipo: 'itr', label: 'ITR (Imposto Territorial Rural)', accept: '.pdf,image/*' },
   { tipo: 'certidao', label: 'Certidão de Matrícula', accept: '.pdf' },
-  { tipo: 'doc_cliente', label: 'Documento do Cliente', accept: '.pdf,image/*' },
   { tipo: 'art_trt', label: 'ART / TRT / RRT', accept: '.pdf,image/*' },
+  { tipo: 'doc_cliente', label: 'Documento do Cliente', accept: '.pdf,image/*' },
 ];
 
 const IMOVEL_CAMPOS = [
@@ -168,7 +174,8 @@ export default function GeorefWizard() {
     setGerando(true);
     try {
       await salvar(true);
-      const res = await georefAPI.gerar(proj.id, { documentos: docsSel, tema: proj.tema_pdf });
+      const docs = requerDrl ? docsSel : docsSel.filter((d) => d !== 'drl');
+      const res = await georefAPI.gerar(proj.id, { documentos: docs, tema: proj.tema_pdf });
       setValidacao(res.validacao);
       setProj((p) => ({ ...p, status: 'documentos_gerados' }));
       toast({ title: 'Documentos prontos' });
@@ -186,7 +193,10 @@ export default function GeorefWizard() {
 
   if (loading || !proj) return <div className="py-24"><BrandSpinner label="Carregando…" /></div>;
 
-  const confrontantesDrl = (proj.confrontantes || []).filter((c) => c.tipo !== 'proprio');
+  const requerDrl = requerDrlTipo(proj.tipo_servico);
+  const confrontantesDrl = requerDrl
+    ? (proj.confrontantes || []).filter((c) => c.tipo !== 'proprio')
+    : [];
   const nb = (proj.imovel?.matricula || proj.numero || 'projeto');
 
   return (
@@ -354,7 +364,7 @@ export default function GeorefWizard() {
               ['requerimento', 'Requerimento ao Cartório'],
               ['laudo_tecnico', 'Laudo Técnico de Agrimensura'],
               ['memorial', 'Memorial Descritivo'],
-              ['drl', `DRL — Reconhecimento de Limites (${confrontantesDrl.length})`],
+              ...(requerDrl ? [['drl', `DRL — Reconhecimento de Limites (${confrontantesDrl.length})`]] : []),
               ['shapefile', 'Shapefile SIG-RI (.zip)'],
               ['dossie', 'Dossiê consolidado (PDF)'],
             ].map(([k, lab]) => (
@@ -365,6 +375,12 @@ export default function GeorefWizard() {
               </label>
             ))}
           </div>
+          {!requerDrl && (
+            <p className="mt-3 text-xs text-gray-500">
+              ℹ️ DRL dispensada para <strong>{proj.tipo_servico}</strong> (desmembramento e remembramento
+              atuam dentro de limites já reconhecidos).
+            </p>
+          )}
           <button onClick={gerar} disabled={gerando}
             className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white disabled:opacity-50"
             style={{ background: GREEN }}>
@@ -404,6 +420,16 @@ export default function GeorefWizard() {
                     onPdf={() => baixar(georefAPI.drl(proj.id, c.key, 'pdf', proj.tema_pdf), `DRL_${nb}.pdf`)}
                     onDocx={() => baixar(georefAPI.drl(proj.id, c.key, 'docx'), `DRL_${nb}.docx`)} />
                 ))}
+              </div>
+            </Card>
+          )}
+
+          {!requerDrl && (
+            <Card>
+              <div className="text-sm text-gray-600">
+                <strong className="text-gray-800">DRL dispensada.</strong> O serviço de{' '}
+                <strong>{proj.tipo_servico}</strong> atua dentro de limites já reconhecidos — não
+                requer Declaração de Reconhecimento de Limites dos confrontantes.
               </div>
             </Card>
           )}

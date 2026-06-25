@@ -31,7 +31,7 @@ from services.georef.generators import dossie as DOSSIE
 logger = logging.getLogger("romatec")
 router = APIRouter(prefix="/topografia/georef", tags=["topografia-geo"])
 
-_TIPOS_UPLOAD = {"memorial", "mapa", "ccir", "certidao", "art_trt", "doc_cliente"}
+_TIPOS_UPLOAD = {"memorial", "mapa", "ccir", "certidao", "art_trt", "car", "itr", "doc_cliente"}
 _MAX_UPLOAD = 30 * 1024 * 1024  # 30 MB
 _MIME = {
     "pdf": "application/pdf",
@@ -340,6 +340,10 @@ async def baixar_documento(pid: str, tipo: str, fmt: str = Query("pdf"),
 async def baixar_drl(pid: str, conf_key: str, fmt: str = Query("pdf"), tema: str = Query(None),
                     uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
     doc = await _get_projeto(db, pid, uid)
+    if not TX.requer_drl(doc.get("tipo_servico")):
+        raise HTTPException(
+            status_code=422,
+            detail="DRL dispensada para este tipo de serviço (desmembramento/remembramento).")
     tema = tema or doc.get("tema_pdf") or "prime_i"
     conf = next((c for c in (doc.get("confrontantes") or []) if c.get("key") == conf_key), None)
     if not conf:
@@ -377,8 +381,9 @@ def _montar_dossie(doc: dict, tema: str) -> bytes:
         "drl": [PDF.gerar_pdf("drl", doc, tema, c) for c in TX.confrontantes_para_drl(doc)],
     }
     uploads = doc.get("uploads") or {}
-    for chave, tipo_up in (("art_trt", "art_trt"), ("ccir", "ccir"),
-                           ("certidao_matricula", "certidao"), ("doc_cliente", "doc_cliente")):
+    for chave, tipo_up in (("art_trt", "art_trt"), ("ccir", "ccir"), ("car", "car"),
+                           ("itr", "itr"), ("certidao_matricula", "certidao"),
+                           ("doc_cliente", "doc_cliente")):
         raw = _download_upload(uploads, tipo_up)
         if raw:
             partes[chave] = raw

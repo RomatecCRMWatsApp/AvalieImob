@@ -103,14 +103,18 @@ def render_requerimento(projeto) -> dict:
         f"{_v(im, 'certificacao_sigef')}, instruindo o presente com:"
     )
 
-    documentos = [
-        "a) Planta e memorial descritivo georreferenciados, assinados por profissional "
+    itens = [
+        "Planta e memorial descritivo georreferenciados, assinados por profissional "
         "habilitado, com a respectiva ART/TRT;",
-        "b) Certificado de Cadastro de Imóvel Rural (CCIR) vigente;",
-        "c) Declaração(ões) de Reconhecimento de Limites (DRL) firmada(s) pelos confrontantes;",
-        "d) Arquivo geoespacial (shapefile, SIRGAS 2000) para alimentação do SIG-RI, nos termos "
-        "do Provimento CNJ nº 195/2025.",
+        "Certificado de Cadastro de Imóvel Rural (CCIR) vigente;",
     ]
+    if requer_drl(projeto.get("tipo_servico")):
+        itens.append(
+            "Declaração(ões) de Reconhecimento de Limites (DRL) firmada(s) pelos confrontantes;")
+    itens.append(
+        "Arquivo geoespacial (shapefile, SIRGAS 2000) para alimentação do SIG-RI, nos termos "
+        "do Provimento CNJ nº 195/2025.")
+    documentos = [f"{chr(97 + i)}) {t}" for i, t in enumerate(itens)]
 
     fecho = (
         "Requer, ainda, a inserção das coordenadas geodésicas no Sistema de Informações "
@@ -218,8 +222,26 @@ def render_drl(projeto, conf) -> dict:
     }
 
 
+# A DRL (anuência dos confrontantes) só se aplica a serviços que ESTABELECEM/
+# reconhecem limites com vizinhos. Desmembramento e Remembramento DISPENSAM DRL
+# (atuam dentro de limites já certificados). Georref, Retificação, Certificação e
+# Desdobro EXIGEM. (Confirmado pelo RT — José Romário.)
+DRL_DISPENSA = {"desmembramento", "remembramento"}
+
+
+def requer_drl(tipo_servico) -> bool:
+    """True se o tipo de serviço exige DRL dos confrontantes."""
+    return (tipo_servico or "") not in DRL_DISPENSA
+
+
 def confrontantes_para_drl(projeto):
-    """Confrontantes que geram DRL (exclui o próprio imóvel)."""
+    """Confrontantes que geram DRL (exclui o próprio imóvel).
+
+    Retorna [] quando o tipo de serviço DISPENSA DRL (desmembramento/remembramento),
+    fazendo o Dossiê e a tela não listarem/gerarem DRL para esses casos.
+    """
+    if not requer_drl(projeto.get("tipo_servico")):
+        return []
     return [c for c in (projeto.get("confrontantes") or []) if c.get("tipo") != "proprio"]
 
 

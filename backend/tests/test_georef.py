@@ -176,6 +176,23 @@ def test_confrontantes_para_drl_exclui_proprio(projeto):
     assert len(TX.confrontantes_para_drl(projeto)) == 4
 
 
+def test_requer_drl_por_tipo():
+    for t in ("georreferenciamento", "retificacao", "certificacao", "desdobro"):
+        assert TX.requer_drl(t) is True, t
+    for t in ("desmembramento", "remembramento"):
+        assert TX.requer_drl(t) is False, t
+
+
+def test_drl_dispensada_desmembramento(projeto):
+    p = {**projeto, "tipo_servico": "desmembramento"}
+    # nenhuma DRL para desmembramento/remembramento
+    assert TX.confrontantes_para_drl(p) == []
+    # e o Requerimento NÃO lista a DRL como documento instrutório
+    assert not any("DRL" in item for item in TX.render_requerimento(p)["documentos"])
+    # já o georref lista a DRL
+    assert any("DRL" in item for item in TX.render_requerimento(projeto)["documentos"])
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # CCIR
 # ──────────────────────────────────────────────────────────────────────────────

@@ -19,7 +19,7 @@ logger = logging.getLogger("romatec")
 
 ORDEM_DOSSIE = [
     "requerimento", "laudo_tecnico", "memorial", "art_trt", "drl",
-    "ccir", "certidao_matricula", "doc_cliente",
+    "ccir", "car", "itr", "certidao_matricula", "doc_cliente",
 ]
 
 
@@ -139,7 +139,7 @@ def gerar_dossie(projeto, partes: dict, tema="prime_i") -> bytes:
         if chave == "drl" and isinstance(val, (list, tuple)):
             for drl_bytes in val:
                 _append(writer, drl_bytes)
-        elif chave in ("art_trt", "ccir", "certidao_matricula", "doc_cliente"):
+        elif chave in ("art_trt", "ccir", "car", "itr", "certidao_matricula", "doc_cliente"):
             _append(writer, _to_pdf(val))
         else:
             _append(writer, val)
