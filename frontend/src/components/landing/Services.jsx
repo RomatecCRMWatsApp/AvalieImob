@@ -1,6 +1,9 @@
 import React from 'react';
-import * as Icons from 'lucide-react';
+// Import EXPLÍCITO (named) — evita o barrel do lucide + acesso dinâmico (quebra no iOS).
+import { Building2, Trees, Wheat, Beef, Factory, Landmark, Circle } from 'lucide-react';
 import { SERVICES } from '../../mock/mock';
+
+const ICONES = { Building2, Trees, Wheat, Beef, Factory, Landmark };
 
 const Services = () => {
   return (
@@ -16,7 +19,7 @@ const Services = () => {
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {SERVICES.map((s) => {
-            const Icon = Icons[s.icon] || Icons.Circle;
+            const Icon = ICONES[s.icon] || Circle;
             return (
               <div key={s.id} className="group relative rounded-2xl overflow-hidden bg-white border border-gray-200 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
                 <div className="relative h-48 overflow-hidden">

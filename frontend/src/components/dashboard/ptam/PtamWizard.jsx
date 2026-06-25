@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import * as LucideIcons from 'lucide-react';
 import { ChevronLeft, ChevronRight, Save, Download, ArrowLeft, Loader2, Check, History, Share2, X, Copy, ExternalLink, Send, PenLine } from 'lucide-react';
+// Ícones das etapas + Eye por nome — import EXPLÍCITO (o `import * as` + acesso dinâmico quebra no iOS).
+import { User, Target, Building2, Map, ClipboardList, BarChart2, BookOpen, Calculator, Filter, TrendingDown, TrendingUp, CheckCircle2, Eye, Circle } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { useToast } from '../../../hooks/use-toast';
 import { ptamAPI, aiAPI, perfilAPI } from '../../../lib/api';
@@ -23,6 +24,8 @@ import PtamPreviewAoVivo from './PtamPreviewAoVivo';
 import { HistoricoVersoes } from './HistoricoVersoes';
 import AssinaturaDigital from './AssinaturaDigital';
 import EtapaConcluidaBox from './EtapaConcluidaBox';
+
+const STEP_ICONS = { User, Target, Building2, Map, ClipboardList, BarChart2, BookOpen, Calculator, Filter, TrendingDown, TrendingUp, CheckCircle2 };
 
 const getStepClasses = (active, done) => {
   if (active) return 'bg-emerald-900 text-white';
@@ -380,7 +383,7 @@ const PtamWizard = () => {
             <Save className="w-4 h-4 mr-1" />{saving ? 'Salvando...' : 'Salvar rascunho'}
           </Button>
           <Button variant="outline" className={showPreview ? 'border-emerald-500 text-emerald-700 bg-emerald-50' : ''} onClick={() => setShowPreview(v => !v)}>
-            <LucideIcons.Eye className="w-4 h-4 mr-1" />{showPreview ? 'Ocultar preview' : 'Preview ao vivo'}
+            <Eye className="w-4 h-4 mr-1" />{showPreview ? 'Ocultar preview' : 'Preview ao vivo'}
           </Button>
           <Button variant="outline" className="border-red-300 text-red-700 hover:bg-red-50" onClick={handleDownloadPdf}>
             <Download className="w-4 h-4 mr-1" />Baixar PDF
@@ -407,7 +410,7 @@ const PtamWizard = () => {
       <div className="bg-white rounded-xl border border-gray-200 p-3 mb-6">
         <div className="flex items-center gap-1 overflow-x-auto">
           {PTAM_STEPS.map((s, i) => {
-            const Icon = LucideIcons[s.icon] || LucideIcons.Circle;
+            const Icon = STEP_ICONS[s.icon] || Circle;
             const active = i === step;
             const done = i < step;
             return (

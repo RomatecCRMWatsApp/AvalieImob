@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import * as LucideIcons from 'lucide-react';
 import { ChevronLeft, ChevronRight, Save, ArrowLeft, Loader2, Check } from 'lucide-react';
+// Ícones das etapas por nome — import EXPLÍCITO (o `import * as` + acesso dinâmico quebra no iOS).
+import { User, Target, Home, MapPin, Search, Calculator, Shield, Award, Camera, CheckCircle, Circle } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { useToast } from '../../../hooks/use-toast';
 import { locacaoAPI, perfilAPI } from '../../../lib/api';
@@ -18,6 +19,8 @@ import {
   StepFotos,
   StepResultado,
 } from './LocacaoSteps';
+
+const STEP_ICONS = { User, Target, Home, MapPin, Search, Calculator, Shield, Award, Camera, CheckCircle };
 
 const getStepClasses = (active, done) => {
   if (active) return 'bg-blue-900 text-white';
@@ -177,7 +180,7 @@ const LocacaoWizard = () => {
       <div className="bg-white rounded-xl border border-gray-200 p-3 mb-6">
         <div className="flex items-center gap-1 overflow-x-auto">
           {LOCACAO_STEPS.map((s, i) => {
-            const Icon = LucideIcons[s.icon] || LucideIcons.Circle;
+            const Icon = STEP_ICONS[s.icon] || Circle;
             const active = i === step;
             const done = i < step;
             return (

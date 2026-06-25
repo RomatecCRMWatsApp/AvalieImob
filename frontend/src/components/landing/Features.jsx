@@ -1,6 +1,16 @@
 import React from 'react';
-import * as Icons from 'lucide-react';
+// Import EXPLÍCITO (named) — `import * as Icons` + `Icons[nome]` puxa todo o barrel
+// do lucide pro bundle e QUEBRA no Safari/iOS (acesso dinâmico ao namespace).
+import {
+  FileText, FileSignature, ShieldCheck, Calculator, Brain, ClipboardCheck,
+  Receipt, BadgeCheck, Users, Cloud, Lock, Headphones, Circle,
+} from 'lucide-react';
 import { FEATURES } from '../../mock/mock';
+
+const ICONES = {
+  FileText, FileSignature, ShieldCheck, Calculator, Brain, ClipboardCheck,
+  Receipt, BadgeCheck, Users, Cloud, Lock, Headphones,
+};
 
 const Features = () => {
   return (
@@ -16,7 +26,7 @@ const Features = () => {
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {FEATURES.map((f, i) => {
-            const Icon = Icons[f.icon] || Icons.Circle;
+            const Icon = ICONES[f.icon] || Circle;
             return (
               <div key={f.id} className="group relative p-6 rounded-xl border border-gray-200 hover:border-emerald-900/30 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 bg-white" style={{ animationDelay: `${i * 50}ms` }}>
                 <div className="w-12 h-12 rounded-lg bg-emerald-900/5 flex items-center justify-center mb-4 group-hover:bg-emerald-900 transition-colors">
