@@ -432,6 +432,25 @@ export default function GeorefWizard() {
                       <div className="text-xs text-gray-500 mt-1">
                         Área {pc.area_ha ?? '—'} ha · Perímetro {pc.perimetro_m ?? '—'} m · {(pc.vertices || []).length} vértices
                       </div>
+                      {(pc.confrontantes || []).length > 0 && (
+                        <div className="mt-2">
+                          <div className="text-xs font-medium text-gray-700 mb-1">Confrontantes</div>
+                          <ul className="space-y-1">
+                            {(pc.confrontantes || []).map((c, j) => (
+                              <li key={j} className="flex items-center gap-2 text-xs text-gray-600">
+                                <span className={`px-1.5 py-0.5 rounded text-[10px] ${
+                                  c.tipo === 'via_publica' ? 'bg-sky-100 text-sky-700'
+                                    : c.tipo === 'proprio' ? 'bg-gray-100 text-gray-500'
+                                      : 'bg-emerald-100 text-emerald-700'}`}>
+                                  {c.tipo === 'via_publica' ? 'via pública' : c.tipo === 'proprio' ? 'próprio' : 'particular'}
+                                </span>
+                                <span className="truncate">{c.nome || c.descricao || c.imovel || `Mat. ${c.matricula}`}</span>
+                                <span className="text-gray-400">({(c.segmentos || []).length} seg.)</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </div>
                     <PoligonalPreview vertices={pc.vertices || []} height={150} />
                   </div>
