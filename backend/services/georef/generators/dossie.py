@@ -23,6 +23,43 @@ ORDEM_DOSSIE = [
 ]
 
 
+def _quebrar_em_duas(c, texto, font, size, max_w):
+    """Melhor ponto de quebra (equilibra a largura das 2 linhas). -> (wmax, l1, l2)."""
+    palavras = texto.split()
+    melhor = None
+    for i in range(1, len(palavras)):
+        l1, l2 = " ".join(palavras[:i]), " ".join(palavras[i:])
+        wmax = max(c.stringWidth(l1, font, size), c.stringWidth(l2, font, size))
+        if melhor is None or wmax < melhor[0]:
+            melhor = (wmax, l1, l2)
+    return melhor
+
+
+def _draw_titulo_capa(c, texto, w, y_top, font, cor, margem):
+    """Título da capa que NUNCA estoura a largura: ajusta a fonte e quebra em 2 linhas."""
+    max_w = w - 2 * margem
+    c.setFillColor(cor)
+    for size in (24, 22, 20, 18, 16):              # 1 linha: maior fonte que couber
+        if c.stringWidth(texto, font, size) <= max_w:
+            c.setFont(font, size)
+            c.drawCentredString(w / 2, y_top, texto)
+            return
+    palavras = texto.split()
+    if len(palavras) >= 2:                          # 2 linhas equilibradas
+        for size in (20, 18, 16, 15, 14, 13):
+            m = _quebrar_em_duas(c, texto, font, size, max_w)
+            if m and m[0] <= max_w:
+                c.setFont(font, size)
+                c.drawCentredString(w / 2, y_top + 0.45 * cm, m[1])
+                c.drawCentredString(w / 2, y_top - 0.45 * cm, m[2])
+                return
+    t = texto                                       # fallback: trunca com reticências
+    c.setFont(font, 16)
+    while len(t) > 4 and c.stringWidth(t + "…", font, 16) > max_w:
+        t = t[:-1]
+    c.drawCentredString(w / 2, y_top, t + "…")
+
+
 def _capa_bytes(projeto, tema="prime_i") -> bytes:
     T.registrar_fontes()
     f = T.fonts()
@@ -50,10 +87,8 @@ def _capa_bytes(projeto, tema="prime_i") -> bytes:
     c.setFillColor(accent)
     c.setFont(f["sans_bold"], 11)
     c.drawCentredString(w / 2, h - 6.5 * cm, "DOSSIÊ TÉCNICO DE GEORREFERENCIAMENTO")
-    c.setFillColor(fg)
-    c.setFont(f["serif_bold"], 24)
-    denom = (im.get("denominacao") or "Imóvel Rural")[:42]
-    c.drawCentredString(w / 2, h - 8.2 * cm, denom)
+    titulo = (im.get("denominacao") or "Imóvel Rural").strip()
+    _draw_titulo_capa(c, titulo, w, h - 8.0 * cm, f["serif_bold"], fg, 2.2 * cm)
 
     c.setFont(f["sans"], 11)
     linhas = [

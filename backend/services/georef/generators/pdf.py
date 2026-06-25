@@ -182,17 +182,18 @@ def _make_onpage(cfg, titulo_curto):
         try:
             if cfg["tema"] != "tradicional":
                 from pdf.brand_seal import draw_header_lockup
-                draw_header_lockup(canvas, MARGIN, h - 1.3 * cm, mark=9 * mm, light=False,
+                draw_header_lockup(canvas, MARGIN, h - 1.15 * cm, mark=9 * mm, light=False,
                                    tagline="Topografia & Geo · INCRA/SIGEF")
             else:
                 canvas.setFont(cfg["serif_bold"], 11)
                 canvas.setFillColor(black)
-                canvas.drawString(MARGIN, h - 1.25 * cm, "ROMATEC CONSULTORIA TOTAL")
+                canvas.drawString(MARGIN, h - 1.2 * cm, "ROMATEC CONSULTORIA TOTAL")
         except Exception:  # noqa: BLE001
             pass
+        # filete ABAIXO de todo o lockup (não cruza o nome/tagline)
         canvas.setStrokeColor(cfg["accent"])
         canvas.setLineWidth(0.6)
-        canvas.line(MARGIN, h - 1.5 * cm, w - MARGIN, h - 1.5 * cm)
+        canvas.line(MARGIN, h - 1.85 * cm, w - MARGIN, h - 1.85 * cm)
         # rodapé: título curto à esquerda + página à direita
         canvas.setFont(cfg["sans"] if "sans" in cfg else "Helvetica", 7.5)
         canvas.setFillColor(HexColor("#777777"))
@@ -210,7 +211,7 @@ def _build(elements, cfg, titulo_curto):
     buf = io.BytesIO()
     doc = ResilientSimpleDocTemplate(
         buf, pagesize=A4, leftMargin=MARGIN, rightMargin=MARGIN,
-        topMargin=2.0 * cm, bottomMargin=1.8 * cm, title=titulo_curto,
+        topMargin=2.25 * cm, bottomMargin=1.8 * cm, title=titulo_curto,
     )
     onpage = _make_onpage(cfg, titulo_curto)
     doc.build(elements, onFirstPage=onpage, onLaterPages=onpage)
