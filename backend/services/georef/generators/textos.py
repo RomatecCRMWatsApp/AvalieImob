@@ -22,6 +22,30 @@ LEI_POR_SERVICO = {
     "certificacao": "certificação da poligonal junto ao INCRA/SIGEF",
 }
 
+# Ação pedida no Requerimento, por tipo de serviço.
+ACAO_REQUERIMENTO = {
+    "georreferenciamento": "a AVERBAÇÃO da descrição georreferenciada",
+    "desmembramento": "o DESMEMBRAMENTO, com a abertura das matrículas das parcelas resultantes",
+    "remembramento": "o REMEMBRAMENTO (unificação) das matrículas",
+    "desdobro": "o DESDOBRO da área",
+    "retificacao": "a RETIFICAÇÃO administrativa da área (art. 213 da Lei nº 6.015/1973)",
+    "certificacao": "a averbação da certificação georreferenciada",
+}
+
+
+def _parcelas_resumo(projeto):
+    """Linhas 'Parte II — DENOM: área X ha, perímetro Y m' quando há multi-parcela."""
+    from services.georef.parcelas import parcelas_do_projeto, tem_multiparcela
+    if not tem_multiparcela(projeto):
+        return None
+    out = []
+    for p in parcelas_do_projeto(projeto):
+        out.append(
+            f"{p['rotulo']} — {p.get('denominacao') or 'parcela'}: área {_ha(p.get('area_ha'))} ha, "
+            f"perímetro {_m(p.get('perimetro_m'))} m"
+        )
+    return out
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Helpers
@@ -80,6 +104,8 @@ def _rt_assinatura_linhas(im, rt):
 def render_requerimento(projeto) -> dict:
     im, rt = _im(projeto), _rt(projeto)
     nac = (im.get("proprietario_nacionalidade") or "brasileira").lower()
+    acao = ACAO_REQUERIMENTO.get(projeto.get("tipo_servico"),
+                                 "a AVERBAÇÃO da descrição georreferenciada")
 
     destinatario = (
         "EXCELENTÍSSIMO(A) SENHOR(A) OFICIAL DO CARTÓRIO DE REGISTRO DE IMÓVEIS\n"
@@ -96,8 +122,8 @@ def render_requerimento(projeto) -> dict:
         f"{_v(im, 'matricula')}, Livro {im.get('livro') or '2'}, Código INCRA/SNCR nº "
         f"{_v(im, 'cod_incra')}, com área de {_ha(im.get('area_ha'))} ha e perímetro de "
         f"{_m(im.get('perimetro_m'))} m, situado no Município de {_v(im, 'municipio')}/"
-        f"{_v(im, 'uf')}, vem, respeitosamente, REQUERER a AVERBAÇÃO da descrição "
-        f"georreferenciada do referido imóvel, nos termos do art. 176, §§ 3º e 4º, da Lei nº "
+        f"{_v(im, 'uf')}, vem, respeitosamente, REQUERER {acao} "
+        f"do referido imóvel, nos termos do art. 176, §§ 3º e 4º, da Lei nº "
         f"6.015/1973, da Lei nº 10.267/2001, do Decreto nº 4.449/2002 e do Provimento CNJ nº "
         f"195/2025, conforme certificação do INCRA/SIGEF sob o código "
         f"{_v(im, 'certificacao_sigef')}, instruindo o presente com:"
@@ -135,6 +161,7 @@ def render_requerimento(projeto) -> dict:
         "documentos": documentos,
         "fecho": fecho,
         "rt_linha": rt_linha,
+        "parcelas": _parcelas_resumo(projeto),
         "data": data_extenso(im.get("municipio"), im.get("uf")),
         "assinatura": [
             _v(im, "proprietario_nome"),
@@ -369,6 +396,16 @@ def render_laudo_tecnico(projeto) -> dict:
         for c in (projeto.get("confrontantes") or [])
     ]
 
+    # Parcelas resultantes (desmembramento/remembramento)
+    from services.georef.parcelas import parcelas_do_projeto, tem_multiparcela
+    parcelas_tabela = None
+    if tem_multiparcela(projeto):
+        parcelas_tabela = [
+            [p["rotulo"], p.get("denominacao") or "—", _ha(p.get("area_ha")),
+             _m(p.get("perimetro_m")), str(len(p.get("vertices") or []))]
+            for p in parcelas_do_projeto(projeto)
+        ]
+
     conclusao = (
         f"Diante do exposto, ATESTA-SE que o levantamento georreferenciado do imóvel "
         f"{_v(im, 'denominacao')}, matrícula nº {_v(im, 'matricula')}, foi executado em "
@@ -396,6 +433,8 @@ def render_laudo_tecnico(projeto) -> dict:
                         f"{im.get('certidao_numero') or im.get('matricula') or '—'}, anexa."),
         "confrontacoes_header": ["Confrontante", "Imóvel", "Matrícula", "CNS", "Segmentos"],
         "confrontacoes_tabela": confrontacoes,
+        "parcelas_header": ["Parcela", "Denominação", "Área (ha)", "Perímetro (m)", "Nº vértices"],
+        "parcelas_tabela": parcelas_tabela,
         "conclusao": conclusao,
         "rt_assinatura": _rt_assinatura_linhas(im, rt),
         "data": data_extenso(im.get("municipio"), im.get("uf")),

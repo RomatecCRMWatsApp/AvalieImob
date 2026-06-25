@@ -681,6 +681,23 @@ export const georefAPI = {
     fd.append('file', file);
     return api.post(`${GEOREF}/projetos/${id}/upload`, fd).then((r) => r.data);
   },
+  // Parcelas (desmembramento/remembramento)
+  adicionarParcela: (id, rotulo) =>
+    api.post(`${GEOREF}/projetos/${id}/parcelas`, { rotulo }).then((r) => r.data),
+  removerParcela: (id, parcelaId) =>
+    api.delete(`${GEOREF}/projetos/${id}/parcelas/${parcelaId}`).then((r) => r.data),
+  uploadParcela: (id, parcelaId, tipo, file) => {
+    const fd = new FormData();
+    fd.append('tipo', tipo);
+    fd.append('file', file);
+    return api.post(`${GEOREF}/projetos/${id}/parcelas/${parcelaId}/upload`, fd).then((r) => r.data);
+  },
+  // Memorial de uma parcela específica (blob)
+  memorialParcela: (id, parcelaId, fmt = 'pdf', tema) =>
+    api.get(`${GEOREF}/projetos/${id}/documentos/memorial`,
+      { params: { fmt, parcela: parcelaId, ...(tema ? { tema } : {}) }, responseType: 'blob' })
+      .then((r) => r.data),
+
   extrair: (id) => api.post(`${GEOREF}/projetos/${id}/extrair`).then((r) => r.data),
   previewGeojson: (id) => api.get(`${GEOREF}/projetos/${id}/preview-geojson`).then((r) => r.data),
   validar: (id) => api.get(`${GEOREF}/projetos/${id}/validar`).then((r) => r.data),

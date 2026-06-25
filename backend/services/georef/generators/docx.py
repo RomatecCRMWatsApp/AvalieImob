@@ -130,6 +130,10 @@ def docx_requerimento(projeto) -> bytes:
     _p(doc, d["corpo"])
     for item in d["documentos"]:
         _p(doc, item, space_after=2)
+    if d.get("parcelas"):
+        _secao(doc, "PARCELAS RESULTANTES")
+        for linha in d["parcelas"]:
+            _p(doc, "• " + linha, space_after=2)
     _p(doc, d["fecho"])
     _p(doc, d["rt_linha"], size=8.5, color=RGBColor(0x55, 0x55, 0x55))
     _p(doc, "Nestes termos, pede deferimento.")
@@ -182,6 +186,9 @@ def docx_laudo(projeto) -> bytes:
     _p(doc, d["metodologia"])
     _secao(doc, "5. RESULTADO — POLIGONAL")
     _tabela(doc, d["resultado_header"], d["resultado_tabela"])
+    if d.get("parcelas_tabela"):
+        _secao(doc, "PARCELAS RESULTANTES")
+        _tabela(doc, d["parcelas_header"], d["parcelas_tabela"])
     _secao(doc, "6. CADEIA DOMINIAL")
     if d["cadeia_tabela"]:
         _tabela(doc, d["cadeia_header"], d["cadeia_tabela"])

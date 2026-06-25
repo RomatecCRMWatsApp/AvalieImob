@@ -133,6 +133,25 @@ StatusProjeto = Literal["rascunho", "extraido", "documentos_gerados", "concluido
 TemaPdf = Literal["tradicional", "prime_i", "prime_ii"]
 
 
+class Parcela(BaseModel):
+    """Parcela resultante de desmembramento/remembramento (Parte II, III...).
+
+    A 'Parte I' é o próprio topo do projeto (imovel/vertices/confrontantes);
+    estas são as parcelas ADICIONAIS, cada uma com seu Memorial/Mapa próprios.
+    """
+    id: str = Field(default_factory=_uid)
+    rotulo: str = ""                       # "Parte II"
+    denominacao: Optional[str] = None
+    natureza_area: Optional[str] = None
+    area_ha: Optional[float] = None
+    perimetro_m: Optional[float] = None
+    sistema_geodesico: Optional[str] = "SIRGAS 2000"
+    certificacao_sigef: Optional[str] = None
+    vertices: List[Vertice] = Field(default_factory=list)
+    confrontantes: List[Confrontante] = Field(default_factory=list)
+    uploads: dict = Field(default_factory=dict)  # {memorial: {...}, mapa: {...}}
+
+
 class GeorefProjeto(BaseModel):
     id: str = Field(default_factory=_uid)
     user_id: str = ""
@@ -143,6 +162,7 @@ class GeorefProjeto(BaseModel):
     responsavel_tecnico: ResponsavelTecnico = Field(default_factory=ResponsavelTecnico)
     vertices: List[Vertice] = Field(default_factory=list)
     confrontantes: List[Confrontante] = Field(default_factory=list)
+    parcelas: List[Parcela] = Field(default_factory=list)  # parcelas ADICIONAIS (Parte II+)
     uploads: dict = Field(default_factory=dict)            # {memorial: key, mapa: key, ...}
     documentos_gerados: dict = Field(default_factory=dict)  # {memorial, requerimento, ...}
     campos_editados: dict = Field(default_factory=dict)     # flags p/ preservar edição manual
@@ -171,6 +191,11 @@ class AtualizarProjetoBody(BaseModel):
     responsavel_tecnico: Optional[dict] = None
     vertices: Optional[List[dict]] = None
     confrontantes: Optional[List[dict]] = None
+    parcelas: Optional[List[dict]] = None
+
+
+class AdicionarParcelaBody(BaseModel):
+    rotulo: Optional[str] = None           # auto: "Parte II", "Parte III"...
 
 
 class GerarDocumentosBody(BaseModel):

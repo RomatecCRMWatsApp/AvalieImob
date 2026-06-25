@@ -16,12 +16,13 @@ from pymongo import ReturnDocument
 from db import get_db
 from dependencies import get_active_subscriber, serialize_doc
 from models.georef import (
-    GeorefProjeto, CriarProjetoBody, AtualizarProjetoBody, GerarDocumentosBody,
-    calcular_completude,
+    GeorefProjeto, Parcela, CriarProjetoBody, AtualizarProjetoBody, GerarDocumentosBody,
+    AdicionarParcelaBody, calcular_completude,
 )
 from services import r2_storage
 from services.georef import extractor as EX
 from services.georef import geo as GEO
+from services.georef.parcelas import parcelas_do_projeto, projeto_da_parcela, tem_multiparcela
 from services.georef.cadeia_dominial import parse_cadeia_dominial
 from services.georef.generators import textos as TX
 from services.georef.generators import pdf as PDF
@@ -123,7 +124,7 @@ async def atualizar_projeto(pid: str, body: AtualizarProjetoBody,
                 editados[f"{grupo}.{k}"] = True
             sets[grupo] = atual
 
-    for grupo in ("vertices", "confrontantes"):
+    for grupo in ("vertices", "confrontantes", "parcelas"):
         if grupo in dados and dados[grupo] is not None:
             sets[grupo] = dados[grupo]
             editados[grupo] = True
@@ -176,6 +177,69 @@ async def upload_documento(pid: str, tipo: str = Form(...), file: UploadFile = F
         {"$set": {"uploads": uploads, "updated_at": _agora().isoformat()}},
     )
     return {"ok": True, "tipo": tipo, "uploads": list(uploads.keys())}
+
+
+_ROMANOS = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"]
+
+
+@router.post("/projetos/{pid}/parcelas", status_code=201)
+async def adicionar_parcela(pid: str, body: AdicionarParcelaBody,
+                           uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    doc = await _get_projeto(db, pid, uid)
+    parcelas = list(doc.get("parcelas") or [])
+    n = len(parcelas) + 2  # +1 (principal é Parte I) +1 (1-based)
+    rotulo = body.rotulo or f"Parte {_ROMANOS[n - 1] if n <= len(_ROMANOS) else n}"
+    nova = Parcela(rotulo=rotulo).model_dump(mode="json")
+    parcelas.append(nova)
+    await db.georef_projetos.update_one(
+        {"id": pid, "user_id": uid},
+        {"$set": {"parcelas": parcelas, "updated_at": _agora().isoformat()}})
+    return nova
+
+
+@router.delete("/projetos/{pid}/parcelas/{parcela_id}")
+async def remover_parcela(pid: str, parcela_id: str,
+                         uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    doc = await _get_projeto(db, pid, uid)
+    parcelas = [p for p in (doc.get("parcelas") or []) if p.get("id") != parcela_id]
+    await db.georef_projetos.update_one(
+        {"id": pid, "user_id": uid},
+        {"$set": {"parcelas": parcelas, "updated_at": _agora().isoformat()}})
+    return {"ok": True}
+
+
+@router.post("/projetos/{pid}/parcelas/{parcela_id}/upload")
+async def upload_parcela(pid: str, parcela_id: str, tipo: str = Form(...),
+                        file: UploadFile = File(...),
+                        uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    if tipo not in ("memorial", "mapa"):
+        raise HTTPException(status_code=422, detail="Tipo inválido. Use: memorial, mapa")
+    doc = await _get_projeto(db, pid, uid)
+    parcelas = list(doc.get("parcelas") or [])
+    idx = next((i for i, p in enumerate(parcelas) if p.get("id") == parcela_id), None)
+    if idx is None:
+        raise HTTPException(status_code=404, detail="Parcela não encontrada")
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=422, detail="Arquivo vazio")
+    if len(data) > _MAX_UPLOAD:
+        raise HTTPException(status_code=413, detail="Arquivo muito grande (máx. 30 MB)")
+    ext = _ext_arquivo(file.filename, file.content_type)
+    key = f"topografia/{uid}/{pid}/parcela_{parcela_id}/{tipo}.{ext}"
+    ct = file.content_type or _MIME.get(ext, "application/octet-stream")
+    try:
+        await asyncio.to_thread(r2_storage.upload_bytes, data, key, ct)
+    except Exception as e:  # noqa: BLE001
+        logger.error("Topografia: upload R2 da parcela falhou (%s)", e)
+        raise HTTPException(status_code=502, detail="Falha ao armazenar o arquivo")
+    uploads = dict(parcelas[idx].get("uploads") or {})
+    uploads[tipo] = {"key": key, "filename": file.filename, "content_type": ct,
+                     "ext": ext, "uploaded_at": _agora().isoformat()}
+    parcelas[idx]["uploads"] = uploads
+    await db.georef_projetos.update_one(
+        {"id": pid, "user_id": uid},
+        {"$set": {"parcelas": parcelas, "updated_at": _agora().isoformat()}})
+    return {"ok": True, "parcela_id": parcela_id, "tipo": tipo}
 
 
 def _download_upload(uploads: dict, tipo: str):
@@ -240,11 +304,28 @@ def _executar_extracao(doc: dict) -> dict:
     val = GEO.validar_geometria(vertices, area_ha_sigef=imovel.get("area_ha"))
     avisos.extend(val.get("avisos") or [])
 
+    # Parcelas adicionais (desmembramento): parseia o memorial de cada uma
+    parcelas = [dict(p) for p in (doc.get("parcelas") or [])]
+    for parc in parcelas:
+        raw_p = _download_upload(parc.get("uploads") or {}, "memorial")
+        if not raw_p:
+            continue
+        resp = EX.parse_memorial(raw_p)
+        ph = resp.get("imovel") or {}
+        for k in ("denominacao", "natureza_area", "area_ha", "perimetro_m",
+                  "sistema_geodesico", "certificacao_sigef"):
+            if ph.get(k) not in (None, ""):
+                parc[k] = ph.get(k)
+        if resp.get("vertices"):
+            parc["vertices"] = resp["vertices"]
+            parc["confrontantes"] = EX.agrupar_confrontantes(
+                resp["vertices"], matricula_imovel=imovel.get("matricula"))
+
     novo = {**doc, "imovel": imovel, "responsavel_tecnico": rt,
-            "vertices": vertices, "confrontantes": confrontantes}
+            "vertices": vertices, "confrontantes": confrontantes, "parcelas": parcelas}
     return {
         "imovel": imovel, "responsavel_tecnico": rt,
-        "vertices": vertices, "confrontantes": confrontantes,
+        "vertices": vertices, "confrontantes": confrontantes, "parcelas": parcelas,
         "status": "extraido", "completude": calcular_completude(novo),
         "updated_at": _agora().isoformat(),
         "_validacao": val, "_avisos": avisos,
@@ -314,10 +395,18 @@ def _nome_base(doc: dict) -> str:
     return str(base).replace("/", "-")
 
 
+def _doc_para_memorial(doc: dict, parcela_id: str) -> dict:
+    """Sub-projeto da parcela pedida (ou o principal quando vazio/'principal')."""
+    if not parcela_id or parcela_id == "principal":
+        return doc
+    pv = next((p for p in parcelas_do_projeto(doc) if p.get("id") == parcela_id), None)
+    return projeto_da_parcela(doc, pv) if pv else doc
+
+
 @router.get("/projetos/{pid}/documentos/{tipo}")
 async def baixar_documento(pid: str, tipo: str, fmt: str = Query("pdf"),
-                          tema: str = Query(None), uid: str = Depends(get_active_subscriber),
-                          db=Depends(get_db)):
+                          tema: str = Query(None), parcela: str = Query(None),
+                          uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
     doc = await _get_projeto(db, pid, uid)
     tema = tema or doc.get("tema_pdf") or "prime_i"
     nb = _nome_base(doc)
@@ -329,11 +418,15 @@ async def baixar_documento(pid: str, tipo: str, fmt: str = Query("pdf"),
     if tipo not in ("requerimento", "memorial", "laudo_tecnico"):
         raise HTTPException(status_code=404, detail="Documento desconhecido")
 
+    # Memorial pode ser de uma parcela específica (?parcela=<id>)
+    alvo = _doc_para_memorial(doc, parcela) if tipo == "memorial" else doc
+    sufixo = f"_p{parcela[:6]}" if (tipo == "memorial" and parcela and parcela != "principal") else ""
+
     if fmt == "docx":
-        data = await asyncio.to_thread(DOCX.gerar_docx, tipo, doc)
-        return _resp(data, "docx", f"{tipo}_{nb}.docx")
-    data = await asyncio.to_thread(PDF.gerar_pdf, tipo, doc, tema)
-    return _resp(data, "pdf", f"{tipo}_{nb}.pdf", inline=True)
+        data = await asyncio.to_thread(DOCX.gerar_docx, tipo, alvo)
+        return _resp(data, "docx", f"{tipo}{sufixo}_{nb}.docx")
+    data = await asyncio.to_thread(PDF.gerar_pdf, tipo, alvo, tema)
+    return _resp(data, "pdf", f"{tipo}{sufixo}_{nb}.pdf", inline=True)
 
 
 @router.get("/projetos/{pid}/documentos/drl/{conf_key:path}")
@@ -373,11 +466,32 @@ async def baixar_kml(pid: str, uid: str = Depends(get_active_subscriber), db=Dep
     return _resp(GEO.gerar_kml(doc).encode("utf-8"), "kml", f"{_nome_base(doc)}.kml")
 
 
+def _memoriais_combinados(doc: dict, tema: str) -> bytes:
+    """Memorial do principal + de cada parcela adicional, mesclados em 1 PDF."""
+    import io as _io
+    from pypdf import PdfReader, PdfWriter
+    pdfs = [PDF.gerar_pdf("memorial", doc, tema)]
+    if tem_multiparcela(doc):
+        for pv in parcelas_do_projeto(doc):
+            if pv.get("principal"):
+                continue
+            pdfs.append(PDF.gerar_pdf("memorial", projeto_da_parcela(doc, pv), tema))
+    if len(pdfs) == 1:
+        return pdfs[0]
+    w = PdfWriter()
+    for raw in pdfs:
+        for pg in PdfReader(_io.BytesIO(raw)).pages:
+            w.add_page(pg)
+    buf = _io.BytesIO()
+    w.write(buf)
+    return buf.getvalue()
+
+
 def _montar_dossie(doc: dict, tema: str) -> bytes:
     partes = {
         "requerimento": PDF.gerar_pdf("requerimento", doc, tema),
         "laudo_tecnico": PDF.gerar_pdf("laudo_tecnico", doc, tema),
-        "memorial": PDF.gerar_pdf("memorial", doc, tema),
+        "memorial": _memoriais_combinados(doc, tema),
         "drl": [PDF.gerar_pdf("drl", doc, tema, c) for c in TX.confrontantes_para_drl(doc)],
     }
     uploads = doc.get("uploads") or {}

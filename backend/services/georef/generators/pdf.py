@@ -236,6 +236,11 @@ def pdf_requerimento(projeto, tema="prime_i") -> bytes:
     for doc_item in d["documentos"]:
         e.append(Paragraph(_esc(doc_item), st["corpo"]))
         e.append(Spacer(1, 2))
+    if d.get("parcelas"):
+        e += _secao("PARCELAS RESULTANTES", cfg, st, lar)
+        for linha in d["parcelas"]:
+            e.append(Paragraph("• " + _esc(linha), st["corpo"]))
+            e.append(Spacer(1, 2))
     e.append(Spacer(1, 6))
     e += _paras(d["fecho"], st["corpo"])
     e.append(Spacer(1, 6))
@@ -302,6 +307,9 @@ def pdf_laudo(projeto, tema="prime_i") -> bytes:
     e += _paras(d["metodologia"], st["corpo"])
     e += _secao("5. RESULTADO — POLIGONAL", cfg, st, lar)
     e.append(_data_table(d["resultado_header"], d["resultado_tabela"], cfg, st, lar))
+    if d.get("parcelas_tabela"):
+        e += _secao("PARCELAS RESULTANTES", cfg, st, lar)
+        e.append(_data_table(d["parcelas_header"], d["parcelas_tabela"], cfg, st, lar))
     e += _secao("6. CADEIA DOMINIAL", cfg, st, lar)
     if d["cadeia_tabela"]:
         e.append(_data_table(d["cadeia_header"], d["cadeia_tabela"], cfg, st, lar))

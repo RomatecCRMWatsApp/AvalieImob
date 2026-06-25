@@ -184,12 +184,18 @@ _FIELDS = [
 
 
 def gerar_shapefile_bytes(projeto: dict) -> bytes:
-    """Gera o Shapefile (.shp/.shx/.dbf/.prj) zipado, SIRGAS 2000/EPSG:4674."""
+    """Gera o Shapefile (.shp/.shx/.dbf/.prj) zipado, SIRGAS 2000/EPSG:4674.
+
+    Multi-parcela (desmembramento/remembramento): 1 polígono por parcela.
+    """
     import shapefile  # pyshp
+    from services.georef.parcelas import parcelas_do_projeto
 
     im = projeto.get("imovel") or {}
-    ring = _orientar_horario(build_ring(projeto.get("vertices") or []))
-    if len(ring) < 4:
+    parcelas = parcelas_do_projeto(projeto)
+    aneis = [(p, _orientar_horario(build_ring(p.get("vertices") or []))) for p in parcelas]
+    aneis = [(p, r) for (p, r) in aneis if len(r) >= 4]
+    if not aneis:
         raise ValueError("Poligonal insuficiente para gerar shapefile (mínimo 3 vértices).")
 
     tmp = tempfile.mkdtemp(prefix="sigri_")
@@ -198,15 +204,16 @@ def gerar_shapefile_bytes(projeto: dict) -> bytes:
     w = shapefile.Writer(base, shapeType=shapefile.POLYGON)
     for f, t, sz, dec in _FIELDS:
         w.field(f, t, sz, dec)
-    w.poly([[list(p) for p in ring]])
-    w.record(
-        str(im.get("matricula") or ""), (im.get("denominacao") or "")[:100],
-        (im.get("proprietario_nome") or "")[:100], str(im.get("proprietario_cpf_cnpj") or ""),
-        str(im.get("cod_incra") or ""), str(im.get("cartorio_cns") or ""),
-        float(im.get("area_ha") or 0), float(im.get("perimetro_m") or 0),
-        "SIRGAS2000", str(im.get("certificacao_sigef") or ""),
-        (im.get("municipio") or "")[:60], str(im.get("uf") or "")[:2],
-    )
+    for parc, ring in aneis:
+        w.poly([[list(p) for p in ring]])
+        w.record(
+            str(im.get("matricula") or ""), (parc.get("denominacao") or "")[:100],
+            (im.get("proprietario_nome") or "")[:100], str(im.get("proprietario_cpf_cnpj") or ""),
+            str(im.get("cod_incra") or ""), str(im.get("cartorio_cns") or ""),
+            float(parc.get("area_ha") or 0), float(parc.get("perimetro_m") or 0),
+            "SIRGAS2000", str(parc.get("certificacao_sigef") or ""),
+            (im.get("municipio") or "")[:60], str(im.get("uf") or "")[:2],
+        )
     w.close()
 
     with open(base + ".prj", "w", encoding="utf-8") as fh:

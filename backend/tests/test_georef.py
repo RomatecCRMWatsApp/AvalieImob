@@ -396,3 +396,86 @@ def test_modelo_default():
     assert p.status == "rascunho"
     assert p.tema_pdf == "prime_i"
     assert p.responsavel_tecnico.credenciamento_incra == "FQNS"
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Multi-parcela (desmembramento)
+# ──────────────────────────────────────────────────────────────────────────────
+def _parcela_ii():
+    """Parcela adicional com poligonal própria (retângulo deslocado)."""
+    verts = [
+        {"codigo": "FQNS-M-B001", "longitude": -47.250, "latitude": -5.200,
+         "vante_codigo": "FQNS-M-B002", "azimute": "90°00'", "distancia": 500.0,
+         "longitude_dms": "-47°15'00\"", "latitude_dms": "-5°12'00\"", "altitude": 280.0,
+         "confrontacao_raw": "CNS: 03.169-0 | Mat. 489 | PAULO HENRIQUE"},
+        {"codigo": "FQNS-M-B002", "longitude": -47.245, "latitude": -5.200,
+         "vante_codigo": "FQNS-M-B003", "azimute": "0°00'", "distancia": 500.0,
+         "longitude_dms": "-47°14'42\"", "latitude_dms": "-5°12'00\"", "altitude": 281.0,
+         "confrontacao_raw": "CNS: 03.169-0 | Mat. 0 | ESTRADA VICINAL"},
+        {"codigo": "FQNS-M-B003", "longitude": -47.245, "latitude": -5.195,
+         "vante_codigo": "FQNS-M-B001", "azimute": "270°00'", "distancia": 500.0,
+         "longitude_dms": "-47°14'42\"", "latitude_dms": "-5°11'42\"", "altitude": 282.0,
+         "confrontacao_raw": "CNS: 03.169-0 | Mat. 0 | ESTRADA VICINAL"},
+    ]
+    return {"id": "parc2", "rotulo": "Parte II", "denominacao": "FAZENDA SANTA MARIA - PARTE II",
+            "area_ha": 22.5, "perimetro_m": 1500.0, "certificacao_sigef": "CERT-II",
+            "vertices": verts, "confrontantes": []}
+
+
+@pytest.fixture
+def projeto_multi(projeto):
+    p = {**projeto, "tipo_servico": "desmembramento", "parcelas": [_parcela_ii()]}
+    return p
+
+
+def test_parcelas_do_projeto(projeto, projeto_multi):
+    from services.georef import parcelas as P
+    pv = P.parcelas_do_projeto(projeto_multi)
+    assert len(pv) == 2
+    assert pv[0]["principal"] is True and pv[0]["rotulo"] == "Parte I"
+    assert pv[1]["principal"] is False and pv[1]["rotulo"] == "Parte II"
+    assert pv[1]["denominacao"] == "FAZENDA SANTA MARIA - PARTE II"
+    assert P.tem_multiparcela(projeto_multi) is True
+    assert P.tem_multiparcela(projeto) is False
+
+
+def test_projeto_da_parcela(projeto_multi):
+    from services.georef import parcelas as P
+    pv = P.parcelas_do_projeto(projeto_multi)[1]
+    sub = P.projeto_da_parcela(projeto_multi, pv)
+    # dados da parcela sobrepõem o imóvel; proprietário (compartilhado) preservado
+    assert sub["imovel"]["denominacao"] == "FAZENDA SANTA MARIA - PARTE II"
+    assert sub["imovel"]["area_ha"] == 22.5
+    assert sub["imovel"]["proprietario_cpf_cnpj"] == projeto_multi["imovel"]["proprietario_cpf_cnpj"]
+    assert len(sub["vertices"]) == 3
+
+
+def test_shapefile_multipoligono(projeto_multi):
+    import shapefile
+    zbytes = GEO.gerar_shapefile_bytes(projeto_multi)
+    z = zipfile.ZipFile(io.BytesIO(zbytes))
+    membros = {n.split(".")[-1]: z.read(n) for n in z.namelist()}
+    r = shapefile.Reader(shp=io.BytesIO(membros["shp"]), shx=io.BytesIO(membros["shx"]),
+                         dbf=io.BytesIO(membros["dbf"]))
+    assert len(r.shapes()) == 2          # principal + parte II
+    denoms = {r.record(i).as_dict().get("DENOM") for i in range(2)}
+    assert any("PARTE II" in (d or "") for d in denoms)
+
+
+def test_laudo_e_requerimento_listam_parcelas(projeto_multi):
+    laudo = TX.render_laudo_tecnico(projeto_multi)
+    assert laudo["parcelas_tabela"] is not None
+    assert len(laudo["parcelas_tabela"]) == 2
+    req = TX.render_requerimento(projeto_multi)
+    assert req["parcelas"] is not None
+    assert any("Parte II" in linha for linha in req["parcelas"])
+    # ação do requerimento muda para DESMEMBRAMENTO
+    assert "DESMEMBRAMENTO" in req["corpo"]
+
+
+def test_pdf_memorial_por_parcela(projeto_multi):
+    from services.georef import parcelas as P
+    pv = P.parcelas_do_projeto(projeto_multi)[1]
+    sub = P.projeto_da_parcela(projeto_multi, pv)
+    out = PDF.gerar_pdf("memorial", sub, "prime_i")
+    assert out[:5] == b"%PDF-"

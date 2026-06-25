@@ -5,7 +5,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, ArrowRight, UploadCloud, FileCheck2, Wand2, FileDown, Eye,
-  CheckCircle2, AlertTriangle, MapPin, Loader2, Map as MapIcon,
+  CheckCircle2, AlertTriangle, MapPin, Loader2, Map as MapIcon, Plus, Trash2,
 } from 'lucide-react';
 import { georefAPI } from '../../../lib/api';
 import { useToast } from '../../../hooks/use-toast';
@@ -20,6 +20,9 @@ const STEPS = ['Projeto', 'Upload', 'Conferência', 'Geração', 'Entrega'];
 // DRL só é gerada/listada quando o tipo de serviço EXIGE (desmembramento/remembramento dispensam).
 const DRL_DISPENSA = ['desmembramento', 'remembramento'];
 const requerDrlTipo = (tipo) => !DRL_DISPENSA.includes(tipo);
+
+// Tipos que podem ter MÚLTIPLAS parcelas (Parte I, II, III...).
+const MULTIPARCELA_TIPOS = ['desmembramento', 'remembramento'];
 
 const UPLOADS = [
   { tipo: 'memorial', label: 'Memorial Descritivo (SIGEF)', accept: '.pdf', req: true },
@@ -152,6 +155,22 @@ export default function GeorefWizard() {
     }
   };
 
+  // ── parcelas (desmembramento) ──
+  const recarregar = async () => { try { setProj(await georefAPI.obter(proj.id)); } catch { /* */ } };
+  const addParcela = async () => {
+    try { await georefAPI.adicionarParcela(proj.id); await recarregar(); }
+    catch { toast({ title: 'Erro ao adicionar parcela', variant: 'destructive' }); }
+  };
+  const removeParcela = async (parcelaId) => {
+    try { await georefAPI.removerParcela(proj.id, parcelaId); await recarregar(); }
+    catch { toast({ title: 'Erro ao remover parcela', variant: 'destructive' }); }
+  };
+  const uploadParcelaFile = async (parcelaId, tipo, file) => {
+    if (!file) return;
+    try { await georefAPI.uploadParcela(proj.id, parcelaId, tipo, file); await recarregar(); toast({ title: `${tipo} enviado` }); }
+    catch (e) { toast({ title: 'Falha no upload', description: e?.response?.data?.detail || '', variant: 'destructive' }); }
+  };
+
   const extrair = async () => {
     setExtraindo(true);
     try {
@@ -197,6 +216,8 @@ export default function GeorefWizard() {
   const confrontantesDrl = requerDrl
     ? (proj.confrontantes || []).filter((c) => c.tipo !== 'proprio')
     : [];
+  const suportaParcelas = MULTIPARCELA_TIPOS.includes(proj.tipo_servico);
+  const parcelas = proj.parcelas || [];
   const nb = (proj.imovel?.matricula || proj.numero || 'projeto');
 
   return (
@@ -274,6 +295,37 @@ export default function GeorefWizard() {
             </button>
             {!proj.uploads?.memorial && <span className="text-xs text-amber-600">Envie o Memorial Descritivo primeiro.</span>}
           </div>
+
+          {suportaParcelas && (
+            <div className="mt-6 border-t pt-5">
+              <H title="Parcelas resultantes (Parte II, III…)"
+                sub="A Parte I é o Memorial principal acima. Suba o Memorial de cada parcela do desmembramento." />
+              {parcelas.map((pc, i) => (
+                <div key={pc.id} className="mb-3 rounded-lg border p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium text-sm" style={{ color: GREEN }}>
+                      {pc.rotulo || `Parte ${i + 2}`}{pc.denominacao ? ` — ${pc.denominacao}` : ''}
+                    </span>
+                    <button onClick={() => removeParcela(pc.id)} className="text-gray-300 hover:text-red-500">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="grid sm:grid-cols-2 gap-2">
+                    <UploadBox u={{ tipo: 'memorial', label: 'Memorial da parcela', accept: '.pdf', req: true }}
+                      info={pc.uploads?.memorial} onPick={(f) => uploadParcelaFile(pc.id, 'memorial', f)} />
+                    <UploadBox u={{ tipo: 'mapa', label: 'Mapa da parcela', accept: '.pdf,image/*' }}
+                      info={pc.uploads?.mapa} onPick={(f) => uploadParcelaFile(pc.id, 'mapa', f)} />
+                  </div>
+                </div>
+              ))}
+              <button onClick={addParcela}
+                className="inline-flex items-center gap-2 text-sm px-3 py-2 rounded-lg border hover:bg-gray-50"
+                style={{ color: GREEN }}>
+                <Plus className="w-4 h-4" /> Adicionar parcela
+              </button>
+              <p className="text-xs text-gray-400 mt-2">Após subir os memoriais das parcelas, clique em “Extrair” novamente.</p>
+            </div>
+          )}
         </Card>
       )}
 
@@ -326,6 +378,25 @@ export default function GeorefWizard() {
               </div>
             </div>
           </Card>
+          {suportaParcelas && parcelas.length > 0 && (
+            <Card>
+              <H title="Parcelas resultantes" sub="Dados extraídos do Memorial de cada parcela do desmembramento." />
+              <div className="space-y-4">
+                {parcelas.map((pc, i) => (
+                  <div key={pc.id} className="grid md:grid-cols-2 gap-4 border rounded-lg p-3">
+                    <div className="text-sm">
+                      <div className="font-medium" style={{ color: GREEN }}>{pc.rotulo || `Parte ${i + 2}`}</div>
+                      <div className="text-gray-600">{pc.denominacao || '— sem dados (extraia novamente) —'}</div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        Área {pc.area_ha ?? '—'} ha · Perímetro {pc.perimetro_m ?? '—'} m · {(pc.vertices || []).length} vértices
+                      </div>
+                    </div>
+                    <PoligonalPreview vertices={pc.vertices || []} height={150} />
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
           {(proj.imovel?.cadeia_dominial?.length > 0) && (
             <Card>
               <H title="Cadeia dominial" sub="Edite tipo / data / partes de cada ato (revisão da certidão)." />
@@ -399,7 +470,7 @@ export default function GeorefWizard() {
               {[
                 ['requerimento', 'Requerimento ao Cartório'],
                 ['laudo_tecnico', 'Laudo Técnico de Agrimensura'],
-                ['memorial', 'Memorial Descritivo'],
+                ...(parcelas.length > 0 ? [] : [['memorial', 'Memorial Descritivo']]),
               ].map(([k, lab]) => (
                 <DocRow key={k} label={lab}
                   onVer={() => verBlob(georefAPI.documento(proj.id, k, 'pdf', proj.tema_pdf))}
@@ -408,6 +479,24 @@ export default function GeorefWizard() {
               ))}
             </div>
           </Card>
+
+          {parcelas.length > 0 && (
+            <Card>
+              <H title="Memoriais por parcela" sub="Um Memorial Descritivo por parcela do desmembramento." />
+              <div className="space-y-3">
+                <DocRow label={`Parte I — ${proj.imovel?.denominacao || 'principal'}`}
+                  onVer={() => verBlob(georefAPI.memorialParcela(proj.id, 'principal', 'pdf', proj.tema_pdf))}
+                  onPdf={() => baixar(georefAPI.memorialParcela(proj.id, 'principal', 'pdf', proj.tema_pdf), `memorial_PI_${nb}.pdf`)}
+                  onDocx={() => baixar(georefAPI.memorialParcela(proj.id, 'principal', 'docx'), `memorial_PI_${nb}.docx`)} />
+                {parcelas.map((pc, i) => (
+                  <DocRow key={pc.id} label={`${pc.rotulo || `Parte ${i + 2}`}${pc.denominacao ? ` — ${pc.denominacao}` : ''}`}
+                    onVer={() => verBlob(georefAPI.memorialParcela(proj.id, pc.id, 'pdf', proj.tema_pdf))}
+                    onPdf={() => baixar(georefAPI.memorialParcela(proj.id, pc.id, 'pdf', proj.tema_pdf), `memorial_${nb}.pdf`)}
+                    onDocx={() => baixar(georefAPI.memorialParcela(proj.id, pc.id, 'docx'), `memorial_${nb}.docx`)} />
+                ))}
+              </div>
+            </Card>
+          )}
 
           {confrontantesDrl.length > 0 && (
             <Card>
