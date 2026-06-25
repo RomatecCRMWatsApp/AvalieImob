@@ -175,7 +175,9 @@ def gerar_dossie(projeto, partes: dict, tema="prime_i") -> bytes:
             for drl_bytes in val:
                 _append(writer, drl_bytes)
         elif chave in ("art_trt", "ccir", "car", "itr", "certidao_matricula", "doc_cliente"):
-            _append(writer, _to_pdf(val))
+            itens = val if isinstance(val, (list, tuple)) else [val]
+            for v in itens:
+                _append(writer, _to_pdf(v))
         else:
             _append(writer, val)
     buf = io.BytesIO()

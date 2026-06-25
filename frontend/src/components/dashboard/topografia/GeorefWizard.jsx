@@ -25,6 +25,8 @@ const requerDrlTipo = (tipo) => !DRL_DISPENSA.includes(tipo);
 // Tipos que podem ter MÚLTIPLAS parcelas (Parte I, II, III...).
 const MULTIPARCELA_TIPOS = ['desmembramento', 'remembramento'];
 
+const normLista = (v) => (Array.isArray(v) ? v : (v ? [v] : []));
+
 const UPLOADS = [
   { tipo: 'memorial', label: 'Memorial Descritivo (SIGEF)', accept: '.pdf', req: true },
   { tipo: 'mapa', label: 'Mapa / Planta (SIGEF)', accept: '.pdf,image/*' },
@@ -155,6 +157,23 @@ export default function GeorefWizard() {
     } catch (e) {
       toast({ title: 'Falha no upload', description: e?.response?.data?.detail || '', variant: 'destructive' });
     }
+  };
+
+  // ── upload multi (ITR — últimos 5 exercícios) ──
+  const onUploadMultiplos = async (tipo, files) => {
+    const lista = Array.from(files || []).slice(0, 5);
+    if (!lista.length) return;
+    try {
+      for (const f of lista) { await georefAPI.upload(proj.id, tipo, f); }
+      await recarregar();
+      toast({ title: `${lista.length} arquivo(s) enviado(s)` });
+    } catch (e) {
+      toast({ title: 'Falha no upload', description: e?.response?.data?.detail || '', variant: 'destructive' });
+    }
+  };
+  const removerItem = async (tipo, itemId) => {
+    try { await georefAPI.removerUploadItem(proj.id, tipo, itemId); await recarregar(); }
+    catch { toast({ title: 'Erro ao remover', variant: 'destructive' }); }
   };
 
   // ── parcelas (desmembramento) ──
@@ -319,7 +338,11 @@ export default function GeorefWizard() {
             sub="Suba o Memorial SIGEF (obrigatório) e os demais. Depois clique em Extrair." />
           <div className="grid sm:grid-cols-2 gap-3">
             {UPLOADS.map((u) => (
-              <UploadBox key={u.tipo} u={u} info={proj.uploads?.[u.tipo]} onPick={(f) => onUpload(u.tipo, f)} />
+              u.tipo === 'itr'
+                ? <ItrBox key="itr" itens={normLista(proj.uploads?.itr)}
+                    onAdd={(files) => onUploadMultiplos('itr', files)}
+                    onRemove={(id) => removerItem('itr', id)} />
+                : <UploadBox key={u.tipo} u={u} info={proj.uploads?.[u.tipo]} onPick={(f) => onUpload(u.tipo, f)} />
             ))}
           </div>
           <div className="mt-6 flex items-center gap-3">
@@ -696,6 +719,44 @@ function UploadBox({ u, info, onPick }) {
         className="text-xs font-semibold px-3 py-1.5 rounded-lg border hover:bg-gray-50" style={{ color: GREEN }}>
         {info ? 'Trocar' : 'Enviar'}
       </button>
+    </div>
+  );
+}
+
+function ItrBox({ itens, onAdd, onRemove }) {
+  const ref = useRef(null);
+  return (
+    <div className="border border-dashed rounded-lg p-3 sm:col-span-2">
+      <div className="flex items-center justify-between mb-2">
+        <div>
+          <div className="text-sm font-medium text-gray-700">
+            ITR — Imposto Territorial Rural <span className="text-xs text-gray-400">(últimos 5 exercícios)</span>
+          </div>
+          <div className="text-xs text-gray-400">
+            {itens.length ? `${itens.length}/5 exercício(s) enviado(s)` : 'Nenhum arquivo — suba quantos tiver (até 5)'}
+          </div>
+        </div>
+        <input ref={ref} type="file" accept=".pdf,image/*" multiple className="hidden"
+          onChange={(e) => { onAdd(e.target.files); e.target.value = ''; }} />
+        <button onClick={() => ref.current?.click()} disabled={itens.length >= 5}
+          className="text-xs font-semibold px-3 py-1.5 rounded-lg border hover:bg-gray-50 disabled:opacity-40"
+          style={{ color: GREEN }}>
+          + Adicionar
+        </button>
+      </div>
+      {itens.length > 0 && (
+        <ul className="space-y-1">
+          {itens.map((it) => (
+            <li key={it.id || it.key} className="flex items-center gap-2 text-xs text-gray-600 bg-gray-50 rounded px-2 py-1">
+              <FileCheck2 className="w-3.5 h-3.5 shrink-0" style={{ color: GREEN }} />
+              <span className="truncate flex-1">{it.filename || 'arquivo'}</span>
+              <button onClick={() => onRemove(it.id || it.key)} className="text-gray-300 hover:text-red-500">
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

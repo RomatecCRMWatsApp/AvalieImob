@@ -34,6 +34,8 @@ logger = logging.getLogger("romatec")
 router = APIRouter(prefix="/topografia/georef", tags=["topografia-geo"])
 
 _TIPOS_UPLOAD = {"memorial", "mapa", "ccir", "certidao", "art_trt", "car", "itr", "doc_cliente"}
+# Tipos que aceitam VÁRIOS arquivos (lista) — ITR: últimos 5 exercícios.
+_TIPOS_MULTI = {"itr"}
 _MAX_UPLOAD = 30 * 1024 * 1024  # 30 MB
 _MIME = {
     "pdf": "application/pdf",
@@ -162,7 +164,10 @@ async def upload_documento(pid: str, tipo: str = Form(...), file: UploadFile = F
         raise HTTPException(status_code=413, detail="Arquivo muito grande (máx. 30 MB)")
 
     ext = _ext_arquivo(file.filename, file.content_type)
-    key = f"topografia/{uid}/{pid}/{tipo}.{ext}"
+    item_id = str(uuid.uuid4())
+    multi = tipo in _TIPOS_MULTI
+    key = (f"topografia/{uid}/{pid}/{tipo}/{item_id}.{ext}" if multi
+           else f"topografia/{uid}/{pid}/{tipo}.{ext}")
     ct = file.content_type or _MIME.get(ext, "application/octet-stream")
     try:
         await asyncio.to_thread(r2_storage.upload_bytes, data, key, ct)
@@ -170,14 +175,40 @@ async def upload_documento(pid: str, tipo: str = Form(...), file: UploadFile = F
         logger.error("Topografia: falha no upload R2 (%s)", e)
         raise HTTPException(status_code=502, detail="Falha ao armazenar o arquivo")
 
+    info = {"id": item_id, "key": key, "filename": file.filename, "content_type": ct,
+            "ext": ext, "uploaded_at": _agora().isoformat()}
     uploads = dict(doc.get("uploads") or {})
-    uploads[tipo] = {"key": key, "filename": file.filename, "content_type": ct,
-                     "ext": ext, "uploaded_at": _agora().isoformat()}
+    if multi:
+        atual = uploads.get(tipo)
+        if isinstance(atual, dict):       # legado (era 1 só)
+            atual = [atual]
+        atual = list(atual or [])
+        atual.append(info)
+        uploads[tipo] = atual
+    else:
+        uploads[tipo] = info
     await db.georef_projetos.update_one(
         {"id": pid, "user_id": uid},
         {"$set": {"uploads": uploads, "updated_at": _agora().isoformat()}},
     )
-    return {"ok": True, "tipo": tipo, "uploads": list(uploads.keys())}
+    return {"ok": True, "tipo": tipo, "item": info, "uploads": list(uploads.keys())}
+
+
+@router.delete("/projetos/{pid}/uploads/{tipo}/{item_id}")
+async def remover_upload_item(pid: str, tipo: str, item_id: str,
+                             uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    """Remove UM arquivo de um upload multi (ex.: um exercício do ITR)."""
+    doc = await _get_projeto(db, pid, uid)
+    uploads = dict(doc.get("uploads") or {})
+    atual = uploads.get(tipo)
+    if isinstance(atual, dict):
+        atual = [atual]
+    atual = [x for x in (atual or []) if x.get("id") != item_id and x.get("key") != item_id]
+    uploads[tipo] = atual
+    await db.georef_projetos.update_one(
+        {"id": pid, "user_id": uid},
+        {"$set": {"uploads": uploads, "updated_at": _agora().isoformat()}})
+    return {"ok": True}
 
 
 _ROMANOS = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"]
@@ -534,11 +565,23 @@ def _montar_dossie(doc: dict, tema: str) -> bytes:
     }
     uploads = doc.get("uploads") or {}
     for chave, tipo_up in (("art_trt", "art_trt"), ("ccir", "ccir"), ("car", "car"),
-                           ("itr", "itr"), ("certidao_matricula", "certidao"),
-                           ("doc_cliente", "doc_cliente")):
+                           ("certidao_matricula", "certidao"), ("doc_cliente", "doc_cliente")):
         raw = _download_upload(uploads, tipo_up)
         if raw:
             partes[chave] = raw
+    # ITR: vários exercícios (lista) — baixa todos
+    itr_itens = uploads.get("itr")
+    if isinstance(itr_itens, dict):
+        itr_itens = [itr_itens]
+    itr_bytes = []
+    for it in (itr_itens or []):
+        if it.get("key"):
+            try:
+                itr_bytes.append(r2_storage.download_bytes(it["key"]))
+            except Exception:  # noqa: BLE001
+                pass
+    if itr_bytes:
+        partes["itr"] = itr_bytes
     return DOSSIE.gerar_dossie(doc, partes, tema)
 
 

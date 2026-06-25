@@ -681,6 +681,9 @@ export const georefAPI = {
     fd.append('file', file);
     return api.post(`${GEOREF}/projetos/${id}/upload`, fd).then((r) => r.data);
   },
+  // Remove UM arquivo de um upload multi (ex.: um exercício do ITR)
+  removerUploadItem: (id, tipo, itemId) =>
+    api.delete(`${GEOREF}/projetos/${id}/uploads/${tipo}/${itemId}`).then((r) => r.data),
   // Parcelas (desmembramento/remembramento)
   adicionarParcela: (id, rotulo) =>
     api.post(`${GEOREF}/projetos/${id}/parcelas`, { rotulo }).then((r) => r.data),
