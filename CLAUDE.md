@@ -304,3 +304,14 @@ mcp__obsidian__str_replace(
 - Versionamento: PTAM e Contratos usam sistema de versões com SHA-256 + diff
 - Rate limiting: `@limiter.limit()` nas rotas sensíveis
 - Segurança: headers de segurança aplicados globalmente via `SecurityHeadersMiddleware`
+- **Ícones lucide (REGRA — não quebrar no iOS): NUNCA usar `import * as Icons from 'lucide-react'`
+  + acesso dinâmico `Icons[nome]`/`Icons.Algo`.** Isso QUEBRA no Safari/iOS (JSC) com
+  `undefined is not an object` ao renderizar o ícone (não dá erro no Chrome/desktop) e ainda
+  puxa o barrel INTEIRO do lucide pro bundle (inchou o `main.js` em ~134 kB). Sempre usar
+  **import NOMEADO** + mapa estático quando o ícone vier por string:
+  `import { FileText, Circle } from 'lucide-react'; const ICONES = { FileText }; const Icon = ICONES[nome] || Circle;`
+  (causou o crash "Algo deu errado / não abre no mobile" — v1.4.1036, em Features/Services/PtamWizard/LocacaoWizard).
+- Diagnóstico de crash em produção: o `ErrorBoundary` (App.js) mostra o stack na tela + botão
+  "Copiar erro"; para desminificar, baixar o `.map` do SERVIDOR
+  (`/static/js/main.<hash>.js.map` — o hash do build local ≠ deploy por causa do version.js)
+  e usar a lib `source-map` (`originalPositionFor`; coluna do Safari é 1-based → subtrair 1).
