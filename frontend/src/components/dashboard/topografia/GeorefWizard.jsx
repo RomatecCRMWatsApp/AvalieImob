@@ -168,8 +168,13 @@ export default function GeorefWizard() {
   };
   const uploadParcelaFile = async (parcelaId, tipo, file) => {
     if (!file) return;
-    try { await georefAPI.uploadParcela(proj.id, parcelaId, tipo, file); await recarregar(); toast({ title: `${tipo} enviado` }); }
-    catch (e) { toast({ title: 'Falha no upload', description: e?.response?.data?.detail || '', variant: 'destructive' }); }
+    try {
+      const r = await georefAPI.uploadParcela(proj.id, parcelaId, tipo, file);
+      await recarregar();
+      toast({ title: (tipo === 'memorial' && r?.extraido) ? 'Memorial lido — parcela extraída ✓' : `${tipo} enviado` });
+    } catch (e) {
+      toast({ title: 'Falha no upload', description: e?.response?.data?.detail || '', variant: 'destructive' });
+    }
   };
 
   // ── cartório pelo CNS ──
@@ -338,7 +343,7 @@ export default function GeorefWizard() {
                 style={{ color: GREEN }}>
                 <Plus className="w-4 h-4" /> Adicionar parcela
               </button>
-              <p className="text-xs text-gray-400 mt-2">Após subir os memoriais das parcelas, clique em “Extrair” novamente.</p>
+              <p className="text-xs text-gray-400 mt-2">O Memorial de cada parcela é lido automaticamente ao subir (vértices, área e confrontantes).</p>
             </div>
           )}
         </Card>

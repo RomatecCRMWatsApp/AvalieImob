@@ -236,10 +236,30 @@ async def upload_parcela(pid: str, parcela_id: str, tipo: str = Form(...),
     uploads[tipo] = {"key": key, "filename": file.filename, "content_type": ct,
                      "ext": ext, "uploaded_at": _agora().isoformat()}
     parcelas[idx]["uploads"] = uploads
+    extraido = False
+    # Memorial da parcela: extrai os dados (vértices/área/denominação) JÁ NO UPLOAD,
+    # direto dos bytes — não depende de clicar "Extrair" de novo nem do R2.
+    if tipo == "memorial":
+        try:
+            resp = await asyncio.to_thread(EX.parse_memorial, data)
+            ph = resp.get("imovel") or {}
+            for k in ("denominacao", "natureza_area", "area_ha", "perimetro_m",
+                      "sistema_geodesico", "certificacao_sigef"):
+                if ph.get(k) not in (None, ""):
+                    parcelas[idx][k] = ph.get(k)
+            if resp.get("vertices"):
+                parcelas[idx]["vertices"] = resp["vertices"]
+                mat = (doc.get("imovel") or {}).get("matricula")
+                parcelas[idx]["confrontantes"] = EX.agrupar_confrontantes(
+                    resp["vertices"], matricula_imovel=mat)
+                extraido = True
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Topografia: parse do memorial da parcela %s falhou (%s)", parcela_id, e)
     await db.georef_projetos.update_one(
         {"id": pid, "user_id": uid},
         {"$set": {"parcelas": parcelas, "updated_at": _agora().isoformat()}})
-    return {"ok": True, "parcela_id": parcela_id, "tipo": tipo}
+    return {"ok": True, "parcela_id": parcela_id, "tipo": tipo,
+            "extraido": extraido, "parcela": parcelas[idx]}
 
 
 def _download_upload(uploads: dict, tipo: str):
