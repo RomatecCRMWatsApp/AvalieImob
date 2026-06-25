@@ -663,3 +663,38 @@ export const avaliacaoPublicaAPI = {
   estimar: (imovel) => api.post('/avaliacao-publica/estimar', imovel).then((r) => r.data),
   lead: (payload) => api.post('/avaliacao-publica/lead', payload).then((r) => r.data),
 };
+
+// Topografia & Geo — Georreferenciamento / Requerimentos Cartoriais
+const GEOREF = '/topografia/georef';
+export const georefAPI = {
+  listar: (params = {}) => api.get(`${GEOREF}/projetos`, { params }).then((r) => r.data),
+  criar: (data) => api.post(`${GEOREF}/projetos`, data).then((r) => r.data),
+  obter: (id) => api.get(`${GEOREF}/projetos/${id}`).then((r) => r.data),
+  atualizar: (id, data) => api.patch(`${GEOREF}/projetos/${id}`, data).then((r) => r.data),
+  excluir: (id) => api.delete(`${GEOREF}/projetos/${id}`).then((r) => r.data),
+
+  // Upload de documento-fonte (tipo: memorial|mapa|ccir|certidao|doc_cliente).
+  // NÃO fixar Content-Type: o axios precisa setar o boundary do multipart sozinho.
+  upload: (id, tipo, file) => {
+    const fd = new FormData();
+    fd.append('tipo', tipo);
+    fd.append('file', file);
+    return api.post(`${GEOREF}/projetos/${id}/upload`, fd).then((r) => r.data);
+  },
+  extrair: (id) => api.post(`${GEOREF}/projetos/${id}/extrair`).then((r) => r.data),
+  previewGeojson: (id) => api.get(`${GEOREF}/projetos/${id}/preview-geojson`).then((r) => r.data),
+  validar: (id) => api.get(`${GEOREF}/projetos/${id}/validar`).then((r) => r.data),
+  gerar: (id, data = {}) => api.post(`${GEOREF}/projetos/${id}/gerar`, data).then((r) => r.data),
+
+  // Downloads (blob)
+  documento: (id, tipo, fmt = 'pdf', tema) =>
+    api.get(`${GEOREF}/projetos/${id}/documentos/${tipo}`,
+      { params: { fmt, ...(tema ? { tema } : {}) }, responseType: 'blob' }).then((r) => r.data),
+  drl: (id, confKey, fmt = 'pdf', tema) =>
+    api.get(`${GEOREF}/projetos/${id}/documentos/drl/${encodeURIComponent(confKey)}`,
+      { params: { fmt, ...(tema ? { tema } : {}) }, responseType: 'blob' }).then((r) => r.data),
+  shapefile: (id) =>
+    api.get(`${GEOREF}/projetos/${id}/shapefile`, { responseType: 'blob' }).then((r) => r.data),
+  kml: (id) =>
+    api.get(`${GEOREF}/projetos/${id}/kml`, { responseType: 'blob' }).then((r) => r.data),
+};

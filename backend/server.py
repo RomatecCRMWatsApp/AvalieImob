@@ -590,6 +590,15 @@ async def startup():
         await db.leads_avaliacao.create_index([("status", 1), ("criado_em", -1)])
     except Exception as e:
         logger.error(f"Erro ao criar índices de leads_avaliacao: {e}")
+    # Índices do módulo Topografia & Geo (georreferenciamento) — idempotente.
+    try:
+        db = get_db()
+        await db.georef_projetos.create_index("id", unique=True)
+        await db.georef_projetos.create_index([("user_id", 1), ("created_at", -1)])
+        await db.georef_projetos.create_index([("user_id", 1), ("status", 1)])
+        await db.georef_projetos.create_index("imovel.cod_incra")
+    except Exception as e:
+        logger.error(f"Erro ao criar índices de georef_projetos: {e}")
     # NFS-e: materializa o certificado .pfx de ROMATEC_CERT_PFX_B64 (Railway), se houver.
     try:
         from services.nfse.sefin.certificado import materializar_cert_de_env

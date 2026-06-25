@@ -54,3 +54,7 @@ PyMuPDF==1.24.5
 # ── White-label: detecção de MIME por magic bytes + rasterização de SVG ──
 python-magic>=0.4.27   # Debian/Ubuntu: apt-get install -y libmagic1
 cairosvg>=2.7.1        # Debian/Ubuntu: apt-get install -y libcairo2
+# ── Topografia & Geo: extração SIGEF/INCRA + Shapefile SIG-RI (Prov. CNJ 195/2025) ──
+pdfplumber>=0.11.4     # parse do Memorial/CCIR (pdfminer.six puro, sem deps de sistema)
+pyshp>=2.3.1           # Shapefile SIRGAS 2000/EPSG:4674 (pure-python)
+shapely>=2.0.0         # validação geométrica da poligonal (wheels trazem o GEOS)

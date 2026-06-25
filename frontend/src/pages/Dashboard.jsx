@@ -58,6 +58,8 @@ import ReciboWizard from '../components/dashboard/recibos/ReciboWizard';
 import BrandingWizard from '../components/dashboard/branding/BrandingWizard';
 import PainelConformidade from '../components/dashboard/conformidade/PainelConformidade';
 import FotosWidget from '../components/common/FotosWidget';
+import GeorefList from '../components/dashboard/topografia/GeorefList';
+import GeorefWizard from '../components/dashboard/topografia/GeorefWizard';
 
 /* ─── Brand ─────────────────────────────────────────────── */
 const GOLD       = '#D4A830';
@@ -481,6 +483,9 @@ const Dashboard = () => {
             <Route path="admin/leads" element={<LeadsAdmin />} />
             <Route path="admin/danfse" element={<DanfseTemas />} />
             <Route path="admin/nfse-emissao" element={<NfseEmissao />} />
+            <Route path="topografia/georef"      element={<GeorefList />} />
+            <Route path="topografia/georef/novo" element={<GeorefWizard />} />
+            <Route path="topografia/georef/:id"  element={<GeorefWizard />} />
             <Route path="*"            element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </div>
