@@ -163,7 +163,7 @@ export default function AssinaturaPosicionadaModal({ tipo, documentId, onAssinad
       <div className="flex-1 overflow-auto bg-gray-800 flex justify-center p-4">
         {loading && <div className="flex items-center justify-center w-full"><Loader2 className="w-10 h-10 text-emerald-400 animate-spin" /></div>}
         {!loading && pg && (
-          <div className="relative select-none" style={{ display: 'inline-block' }}>
+          <div className="relative select-none self-start">
             <img
               ref={imgRef}
               src={`data:image/png;base64,${pg.imagem_b64}`}
