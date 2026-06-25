@@ -481,7 +481,8 @@ async def baixar_documento(pid: str, tipo: str, fmt: str = Query("pdf"),
     nb = _nome_base(doc)
 
     if tipo == "dossie":
-        data = await asyncio.to_thread(_montar_dossie, doc, tema)
+        assinados = await _carregar_pecas_assinadas(db, pid, uid)
+        data = await asyncio.to_thread(_montar_dossie, doc, tema, assinados)
         return _resp(data, "pdf", f"Dossie_{nb}.pdf", inline=(fmt != "download"))
 
     if tipo not in ("requerimento", "memorial", "laudo_tecnico"):
@@ -535,16 +536,23 @@ async def baixar_kml(pid: str, uid: str = Depends(get_active_subscriber), db=Dep
     return _resp(GEO.gerar_kml(doc).encode("utf-8"), "kml", f"{_nome_base(doc)}.kml")
 
 
-def _memoriais_combinados(doc: dict, tema: str) -> bytes:
-    """Memorial do principal + de cada parcela adicional, mesclados em 1 PDF."""
+def _memoriais_combinados(doc: dict, tema: str, assinados: dict = None) -> bytes:
+    """Memorial do principal + de cada parcela adicional, mesclados em 1 PDF.
+    Se a peça já foi assinada (ICP), usa a versão ASSINADA em vez de regerar."""
     import io as _io
     from pypdf import PdfReader, PdfWriter
-    pdfs = [PDF.gerar_pdf("memorial", doc, tema)]
+    assinados = assinados or {}
+
+    def _mem(alvo: dict, parc_key: str) -> bytes:
+        b = assinados.get(("memorial", parc_key))
+        return b if b else PDF.gerar_pdf("memorial", alvo, tema)
+
+    pdfs = [_mem(doc, "principal")]
     if tem_multiparcela(doc):
         for pv in parcelas_do_projeto(doc):
             if pv.get("principal"):
                 continue
-            pdfs.append(PDF.gerar_pdf("memorial", projeto_da_parcela(doc, pv), tema))
+            pdfs.append(_mem(projeto_da_parcela(doc, pv), pv.get("id")))
     if len(pdfs) == 1:
         return pdfs[0]
     w = PdfWriter()
@@ -556,25 +564,50 @@ def _memoriais_combinados(doc: dict, tema: str) -> bytes:
     return buf.getvalue()
 
 
-def _montar_dossie(doc: dict, tema: str) -> bytes:
+def _itr_por_exercicio(itens: list) -> list:
+    """Ordena os ITR pelo ano (exercício) presente no nome do arquivo (2021→2025)."""
+    import re as _re
+
+    def _chave(it):
+        m = _re.search(r"(19|20)\d{2}", it.get("filename") or "")
+        return (int(m.group(0)) if m else 0, it.get("filename") or "", it.get("uploaded_at") or "")
+    return sorted(itens, key=_chave)
+
+
+def _montar_dossie(doc: dict, tema: str, assinados: dict = None) -> bytes:
+    """`assinados`: {(doc, parcela): bytes} das peças JÁ assinadas (ICP) — usadas
+    no lugar das geradas, para o Dossiê sair com as assinaturas."""
+    assinados = assinados or {}
+
+    def _peca(kind, gen):
+        b = assinados.get((kind, None))
+        return b if b else gen()
+
     partes = {
-        "requerimento": PDF.gerar_pdf("requerimento", doc, tema),
-        "laudo_tecnico": PDF.gerar_pdf("laudo_tecnico", doc, tema),
-        "memorial": _memoriais_combinados(doc, tema),
+        "requerimento": _peca("requerimento", lambda: PDF.gerar_pdf("requerimento", doc, tema)),
+        "laudo_tecnico": _peca("laudo", lambda: PDF.gerar_pdf("laudo_tecnico", doc, tema)),
+        "memorial": _memoriais_combinados(doc, tema, assinados),
         "drl": [PDF.gerar_pdf("drl", doc, tema, c) for c in TX.confrontantes_para_drl(doc)],
     }
     uploads = doc.get("uploads") or {}
-    for chave, tipo_up in (("art_trt", "art_trt"), ("ccir", "ccir"), ("car", "car"),
-                           ("certidao_matricula", "certidao"), ("doc_cliente", "doc_cliente")):
+    # ART/TRT: versão assinada se houver; senão o arquivo enviado
+    art_assinado = assinados.get(("art_trt", None))
+    loop_items = [("ccir", "ccir"), ("car", "car"),
+                  ("certidao_matricula", "certidao"), ("doc_cliente", "doc_cliente")]
+    if art_assinado:
+        partes["art_trt"] = art_assinado
+    else:
+        loop_items.insert(0, ("art_trt", "art_trt"))
+    for chave, tipo_up in loop_items:
         raw = _download_upload(uploads, tipo_up)
         if raw:
             partes[chave] = raw
-    # ITR: vários exercícios (lista) — baixa todos
+    # ITR: vários exercícios (lista) — ordena por ano e baixa todos
     itr_itens = uploads.get("itr")
     if isinstance(itr_itens, dict):
         itr_itens = [itr_itens]
     itr_bytes = []
-    for it in (itr_itens or []):
+    for it in _itr_por_exercicio(list(itr_itens or [])):
         if it.get("key"):
             try:
                 itr_bytes.append(r2_storage.download_bytes(it["key"]))
@@ -583,6 +616,26 @@ def _montar_dossie(doc: dict, tema: str) -> bytes:
     if itr_bytes:
         partes["itr"] = itr_bytes
     return DOSSIE.gerar_dossie(doc, partes, tema)
+
+
+async def _carregar_pecas_assinadas(db, pid: str, uid: str) -> dict:
+    """{(doc, parcela_norm): bytes} das peças já assinadas (ICP) deste projeto.
+    parcela_norm: para memorial 'principal' ou id da parcela; senão None."""
+    from routes.assinatura import _load_assinatura_bytes
+    out: dict = {}
+    recs = await db.georef_assinaturas.find(
+        {"user_id": uid, "projeto_id": pid, "icp_status": "assinado"}).to_list(300)
+    for r in recs:
+        try:
+            b, _ = await _load_assinatura_bytes(db, "georef", r["id"])
+        except Exception:  # noqa: BLE001
+            b = None
+        if not b or b[:5] != b"%PDF-":
+            continue
+        dock = r.get("doc")
+        parc = (r.get("parcela") or "principal") if dock == "memorial" else None
+        out[(dock, parc)] = b
+    return out
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -597,7 +650,8 @@ _DOC_NOMES = {
 }
 
 
-def _pdf_para_assinatura(doc: dict, tipo_doc: str, parcela: str, tema: str) -> bytes:
+def _pdf_para_assinatura(doc: dict, tipo_doc: str, parcela: str, tema: str,
+                         assinados: dict = None) -> bytes:
     if tipo_doc == "memorial":
         return PDF.gerar_pdf("memorial", _doc_para_memorial(doc, parcela), tema)
     if tipo_doc == "laudo":
@@ -605,7 +659,7 @@ def _pdf_para_assinatura(doc: dict, tipo_doc: str, parcela: str, tema: str) -> b
     if tipo_doc == "requerimento":
         return PDF.gerar_pdf("requerimento", doc, tema)
     if tipo_doc == "dossie":
-        return _montar_dossie(doc, tema)
+        return _montar_dossie(doc, tema, assinados)
     if tipo_doc == "art_trt":
         raw = _download_upload(doc.get("uploads") or {}, "art_trt")
         if not raw:
@@ -626,14 +680,21 @@ async def preparar_assinatura(pid: str, body: AssinarPecaBody,
     if body.doc not in _DOC_NOMES:
         raise HTTPException(status_code=422, detail="Documento inválido para assinatura.")
     tema = body.tema or doc.get("tema_pdf") or "prime_i"
+    # Dossiê assinado deve EMBUTIR as peças que já foram assinadas individualmente.
+    assinados = await _carregar_pecas_assinadas(db, pid, uid) if body.doc == "dossie" else None
     try:
-        pdf_bytes = await asyncio.to_thread(_pdf_para_assinatura, doc, body.doc, body.parcela, tema)
+        pdf_bytes = await asyncio.to_thread(
+            _pdf_para_assinatura, doc, body.doc, body.parcela, tema, assinados)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     if not pdf_bytes or pdf_bytes[:5] != b"%PDF-":
         raise HTTPException(status_code=500, detail="Falha ao gerar o PDF para assinatura.")
 
-    aid = str(uuid.uuid4())
+    # Registro ESTÁVEL por (projeto, doc, parcela) — reusa o mesmo id (não duplica;
+    # preserva o status de assinado entre preparações/reassinaturas).
+    filtro = {"user_id": uid, "projeto_id": pid, "doc": body.doc, "parcela": body.parcela}
+    existente = await db.georef_assinaturas.find_one(filtro)
+    aid = existente["id"] if existente else str(uuid.uuid4())
     key = f"georef/{uid}/{pid}/assinar/{body.doc}_{aid[:8]}.pdf"
     try:
         await asyncio.to_thread(r2_storage.upload_bytes, pdf_bytes, key, "application/pdf")
@@ -653,8 +714,27 @@ async def preparar_assinatura(pid: str, body: AssinarPecaBody,
     elif body.doc == "memorial":
         rotulo = " (Parte I)" if tem_multiparcela(doc) else ""
     nome = f"{_DOC_NOMES[body.doc]}{rotulo} — {_nome_base(doc)}"
-    rec = {"id": aid, "user_id": uid, "projeto_id": pid, "doc": body.doc, "parcela": body.parcela,
-           "nome": nome, "pdf_key": key, "paginas": paginas, "icp_status": None,
-           "tema": tema, "created_at": _agora().isoformat()}
-    await db.georef_assinaturas.insert_one(rec)
-    return {"id": aid, "nome": nome, "paginas": paginas}
+    if existente:
+        await db.georef_assinaturas.update_one(
+            {"id": aid},
+            {"$set": {"nome": nome, "pdf_key": key, "paginas": paginas, "tema": tema,
+                      "updated_at": _agora().isoformat()}})
+    else:
+        rec = {"id": aid, "user_id": uid, "projeto_id": pid, "doc": body.doc, "parcela": body.parcela,
+               "nome": nome, "pdf_key": key, "paginas": paginas, "icp_status": None,
+               "tema": tema, "created_at": _agora().isoformat()}
+        await db.georef_assinaturas.insert_one(rec)
+    return {"id": aid, "nome": nome, "paginas": paginas,
+            "assinado": (existente or {}).get("icp_status") == "assinado"}
+
+
+@router.get("/projetos/{pid}/assinaturas")
+async def listar_assinaturas(pid: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    """Status de assinatura ICP de cada peça do projeto (persiste — não some)."""
+    await _get_projeto(db, pid, uid)   # valida posse
+    recs = await db.georef_assinaturas.find(
+        {"user_id": uid, "projeto_id": pid}).to_list(300)
+    return [{"id": r["id"], "doc": r.get("doc"), "parcela": r.get("parcela"),
+             "assinado": r.get("icp_status") == "assinado",
+             "assinado_em": r.get("icp_assinado_em") or r.get("updated_at"),
+             "nome": r.get("nome"), "paginas": r.get("paginas")} for r in recs]

@@ -684,6 +684,9 @@ export const georefAPI = {
   // Remove UM arquivo de um upload multi (ex.: um exercício do ITR)
   removerUploadItem: (id, tipo, itemId) =>
     api.delete(`${GEOREF}/projetos/${id}/uploads/${tipo}/${itemId}`).then((r) => r.data),
+  // Status de assinatura ICP de cada peça (persiste — não some ao recarregar)
+  listarAssinaturas: (id) =>
+    api.get(`${GEOREF}/projetos/${id}/assinaturas`).then((r) => r.data),
   // Parcelas (desmembramento/remembramento)
   adicionarParcela: (id, rotulo) =>
     api.post(`${GEOREF}/projetos/${id}/parcelas`, { rotulo }).then((r) => r.data),
