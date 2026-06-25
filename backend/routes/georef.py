@@ -653,11 +653,22 @@ _DOC_NOMES = {
     "requerimento": "Requerimento ao Cartório",
     "dossie": "Dossiê Consolidado",
     "art_trt": "ART/TRT",
+    "mapa": "Mapa / Planta (SIGEF)",
 }
+# Peças que vêm de um UPLOAD (PDF/imagem) — assináveis direto.
+_DOC_UPLOAD = {"art_trt": "art_trt", "mapa": "mapa"}
 
 
 def _pdf_para_assinatura(doc: dict, tipo_doc: str, parcela: str, tema: str,
                          assinados: dict = None) -> bytes:
+    if tipo_doc in _DOC_UPLOAD:
+        raw = _download_upload(doc.get("uploads") or {}, _DOC_UPLOAD[tipo_doc])
+        if not raw:
+            raise ValueError(f"{_DOC_NOMES[tipo_doc]} não enviado (suba na etapa Upload).")
+        if raw[:5] == b"%PDF-":
+            return raw
+        from services.georef.generators.dossie import _img_para_pdf
+        return _img_para_pdf(raw)
     if tipo_doc == "memorial":
         return PDF.gerar_pdf("memorial", _doc_para_memorial(doc, parcela), tema)
     if tipo_doc == "laudo":
@@ -666,14 +677,6 @@ def _pdf_para_assinatura(doc: dict, tipo_doc: str, parcela: str, tema: str,
         return PDF.gerar_pdf("requerimento", doc, tema)
     if tipo_doc == "dossie":
         return _montar_dossie(doc, tema, assinados)
-    if tipo_doc == "art_trt":
-        raw = _download_upload(doc.get("uploads") or {}, "art_trt")
-        if not raw:
-            raise ValueError("ART/TRT não enviada (suba na etapa Upload).")
-        if raw[:5] == b"%PDF-":
-            return raw
-        from services.georef.generators.dossie import _img_para_pdf
-        return _img_para_pdf(raw)
     raise ValueError(f"Documento desconhecido para assinatura: {tipo_doc}")
 
 

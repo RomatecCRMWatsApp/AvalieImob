@@ -595,6 +595,14 @@ export default function GeorefWizard() {
                     onAssinar={() => abrirAssinatura('art_trt')} />
                 );
               })()}
+              {proj.uploads?.mapa && (() => {
+                const a = statusAssin('mapa');
+                return (
+                  <DocRow label="Mapa / Planta (SIGEF) — documento enviado"
+                    assinado={a?.assinado} onVerAssinado={a?.assinado ? () => verBlob(assinaturaPosAPI.downloadIcp('georef', a.id)) : null}
+                    onAssinar={() => abrirAssinatura('mapa')} />
+                );
+              })()}
             </div>
           </Card>
 
