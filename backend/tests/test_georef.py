@@ -272,6 +272,51 @@ def test_laudo_secoes(projeto):
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Regressão: layout REAL de 2 colunas do SIGEF (campos vizinhos na mesma linha)
+# ──────────────────────────────────────────────────────────────────────────────
+_MEMORIAL_2COL = [
+    "MEMORIAL DESCRITIVO",
+    "Denominação: FAZENDA SANTA MARIA - PARTE I Natureza da Área: Particular",
+    "Proprietário(a): PAULO HENRIQUE DA LUZ OLIVEIRA CPF: 960.826.313-15",
+    "Matrícula do imóvel:489 (1 de 2) Código INCRA/SNCR: 9510990828483",
+    "Município/UF: São Francisco do Brejão-MA Cartório (CNS): (03.169-0) São Francisco do",
+    "Responsável Técnico(a): JOSE ROMARIO PINTO BEZERRA Maranhão - MA",
+    "Formação: Técnico(a) Industrial em Agrimensura",
+    "Código de credenciamento: FQNS Conselho Profissional: 01209185369/MA",
+    "Sistema Geodésico de referência: SIRGAS 2000 Documento de RT: CFT2605953795 - MA",
+    "Área (Sistema Geodésico Local): 96,818 ha Coordenadas: Latitude, longitude e altitude",
+    "Perímetro (m): 4.095,92 m Azimutes: Azimutes geodésicos",
+    "FQNS-M-A016 -47°15'36,000\" -5°11'24,000\" 280,50 FQNS-M-017 90°00' 554,40 "
+    "CNS: 03.169-0 | Mat. 338 | Nome: XXXXFRANCISCO XXXX CPF: ***.403.283**",
+    "FQNS-M-017 -47°15'18,000\" -5°11'24,000\" 281,00 FQNS-M-018 0°00' 556,60 "
+    "CNS: 03.169-0 | Mat. 338 | Joao Francisco da Silva",
+]
+
+
+def test_parse_memorial_layout_2colunas():
+    """Garante o split correto quando o SIGEF junta 2 colunas na mesma linha."""
+    r = EX.parse_memorial(_pdf_de_linhas(_MEMORIAL_2COL))
+    im = r["imovel"]
+    assert im["denominacao"] == "FAZENDA SANTA MARIA - PARTE I"        # sem "Natureza..."
+    assert im["proprietario_nome"] == "PAULO HENRIQUE DA LUZ OLIVEIRA"  # sem "CPF..."
+    assert im["proprietario_cpf_cnpj"] == "960.826.313-15"
+    assert im["natureza_area"] == "Particular"
+    assert im["sistema_geodesico"] == "SIRGAS 2000"                     # sem "Documento de RT..."
+    assert im["municipio"] == "São Francisco do Brejão"
+    assert im["uf"] == "MA"
+    assert im["matricula"] == "489"
+    assert im["area_ha"] == pytest.approx(96.818)
+    assert im["perimetro_m"] == pytest.approx(4095.92)
+    assert r["responsavel_tecnico"]["nome"] == "JOSE ROMARIO PINTO BEZERRA"  # sem wrap "Maranhão"
+    # confrontante Mat.338 vira 1 grupo só, com o nome LIMPO (não o mascarado)
+    conf = EX.agrupar_confrontantes(r["vertices"], im["matricula"])
+    g338 = [c for c in conf if c.get("matricula") == "338"]
+    assert len(g338) == 1
+    assert g338[0]["nome"] == "Joao Francisco da Silva"
+    assert len(g338[0]["segmentos"]) == 2
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Renderers PDF / DOCX (nos 3 temas)
 # ──────────────────────────────────────────────────────────────────────────────
 @pytest.mark.parametrize("tema", ["tradicional", "prime_i", "prime_ii"])

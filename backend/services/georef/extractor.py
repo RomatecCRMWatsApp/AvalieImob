@@ -67,19 +67,23 @@ def _tipo_vertice(codigo: str):
 # ──────────────────────────────────────────────────────────────────────────────
 # Parser do Memorial Descritivo SIGEF
 # ──────────────────────────────────────────────────────────────────────────────
+# NOTA: o Memorial SIGEF tem layout de 2 COLUNAS — a extração de texto mistura
+# campos vizinhos na mesma linha (ex.: "Denominação: X ... Natureza da Área: Y").
+# Por isso vários padrões usam lookahead p/ PARAR no início do campo seguinte.
+# As buscas rodam com re.MULTILINE → `$` = fim de LINHA (não do documento).
 HEADER_PATTERNS = {
-    "denominacao":        r"Denomina[çc][ãa]o:\s*(.+)",
-    "proprietario_nome":  r"Propriet[áa]rio\(a\):\s*(.+)",
+    "denominacao":        r"Denomina[çc][ãa]o:\s*(.+?)(?=\s+Natureza da [ÁA]rea:|\s*$)",
+    "proprietario_nome":  r"Propriet[áa]rio\(a\):\s*(.+?)(?=\s+CPF:|\s*$)",
     "proprietario_cpf_cnpj": r"CPF:\s*([\d.\-/]+)",
     "matricula":          r"Matr[íi]cula do im[óo]vel:\s*([\d./-]+)",
-    "natureza_area":      r"Natureza da [ÁA]rea:\s*(.+)",
+    "natureza_area":      r"Natureza da [ÁA]rea:\s*(.+?)(?=\s+Cart[óo]rio|\s*$)",
     "cod_incra":          r"C[óo]digo INCRA/SNCR:\s*([\d]+)",
-    "rt_nome":            r"Respons[áa]vel T[ée]cnico\(a\):\s*(.+)",
-    "rt_formacao":        r"Forma[çc][ãa]o:\s*(.+)",
+    "rt_nome":            r"Respons[áa]vel T[ée]cnico\(a\):\s*([A-ZÀ-Ÿ]+(?![a-zà-ÿ])(?:\s+[A-ZÀ-Ÿ]+(?![a-zà-ÿ]))*)",
+    "rt_formacao":        r"Forma[çc][ãa]o:\s*(.+?)(?=\s+C[óo]digo de|\s*$)",
     "rt_credenciamento":  r"C[óo]digo de credenciamento:\s*(\w+)",
     "rt_conselho":        r"Conselho Profissional:\s*([\w/]+)",
     "rt_art":             r"Documento de RT:\s*([\w\-]+)",
-    "sistema_geodesico":  r"Sistema Geod[ée]sico de refer[êe]ncia:\s*(.+)",
+    "sistema_geodesico":  r"Sistema Geod[ée]sico de refer[êe]ncia:\s*(.+?)(?=\s+Documento de RT|\s*$)",
     "area_ha":            r"[ÁA]rea \(Sistema Geod[ée]sico Local\):\s*([\d.,]+)\s*ha",
     "perimetro_m":        r"Per[íi]metro \(m\):\s*([\d.,]+)",
     "certificacao_sigef": r"CERTIFICA[ÇC][ÃA]O:\s*([\w\-./]+)",
@@ -118,7 +122,7 @@ def parse_memorial(src: PdfSource) -> dict:
 
     head = {}
     for k, pat in HEADER_PATTERNS.items():
-        m = re.search(pat, full)
+        m = re.search(pat, full, re.MULTILINE)
         if m:
             head[k] = m.group(1).strip()
 
@@ -189,51 +193,68 @@ def _vertice_dict(cod, lon, lat, alt, vante, az, dist, conf) -> dict:
 # ──────────────────────────────────────────────────────────────────────────────
 # Parser do CCIR
 # ──────────────────────────────────────────────────────────────────────────────
-CCIR_PATTERNS = {
-    "ccir_codigo":        r"(\d{3}\.\d{3}\.\d{3}\.\d{3}-\d)",
-    "ccir_area_total":    r"[ÁA]REA TOTAL\s*\(ha\)\s*([\d.,]+)",
-    "ccir_classificacao": r"CLASSIFICA[ÇC][ÃA]O FUND[IÍ][ÁA]RIA\s*([\w ]+?)\s*(?:DATA|M[ÓO]DULO)",
-    "ccir_modulo_fiscal": r"M[ÓO]DULO FISCAL\s*\(ha\)\s*([\d.,]+)",
-    "ccir_fmp":           r"FRA[ÇC][ÃA]O M[ÍI]NIMA DE PARCELAMENTO\s*\(ha\)\s*([\d.,]+)",
-}
-_CCIR_DENOM = r"DENOMINA[ÇC][ÃA]O DO IM[ÓO]VEL RURAL\s*\n?\s*(.+)"
-_CCIR_MUN = r"MUNIC[ÍI]PIO SEDE DO IM[ÓO]VEL RURAL\s*\n?\s*(.+?)\s*(?:UF|\n)"
+# Rótulos numéricos do CCIR: (campo, substring do rótulo p/ a célula, regex p/ linha simples)
+_CCIR_NUM = [
+    ("ccir_area_total",    "ÁREA TOTAL",                    r"[ÁA]REA TOTAL\s*\(ha\)"),
+    ("ccir_modulo_fiscal", "MÓDULO FISCAL",                 r"M[ÓO]DULO FISCAL\s*\(ha\)"),
+    ("ccir_fmp",           "FRAÇÃO MÍNIMA DE PARCELAMENTO", r"FRA[ÇC][ÃA]O M[ÍI]NIMA DE PARCELAMENTO\s*\(ha\)"),
+]
 
 
 def parse_ccir(src: PdfSource) -> dict:
     """Extrai do CCIR: código, área total, classificação, módulo fiscal e FMP.
 
-    O CCIR é PDF-tabela; combinamos extract_text (linha a linha) com a
-    reconstrução por palavras (extract_words) para tolerar o layout.
+    O CCIR é um FORMULÁRIO posicional (rótulo numa linha, valor na linha de baixo).
+    Lê via extract_tables (célula 'RÓTULO\\nVALOR') e cai p/ regex de linha simples.
+    NÃO retorna denominação/município — o Memorial é a fonte autoritativa desses.
     """
     full = ""
-    words_text = ""
+    tables = []
     with _open(src) as pdf:
         for page in pdf.pages:
             full += (page.extract_text() or "") + "\n"
-            try:
-                ws = page.extract_words() or []
-                words_text += " ".join(w.get("text", "") for w in ws) + "\n"
-            except Exception:  # noqa: BLE001
-                pass
+            tables.extend(page.extract_tables() or [])
 
-    blob = full + "\n" + words_text
     out = {}
-    for k, pat in CCIR_PATTERNS.items():
-        m = re.search(pat, blob, re.IGNORECASE)
-        if m:
-            out[k] = m.group(1).strip()
+    m = re.search(r"(\d{3}\.\d{3}\.\d{3}\.\d{3}-\d)", full)
+    if m:
+        out["ccir_codigo"] = m.group(1)
 
-    md = re.search(_CCIR_DENOM, full, re.IGNORECASE)
-    if md:
-        out["denominacao"] = _clean(md.group(1))
-    mm = re.search(_CCIR_MUN, full, re.IGNORECASE)
-    if mm:
-        out["municipio"] = _clean(mm.group(1))
+    # 1) Formulário real: célula "RÓTULO (ha)\n102,9640" (tables = lista de TABELAS)
+    for table in tables:
+        for row in (table or []):
+            for cell in (row or []):
+                texto = str(cell) if cell else ""
+                if "\n" not in texto:
+                    continue
+                label, _, valor = texto.partition("\n")
+                label_u = label.upper()
+                for campo, chave, _rx in _CCIR_NUM:
+                    if campo not in out and chave in label_u:
+                        mv = re.search(r"\d[\d.,]*", valor)
+                        if mv:
+                            out[campo] = _num(mv.group(0))
 
-    for k in ("ccir_area_total", "ccir_modulo_fiscal", "ccir_fmp"):
-        if k in out:
-            out[k] = _num(out[k])
+    # 2) Layout simples: "RÓTULO (ha) 96,8180" na MESMA linha (só espaços/tabs, não cruza \n)
+    for campo, _chave, rx in _CCIR_NUM:
+        if campo in out:
+            continue
+        mm = re.search(rx + r"[ \t]*(\d[\d.,]*)", full)
+        if mm:
+            out[campo] = _num(mm.group(1))
+
+    # Classificação fundiária: linha simples OU linha-abaixo-do-rótulo
+    mc = re.search(r"CLASSIFICA[ÇC][ÃA]O FUND[IÍ][ÁA]RIA\s+(.+?)\s+(?:DATA|\d{2}/\d{2}/\d{4})", full)
+    if mc:
+        out["ccir_classificacao"] = _clean(mc.group(1))
+    else:
+        linhas = full.splitlines()
+        for i, l in enumerate(linhas):
+            if "CLASSIFICAÇÃO FUNDIÁRIA" in l.upper() and i + 1 < len(linhas):
+                mv = re.search(r"^[\d.,]+\s+(.+?)\s+\d{2}/\d{2}/\d{4}", linhas[i + 1])
+                if mv:
+                    out["ccir_classificacao"] = _clean(mv.group(1))
+                break
     return out
 
 
@@ -272,8 +293,17 @@ def parse_confrontacao(c: str) -> dict:
             if mi:
                 out["incra"] = mi.group(1)
     desc = out["descricao"] or ""
-    out["key"] = f'{out["matricula"]}|{desc[:30]}'
+    mat = (out["matricula"] or "").strip()
+    # Agrupa por MATRÍCULA (mesma matrícula = mesmo confrontante → 1 DRL).
+    # Matrícula "0"/vazia (via pública etc.) agrupa pela descrição.
+    out["key"] = mat if (mat and mat != "0") else f"0|{desc[:40]}"
     return out
+
+
+def _eh_limpo(s: str) -> bool:
+    """Nome/descrição utilizável (não mascarado pelo SIGEF com X.../***/...)."""
+    s = (s or "").strip()
+    return bool(s) and "XXX" not in s.upper() and "*" not in s and "..." not in s
 
 
 def agrupar_confrontantes(vertices: List[dict], matricula_imovel: str = None) -> List[dict]:
@@ -284,6 +314,17 @@ def agrupar_confrontantes(vertices: List[dict], matricula_imovel: str = None) ->
         k = info["key"]
         if k not in grupos:
             grupos[k] = {**info, "imovel": info.get("descricao"), "segmentos": []}
+        else:
+            g = grupos[k]
+            # mescla: prefere o segmento com nome/descrição LIMPOS (não mascarados)
+            if _eh_limpo(info.get("nome")) and not _eh_limpo(g.get("nome")):
+                g["nome"] = info["nome"]
+            if _eh_limpo(info.get("descricao")) and not _eh_limpo(g.get("descricao")):
+                g["descricao"] = info["descricao"]
+                g["imovel"] = info["descricao"]
+            for campo in ("cpf_cnpj", "incra", "cns", "certificacao"):
+                if not g.get(campo) and info.get(campo):
+                    g[campo] = info[campo]
         grupos[k]["segmentos"].append(v.get("codigo"))
 
     saida = []
@@ -296,5 +337,9 @@ def agrupar_confrontantes(vertices: List[dict], matricula_imovel: str = None) ->
             g["tipo"] = "via_publica"
         else:
             g["tipo"] = "particular"
+        # nome mascarado (XXX/***) → usa a descrição limpa, senão zera (cai p/ matrícula)
+        nome = g.get("nome")
+        if nome and not _eh_limpo(nome):
+            g["nome"] = g["descricao"] if _eh_limpo(g.get("descricao")) else None
         saida.append(g)
     return saida
