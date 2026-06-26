@@ -124,7 +124,8 @@ def _capa_bytes(projeto, tema="prime_i") -> bytes:
     try:
         from pdf.brand_seal import draw_header_lockup
         draw_header_lockup(c, 2.2 * cm, h - 2.2 * cm, mark=1.2 * cm, light=escuro,
-                           tagline="Topografia & Geo · INCRA/SIGEF")
+                           tagline="Topografia & Geo · INCRA/SIGEF",
+                           logo_bytes=projeto.get("_brand_logo_bytes"))
     except Exception:  # noqa: BLE001
         pass
 

@@ -182,14 +182,17 @@ def _bloco_assinaturas(assinaturas, st, largura):
 # ──────────────────────────────────────────────────────────────────────────────
 # Header/Footer (onPage)
 # ──────────────────────────────────────────────────────────────────────────────
-def _make_onpage(cfg, titulo_curto):
+def _make_onpage(cfg, titulo_curto, logo_bytes=None):
     def _draw(canvas, doc):
         canvas.saveState()
         w, h = A4
-        # topo: marca + rule
+        # topo: marca + rule (logo PRÓPRIO do usuário tem prioridade — white-label)
         try:
-            if cfg["tema"] != "tradicional":
-                from pdf.brand_seal import draw_header_lockup
+            from pdf.brand_seal import draw_header_lockup
+            if logo_bytes:
+                draw_header_lockup(canvas, MARGIN, h - 1.15 * cm, mark=9 * mm,
+                                   light=False, logo_bytes=logo_bytes)
+            elif cfg["tema"] != "tradicional":
                 draw_header_lockup(canvas, MARGIN, h - 1.15 * cm, mark=9 * mm, light=False,
                                    tagline="Topografia & Geo · INCRA/SIGEF")
             else:
@@ -214,14 +217,14 @@ def _make_onpage(cfg, titulo_curto):
     return _draw
 
 
-def _build(elements, cfg, titulo_curto):
+def _build(elements, cfg, titulo_curto, logo_bytes=None):
     T.registrar_fontes()
     buf = io.BytesIO()
     doc = ResilientSimpleDocTemplate(
         buf, pagesize=A4, leftMargin=MARGIN, rightMargin=MARGIN,
         topMargin=2.25 * cm, bottomMargin=1.8 * cm, title=titulo_curto,
     )
-    onpage = _make_onpage(cfg, titulo_curto)
+    onpage = _make_onpage(cfg, titulo_curto, logo_bytes)
     doc.build(elements, onFirstPage=onpage, onLaterPages=onpage)
     return buf.getvalue()
 
@@ -259,7 +262,7 @@ def pdf_requerimento(projeto, tema="prime_i") -> bytes:
     e.append(Spacer(1, 10))
     e.append(Paragraph(_esc(d["data"]) + ".", st["corpo_c"]))
     e += _bloco_assinaturas([(d["assinatura"][0], d["assinatura"][1])], st, lar)
-    return _build(e, cfg, d["titulo"])
+    return _build(e, cfg, d["titulo"], projeto.get("_brand_logo_bytes"))
 
 
 def pdf_memorial(projeto, tema="prime_i") -> bytes:
@@ -275,7 +278,7 @@ def pdf_memorial(projeto, tema="prime_i") -> bytes:
     e.append(Spacer(1, 16))
     e.append(Paragraph(_esc(d["data"]) + ".", st["corpo_c"]))
     e += _bloco_assinaturas([(d["rt_assinatura"][0], " — ".join(d["rt_assinatura"][1:]))], st, lar)
-    return _build(e, cfg, d["titulo"])
+    return _build(e, cfg, d["titulo"], projeto.get("_brand_logo_bytes"))
 
 
 def pdf_drl(projeto, conf, tema="prime_i") -> bytes:
@@ -297,7 +300,7 @@ def pdf_drl(projeto, conf, tema="prime_i") -> bytes:
     e.append(Spacer(1, 14))
     e.append(Paragraph(_esc(d["data"]) + ".", st["corpo_c"]))
     e += _bloco_assinaturas(d["assinaturas"], st, lar)
-    return _build(e, cfg, d["titulo"])
+    return _build(e, cfg, d["titulo"], projeto.get("_brand_logo_bytes"))
 
 
 def pdf_laudo(projeto, tema="prime_i") -> bytes:
@@ -331,7 +334,7 @@ def pdf_laudo(projeto, tema="prime_i") -> bytes:
     e.append(Spacer(1, 14))
     e.append(Paragraph(_esc(d["data"]) + ".", st["corpo_c"]))
     e += _bloco_assinaturas([(d["rt_assinatura"][0], " — ".join(d["rt_assinatura"][1:]))], st, lar)
-    return _build(e, cfg, d["titulo"])
+    return _build(e, cfg, d["titulo"], projeto.get("_brand_logo_bytes"))
 
 
 # ──────────────────────────────────────────────────────────────────────────────

@@ -99,9 +99,29 @@ def draw_header_monogram(c, x, y_base, fs=13,
 
 def draw_header_lockup(c, x, y_center, mark=11 * mm, light=False,
                        tagline="PTAM · LAUDOS",
-                       word_font="Helvetica-Bold", tag_font="Helvetica"):
-    """Brasão pequeno horizontal: badge + nome. light=True p/ faixa escura/verde."""
+                       word_font="Helvetica-Bold", tag_font="Helvetica",
+                       logo_bytes=None):
+    """Brasão pequeno horizontal: badge + nome. light=True p/ faixa escura/verde.
+    logo_bytes (PNG, idealmente transparente) → desenha a marca PRÓPRIA do usuário
+    no lugar do lockup AvalieImob (white-label)."""
     c.saveState()
+    if logo_bytes:
+        try:
+            import io as _io
+            from reportlab.lib.utils import ImageReader
+            img = ImageReader(_io.BytesIO(logo_bytes))
+            iw, ih = img.getSize()
+            target_h = mark * 1.7
+            target_w = (target_h * iw / ih) if ih else target_h
+            max_w = 75 * mm
+            if target_w > max_w:
+                target_w, target_h = max_w, (max_w * ih / iw) if iw else target_h
+            c.drawImage(img, x, y_center - target_h / 2, width=target_w, height=target_h,
+                        mask="auto", preserveAspectRatio=True)
+            c.restoreState()
+            return
+        except Exception:  # noqa: BLE001 — cai no lockup padrão
+            pass
     draw_brand_badge(c, x, y_center - mark / 2, mark)
     tx = x + mark + 3 * mm
     word_c = (1, 1, 1) if light else _GREEN

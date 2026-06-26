@@ -478,11 +478,26 @@ def _doc_para_memorial(doc: dict, parcela_id: str) -> dict:
     return projeto_da_parcela(doc, pv) if pv else doc
 
 
+async def _injetar_logo(db, uid: str, doc: dict) -> dict:
+    """Carrega o logo PRÓPRIO do usuário (white-label) e injeta em `doc` p/ sair
+    no cabeçalho de TODAS as peças técnicas. Sem logo próprio → usa o padrão."""
+    try:
+        from services.branding_context import BrandContext
+        brand = await BrandContext.for_user(db, uid)
+        logo = await asyncio.to_thread(brand.custom_logo_bytes)
+        if logo:
+            doc["_brand_logo_bytes"] = logo
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Topografia: logo white-label indisponível (%s)", e)
+    return doc
+
+
 @router.get("/projetos/{pid}/documentos/{tipo}")
 async def baixar_documento(pid: str, tipo: str, fmt: str = Query("pdf"),
                           tema: str = Query(None), parcela: str = Query(None),
                           uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
     doc = await _get_projeto(db, pid, uid)
+    await _injetar_logo(db, uid, doc)
     tema = tema or doc.get("tema_pdf") or "prime_i"
     nb = _nome_base(doc)
 
@@ -509,6 +524,7 @@ async def baixar_documento(pid: str, tipo: str, fmt: str = Query("pdf"),
 async def baixar_drl(pid: str, conf_key: str, fmt: str = Query("pdf"), tema: str = Query(None),
                     uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
     doc = await _get_projeto(db, pid, uid)
+    await _injetar_logo(db, uid, doc)
     if not TX.requer_drl(doc.get("tipo_servico")):
         raise HTTPException(
             status_code=422,
@@ -729,6 +745,7 @@ async def preparar_assinatura(pid: str, body: AssinarPecaBody,
     """Gera a peça pedida, guarda no R2 e cria o registro `georef_assinaturas`.
     O front então abre o assinador ICP com tipo='georef' e este id."""
     doc = await _get_projeto(db, pid, uid)
+    await _injetar_logo(db, uid, doc)
     if body.doc not in _DOC_NOMES:
         raise HTTPException(status_code=422, detail="Documento inválido para assinatura.")
     tema = body.tema or doc.get("tema_pdf") or "prime_i"
