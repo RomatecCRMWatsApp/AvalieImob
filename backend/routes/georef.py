@@ -5,8 +5,10 @@
 # /gerar -> downloads (Requerimento, Laudo, Memorial, DRLs, Shapefile, Dossiê) em
 # PDF/DOCX. Geração pesada (ReportLab/pdfplumber/R2) roda fora do event loop.
 import asyncio
+import hashlib
 import io
 import logging
+import os
 import uuid
 from datetime import datetime, timezone
 from urllib.parse import quote
@@ -506,12 +508,124 @@ async def _injetar_logo(db, uid: str, doc: dict) -> dict:
     return doc
 
 
+_APP_URL = os.environ.get("APP_PUBLIC_URL", "https://www.romatecavalieimob.com.br").rstrip("/") \
+    .replace("://romatecavalieimob.com.br", "://www.romatecavalieimob.com.br")
+
+
+def _seal_code(pid: str, kind: str, parcela: str = None) -> str:
+    """Código de verificação determinístico (SHA-256) por peça."""
+    raw = f"GEO:{pid}:{kind}:{parcela or ''}"
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:24].upper()
+
+
+def _verify_url(code: str) -> str:
+    return f"{_APP_URL}/api/topografia/georef/verificar/{code}"
+
+
+async def _aplicar_selo(db, uid: str, doc: dict, kind: str, parcela: str = None) -> str:
+    """Registra a verificação (upsert) e injeta o código/URL no doc p/ o selo no PDF."""
+    code = _seal_code(doc["id"], kind, parcela)
+    doc["_seal_code"] = code
+    doc["_verify_url"] = _verify_url(code)
+    im = doc.get("imovel") or {}
+    rt = doc.get("responsavel_tecnico") or {}
+    try:
+        await db.georef_verificacoes.update_one(
+            {"code": code, "user_id": uid},
+            {"$set": {
+                "code": code, "user_id": uid, "projeto_id": doc["id"], "doc": kind,
+                "parcela": parcela, "tipo_servico": doc.get("tipo_servico"),
+                "denominacao": im.get("denominacao_matricula") or im.get("denominacao"),
+                "matricula": im.get("matricula"), "rt_nome": rt.get("nome"),
+                "rt_conselho": rt.get("conselho"), "atualizado_em": _agora().isoformat()},
+             "$setOnInsert": {"criado_em": _agora().isoformat()}},
+            upsert=True)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Topografia: registro de verificação falhou (%s)", e)
+    return code
+
+
+@router.get("/verificar/{code}")
+async def verificar_documento(code: str, db=Depends(get_db)):
+    """Página PÚBLICA de verificação de autenticidade (QR do selo aponta aqui)."""
+    rec = await db.georef_verificacoes.find_one({"code": code})
+    nomes = {"requerimento": "Requerimento de Georreferenciamento",
+             "laudo": "Laudo Técnico de Agrimensura"}
+    if not rec:
+        corpo = ('<h1>Documento não localizado</h1><p>O código informado não consta na base de '
+                 'verificação da AvalieImob. Confira o código do selo.</p>')
+        status = 404
+    else:
+        peca = nomes.get(rec.get("doc"), rec.get("doc") or "Documento")
+        corpo = (
+            f'<h1>✓ Documento autêntico</h1>'
+            f'<p>Este selo confirma que o documento foi emitido pelo sistema '
+            f'<b>AvalieImob — Topografia &amp; Geo</b>.</p>'
+            f'<table>'
+            f'<tr><td>Peça</td><td><b>{peca}</b></td></tr>'
+            f'<tr><td>Imóvel</td><td>{rec.get("denominacao") or "—"}</td></tr>'
+            f'<tr><td>Matrícula</td><td>{rec.get("matricula") or "—"}</td></tr>'
+            f'<tr><td>Serviço</td><td>{rec.get("tipo_servico") or "—"}</td></tr>'
+            f'<tr><td>Responsável Técnico</td><td>{rec.get("rt_nome") or "—"} '
+            f'({rec.get("rt_conselho") or "—"})</td></tr>'
+            f'<tr><td>Código (SHA-256)</td><td><code>{code}</code></td></tr>'
+            f'<tr><td>Emitido em</td><td>{(rec.get("criado_em") or "")[:10]}</td></tr>'
+            f'</table>'
+            f'<p class="nota">A integridade jurídica plena é assegurada pela assinatura '
+            f'ICP-Brasil (PAdES) aposta na peça, quando houver.</p>')
+        status = 200
+    html = (
+        '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">'
+        '<title>Verificação — AvalieImob</title><style>'
+        'body{font-family:Inter,Arial,sans-serif;background:#0C3320;color:#0C3320;margin:0;padding:24px}'
+        '.card{max-width:560px;margin:24px auto;background:#fff;border-radius:14px;padding:24px;'
+        'box-shadow:0 10px 40px rgba(0,0,0,.3);border-top:5px solid #C9A84C}'
+        'h1{font-size:20px;margin:0 0 12px}table{width:100%;border-collapse:collapse;margin-top:8px}'
+        'td{padding:7px 4px;border-bottom:1px solid #eee;font-size:14px;vertical-align:top}'
+        'td:first-child{color:#666;width:42%}code{font-size:12px;word-break:break-all}'
+        '.nota{font-size:12px;color:#888;margin-top:14px}</style></head>'
+        f'<body><div class="card">{corpo}</div></body></html>')
+    return Response(content=html, media_type="text/html; charset=utf-8", status_code=status)
+
+
+def _plantas_laudo(doc: dict) -> list:
+    """[{legenda, raw}] das plantas/mapas SIGEF (principal + cada parcela) p/ o Laudo."""
+    out = []
+    uploads = doc.get("uploads") or {}
+    raw = _download_upload(uploads, "mapa")
+    if raw:
+        rot = "Parte I" if tem_multiparcela(doc) else "imóvel"
+        out.append({"legenda": f"Planta / Mapa SIGEF — {rot}", "raw": raw})
+    for pc in (doc.get("parcelas") or []):
+        k = ((pc.get("uploads") or {}).get("mapa") or {}).get("key")
+        if k:
+            try:
+                out.append({"legenda": f"Planta / Mapa SIGEF — {pc.get('rotulo') or 'parcela'}",
+                            "raw": r2_storage.download_bytes(k)})
+            except Exception:  # noqa: BLE001
+                pass
+    return out
+
+
 @router.get("/projetos/{pid}/documentos/{tipo}")
 async def baixar_documento(pid: str, tipo: str, fmt: str = Query("pdf"),
                           tema: str = Query(None), parcela: str = Query(None),
                           uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
     doc = await _get_projeto(db, pid, uid)
     await _injetar_logo(db, uid, doc)
+    if tipo in ("laudo_tecnico", "dossie"):
+        doc["_plantas_laudo"] = await asyncio.to_thread(_plantas_laudo, doc)
+    # Selo de autenticidade (QR + código SHA-256) no requerimento/laudo.
+    if tipo == "requerimento":
+        await _aplicar_selo(db, uid, doc, "requerimento")
+    elif tipo == "laudo_tecnico":
+        await _aplicar_selo(db, uid, doc, "laudo")
+    elif tipo == "dossie":               # registra as peças; o selo é por-peça no _montar_dossie
+        await _aplicar_selo(db, uid, doc, "requerimento")
+        await _aplicar_selo(db, uid, doc, "laudo")
+        doc.pop("_seal_code", None)
+        doc.pop("_verify_url", None)
     tema = tema or doc.get("tema_pdf") or "prime_i"
     nb = _nome_base(doc)
 
@@ -614,17 +728,34 @@ def _montar_dossie(doc: dict, tema: str, assinados: dict = None) -> bytes:
     """`assinados`: {(doc, parcela): bytes} das peças JÁ assinadas (ICP) — usadas
     no lugar das geradas, para o Dossiê sair com as assinaturas."""
     assinados = assinados or {}
+    if "_plantas_laudo" not in doc:           # plantas SIGEF embutidas no Laudo
+        doc["_plantas_laudo"] = _plantas_laudo(doc)
 
     def _peca(kind, gen):
         b = assinados.get((kind, None))
         return b if b else gen()
 
+    def _seal(kind):                       # selo por-peça (códigos já registrados pelo caller)
+        c = _seal_code(doc["id"], kind)
+        doc["_seal_code"] = c
+        doc["_verify_url"] = _verify_url(c)
+
+    def _gen_req():
+        _seal("requerimento")
+        return PDF.gerar_pdf("requerimento", doc, tema)
+
+    def _gen_laudo():
+        _seal("laudo")
+        return PDF.gerar_pdf("laudo_tecnico", doc, tema)
+
     partes = {
-        "requerimento": _peca("requerimento", lambda: PDF.gerar_pdf("requerimento", doc, tema)),
-        "laudo_tecnico": _peca("laudo", lambda: PDF.gerar_pdf("laudo_tecnico", doc, tema)),
+        "requerimento": _peca("requerimento", _gen_req),
+        "laudo_tecnico": _peca("laudo", _gen_laudo),
         "memorial": _memoriais_combinados(doc, tema, assinados),   # Memorial do SISTEMA (gerado)
         "drl": [PDF.gerar_pdf("drl", doc, tema, c) for c in TX.confrontantes_para_drl(doc)],
     }
+    doc.pop("_seal_code", None)
+    doc.pop("_verify_url", None)
     uploads = doc.get("uploads") or {}
     # ART/TRT: versão assinada se houver; senão o arquivo enviado
     art_assinado = assinados.get(("art_trt", None))
@@ -760,6 +891,15 @@ async def preparar_assinatura(pid: str, body: AssinarPecaBody,
     O front então abre o assinador ICP com tipo='georef' e este id."""
     doc = await _get_projeto(db, pid, uid)
     await _injetar_logo(db, uid, doc)
+    if body.doc in ("laudo", "dossie"):
+        doc["_plantas_laudo"] = await asyncio.to_thread(_plantas_laudo, doc)
+    if body.doc in ("requerimento", "laudo"):
+        await _aplicar_selo(db, uid, doc, body.doc)
+    elif body.doc == "dossie":
+        await _aplicar_selo(db, uid, doc, "requerimento")
+        await _aplicar_selo(db, uid, doc, "laudo")
+        doc.pop("_seal_code", None)
+        doc.pop("_verify_url", None)
     if body.doc not in _DOC_NOMES:
         raise HTTPException(status_code=422, detail="Documento inválido para assinatura.")
     tema = body.tema or doc.get("tema_pdf") or "prime_i"

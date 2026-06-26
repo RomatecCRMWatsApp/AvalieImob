@@ -12,8 +12,9 @@ from reportlab.lib.enums import TA_JUSTIFY, TA_CENTER, TA_LEFT
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.colors import HexColor, white, black
 from reportlab.platypus import (
-    Paragraph, Spacer, Table, TableStyle, KeepTogether, PageBreak,
+    Paragraph, Spacer, Table, TableStyle, KeepTogether, PageBreak, Image as RLImage,
 )
+from reportlab.lib.utils import ImageReader
 
 from pdf.themes import prime2_theme as T
 from pdf.templates.resilient import ResilientSimpleDocTemplate
@@ -80,6 +81,70 @@ def _styles(cfg):
         "small": ParagraphStyle("g_small", fontName=cfg["sans"], fontSize=8, leading=11,
                                textColor=HexColor("#555555")),
     }
+
+
+def _planta_imagem(raw: bytes):
+    """Bytes de uma planta/mapa SIGEF → PNG (rasteriza se for PDF; normaliza imagem)."""
+    if not raw:
+        return None
+    if raw[:5] == b"%PDF-":
+        try:
+            import fitz  # PyMuPDF
+            d = fitz.open("pdf", raw)
+            return d[0].get_pixmap(dpi=150).tobytes("png")
+        except Exception:  # noqa: BLE001
+            return None
+    try:
+        from PIL import Image as PILImage
+        im = PILImage.open(io.BytesIO(raw))
+        if im.mode not in ("RGB", "L"):
+            im = im.convert("RGB")
+        buf = io.BytesIO()
+        im.save(buf, "PNG")
+        return buf.getvalue()
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _img_flow(img_bytes: bytes, largura, legenda, st):
+    """Flowables de uma imagem (escala p/ caber na largura/altura) + legenda."""
+    try:
+        ir = ImageReader(io.BytesIO(img_bytes))
+        iw, ih = ir.getSize()
+        w = min(largura, float(iw))
+        h = w * ih / iw
+        maxh = 21 * cm
+        if h > maxh:
+            h, w = maxh, maxh * iw / ih
+        return [RLImage(io.BytesIO(img_bytes), width=w, height=h),
+                Spacer(1, 3), Paragraph(_esc(legenda), st["small"]), Spacer(1, 10)]
+    except Exception:  # noqa: BLE001
+        return []
+
+
+def _seal_flowables(cfg, st, code, verify_url):
+    """Selo de autenticidade: QR (→ página pública /v/{code}) + código SHA-256."""
+    try:
+        from reportlab.graphics.barcode import qr
+        from reportlab.graphics.shapes import Drawing
+        qrw = qr.QrCodeWidget(verify_url or code)
+        bb = qrw.getBounds()
+        sz = 2.3 * cm
+        d = Drawing(sz, sz, transform=[sz / (bb[2] - bb[0]), 0, 0, sz / (bb[3] - bb[1]), 0, 0])
+        d.add(qrw)
+        info = Paragraph(
+            f"<b>SELO DE AUTENTICIDADE</b><br/>Código de verificação (SHA-256): {_esc(code)}<br/>"
+            f"Confira a autenticidade deste documento em:<br/>{_esc(verify_url)}", st["small"])
+        t = Table([[d, info]], colWidths=[sz + 6, None])
+        t.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("LEFTPADDING", (1, 0), (1, 0), 12),
+            ("LINEABOVE", (0, 0), (-1, 0), 0.6, cfg["accent"]),
+            ("TOPPADDING", (0, 0), (-1, 0), 8),
+        ]))
+        return [Spacer(1, 16), KeepTogether([t])]
+    except Exception:  # noqa: BLE001
+        return []
 
 
 def _esc(s):
@@ -290,6 +355,8 @@ def pdf_requerimento(projeto, tema="prime_i") -> bytes:
     fim.append(Paragraph(_esc(d["data"]) + ".", st["corpo_c"]))
     fim += _bloco_assinaturas([(d["assinatura"][0], d["assinatura"][1])], st, lar)
     e.append(KeepTogether(fim))
+    if projeto.get("_seal_code"):
+        e += _seal_flowables(cfg, st, projeto["_seal_code"], projeto.get("_verify_url"))
     return _build(e, cfg, d["titulo"], projeto.get("_brand_logo_bytes"))
 
 
@@ -368,6 +435,17 @@ def pdf_laudo(projeto, tema="prime_i") -> bytes:
     e.append(Spacer(1, 14))
     e.append(Paragraph(_esc(d["data"]) + ".", st["corpo_c"]))
     e += _bloco_assinaturas([(d["rt_assinatura"][0], " — ".join(d["rt_assinatura"][1:]))], st, lar)
+    if projeto.get("_seal_code"):
+        e += _seal_flowables(cfg, st, projeto["_seal_code"], projeto.get("_verify_url"))
+    # ANEXOS — Plantas / Mapas SIGEF (uma por parcela), embutidas no laudo.
+    plantas = projeto.get("_plantas_laudo") or []
+    if plantas:
+        e.append(PageBreak())
+        e += _secao("ANEXOS — PLANTAS / MAPAS SIGEF", cfg, st, lar)
+        for pl in plantas:
+            img = _planta_imagem(pl.get("raw"))
+            if img:
+                e += _img_flow(img, lar, pl.get("legenda") or "Planta SIGEF", st)
     return _build(e, cfg, d["titulo"], projeto.get("_brand_logo_bytes"))
 
 

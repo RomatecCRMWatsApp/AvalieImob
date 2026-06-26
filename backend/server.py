@@ -599,6 +599,8 @@ async def startup():
         await db.georef_projetos.create_index("imovel.cod_incra")
         await db.georef_assinaturas.create_index("id", unique=True)
         await db.georef_assinaturas.create_index([("user_id", 1), ("projeto_id", 1)])
+        await db.georef_verificacoes.create_index("code", unique=True)
+        await db.georef_verificacoes.create_index([("user_id", 1), ("projeto_id", 1)])
     except Exception as e:
         logger.error(f"Erro ao criar índices de georef_projetos: {e}")
     # NFS-e: materializa o certificado .pfx de ROMATEC_CERT_PFX_B64 (Railway), se houver.
