@@ -718,10 +718,11 @@ export const georefAPI = {
   validar: (id) => api.get(`${GEOREF}/projetos/${id}/validar`).then((r) => r.data),
   gerar: (id, data = {}) => api.post(`${GEOREF}/projetos/${id}/gerar`, data).then((r) => r.data),
 
-  // Downloads (blob)
-  documento: (id, tipo, fmt = 'pdf', tema) =>
+  // Downloads (blob). `modo` (unificado|separado) só afeta o Laudo/Dossiê em desmembramento.
+  documento: (id, tipo, fmt = 'pdf', tema, modo) =>
     api.get(`${GEOREF}/projetos/${id}/documentos/${tipo}`,
-      { params: { fmt, ...(tema ? { tema } : {}) }, responseType: 'blob' }).then((r) => r.data),
+      { params: { fmt, ...(tema ? { tema } : {}), ...(modo ? { modo } : {}) },
+        responseType: 'blob' }).then((r) => r.data),
   drl: (id, confKey, fmt = 'pdf', tema) =>
     api.get(`${GEOREF}/projetos/${id}/documentos/drl/${encodeURIComponent(confKey)}`,
       { params: { fmt, ...(tema ? { tema } : {}) }, responseType: 'blob' }).then((r) => r.data),

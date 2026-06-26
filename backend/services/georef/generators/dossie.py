@@ -308,6 +308,25 @@ def _secao_pdfs(chave: str, val) -> list:
     return [val] if val else []
 
 
+def _expandir_secao(chave: str, val) -> list:
+    """Quebra o valor de `partes[chave]` em uma OU MAIS seções do sumário.
+
+    Aceita: bytes (1 seção), list[bytes] (DRL/anexos → 1 seção concatenada), ou
+    list[{titulo, bytes}] (ex.: laudos SEPARADOS → 1 seção por item, título próprio).
+    Retorna [{titulo, bytes}]."""
+    titulo_base = _TITULOS_DOSSIE.get(chave, chave)
+    # Lista de dicts {titulo, bytes} → uma seção por item (sumário reflete cada um).
+    if isinstance(val, (list, tuple)) and val and all(isinstance(x, dict) for x in val):
+        out = []
+        for x in val:
+            b = x.get("bytes")
+            if b:
+                out.append({"titulo": x.get("titulo") or titulo_base, "bytes": b})
+        return out
+    blob = _concat_pdfs(_secao_pdfs(chave, val))
+    return [{"titulo": titulo_base, "bytes": blob}] if blob else []
+
+
 def _concat_pdfs(pdfs: list) -> bytes:
     """Mescla vários PDFs (bytes) em um só."""
     w = PdfWriter()
@@ -395,16 +414,17 @@ def _sumario_bytes(secoes: list, tema="prime_i"):
 def gerar_dossie(projeto, partes: dict, tema="prime_i") -> bytes:
     """Monta o dossiê: capa → SUMÁRIO (clicável) → seções na ORDEM_DOSSIE.
     `partes`: dict {chave: bytes | [bytes...]} (PDF ou imagem para anexos)."""
-    # 1. coleta as seções presentes, na ordem, já com a contagem de páginas
+    # 1. coleta as seções presentes, na ordem, já com a contagem de páginas.
+    # Uma chave pode render MAIS de uma seção (ex.: laudos separados → 1 por parcela).
     secoes = []
     for chave in ORDEM_DOSSIE:
         val = partes.get(chave)
         if not val:
             continue
-        blob = _concat_pdfs(_secao_pdfs(chave, val))
-        n = _contar_paginas(blob)
-        if n > 0:
-            secoes.append({"titulo": _TITULOS_DOSSIE.get(chave, chave), "bytes": blob, "n": n})
+        for sub in _expandir_secao(chave, val):
+            n = _contar_paginas(sub["bytes"])
+            if n > 0:
+                secoes.append({"titulo": sub["titulo"], "bytes": sub["bytes"], "n": n})
 
     capa = _capa_bytes(projeto, tema)
     if not secoes:                       # só a capa

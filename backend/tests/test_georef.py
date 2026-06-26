@@ -538,3 +538,106 @@ def test_requerimento_usa_comarca_do_cartorio(projeto):
                                "cartorio_municipio": "São Francisco do Maranhão", "cartorio_uf": "MA"}}
     d = TX.render_requerimento(p)
     assert "São Francisco do Maranhão/MA" in d["destinatario"]
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Bug 1.1 — normalização de denominação (PARTA → PARTE)
+# ──────────────────────────────────────────────────────────────────────────────
+def test_normalizar_denominacao():
+    from services.georef import parcelas as P
+    base = {"imovel": {"denominacao": "FAZENDA X - FAZENDA X PARTA I"},
+            "parcelas": [], "vertices": [], "confrontantes": []}
+    assert "PARTA" in P.parcelas_do_projeto(base)[0]["denominacao"]   # desligado: preserva
+    base["normalizar_denominacao"] = True
+    assert P.parcelas_do_projeto(base)[0]["denominacao"].endswith("PARTE I")
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Bug 1.2 — serventia/comarca da certidão prevalece sobre a cidade do CNS
+# ──────────────────────────────────────────────────────────────────────────────
+def test_parse_serventia_da_certidao():
+    txt = ("CERTIDÃO DE INTEIRO TEOR\n"
+           "OFÍCIO ÚNICO DE SÃO FRANCISCO DO BREJÃO (Tabeliã Melina Luna Dias), CNS 03.169-0\n"
+           "Comarca de São Francisco do Brejão/MA.")
+    s = EX.parse_serventia_text(txt)
+    assert "BREJÃO" in s["cartorio_nome"].upper()
+    assert "Brejão" in s["cartorio_municipio"]
+    assert s["cartorio_uf"] == "MA"
+
+
+def test_enriquecer_nao_sobrepoe_municipio_do_imovel():
+    from services.georef import serventias as S
+    # a cidade da tabela CNS (Maranhão) NÃO entra na comarca quando o imóvel já tem município
+    im = {"cartorio_cns": "03.169-0", "municipio": "São Francisco do Brejão", "uf": "MA"}
+    S.enriquecer_cartorio(im, {})
+    assert im.get("cartorio_municipio") in (None, "São Francisco do Brejão")
+
+
+def test_requerimento_comarca_do_municipio_sem_cartorio(projeto):
+    p = {**projeto, "imovel": {**projeto["imovel"], "cartorio_municipio": None,
+                               "municipio": "São Francisco do Brejão", "uf": "MA"}}
+    d = TX.render_requerimento(p)
+    assert "São Francisco do Brejão/MA" in d["destinatario"]
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Laudo UNIFICADO — subseção de poligonal/confrontações por parcela
+# ──────────────────────────────────────────────────────────────────────────────
+def test_laudo_unificado_subsecoes_por_parcela(projeto_multi):
+    d = TX.render_laudo_tecnico(projeto_multi)
+    assert d["multiparcela"] is True
+    assert d["resultado_parcelas"] and len(d["resultado_parcelas"]) == 2
+    assert d["resultado_parcelas"][0]["rotulo"] == "Parte I"
+    assert d["resultado_parcelas"][1]["rotulo"] == "Parte II"
+    # cada subseção tem os vértices da SUA parcela (principal=4, parcela II=3)
+    assert len(d["resultado_parcelas"][0]["tabela"]) == 4
+    assert len(d["resultado_parcelas"][1]["tabela"]) == 3
+    assert d["confrontacoes_parcelas"] and len(d["confrontacoes_parcelas"]) == 2
+    # OBJETO lista TODOS os códigos SIGEF (não só o da Parte I)
+    assert "ABC123XYZ" in d["objeto"] and "CERT-II" in d["objeto"]
+    # CONCLUSÃO atesta as duas parcelas
+    assert "Parte I" in d["conclusao"] and "Parte II" in d["conclusao"]
+
+
+def test_laudo_unificado_pdf_secoes_por_parcela(projeto_multi):
+    from pypdf import PdfReader
+    out = PDF.gerar_pdf("laudo_tecnico", projeto_multi, "prime_i")
+    txt = "".join(p.extract_text() or "" for p in PdfReader(io.BytesIO(out)).pages)
+    assert "POLIGONAL POR PARCELA" in txt
+    assert "CONFRONTAÇÕES POR PARCELA" in txt
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Laudo SEPARADO — 1 PDF por parcela
+# ──────────────────────────────────────────────────────────────────────────────
+def test_pdf_laudos_separados(projeto_multi):
+    from pypdf import PdfReader
+    seps = PDF.pdf_laudos_separados(projeto_multi, "prime_i")
+    assert len(seps) == 2
+    assert all(s["bytes"][:5] == b"%PDF-" for s in seps)
+    assert seps[0]["rotulo"] == "Parte I" and seps[1]["rotulo"] == "Parte II"
+    t1 = "".join(p.extract_text() or "" for p in PdfReader(io.BytesIO(seps[1]["bytes"])).pages)
+    assert "Parte II" in t1                       # descreve só a parcela
+    assert "489" in t1 or "1234" in t1            # cita a matriz de origem
+
+
+def test_dossie_laudo_separado_um_sumario_por_parcela(projeto_multi):
+    from pypdf import PdfReader
+    laudos = PDF.pdf_laudos_separados(projeto_multi, "prime_i")
+    laudo_secao = [{"titulo": f"Laudo Técnico de Agrimensura — {lp['rotulo']}",
+                    "bytes": lp["bytes"]} for lp in laudos]
+    req = PDF.gerar_pdf("requerimento", projeto_multi, "prime_i")
+    out = DOSSIE.gerar_dossie(
+        projeto_multi, {"requerimento": req, "laudo_tecnico": laudo_secao}, "prime_i")
+    sumario = PdfReader(io.BytesIO(out)).pages[1].extract_text() or ""
+    assert sumario.count("Laudo Técnico") >= 2
+    assert "Parte I" in sumario and "Parte II" in sumario
+
+
+def test_dossie_laudo_unificado_uma_secao(projeto_multi):
+    """Modo unificado: o laudo continua sendo UMA seção (regressão)."""
+    from pypdf import PdfReader
+    laudo = PDF.gerar_pdf("laudo_tecnico", projeto_multi, "prime_i")
+    out = DOSSIE.gerar_dossie(projeto_multi, {"laudo_tecnico": laudo}, "prime_i")
+    sumario = PdfReader(io.BytesIO(out)).pages[1].extract_text() or ""
+    assert sumario.count("Laudo Técnico") == 1

@@ -108,6 +108,9 @@ class DadosImovel(BaseModel):
     municipio_matricula: Optional[str] = None
     sistema_geodesico: Optional[str] = "SIRGAS 2000"
     certificacao_sigef: Optional[str] = None
+    # Código de certificação SIGEF da MATRÍCULA de origem (a poligonal da matriz,
+    # distinta das parcelas resultantes) — citado no Objeto do laudo de desmembramento.
+    certificacao_matricula: Optional[str] = None
     data_certificacao: Optional[str] = None
     # CCIR
     ccir_codigo: Optional[str] = None
@@ -143,6 +146,10 @@ TipoServico = Literal[
 ]
 StatusProjeto = Literal["rascunho", "extraido", "documentos_gerados", "concluido"]
 TemaPdf = Literal["tradicional", "prime_i", "prime_ii"]
+# Modo de geração do Laudo Técnico em desmembramento/remembramento (multi-parcela):
+#   unificado → UM laudo descrevendo TODAS as parcelas (recomendado p/ cartório);
+#   separado  → UM laudo para CADA parcela (N PDFs anexáveis ao dossiê).
+LaudoModo = Literal["unificado", "separado"]
 
 
 class Parcela(BaseModel):
@@ -179,6 +186,12 @@ class GeorefProjeto(BaseModel):
     documentos_gerados: dict = Field(default_factory=dict)  # {memorial, requerimento, ...}
     campos_editados: dict = Field(default_factory=dict)     # flags p/ preservar edição manual
     tema_pdf: TemaPdf = "prime_i"
+    # Laudo de desmembramento/remembramento: unificado (1 PDF, todas as partes) OU
+    # separado (1 PDF por parcela). Default unificado (recomendado p/ cartório).
+    laudo_modo: LaudoModo = "unificado"
+    # Normaliza o typo de origem do SIGEF "PARTA N" → "PARTE N" nas denominações
+    # (default False — preserva a fidelidade ao texto do SIGEF/memorial).
+    normalizar_denominacao: bool = False
     completude: int = 0                                     # 0-100
     created_at: datetime = Field(default_factory=_agora)
     updated_at: datetime = Field(default_factory=_agora)
@@ -198,6 +211,8 @@ class AtualizarProjetoBody(BaseModel):
     nome_projeto: Optional[str] = None
     tipo_servico: Optional[TipoServico] = None
     tema_pdf: Optional[TemaPdf] = None
+    laudo_modo: Optional[LaudoModo] = None
+    normalizar_denominacao: Optional[bool] = None
     status: Optional[StatusProjeto] = None
     imovel: Optional[dict] = None
     responsavel_tecnico: Optional[dict] = None

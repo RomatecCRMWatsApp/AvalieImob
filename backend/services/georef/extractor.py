@@ -291,7 +291,52 @@ def parse_matricula_text(full: str) -> dict:
     incra = grab(r"INCRA:?\s*([\d.\-]{8,})")
     if incra:
         out["incra_matricula"] = incra
+    # Serventia + comarca da CERTIDÃO (fonte registral autoritativa — prioritária
+    # sobre o CNS, cuja tabela pode trazer a cidade desatualizada). Best-effort.
+    out.update(parse_serventia_text(full))
     return {k: v for k, v in out.items() if v not in (None, "")}
+
+
+# Cabeçalho da certidão de inteiro teor: serventia (cartório) + comarca/UF.
+# Ex.: "OFÍCIO ÚNICO DE SÃO FRANCISCO DO BREJÃO ... CNS 03.169-0 ... no município
+# de São Francisco do Brejão/MA". O layout varia por cartório — captura tolerante.
+_SERVENTIA_NOME_RE = re.compile(
+    r"((?:OF[ÍI]CIO\s+[ÚU]NICO|OF[ÍI]CIO\s+DE\s+REGISTRO|CART[ÓO]RIO|SERVENTIA"
+    r"|TABELIONATO|REGISTRO\s+DE\s+IM[ÓO]VEIS)[A-ZÀ-Ÿ0-9ºª°/.\-\s]*?DE\s+"
+    r"[A-ZÀ-Ÿ][A-ZÀ-Ÿ\s]+?)(?=\s*[\(,;]|\s+CNS|\s+Tabeli|\s*\n|\s*$)",
+    re.IGNORECASE,
+)
+_COMARCA_RE = re.compile(
+    r"COMARCA\s+DE\s+([A-ZÀ-Ÿ][A-Za-zÀ-ÿ'´`\s]+?)(?:\s*[/\-]\s*([A-Z]{2}))?"
+    r"(?=\s*[,;.\n]|\s+Estado|\s*$)",
+    re.IGNORECASE,
+)
+_MUN_UF_RE = re.compile(
+    r"munic[íi]pio\s+de\s+([A-ZÀ-Ÿ][A-Za-zÀ-ÿ'´`\s]+?)\s*[/\-]\s*([A-Z]{2})\b",
+    re.IGNORECASE,
+)
+
+
+def parse_serventia_text(full: str) -> dict:
+    """Extrai serventia (cartório), comarca/município e UF do texto da certidão."""
+    out = {}
+    mn = _SERVENTIA_NOME_RE.search(full)
+    if mn:
+        nome = _clean(mn.group(1)).rstrip(" ,.;-")
+        # descarta capturas degeneradas (curtas demais p/ ser uma serventia)
+        if len(nome) >= 10:
+            out["cartorio_nome"] = nome
+    mc = _COMARCA_RE.search(full)
+    if mc:
+        out["cartorio_municipio"] = _clean(mc.group(1)).rstrip(" ,.;-")
+        if mc.group(2):
+            out["cartorio_uf"] = mc.group(2).upper()
+    if "cartorio_municipio" not in out:
+        mm = _MUN_UF_RE.search(full)
+        if mm:
+            out["cartorio_municipio"] = _clean(mm.group(1)).rstrip(" ,.;-")
+            out["cartorio_uf"] = mm.group(2).upper()
+    return {k: v for k, v in out.items() if v}
 
 
 def parse_matricula(src: PdfSource) -> dict:

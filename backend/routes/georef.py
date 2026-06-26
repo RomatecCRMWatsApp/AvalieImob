@@ -117,7 +117,8 @@ async def atualizar_projeto(pid: str, body: AtualizarProjetoBody,
     editados = dict(doc.get("campos_editados") or {})
     sets = {}
 
-    for campo in ("nome_projeto", "tipo_servico", "tema_pdf", "status"):
+    for campo in ("nome_projeto", "tipo_servico", "tema_pdf", "status",
+                  "laudo_modo", "normalizar_denominacao"):
         if campo in dados:
             sets[campo] = dados[campo]
 
@@ -348,10 +349,13 @@ def _executar_extracao(doc: dict) -> dict:
         _set_imovel(EX.parse_ccir(raw_ccir))
 
     raw_cert = _download_upload(uploads, "certidao")
+    cert_fields = {}
     if raw_cert:
-        # Dados REGISTRAIS do imóvel de ORIGEM (área/perímetro/denominação da matrícula).
+        # Dados REGISTRAIS do imóvel de ORIGEM (área/perímetro/denominação da matrícula)
+        # + serventia/comarca (fonte autoritativa, prioritária sobre o CNS).
         try:
-            _set_imovel(EX.parse_matricula(raw_cert))
+            cert_fields = EX.parse_matricula(raw_cert)
+            _set_imovel(cert_fields)
         except Exception as e:  # noqa: BLE001
             avisos.append(f"Dados da matrícula não extraídos ({e}).")
         if not editados.get("imovel.cadeia_dominial"):
@@ -370,10 +374,16 @@ def _executar_extracao(doc: dict) -> dict:
         if mcar:
             imovel["car"] = mcar.group(1)
 
-    # Cartório: resolve nome/comarca/UF pelo CNS (tabela oficial de serventias)
+    # Cartório: resolve nome/comarca/UF pelo CNS (tabela oficial de serventias).
+    # A CERTIDÃO é autoritativa — trava os campos que ela já forneceu p/ o CNS não
+    # sobrescrever (ex.: serventia de São Francisco do Brejão vs. cidade do CNS).
     try:
         from services.georef.serventias import enriquecer_cartorio
-        enriquecer_cartorio(imovel, editados)
+        locked = dict(editados)
+        for k in ("cartorio_nome", "cartorio_municipio", "cartorio_uf"):
+            if cert_fields.get(k):
+                locked[f"imovel.{k}"] = True
+        enriquecer_cartorio(imovel, locked)
     except Exception as e:  # noqa: BLE001
         avisos.append(f"Serventia não resolvida pelo CNS ({e}).")
 
@@ -545,6 +555,42 @@ async def _aplicar_selo(db, uid: str, doc: dict, kind: str, parcela: str = None)
     return code
 
 
+def _laudo_modo(doc: dict, override: str = None) -> str:
+    m = (override or doc.get("laudo_modo") or "unificado").lower()
+    return m if m in ("unificado", "separado") else "unificado"
+
+
+async def _registrar_selo_parte(db, uid: str, doc: dict, kind: str,
+                                parcela_rotulo: str, parcela_denom: str = None) -> dict:
+    """Registra a verificação de UMA peça por-parcela (laudo separado) → {code, url}."""
+    code = _seal_code(doc["id"], kind, parcela_rotulo)
+    im = doc.get("imovel") or {}
+    rt = doc.get("responsavel_tecnico") or {}
+    try:
+        await db.georef_verificacoes.update_one(
+            {"code": code, "user_id": uid},
+            {"$set": {
+                "code": code, "user_id": uid, "projeto_id": doc["id"], "doc": kind,
+                "parcela": parcela_rotulo, "tipo_servico": doc.get("tipo_servico"),
+                "denominacao": parcela_denom or im.get("denominacao_matricula") or im.get("denominacao"),
+                "matricula": im.get("matricula"), "rt_nome": rt.get("nome"),
+                "rt_conselho": rt.get("conselho"), "atualizado_em": _agora().isoformat()},
+             "$setOnInsert": {"criado_em": _agora().isoformat()}},
+            upsert=True)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Topografia: selo de parcela falhou (%s)", e)
+    return {"code": code, "url": _verify_url(code)}
+
+
+async def _selos_laudos_separados(db, uid: str, doc: dict) -> dict:
+    """{rotulo: {code,url}} — um selo SHA-256/QR por laudo separado (por parcela)."""
+    seals = {}
+    for pv in parcelas_do_projeto(doc):
+        seals[pv.get("rotulo")] = await _registrar_selo_parte(
+            db, uid, doc, "laudo", pv.get("rotulo"), pv.get("denominacao"))
+    return seals
+
+
 @router.get("/verificar/{code}")
 async def verificar_documento(code: str, db=Depends(get_db)):
     """Página PÚBLICA de verificação de autenticidade (QR do selo aponta aqui)."""
@@ -611,31 +657,43 @@ def _plantas_laudo(doc: dict) -> list:
 @router.get("/projetos/{pid}/documentos/{tipo}")
 async def baixar_documento(pid: str, tipo: str, fmt: str = Query("pdf"),
                           tema: str = Query(None), parcela: str = Query(None),
+                          modo: str = Query(None),
                           uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
     doc = await _get_projeto(db, pid, uid)
     await _injetar_logo(db, uid, doc)
     if tipo in ("laudo_tecnico", "dossie"):
         doc["_plantas_laudo"] = await asyncio.to_thread(_plantas_laudo, doc)
+    laudo_modo = _laudo_modo(doc, modo)
+    laudo_separado = laudo_modo == "separado" and tem_multiparcela(doc)
+    tema = tema or doc.get("tema_pdf") or "prime_i"
+    nb = _nome_base(doc)
+
     # Selo de autenticidade (QR + código SHA-256) no requerimento/laudo.
     if tipo == "requerimento":
         await _aplicar_selo(db, uid, doc, "requerimento")
-    elif tipo == "laudo_tecnico":
+    elif tipo == "laudo_tecnico" and not laudo_separado:
         await _aplicar_selo(db, uid, doc, "laudo")
     elif tipo == "dossie":               # registra as peças; o selo é por-peça no _montar_dossie
         await _aplicar_selo(db, uid, doc, "requerimento")
         await _aplicar_selo(db, uid, doc, "laudo")
         doc.pop("_seal_code", None)
         doc.pop("_verify_url", None)
-    tema = tema or doc.get("tema_pdf") or "prime_i"
-    nb = _nome_base(doc)
 
     if tipo == "dossie":
         assinados = await _carregar_pecas_assinadas(db, pid, uid)
-        data = await asyncio.to_thread(_montar_dossie, doc, tema, assinados)
+        laudo_seals = await _selos_laudos_separados(db, uid, doc) if laudo_separado else None
+        data = await asyncio.to_thread(_montar_dossie, doc, tema, assinados, laudo_modo, laudo_seals)
         return _resp(data, "pdf", f"Dossie_{nb}.pdf", inline=(fmt != "download"))
 
     if tipo not in ("requerimento", "memorial", "laudo_tecnico"):
         raise HTTPException(status_code=404, detail="Documento desconhecido")
+
+    # Laudo SEPARADO (desmembramento multi-parcela): N laudos concatenados num PDF.
+    if tipo == "laudo_tecnico" and laudo_separado and fmt != "docx":
+        seals = await _selos_laudos_separados(db, uid, doc)
+        laudos = await asyncio.to_thread(PDF.pdf_laudos_separados, doc, tema, seals)
+        data = await asyncio.to_thread(DOSSIE._concat_pdfs, [lp["bytes"] for lp in laudos])
+        return _resp(data, "pdf", f"laudos_separados_{nb}.pdf", inline=True)
 
     # Memorial pode ser de uma parcela específica (?parcela=<id>)
     alvo = _doc_para_memorial(doc, parcela) if tipo == "memorial" else doc
@@ -724,12 +782,15 @@ def _itr_por_exercicio(itens: list) -> list:
     return sorted(itens, key=_chave)
 
 
-def _montar_dossie(doc: dict, tema: str, assinados: dict = None) -> bytes:
+def _montar_dossie(doc: dict, tema: str, assinados: dict = None,
+                   laudo_modo: str = "unificado", laudo_seals: dict = None) -> bytes:
     """`assinados`: {(doc, parcela): bytes} das peças JÁ assinadas (ICP) — usadas
-    no lugar das geradas, para o Dossiê sair com as assinaturas."""
+    no lugar das geradas, para o Dossiê sair com as assinaturas.
+    `laudo_modo`: 'unificado' (1 laudo) ou 'separado' (1 laudo por parcela)."""
     assinados = assinados or {}
     if "_plantas_laudo" not in doc:           # plantas SIGEF embutidas no Laudo
         doc["_plantas_laudo"] = _plantas_laudo(doc)
+    laudo_separado = laudo_modo == "separado" and tem_multiparcela(doc)
 
     def _peca(kind, gen):
         b = assinados.get((kind, None))
@@ -748,9 +809,16 @@ def _montar_dossie(doc: dict, tema: str, assinados: dict = None) -> bytes:
         _seal("laudo")
         return PDF.gerar_pdf("laudo_tecnico", doc, tema)
 
+    if laudo_separado:                     # 1 laudo por parcela → 1 seção de sumário cada
+        laudos = PDF.pdf_laudos_separados(doc, tema, seals=laudo_seals)
+        laudo_secao = [{"titulo": f"Laudo Técnico de Agrimensura — {lp['rotulo']}",
+                        "bytes": lp["bytes"]} for lp in laudos if lp.get("bytes")]
+    else:
+        laudo_secao = _peca("laudo", _gen_laudo)
+
     partes = {
         "requerimento": _peca("requerimento", _gen_req),
-        "laudo_tecnico": _peca("laudo", _gen_laudo),
+        "laudo_tecnico": laudo_secao,
         "memorial": _memoriais_combinados(doc, tema, assinados),   # Memorial do SISTEMA (gerado)
         "drl": [PDF.gerar_pdf("drl", doc, tema, c) for c in TX.confrontantes_para_drl(doc)],
     }

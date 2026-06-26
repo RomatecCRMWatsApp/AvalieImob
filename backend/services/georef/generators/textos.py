@@ -158,7 +158,11 @@ def render_requerimento(projeto) -> dict:
     acao = ACAO_REQUERIMENTO.get(projeto.get("tipo_servico"),
                                  "a AVERBAÇÃO da descrição georreferenciada")
 
-    comarca = im.get("cartorio_municipio") or im.get("municipio") or "___"
+    # Comarca: serventia/comarca da CERTIDÃO (cartorio_municipio) → município registral
+    # da matrícula → município do imóvel (memorial). A cidade da tabela CNS não entra
+    # aqui (pode estar desatualizada — ver enriquecer_cartorio).
+    comarca = (im.get("cartorio_municipio") or im.get("municipio_matricula")
+               or im.get("municipio") or "___")
     comarca_uf = im.get("cartorio_uf") or im.get("uf") or ""
     destinatario = (
         "EXCELENTÍSSIMO(A) SENHOR(A) OFICIAL DO CARTÓRIO DE REGISTRO DE IMÓVEIS\n"
@@ -384,36 +388,87 @@ def render_laudo_tecnico(projeto) -> dict:
     tipo_servico = projeto.get("tipo_servico") or "georreferenciamento"
     finalidade = LEI_POR_SERVICO.get(tipo_servico, tipo_servico)
 
+    # Partes (principal + parcelas) — fonte única, cada uma com seus próprios dados.
+    from services.georef.parcelas import parcelas_do_projeto, tem_multiparcela
+    multi = tem_multiparcela(projeto)
+    partes = parcelas_do_projeto(projeto) if multi else []
+    # Laudo SEPARADO: descreve UMA parcela isolada (o imóvel = a parcela; a matriz é só
+    # citada como origem). `_parcela_isolada` = {"rotulo": "Parte II"}.
+    parc_iso = projeto.get("_parcela_isolada")
+    rot_iso = (parc_iso or {}).get("rotulo") or "Parcela"
+
     _tem_mat = im.get("area_matricula") not in (None, "")
     _area_lbl = "Área registral (matrícula)" if _tem_mat else "Área (SGL)"
-    identificacao = (
-        f"Imóvel: {_denom_atual(im) or '—'} — Matrícula nº {_v(im, 'matricula')} (dados conforme "
-        f"certidão de inteiro teor em anexo), Livro {im.get('livro') or '2'}, "
-        f"{im.get('cartorio_nome') or '—'} (CNS {im.get('cartorio_cns') or '—'}).\n"
-        f"Código INCRA/SNCR: {_v(im, 'cod_incra')}. Natureza: {im.get('natureza_area') or 'Particular'}. "
-        f"Município/UF: {_v(im, 'municipio')}/{_v(im, 'uf')}.\n"
-        f"Proprietário: {_v(im, 'proprietario_nome')}, CPF/CNPJ {_v(im, 'proprietario_cpf_cnpj')}.\n"
-        f"{_area_lbl}: {_ha(_area_atual(im))} ha. Perímetro: {_m(_perim_atual(im))} m. "
-        f"Sistema Geodésico: {im.get('sistema_geodesico') or 'SIRGAS 2000'}.\n"
-        f"Responsável Técnico: {rt.get('nome') or '—'} — {rt.get('formacao') or '—'} — Conselho "
-        f"{rt.get('conselho') or '—'} — Cód. Credenciado INCRA {rt.get('credenciamento_incra') or '—'} "
-        f"— ART/TRT {_art_trt(im, rt)}."
-    )
+    if parc_iso:
+        # IDENTIFICAÇÃO da PARCELA (área/perímetro/SIGEF próprios) + matriz de origem.
+        identificacao = (
+            f"Imóvel (parcela): {rot_iso} — {im.get('denominacao') or '—'}, resultante do "
+            f"{tipo_servico} da Matrícula nº {_v(im, 'matricula')}.\n"
+            f"Código INCRA/SNCR: {_v(im, 'cod_incra')}. Natureza: {im.get('natureza_area') or 'Particular'}. "
+            f"Município/UF: {_v(im, 'municipio')}/{_v(im, 'uf')}.\n"
+            f"Proprietário: {_v(im, 'proprietario_nome')}, CPF/CNPJ {_v(im, 'proprietario_cpf_cnpj')}.\n"
+            f"Área da parcela: {_ha(im.get('area_ha'))} ha. Perímetro: {_m(im.get('perimetro_m'))} m. "
+            f"Sistema Geodésico: {im.get('sistema_geodesico') or 'SIRGAS 2000'}.\n"
+            f"Certificação SIGEF (parcela): {_v(im, 'certificacao_sigef')}.\n"
+            f"Imóvel de origem (matriz): Matrícula nº {_v(im, 'matricula')} — "
+            f"{im.get('denominacao_matricula') or '—'}, área registral {_ha(im.get('area_matricula'))} ha, "
+            f"{im.get('cartorio_nome') or '—'} (CNS {im.get('cartorio_cns') or '—'}).\n"
+            f"Responsável Técnico: {rt.get('nome') or '—'} — {rt.get('formacao') or '—'} — Conselho "
+            f"{rt.get('conselho') or '—'} — Cód. Credenciado INCRA {rt.get('credenciamento_incra') or '—'} "
+            f"— ART/TRT {_art_trt(im, rt)}."
+        )
+    else:
+        identificacao = (
+            f"Imóvel: {_denom_atual(im) or '—'} — Matrícula nº {_v(im, 'matricula')} (dados conforme "
+            f"certidão de inteiro teor em anexo), Livro {im.get('livro') or '2'}, "
+            f"{im.get('cartorio_nome') or '—'} (CNS {im.get('cartorio_cns') or '—'}).\n"
+            f"Código INCRA/SNCR: {_v(im, 'cod_incra')}. Natureza: {im.get('natureza_area') or 'Particular'}. "
+            f"Município/UF: {_v(im, 'municipio')}/{_v(im, 'uf')}.\n"
+            f"Proprietário: {_v(im, 'proprietario_nome')}, CPF/CNPJ {_v(im, 'proprietario_cpf_cnpj')}.\n"
+            f"{_area_lbl}: {_ha(_area_atual(im))} ha. Perímetro: {_m(_perim_atual(im))} m. "
+            f"Sistema Geodésico: {im.get('sistema_geodesico') or 'SIRGAS 2000'}.\n"
+            f"Responsável Técnico: {rt.get('nome') or '—'} — {rt.get('formacao') or '—'} — Conselho "
+            f"{rt.get('conselho') or '—'} — Cód. Credenciado INCRA {rt.get('credenciamento_incra') or '—'} "
+            f"— ART/TRT {_art_trt(im, rt)}."
+        )
     # Desmembramento/remembramento: o laudo abrange TODAS as parcelas resultantes.
-    from services.georef.parcelas import tem_multiparcela as _tem_multi, parcelas_do_projeto as _parts
-    if _tem_multi(projeto):
-        _np = len(_parts(projeto))
+    if multi:
         identificacao += (
-            f"\nObjeto de {str(tipo_servico).upper()} em {_np} parcelas resultantes, todas "
-            f"discriminadas no quadro PARCELAS RESULTANTES (área e perímetro de cada parte)."
+            f"\nObjeto de {str(tipo_servico).upper()} em {len(partes)} parcelas resultantes, todas "
+            f"discriminadas no quadro PARCELAS RESULTANTES e descritas, uma a uma, nas seções de "
+            f"Resultado (poligonal) e Confrontações deste laudo."
         )
 
-    objeto = (
-        f"O presente Laudo Técnico tem por objeto o serviço de {tipo_servico} do imóvel rural "
-        f"acima identificado, com vistas à {finalidade}, mediante levantamento georreferenciado da "
-        f"poligonal e respectiva descrição perimetral, certificado junto ao INCRA/SIGEF sob o "
-        f"código {_v(im, 'certificacao_sigef')}."
-    )
+    # OBJETO — multi: lista TODOS os SIGEF; parcela isolada: descreve a parcela; senão padrão.
+    if parc_iso:
+        objeto = (
+            f"O presente Laudo Técnico tem por objeto a descrição georreferenciada da {rot_iso} "
+            f"({im.get('denominacao') or '—'}), parcela resultante do {tipo_servico} do imóvel rural "
+            f"matriz (Matrícula nº {_v(im, 'matricula')}), com levantamento da poligonal e respectiva "
+            f"descrição perimetral, certificada junto ao INCRA/SIGEF sob o código "
+            f"{_v(im, 'certificacao_sigef')}."
+        )
+    elif multi:
+        sigef_lista = "; ".join(
+            f"{p['rotulo']} — {p.get('certificacao_sigef') or '—'}" for p in partes)
+        cert_matriz = im.get("certificacao_matricula")
+        frase_matriz = (
+            f" A poligonal da matriz de origem encontra-se certificada sob o código "
+            f"{cert_matriz}." if cert_matriz else "")
+        objeto = (
+            f"O presente Laudo Técnico tem por objeto o serviço de {tipo_servico} do imóvel rural "
+            f"acima identificado (Matrícula nº {_v(im, 'matricula')}), com a sua divisão em "
+            f"{len(partes)} parcelas resultantes, georreferenciadas e certificadas junto ao "
+            f"INCRA/SIGEF sob os seguintes códigos de certificação: {sigef_lista}.{frase_matriz} "
+            f"Cada parcela é descrita individualmente nas seções de Resultado e Confrontações."
+        )
+    else:
+        objeto = (
+            f"O presente Laudo Técnico tem por objeto o serviço de {tipo_servico} do imóvel rural "
+            f"acima identificado, com vistas à {finalidade}, mediante levantamento georreferenciado da "
+            f"poligonal e respectiva descrição perimetral, certificado junto ao INCRA/SIGEF sob o "
+            f"código {_v(im, 'certificacao_sigef')}."
+        )
 
     teor_matricula = (
         f"O imóvel objeto deste laudo encontra-se registrado sob a Matrícula nº "
@@ -461,12 +516,19 @@ def render_laudo_tecnico(projeto) -> dict:
         f"sob o código {_v(im, 'certificacao_sigef')}."
     )
 
-    resultado_tabela = [
-        [v.get("codigo") or "—", v.get("longitude_dms") or "—", v.get("latitude_dms") or "—",
-         (_m(v.get("altitude")) if v.get("altitude") is not None else "—"),
-         v.get("vante_codigo") or "—", v.get("azimute") or "—", _m(v.get("distancia"))]
-        for v in (projeto.get("vertices") or [])
-    ]
+    def _vrow(v):
+        return [v.get("codigo") or "—", v.get("longitude_dms") or "—", v.get("latitude_dms") or "—",
+                (_m(v.get("altitude")) if v.get("altitude") is not None else "—"),
+                v.get("vante_codigo") or "—", v.get("azimute") or "—", _m(v.get("distancia"))]
+
+    def _crow(c):
+        return [c.get("nome") or c.get("descricao") or "—", c.get("imovel") or "—",
+                c.get("matricula") or "—", c.get("cns") or "—", ", ".join(c.get("segmentos") or [])]
+
+    # Poligonal e confrontações do imóvel (Parte I, quando multi). No modo unificado,
+    # cada parcela ganha sua PRÓPRIA subseção (resultado_parcelas/confrontacoes_parcelas).
+    resultado_tabela = [_vrow(v) for v in (projeto.get("vertices") or [])]
+    confrontacoes = [_crow(c) for c in (projeto.get("confrontantes") or [])]
 
     cadeia = [
         [a.get("ordem"), a.get("ato") or "—", a.get("tipo") or "—", a.get("data") or "—",
@@ -474,32 +536,43 @@ def render_laudo_tecnico(projeto) -> dict:
         for a in (im.get("cadeia_dominial") or [])
     ] or None
 
-    confrontacoes = [
-        [c.get("nome") or c.get("descricao") or "—", c.get("imovel") or "—",
-         c.get("matricula") or "—", c.get("cns") or "—", ", ".join(c.get("segmentos") or [])]
-        for c in (projeto.get("confrontantes") or [])
-    ]
-
-    # Parcelas resultantes (desmembramento/remembramento)
-    from services.georef.parcelas import parcelas_do_projeto, tem_multiparcela
+    # Parcelas resultantes (desmembramento/remembramento) — quadro-resumo + subseções.
     parcelas_tabela = None
     observacao_areas = None
-    if tem_multiparcela(projeto):
-        partes = parcelas_do_projeto(projeto)
+    resultado_parcelas = None
+    confrontacoes_parcelas = None
+    if multi:
         parcelas_tabela = [
             [p["rotulo"], p.get("denominacao") or "—", _ha(p.get("area_ha")),
              _m(p.get("perimetro_m")), p.get("certificacao_sigef") or "—"]
             for p in partes
         ]
+        # Uma subseção de poligonal por parcela (cada uma com seus próprios vértices).
+        resultado_parcelas = [{
+            "rotulo": p["rotulo"],
+            "denominacao": p.get("denominacao") or "—",
+            "area_ha": _ha(p.get("area_ha")),
+            "perimetro_m": _m(p.get("perimetro_m")),
+            "certificacao_sigef": p.get("certificacao_sigef") or "—",
+            "tabela": [_vrow(v) for v in (p.get("vertices") or [])],
+        } for p in partes]
+        # Uma tabela de confrontações por parcela (cada parcela tem confrontantes próprios).
+        confrontacoes_parcelas = [{
+            "rotulo": p["rotulo"],
+            "denominacao": p.get("denominacao") or "—",
+            "tabela": [_crow(c) for c in (p.get("confrontantes") or [])],
+        } for p in partes]
         # Conferência de áreas: Σ(partes) ≈ área registral da matrícula (tolerância 1%).
         soma = sum((float(p.get("area_ha")) for p in partes if p.get("area_ha") not in (None, "")))
         try:
             area_orig = float(_area_atual(im)) if _area_atual(im) not in (None, "") else None
         except (TypeError, ValueError):
             area_orig = None
+        confere = None
         if area_orig and area_orig > 0:
             dif = abs(soma - area_orig)
-            if dif <= area_orig * 0.01:
+            confere = dif <= area_orig * 0.01
+            if confere:
                 observacao_areas = (
                     f"Conferência de áreas: a soma das parcelas resultantes ({_ha(soma)} ha) "
                     f"confere com a área registral da matrícula ({_ha(area_orig)} ha), dentro "
@@ -513,22 +586,65 @@ def render_laudo_tecnico(projeto) -> dict:
                     f"pode decorrer de retificação concomitante ou de arredondamento de área."
                 )
 
-    conclusao = (
-        f"Diante do exposto, ATESTA-SE que o levantamento georreferenciado do imóvel "
-        f"{_denom_atual(im) or '—'}, matrícula nº {_v(im, 'matricula')}, foi executado em "
-        f"conformidade com a NBR 13133 e com as normas técnicas do INCRA, encontrando-se a "
-        f"poligonal certificada no SIGEF (ausência de sobreposição com outras parcelas do cadastro "
-        f"georreferenciado). O imóvel apresenta área registral de {_ha(_area_atual(im))} ha e perímetro de "
-        f"{_m(_perim_atual(im))} m, com limites e confrontações reconhecidos. Conclui-se pela "
-        f"aptidão técnica do imóvel à {finalidade} e à alimentação do SIG-RI, nos termos do "
-        f"Provimento CNJ nº 195/2025, ressalvada a competência de qualificação jurídica do Oficial "
-        f"de Registro de Imóveis."
-    )
+    # CONCLUSÃO — multi-parcela atesta TODAS as parcelas (área/perímetro/SIGEF de cada),
+    # cita a conferência da soma com a matriz e a abertura das novas matrículas.
+    if parc_iso:
+        conclusao = (
+            f"Diante do exposto, ATESTA-SE que o levantamento georreferenciado da {rot_iso} "
+            f"({im.get('denominacao') or '—'}), parcela resultante do {tipo_servico} da matrícula nº "
+            f"{_v(im, 'matricula')}, foi executado em conformidade com a NBR 13133 e com as normas "
+            f"técnicas do INCRA, apresentando área de {_ha(im.get('area_ha'))} ha e perímetro de "
+            f"{_m(im.get('perimetro_m'))} m, com a poligonal certificada no SIGEF (ausência de "
+            f"sobreposição), e limites e confrontações reconhecidos. Conclui-se pela aptidão técnica à "
+            f"abertura da matrícula da parcela e à alimentação do SIG-RI, nos termos do Provimento CNJ "
+            f"nº 195/2025, ressalvada a competência de qualificação jurídica do Oficial de Registro de "
+            f"Imóveis."
+        )
+    elif multi:
+        partes_txt = "; ".join(
+            f"{p['rotulo']} ({p.get('denominacao') or '—'}) — área {_ha(p.get('area_ha'))} ha, "
+            f"perímetro {_m(p.get('perimetro_m'))} m, certificação SIGEF {p.get('certificacao_sigef') or '—'}"
+            for p in partes)
+        if confere is True:
+            soma_txt = (f"A soma das áreas das parcelas ({_ha(soma)} ha) confere com a área "
+                        f"registral da matrícula ({_ha(_area_atual(im))} ha), dentro da tolerância técnica. ")
+        elif confere is False:
+            soma_txt = (f"Registra-se que a soma das áreas das parcelas ({_ha(soma)} ha) diverge da "
+                        f"área registral da matrícula ({_ha(_area_atual(im))} ha) — vide observação técnica. ")
+        else:
+            soma_txt = ""
+        conclusao = (
+            f"Diante do exposto, ATESTA-SE que o levantamento georreferenciado do imóvel "
+            f"{_denom_atual(im) or '—'}, matrícula nº {_v(im, 'matricula')}, e de cada uma das "
+            f"{len(partes)} parcelas resultantes foi executado em conformidade com a NBR 13133 e com "
+            f"as normas técnicas do INCRA. As parcelas resultantes são: {partes_txt}. {soma_txt}"
+            f"Todas as poligonais encontram-se certificadas no SIGEF, sem sobreposição com outras "
+            f"parcelas do cadastro georreferenciado, com limites e confrontações reconhecidos. "
+            f"Conclui-se pela aptidão técnica do imóvel à {finalidade}, com a abertura das matrículas "
+            f"das parcelas resultantes e a alimentação do SIG-RI, nos termos do Provimento CNJ nº "
+            f"195/2025, ressalvada a competência de qualificação jurídica do Oficial de Registro de Imóveis."
+        )
+    else:
+        conclusao = (
+            f"Diante do exposto, ATESTA-SE que o levantamento georreferenciado do imóvel "
+            f"{_denom_atual(im) or '—'}, matrícula nº {_v(im, 'matricula')}, foi executado em "
+            f"conformidade com a NBR 13133 e com as normas técnicas do INCRA, encontrando-se a "
+            f"poligonal certificada no SIGEF (ausência de sobreposição com outras parcelas do cadastro "
+            f"georreferenciado). O imóvel apresenta área registral de {_ha(_area_atual(im))} ha e perímetro de "
+            f"{_m(_perim_atual(im))} m, com limites e confrontações reconhecidos. Conclui-se pela "
+            f"aptidão técnica do imóvel à {finalidade} e à alimentação do SIG-RI, nos termos do "
+            f"Provimento CNJ nº 195/2025, ressalvada a competência de qualificação jurídica do Oficial "
+            f"de Registro de Imóveis."
+        )
 
+    titulo = f"LAUDO TÉCNICO DE AGRIMENSURA — {str(tipo_servico).upper()}"
+    if parc_iso:
+        titulo += f" ({rot_iso})"
     return {
-        "titulo": f"LAUDO TÉCNICO DE AGRIMENSURA — {str(tipo_servico).upper()}",
+        "titulo": titulo,
         "identificacao": identificacao,
-        "identificacao_negrito": [_denom_atual(im) or "—"],   # denominação em negrito
+        # denominação em negrito: a da parcela (isolada) ou a da matriz (demais casos)
+        "identificacao_negrito": [(im.get("denominacao") if parc_iso else _denom_atual(im)) or "—"],
         "objeto": objeto,
         "teor_matricula": teor_matricula,
         "justificativa": justificativa,
@@ -542,8 +658,11 @@ def render_laudo_tecnico(projeto) -> dict:
                         f"{im.get('certidao_numero') or im.get('matricula') or '—'}, anexa."),
         "confrontacoes_header": ["Confrontante", "Imóvel", "Matrícula", "CNS", "Segmentos"],
         "confrontacoes_tabela": confrontacoes,
+        "confrontacoes_parcelas": confrontacoes_parcelas,   # multi: 1 tabela por parcela
         "parcelas_header": ["Parcela", "Denominação", "Área (ha)", "Perímetro (m)", "Código SIGEF"],
         "parcelas_tabela": parcelas_tabela,
+        "resultado_parcelas": resultado_parcelas,           # multi: 1 poligonal por parcela
+        "multiparcela": multi,
         "observacao_areas": observacao_areas,
         "conclusao": conclusao,
         "rt_assinatura": _rt_assinatura_linhas(im, rt),

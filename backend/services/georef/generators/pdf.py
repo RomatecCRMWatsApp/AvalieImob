@@ -66,6 +66,8 @@ def _styles(cfg):
                                  textColor=cfg["titulo_fg"], alignment=TA_CENTER),
         "sec": ParagraphStyle("g_sec", fontName=cfg["serif_bold"], fontSize=12, leading=15,
                               textColor=(cfg["titulo_fg"] if cfg["sec_band"] else cfg["primary"])),
+        "subsec": ParagraphStyle("g_subsec", fontName=cfg["sans_bold"], fontSize=10, leading=13,
+                                 textColor=cfg["primary"], spaceBefore=8, spaceAfter=2),
         "corpo": ParagraphStyle("g_corpo", fontName=cfg["sans"], fontSize=10, leading=15,
                                 textColor=black, alignment=TA_JUSTIFY),
         "corpo_c": ParagraphStyle("g_corpo_c", fontName=cfg["sans"], fontSize=10, leading=15,
@@ -398,14 +400,38 @@ def pdf_drl(projeto, conf, tema="prime_i") -> bytes:
     return _build(e, cfg, d["titulo"], projeto.get("_brand_logo_bytes"))
 
 
+def _subsec_parcela(p):
+    """Cabeçalho de subseção de uma parcela: 'PARTE I — DENOM · X ha · Y m · SIGEF ...'."""
+    return (f"{p['rotulo']} — {p.get('denominacao') or '—'} · {p.get('area_ha')} ha · "
+            f"{p.get('perimetro_m')} m · SIGEF {p.get('certificacao_sigef') or '—'}")
+
+
+def _bloco_tabela_parcela(titulo, header, rows, cfg, st, lar):
+    """Subcabeçalho + tabela; mantém o cabeçalho junto da 1ª linha (sem órfão).
+    Tabelas grandes (>30 linhas) fluem livres (a 1ª linha de dados repete o header)."""
+    sub = Paragraph(_esc(titulo), st["subsec"])
+    tab = _data_table(header, rows or [["—"] * len(header)], cfg, st, lar)
+    if len(rows or []) <= 30:
+        return [KeepTogether([sub, Spacer(1, 2), tab]), Spacer(1, 6)]
+    return [sub, Spacer(1, 2), tab, Spacer(1, 6)]
+
+
 def pdf_laudo(projeto, tema="prime_i") -> bytes:
     cfg = _cfg(tema)
     st, lar = _styles(cfg), _largura()
     d = TX.render_laudo_tecnico(projeto)
+    multi = bool(d.get("multiparcela"))
     e = []
     e += _titulo(d["titulo"], cfg, st, lar)
     e += _secao("1. IDENTIFICAÇÃO", cfg, st, lar)
     e += _paras_bold(d["identificacao"], d.get("identificacao_negrito"), st["corpo"])
+    # Quadro-resumo das parcelas logo na identificação (multi-parcela).
+    if d.get("parcelas_tabela"):
+        e += _secao("PARCELAS RESULTANTES", cfg, st, lar)
+        e.append(_data_table(d["parcelas_header"], d["parcelas_tabela"], cfg, st, lar))
+        if d.get("observacao_areas"):
+            e.append(Spacer(1, 4))
+            e.append(Paragraph(_esc(d["observacao_areas"]), st["small"]))
     e += _secao("2. OBJETO", cfg, st, lar)
     e += _paras(d["objeto"], st["corpo"])
     if d.get("teor_matricula"):
@@ -415,21 +441,29 @@ def pdf_laudo(projeto, tema="prime_i") -> bytes:
     e += _paras(d["justificativa"], st["corpo"])
     e += _secao("4. METODOLOGIA E PARÂMETROS TÉCNICOS DE AGRIMENSURA", cfg, st, lar)
     e += _paras(d["metodologia"], st["corpo"])
-    e += _secao("5. RESULTADO — POLIGONAL", cfg, st, lar)
-    e.append(_data_table(d["resultado_header"], d["resultado_tabela"], cfg, st, lar))
-    if d.get("parcelas_tabela"):
-        e += _secao("PARCELAS RESULTANTES", cfg, st, lar)
-        e.append(_data_table(d["parcelas_header"], d["parcelas_tabela"], cfg, st, lar))
-        if d.get("observacao_areas"):
-            e.append(Spacer(1, 4))
-            e.append(Paragraph(_esc(d["observacao_areas"]), st["small"]))
+    # 5. RESULTADO — uma subseção de poligonal por parcela (multi) ou uma só (single).
+    if multi and d.get("resultado_parcelas"):
+        e += _secao("5. RESULTADO — POLIGONAL POR PARCELA", cfg, st, lar)
+        for p in d["resultado_parcelas"]:
+            e += _bloco_tabela_parcela(_subsec_parcela(p), d["resultado_header"],
+                                       p["tabela"], cfg, st, lar)
+    else:
+        e += _secao("5. RESULTADO — POLIGONAL", cfg, st, lar)
+        e.append(_data_table(d["resultado_header"], d["resultado_tabela"], cfg, st, lar))
     e += _secao("6. CADEIA DOMINIAL", cfg, st, lar)
     if d["cadeia_tabela"]:
         e.append(_data_table(d["cadeia_header"], d["cadeia_tabela"], cfg, st, lar))
     else:
         e.append(Paragraph(_esc(d["cadeia_nota"]), st["corpo"]))
-    e += _secao("7. CONFRONTAÇÕES", cfg, st, lar)
-    e.append(_data_table(d["confrontacoes_header"], d["confrontacoes_tabela"], cfg, st, lar))
+    # 7. CONFRONTAÇÕES — uma tabela por parcela (multi) ou uma só (single).
+    if multi and d.get("confrontacoes_parcelas"):
+        e += _secao("7. CONFRONTAÇÕES POR PARCELA", cfg, st, lar)
+        for p in d["confrontacoes_parcelas"]:
+            e += _bloco_tabela_parcela(f"{p['rotulo']} — {p.get('denominacao') or '—'}",
+                                       d["confrontacoes_header"], p["tabela"], cfg, st, lar)
+    else:
+        e += _secao("7. CONFRONTAÇÕES", cfg, st, lar)
+        e.append(_data_table(d["confrontacoes_header"], d["confrontacoes_tabela"], cfg, st, lar))
     e += _secao("8. CONCLUSÃO", cfg, st, lar)
     e += _paras(d["conclusao"], st["corpo"])
     e.append(Spacer(1, 14))
@@ -447,6 +481,38 @@ def pdf_laudo(projeto, tema="prime_i") -> bytes:
             if img:
                 e += _img_flow(img, lar, pl.get("legenda") or "Planta SIGEF", st)
     return _build(e, cfg, d["titulo"], projeto.get("_brand_logo_bytes"))
+
+
+def pdf_laudos_separados(projeto, tema="prime_i", seals=None) -> list:
+    """Modo SEPARADO: gera UM laudo por parcela (cada um descreve só a sua parcela,
+    citando a matriz de origem). Retorna [{rotulo, matricula, bytes}].
+    `seals`: {rotulo: {"code", "url"}} para o selo SHA-256/QR de cada laudo."""
+    from services.georef.parcelas import (
+        parcelas_do_projeto, projeto_da_parcela, tem_multiparcela)
+    if not tem_multiparcela(projeto):
+        return [{"rotulo": None, "matricula": (projeto.get("imovel") or {}).get("matricula"),
+                 "bytes": pdf_laudo(projeto, tema)}]
+    seals = seals or {}
+    plantas = projeto.get("_plantas_laudo") or []
+    out = []
+    for pv in parcelas_do_projeto(projeto):
+        rot = pv.get("rotulo")
+        sub = projeto_da_parcela(projeto, pv)
+        sub["parcelas"] = []                         # renderiza como parcela ÚNICA
+        sub["_parcela_isolada"] = {"rotulo": rot}
+        # planta apenas da parcela correspondente (legenda termina com o rótulo)
+        rl = (rot or "").strip().lower()
+        sub["_plantas_laudo"] = [pl for pl in plantas
+                                 if rl and (pl.get("legenda") or "").strip().lower().endswith(rl)]
+        sl = seals.get(rot) or {}
+        if sl.get("code"):
+            sub["_seal_code"], sub["_verify_url"] = sl["code"], sl.get("url")
+        else:
+            sub.pop("_seal_code", None)
+            sub.pop("_verify_url", None)
+        out.append({"rotulo": rot, "matricula": (sub.get("imovel") or {}).get("matricula"),
+                    "bytes": pdf_laudo(sub, tema)})
+    return out
 
 
 # ──────────────────────────────────────────────────────────────────────────────

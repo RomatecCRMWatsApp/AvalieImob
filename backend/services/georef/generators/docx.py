@@ -174,28 +174,49 @@ def docx_drl(projeto, conf) -> bytes:
 
 def docx_laudo(projeto) -> bytes:
     d = TX.render_laudo_tecnico(projeto)
+    multi = bool(d.get("multiparcela"))
     doc = Document()
     _titulo(doc, d["titulo"])
     _secao(doc, "1. IDENTIFICAÇÃO")
     _p(doc, d["identificacao"])
+    if d.get("parcelas_tabela"):
+        _secao(doc, "PARCELAS RESULTANTES")
+        _tabela(doc, d["parcelas_header"], d["parcelas_tabela"])
+        if d.get("observacao_areas"):
+            _p(doc, d["observacao_areas"], size=8.5, color=RGBColor(0x55, 0x55, 0x55))
     _secao(doc, "2. OBJETO")
     _p(doc, d["objeto"])
+    if d.get("teor_matricula"):
+        _secao(doc, "DO TEOR DA MATRÍCULA")
+        _p(doc, d["teor_matricula"])
     _secao(doc, "3. JUSTIFICATIVA TÉCNICO-JURÍDICA")
     _p(doc, d["justificativa"])
     _secao(doc, "4. METODOLOGIA E PARÂMETROS TÉCNICOS DE AGRIMENSURA")
     _p(doc, d["metodologia"])
-    _secao(doc, "5. RESULTADO — POLIGONAL")
-    _tabela(doc, d["resultado_header"], d["resultado_tabela"])
-    if d.get("parcelas_tabela"):
-        _secao(doc, "PARCELAS RESULTANTES")
-        _tabela(doc, d["parcelas_header"], d["parcelas_tabela"])
+    if multi and d.get("resultado_parcelas"):
+        _secao(doc, "5. RESULTADO — POLIGONAL POR PARCELA")
+        for p in d["resultado_parcelas"]:
+            _p(doc, f"{p['rotulo']} — {p.get('denominacao') or '—'} · {p.get('area_ha')} ha · "
+                    f"{p.get('perimetro_m')} m · SIGEF {p.get('certificacao_sigef') or '—'}",
+               bold=True, size=10, color=GREEN, align=WD_ALIGN_PARAGRAPH.LEFT)
+            _tabela(doc, d["resultado_header"], p["tabela"])
+    else:
+        _secao(doc, "5. RESULTADO — POLIGONAL")
+        _tabela(doc, d["resultado_header"], d["resultado_tabela"])
     _secao(doc, "6. CADEIA DOMINIAL")
     if d["cadeia_tabela"]:
         _tabela(doc, d["cadeia_header"], d["cadeia_tabela"])
     else:
         _p(doc, d["cadeia_nota"])
-    _secao(doc, "7. CONFRONTAÇÕES")
-    _tabela(doc, d["confrontacoes_header"], d["confrontacoes_tabela"])
+    if multi and d.get("confrontacoes_parcelas"):
+        _secao(doc, "7. CONFRONTAÇÕES POR PARCELA")
+        for p in d["confrontacoes_parcelas"]:
+            _p(doc, f"{p['rotulo']} — {p.get('denominacao') or '—'}", bold=True, size=10,
+               color=GREEN, align=WD_ALIGN_PARAGRAPH.LEFT)
+            _tabela(doc, d["confrontacoes_header"], p["tabela"])
+    else:
+        _secao(doc, "7. CONFRONTAÇÕES")
+        _tabela(doc, d["confrontacoes_header"], d["confrontacoes_tabela"])
     _secao(doc, "8. CONCLUSÃO")
     _p(doc, d["conclusao"])
     _p(doc, d["data"] + ".", align=WD_ALIGN_PARAGRAPH.CENTER)

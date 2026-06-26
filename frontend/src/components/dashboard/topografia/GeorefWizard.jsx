@@ -128,6 +128,7 @@ export default function GeorefWizard() {
     try {
       const payload = {
         nome_projeto: p.nome_projeto, tipo_servico: p.tipo_servico, tema_pdf: p.tema_pdf,
+        laudo_modo: p.laudo_modo, normalizar_denominacao: p.normalizar_denominacao,
         imovel: p.imovel, responsavel_tecnico: p.responsavel_tecnico,
       };
       const upd = await georefAPI.atualizar(p.id, payload);
@@ -553,6 +554,23 @@ export default function GeorefWizard() {
               <option value="tradicional">Tradicional — Sóbrio (branco)</option>
             </Select>
           </L>
+          {/* Modo do Laudo Técnico — só p/ desmembramento/remembramento com parcelas */}
+          {suportaParcelas && parcelas.length > 0 && (
+            <>
+              <L label="Modo do Laudo Técnico">
+                <Select value={proj.laudo_modo || 'unificado'}
+                  onChange={(e) => upd({ laudo_modo: e.target.value })}>
+                  <option value="unificado">Unificado — um laudo descrevendo TODAS as parcelas (recomendado p/ cartório)</option>
+                  <option value="separado">Separado — um laudo para CADA parcela (N PDFs)</option>
+                </Select>
+              </L>
+              <label className="flex items-center gap-2 text-sm mt-2 cursor-pointer">
+                <input type="checkbox" checked={!!proj.normalizar_denominacao}
+                  onChange={(e) => upd({ normalizar_denominacao: e.target.checked })} />
+                Corrigir o typo do SIGEF “PARTA” → “PARTE” nas denominações
+              </label>
+            </>
+          )}
           <LogoBranding toast={toast} />
           <div className="grid sm:grid-cols-2 gap-2 mt-4">
             {[
@@ -597,11 +615,13 @@ export default function GeorefWizard() {
                 ...(parcelas.length > 0 ? [] : [['memorial', 'Memorial Descritivo', 'memorial', 'principal']]),
               ].map(([k, lab, adoc, aparc]) => {
                 const a = statusAssin(adoc, aparc);
+                // O Laudo respeita o modo (unificado/separado) escolhido na Geração.
+                const md = k === 'laudo_tecnico' ? (proj.laudo_modo || 'unificado') : undefined;
                 return (
                   <DocRow key={k} label={lab}
                     assinado={a?.assinado} onVerAssinado={a?.assinado ? () => verAssinado(a.id) : null}
-                    onVer={() => verBlob(georefAPI.documento(proj.id, k, 'pdf', proj.tema_pdf))}
-                    onPdf={() => baixar(georefAPI.documento(proj.id, k, 'pdf', proj.tema_pdf), `${k}_${nb}.pdf`)}
+                    onVer={() => verBlob(georefAPI.documento(proj.id, k, 'pdf', proj.tema_pdf, md))}
+                    onPdf={() => baixar(georefAPI.documento(proj.id, k, 'pdf', proj.tema_pdf, md), `${k}_${nb}.pdf`)}
                     onDocx={() => baixar(georefAPI.documento(proj.id, k, 'docx'), `${k}_${nb}.docx`)}
                     onAssinar={() => abrirAssinatura(adoc, aparc)} />
                 );
@@ -716,9 +736,9 @@ export default function GeorefWizard() {
               <BtnDown icon={MapPin} label="KML (Google Earth)"
                 onClick={() => baixar(georefAPI.kml(proj.id), `${nb}.kml`)} />
               <BtnDown icon={Eye} label="Ver Dossiê (PDF)"
-                onClick={() => verBlob(georefAPI.documento(proj.id, 'dossie', 'pdf', proj.tema_pdf))} />
+                onClick={() => verBlob(georefAPI.documento(proj.id, 'dossie', 'pdf', proj.tema_pdf, proj.laudo_modo))} />
               <BtnDown icon={FileDown} label="Baixar Dossiê"
-                onClick={() => baixar(georefAPI.documento(proj.id, 'dossie', 'download', proj.tema_pdf), `Dossie_${nb}.pdf`)} />
+                onClick={() => baixar(georefAPI.documento(proj.id, 'dossie', 'download', proj.tema_pdf, proj.laudo_modo), `Dossie_${nb}.pdf`)} />
               {statusAssin('dossie')?.assinado && (
                 <BtnDown icon={CheckCircle2} label="Ver Dossiê assinado"
                   onClick={() => verAssinado(statusAssin('dossie').id)} />
