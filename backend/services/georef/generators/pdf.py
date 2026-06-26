@@ -37,24 +37,26 @@ def _normalizar_tema(tema):
 def _cfg(tema):
     f = T.fonts()
     tema = _normalizar_tema(tema)
-    if tema == "tradicional":
-        return {
-            "tema": tema,
-            "primary": black, "accent": HexColor("#333333"),
-            "serif": f["serif"], "serif_bold": f["serif_bold"], "serif_italic": f["serif_italic"],
-            "sans": f["sans"], "sans_bold": f["sans_bold"],
-            "titulo_bg": None, "titulo_fg": black,
-            "sec_band": False, "tab_head_bg": CINZA_TAB, "tab_head_fg": black,
-        }
-    # prime_i e prime_ii compartilham a paleta; mudam o estilo do título/seção
-    return {
+    base = {
         "tema": tema,
-        "primary": T.C_VERDE_ESCURO, "accent": T.C_DOURADO,
         "serif": f["serif"], "serif_bold": f["serif_bold"], "serif_italic": f["serif_italic"],
         "sans": f["sans"], "sans_bold": f["sans_bold"],
-        "titulo_bg": T.C_VERDE_ESCURO, "titulo_fg": T.C_BRANCO,
-        "sec_band": (tema == "prime_ii"), "tab_head_bg": T.C_VERDE_ESCURO, "tab_head_fg": T.C_BRANCO,
     }
+    if tema == "tradicional":               # SÓBRIO: branco, título preto, filete cinza
+        return {**base,
+                "primary": black, "accent": HexColor("#333333"),
+                "titulo_bg": None, "titulo_fg": black, "titulo_doble": False,
+                "sec_band": False, "tab_head_bg": CINZA_TAB, "tab_head_fg": black}
+    if tema == "prime_ii":                  # BOLD/EDITORIAL: caixa verde + faixas de seção
+        return {**base,
+                "primary": T.C_VERDE_ESCURO, "accent": T.C_DOURADO,
+                "titulo_bg": T.C_VERDE_ESCURO, "titulo_fg": T.C_BRANCO, "titulo_doble": False,
+                "sec_band": True, "tab_head_bg": T.C_VERDE_ESCURO, "tab_head_fg": T.C_BRANCO}
+    # prime_i (default) — ELEGANTE/CLARO: título verde + filete DOURADO DUPLO, sem caixa/faixa
+    return {**base,
+            "primary": T.C_VERDE_ESCURO, "accent": T.C_DOURADO,
+            "titulo_bg": None, "titulo_fg": T.C_VERDE_ESCURO, "titulo_doble": True,
+            "sec_band": False, "tab_head_bg": T.C_DOURADO, "tab_head_fg": T.C_VERDE_ESCURO}
 
 
 def _styles(cfg):
@@ -102,9 +104,15 @@ def _paras(texto, style):
 def _titulo(titulo, cfg, st, largura):
     p = Paragraph(_esc(titulo), st["titulo"])
     if cfg["titulo_bg"] is None:
-        return [p, Spacer(1, 4),
-                Table([[""]], colWidths=[largura], style=[("LINEBELOW", (0, 0), (-1, -1), 1.2, cfg["accent"])]),
-                Spacer(1, 12)]
+        out = [p, Spacer(1, 4),
+               Table([[""]], colWidths=[largura],
+                     style=[("LINEBELOW", (0, 0), (-1, -1), 1.4, cfg["accent"])])]
+        if cfg.get("titulo_doble"):        # prime_i: 2º filete fino (dourado duplo)
+            out += [Spacer(1, 2),
+                    Table([[""]], colWidths=[largura],
+                          style=[("LINEBELOW", (0, 0), (-1, -1), 0.6, cfg["accent"])])]
+        out.append(Spacer(1, 12))
+        return out
     t = Table([[p]], colWidths=[largura])
     t.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, -1), cfg["titulo_bg"]),

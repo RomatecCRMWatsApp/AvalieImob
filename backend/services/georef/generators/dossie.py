@@ -90,21 +90,25 @@ def _capa_bytes(projeto, tema="prime_i") -> bytes:
     f = T.fonts()
     im = projeto.get("imovel") or {}
     rt = projeto.get("responsavel_tecnico") or {}
-    tradicional = (str(tema).lower() in ("tradicional",))
+    tema_l = str(tema).lower()
+    escuro = tema_l in ("prime_ii", "prime2")     # só prime_ii: capa de fundo verde
+    tradicional = tema_l in ("tradicional",)
 
     buf = io.BytesIO()
     c = rl_canvas.Canvas(buf, pagesize=A4)
     w, h = A4
-    if not tradicional:
+    if escuro:                                    # PRIME II — fundo verde, texto branco/dourado
         c.setFillColor(T.C_VERDE_ESCURO)
         c.rect(0, 0, w, h, fill=1, stroke=0)
         fg, accent = white, T.C_DOURADO
-    else:
+    elif tradicional:                             # TRADICIONAL — branco, preto, cinza
         fg, accent = black, HexColor("#333333")
+    else:                                         # PRIME I — branco, título VERDE, filetes DOURADOS
+        fg, accent = T.C_VERDE_ESCURO, T.C_DOURADO
 
     try:
         from pdf.brand_seal import draw_header_lockup
-        draw_header_lockup(c, 2.2 * cm, h - 2.2 * cm, mark=1.2 * cm, light=not tradicional,
+        draw_header_lockup(c, 2.2 * cm, h - 2.2 * cm, mark=1.2 * cm, light=escuro,
                            tagline="Topografia & Geo · INCRA/SIGEF")
     except Exception:  # noqa: BLE001
         pass

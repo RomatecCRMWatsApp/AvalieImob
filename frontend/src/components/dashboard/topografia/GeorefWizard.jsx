@@ -357,9 +357,9 @@ export default function GeorefWizard() {
             </L>
             <L label="Tema do PDF">
               <Select value={proj.tema_pdf} onChange={(e) => upd({ tema_pdf: e.target.value })}>
-                <option value="prime_i">Prime I</option>
-                <option value="prime_ii">Prime II</option>
-                <option value="tradicional">Tradicional</option>
+                <option value="prime_i">Prime I — Elegante (claro, dourado)</option>
+                <option value="prime_ii">Prime II — Editorial (verde, faixas)</option>
+                <option value="tradicional">Tradicional — Sóbrio (branco)</option>
               </Select>
             </L>
           </div>
