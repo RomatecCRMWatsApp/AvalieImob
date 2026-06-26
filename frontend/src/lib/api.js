@@ -125,6 +125,9 @@ export const assinaturaPosAPI = {
   // Assina na posição escolhida (coords em PONTOS PDF, origem bottom-left)
   assinar: (tipo, id, body) =>
     api.post(`/assinatura/icp/${tipo}/${id}/posicionado`, body).then((r) => r.data),
+  // Baixa/visualiza o PDF assinado (ICP) — blob
+  downloadIcp: (tipo, id, layout = 'v2') =>
+    api.get(`/assinatura/icp/${tipo}/${id}/download`, { params: { layout }, responseType: 'blob' }).then((r) => r.data),
 };
 
 // ---- INCRA (tabelas de valores de terra nua — imóveis rurais)

@@ -221,6 +221,20 @@ export default function GeorefWizard() {
   }, [proj?.id]);
   useEffect(() => { if (step === 4) recarregarAssinaturas(); }, [step, recarregarAssinaturas]);
   const statusAssin = (docTipo, parcela) => assinaturas[`${docTipo}:${parcela || ''}`] || null;
+  const verAssinado = async (id) => {
+    if (!id) { toast({ title: 'Assinatura não encontrada', variant: 'destructive' }); return; }
+    try {
+      await verBlob(assinaturaPosAPI.downloadIcp('georef', id));
+    } catch (e) {
+      let detail = e?.message || 'Falha ao abrir o documento assinado.';
+      try {
+        const d = e?.response?.data;
+        if (d instanceof Blob) detail = JSON.parse(await d.text())?.detail || detail;
+        else if (d?.detail) detail = d.detail;
+      } catch { /* */ }
+      toast({ title: 'Não foi possível abrir o assinado', description: detail, variant: 'destructive' });
+    }
+  };
   const abrirAssinatura = async (docTipo, parcela) => {
     setPreparandoAssin(`${docTipo}:${parcela || ''}`);
     try {
@@ -580,7 +594,7 @@ export default function GeorefWizard() {
                 const a = statusAssin(adoc, aparc);
                 return (
                   <DocRow key={k} label={lab}
-                    assinado={a?.assinado} onVerAssinado={a?.assinado ? () => verBlob(assinaturaPosAPI.downloadIcp('georef', a.id)) : null}
+                    assinado={a?.assinado} onVerAssinado={a?.assinado ? () => verAssinado(a.id) : null}
                     onVer={() => verBlob(georefAPI.documento(proj.id, k, 'pdf', proj.tema_pdf))}
                     onPdf={() => baixar(georefAPI.documento(proj.id, k, 'pdf', proj.tema_pdf), `${k}_${nb}.pdf`)}
                     onDocx={() => baixar(georefAPI.documento(proj.id, k, 'docx'), `${k}_${nb}.docx`)}
@@ -591,7 +605,7 @@ export default function GeorefWizard() {
                 const a = statusAssin('art_trt');
                 return (
                   <DocRow label="ART / TRT (documento enviado)"
-                    assinado={a?.assinado} onVerAssinado={a?.assinado ? () => verBlob(assinaturaPosAPI.downloadIcp('georef', a.id)) : null}
+                    assinado={a?.assinado} onVerAssinado={a?.assinado ? () => verAssinado(a.id) : null}
                     onAssinar={() => abrirAssinatura('art_trt')} />
                 );
               })()}
@@ -599,7 +613,7 @@ export default function GeorefWizard() {
                 const a = statusAssin('mapa');
                 return (
                   <DocRow label="Mapa / Planta (SIGEF) — documento enviado"
-                    assinado={a?.assinado} onVerAssinado={a?.assinado ? () => verBlob(assinaturaPosAPI.downloadIcp('georef', a.id)) : null}
+                    assinado={a?.assinado} onVerAssinado={a?.assinado ? () => verAssinado(a.id) : null}
                     onAssinar={() => abrirAssinatura('mapa')} />
                 );
               })()}
@@ -614,7 +628,7 @@ export default function GeorefWizard() {
                   const a = statusAssin('memorial', 'principal');
                   return (
                     <DocRow label={`Parte I — ${proj.imovel?.denominacao || 'principal'}`}
-                      assinado={a?.assinado} onVerAssinado={a?.assinado ? () => verBlob(assinaturaPosAPI.downloadIcp('georef', a.id)) : null}
+                      assinado={a?.assinado} onVerAssinado={a?.assinado ? () => verAssinado(a.id) : null}
                       onVer={() => verBlob(georefAPI.memorialParcela(proj.id, 'principal', 'pdf', proj.tema_pdf))}
                       onPdf={() => baixar(georefAPI.memorialParcela(proj.id, 'principal', 'pdf', proj.tema_pdf), `memorial_PI_${nb}.pdf`)}
                       onDocx={() => baixar(georefAPI.memorialParcela(proj.id, 'principal', 'docx'), `memorial_PI_${nb}.docx`)}
@@ -625,7 +639,7 @@ export default function GeorefWizard() {
                   const a = statusAssin('memorial', pc.id);
                   return (
                     <DocRow key={pc.id} label={`${pc.rotulo || `Parte ${i + 2}`}${pc.denominacao ? ` — ${pc.denominacao}` : ''}`}
-                      assinado={a?.assinado} onVerAssinado={a?.assinado ? () => verBlob(assinaturaPosAPI.downloadIcp('georef', a.id)) : null}
+                      assinado={a?.assinado} onVerAssinado={a?.assinado ? () => verAssinado(a.id) : null}
                       onVer={() => verBlob(georefAPI.memorialParcela(proj.id, pc.id, 'pdf', proj.tema_pdf))}
                       onPdf={() => baixar(georefAPI.memorialParcela(proj.id, pc.id, 'pdf', proj.tema_pdf), `memorial_${nb}.pdf`)}
                       onDocx={() => baixar(georefAPI.memorialParcela(proj.id, pc.id, 'docx'), `memorial_${nb}.docx`)}
@@ -674,7 +688,7 @@ export default function GeorefWizard() {
                 onClick={() => baixar(georefAPI.documento(proj.id, 'dossie', 'download', proj.tema_pdf), `Dossie_${nb}.pdf`)} />
               {statusAssin('dossie')?.assinado && (
                 <BtnDown icon={CheckCircle2} label="Ver Dossiê assinado"
-                  onClick={() => verBlob(assinaturaPosAPI.downloadIcp('georef', statusAssin('dossie').id))} />
+                  onClick={() => verAssinado(statusAssin('dossie').id)} />
               )}
               <BtnDown icon={PenLine}
                 label={preparandoAssin === 'dossie:' ? 'Preparando…'
@@ -717,7 +731,7 @@ export default function GeorefWizard() {
             setAssinId(null);
             toast({ title: 'Assinado com ICP-Brasil ✓', description: 'Abrindo o documento assinado…' });
             recarregarAssinaturas();
-            verBlob(assinaturaPosAPI.downloadIcp('georef', id)).catch(() => {});
+            verAssinado(id);
           }}
           onFechar={() => setAssinId(null)}
         />
