@@ -98,6 +98,22 @@ def _paras(texto, style):
     return out
 
 
+def _paras_bold(texto, termos, style):
+    """Como _paras, mas com `termos` em NEGRITO (escapa tudo; injeta <b> só nos termos)."""
+    termos = [t.strip() for t in (termos or []) if t and t.strip() and t.strip() != "—"]
+    out = []
+    for bloco in str(texto or "").split("\n\n"):
+        bloco = bloco.strip()
+        if not bloco:
+            continue
+        safe = _esc(bloco)
+        for t in termos:
+            safe = safe.replace(_esc(t), f"<b>{_esc(t)}</b>")
+        out.append(Paragraph(safe.replace("\n", "<br/>"), style))
+        out.append(Spacer(1, 6))
+    return out
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Componentes
 # ──────────────────────────────────────────────────────────────────────────────
@@ -244,7 +260,7 @@ def pdf_requerimento(projeto, tema="prime_i") -> bytes:
     e += _titulo(d["titulo"], cfg, st, lar)
     e += _paras(d["destinatario"], st["corpo"])
     e.append(Spacer(1, 8))
-    e += _paras(d["corpo"], st["corpo"])
+    e += _paras_bold(d["corpo"], d.get("corpo_negrito"), st["corpo"])
     for doc_item in d["documentos"]:
         e.append(Paragraph(_esc(doc_item), st["corpo"]))
         e.append(Spacer(1, 2))
@@ -310,7 +326,7 @@ def pdf_laudo(projeto, tema="prime_i") -> bytes:
     e = []
     e += _titulo(d["titulo"], cfg, st, lar)
     e += _secao("1. IDENTIFICAÇÃO", cfg, st, lar)
-    e += _paras(d["identificacao"], st["corpo"])
+    e += _paras_bold(d["identificacao"], d.get("identificacao_negrito"), st["corpo"])
     e += _secao("2. OBJETO", cfg, st, lar)
     e += _paras(d["objeto"], st["corpo"])
     e += _secao("3. JUSTIFICATIVA TÉCNICO-JURÍDICA", cfg, st, lar)

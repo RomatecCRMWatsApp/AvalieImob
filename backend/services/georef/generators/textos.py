@@ -160,6 +160,8 @@ def render_requerimento(projeto) -> dict:
         "titulo": "REQUERIMENTO DE AVERBAÇÃO DE GEORREFERENCIAMENTO",
         "destinatario": destinatario,
         "corpo": corpo,
+        # Termos em NEGRITO no corpo: a denominação do imóvel e a ação requerida.
+        "corpo_negrito": [_v(im, "denominacao"), f"REQUERER {acao}"],
         "documentos": documentos,
         "fecho": fecho,
         "rt_linha": rt_linha,
@@ -336,6 +338,14 @@ def render_laudo_tecnico(projeto) -> dict:
         f"{rt.get('conselho') or '—'} — Cód. Credenciado INCRA {rt.get('credenciamento_incra') or '—'} "
         f"— ART/TRT {_art_trt(im, rt)}."
     )
+    # Desmembramento/remembramento: o laudo abrange TODAS as parcelas resultantes.
+    from services.georef.parcelas import tem_multiparcela as _tem_multi, parcelas_do_projeto as _parts
+    if _tem_multi(projeto):
+        _np = len(_parts(projeto))
+        identificacao += (
+            f"\nObjeto de {str(tipo_servico).upper()} em {_np} parcelas resultantes, todas "
+            f"discriminadas no quadro PARCELAS RESULTANTES (área e perímetro de cada parte)."
+        )
 
     objeto = (
         f"O presente Laudo Técnico tem por objeto o serviço de {tipo_servico} do imóvel rural "
@@ -423,6 +433,7 @@ def render_laudo_tecnico(projeto) -> dict:
     return {
         "titulo": f"LAUDO TÉCNICO DE AGRIMENSURA — {str(tipo_servico).upper()}",
         "identificacao": identificacao,
+        "identificacao_negrito": [_v(im, "denominacao")],   # denominação em negrito
         "objeto": objeto,
         "justificativa": justificativa,
         "metodologia": metodologia,
