@@ -580,6 +580,19 @@ def _itr_por_exercicio(itens: list) -> list:
     return sorted(itens, key=_chave)
 
 
+def _uploads_das_parcelas(doc: dict, tipo: str) -> list:
+    """Baixa o upload `tipo` (memorial|mapa) de cada parcela adicional."""
+    out = []
+    for pc in (doc.get("parcelas") or []):
+        k = ((pc.get("uploads") or {}).get(tipo) or {}).get("key")
+        if k:
+            try:
+                out.append(r2_storage.download_bytes(k))
+            except Exception:  # noqa: BLE001
+                pass
+    return out
+
+
 def _montar_dossie(doc: dict, tema: str, assinados: dict = None) -> bytes:
     """`assinados`: {(doc, parcela): bytes} das peças JÁ assinadas (ICP) — usadas
     no lugar das geradas, para o Dossiê sair com as assinaturas."""
@@ -592,7 +605,7 @@ def _montar_dossie(doc: dict, tema: str, assinados: dict = None) -> bytes:
     partes = {
         "requerimento": _peca("requerimento", lambda: PDF.gerar_pdf("requerimento", doc, tema)),
         "laudo_tecnico": _peca("laudo", lambda: PDF.gerar_pdf("laudo_tecnico", doc, tema)),
-        "memorial": _memoriais_combinados(doc, tema, assinados),
+        "memorial": _memoriais_combinados(doc, tema, assinados),   # Memorial do SISTEMA (gerado)
         "drl": [PDF.gerar_pdf("drl", doc, tema, c) for c in TX.confrontantes_para_drl(doc)],
     }
     uploads = doc.get("uploads") or {}
@@ -608,6 +621,29 @@ def _montar_dossie(doc: dict, tema: str, assinados: dict = None) -> bytes:
         raw = _download_upload(uploads, tipo_up)
         if raw:
             partes[chave] = raw
+
+    # Mapa / Planta SIGEF (upload): versão assinada do principal + mapas das parcelas
+    mapa_list = []
+    mapa_assinado = assinados.get(("mapa", None))
+    if mapa_assinado:
+        mapa_list.append(mapa_assinado)
+    else:
+        raw = _download_upload(uploads, "mapa")
+        if raw:
+            mapa_list.append(raw)
+    mapa_list += _uploads_das_parcelas(doc, "mapa")
+    if mapa_list:
+        partes["mapa"] = mapa_list
+
+    # Memorial SIGEF ORIGINAL (upload — distinto do Memorial gerado): principal + parcelas
+    memsig_list = []
+    raw = _download_upload(uploads, "memorial")
+    if raw:
+        memsig_list.append(raw)
+    memsig_list += _uploads_das_parcelas(doc, "memorial")
+    if memsig_list:
+        partes["memorial_sigef"] = memsig_list
+
     # ITR: vários exercícios (lista) — ordena por ano e baixa todos
     itr_itens = uploads.get("itr")
     if isinstance(itr_itens, dict):

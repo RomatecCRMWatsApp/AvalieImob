@@ -17,10 +17,17 @@ from services.georef.generators import textos as TX
 
 logger = logging.getLogger("romatec")
 
+# Ordem de protocolo definida pelo RT (José Romário):
+# capa → requerimento → laudo → Memorial (sistema) → DRL → Mapa/Planta SIGEF →
+# TRT → Certidão de inteiro teor → CCIR → CAR → ITR → Memorial SIGEF (original) →
+# documentos pessoais do proprietário.
 ORDEM_DOSSIE = [
-    "requerimento", "laudo_tecnico", "memorial", "art_trt", "drl",
-    "ccir", "car", "itr", "certidao_matricula", "doc_cliente",
+    "requerimento", "laudo_tecnico", "memorial", "drl", "mapa", "art_trt",
+    "certidao_matricula", "ccir", "car", "itr", "memorial_sigef", "doc_cliente",
 ]
+# Peças que entram como ANEXO (PDF/imagem, podendo ser lista de vários arquivos).
+_ANEXOS_DOSSIE = ("art_trt", "mapa", "ccir", "car", "itr",
+                  "certidao_matricula", "memorial_sigef", "doc_cliente")
 
 
 def _quebrar_em_duas(c, texto, font, size, max_w):
@@ -103,6 +110,37 @@ def _capa_bytes(projeto, tema="prime_i") -> bytes:
         c.drawCentredString(w / 2, y, ln)
         y -= 0.7 * cm
 
+    # Desmembramento/Remembramento: lista as parcelas resultantes NA CAPA.
+    tipo_serv = (projeto.get("tipo_servico") or "").strip().lower()
+    parcelas = projeto.get("parcelas") or []
+    if tipo_serv in ("desmembramento", "remembramento") and parcelas:
+        max_w = w - 4.4 * cm
+        y -= 0.5 * cm
+        c.setFillColor(accent)
+        c.setFont(f["sans_bold"], 10)
+        c.drawCentredString(w / 2, y, f"PARCELAS RESULTANTES — {tipo_serv.upper()}")
+        y -= 0.65 * cm
+        c.setFillColor(fg)
+        c.setFont(f["sans"], 9.5)
+        itens = [f"Parte I — {(im.get('denominacao') or '—')}"]
+        for i, pc in enumerate(parcelas):
+            rot = pc.get("rotulo") or f"Parte {i + 2}"
+            den = (pc.get("denominacao") or "").strip()
+            area = pc.get("area_ha")
+            txt = rot + (f" — {den}" if den else "") + (f"  ·  {area} ha" if area else "")
+            itens.append(txt)
+        for ln in itens[:12]:
+            t = ln
+            while c.stringWidth(t, f["sans"], 9.5) > max_w and len(t) > 8:
+                t = t[:-2]
+            if t != ln:
+                t = t + "…"
+            c.drawCentredString(w / 2, y, t)
+            y -= 0.55 * cm
+        if len(itens) > 12:
+            c.drawCentredString(w / 2, y, f"(+{len(itens) - 12} parcela(s))")
+            y -= 0.55 * cm
+
     c.setStrokeColor(accent)
     c.setLineWidth(1)
     c.line(2.2 * cm, 5.0 * cm, w - 2.2 * cm, 5.0 * cm)
@@ -174,7 +212,7 @@ def gerar_dossie(projeto, partes: dict, tema="prime_i") -> bytes:
         if chave == "drl" and isinstance(val, (list, tuple)):
             for drl_bytes in val:
                 _append(writer, drl_bytes)
-        elif chave in ("art_trt", "ccir", "car", "itr", "certidao_matricula", "doc_cliente"):
+        elif chave in _ANEXOS_DOSSIE:
             itens = val if isinstance(val, (list, tuple)) else [val]
             for v in itens:
                 _append(writer, _to_pdf(v))
