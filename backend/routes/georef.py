@@ -580,19 +580,6 @@ def _itr_por_exercicio(itens: list) -> list:
     return sorted(itens, key=_chave)
 
 
-def _uploads_das_parcelas(doc: dict, tipo: str) -> list:
-    """Baixa o upload `tipo` (memorial|mapa) de cada parcela adicional."""
-    out = []
-    for pc in (doc.get("parcelas") or []):
-        k = ((pc.get("uploads") or {}).get(tipo) or {}).get("key")
-        if k:
-            try:
-                out.append(r2_storage.download_bytes(k))
-            except Exception:  # noqa: BLE001
-                pass
-    return out
-
-
 def _montar_dossie(doc: dict, tema: str, assinados: dict = None) -> bytes:
     """`assinados`: {(doc, parcela): bytes} das peças JÁ assinadas (ICP) — usadas
     no lugar das geradas, para o Dossiê sair com as assinaturas."""
@@ -622,25 +609,30 @@ def _montar_dossie(doc: dict, tema: str, assinados: dict = None) -> bytes:
         if raw:
             partes[chave] = raw
 
-    # Mapa / Planta SIGEF (upload): versão assinada do principal + mapas das parcelas
-    mapa_list = []
-    mapa_assinado = assinados.get(("mapa", None))
-    if mapa_assinado:
-        mapa_list.append(mapa_assinado)
-    else:
-        raw = _download_upload(uploads, "mapa")
-        if raw:
-            mapa_list.append(raw)
-    mapa_list += _uploads_das_parcelas(doc, "mapa")
+    # Mapa / Planta SIGEF (upload) e Memorial SIGEF ORIGINAL (upload) — principal +
+    # cada parcela, usando a versão ASSINADA quando houver.
+    def _anexo_assinado_ou_upload(sign_kind, up_tipo):
+        out = []
+        b = assinados.get((sign_kind, "principal")) or _download_upload(uploads, up_tipo)
+        if b:
+            out.append(b)
+        for pc in (doc.get("parcelas") or []):
+            pb = assinados.get((sign_kind, pc.get("id")))
+            if not pb:
+                k = ((pc.get("uploads") or {}).get(up_tipo) or {}).get("key")
+                if k:
+                    try:
+                        pb = r2_storage.download_bytes(k)
+                    except Exception:  # noqa: BLE001
+                        pb = None
+            if pb:
+                out.append(pb)
+        return out
+
+    mapa_list = _anexo_assinado_ou_upload("mapa", "mapa")
     if mapa_list:
         partes["mapa"] = mapa_list
-
-    # Memorial SIGEF ORIGINAL (upload — distinto do Memorial gerado): principal + parcelas
-    memsig_list = []
-    raw = _download_upload(uploads, "memorial")
-    if raw:
-        memsig_list.append(raw)
-    memsig_list += _uploads_das_parcelas(doc, "memorial")
+    memsig_list = _anexo_assinado_ou_upload("memorial_sigef", "memorial")
     if memsig_list:
         partes["memorial_sigef"] = memsig_list
 
@@ -675,7 +667,11 @@ async def _carregar_pecas_assinadas(db, pid: str, uid: str) -> dict:
         if not b or b[:5] != b"%PDF-":
             continue
         dock = r.get("doc")
-        parc = (r.get("parcela") or "principal") if dock == "memorial" else None
+        # memorial/mapa/memorial_sigef são por-parcela (None → principal); demais = None
+        if dock in ("memorial", "mapa", "memorial_sigef"):
+            parc = r.get("parcela") or "principal"
+        else:
+            parc = None
         out[(dock, parc)] = b
     return out
 
@@ -690,17 +686,28 @@ _DOC_NOMES = {
     "dossie": "Dossiê Consolidado",
     "art_trt": "ART/TRT",
     "mapa": "Mapa / Planta (SIGEF)",
+    "memorial_sigef": "Memorial Descritivo SIGEF (enviado)",
 }
-# Peças que vêm de um UPLOAD (PDF/imagem) — assináveis direto.
-_DOC_UPLOAD = {"art_trt": "art_trt", "mapa": "mapa"}
+# Peças que vêm de um UPLOAD (PDF/imagem) — assináveis direto. doc_tipo -> upload_tipo.
+_DOC_UPLOAD = {"art_trt": "art_trt", "mapa": "mapa", "memorial_sigef": "memorial"}
+
+
+def _upload_da_parcela_ou_principal(doc: dict, up_tipo: str, parcela: str):
+    """Retorna o dict do upload `up_tipo` da parcela (se `parcela`) ou do principal."""
+    if parcela and parcela != "principal":
+        pc = next((p for p in (doc.get("parcelas") or []) if p.get("id") == parcela), None)
+        return ((pc or {}).get("uploads") or {}).get(up_tipo)
+    return (doc.get("uploads") or {}).get(up_tipo)
 
 
 def _pdf_para_assinatura(doc: dict, tipo_doc: str, parcela: str, tema: str,
                          assinados: dict = None) -> bytes:
     if tipo_doc in _DOC_UPLOAD:
-        raw = _download_upload(doc.get("uploads") or {}, _DOC_UPLOAD[tipo_doc])
-        if not raw:
+        up = _upload_da_parcela_ou_principal(doc, _DOC_UPLOAD[tipo_doc], parcela)
+        key = (up or {}).get("key")
+        if not key:
             raise ValueError(f"{_DOC_NOMES[tipo_doc]} não enviado (suba na etapa Upload).")
+        raw = r2_storage.download_bytes(key)
         if raw[:5] == b"%PDF-":
             return raw
         from services.georef.generators.dossie import _img_para_pdf
@@ -753,10 +760,10 @@ async def preparar_assinatura(pid: str, body: AssinarPecaBody,
         paginas = 0
 
     rotulo = ""
-    if body.doc == "memorial" and body.parcela and body.parcela != "principal":
+    if body.parcela and body.parcela != "principal":
         pv = next((p for p in parcelas_do_projeto(doc) if p.get("id") == body.parcela), None)
         rotulo = f" ({pv.get('rotulo')})" if pv else ""
-    elif body.doc == "memorial":
+    elif body.doc in ("memorial", "memorial_sigef", "mapa"):
         rotulo = " (Parte I)" if tem_multiparcela(doc) else ""
     nome = f"{_DOC_NOMES[body.doc]}{rotulo} — {_nome_base(doc)}"
     if existente:

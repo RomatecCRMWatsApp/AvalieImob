@@ -612,11 +612,39 @@ export default function GeorefWizard() {
               {proj.uploads?.mapa && (() => {
                 const a = statusAssin('mapa');
                 return (
-                  <DocRow label="Mapa / Planta (SIGEF) — documento enviado"
+                  <DocRow label={`Mapa / Planta (SIGEF)${parcelas.length ? ' — Parte I' : ''} (documento enviado)`}
                     assinado={a?.assinado} onVerAssinado={a?.assinado ? () => verAssinado(a.id) : null}
                     onAssinar={() => abrirAssinatura('mapa')} />
                 );
               })()}
+              {proj.uploads?.memorial && (() => {
+                const a = statusAssin('memorial_sigef', 'principal');
+                return (
+                  <DocRow label={`Memorial Descritivo SIGEF${parcelas.length ? ' — Parte I' : ''} (documento enviado)`}
+                    assinado={a?.assinado} onVerAssinado={a?.assinado ? () => verAssinado(a.id) : null}
+                    onAssinar={() => abrirAssinatura('memorial_sigef', 'principal')} />
+                );
+              })()}
+              {/* Mapa e Memorial SIGEF ENVIADOS de cada parcela (Parte II, III…) */}
+              {parcelas.map((pc, i) => {
+                const rot = pc.rotulo || `Parte ${i + 2}`;
+                const am = statusAssin('mapa', pc.id);
+                const ams = statusAssin('memorial_sigef', pc.id);
+                return (
+                  <React.Fragment key={`up-${pc.id}`}>
+                    {pc.uploads?.mapa && (
+                      <DocRow label={`Mapa / Planta (SIGEF) — ${rot} (documento enviado)`}
+                        assinado={am?.assinado} onVerAssinado={am?.assinado ? () => verAssinado(am.id) : null}
+                        onAssinar={() => abrirAssinatura('mapa', pc.id)} />
+                    )}
+                    {pc.uploads?.memorial && (
+                      <DocRow label={`Memorial Descritivo SIGEF — ${rot} (documento enviado)`}
+                        assinado={ams?.assinado} onVerAssinado={ams?.assinado ? () => verAssinado(ams.id) : null}
+                        onAssinar={() => abrirAssinatura('memorial_sigef', pc.id)} />
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </div>
           </Card>
 
