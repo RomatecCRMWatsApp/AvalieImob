@@ -49,6 +49,7 @@ def _certificacao_bloco(im):
         ("Matrícula nº", im.get("matricula")),
         ("CNS/UNIF do cartório", im.get("cartorio_cns")),
         ("CCIR/INCRA nº", im.get("cod_incra") or im.get("incra_matricula")),
+        ("CAR (Cadastro Ambiental Rural) nº", im.get("car")),
         ("NIRF/ITR nº", im.get("nirf")),
         ("Código de Certificação SIGEF", im.get("certificacao_sigef")),
     ]
@@ -482,12 +483,35 @@ def render_laudo_tecnico(projeto) -> dict:
     # Parcelas resultantes (desmembramento/remembramento)
     from services.georef.parcelas import parcelas_do_projeto, tem_multiparcela
     parcelas_tabela = None
+    observacao_areas = None
     if tem_multiparcela(projeto):
+        partes = parcelas_do_projeto(projeto)
         parcelas_tabela = [
             [p["rotulo"], p.get("denominacao") or "—", _ha(p.get("area_ha")),
              _m(p.get("perimetro_m")), p.get("certificacao_sigef") or "—"]
-            for p in parcelas_do_projeto(projeto)
+            for p in partes
         ]
+        # Conferência de áreas: Σ(partes) ≈ área registral da matrícula (tolerância 1%).
+        soma = sum((float(p.get("area_ha")) for p in partes if p.get("area_ha") not in (None, "")))
+        try:
+            area_orig = float(_area_atual(im)) if _area_atual(im) not in (None, "") else None
+        except (TypeError, ValueError):
+            area_orig = None
+        if area_orig and area_orig > 0:
+            dif = abs(soma - area_orig)
+            if dif <= area_orig * 0.01:
+                observacao_areas = (
+                    f"Conferência de áreas: a soma das parcelas resultantes ({_ha(soma)} ha) "
+                    f"confere com a área registral da matrícula ({_ha(area_orig)} ha), dentro "
+                    f"da tolerância técnica admitida."
+                )
+            else:
+                observacao_areas = (
+                    f"OBSERVAÇÃO TÉCNICA: a soma das parcelas resultantes ({_ha(soma)} ha) "
+                    f"diverge da área registral da matrícula ({_ha(area_orig)} ha) em {_ha(dif)} ha. "
+                    f"Recomenda-se conferir os memoriais e a certidão antes do protocolo — a diferença "
+                    f"pode decorrer de retificação concomitante ou de arredondamento de área."
+                )
 
     conclusao = (
         f"Diante do exposto, ATESTA-SE que o levantamento georreferenciado do imóvel "
@@ -520,6 +544,7 @@ def render_laudo_tecnico(projeto) -> dict:
         "confrontacoes_tabela": confrontacoes,
         "parcelas_header": ["Parcela", "Denominação", "Área (ha)", "Perímetro (m)", "Código SIGEF"],
         "parcelas_tabela": parcelas_tabela,
+        "observacao_areas": observacao_areas,
         "conclusao": conclusao,
         "rt_assinatura": _rt_assinatura_linhas(im, rt),
         "data": data_extenso(im.get("municipio"), im.get("uf")),

@@ -49,6 +49,7 @@ const IMOVEL_CAMPOS = [
   ['proprietario_endereco', 'Endereço do proprietário', 2],
   ['matricula', 'Matrícula', 1], ['livro', 'Livro', 1],
   ['cod_incra', 'Código INCRA/SNCR', 1], ['natureza_area', 'Natureza da área', 1],
+  ['car', 'CAR (Cadastro Ambiental Rural)', 2], ['nirf', 'NIRF / ITR', 1],
   ['municipio', 'Município', 1], ['uf', 'UF', 1],
   ['cartorio_nome', 'Cartório / Serventia', 2], ['cartorio_cns', 'CNS do cartório', 1],
   ['cartorio_municipio', 'Comarca/Município do cartório', 1],

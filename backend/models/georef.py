@@ -104,6 +104,7 @@ class DadosImovel(BaseModel):
     perimetro_matricula: Optional[float] = None   # 5080.40
     incra_matricula: Optional[str] = None
     nirf: Optional[str] = None
+    car: Optional[str] = None              # nº de registro CAR (UF-IBGE-HASH)
     municipio_matricula: Optional[str] = None
     sistema_geodesico: Optional[str] = "SIRGAS 2000"
     certificacao_sigef: Optional[str] = None

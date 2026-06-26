@@ -360,6 +360,14 @@ def _executar_extracao(doc: dict) -> dict:
             except Exception as e:  # noqa: BLE001
                 avisos.append(f"Cadeia dominial não extraída ({e}).")
 
+    # CAR (Cadastro Ambiental Rural): o nº de registro vem no NOME do arquivo (UF-IBGE-HASH).
+    car_nome = (uploads.get("car") or {}).get("filename") or ""
+    if car_nome and not editados.get("imovel.car"):
+        import re as _re
+        mcar = _re.search(r"([A-Z]{2}-\d{5,8}-[A-F0-9]{20,})", car_nome.upper())
+        if mcar:
+            imovel["car"] = mcar.group(1)
+
     # Cartório: resolve nome/comarca/UF pelo CNS (tabela oficial de serventias)
     try:
         from services.georef.serventias import enriquecer_cartorio

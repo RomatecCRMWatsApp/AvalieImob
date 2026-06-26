@@ -353,6 +353,9 @@ def pdf_laudo(projeto, tema="prime_i") -> bytes:
     if d.get("parcelas_tabela"):
         e += _secao("PARCELAS RESULTANTES", cfg, st, lar)
         e.append(_data_table(d["parcelas_header"], d["parcelas_tabela"], cfg, st, lar))
+        if d.get("observacao_areas"):
+            e.append(Spacer(1, 4))
+            e.append(Paragraph(_esc(d["observacao_areas"]), st["small"]))
     e += _secao("6. CADEIA DOMINIAL", cfg, st, lar)
     if d["cadeia_tabela"]:
         e.append(_data_table(d["cadeia_header"], d["cadeia_tabela"], cfg, st, lar))
