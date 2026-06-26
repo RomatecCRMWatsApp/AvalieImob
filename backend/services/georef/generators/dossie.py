@@ -115,49 +115,77 @@ def _capa_bytes(projeto, tema="prime_i") -> bytes:
     titulo = (im.get("denominacao") or "Imóvel Rural").strip()
     _draw_titulo_capa(c, titulo, w, h - 8.0 * cm, f["serif_bold"], fg, 2.2 * cm)
 
+    tipo_serv = (projeto.get("tipo_servico") or "").strip().lower()
+    parcelas = projeto.get("parcelas") or []
+    tem_partes = tipo_serv in ("desmembramento", "remembramento") and bool(parcelas)
+    max_w = w - 4.4 * cm
+
+    def _trunc(txt, font, size):
+        t = txt
+        while c.stringWidth(t, font, size) > max_w and len(t) > 8:
+            t = t[:-2]
+        return (t + "…") if t != txt else txt
+
     c.setFont(f["sans"], 11)
     linhas = [
         f"Matrícula nº {im.get('matricula') or '—'}  ·  INCRA/SNCR {im.get('cod_incra') or '—'}",
         f"{im.get('municipio') or '—'}/{im.get('uf') or '—'}  ·  {im.get('cartorio_nome') or '—'}",
-        f"Área {im.get('area_ha') or '—'} ha  ·  Perímetro {im.get('perimetro_m') or '—'} m",
         f"Proprietário: {im.get('proprietario_nome') or '—'}",
-        f"Certificação SIGEF: {im.get('certificacao_sigef') or '—'}",
     ]
+    if not tem_partes:   # imóvel único: área/perímetro/certificação na cabeça mesmo
+        linhas.insert(2, f"Área {im.get('area_ha') or '—'} ha  ·  Perímetro {im.get('perimetro_m') or '—'} m")
+        linhas.append(f"Certificação SIGEF: {im.get('certificacao_sigef') or '—'}")
     y = h - 10.0 * cm
     for ln in linhas:
-        c.drawCentredString(w / 2, y, ln)
+        c.drawCentredString(w / 2, y, _trunc(ln, f["sans"], 11))
         y -= 0.7 * cm
 
-    # Desmembramento/Remembramento: lista as parcelas resultantes NA CAPA.
-    tipo_serv = (projeto.get("tipo_servico") or "").strip().lower()
-    parcelas = projeto.get("parcelas") or []
-    if tipo_serv in ("desmembramento", "remembramento") and parcelas:
-        max_w = w - 4.4 * cm
-        y -= 0.5 * cm
+    # Desmembramento/Remembramento: CADA parte com área · perímetro · certificação SIGEF.
+    if tem_partes:
+        partes_data = [{
+            "rotulo": "Parte I", "denom": im.get("denominacao"),
+            "area": im.get("area_ha"), "perim": im.get("perimetro_m"),
+            "cert": im.get("certificacao_sigef"),
+        }]
+        for i, pc in enumerate(parcelas):
+            partes_data.append({
+                "rotulo": pc.get("rotulo") or f"Parte {i + 2}", "denom": pc.get("denominacao"),
+                "area": pc.get("area_ha"), "perim": pc.get("perimetro_m"),
+                "cert": pc.get("certificacao_sigef"),
+            })
+        cert_col = HexColor("#666666") if tradicional else T.C_DOURADO
+        y -= 0.45 * cm
         c.setFillColor(accent)
         c.setFont(f["sans_bold"], 10)
         c.drawCentredString(w / 2, y, f"PARCELAS RESULTANTES — {tipo_serv.upper()}")
-        y -= 0.65 * cm
-        c.setFillColor(fg)
-        c.setFont(f["sans"], 9.5)
-        itens = [f"Parte I — {(im.get('denominacao') or '—')}"]
-        for i, pc in enumerate(parcelas):
-            rot = pc.get("rotulo") or f"Parte {i + 2}"
-            den = (pc.get("denominacao") or "").strip()
-            area = pc.get("area_ha")
-            txt = rot + (f" — {den}" if den else "") + (f"  ·  {area} ha" if area else "")
-            itens.append(txt)
-        for ln in itens[:12]:
-            t = ln
-            while c.stringWidth(t, f["sans"], 9.5) > max_w and len(t) > 8:
-                t = t[:-2]
-            if t != ln:
-                t = t + "…"
-            c.drawCentredString(w / 2, y, t)
-            y -= 0.55 * cm
-        if len(itens) > 12:
-            c.drawCentredString(w / 2, y, f"(+{len(itens) - 12} parcela(s))")
-            y -= 0.55 * cm
+        y -= 0.7 * cm
+        for pd in partes_data[:8]:
+            titulo = f"{pd['rotulo']} — {pd['denom']}" if pd["denom"] else pd["rotulo"]
+            c.setFillColor(fg)
+            c.setFont(f["sans_bold"], 9.5)
+            c.drawCentredString(w / 2, y, _trunc(titulo, f["sans_bold"], 9.5))
+            y -= 0.48 * cm
+            sub = []
+            if pd["area"]:
+                sub.append(f"Área {pd['area']} ha")
+            if pd["perim"]:
+                sub.append(f"Perímetro {pd['perim']} m")
+            if sub:
+                c.setFillColor(fg)
+                c.setFont(f["sans"], 9)
+                c.drawCentredString(w / 2, y, " · ".join(sub))
+                y -= 0.42 * cm
+            if pd["cert"]:
+                c.setFillColor(cert_col)
+                c.setFont(f["sans"], 8)
+                c.drawCentredString(w / 2, y, _trunc(f"Certificação SIGEF: {pd['cert']}", f["sans"], 8))
+                y -= 0.42 * cm
+            y -= 0.18 * cm
+        if len(partes_data) > 8:
+            c.setFillColor(fg)
+            c.setFont(f["sans"], 9)
+            c.drawCentredString(w / 2, y, f"(+{len(partes_data) - 8} parte(s))")
+            y -= 0.5 * cm
 
     c.setStrokeColor(accent)
     c.setLineWidth(1)
