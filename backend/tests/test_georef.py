@@ -380,8 +380,33 @@ def test_dossie_merge(projeto):
         "prime_i",
     )
     assert out[:5] == b"%PDF-"
-    # capa(1) + req + laudo + memorial + 4 DRLs -> várias páginas
+    # capa(1) + sumário(1) + req + laudo + memorial + 4 DRLs -> várias páginas
     assert len(PdfReader(io.BytesIO(out)).pages) >= 8
+
+
+def test_dossie_sumario_com_links(projeto):
+    """Dossiê: pág 2 é o SUMÁRIO com links clicáveis (ref de página) + bookmarks."""
+    from pypdf import PdfReader
+    from pypdf.generic import IndirectObject
+
+    req = PDF.gerar_pdf("requerimento", projeto, "prime_i")
+    laudo = PDF.gerar_pdf("laudo_tecnico", projeto, "prime_i")
+    mem = PDF.gerar_pdf("memorial", projeto, "prime_i")
+    out = DOSSIE.gerar_dossie(
+        projeto, {"requerimento": req, "laudo_tecnico": laudo, "memorial": mem}, "prime_i")
+    rd = PdfReader(io.BytesIO(out))
+    assert "SUMÁRIO" in (rd.pages[1].extract_text() or "")        # pág 2 = sumário
+    annots = rd.pages[1].get("/Annots") or []
+    assert len(annots) == 3                                       # req, laudo, memorial
+    pagemap = {p.indirect_reference.idnum: i for i, p in enumerate(rd.pages)}
+    for a in annots:
+        dest = a.get_object().get("/Dest")
+        assert isinstance(dest[0], IndirectObject)                # ref de página (não inteiro)
+        assert dest[0].idnum in pagemap
+    # 1ª seção (requerimento) começa após capa(1)+sumário(1) → índice 2 (3ª página)
+    alvos = [pagemap[a.get_object()["/Dest"][0].idnum] for a in annots]
+    assert min(alvos) == 2
+    assert len(rd.outline) >= 5                                   # Capa + Sumário + 3 seções
 
 
 # ──────────────────────────────────────────────────────────────────────────────
