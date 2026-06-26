@@ -121,7 +121,8 @@ def render_requerimento(projeto) -> dict:
         f"inscrito(a) no CPF/CNPJ sob o nº {_v(im, 'proprietario_cpf_cnpj')}, residente e "
         f"domiciliado(a) em {im.get('proprietario_endereco') or '[endereço]'}, na qualidade de "
         f"proprietário(a) do imóvel rural denominado \"{_v(im, 'denominacao')}\", matrícula nº "
-        f"{_v(im, 'matricula')}, Livro {im.get('livro') or '2'}, Código INCRA/SNCR nº "
+        f"{_v(im, 'matricula')} (cujos dados constam da CERTIDÃO DE INTEIRO TEOR em anexo), "
+        f"Livro {im.get('livro') or '2'}, Código INCRA/SNCR nº "
         f"{_v(im, 'cod_incra')}, com área de {_ha(im.get('area_ha'))} ha e perímetro de "
         f"{_m(im.get('perimetro_m'))} m, situado no Município de {_v(im, 'municipio')}/"
         f"{_v(im, 'uf')}, vem, respeitosamente, REQUERER {acao} "
@@ -132,6 +133,8 @@ def render_requerimento(projeto) -> dict:
     )
 
     itens = [
+        f"Certidão de inteiro teor da matrícula nº {_v(im, 'matricula')}, atualizada, "
+        "de onde foram extraídos os dados registrais do imóvel;",
         "Planta e memorial descritivo georreferenciados, assinados por profissional "
         "habilitado, com a respectiva ART/TRT;",
         "Certificado de Cadastro de Imóvel Rural (CCIR) vigente;",
@@ -327,8 +330,9 @@ def render_laudo_tecnico(projeto) -> dict:
     finalidade = LEI_POR_SERVICO.get(tipo_servico, tipo_servico)
 
     identificacao = (
-        f"Imóvel: {_v(im, 'denominacao')} — Matrícula nº {_v(im, 'matricula')}, Livro "
-        f"{im.get('livro') or '2'}, {im.get('cartorio_nome') or '—'} (CNS {im.get('cartorio_cns') or '—'}).\n"
+        f"Imóvel: {_v(im, 'denominacao')} — Matrícula nº {_v(im, 'matricula')} (dados conforme "
+        f"certidão de inteiro teor em anexo), Livro {im.get('livro') or '2'}, "
+        f"{im.get('cartorio_nome') or '—'} (CNS {im.get('cartorio_cns') or '—'}).\n"
         f"Código INCRA/SNCR: {_v(im, 'cod_incra')}. Natureza: {im.get('natureza_area') or 'Particular'}. "
         f"Município/UF: {_v(im, 'municipio')}/{_v(im, 'uf')}.\n"
         f"Proprietário: {_v(im, 'proprietario_nome')}, CPF/CNPJ {_v(im, 'proprietario_cpf_cnpj')}.\n"
