@@ -259,7 +259,8 @@ def test_shapefile_valido(projeto):
 # ──────────────────────────────────────────────────────────────────────────────
 def test_requerimento_conteudo(projeto):
     d = TX.render_requerimento(projeto)
-    assert "AVERBAÇÃO" in d["titulo"]
+    assert "REQUERIMENTO DE GEORREFERENCIAMENTO" in d["titulo"]
+    assert d["titulo"].lower().startswith("requerimento de georreferenciamento para fim")
     assert "195/2025" in d["corpo"]
     assert "10.267/2001" in d["corpo"]
     assert "Fazenda Santa Maria" in d["corpo"]

@@ -32,6 +32,40 @@ ACAO_REQUERIMENTO = {
     "certificacao": "a averbação da certificação georreferenciada",
 }
 
+# Finalidade no TÍTULO do requerimento (dinâmica por tipo de serviço).
+FINALIDADE_TITULO = {
+    "georreferenciamento": "para fim de averbação",
+    "desmembramento": "para fim de desmembramento",
+    "remembramento": "para fim de remembramento",
+    "desdobro": "para fim de desdobro",
+    "retificacao": "para fim de retificação de área",
+    "certificacao": "para fim de certificação",
+}
+
+
+def _certificacao_bloco(im):
+    """Linhas do bloco DA CERTIFICAÇÃO E CADASTRO (omite os campos vazios)."""
+    pares = [
+        ("Matrícula nº", im.get("matricula")),
+        ("CNS/UNIF do cartório", im.get("cartorio_cns")),
+        ("CCIR/INCRA nº", im.get("cod_incra") or im.get("incra_matricula")),
+        ("NIRF/ITR nº", im.get("nirf")),
+        ("Código de Certificação SIGEF", im.get("certificacao_sigef")),
+    ]
+    return [f"{lbl}: {v}" for lbl, v in pares if v not in (None, "") and str(v) != "—"]
+
+
+def _parcelas_tabela(projeto):
+    """Linhas da tabela de parcelas: [Parcela, Denominação, Área, Perímetro, Código SIGEF]."""
+    from services.georef.parcelas import parcelas_do_projeto, tem_multiparcela
+    if not tem_multiparcela(projeto):
+        return None
+    return [
+        [p.get("rotulo") or "—", p.get("denominacao") or "—", _ha(p.get("area_ha")),
+         _m(p.get("perimetro_m")), p.get("certificacao_sigef") or "—"]
+        for p in parcelas_do_projeto(projeto)
+    ]
+
 
 def _parcelas_resumo(projeto):
     """Linhas 'Parte II — DENOM: área X ha, perímetro Y m' quando há multi-parcela."""
@@ -175,13 +209,17 @@ def render_requerimento(projeto) -> dict:
         f"— ART/TRT {_art_trt(im, rt)}."
     )
 
+    finalidade_tit = FINALIDADE_TITULO.get(projeto.get("tipo_servico"), "para fim de averbação")
     return {
-        "titulo": "REQUERIMENTO DE AVERBAÇÃO DE GEORREFERENCIAMENTO",
+        "titulo": f"REQUERIMENTO DE GEORREFERENCIAMENTO {finalidade_tit}",
         "destinatario": destinatario,
         "corpo": corpo,
         # Termos em NEGRITO no corpo: a denominação do imóvel e a ação requerida.
         "corpo_negrito": [_denom_atual(im) or "—", f"REQUERER {acao}"],
         "documentos": documentos,
+        "certificacao_bloco": _certificacao_bloco(im),
+        "parcelas_header": ["Parcela", "Denominação", "Área (ha)", "Perímetro (m)", "Código SIGEF"],
+        "parcelas_tabela": _parcelas_tabela(projeto),
         "fecho": fecho,
         "rt_linha": rt_linha,
         "parcelas": _parcelas_resumo(projeto),
@@ -376,6 +414,17 @@ def render_laudo_tecnico(projeto) -> dict:
         f"código {_v(im, 'certificacao_sigef')}."
     )
 
+    teor_matricula = (
+        f"O imóvel objeto deste laudo encontra-se registrado sob a Matrícula nº "
+        f"{_v(im, 'matricula')}, Livro {im.get('livro') or '2'}, do "
+        f"{im.get('cartorio_nome') or '—'} (CNS {im.get('cartorio_cns') or '—'}), sob a "
+        f"denominação \"{_denom_atual(im) or '—'}\", com área registral de "
+        f"{_ha(_area_atual(im))} ha e perímetro de {_m(_perim_atual(im))} m, situado no "
+        f"Município de {_v(im, 'municipio')}/{_v(im, 'uf')}. Os dados de identificação, área e "
+        f"confrontações reportam-se à certidão de inteiro teor da matrícula em anexo, ora "
+        f"juntada, dispensada a transcrição integral da cadeia dominial."
+    )
+
     justificativa = (
         "1. Do que está sendo feito. Procedeu-se ao levantamento georreferenciado dos vértices "
         "definidores dos limites do imóvel, vinculados ao Sistema Geodésico Brasileiro (SIRGAS "
@@ -436,7 +485,7 @@ def render_laudo_tecnico(projeto) -> dict:
     if tem_multiparcela(projeto):
         parcelas_tabela = [
             [p["rotulo"], p.get("denominacao") or "—", _ha(p.get("area_ha")),
-             _m(p.get("perimetro_m")), str(len(p.get("vertices") or []))]
+             _m(p.get("perimetro_m")), p.get("certificacao_sigef") or "—"]
             for p in parcelas_do_projeto(projeto)
         ]
 
@@ -457,6 +506,7 @@ def render_laudo_tecnico(projeto) -> dict:
         "identificacao": identificacao,
         "identificacao_negrito": [_denom_atual(im) or "—"],   # denominação em negrito
         "objeto": objeto,
+        "teor_matricula": teor_matricula,
         "justificativa": justificativa,
         "metodologia": metodologia,
         "resultado_header": ["Vértice", "Longitude", "Latitude", "Alt.(m)", "Vante", "Azimute", "Dist.(m)"],
@@ -468,7 +518,7 @@ def render_laudo_tecnico(projeto) -> dict:
                         f"{im.get('certidao_numero') or im.get('matricula') or '—'}, anexa."),
         "confrontacoes_header": ["Confrontante", "Imóvel", "Matrícula", "CNS", "Segmentos"],
         "confrontacoes_tabela": confrontacoes,
-        "parcelas_header": ["Parcela", "Denominação", "Área (ha)", "Perímetro (m)", "Nº vértices"],
+        "parcelas_header": ["Parcela", "Denominação", "Área (ha)", "Perímetro (m)", "Código SIGEF"],
         "parcelas_tabela": parcelas_tabela,
         "conclusao": conclusao,
         "rt_assinatura": _rt_assinatura_linhas(im, rt),

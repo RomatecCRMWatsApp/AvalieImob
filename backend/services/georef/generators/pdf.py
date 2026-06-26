@@ -264,20 +264,32 @@ def pdf_requerimento(projeto, tema="prime_i") -> bytes:
     for doc_item in d["documentos"]:
         e.append(Paragraph(_esc(doc_item), st["corpo"]))
         e.append(Spacer(1, 2))
-    if d.get("parcelas"):
+    # DA CERTIFICAÇÃO E CADASTRO (identificadores cadastrais do imóvel)
+    if d.get("certificacao_bloco"):
+        e += _secao("DA CERTIFICAÇÃO E CADASTRO", cfg, st, lar)
+        for ln in d["certificacao_bloco"]:
+            e.append(Paragraph("• " + _esc(ln), st["corpo"]))
+            e.append(Spacer(1, 2))
+    # PARCELAS RESULTANTES — tabela com Código SIGEF (cai p/ lista quando sem tabela)
+    if d.get("parcelas_tabela"):
+        e += _secao("PARCELAS RESULTANTES", cfg, st, lar)
+        e.append(_data_table(d["parcelas_header"], d["parcelas_tabela"], cfg, st, lar))
+    elif d.get("parcelas"):
         e += _secao("PARCELAS RESULTANTES", cfg, st, lar)
         for linha in d["parcelas"]:
             e.append(Paragraph("• " + _esc(linha), st["corpo"]))
             e.append(Spacer(1, 2))
-    e.append(Spacer(1, 6))
-    e += _paras(d["fecho"], st["corpo"])
-    e.append(Spacer(1, 6))
-    e.append(Paragraph(_esc(d["rt_linha"]), st["small"]))
-    e.append(Spacer(1, 10))
-    e.append(Paragraph("Nestes termos, pede deferimento.", st["corpo"]))
-    e.append(Spacer(1, 10))
-    e.append(Paragraph(_esc(d["data"]) + ".", st["corpo_c"]))
-    e += _bloco_assinaturas([(d["assinatura"][0], d["assinatura"][1])], st, lar)
+    # Encerramento INDIVISÍVEL: fecho + RT + data + assinatura (nunca assinatura órfã)
+    fim = []
+    fim += _paras(d["fecho"], st["corpo"])
+    fim.append(Spacer(1, 6))
+    fim.append(Paragraph(_esc(d["rt_linha"]), st["small"]))
+    fim.append(Spacer(1, 10))
+    fim.append(Paragraph("Nestes termos, pede deferimento.", st["corpo"]))
+    fim.append(Spacer(1, 10))
+    fim.append(Paragraph(_esc(d["data"]) + ".", st["corpo_c"]))
+    fim += _bloco_assinaturas([(d["assinatura"][0], d["assinatura"][1])], st, lar)
+    e.append(KeepTogether(fim))
     return _build(e, cfg, d["titulo"], projeto.get("_brand_logo_bytes"))
 
 
@@ -329,6 +341,9 @@ def pdf_laudo(projeto, tema="prime_i") -> bytes:
     e += _paras_bold(d["identificacao"], d.get("identificacao_negrito"), st["corpo"])
     e += _secao("2. OBJETO", cfg, st, lar)
     e += _paras(d["objeto"], st["corpo"])
+    if d.get("teor_matricula"):
+        e += _secao("DO TEOR DA MATRÍCULA", cfg, st, lar)
+        e += _paras_bold(d["teor_matricula"], d.get("identificacao_negrito"), st["corpo"])
     e += _secao("3. JUSTIFICATIVA TÉCNICO-JURÍDICA", cfg, st, lar)
     e += _paras(d["justificativa"], st["corpo"])
     e += _secao("4. METODOLOGIA E PARÂMETROS TÉCNICOS DE AGRIMENSURA", cfg, st, lar)
