@@ -4,6 +4,7 @@
 # Memorial → DRL(s) → CCIR → Certidão/cadeia dominial → documento do cliente.
 # O shapefile NÃO entra no PDF (vai como anexo .zip + nota no requerimento/laudo).
 import io
+import re
 import math
 import logging
 
@@ -34,6 +35,20 @@ _TITULOS_DOSSIE = {
     "doc_cliente": "Documentos do Proprietário",
 }
 _LINES_PER_PAGE_SUM = 30   # itens por página do sumário (define o nº de páginas)
+
+
+def _nome_fazenda_base(denom: str) -> str:
+    """Nome 'mãe' do imóvel p/ o TÍTULO da capa: remove o sufixo 'PARTE/PARTA N' e
+    a duplicação 'X - X' (a Parte I já aparece na lista de parcelas)."""
+    s = (denom or "").strip()
+    if not s:
+        return "Imóvel Rural"
+    s = re.sub(r"[-–·,\s]*PART[EA]\s+[IVXLCDM0-9]+\.?\s*$", "", s, flags=re.IGNORECASE).strip(" -–·,")
+    if " - " in s:
+        partes = [p.strip() for p in s.split(" - ") if p.strip()]
+        if len(partes) >= 2 and partes[1].upper().startswith(partes[0].upper()):
+            s = partes[0]
+    return s or "Imóvel Rural"
 
 # Ordem de protocolo definida pelo RT (José Romário):
 # capa → requerimento → laudo → Memorial (sistema) → DRL → Mapa/Planta SIGEF →
@@ -113,12 +128,6 @@ def _capa_bytes(projeto, tema="prime_i") -> bytes:
     except Exception:  # noqa: BLE001
         pass
 
-    c.setFillColor(accent)
-    c.setFont(f["sans_bold"], 11)
-    c.drawCentredString(w / 2, h - 6.5 * cm, "DOSSIÊ TÉCNICO DE GEORREFERENCIAMENTO")
-    titulo = (im.get("denominacao") or "Imóvel Rural").strip()
-    _draw_titulo_capa(c, titulo, w, h - 8.0 * cm, f["serif_bold"], fg, 2.2 * cm)
-
     tipo_serv = (projeto.get("tipo_servico") or "").strip().lower()
     parcelas = projeto.get("parcelas") or []
     tem_partes = tipo_serv in ("desmembramento", "remembramento") and bool(parcelas)
@@ -130,19 +139,46 @@ def _capa_bytes(projeto, tema="prime_i") -> bytes:
             t = t[:-2]
         return (t + "…") if t != txt else txt
 
+    def _wrap(txt, font, size, maxlines=2):
+        palavras, linhas_, atual = str(txt or "").split(), [], ""
+        for p in palavras:
+            teste = (atual + " " + p).strip()
+            if not atual or c.stringWidth(teste, font, size) <= max_w:
+                atual = teste
+            else:
+                linhas_.append(atual)
+                atual = p
+                if len(linhas_) >= maxlines:
+                    atual = ""
+                    break
+        if atual:
+            linhas_.append(atual)
+        return linhas_[:maxlines] or [""]
+
+    c.setFillColor(accent)
+    c.setFont(f["sans_bold"], 11)
+    c.drawCentredString(w / 2, h - 6.5 * cm, "DOSSIÊ TÉCNICO DE GEORREFERENCIAMENTO")
+    # No desmembramento, o título é só o NOME DA FAZENDA (a Parte I vai na lista abaixo).
+    titulo = _nome_fazenda_base(im.get("denominacao")) if tem_partes \
+        else (im.get("denominacao") or "Imóvel Rural").strip()
+    _draw_titulo_capa(c, titulo, w, h - 8.0 * cm, f["serif_bold"], fg, 2.2 * cm)
+
+    c.setFillColor(fg)
     c.setFont(f["sans"], 11)
-    linhas = [
-        f"Matrícula nº {im.get('matricula') or '—'}  ·  INCRA/SNCR {im.get('cod_incra') or '—'}",
-        f"{im.get('municipio') or '—'}/{im.get('uf') or '—'}  ·  {im.get('cartorio_nome') or '—'}",
-        f"Proprietário: {im.get('proprietario_nome') or '—'}",
-    ]
-    if not tem_partes:   # imóvel único: área/perímetro/certificação na cabeça mesmo
-        linhas.insert(2, f"Área {im.get('area_ha') or '—'} ha  ·  Perímetro {im.get('perimetro_m') or '—'} m")
+    linhas = [f"Matrícula nº {im.get('matricula') or '—'}  ·  INCRA/SNCR {im.get('cod_incra') or '—'}",
+              f"{im.get('municipio') or '—'}/{im.get('uf') or '—'}"]
+    cart = (im.get("cartorio_nome") or "").strip()
+    if cart:                                  # serventia INTEIRA, quebrando em até 2 linhas
+        linhas += _wrap(cart, f["sans"], 11, maxlines=2)
+    if not tem_partes:                        # imóvel único: área/perímetro na cabeça
+        linhas.append(f"Área {im.get('area_ha') or '—'} ha  ·  Perímetro {im.get('perimetro_m') or '—'} m")
+    linhas.append(f"Proprietário: {im.get('proprietario_nome') or '—'}")
+    if not tem_partes:
         linhas.append(f"Certificação SIGEF: {im.get('certificacao_sigef') or '—'}")
     y = h - 10.0 * cm
     for ln in linhas:
         c.drawCentredString(w / 2, y, _trunc(ln, f["sans"], 11))
-        y -= 0.7 * cm
+        y -= 0.62 * cm
 
     # Desmembramento/Remembramento: CADA parte com área · perímetro · certificação SIGEF.
     if tem_partes:
