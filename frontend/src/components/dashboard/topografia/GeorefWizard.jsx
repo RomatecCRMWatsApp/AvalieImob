@@ -882,9 +882,13 @@ function LogoBranding({ toast }) {
   return (
     <div className="mt-4 border rounded-lg p-3 bg-gray-50">
       <div className="text-sm font-medium text-gray-700">Logo da empresa (white-label)</div>
-      <div className="text-xs text-gray-500 mb-2">
+      <div className="text-xs text-gray-500 mb-1">
         PNG com fundo <strong>transparente</strong> — aparece no cabeçalho de <strong>todas as peças</strong> geradas
         (Requerimento, Laudo, Memorial, DRL, Dossiê).
+      </div>
+      <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mb-2">
+        ⚠️ Envie o logo <strong>antes de assinar</strong>. Peça já assinada mantém o cabeçalho do momento da
+        assinatura (PDF é imutável) — use <strong>Reassinar</strong> na Entrega para aplicar o novo logo.
       </div>
       <div className="flex items-center gap-3 flex-wrap">
         {temCustom ? (
