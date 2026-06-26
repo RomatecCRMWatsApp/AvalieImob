@@ -11,7 +11,19 @@
       "Bash(mkdir -p 'C:/Users/Ronicley Pinto/Documents/ROMATEC_AVALIEIMOB_/ROMATECAVALIEIMOB/04-Roadmap')",
       "mcp__obsidian__str_replace",
       "Bash(claude mcp *)",
-      "Bash(git rev-list *)"
+      "Bash(git rev-list *)",
+      "Bash(python -m pytest tests/test_georef.py -q)",
+      "Bash(py -c \"import reportlab, pdfplumber, pypdf, shapefile, shapely, PIL, fitz; print\\('all deps OK'\\)\")",
+      "Bash(py -m pytest --version)",
+      "Bash(py -m pytest tests/test_georef.py -q)",
+      "Bash(py -c \"import models.georef, services.georef.parcelas, services.georef.extractor, services.georef.serventias; from services.georef.generators import textos, pdf; print\\('imports OK'\\)\")",
+      "Bash(py -c \"import routes.georef, services.georef.generators.dossie, services.georef.generators.docx; print\\('route+gen imports OK'\\)\")",
+      "Bash(PYTHONIOENCODING=utf-8 PYTHONUTF8=1 py \"C:/Users/RONICL~1/AppData/Local/Temp/claude/C--Users-Ronicley-Pinto-Documents-ROMATEC-AVALIEIMOB--AvalieImob/9f7899fe-1f3c-417a-9ede-1784a45cabbc/scratchpad/validar_489.py\")",
+      "Bash(PYTHONIOENCODING=utf-8 PYTHONUTF8=1 py -c ' *)",
+      "Bash(PYTHONIOENCODING=utf-8 PYTHONUTF8=1 py -m pytest tests/test_georef.py -q)",
+      "Bash(yarn build *)",
+      "Bash(py -c \"import routes; print\\('routes package OK,', len\\(routes.all_routers\\) if hasattr\\(routes,'all_routers'\\) else '?', 'routers'\\)\")",
+      "Bash(node frontend/scripts/genversion.js)"
     ]
   }
 }

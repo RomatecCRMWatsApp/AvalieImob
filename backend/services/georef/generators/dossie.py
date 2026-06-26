@@ -30,6 +30,7 @@ _TITULOS_DOSSIE = {
     "certidao_matricula": "Certidão de Inteiro Teor (Matrícula)",
     "ccir": "CCIR — Certificado de Cadastro de Imóvel Rural",
     "car": "CAR — Cadastro Ambiental Rural",
+    "cnd_itr": "CND ITR — Certidão Negativa de Débitos de Imóvel Rural",
     "itr": "ITR — Imposto Territorial Rural",
     "memorial_sigef": "Memorial Descritivo SIGEF (original)",
     "doc_cliente": "Documentos do Proprietário",
@@ -56,10 +57,10 @@ def _nome_fazenda_base(denom: str) -> str:
 # documentos pessoais do proprietário.
 ORDEM_DOSSIE = [
     "requerimento", "laudo_tecnico", "memorial", "drl", "mapa", "art_trt",
-    "certidao_matricula", "ccir", "car", "itr", "memorial_sigef", "doc_cliente",
+    "certidao_matricula", "ccir", "car", "cnd_itr", "itr", "memorial_sigef", "doc_cliente",
 ]
 # Peças que entram como ANEXO (PDF/imagem, podendo ser lista de vários arquivos).
-_ANEXOS_DOSSIE = ("art_trt", "mapa", "ccir", "car", "itr",
+_ANEXOS_DOSSIE = ("art_trt", "mapa", "ccir", "car", "cnd_itr", "itr",
                   "certidao_matricula", "memorial_sigef", "doc_cliente")
 
 

@@ -35,7 +35,7 @@ from services.georef.generators import dossie as DOSSIE
 logger = logging.getLogger("romatec")
 router = APIRouter(prefix="/topografia/georef", tags=["topografia-geo"])
 
-_TIPOS_UPLOAD = {"memorial", "mapa", "ccir", "certidao", "art_trt", "car", "itr", "doc_cliente"}
+_TIPOS_UPLOAD = {"memorial", "mapa", "ccir", "certidao", "art_trt", "car", "cnd_itr", "itr", "doc_cliente"}
 # Tipos que aceitam VÁRIOS arquivos (lista) — ITR: últimos 5 exercícios.
 _TIPOS_MULTI = {"itr"}
 _MAX_UPLOAD = 30 * 1024 * 1024  # 30 MB
@@ -827,7 +827,7 @@ def _montar_dossie(doc: dict, tema: str, assinados: dict = None,
     uploads = doc.get("uploads") or {}
     # ART/TRT: versão assinada se houver; senão o arquivo enviado
     art_assinado = assinados.get(("art_trt", None))
-    loop_items = [("ccir", "ccir"), ("car", "car"),
+    loop_items = [("ccir", "ccir"), ("car", "car"), ("cnd_itr", "cnd_itr"),
                   ("certidao_matricula", "certidao"), ("doc_cliente", "doc_cliente")]
     if art_assinado:
         partes["art_trt"] = art_assinado

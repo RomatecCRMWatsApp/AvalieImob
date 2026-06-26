@@ -36,6 +36,7 @@ const UPLOADS = [
   { tipo: 'mapa', label: 'Mapa / Planta (SIGEF)', accept: '.pdf,image/*' },
   { tipo: 'ccir', label: 'CCIR', accept: '.pdf' },
   { tipo: 'car', label: 'CAR (Cadastro Ambiental Rural)', accept: '.pdf,image/*' },
+  { tipo: 'cnd_itr', label: 'CND ITR (Certidão Negativa de Débitos — RFB)', accept: '.pdf,image/*' },
   { tipo: 'itr', label: 'ITR (Imposto Territorial Rural)', accept: '.pdf,image/*' },
   { tipo: 'certidao', label: 'Certidão de Matrícula', accept: '.pdf' },
   { tipo: 'art_trt', label: 'ART / TRT / RRT', accept: '.pdf,image/*' },
