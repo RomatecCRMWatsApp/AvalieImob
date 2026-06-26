@@ -159,9 +159,18 @@ def _capa_bytes(projeto, tema="prime_i") -> bytes:
     c.setFillColor(accent)
     c.setFont(f["sans_bold"], 11)
     c.drawCentredString(w / 2, h - 6.5 * cm, "DOSSIÊ TÉCNICO DE GEORREFERENCIAMENTO")
+    def _fmt(v, casas):
+        try:
+            return f"{float(v):.{casas}f}".replace(".", ",")
+        except (TypeError, ValueError):
+            return None
+
+    # Imóvel ATUAL/de origem: prefere a denominação/área/perímetro da MATRÍCULA.
+    denom_atual = im.get("denominacao_matricula") or im.get("denominacao")
+    area_atual = im.get("area_matricula") if im.get("area_matricula") not in (None, "") else im.get("area_ha")
+    perim_atual = im.get("perimetro_matricula") if im.get("perimetro_matricula") not in (None, "") else im.get("perimetro_m")
     # No desmembramento, o título é só o NOME DA FAZENDA (a Parte I vai na lista abaixo).
-    titulo = _nome_fazenda_base(im.get("denominacao")) if tem_partes \
-        else (im.get("denominacao") or "Imóvel Rural").strip()
+    titulo = _nome_fazenda_base(denom_atual) if tem_partes else (denom_atual or "Imóvel Rural").strip()
     _draw_titulo_capa(c, titulo, w, h - 8.0 * cm, f["serif_bold"], fg, 2.2 * cm)
 
     c.setFillColor(fg)
@@ -171,8 +180,10 @@ def _capa_bytes(projeto, tema="prime_i") -> bytes:
     cart = (im.get("cartorio_nome") or "").strip()
     if cart:                                  # serventia INTEIRA, quebrando em até 2 linhas
         linhas += _wrap(cart, f["sans"], 11, maxlines=2)
-    if not tem_partes:                        # imóvel único: área/perímetro na cabeça
-        linhas.append(f"Área {im.get('area_ha') or '—'} ha  ·  Perímetro {im.get('perimetro_m') or '—'} m")
+    # Área/perímetro do imóvel de ORIGEM (registral) — sempre na cabeça.
+    if area_atual not in (None, "") or perim_atual not in (None, ""):
+        rotulo_a = "Área da matrícula" if tem_partes else "Área"
+        linhas.append(f"{rotulo_a} {_fmt(area_atual, 4) or '—'} ha  ·  Perímetro {_fmt(perim_atual, 2) or '—'} m")
     linhas.append(f"Proprietário: {im.get('proprietario_nome') or '—'}")
     if not tem_partes:
         linhas.append(f"Certificação SIGEF: {im.get('certificacao_sigef') or '—'}")
@@ -207,10 +218,10 @@ def _capa_bytes(projeto, tema="prime_i") -> bytes:
             c.drawCentredString(w / 2, y, _trunc(titulo, f["sans_bold"], 9.5))
             y -= 0.48 * cm
             sub = []
-            if pd["area"]:
-                sub.append(f"Área {pd['area']} ha")
-            if pd["perim"]:
-                sub.append(f"Perímetro {pd['perim']} m")
+            if pd["area"] not in (None, ""):
+                sub.append(f"Área {_fmt(pd['area'], 4) or pd['area']} ha")
+            if pd["perim"] not in (None, ""):
+                sub.append(f"Perímetro {_fmt(pd['perim'], 2) or pd['perim']} m")
             if sub:
                 c.setFillColor(fg)
                 c.setFont(f["sans"], 9)

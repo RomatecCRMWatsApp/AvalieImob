@@ -259,6 +259,52 @@ def parse_ccir(src: PdfSource) -> dict:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Parser da CERTIDÃO DE MATRÍCULA (imóvel de ORIGEM — o que será desmembrado)
+# ──────────────────────────────────────────────────────────────────────────────
+# A certidão de inteiro teor traz a área/perímetro REGISTRAL do imóvel inteiro
+# (ex.: 102,9640 ha) — distinta da parcela SIGEF (Parte I). É texto livre, então
+# os padrões são tolerantes (melhor-esforço; o usuário pode corrigir na tela).
+def parse_matricula_text(full: str) -> dict:
+    out = {}
+
+    def grab(pat):
+        m = re.search(pat, full, re.IGNORECASE)
+        return _clean(m.group(1)) if m else None
+
+    mat = grab(r"Matr[íi]cula\s*N?[ºo°.]?\s*([\d.]+)")
+    if mat:
+        out["matricula"] = mat.strip(".")
+    livro = grab(r"\blivro\s*0*(\d+)")
+    if livro:
+        out["livro"] = livro
+    den = grab(r"denominad[ao]\s*[\"'“”']?\s*([A-ZÀ-Ÿ0-9][^\"'“”'\n,;]+)")
+    if den:
+        out["denominacao_matricula"] = den.strip(" .,-")
+    out["area_matricula"] = _num(grab(r"[áa]rea\s+de\s*([\d.]+,\d+|\d+)\s*ha"))
+    out["perimetro_matricula"] = _num(grab(r"Per[íi]metro:?\s*([\d.]+,\d+|\d+)\s*m\b"))
+    mun = grab(r"cidade\s+de\s+([A-ZÀ-Ÿ][^,\n]+?)(?:,|\s+Estado|\s+Munic[íi]pio)")
+    if mun:
+        out["municipio_matricula"] = mun
+    nirf = grab(r"NIRF:?\s*([\d.\-]+)")
+    if nirf:
+        out["nirf"] = nirf.rstrip(".")
+    incra = grab(r"INCRA:?\s*([\d.\-]{8,})")
+    if incra:
+        out["incra_matricula"] = incra
+    return {k: v for k, v in out.items() if v not in (None, "")}
+
+
+def parse_matricula(src: PdfSource) -> dict:
+    """Lê a certidão de inteiro teor (PDF) e extrai os dados REGISTRAIS do imóvel
+    de origem: matrícula, livro, denominação, ÁREA e PERÍMETRO da matrícula, NIRF."""
+    full = ""
+    with _open(src) as pdf:
+        for page in pdf.pages:
+            full += (page.extract_text() or "") + "\n"
+    return parse_matricula_text(full)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Agrupamento de confrontantes (para a DRL — uma por confrontante)
 # ──────────────────────────────────────────────────────────────────────────────
 _VIA_PUBLICA_RE = re.compile(

@@ -94,8 +94,17 @@ class DadosImovel(BaseModel):
     cartorio_nome: Optional[str] = None    # Serventia Extrajudicial de... (do CNS)
     cartorio_municipio: Optional[str] = None  # comarca/cidade da serventia (do CNS)
     cartorio_uf: Optional[str] = None      # UF da serventia (do CNS)
-    area_ha: Optional[float] = None        # 96.8180
-    perimetro_m: Optional[float] = None    # 4095.92
+    area_ha: Optional[float] = None        # 96.8180  (SIGEF — parcela / Parte I)
+    perimetro_m: Optional[float] = None    # 4095.92  (SIGEF — parcela / Parte I)
+    # Dados REGISTRAIS da matrícula (imóvel de ORIGEM, o que será desmembrado).
+    # Ex.: 102,9640 ha = Parte I (96,8180) + Parte II (6,1462). Usados como o
+    # "imóvel atual" nas peças; vêm da certidão de inteiro teor (parse_matricula).
+    denominacao_matricula: Optional[str] = None   # "FAZENDA SANTA MARIA"
+    area_matricula: Optional[float] = None        # 102.9640
+    perimetro_matricula: Optional[float] = None   # 5080.40
+    incra_matricula: Optional[str] = None
+    nirf: Optional[str] = None
+    municipio_matricula: Optional[str] = None
     sistema_geodesico: Optional[str] = "SIRGAS 2000"
     certificacao_sigef: Optional[str] = None
     data_certificacao: Optional[str] = None

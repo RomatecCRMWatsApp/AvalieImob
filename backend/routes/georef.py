@@ -346,13 +346,19 @@ def _executar_extracao(doc: dict) -> dict:
         _set_imovel(EX.parse_ccir(raw_ccir))
 
     raw_cert = _download_upload(uploads, "certidao")
-    if raw_cert and not editados.get("imovel.cadeia_dominial"):
+    if raw_cert:
+        # Dados REGISTRAIS do imóvel de ORIGEM (área/perímetro/denominação da matrícula).
         try:
-            cadeia = parse_cadeia_dominial(raw_cert)
-            if cadeia:
-                imovel["cadeia_dominial"] = cadeia
+            _set_imovel(EX.parse_matricula(raw_cert))
         except Exception as e:  # noqa: BLE001
-            avisos.append(f"Cadeia dominial não extraída ({e}).")
+            avisos.append(f"Dados da matrícula não extraídos ({e}).")
+        if not editados.get("imovel.cadeia_dominial"):
+            try:
+                cadeia = parse_cadeia_dominial(raw_cert)
+                if cadeia:
+                    imovel["cadeia_dominial"] = cadeia
+            except Exception as e:  # noqa: BLE001
+                avisos.append(f"Cadeia dominial não extraída ({e}).")
 
     # Cartório: resolve nome/comarca/UF pelo CNS (tabela oficial de serventias)
     try:

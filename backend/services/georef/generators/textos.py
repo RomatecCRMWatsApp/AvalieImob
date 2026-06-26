@@ -58,6 +58,22 @@ def _rt(projeto):
     return projeto.get("responsavel_tecnico") or {}
 
 
+# Dados do imóvel ATUAL / de ORIGEM (o que será desmembrado): preferem a MATRÍCULA
+# (certidão de inteiro teor) e caem no SIGEF (parcela/Parte I) quando não houver.
+def _denom_atual(im):
+    return im.get("denominacao_matricula") or im.get("denominacao")
+
+
+def _area_atual(im):
+    v = im.get("area_matricula")
+    return v if v not in (None, "") else im.get("area_ha")
+
+
+def _perim_atual(im):
+    v = im.get("perimetro_matricula")
+    return v if v not in (None, "") else im.get("perimetro_m")
+
+
 def _v(d, k, default="—"):
     val = d.get(k)
     return val if (val not in (None, "")) else default
@@ -120,11 +136,11 @@ def render_requerimento(projeto) -> dict:
         f"{im.get('proprietario_profissao') or '[profissão]'}, "
         f"inscrito(a) no CPF/CNPJ sob o nº {_v(im, 'proprietario_cpf_cnpj')}, residente e "
         f"domiciliado(a) em {im.get('proprietario_endereco') or '[endereço]'}, na qualidade de "
-        f"proprietário(a) do imóvel rural denominado \"{_v(im, 'denominacao')}\", matrícula nº "
+        f"proprietário(a) do imóvel rural denominado \"{_denom_atual(im) or '—'}\", matrícula nº "
         f"{_v(im, 'matricula')} (cujos dados constam da CERTIDÃO DE INTEIRO TEOR em anexo), "
         f"Livro {im.get('livro') or '2'}, Código INCRA/SNCR nº "
-        f"{_v(im, 'cod_incra')}, com área de {_ha(im.get('area_ha'))} ha e perímetro de "
-        f"{_m(im.get('perimetro_m'))} m, situado no Município de {_v(im, 'municipio')}/"
+        f"{_v(im, 'cod_incra')}, com área de {_ha(_area_atual(im))} ha e perímetro de "
+        f"{_m(_perim_atual(im))} m, situado no Município de {_v(im, 'municipio')}/"
         f"{_v(im, 'uf')}, vem, respeitosamente, REQUERER {acao} "
         f"do referido imóvel, nos termos do art. 176, §§ 3º e 4º, da Lei nº "
         f"6.015/1973, da Lei nº 10.267/2001, do Decreto nº 4.449/2002 e do Provimento CNJ nº "
@@ -164,7 +180,7 @@ def render_requerimento(projeto) -> dict:
         "destinatario": destinatario,
         "corpo": corpo,
         # Termos em NEGRITO no corpo: a denominação do imóvel e a ação requerida.
-        "corpo_negrito": [_v(im, "denominacao"), f"REQUERER {acao}"],
+        "corpo_negrito": [_denom_atual(im) or "—", f"REQUERER {acao}"],
         "documentos": documentos,
         "fecho": fecho,
         "rt_linha": rt_linha,
@@ -329,14 +345,16 @@ def render_laudo_tecnico(projeto) -> dict:
     tipo_servico = projeto.get("tipo_servico") or "georreferenciamento"
     finalidade = LEI_POR_SERVICO.get(tipo_servico, tipo_servico)
 
+    _tem_mat = im.get("area_matricula") not in (None, "")
+    _area_lbl = "Área registral (matrícula)" if _tem_mat else "Área (SGL)"
     identificacao = (
-        f"Imóvel: {_v(im, 'denominacao')} — Matrícula nº {_v(im, 'matricula')} (dados conforme "
+        f"Imóvel: {_denom_atual(im) or '—'} — Matrícula nº {_v(im, 'matricula')} (dados conforme "
         f"certidão de inteiro teor em anexo), Livro {im.get('livro') or '2'}, "
         f"{im.get('cartorio_nome') or '—'} (CNS {im.get('cartorio_cns') or '—'}).\n"
         f"Código INCRA/SNCR: {_v(im, 'cod_incra')}. Natureza: {im.get('natureza_area') or 'Particular'}. "
         f"Município/UF: {_v(im, 'municipio')}/{_v(im, 'uf')}.\n"
         f"Proprietário: {_v(im, 'proprietario_nome')}, CPF/CNPJ {_v(im, 'proprietario_cpf_cnpj')}.\n"
-        f"Área (SGL): {_ha(im.get('area_ha'))} ha. Perímetro: {_m(im.get('perimetro_m'))} m. "
+        f"{_area_lbl}: {_ha(_area_atual(im))} ha. Perímetro: {_m(_perim_atual(im))} m. "
         f"Sistema Geodésico: {im.get('sistema_geodesico') or 'SIRGAS 2000'}.\n"
         f"Responsável Técnico: {rt.get('nome') or '—'} — {rt.get('formacao') or '—'} — Conselho "
         f"{rt.get('conselho') or '—'} — Cód. Credenciado INCRA {rt.get('credenciamento_incra') or '—'} "
@@ -424,11 +442,11 @@ def render_laudo_tecnico(projeto) -> dict:
 
     conclusao = (
         f"Diante do exposto, ATESTA-SE que o levantamento georreferenciado do imóvel "
-        f"{_v(im, 'denominacao')}, matrícula nº {_v(im, 'matricula')}, foi executado em "
+        f"{_denom_atual(im) or '—'}, matrícula nº {_v(im, 'matricula')}, foi executado em "
         f"conformidade com a NBR 13133 e com as normas técnicas do INCRA, encontrando-se a "
         f"poligonal certificada no SIGEF (ausência de sobreposição com outras parcelas do cadastro "
-        f"georreferenciado). O imóvel apresenta área de {_ha(im.get('area_ha'))} ha e perímetro de "
-        f"{_m(im.get('perimetro_m'))} m, com limites e confrontações reconhecidos. Conclui-se pela "
+        f"georreferenciado). O imóvel apresenta área registral de {_ha(_area_atual(im))} ha e perímetro de "
+        f"{_m(_perim_atual(im))} m, com limites e confrontações reconhecidos. Conclui-se pela "
         f"aptidão técnica do imóvel à {finalidade} e à alimentação do SIG-RI, nos termos do "
         f"Provimento CNJ nº 195/2025, ressalvada a competência de qualificação jurídica do Oficial "
         f"de Registro de Imóveis."
@@ -437,7 +455,7 @@ def render_laudo_tecnico(projeto) -> dict:
     return {
         "titulo": f"LAUDO TÉCNICO DE AGRIMENSURA — {str(tipo_servico).upper()}",
         "identificacao": identificacao,
-        "identificacao_negrito": [_v(im, "denominacao")],   # denominação em negrito
+        "identificacao_negrito": [_denom_atual(im) or "—"],   # denominação em negrito
         "objeto": objeto,
         "justificativa": justificativa,
         "metodologia": metodologia,

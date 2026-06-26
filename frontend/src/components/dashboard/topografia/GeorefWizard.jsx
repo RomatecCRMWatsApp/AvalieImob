@@ -52,7 +52,10 @@ const IMOVEL_CAMPOS = [
   ['municipio', 'Município', 1], ['uf', 'UF', 1],
   ['cartorio_nome', 'Cartório / Serventia', 2], ['cartorio_cns', 'CNS do cartório', 1],
   ['cartorio_municipio', 'Comarca/Município do cartório', 1],
-  ['area_ha', 'Área (ha)', 1], ['perimetro_m', 'Perímetro (m)', 1],
+  ['area_ha', 'Área SIGEF / Parte I (ha)', 1], ['perimetro_m', 'Perímetro SIGEF / Parte I (m)', 1],
+  // Dados REGISTRAIS da matrícula (imóvel de ORIGEM a ser desmembrado) — usados nas peças.
+  ['denominacao_matricula', 'Denominação (matrícula)', 2],
+  ['area_matricula', 'Área da matrícula (ha)', 1], ['perimetro_matricula', 'Perímetro da matrícula (m)', 1],
   ['sistema_geodesico', 'Sistema geodésico', 1], ['certificacao_sigef', 'Certificação SIGEF', 1],
   ['certidao_numero', 'Nº da certidão', 1],
 ];
