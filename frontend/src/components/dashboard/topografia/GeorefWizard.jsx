@@ -891,7 +891,10 @@ function LogoBranding({ toast }) {
           <img src={info.logo_url} alt="logo" className="h-10 max-w-[170px] object-contain bg-white border rounded px-1"
             onError={(e) => { e.currentTarget.style.display = 'none'; }} />
         ) : (
-          <span className="text-xs text-gray-400">Usando o logo padrão AvalieImob</span>
+          <span className="inline-flex items-center gap-2 text-xs text-gray-500">
+            <img src="/icon-192.png" alt="AvalieImob" className="h-9 w-9 object-contain rounded bg-white border" />
+            Padrão do sistema (AvalieImob) — enviar o seu é opcional
+          </span>
         )}
         <input ref={ref} type="file" accept=".png,image/png" className="hidden"
           onChange={(e) => { onPick(e.target.files?.[0]); e.target.value = ''; }} />
