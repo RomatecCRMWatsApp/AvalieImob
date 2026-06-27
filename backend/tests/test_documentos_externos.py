@@ -77,3 +77,9 @@ def test_carimbar_multi_estampa_e_anexa_folha():
     assert out.startswith(b"%PDF-") and len(h) == 64
     # original 1 pág + folha de autoria = 2 páginas
     assert len(PdfReader(io.BytesIO(out)).pages) == 2
+
+
+def test_formatar_codigo():
+    from services.documento_externo_service import formatar_codigo
+    assert formatar_codigo(2026, 1) == "DOCEXT-2026-0001"
+    assert formatar_codigo(2026, 42) == "DOCEXT-2026-0042"
