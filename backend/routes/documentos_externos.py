@@ -234,6 +234,10 @@ async def posicionar(doc_id: str, payload: dict, uid: str = Depends(get_active_s
     if faltam_fone:
         raise HTTPException(status_code=422, detail=f"Informe o WhatsApp de: {', '.join(faltam_fone)}")
 
+    # FALHA RÁPIDA: se a Z-API não estiver configurada, aborta ANTES de mexer no estado
+    # (em vez de marcar tudo como 'enviado' e os envios falharem em silêncio).
+    cfg = await zapi_cfg(db, uid)
+
     # grava posições em cada signatário
     for s in sigs:
         s["posicoes"] = pos_map.get(s["id"], [])
@@ -264,24 +268,33 @@ async def posicionar(doc_id: str, payload: dict, uid: str = Depends(get_active_s
     # minuta (marca d'água) p/ leitura + link por signatário
     from services.marca_dagua import aplicar_marca_dagua
     base_atual = await asyncio.to_thread(r2_storage.download_bytes, doc["pdf_key"])
-    minuta = await asyncio.to_thread(aplicar_marca_dagua, base_atual, "MINUTA")
-    cfg = await zapi_cfg(db, uid)
+    try:
+        minuta = await asyncio.to_thread(aplicar_marca_dagua, base_atual, "MINUTA")
+    except Exception:
+        logger.warning("Falha ao gerar minuta (doc-ext) — segue sem ela.", exc_info=True)
+        minuta = None
     from routes.assinatura_cliente import APP_URL
-    links = []
+    links, enviados, falhas = [], 0, []
     for s in sigs:
         url = f"{APP_URL}/assinar-doc/{s['token']}"
         primeiro = str(s.get("nome") or "").split(" ")[0]
+        fone = "".join(filter(str.isdigit, str(s.get("whatsapp") or "")))
         msg = (f"Olá, {primeiro}! A *Romatec Consultoria Total* enviou um documento para sua "
                f"assinatura eletrônica.\n\nLeia a *MINUTA* abaixo e assine com segurança neste link:\n{url}\n\n"
                f"Link pessoal, validade limitada (Lei 14.063/2020).")
         try:
-            await enviar_texto(cfg, s["whatsapp"], msg)
+            await enviar_texto(cfg, fone, msg)          # o LINK é o essencial
+            enviados += 1
             if minuta and minuta.startswith(b"%PDF-"):
-                await enviar_pdf(cfg, s["whatsapp"], minuta, "minuta", "MINUTA (rascunho) — para leitura.")
-        except Exception:
-            logger.warning("Falha ao enviar link doc-ext p/ %s", s.get("whatsapp"), exc_info=True)
+                try:
+                    await enviar_pdf(cfg, fone, minuta, "minuta", "MINUTA (rascunho) — para leitura.")
+                except Exception:                       # minuta falhar não invalida o link já enviado
+                    logger.warning("Falha ao enviar minuta doc-ext p/ %s", fone, exc_info=True)
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Falha ao enviar link doc-ext p/ %s: %s", fone, e, exc_info=True)
+            falhas.append({"nome": s["nome"], "telefone": fone, "erro": str(e) or e.__class__.__name__})
         links.append({"sid": s["id"], "nome": s["nome"], "url": url})
-    return {"ok": True, "links": links}
+    return {"ok": True, "links": links, "enviados": enviados, "falhas": falhas, "total": len(sigs)}
 
 
 @router.post("/{doc_id}/reenviar")
@@ -296,7 +309,7 @@ async def reenviar(doc_id: str, payload: dict = None, uid: str = Depends(get_act
         raise HTTPException(status_code=400, detail="Nenhum signatário pendente.")
     cfg = await zapi_cfg(db, uid)
     from routes.assinatura_cliente import APP_URL
-    enviados = 0
+    enviados, falhas = 0, []
     for s in pendentes:
         fone = novos.get(s["id"]) or "".join(filter(str.isdigit, str(s.get("whatsapp") or "")))
         if not fone:
@@ -308,9 +321,10 @@ async def reenviar(doc_id: str, payload: dict = None, uid: str = Depends(get_act
         try:
             await enviar_texto(cfg, fone, f"Olá! Reenvio do link para assinar:\n{url}")
             enviados += 1
-        except Exception:
-            logger.warning("Falha ao reenviar doc-ext p/ %s", fone, exc_info=True)
-    return {"ok": True, "reenviados": enviados}
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Falha ao reenviar doc-ext p/ %s: %s", fone, e, exc_info=True)
+            falhas.append({"nome": s["nome"], "telefone": fone, "erro": str(e) or e.__class__.__name__})
+    return {"ok": True, "reenviados": enviados, "falhas": falhas}
 
 
 @router.get("/{doc_id}/sessao-status")

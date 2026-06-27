@@ -60,8 +60,15 @@ export default function DocumentosExternosList() {
   };
 
   const reenviar = async (d) => {
-    try { const r = await documentosExternosAPI.reenviar(d.id, {}); toast({ title: `Reenviado a ${r.reenviados} signatário(s)` }); }
-    catch (e) { toast({ title: 'Erro ao reenviar', description: e?.response?.data?.detail || '', variant: 'destructive' }); }
+    try {
+      const r = await documentosExternosAPI.reenviar(d.id, {});
+      if (r.falhas && r.falhas.length) {
+        toast({ title: `Reenviado a ${r.reenviados} · falhou para ${r.falhas.length}`,
+          description: r.falhas.map((f) => `${f.nome}: ${f.erro}`).join(' · '), variant: 'destructive' });
+      } else {
+        toast({ title: `Reenviado a ${r.reenviados} signatário(s)` });
+      }
+    } catch (e) { toast({ title: 'Erro ao reenviar', description: e?.response?.data?.detail || '', variant: 'destructive' }); }
   };
 
   return (

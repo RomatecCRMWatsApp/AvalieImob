@@ -112,7 +112,12 @@ export default function PositionerDocExt({ doc, onClose, onEnviado }) {
         rt_ancora: rtBox && { pagina: rtBox.pagina, x_pt: rtBox.x_pt, y_pt: rtBox.y_pt, larg_pt: rtBox.larg_pt, alt_pt: rtBox.alt_pt },
       };
       const r = await documentosExternosAPI.posicionar(doc.id, body);
-      toast({ title: 'Links enviados pelo WhatsApp', description: (r.links || []).map((l) => l.nome).join(' · ') });
+      if (r.falhas && r.falhas.length) {
+        toast({ title: `Enviado a ${r.enviados}/${r.total} · falhou para ${r.falhas.length}`,
+          description: r.falhas.map((f) => `${f.nome}: ${f.erro}`).join(' · '), variant: 'destructive' });
+      } else {
+        toast({ title: 'Links enviados pelo WhatsApp', description: (r.links || []).map((l) => l.nome).join(' · ') });
+      }
       onEnviado ? onEnviado() : onClose?.();
     } catch (e) {
       toast({ title: 'Falha ao enviar', description: e?.response?.data?.detail || '', variant: 'destructive' });
