@@ -50,6 +50,8 @@ from routes.assinatura_cliente import (
     router_publico as assinatura_cliente_publico_router,
 )
 from routes.documentos_assinatura import router as documentos_assinatura_router
+from routes.documentos_externos import router as documentos_externos_router
+from routes.documentos_externos_publico import router_publico as documentos_externos_publico_router
 from routes.avaliacao_publica import router as avaliacao_publica_router
 from routes.admin_leads import router as admin_leads_router
 from routes.nfse import router as nfse_router
@@ -71,6 +73,8 @@ all_routers = [
     contratos_exclusividade_router, contratos_exclusividade_publico_router,
     assinatura_cliente_router, assinatura_cliente_publico_router,
     documentos_assinatura_router,
+    documentos_externos_router,
+    documentos_externos_publico_router,
     avaliacao_publica_router,
     admin_leads_router,
     nfse_router,

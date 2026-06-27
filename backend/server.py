@@ -603,6 +603,14 @@ async def startup():
         await db.georef_verificacoes.create_index([("user_id", 1), ("projeto_id", 1)])
     except Exception as e:
         logger.error(f"Erro ao criar índices de georef_projetos: {e}")
+    # Documentos Externos (doc-ext)
+    try:
+        await db.documentos_externos.create_index("codigo", unique=True)
+        await db.documentos_externos.create_index("signatarios.token", unique=True, sparse=True)
+        await db.documentos_externos.create_index([("user_id", 1), ("created_at", -1)])
+        await db.documentos_externos.create_index([("status", 1), ("created_at", -1)])
+    except Exception as e:
+        logger.error(f"Erro ao criar índices de documentos_externos: {e}")
     # NFS-e: materializa o certificado .pfx de ROMATEC_CERT_PFX_B64 (Railway), se houver.
     try:
         from services.nfse.sefin.certificado import materializar_cert_de_env
