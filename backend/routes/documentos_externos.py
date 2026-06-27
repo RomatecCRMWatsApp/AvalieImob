@@ -79,10 +79,24 @@ async def upload(
     return serialize_doc(reg)
 
 
+def _slim_card(d: dict) -> dict:
+    """Versão leve p/ a lista/card: signatários só com o essencial (sem o traço base64,
+    token, IP/UA) e sem o histórico — para o card não trafegar dados pesados."""
+    out = serialize_doc(d)
+    out["signatarios"] = [
+        {"id": s.get("id"), "nome": s.get("nome"), "papel": s.get("papel"),
+         "status": s.get("status"), "whatsapp": s.get("whatsapp"),
+         "assinado_em": (s.get("assinado_em").isoformat()
+                         if hasattr(s.get("assinado_em"), "isoformat") else s.get("assinado_em"))}
+        for s in (d.get("signatarios") or [])]
+    out.pop("historico", None)
+    return out
+
+
 @router.get("")
 async def listar(uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
     docs = await db[COL].find({"user_id": uid}).sort("created_at", -1).to_list(length=500)
-    return [serialize_doc(d) for d in docs]
+    return [_slim_card(d) for d in docs]
 
 
 @router.get("/{doc_id}")

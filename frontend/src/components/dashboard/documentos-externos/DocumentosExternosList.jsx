@@ -117,7 +117,27 @@ export default function DocumentosExternosList() {
                   </div>
                 </div>
                 <div className={`text-[11px] font-medium mb-1 inline-block px-2 py-0.5 rounded-full self-start ${st.cls}`}>{st.label}</div>
-                <div className="text-[11px] text-gray-500 mb-3">Assinaturas · {assinados}/{sigs.length}</div>
+                <div className="text-[11px] text-gray-500 mb-1.5">Assinaturas · {assinados}/{sigs.length}</div>
+                {sigs.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mb-2">
+                    {sigs.map((s) => {
+                      const ok = s.status === 'assinado';
+                      const rec = s.status === 'recusado';
+                      const cls = ok ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : rec ? 'bg-red-50 text-red-600 border-red-200'
+                        : 'bg-amber-50 text-amber-700 border-amber-200';
+                      return (
+                        <span key={s.id} title={`${s.nome} · ${s.papel} · ${ok ? 'assinou' : rec ? 'recusou' : 'pendente'}`}
+                          className={`text-[10px] px-1.5 py-0.5 rounded-full border ${cls}`}>
+                          {ok ? '✓' : rec ? '✕' : '⏳'} {(s.nome || '').split(' ')[0]}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+                {sigs.length > 0 && assinados === sigs.length ? (
+                  <div className="text-[11px] font-semibold text-emerald-700 mb-3">✓ Todos os signatários assinaram</div>
+                ) : <div className="mb-1" />}
 
                 <div className="grid grid-cols-2 gap-1.5 mt-auto">
                   <Btn icon={Users} label="Signatários" onClick={() => setSignatarios(d)} cls="border-gray-200 text-gray-700 hover:bg-gray-50" />
