@@ -184,7 +184,11 @@ A micro-tag de auditoria (nome • CPF • data • hash curto) e a folha de ace
   (assinatura/rubrica/data/nome), canvas da assinatura do RT, posiciona a caixa do RT.
 - Página pública: reusa `AssinarCliente.jsx` numa rota `/assinar-doc/:token` apontando para os
   endpoints `doc-ext` (componente já genérico: token, canvas responsivo, geo, consentimento).
-- `Sidebar.jsx` (item "Documentos Externos", ícone `Stamp`/`FileSignature`) + rota em
+- `Sidebar.jsx` — novo item no bloco **CONTRATOS**, posicionado **logo após "Assinar
+  Documentos"** (`id: 'documentos'`) e antes de "Recibos":
+  `{ id: 'documentos-externos', label: 'Documentos Externos', icon: Send, route: '/dashboard/documentos-externos', tag: 'NOVO' }`
+  (ícone `Send` — envio por WhatsApp — para distinguir do `Stamp` de "Assinar Documentos" e do
+  `FileSignature` de "Contratos"; importar `Send` de lucide-react). Rota correspondente em
   `Dashboard.jsx`/`App.js`.
 
 ## 8. Fluxo ponta-a-ponta
