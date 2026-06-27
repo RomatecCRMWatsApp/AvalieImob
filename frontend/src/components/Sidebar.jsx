@@ -9,7 +9,7 @@ import {
   LayoutDashboard, Users, Building2, BarChart3, FileCheck2, Shield, Beef, Home,
   ClipboardCheck, FileText, FileSignature, Receipt, Sparkles, FileSearch, Award,
   CreditCard, Settings, LogOut, Globe, Search, Palette, Tag, BadgeCheck, Stamp, Inbox, Calculator,
-  Compass, MapPin,
+  Compass, MapPin, Send,
 } from 'lucide-react';
 import { ptamAPI } from '../lib/api';
 import { BrandMark } from './brand/BrandMark';
@@ -54,6 +54,7 @@ const MENU = [
     { id: 'contratos', label: 'Contratos', icon: FileSignature, route: '/dashboard/contratos', tag: 'NOVO' },
     { id: 'exclusividade', label: 'Exclusividade', icon: BadgeCheck, route: '/dashboard/contratos-exclusivos', tag: 'NOVO' },
     { id: 'documentos', label: 'Assinar Documentos', icon: Stamp, route: '/dashboard/documentos', tag: 'NOVO' },
+    { id: 'documentos-externos', label: 'Documentos Externos', icon: Send, route: '/dashboard/documentos-externos', tag: 'NOVO' },
     { id: 'recibos', label: 'Recibos', icon: Receipt, route: '/dashboard/recibos', tag: 'NOVO' },
   ]},
   { section: 'Topografia & Geo', items: [

@@ -33,6 +33,8 @@ _TIPO_COLECAO = {
     "documento": "documentos_assinatura",
     # peça do Topografia & Geo (Memorial/Laudo/Requerimento/TRT/Dossiê) preparada p/ assinar
     "georef": "georef_assinaturas",
+    # PDF externo (módulo Documentos Externos): base do ICP = intermediário carimbado.
+    "doc-ext": "documentos_externos",
 }
 
 
@@ -434,6 +436,18 @@ async def _gerar_pdf(tipo: str, doc: dict, db=None, perfil: dict | None = None) 
             except Exception:
                 logger.warning("Falha ao pré-carregar avaliador (procuração ICP).", exc_info=True)
         return await asyncio.to_thread(_generate_procuracao_pdf_bytes, doc, uid or "", empresa)
+    elif tipo == "doc-ext":
+        # PDF externo: a base do ICP é o intermediário JÁ carimbado com as assinaturas dos
+        # clientes (se houver); senão, o original. Só BAIXA do R2 + normaliza rotação.
+        from services import r2_storage
+        key = doc.get("pdf_key_intermediario") or doc.get("pdf_key")
+        if not key:
+            raise HTTPException(status_code=400, detail="Documento sem arquivo (pdf_key vazio).")
+        pdf = await asyncio.to_thread(r2_storage.download_bytes, key)
+        if not pdf or not pdf.startswith(b"%PDF-"):
+            raise HTTPException(status_code=500, detail="Arquivo do documento inválido.")
+        pdf = await asyncio.to_thread(_normalizar_rotacao_pdf, pdf)
+        return pdf
     elif tipo in ("documento", "georef"):
         # PDF AVULSO (usuário) ou peça do Topografia & Geo já gerada — só BAIXA do R2.
         from services import r2_storage

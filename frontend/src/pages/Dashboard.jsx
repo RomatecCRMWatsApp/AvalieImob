@@ -51,6 +51,7 @@ import GlobalSearch from '../components/common/GlobalSearch';
 import ContratosList from '../components/dashboard/contratos/ContratosList';
 import ContratoWizard from '../components/dashboard/contratos/ContratoWizard';
 import DocumentosList from '../components/dashboard/documentos/DocumentosList';
+import DocumentosExternosList from '../components/dashboard/documentos-externos/DocumentosExternosList';
 import ContratoExclusividadeList from '../components/dashboard/contratos-exclusividade/ContratoExclusividadeList';
 import ContratoExclusividadeWizard from '../components/dashboard/contratos-exclusividade/ContratoExclusividadeWizard';
 import RecibosList from '../components/dashboard/recibos/RecibosList';
@@ -462,6 +463,7 @@ const Dashboard = () => {
             <Route path="contratos"        element={<ContratosList />} />
             <Route path="contratos-exclusivos" element={<ContratosList tipoFixo="exclusividade" titulo="Exclusividade + Procuração" descricao="Contratos de exclusividade de venda (art. 726 CC) com procuração vinculada, assinatura do cliente e ICP-Brasil." ctaLabel="Novo Contrato de Exclusividade" />} />
             <Route path="documentos"       element={<DocumentosList />} />
+            <Route path="documentos-externos" element={<DocumentosExternosList />} />
             <Route path="contratos/novo"   element={<ContratoWizard />} />
             <Route path="contratos/:id"    element={<ContratoWizard />} />
             <Route path="exclusividade"        element={<ContratoExclusividadeList />} />

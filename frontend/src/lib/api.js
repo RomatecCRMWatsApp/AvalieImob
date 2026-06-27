@@ -594,6 +594,32 @@ export const documentosAPI = {
   pdfAssinado: (id, layout = 'v2') => api.get(`/assinatura/icp/documento/${id}/download`, { params: { layout }, responseType: 'blob' }).then(r => r.data),
 };
 
+// ---- Documentos Externos (doc-ext): upload de PDF arbitrário, N signatários, WhatsApp + ICP
+export const documentosExternosAPI = {
+  listar: () => api.get('/documentos-externos').then(r => r.data),
+  obter: (id) => api.get(`/documentos-externos/${id}`).then(r => r.data),
+  upload: (formData) => api.post('/documentos-externos/upload', formData).then(r => r.data),
+  editar: (id, body) => api.patch(`/documentos-externos/${id}`, body).then(r => r.data),
+  excluir: (id) => api.delete(`/documentos-externos/${id}`).then(r => r.data),
+  addSignatario: (id, body) => api.post(`/documentos-externos/${id}/signatarios`, body).then(r => r.data),
+  editSignatario: (id, sid, body) => api.patch(`/documentos-externos/${id}/signatarios/${sid}`, body).then(r => r.data),
+  delSignatario: (id, sid) => api.delete(`/documentos-externos/${id}/signatarios/${sid}`).then(r => r.data),
+  preparar: (id) => api.post(`/documentos-externos/${id}/preparar`).then(r => r.data),
+  posicionar: (id, body) => api.post(`/documentos-externos/${id}/posicionar`, body).then(r => r.data),
+  reenviar: (id, body) => api.post(`/documentos-externos/${id}/reenviar`, body).then(r => r.data),
+  status: (id) => api.get(`/documentos-externos/${id}/sessao-status`).then(r => r.data),
+  distribuirFinal: (id) => api.post(`/documentos-externos/${id}/distribuir-final`).then(r => r.data),
+  pdfOriginal: (id) => api.get(`/documentos-externos/${id}/pdf-original`, { responseType: 'blob' }).then(r => r.data),
+  pdfFinal: (id) => api.get(`/documentos-externos/${id}/pdf-final`, { responseType: 'blob' }).then(r => r.data),
+};
+
+// ---- Documentos Externos — público (sem token JWT) — página de assinatura no celular
+export const documentosExternosPublicoAPI = {
+  obter: (token) => api.get(`/publico/documentos-externos/${token}`).then(r => r.data),
+  assinar: (token, body) => api.post(`/publico/documentos-externos/${token}`, body).then(r => r.data),
+  recusar: (token, body) => api.post(`/publico/documentos-externos/${token}/recusar`, body).then(r => r.data),
+};
+
 // ---- Perfis de Corretor (autofill "Usar meus dados" no wizard de partes)
 export const perfisCorretorAPI = {
   listar: () => api.get('/perfis-corretor').then(r => r.data || []),
