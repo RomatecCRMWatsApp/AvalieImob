@@ -15,6 +15,7 @@ export default function ModalEnviarFinal({ doc, onClose }) {
   const [enviando, setEnviando] = useState(false);
   const [resultado, setResultado] = useState(null); // {enviados, falhas, total, via}
   const [extras, setExtras] = useState([]);          // outros números (fora dos signatários)
+  const [sel, setSel] = useState(null);              // null até o 1º envio; depois {id:bool} p/ reenvio seletivo
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -43,16 +44,21 @@ export default function ModalEnviarFinal({ doc, onClose }) {
   const enviar = async () => {
     setEnviando(true); setResultado(null);
     try {
+      const reenvio = sel !== null;
       const body = {
         signatarios: sigs.map((s) => ({ id: s.id, whatsapp: soDig(fones[s.id]) })),
         extras: extras.map(soDig).filter(Boolean),
       };
+      if (reenvio) body.enviar_ids = sigs.filter((s) => sel[s.id]).map((s) => s.id);
       const r = await documentosExternosAPI.distribuirFinal(doc.id, body);
       setResultado(r);
+      // após o envio, habilita a seleção p/ reenvio — marca por padrão quem FALHOU
+      const falhou = new Set((r.falhas || []).map((f) => f.nome));
+      setSel(Object.fromEntries(sigs.map((s) => [s.id, falhou.has(s.nome)])));
       if (r.falhas && r.falhas.length) {
-        toast({ title: `Enviado a ${r.enviados}/${r.total} · falhou para ${r.falhas.length}`, variant: 'destructive' });
+        toast({ title: `Enviado a ${r.enviados} · falhou para ${r.falhas.length}`, variant: 'destructive' });
       } else {
-        toast({ title: `Via final enviada a ${r.enviados} signatário(s)` });
+        toast({ title: `Via final ${reenvio ? 'reenviada' : 'enviada'} a ${r.enviados} destinatário(s)` });
       }
     } catch (e) {
       toast({ title: 'Falha ao enviar a via final', description: e?.response?.data?.detail || '', variant: 'destructive' });
@@ -83,9 +89,13 @@ export default function ModalEnviarFinal({ doc, onClose }) {
                 const err = erroDe(s.nome);
                 const ok = resultado && !err;
                 return (
-                  <div key={s.id} className="border rounded-lg px-3 py-2">
+                  <div key={s.id} className={`border rounded-lg px-3 py-2 ${sel !== null && !sel[s.id] ? 'opacity-50' : ''}`}>
                     <div className="flex items-center justify-between gap-2">
-                      <div className="min-w-0">
+                      <div className="flex items-center gap-2 min-w-0">
+                        {sel !== null && (
+                          <input type="checkbox" checked={!!sel[s.id]} title="Reenviar para este"
+                                 onChange={(e) => setSel((m) => ({ ...m, [s.id]: e.target.checked }))} />
+                        )}
                         <div className="text-sm font-semibold text-gray-900 truncate">{s.nome}
                           <span className="ml-2 text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">{s.papel}</span>
                         </div>
@@ -122,17 +132,21 @@ export default function ModalEnviarFinal({ doc, onClose }) {
             </div>
 
             {resultado && (
-              <div className="text-[12px] text-gray-600 mb-3">
-                Resultado: <b>{resultado.enviados}</b> enviado(s) de {resultado.total + extras.map(soDig).filter(Boolean).length} · via: {resultado.via}
+              <div className="text-[12px] text-gray-600 mb-1">
+                Resultado: <b>{resultado.enviados}</b> enviado(s) · via: {resultado.via}
               </div>
+            )}
+            {sel !== null && (
+              <div className="text-[11px] text-amber-700 mb-3">↻ Marque quem deve receber novamente e clique em <b>Reenviar selecionados</b>.</div>
             )}
 
             <div className="flex justify-end gap-2">
               <button onClick={onClose} className="px-4 py-2 border rounded-lg text-sm">Fechar</button>
-              <button onClick={enviar} disabled={enviando || sigs.length === 0}
+              <button onClick={enviar}
+                      disabled={enviando || sigs.length === 0 || (sel !== null && !sigs.some((s) => sel[s.id]) && !extras.map(soDig).filter(Boolean).length)}
                       className="flex items-center gap-1.5 px-4 py-2 bg-emerald-700 text-white rounded-lg text-sm disabled:opacity-50">
                 {enviando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                {enviando ? 'Enviando…' : 'Enviar via final'}
+                {enviando ? 'Enviando…' : (sel === null ? 'Enviar via final' : 'Reenviar selecionados')}
               </button>
             </div>
           </>

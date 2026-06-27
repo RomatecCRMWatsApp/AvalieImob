@@ -394,12 +394,17 @@ async def distribuir_final(doc_id: str, payload: dict = None,
                                  {"$set": {"status": "finalizado", "pdf_final_assinado_em": datetime.utcnow()}})
     # números editáveis por signatário (default = o salvo)
     novos = {s.get("id"): _dig(s.get("whatsapp")) for s in (payload or {}).get("signatarios", []) if s.get("id")}
+    # seleção de quais signatários enviar (None = TODOS [1º envio]; lista = só esses [reenvio])
+    sel_ids = (payload or {}).get("enviar_ids")
+    sel_set = set(sel_ids) if isinstance(sel_ids, list) else None
     cfg = await zapi_cfg(db, uid)
     caption = (f"Segue a *via FINALIZADA* ({via}) do documento *{doc.get('titulo', '')}*. "
                f"Obrigado! — Romatec Consultoria Total")
     nome_arq = f"{doc.get('codigo', 'documento')}_final"
     enviados, falhas, vistos = 0, [], set()
     for s in doc.get("signatarios", []):
+        if sel_set is not None and s.get("id") not in sel_set:
+            continue  # reenvio seletivo: pula quem não foi marcado
         fone = novos.get(s["id"]) or _dig(s.get("whatsapp"))
         if not fone:
             falhas.append({"nome": s.get("nome"), "telefone": "", "erro": "sem WhatsApp"})
