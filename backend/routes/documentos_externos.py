@@ -432,4 +432,8 @@ async def distribuir_final(doc_id: str, payload: dict = None,
         except Exception as e:  # noqa: BLE001
             logger.warning("Falha ao enviar via final (extra) p/ %s: %s", fone, e, exc_info=True)
             falhas.append({"nome": f"Outro ({fone})", "telefone": fone, "erro": str(e) or e.__class__.__name__})
+    # marca que a via final já foi distribuída ao menos uma vez (habilita o reenvio seletivo)
+    if enviados:
+        await db[COL].update_one({"id": doc_id, "user_id": uid},
+                                 {"$set": {"via_final_enviada_em": datetime.utcnow()}})
     return {"ok": True, "enviados": enviados, "falhas": falhas, "total": len(doc.get("signatarios", [])), "via": via}

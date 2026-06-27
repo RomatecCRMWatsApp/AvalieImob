@@ -24,10 +24,12 @@ export default function ModalEnviarFinal({ doc, onClose }) {
       const lista = d.signatarios || [];
       setSigs(lista);
       setFones(Object.fromEntries(lista.map((s) => [s.id, s.whatsapp || ''])));
+      // se a via final JÁ foi distribuída antes, abre direto em modo reenvio (seleção visível, todos marcados)
+      if (doc.via_final_enviada_em) setSel(Object.fromEntries(lista.map((s) => [s.id, true])));
     } catch (e) {
       toast({ title: 'Erro ao carregar signatários', description: e?.response?.data?.detail || '', variant: 'destructive' });
     } finally { setCarregando(false); }
-  }, [doc.id, toast]);
+  }, [doc.id, doc.via_final_enviada_em, toast]);
 
   useEffect(() => { carregar(); }, [carregar]);
 
