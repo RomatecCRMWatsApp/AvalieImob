@@ -1,7 +1,7 @@
 // @module documentos-externos/ModalSignatarios — cadastro de N signatários (papel livre c/
 // sugestões) + quick-add a partir do cadastro de Clientes.
 import React, { useState, useEffect, useCallback } from 'react';
-import { X, Plus, Trash2, UserPlus } from 'lucide-react';
+import { X, Plus, Trash2, UserPlus, Check } from 'lucide-react';
 import { documentosExternosAPI, clientsAPI } from '../../../lib/api';
 import { useToast } from '../../../hooks/use-toast';
 
@@ -17,6 +17,8 @@ export default function ModalSignatarios({ doc, onClose, onChanged }) {
   const [clientes, setClientes] = useState([]);
   const [form, setForm] = useState({ nome: '', cpf_cnpj: '', papel: '', whatsapp: '', email: '' });
   const [busy, setBusy] = useState(false);
+  const [salvarNoCadastro, setSalvarNoCadastro] = useState(true);
+  const [foneEdit, setFoneEdit] = useState({}); // sid -> WhatsApp editável
 
   const recarregar = useCallback(async () => {
     try { const d = await documentosExternosAPI.obter(doc.id); setSigs(d.signatarios || []); onChanged && onChanged(d); }
@@ -39,11 +41,30 @@ export default function ModalSignatarios({ doc, onClose, onChanged }) {
       await documentosExternosAPI.addSignatario(doc.id, {
         nome: form.nome.trim(), cpf_cnpj: soDig(form.cpf_cnpj),
         papel: form.papel.trim() || 'Signatário', whatsapp: soDig(form.whatsapp), email: form.email.trim() || null });
+      // cadastra também no cadastro de Clientes (reutilizável no dropdown), sem bloquear o signatário
+      if (salvarNoCadastro && form.nome.trim()) {
+        try {
+          await clientsAPI.create({ name: form.nome.trim(), doc: soDig(form.cpf_cnpj),
+            phone: soDig(form.whatsapp), email: form.email.trim() || '' });
+          clientsAPI.list().then((d) => setClientes(Array.isArray(d) ? d : [])).catch(() => {});
+        } catch { /* duplicado/erro de cadastro não impede o signatário */ }
+      }
       setForm({ nome: '', cpf_cnpj: '', papel: '', whatsapp: '', email: '' });
       await recarregar();
     } catch (e) {
       toast({ title: 'Erro ao adicionar', description: e?.response?.data?.detail || '', variant: 'destructive' });
     } finally { setBusy(false); }
+  };
+
+  const salvarFone = async (s) => {
+    try {
+      await documentosExternosAPI.editSignatario(doc.id, s.id, { whatsapp: soDig(foneEdit[s.id]) });
+      setFoneEdit((f) => { const n = { ...f }; delete n[s.id]; return n; });
+      await recarregar();
+      toast({ title: 'Número de envio atualizado' });
+    } catch (e) {
+      toast({ title: 'Erro ao salvar número', description: e?.response?.data?.detail || '', variant: 'destructive' });
+    }
   };
 
   const remover = async (sid) => {
@@ -62,19 +83,36 @@ export default function ModalSignatarios({ doc, onClose, onChanged }) {
         {/* Lista atual */}
         <div className="space-y-2 mb-5">
           {sigs.length === 0 && <p className="text-sm text-gray-500">Nenhum signatário ainda.</p>}
-          {sigs.map((s) => (
-            <div key={s.id} className="flex items-center justify-between border rounded-lg px-3 py-2">
-              <div className="min-w-0">
-                <div className="text-sm font-semibold text-gray-900 truncate">{s.nome}
-                  <span className="ml-2 text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">{s.papel}</span>
+          {sigs.map((s) => {
+            const editando = foneEdit[s.id] !== undefined;
+            const valor = editando ? foneEdit[s.id] : (s.whatsapp || '');
+            const mudou = editando && soDig(foneEdit[s.id]) !== soDig(s.whatsapp);
+            return (
+              <div key={s.id} className="border rounded-lg px-3 py-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-sm font-semibold text-gray-900 truncate">{s.nome}
+                    <span className="ml-2 text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">{s.papel}</span>
+                  </div>
+                  {s.status !== 'assinado' && (
+                    <button onClick={() => remover(s.id)} className="text-red-500 p-1"><Trash2 className="w-4 h-4" /></button>
+                  )}
                 </div>
-                <div className="text-[11px] text-gray-400">{s.cpf_cnpj || '—'} · {s.whatsapp || 'sem WhatsApp'} · {s.status}</div>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <span className="text-[11px] text-gray-400 shrink-0">Nº de envio:</span>
+                  <input className="flex-1 border rounded-lg px-2 py-1 text-[13px] disabled:bg-gray-50"
+                         placeholder="55 DDD número" value={valor} disabled={s.status === 'assinado'}
+                         onChange={(e) => setFoneEdit((f) => ({ ...f, [s.id]: e.target.value }))} />
+                  {mudou && (
+                    <button onClick={() => salvarFone(s)}
+                            className="flex items-center gap-1 text-emerald-700 text-xs border border-emerald-300 rounded-lg px-2 py-1 hover:bg-emerald-50">
+                      <Check className="w-3.5 h-3.5" /> Salvar
+                    </button>
+                  )}
+                </div>
+                <div className="text-[11px] text-gray-400 mt-1">{s.cpf_cnpj || '—'} · {s.status}</div>
               </div>
-              {s.status !== 'assinado' && (
-                <button onClick={() => remover(s.id)} className="text-red-500 p-1"><Trash2 className="w-4 h-4" /></button>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Quick-add de cliente */}
@@ -101,6 +139,10 @@ export default function ModalSignatarios({ doc, onClose, onChanged }) {
           <input className="border rounded-lg p-2 text-sm sm:col-span-2" placeholder="E-mail (opcional)"
                  value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
         </div>
+        <label className="flex items-center gap-2 text-[12px] text-gray-600 mb-3">
+          <input type="checkbox" checked={salvarNoCadastro} onChange={(e) => setSalvarNoCadastro(e.target.checked)} />
+          Cadastrar também no meu cadastro de Clientes (reutilizar depois)
+        </label>
         <div className="flex justify-between">
           <button onClick={adicionar} disabled={busy}
                   className="flex items-center gap-1.5 px-4 py-2 bg-emerald-700 text-white rounded-lg text-sm disabled:opacity-50">
