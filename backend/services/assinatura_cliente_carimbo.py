@@ -176,3 +176,84 @@ def carimbar_documento(pdf_bytes: bytes, ancoras: List[dict],
     out = _append_pagina(out, _folha_autoria(assinaturas))
     doc_hash = hashlib.sha256(out).hexdigest()
     return out, doc_hash
+
+
+# ── Documentos Externos (doc-ext): multi-signatário + tipos de posição ───────────
+
+def _overlay_texto(page_w: float, page_h: float, rect: Tuple[float, float, float, float],
+                   texto: str) -> bytes:
+    """Página transparente (tamanho da página alvo) com `texto` centralizado verticalmente
+    no rect, fonte auto-ajustada p/ caber na largura. Usado p/ tipos data/nome_extenso."""
+    from reportlab.lib import colors
+    from reportlab.pdfgen import canvas as _canvas
+    from reportlab.pdfbase.pdfmetrics import stringWidth
+
+    x0, y0, x1, y1 = rect
+    box_w = max(1.0, (x1 - x0) - 8)
+    texto = (texto or "").strip()
+    size = 10.0
+    while size > 5.0 and stringWidth(texto, "Helvetica", size) > box_w:
+        size -= 0.5
+    buf = io.BytesIO()
+    c = _canvas.Canvas(buf, pagesize=(page_w, page_h))
+    c.setFont("Helvetica", size)
+    c.setFillColor(colors.HexColor("#1A1A1A"))
+    c.drawString(x0 + 4, y0 + ((y1 - y0) - size) / 2 + 1, texto[:200])
+    c.showPage()
+    c.save()
+    return buf.getvalue()
+
+
+def carimbar_texto_em_pagina(pdf_bytes: bytes, pagina_idx: int,
+                             rect: Tuple[float, float, float, float], texto: str) -> bytes:
+    """Carimba TEXTO no rect (pontos, origem inf-esq) da página 0-based. Para data/nome."""
+    from pypdf import PdfReader, PdfWriter
+    reader = PdfReader(io.BytesIO(pdf_bytes))
+    total = len(reader.pages)
+    if pagina_idx < 0 or pagina_idx >= total:
+        raise ValueError(f"Página de âncora inválida: {pagina_idx} (0..{total - 1})")
+    mb = reader.pages[pagina_idx].mediabox
+    overlay = _overlay_texto(float(mb.width), float(mb.height), rect, texto)
+    overlay_page = PdfReader(io.BytesIO(overlay)).pages[0]
+    writer = PdfWriter()
+    for i, p in enumerate(reader.pages):
+        if i == pagina_idx:
+            try:
+                p.merge_page(overlay_page)
+            except Exception as e:
+                logger.warning("Overlay de texto falhou na página %s (%s)", i, e)
+        writer.add_page(p)
+    out = io.BytesIO()
+    writer.write(out)
+    return out.getvalue()
+
+
+def carimbar_multi(pdf_bytes: bytes, signatarios: List[dict]) -> Tuple[bytes, str]:
+    """Carimba N signatários, cada um com VÁRIAS posições de tipos distintos, e anexa a
+    folha de autoria. `signatarios`: [{nome, cpf, role, traco_png, ip, geo_lat, geo_lng,
+    user_agent, assinado_em, posicoes:[{pagina,x_pt,y_pt,larg_pt,alt_pt,tipo}]}].
+    Retorna (pdf_carimbado, sha256)."""
+    out = pdf_bytes
+    for sig in signatarios:
+        nome = sig.get("nome") or ""
+        traco = sig.get("traco_png")
+        ass_em = sig.get("assinado_em")
+        ass_txt = ass_em.strftime("%d/%m/%Y %H:%M:%S") if isinstance(ass_em, datetime) else ""
+        for pos in (sig.get("posicoes") or []):
+            try:
+                x = float(pos.get("x_pt", 0)); y = float(pos.get("y_pt", 0))
+                w = float(pos.get("larg_pt", 0)); h = float(pos.get("alt_pt", 0))
+                rect = (x, y, x + w, y + h)
+                pg = int(pos.get("pagina", 0))
+                tipo = pos.get("tipo") or "assinatura"
+                if tipo in ("assinatura", "rubrica") and traco:
+                    legenda = f"Assinado eletronicamente · {nome}" if tipo == "assinatura" else ""
+                    out = carimbar_traco_em_pagina(out, pg, rect, traco, legenda)
+                elif tipo == "data":
+                    out = carimbar_texto_em_pagina(out, pg, rect, ass_txt)
+                elif tipo == "nome_extenso":
+                    out = carimbar_texto_em_pagina(out, pg, rect, nome.upper())
+            except Exception:
+                logger.warning("Falha ao carimbar posição de %s", nome, exc_info=True)
+    out = _append_pagina(out, _folha_autoria(signatarios))
+    return out, hashlib.sha256(out).hexdigest()
