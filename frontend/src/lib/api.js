@@ -608,7 +608,7 @@ export const documentosExternosAPI = {
   posicionar: (id, body) => api.post(`/documentos-externos/${id}/posicionar`, body).then(r => r.data),
   reenviar: (id, body) => api.post(`/documentos-externos/${id}/reenviar`, body).then(r => r.data),
   status: (id) => api.get(`/documentos-externos/${id}/sessao-status`).then(r => r.data),
-  distribuirFinal: (id) => api.post(`/documentos-externos/${id}/distribuir-final`).then(r => r.data),
+  distribuirFinal: (id, body) => api.post(`/documentos-externos/${id}/distribuir-final`, body || {}).then(r => r.data),
   pdfOriginal: (id) => api.get(`/documentos-externos/${id}/pdf-original`, { responseType: 'blob' }).then(r => r.data),
   pdfFinal: (id) => api.get(`/documentos-externos/${id}/pdf-final`, { responseType: 'blob' }).then(r => r.data),
 };

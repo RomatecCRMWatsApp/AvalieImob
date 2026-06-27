@@ -339,17 +339,63 @@ async def sessao_status(doc_id: str, uid: str = Depends(get_active_subscriber), 
             "assinados": assinados, "total": len(sigs), "requer_icp_rt": doc.get("requer_icp_rt")}
 
 
-@router.post("/{doc_id}/distribuir-final")
-async def distribuir_final(doc_id: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
-    """Após o ICP do RT, envia o PDF FINAL assinado a todos os signatários e marca finalizado.
-    Chamado pelo frontend ao concluir a assinatura ICP."""
+def _dig(v) -> str:
+    return "".join(filter(str.isdigit, str(v or "")))
+
+
+async def _via_final_bytes(db, doc: dict, doc_id: str):
+    """(bytes, via) da VIA FINAL: o PDF assinado por ICP se houver; senão o intermediário
+    carimbado (assinaturas dos clientes + folha de auditoria). (None, None) se ainda não há."""
     from routes.assinatura import _load_assinatura_bytes
-    from services.documento_externo_service import distribuir
-    doc = await _carregar(db, doc_id, uid)
     assinado, _ = await _load_assinatura_bytes(db, "doc-ext", doc_id)
-    if not assinado:
-        raise HTTPException(status_code=400, detail="Nenhum PDF assinado (ICP) encontrado.")
-    await db[COL].update_one({"id": doc_id, "user_id": uid},
-                             {"$set": {"status": "finalizado", "pdf_final_assinado_em": datetime.utcnow()}})
-    await distribuir(db, doc, assinado, "final")
-    return {"ok": True}
+    if assinado and assinado.startswith(b"%PDF-"):
+        return assinado, "final (ICP-Brasil)"
+    key = doc.get("pdf_key_intermediario")
+    if key:
+        try:
+            b = await asyncio.to_thread(r2_storage.download_bytes, key)
+            if b and b.startswith(b"%PDF-"):
+                return b, "assinada pelos signatários"
+        except Exception:
+            pass
+    return None, None
+
+
+@router.post("/{doc_id}/distribuir-final")
+async def distribuir_final(doc_id: str, payload: dict = None,
+                           uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    """Envia a VIA FINALIZADA por WhatsApp ao número de CADA signatário. Funciona tanto após o
+    ICP do RT (via=ICP) quanto sem ICP (via=intermediário carimbado). Aceita números editáveis
+    em payload.signatarios=[{id, whatsapp}] (default = o número salvo de cada um) e retorna o
+    resultado por destinatário (enviados/falhas)."""
+    from services.documento_externo_service import enviar_pdf, zapi_cfg
+    doc = await _carregar(db, doc_id, uid)
+    pdf, via = await _via_final_bytes(db, doc, doc_id)
+    if not pdf:
+        raise HTTPException(status_code=400,
+                            detail="Ainda não há via finalizada — faltam assinaturas dos signatários (ou o ICP do RT).")
+    # se a via veio do ICP, marca finalizado
+    if via and via.startswith("final"):
+        await db[COL].update_one({"id": doc_id, "user_id": uid},
+                                 {"$set": {"status": "finalizado", "pdf_final_assinado_em": datetime.utcnow()}})
+    # números editáveis por signatário (default = o salvo)
+    novos = {s.get("id"): _dig(s.get("whatsapp")) for s in (payload or {}).get("signatarios", []) if s.get("id")}
+    cfg = await zapi_cfg(db, uid)
+    enviados, falhas = 0, []
+    for s in doc.get("signatarios", []):
+        fone = novos.get(s["id"]) or _dig(s.get("whatsapp"))
+        if not fone:
+            falhas.append({"nome": s.get("nome"), "telefone": "", "erro": "sem WhatsApp"})
+            continue
+        if novos.get(s["id"]) and novos[s["id"]] != _dig(s.get("whatsapp")):
+            await db[COL].update_one({"id": doc_id, "signatarios.id": s["id"]},
+                                     {"$set": {"signatarios.$.whatsapp": fone}})
+        try:
+            await enviar_pdf(cfg, fone, pdf, f"{doc.get('codigo', 'documento')}_final",
+                             f"Segue a *via FINALIZADA* ({via}) do documento *{doc.get('titulo', '')}*. "
+                             f"Obrigado! — Romatec Consultoria Total")
+            enviados += 1
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Falha ao enviar via final doc-ext p/ %s: %s", fone, e, exc_info=True)
+            falhas.append({"nome": s.get("nome"), "telefone": fone, "erro": str(e) or e.__class__.__name__})
+    return {"ok": True, "enviados": enviados, "falhas": falhas, "total": len(doc.get("signatarios", [])), "via": via}

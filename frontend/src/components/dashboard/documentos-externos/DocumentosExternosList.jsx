@@ -10,6 +10,7 @@ import { BrandSpinner } from '../../brand/BrandSpinner';
 import ModalUpload from './ModalUpload';
 import ModalSignatarios from './ModalSignatarios';
 import PositionerDocExt from './PositionerDocExt';
+import ModalEnviarFinal from './ModalEnviarFinal';
 
 const fmtData = (d) => (d ? new Date(d).toLocaleDateString('pt-BR') : '');
 
@@ -43,6 +44,7 @@ export default function DocumentosExternosList() {
   const [signatarios, setSignatarios] = useState(null);
   const [posicionar, setPosicionar] = useState(null);
   const [assinarIcp, setAssinarIcp] = useState(null);
+  const [enviarFinal, setEnviarFinal] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -124,6 +126,9 @@ export default function DocumentosExternosList() {
                   {(d.status === 'finalizado' || d.pdf_key_intermediario) && (
                     <Btn icon={Eye} label="Ver final" onClick={() => visualizar(documentosExternosAPI.pdfFinal, d.id, toast)} cls="border-emerald-300 text-emerald-700 hover:bg-emerald-50" />
                   )}
+                  {d.status === 'finalizado' && (
+                    <Btn icon={Send} label="Enviar via final" onClick={() => setEnviarFinal(d)} cls="border-emerald-300 bg-emerald-600 text-white hover:bg-emerald-700 col-span-2" />
+                  )}
                   {podeIcp && (
                     <Btn icon={ShieldCheck} label="Assinar ICP" onClick={() => setAssinarIcp(d)} cls="border-emerald-300 bg-emerald-600 text-white hover:bg-emerald-700 col-span-2" />
                   )}
@@ -155,13 +160,16 @@ export default function DocumentosExternosList() {
           tipo="doc-ext"
           documentId={assinarIcp.id}
           onAssinado={async () => {
-            const id = assinarIcp.id; setAssinarIcp(null);
-            try { await documentosExternosAPI.distribuirFinal(id); toast({ title: 'Finalizado e distribuído!' }); }
-            catch (e) { toast({ title: 'Assinado, mas falhou ao distribuir', description: e?.response?.data?.detail || '', variant: 'destructive' }); }
-            load();
+            const d = assinarIcp; setAssinarIcp(null);
+            await load();
+            // abre o envio da via final (ICP) com os números p/ revisar antes de mandar
+            setEnviarFinal({ ...d, status: 'finalizado' });
           }}
           onFechar={() => setAssinarIcp(null)}
         />
+      )}
+      {enviarFinal && (
+        <ModalEnviarFinal doc={enviarFinal} onClose={() => { setEnviarFinal(null); load(); }} />
       )}
     </div>
   );
