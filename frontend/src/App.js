@@ -21,6 +21,7 @@ const PortalCliente = lazy(() => import('./pages/PortalCliente'));
 const ContratoPublico = lazy(() => import('./pages/ContratoPublico'));
 const AceiteContrato = lazy(() => import('./pages/AceiteContrato'));
 const AssinarCliente = lazy(() => import('./pages/AssinarCliente'));
+const AssinarDocExt = lazy(() => import('./pages/AssinarDocExt'));
 const VerificarContrato = lazy(() => import('./pages/VerificarContrato'));
 const CalculadoraPortal = lazy(() => import('./pages/avaliacao/CalculadoraPortal'));
 const CalculadoraClassica = lazy(() => import('./pages/avaliacao/CalculadoraClassica'));
@@ -209,6 +210,7 @@ function App() {
                 <Route path="/contrato/public/:token" element={<ContratoPublico />} />
                 <Route path="/aceite/:token" element={<AceiteContrato />} />
                 <Route path="/assinar-cliente/:token" element={<AssinarCliente />} />
+                <Route path="/assinar-doc/:token" element={<AssinarDocExt />} />
                 <Route path="/verificar/:hash" element={<VerificarContrato />} />
                 <Route path="/quanto-vale-meu-imovel" element={<CalculadoraPortal />} />
                 <Route path="/avaliacao/classica" element={<CalculadoraClassica />} />
