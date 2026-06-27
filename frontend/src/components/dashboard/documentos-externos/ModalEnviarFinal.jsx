@@ -1,7 +1,7 @@
 // @module documentos-externos/ModalEnviarFinal — envia a VIA FINALIZADA (PDF assinado) ao
 // WhatsApp de cada signatário, com números editáveis e resultado por destinatário.
 import React, { useState, useEffect, useCallback } from 'react';
-import { X, Send, Eye, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { X, Send, Eye, Loader2, CheckCircle2, AlertTriangle, Plus, Trash2 } from 'lucide-react';
 import { documentosExternosAPI } from '../../../lib/api';
 import { useToast } from '../../../hooks/use-toast';
 
@@ -14,6 +14,7 @@ export default function ModalEnviarFinal({ doc, onClose }) {
   const [carregando, setCarregando] = useState(true);
   const [enviando, setEnviando] = useState(false);
   const [resultado, setResultado] = useState(null); // {enviados, falhas, total, via}
+  const [extras, setExtras] = useState([]);          // outros números (fora dos signatários)
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -42,7 +43,10 @@ export default function ModalEnviarFinal({ doc, onClose }) {
   const enviar = async () => {
     setEnviando(true); setResultado(null);
     try {
-      const body = { signatarios: sigs.map((s) => ({ id: s.id, whatsapp: soDig(fones[s.id]) })) };
+      const body = {
+        signatarios: sigs.map((s) => ({ id: s.id, whatsapp: soDig(fones[s.id]) })),
+        extras: extras.map(soDig).filter(Boolean),
+      };
       const r = await documentosExternosAPI.distribuirFinal(doc.id, body);
       setResultado(r);
       if (r.falhas && r.falhas.length) {
@@ -101,9 +105,25 @@ export default function ModalEnviarFinal({ doc, onClose }) {
               {sigs.length === 0 && <p className="text-sm text-gray-500">Nenhum signatário.</p>}
             </div>
 
+            {/* Outros números (fora dos signatários) */}
+            <div className="border-t pt-3 mb-3">
+              <div className="text-[12px] font-medium text-gray-600 mb-1.5">Enviar também para outros números (opcional)</div>
+              {extras.map((v, i) => (
+                <div key={i} className="flex items-center gap-2 mb-1.5">
+                  <input className="flex-1 border rounded-lg px-2.5 py-1.5 text-[13px]" placeholder="55 DDD número"
+                         value={v} onChange={(e) => setExtras((xs) => xs.map((x, k) => (k === i ? e.target.value : x)))} />
+                  <button onClick={() => setExtras((xs) => xs.filter((_, k) => k !== i))} className="text-red-500 p-1"><Trash2 className="w-4 h-4" /></button>
+                </div>
+              ))}
+              <button onClick={() => setExtras((xs) => [...xs, ''])}
+                      className="flex items-center gap-1.5 text-emerald-700 text-xs border border-emerald-300 rounded-lg px-2.5 py-1.5 hover:bg-emerald-50">
+                <Plus className="w-3.5 h-3.5" /> Adicionar outro número
+              </button>
+            </div>
+
             {resultado && (
               <div className="text-[12px] text-gray-600 mb-3">
-                Resultado: <b>{resultado.enviados}</b> enviado(s) de {resultado.total} · via: {resultado.via}
+                Resultado: <b>{resultado.enviados}</b> enviado(s) de {resultado.total + extras.map(soDig).filter(Boolean).length} · via: {resultado.via}
               </div>
             )}
 

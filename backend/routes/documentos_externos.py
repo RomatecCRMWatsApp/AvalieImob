@@ -395,7 +395,10 @@ async def distribuir_final(doc_id: str, payload: dict = None,
     # números editáveis por signatário (default = o salvo)
     novos = {s.get("id"): _dig(s.get("whatsapp")) for s in (payload or {}).get("signatarios", []) if s.get("id")}
     cfg = await zapi_cfg(db, uid)
-    enviados, falhas = 0, []
+    caption = (f"Segue a *via FINALIZADA* ({via}) do documento *{doc.get('titulo', '')}*. "
+               f"Obrigado! — Romatec Consultoria Total")
+    nome_arq = f"{doc.get('codigo', 'documento')}_final"
+    enviados, falhas, vistos = 0, [], set()
     for s in doc.get("signatarios", []):
         fone = novos.get(s["id"]) or _dig(s.get("whatsapp"))
         if not fone:
@@ -405,11 +408,23 @@ async def distribuir_final(doc_id: str, payload: dict = None,
             await db[COL].update_one({"id": doc_id, "signatarios.id": s["id"]},
                                      {"$set": {"signatarios.$.whatsapp": fone}})
         try:
-            await enviar_pdf(cfg, fone, pdf, f"{doc.get('codigo', 'documento')}_final",
-                             f"Segue a *via FINALIZADA* ({via}) do documento *{doc.get('titulo', '')}*. "
-                             f"Obrigado! — Romatec Consultoria Total")
+            await enviar_pdf(cfg, fone, pdf, nome_arq, caption)
             enviados += 1
+            vistos.add(fone)
         except Exception as e:  # noqa: BLE001
             logger.warning("Falha ao enviar via final doc-ext p/ %s: %s", fone, e, exc_info=True)
             falhas.append({"nome": s.get("nome"), "telefone": fone, "erro": str(e) or e.__class__.__name__})
+
+    # DESTINATÁRIOS EXTRAS (outros números, fora dos signatários) — não duplica os já enviados
+    for fone_raw in (payload or {}).get("extras", []) or []:
+        fone = _dig(fone_raw)
+        if not fone or fone in vistos:
+            continue
+        vistos.add(fone)
+        try:
+            await enviar_pdf(cfg, fone, pdf, nome_arq, caption)
+            enviados += 1
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Falha ao enviar via final (extra) p/ %s: %s", fone, e, exc_info=True)
+            falhas.append({"nome": f"Outro ({fone})", "telefone": fone, "erro": str(e) or e.__class__.__name__})
     return {"ok": True, "enviados": enviados, "falhas": falhas, "total": len(doc.get("signatarios", [])), "via": via}
