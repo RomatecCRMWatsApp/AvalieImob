@@ -190,3 +190,152 @@ async def del_signatario(doc_id: str, sid: str, uid: str = Depends(get_active_su
     await db[COL].update_one({"id": doc_id, "user_id": uid},
                              {"$pull": {"signatarios": {"id": sid}}, "$set": {"updated_at": datetime.utcnow()}})
     return {"ok": True}
+
+
+# ── Preparar / Posicionar / Enviar ───────────────────────────────────────────────
+@router.post("/{doc_id}/preparar")
+async def preparar(doc_id: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    """Renderiza as páginas do PDF original p/ o RT posicionar as caixas, e pré-carrega a
+    assinatura visual salva do RT (ou gera uma cursiva do nome)."""
+    doc = await _carregar(db, doc_id, uid)
+    pdf = await asyncio.to_thread(r2_storage.download_bytes, doc["pdf_key"])
+    from services.pdf_preview import renderizar_paginas
+    paginas = await asyncio.to_thread(renderizar_paginas, pdf)
+    perfil = await db.perfil_avaliador.find_one({"user_id": uid}) or {}
+    rt_nome = perfil.get("nome") or "Responsável Técnico"
+    rt_b64 = perfil.get("assinatura_visual_b64")
+    rt_padrao = False
+    if not rt_b64:
+        from services.assinatura_default import gerar_assinatura_nome_b64
+        rt_b64 = await asyncio.to_thread(gerar_assinatura_nome_b64, rt_nome)
+        rt_padrao = bool(rt_b64)
+    sigs = [{"id": s["id"], "nome": s.get("nome"), "papel": s.get("papel"),
+             "whatsapp": s.get("whatsapp")} for s in doc.get("signatarios", [])]
+    return {"ok": True, "paginas": paginas, "signatarios": sigs,
+            "rt": {"nome": rt_nome, "assinatura_b64": rt_b64, "assinatura_padrao": rt_padrao}}
+
+
+@router.post("/{doc_id}/posicionar")
+async def posicionar(doc_id: str, payload: dict, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    """Salva as posições por signatário, carimba o traço do RT na base (opção A), gera/dispara
+    os links por WhatsApp. payload: {posicoes: {sid: [{pagina,x_pt,y_pt,larg_pt,alt_pt,tipo}]},
+    rt_traco: 'data:image/png;base64,...', rt_ancora: {pagina,x_pt,...}}."""
+    import base64
+    from services.documento_externo_service import zapi_cfg, enviar_texto, enviar_pdf
+    doc = await _carregar(db, doc_id, uid)
+    sigs = doc.get("signatarios", [])
+    if not sigs:
+        raise HTTPException(status_code=422, detail="Cadastre ao menos um signatário.")
+    pos_map = payload.get("posicoes") or {}
+    faltam_pos = [s["nome"] for s in sigs if not (pos_map.get(s["id"]) or [])]
+    if faltam_pos:
+        raise HTTPException(status_code=422, detail=f"Posicione a assinatura de: {', '.join(faltam_pos)}")
+    faltam_fone = [s["nome"] for s in sigs if not "".join(filter(str.isdigit, str(s.get("whatsapp") or "")))]
+    if faltam_fone:
+        raise HTTPException(status_code=422, detail=f"Informe o WhatsApp de: {', '.join(faltam_fone)}")
+
+    # grava posições em cada signatário
+    for s in sigs:
+        s["posicoes"] = pos_map.get(s["id"], [])
+        s["status"] = "enviado"
+
+    # RT desenha + posiciona: carimba o traço do RT na base ANTES de enviar (opção A)
+    rt_traco = payload.get("rt_traco") or ""
+    rt_anc = payload.get("rt_ancora") or {}
+    if rt_traco.startswith("data:image/png;base64,") and rt_anc:
+        try:
+            png = base64.b64decode(rt_traco.split(",", 1)[1])
+            await db.perfil_avaliador.update_one(
+                {"user_id": uid}, {"$set": {"assinatura_visual_b64": rt_traco.split(",", 1)[1]}}, upsert=True)
+            base = await asyncio.to_thread(r2_storage.download_bytes, doc["pdf_key"])
+            from services.assinatura_cliente_carimbo import carimbar_traco_em_pagina
+            x = float(rt_anc.get("x_pt", 0)); y = float(rt_anc.get("y_pt", 0))
+            w = float(rt_anc.get("larg_pt", 0)); h = float(rt_anc.get("alt_pt", 0))
+            base = await asyncio.to_thread(carimbar_traco_em_pagina, base, int(rt_anc.get("pagina", 0)),
+                                           (x, y, x + w, y + h), png, "Responsável Técnico")
+            await asyncio.to_thread(r2_storage.upload_bytes, base, doc["pdf_key"], "application/pdf")
+        except Exception:
+            logger.warning("Falha ao carimbar assinatura do RT (doc-ext).", exc_info=True)
+
+    await db[COL].update_one({"id": doc_id, "user_id": uid},
+                             {"$set": {"signatarios": sigs, "updated_at": datetime.utcnow()}})
+    await db[COL].update_one({"id": doc_id}, {"$set": {"status": recalcular_status({**doc, "signatarios": sigs})}})
+
+    # minuta (marca d'água) p/ leitura + link por signatário
+    from services.marca_dagua import aplicar_marca_dagua
+    base_atual = await asyncio.to_thread(r2_storage.download_bytes, doc["pdf_key"])
+    minuta = await asyncio.to_thread(aplicar_marca_dagua, base_atual, "MINUTA")
+    cfg = await zapi_cfg(db, uid)
+    from routes.assinatura_cliente import APP_URL
+    links = []
+    for s in sigs:
+        url = f"{APP_URL}/assinar-doc/{s['token']}"
+        primeiro = str(s.get("nome") or "").split(" ")[0]
+        msg = (f"Olá, {primeiro}! A *Romatec Consultoria Total* enviou um documento para sua "
+               f"assinatura eletrônica.\n\nLeia a *MINUTA* abaixo e assine com segurança neste link:\n{url}\n\n"
+               f"Link pessoal, validade limitada (Lei 14.063/2020).")
+        try:
+            await enviar_texto(cfg, s["whatsapp"], msg)
+            if minuta and minuta.startswith(b"%PDF-"):
+                await enviar_pdf(cfg, s["whatsapp"], minuta, "minuta", "MINUTA (rascunho) — para leitura.")
+        except Exception:
+            logger.warning("Falha ao enviar link doc-ext p/ %s", s.get("whatsapp"), exc_info=True)
+        links.append({"sid": s["id"], "nome": s["nome"], "url": url})
+    return {"ok": True, "links": links}
+
+
+@router.post("/{doc_id}/reenviar")
+async def reenviar(doc_id: str, payload: dict = None, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    """Reenvia o link aos pendentes (telefones editáveis em payload.signatarios=[{id,whatsapp}])."""
+    from services.documento_externo_service import zapi_cfg, enviar_texto
+    doc = await _carregar(db, doc_id, uid)
+    novos = {s.get("id"): "".join(filter(str.isdigit, str(s.get("whatsapp") or "")))
+             for s in (payload or {}).get("signatarios", []) if s.get("id")}
+    pendentes = [s for s in doc.get("signatarios", []) if s.get("status") != "assinado"]
+    if not pendentes:
+        raise HTTPException(status_code=400, detail="Nenhum signatário pendente.")
+    cfg = await zapi_cfg(db, uid)
+    from routes.assinatura_cliente import APP_URL
+    enviados = 0
+    for s in pendentes:
+        fone = novos.get(s["id"]) or "".join(filter(str.isdigit, str(s.get("whatsapp") or "")))
+        if not fone:
+            continue
+        if novos.get(s["id"]):
+            await db[COL].update_one({"id": doc_id, "signatarios.id": s["id"]},
+                                     {"$set": {"signatarios.$.whatsapp": fone}})
+        url = f"{APP_URL}/assinar-doc/{s['token']}"
+        try:
+            await enviar_texto(cfg, fone, f"Olá! Reenvio do link para assinar:\n{url}")
+            enviados += 1
+        except Exception:
+            logger.warning("Falha ao reenviar doc-ext p/ %s", fone, exc_info=True)
+    return {"ok": True, "reenviados": enviados}
+
+
+@router.get("/{doc_id}/sessao-status")
+async def sessao_status(doc_id: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    doc = await _carregar(db, doc_id, uid)
+    sigs = [{"id": s["id"], "nome": s.get("nome"), "papel": s.get("papel"),
+             "whatsapp": s.get("whatsapp"), "status": s.get("status"),
+             "assinado_em": (s.get("assinado_em").isoformat() if hasattr(s.get("assinado_em"), "isoformat") else s.get("assinado_em"))}
+            for s in doc.get("signatarios", [])]
+    assinados = sum(1 for s in sigs if s["status"] == "assinado")
+    return {"ok": True, "status": doc.get("status"), "signatarios": sigs,
+            "assinados": assinados, "total": len(sigs), "requer_icp_rt": doc.get("requer_icp_rt")}
+
+
+@router.post("/{doc_id}/distribuir-final")
+async def distribuir_final(doc_id: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    """Após o ICP do RT, envia o PDF FINAL assinado a todos os signatários e marca finalizado.
+    Chamado pelo frontend ao concluir a assinatura ICP."""
+    from routes.assinatura import _load_assinatura_bytes
+    from services.documento_externo_service import distribuir
+    doc = await _carregar(db, doc_id, uid)
+    assinado, _ = await _load_assinatura_bytes(db, "doc-ext", doc_id)
+    if not assinado:
+        raise HTTPException(status_code=400, detail="Nenhum PDF assinado (ICP) encontrado.")
+    await db[COL].update_one({"id": doc_id, "user_id": uid},
+                             {"$set": {"status": "finalizado", "pdf_final_assinado_em": datetime.utcnow()}})
+    await distribuir(db, doc, assinado, "final")
+    return {"ok": True}
