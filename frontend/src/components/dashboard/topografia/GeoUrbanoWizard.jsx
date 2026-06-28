@@ -71,26 +71,44 @@ function Field({ label, value, onChange, full, ...rest }) {
   );
 }
 
-// Preview SVG da poligonal (UTM coord_e/coord_n)
+// Preview SVG da poligonal (UTM coord_e/coord_n) — com cotas e confrontantes por
+// aresta (rótulos perpendiculares à aresta, p/ aferir os dados igual ao croqui do PDF)
 function Poligonal({ vertices = [] }) {
   const pts = (vertices || []).filter((v) => v.coord_e != null && v.coord_n != null)
     .slice().sort((a, b) => (a.ordem || 0) - (b.ordem || 0))
-    .map((v) => ({ x: Number(v.coord_e), y: Number(v.coord_n), de: v.de }));
+    .map((v) => ({ x: Number(v.coord_e), y: Number(v.coord_n), de: v.de, dist: v.distancia_m, conf: v.confrontante_lado }));
   if (pts.length < 3) return <div className="text-sm text-gray-400 py-10 text-center">Sem vértices suficientes para o desenho.</div>;
-  const W = 460, H = 300, pad = 30;
+  const W = 520, H = 360, pad = 56;
   const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
   const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
-  const sx = (W - 2 * pad) / (maxX - minX || 1), sy = (H - 2 * pad) / (maxY - minY || 1);
-  const s = Math.min(sx, sy);
-  const xy = pts.map((p) => ({ x: pad + (p.x - minX) * s, y: H - pad - (p.y - minY) * s, de: p.de }));
+  const s = Math.min((W - 2 * pad) / (maxX - minX || 1), (H - 2 * pad) / (maxY - minY || 1));
+  const ox = (W - (maxX - minX) * s) / 2, oy = (H - (maxY - minY) * s) / 2;
+  const xy = pts.map((p) => ({ x: ox + (p.x - minX) * s, y: H - oy - (p.y - minY) * s, de: p.de, dist: p.dist, conf: p.conf }));
+  const cx = xy.reduce((a, p) => a + p.x, 0) / xy.length, cy = xy.reduce((a, p) => a + p.y, 0) / xy.length;
   const poly = xy.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+  const fmt = (n) => (n == null ? '' : Number(n).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full border rounded-lg bg-white">
       <polygon points={poly} fill="rgba(12,51,32,0.08)" stroke={GREEN} strokeWidth="1.6" />
+      {/* cotas (distância) + confrontante por aresta, deslocados pela normal da aresta */}
+      {xy.map((p, i) => {
+        const b = xy[(i + 1) % xy.length];
+        const mx = (p.x + b.x) / 2, my = (p.y + b.y) / 2;
+        const ex = b.x - p.x, ey = b.y - p.y, eln = Math.hypot(ex, ey) || 1;
+        let nx = -ey / eln, ny = ex / eln;
+        if (nx * (mx - cx) + ny * (my - cy) < 0) { nx = -nx; ny = -ny; }
+        const lx = mx + nx * 15, ly = my + ny * 15;
+        return (
+          <g key={`e${i}`}>
+            {p.dist != null && <text x={lx} y={ly} fontSize="8.5" fontWeight="600" fill="#111" textAnchor="middle">{fmt(p.dist)} m</text>}
+            {p.conf && <text x={lx} y={ly + 9} fontSize="7" fill="#666" textAnchor="middle">{String(p.conf).slice(0, 22)}</text>}
+          </g>
+        );
+      })}
       {xy.map((p, i) => (
         <g key={i}>
           <circle cx={p.x} cy={p.y} r="3.2" fill={GOLD} stroke={GREEN} strokeWidth="0.8" />
-          <text x={p.x + 5} y={p.y - 4} fontSize="8" fill={GREEN}>{(p.de || '').split('-').pop()}</text>
+          <text x={p.x + 5} y={p.y - 4} fontSize="8.5" fontWeight="600" fill={GREEN}>{(p.de || '').split('-').pop()}</text>
         </g>
       ))}
     </svg>
