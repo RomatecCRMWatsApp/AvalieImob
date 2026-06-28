@@ -73,8 +73,10 @@ def _status_celula(aprov: dict, documento: str, papel: str) -> str:
 
 
 def build_status(projeto: dict) -> dict:
-    """Matriz §1 + status geral, a partir do estado `projeto.aprovacao`."""
+    """Matriz §1 + status geral. O Ofício é EXPEDIDO pela Superintendência (órgão
+    externo) e devolvido por UPLOAD (`oficio_assinado`) — não é emitido pelo sistema."""
     aprov = projeto.get("aprovacao") or {}
+    oficio_anexado = bool((projeto.get("uploads") or {}).get("oficio_assinado"))
     linhas = []
     for row in MATRIZ_ASSINATURAS:
         celulas = {}
@@ -87,7 +89,7 @@ def build_status(projeto: dict) -> dict:
             }
         linhas.append({"documento": row["documento"], "label": row["label"],
                        "papeis": row["papeis"], "celulas": celulas})
-    geral = status_geral(aprov)
+    geral = "oficio_emitido" if oficio_anexado else status_geral(aprov)
     sup = (aprov.get("superintendencia") or {})
     return {
         "status_geral": geral,
@@ -96,10 +98,8 @@ def build_status(projeto: dict) -> dict:
             "enviado": bool(aprov.get("enviado_superintendencia")),
             "memorial_aprovado": bool(sup.get("memorial_aprovado")),
             "mapa_aprovado": bool(sup.get("mapa_aprovado")),
-            "oficio_emitido": bool(sup.get("oficio_emitido")),
-            "oficio_numero": sup.get("oficio_numero"),
+            "oficio_anexado": oficio_anexado,
             "responsavel": (projeto.get("superintendencia") or {}).get("responsavel"),
             "portaria": (projeto.get("superintendencia") or {}).get("portaria"),
         },
-        "pode_emitir_oficio": bool(sup.get("memorial_aprovado") and sup.get("mapa_aprovado")),
     }

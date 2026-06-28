@@ -19,7 +19,7 @@ const GOLD = '#C9A84C';
 const PASSOS = ['Projeto', 'Uploads', 'Matrículas & BCI', 'Vértices & Mapa', 'Partes', 'Geração', 'Aprovação', 'Entrega'];
 const STATUS_GERAL = {
   rascunho: 'Rascunho', assinatura_partes: 'Assinatura das partes', assinatura_tecnico: 'Assinatura do técnico',
-  enviado_superintendencia: 'Enviado à Superintendência', aprovado: 'Aprovado', oficio_emitido: 'Ofício emitido', protocolado: 'Protocolado',
+  enviado_superintendencia: 'Enviado à Superintendência', aprovado: 'Aprovado', oficio_emitido: 'Ofício anexado', protocolado: 'Protocolado',
 };
 const ST_CELULA = {
   pendente: { t: 'Pendente', c: 'bg-gray-100 text-gray-500' },
@@ -279,16 +279,6 @@ export default function GeoUrbanoWizard() {
     try { setAprov(await geoUrbanoAPI.aprovacaoEnviar(id)); toast({ title: 'Enviado à Superintendência' }); }
     catch (e) { toast({ title: 'Erro ao enviar', variant: 'destructive' }); }
     finally { setAprovBusy(false); }
-  };
-  const emitirOficio = async () => {
-    setAprovBusy(true);
-    try {
-      const r = await geoUrbanoAPI.gerarOficio(id);
-      setAprov(r.status);
-      toast({ title: `Ofício ${r.oficio_numero} emitido` });
-    } catch (e) {
-      toast({ title: 'Erro ao emitir ofício', description: e?.response?.data?.detail || '', variant: 'destructive' });
-    } finally { setAprovBusy(false); }
   };
 
   const extrairDocs = async () => {
@@ -953,20 +943,41 @@ export default function GeoUrbanoWizard() {
                 {aprov?.superintendencia?.mapa_aprovado ? '✓ Mapa aprovado' : 'Aprovar Mapa'}
               </button>
             </div>
-            <div className="pt-2 border-t flex flex-wrap items-center gap-2">
-              <button onClick={emitirOficio} disabled={aprovBusy || !aprov?.pode_emitir_oficio}
-                className="text-xs px-3 py-1.5 rounded-lg text-white disabled:opacity-40" style={{ background: GREEN }}>
-                {aprov?.superintendencia?.oficio_emitido ? `✓ Ofício ${aprov.superintendencia.oficio_numero} emitido` : 'Emitir Ofício ao Cartório'}
-              </button>
-              {aprov?.superintendencia?.oficio_emitido && (
-                <>
-                  <button onClick={() => verBlob(geoUrbanoAPI.documento(id, 'oficio_aprovacao', proj.tema))}
-                    className="text-xs inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border hover:bg-gray-50"><Eye className="w-3.5 h-3.5" /> Ver ofício</button>
-                  <button onClick={() => geoUrbanoAPI.documento(id, 'oficio_aprovacao', proj.tema).then((b) => salvarBlob(b, `oficio_${nb}.pdf`))}
-                    className="text-xs inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border hover:bg-gray-50"><Download className="w-3.5 h-3.5" /> PDF</button>
-                </>
+            <div className="pt-2 border-t space-y-2">
+              <p className="text-[11px] text-gray-500">
+                O <b>Ofício de Aprovação é expedido e assinado pela própria Superintendência</b> (o sistema não o emite).
+                Ao recebê-lo, faça o upload aqui — junto com o Memorial e o Mapa aprovados/assinados — e o sistema monta
+                o processo final para envio ao Cartório (etapa de encerramento).
+              </p>
+              {[
+                ['oficio_assinado', 'Ofício de Aprovação (assinado pela Superintendência)'],
+                ['memorial_aprovado', 'Memorial aprovado/assinado (devolvido)'],
+                ['mapa_aprovado', 'Mapa aprovado/assinado (devolvido)'],
+              ].map(([tp, lab]) => {
+                const itens = uploads[tp] || [];
+                return (
+                  <div key={tp} className={`rounded-lg border p-2 ${itens.length ? 'bg-emerald-50/40 border-emerald-200' : ''}`}>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-gray-700">{lab}{itens.length ? ' ✓' : ''}</span>
+                      <label className="text-xs cursor-pointer text-emerald-700 hover:underline inline-flex items-center gap-1 shrink-0">
+                        <Upload className="w-3.5 h-3.5" />{itens.length ? 'Trocar/enviar' : 'Enviar arquivo'}
+                        <input type="file" className="hidden" accept=".pdf,image/*"
+                          onChange={async (e) => { await enviar(tp, e.target.files); carregarAprov(); }} />
+                      </label>
+                    </div>
+                    {itens.map((it) => (
+                      <div key={it.id} className="flex items-center justify-between text-[11px] text-gray-500 mt-1">
+                        <span className="truncate flex items-center gap-1"><FileText className="w-3 h-3" />{it.nome}</span>
+                        <Trash2 className="w-3.5 h-3.5 text-gray-300 hover:text-red-500 cursor-pointer shrink-0"
+                          onClick={async () => { await removerUp(tp, it.id); carregarAprov(); }} />
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+              {aprov?.superintendencia?.oficio_anexado && (
+                <p className="text-[11px] text-emerald-700">✓ Ofício anexado — o Dossiê final (Entrega) já inclui o Ofício e as peças aprovadas.</p>
               )}
-              {!aprov?.pode_emitir_oficio && <span className="text-[11px] text-gray-400">Aprove o Memorial e o Mapa para liberar o Ofício.</span>}
             </div>
           </div>
         </div>
@@ -980,7 +991,6 @@ export default function GeoUrbanoWizard() {
             ...((uploads.imagem_imovel || []).length ? [['capa', 'Capa do processo (Lupa Geo)']] : []),
             ...DOCS_GERAVEIS,
             ...(isRetificacao ? [['quadro_retificacao', 'Quadro de Retificação (de → para)']] : []),
-            ...(aprov?.superintendencia?.oficio_emitido ? [['oficio_aprovacao', 'Ofício de Aprovação ao Cartório']] : []),
           ].map(([k, lab]) => (
             <div key={k} className="rounded-xl border bg-white p-4 flex items-center justify-between">
               <span className="text-sm text-gray-700">{lab}</span>

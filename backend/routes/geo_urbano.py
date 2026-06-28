@@ -38,6 +38,10 @@ router = APIRouter(prefix="/topografia/geo-urbano", tags=["topografia-geo-urbano
 # Tipos de upload aceitos (§4). Todos multi-arquivo (lista por tipo).
 _TIPOS_UPLOAD = {
     "imagem_imovel",  # foto aérea/satélite com o perímetro (vai p/ a Capa "Lupa Geo")
+    # Aprovação (devolvidos pela Superintendência, já assinados/carimbados):
+    "oficio_assinado",      # Ofício de Aprovação EXPEDIDO e ASSINADO pela Superintendência
+    "memorial_aprovado",    # Memorial aprovado/assinado (volta do órgão)
+    "mapa_aprovado",        # Mapa aprovado/assinado (volta do órgão)
     "mapa_desdobro",  # desdobro: 1 mapa por lote resultante (vincula lote_id)
     "mapa_retificado",  # retificação: mapa "como está"
     "mapa_atual", "mapa_remembramento", "bci", "certidao_inteiro_teor",
@@ -50,6 +54,7 @@ _PDF = "application/pdf"
 
 # Mapeia as seções do dossiê (§9) para os tipos de upload que as compõem.
 _DOSSIE_UPLOADS = {
+    "oficio_aprovacao": ["oficio_assinado"],   # Ofício EXPEDIDO pela Superintendência (upload)
     "mapa_atual": ["mapa_atual"],
     "mapa_remembramento": ["mapa_remembramento"],
     "mapa_desdobro": ["mapa_desdobro"],
@@ -496,9 +501,16 @@ async def _montar_dossie(db, doc, tema):
         partes["memorial_descritivo"] = mems
     else:
         partes["memorial_descritivo"] = await asyncio.to_thread(PDF.gerar_pdf, "memorial_descritivo", doc, tema)
-    # Ofício de aprovação — só entra quando emitido pela Superintendência
-    if ((doc.get("aprovacao") or {}).get("superintendencia") or {}).get("oficio_emitido"):
-        partes["oficio_aprovacao"] = await asyncio.to_thread(PDF.gerar_pdf, "oficio_aprovacao", doc, tema)
+    # Memorial/Mapa APROVADOS (devolvidos assinados pela Superintendência) têm
+    # prioridade sobre os gerados pelo sistema.
+    uploads = doc.get("uploads") or {}
+    if uploads.get("memorial_aprovado"):
+        bs = [await asyncio.to_thread(r2_storage.download_bytes, it["key"])
+              for it in uploads["memorial_aprovado"] if it.get("key")]
+        if bs:
+            partes["memorial_descritivo"] = bs
+    # (o Ofício de Aprovação entra via _DOSSIE_UPLOADS — upload `oficio_assinado`;
+    #  NÃO é gerado pelo sistema, pois é expedido e assinado pela Superintendência.)
     # Quadro de Retificação (de → para) — peça própria da retificação
     if doc.get("tipo_servico") == "retificacao":
         if not (doc.get("retificacao_analise") or {}).get("cadastral_diffs"):
