@@ -178,8 +178,8 @@ def _tabela_vertices(projeto: dict, cfg, st, L):
     body = []
     for v in verts:
         body.append([
-            Paragraph(GP._esc(_short_vert(v.get("de"))), st["tab"]),
-            Paragraph(GP._esc(_short_vert(v.get("para"))), st["tab"]),
+            Paragraph(GP._esc(v.get("de") or ""), stn),     # código INCRA completo (fiel)
+            Paragraph(GP._esc(v.get("para") or ""), stn),
             Paragraph(GP._esc(TX._n_br(v.get("coord_n"), 4)), stn),
             Paragraph(GP._esc(TX._n_br(v.get("coord_e"), 4)), stn),
             Paragraph(GP._esc(v.get("azimute") or ""), stn),
@@ -187,7 +187,7 @@ def _tabela_vertices(projeto: dict, cfg, st, L):
             Paragraph(GP._esc(TX._n_br(v.get("fator_k"), 8) if v.get("fator_k") is not None else ""), stn),
             Paragraph(GP._esc(v.get("confrontante_lado") or "—"), st["tab"]),
         ])
-    fr = [0.07, 0.07, 0.16, 0.16, 0.12, 0.075, 0.115, 0.23]  # soma 1.0
+    fr = [0.115, 0.115, 0.145, 0.145, 0.10, 0.06, 0.10, 0.22]  # soma 1.0 (De/Para mais largos)
     t = Table([head] + body, colWidths=[L * f for f in fr], repeatRows=1)
     t.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), cfg["tab_head_bg"]),

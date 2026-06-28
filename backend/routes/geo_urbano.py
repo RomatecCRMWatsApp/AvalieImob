@@ -179,8 +179,8 @@ async def atualizar_projeto(pid: str, body: AtualizarProjetoBody,
     sets = {}
     escalares = ("denominacao_imovel", "tipo_servico", "tema", "status", "municipio", "uf",
                  "bairro", "loteamento", "quadra", "lote_resultante", "endereco",
-                 "cmi_resultante", "cadastro_novo", "cadastro_antigo", "area_declarada_m2",
-                 "perimetro_m", "trt_numero",
+                 "cmi_resultante", "cmi_controle", "cadastro_novo", "cadastro_antigo",
+                 "area_declarada_m2", "perimetro_m", "trt_numero",
                  # desdobro
                  "matricula_mae_id", "area_mae_m2", "qtd_lotes_resultantes", "area_via_doacao_m2",
                  "lote_minimo_municipal_m2", "testada_minima_m",
@@ -192,6 +192,10 @@ async def atualizar_projeto(pid: str, body: AtualizarProjetoBody,
             editados[c] = True
     if "retificacao_analise" in dados and isinstance(dados["retificacao_analise"], dict):
         sets["retificacao_analise"] = dados["retificacao_analise"]
+    # auditoria por etapa (dicts) — precisa ser gravado explicitamente
+    for campo in ("etapas_concluidas", "etapas_concluidas_em"):
+        if campo in dados and isinstance(dados[campo], dict):
+            sets[campo] = dados[campo]
     for grupo in ("cartorio", "superintendencia", "responsavel_tecnico"):
         if grupo in dados and isinstance(dados[grupo], dict):
             atual = dict(doc.get(grupo) or {})

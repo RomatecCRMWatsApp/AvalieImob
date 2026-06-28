@@ -78,14 +78,14 @@ def croqui_drawing(projeto: dict, width: float = 460, height: float = 340):
                          fontSize=5.6, fillColor=_GRAY, textAnchor="middle"))
         d.add(g)
 
-    # vértices + rótulo (PDN1..) para fora
+    # vértices + rótulo FIEL (código INCRA completo, igual à tabela e ao Memorial) p/ fora
     for p, v in zip(pts, verts):
         d.add(Circle(p[0], p[1], 2.6, fillColor=_RED, strokeColor=white, strokeWidth=0.6))
         dx, dy = p[0] - cx, p[1] - cy
         ln = (dx * dx + dy * dy) ** 0.5 or 1
-        nome = (v.get("de") or "").split("-")[-1]
-        d.add(String(p[0] + dx / ln * 13, p[1] + dy / ln * 13 - 3, nome,
-                     fontSize=7, fillColor=_GREEN, textAnchor="middle"))
+        nome = v.get("de") or ""
+        d.add(String(p[0] + dx / ln * 15, p[1] + dy / ln * 15 - 3, nome,
+                     fontSize=6.2, fillColor=_GREEN, textAnchor="middle"))
 
     # rosa dos ventos (N) no canto superior direito
     d.add(Line(width - 22, height - 14, width - 22, height - 34, strokeColor=black, strokeWidth=1.2))
