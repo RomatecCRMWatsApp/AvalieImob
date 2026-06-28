@@ -238,13 +238,27 @@ def test_extrair_tudo_orquestra_e_vincula():
 
 
 def test_parse_matricula_text():
-    txt = ("MATRÍCULA Nº 34.161 Livro 2-HN fls. 70 - UM TERRENO, Quadra nº 41, Lote nº 01. "
-           "Área de 300,00 m². Medindo de FRENTE: 15,00m com Rua Inglaterra; "
-           "LATERAL DIREITA: 20,00m com Lote nº 02.")
+    # certidão real do 34.161 (estado atual: transmitido p/ J&G via R-01)
+    txt = ("CERTIFICO, revendo o Livro nº 2-HN, sob as fls. 70, MATRÍCULA Nº 34.161 - UM TERRENO, "
+           "Quadra nº 41, Lote nº 01, Loteamento PARQUE DAS NAÇÕES. "
+           "Frente: 15,00m (quinze metros) para a Rua Inglaterra, "
+           "Lateral direita: 20,00m (vinte metros) para o lote nº 02, "
+           "Lateral esquerda: 20,00m para a Rua Venezuela, Fundo: 15,00m para o lote nº 24, com a área de 300m². "
+           "PROPRIETÁRIO(A): INCORPORADORA BRASIL LTDA, inscrita no CNPJ sob o n. 07.612.344/0001-09. "
+           "R.01/34.161 - ADQUIRENTE(S) - a firma J & G INDÚSTRIA E COMÉRCIO LTDA-EPP, "
+           "inscrita no CNPJ sob o nº 28.804.226/0001-64. TÍTULO - Compra e Venda.")
     d = EX.parse_matricula_text(txt)
     assert d["matricula"] == "34.161"
+    assert d["livro"] == "2-HN" and d["folhas"] == "70"
     assert d["lote_origem"] == "01"
-    assert any(c["lado"] == "frente" and c["medida_m"] == 15.0 for c in d["confrontacoes"])
+    # proprietário REGISTRAL atual = ADQUIRENTE do último registro (J&G), NÃO o cabeçalho (Incorporadora)
+    assert "J & G" in d["proprietario_registral"]["nome"]
+    assert d["proprietario_registral"]["doc"] == "28.804.226/0001-64"
+    # confrontações limpas (sem "(quinze metros)" nem texto vazado)
+    porlado = {c["lado"]: c["confrontante"] for c in d["confrontacoes"]}
+    assert porlado["frente"] == "Rua Inglaterra"
+    assert porlado["lateral_direita"] == "lote nº 02"
+    assert porlado["fundo"] == "lote nº 24"
 
 
 def test_signatarios_proprietario(proj):

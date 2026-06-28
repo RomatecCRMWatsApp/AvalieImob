@@ -200,21 +200,57 @@ def parse_mapa(pdf_bytes: bytes) -> dict:
 # ──────────────────────────────────────────────────────────────────────────────
 # Matrícula (certidão) — parser de TEXTO (vem do OCR; certidões são imagem)
 # ──────────────────────────────────────────────────────────────────────────────
+_DOC_RE = r"(\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2}|\d{3}\.?\d{3}\.?\d{3}-?\d{2})"
+
+
+def _limpa_nome(s: str) -> str:
+    return re.sub(r"\s+", " ", (s or "").strip(" -–.,")).strip()
+
+
+def _titular_atual(t: str) -> dict:
+    """Proprietário REGISTRAL atual = ADQUIRENTE do ÚLTIMO registro; se não houver
+    transmissão, o PROPRIETÁRIO(A) do cabeçalho (Registro Geral)."""
+    pre = (r"(?:a\s+firma\s+|a\s+empresa\s+|a\s+sociedade\s+|o[as]?\s+s[rn][ao]?\.?\s+)?")
+    nome_rx = r"([A-Z0-9À-Ÿ&][A-Z0-9À-Ÿ&.\s/'\"-]{3,90}?)\s*(?:,|\.|\bpessoa\b|\bbrasileir|\binscrit|\bportador|\bCNPJ|\bCPF)"
+    cand = list(re.finditer(r"ADQUIRENTE\(?S?\)?\s*[-–:]+\s*" + pre + nome_rx, t, re.IGNORECASE))
+    if not cand:
+        cand = list(re.finditer(r"PROPRIET[ÁA]RIO\(?A?\)?\s*:?\s*" + pre + nome_rx, t, re.IGNORECASE))
+    if not cand:
+        return {}
+    m = cand[-1]
+    trecho = t[m.end(): m.end() + 320]
+    doc = re.search(_DOC_RE, trecho)
+    return {"nome": _limpa_nome(m.group(1)), "doc": doc.group(1) if doc else None}
+
+
 def parse_matricula_text(t: str) -> dict:
     out = {}
     out["matricula"] = _busca(r"MATR[ÍI]CULA\s*n?[ºo°.]?\s*([\d.]+)", t)
-    out["livro"] = _busca(r"Livro\s*([\w-]+)", t)
-    out["folhas"] = _busca(r"f[lo]?s?\.?\s*(\d+)", t)
+    out["livro"] = _busca(r"Livro\s*n?[ºo°.]*\s*(\d+\s*-?\s*[A-Z]{0,4})", t)
+    if out.get("livro"):
+        out["livro"] = re.sub(r"\s+", "", out["livro"])
+    out["folhas"] = _busca(r"\bf[lo]?s?\.?\s*(\d+)", t)
     out["lote_origem"] = _busca(r"Lote\s*n?[ºo°.]?\s*(\d+)", t)
     out["quadra"] = _busca(r"Quadra\s*n?[ºo°.]?\s*(\d+)", t)
     out["area_m2"] = _num(_busca(r"[ÁA]rea\s*(?:de)?\s*([\d.,]+)\s*m", t))
-    # confrontações: "FRENTE: 15,00m com Rua Inglaterra" etc.
+    tit = _titular_atual(t)
+    if tit.get("nome"):
+        out["proprietario_registral"] = tit
+    # confrontações: "Frente: 15,00m (quinze metros) para a Rua Inglaterra, Lateral
+    # direita: 20,00m para o lote nº 02, ...". O confrontante para no PRÓXIMO lado /
+    # "com a área" / fim — não engole o resto da frase.
+    _STOP = r"(?=\s*(?:Lateral\s+(?:direita|esquerda)|Frente|Fundos?|com\s+a\s+[áa]rea|N[ºo°.]\s*DO\s*REGISTRO|;|$))"
     confs = []
-    for lado, chave in (("FRENTE", "frente"), ("LATERAL DIREITA", "lateral_direita"),
-                        ("LATERAL ESQUERDA", "lateral_esquerda"), ("FUNDO", "fundo")):
-        mm = re.search(rf"{lado}[:\s]+([\d.,]+)\s*m[^A-Za-z0-9]*(?:com\s+)?([^;.\n]+)", t, re.IGNORECASE)
+    for lado, chave in (("FRENTE", "frente"), ("LATERAL\\s+DIREITA", "lateral_direita"),
+                        ("LATERAL\\s+ESQUERDA", "lateral_esquerda"), ("FUNDOS?", "fundo")):
+        mm = re.search(
+            rf"{lado}\s*[:\-]?\s*([\d.,]+)\s*m\s*(?:\([^)]*\)\s*)?(.+?){_STOP}",
+            t, re.IGNORECASE | re.DOTALL)
         if mm:
-            confs.append({"lado": chave, "medida_m": _num(mm.group(1)), "confrontante": mm.group(2).strip()})
+            conf = re.sub(r"\([^)]*\)", "", mm.group(2))                       # tira "(quinze metros)"
+            conf = re.sub(r"^(?:com|para)\s+(?:o[as]?|a[s]?)?\s*", "", conf.strip(), flags=re.IGNORECASE)
+            conf = re.sub(r"\s+", " ", conf).strip(" ,.;-")
+            confs.append({"lado": chave, "medida_m": _num(mm.group(1)), "confrontante": conf or None})
     if confs:
         out["confrontacoes"] = confs
     return {k: v for k, v in out.items() if v not in (None, "")}
