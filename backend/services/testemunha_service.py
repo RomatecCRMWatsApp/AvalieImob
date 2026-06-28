@@ -126,7 +126,7 @@ async def _reconstruir_vigente(doc: dict):
                     except Exception:  # noqa: BLE001
                         pass
         if imgs:
-            anexos.append((w.get("nome"), d.get("tipo") or "CNH", imgs))
+            anexos.append((w.get("nome"), w.get("vinculo") or "", d.get("tipo") or "CNH", imgs))
 
     # 2) numeração (1-idx): contrato → qualificação → 1 página por imagem (sem índice extra)
     sum_itens, toc = [], [[1, "Contrato", 1]]
@@ -135,12 +135,18 @@ async def _reconstruir_vigente(doc: dict):
     toc.append([1, "Testemunhas — qualificação", p])
     p += qpages
     anexo_imgs = []      # [(label, img_bytes)] — cada um vira 1 página A4 com título
-    for nome, tipo, imgs in anexos:
-        sum_itens.append((f"Documento de Identidade — {nome}", p))
-        toc.append([1, f"Documento de identidade — {nome}", p])
+    for nome, vinculo, tipo, imgs in anexos:
+        # no SUMÁRIO usa o VÍNCULO à parte (ex.: "Testemunha do Vendedor"), não o nome
+        v = str(vinculo).strip()
+        art = "da" if v.lower().endswith("a") else "do"
+        rotulo = f"Testemunha {art} {v}" if v else f"Testemunha — {nome}"
+        sum_itens.append((f"{rotulo} — Documento de Identidade", p))
+        toc.append([1, rotulo, p])
         for i, img in enumerate(imgs):
             sufixo = f" ({i + 1}/{len(imgs)})" if len(imgs) > 1 else ""
-            anexo_imgs.append((f"{nome} — {tipo}{sufixo}", img))
+            # a PÁGINA da CNH mantém o nome + o vínculo (é o documento daquela pessoa)
+            quem = f"{rotulo} · {nome}" if v else nome
+            anexo_imgs.append((f"{quem} — {tipo}{sufixo}", img))
         p += len(imgs)
 
     # 3) ALIMENTA o SUMÁRIO do contrato (linhas abaixo da última cláusula) — append-only
