@@ -88,6 +88,23 @@ async def set_cartao_regularidade(body: CartaoRegularidadeBody,
     return serialize_doc(doc)
 
 
+@router.put("/perfil-avaliador/assinatura-tecnico")
+async def set_assinatura_tecnico(body: dict, uid: str = Depends(get_current_user_id), db=Depends(get_db)):
+    """Salva a assinatura GRÁFICA do responsável técnico (PNG transparente). É carimbada
+    automaticamente no Memorial do Geo Urbano ao gerar/enviar às partes (o ICP sela depois).
+    Aceita dataURL ou base64 puro; "" remove."""
+    raw = (body or {}).get("assinatura_b64")
+    val = "" if not raw else str(raw).split(",")[-1]
+    await db.perfil_avaliador.update_one(
+        {"user_id": uid},
+        {"$set": {"assinatura_tecnico_b64": val, "updated_at": datetime.utcnow()},
+         "$setOnInsert": {"id": str(uuid.uuid4()), "created_at": datetime.utcnow()}},
+        upsert=True,
+    )
+    doc = await db.perfil_avaliador.find_one({"user_id": uid})
+    return serialize_doc(doc)
+
+
 @router.put("/perfil-avaliador/certidao-regularidade")
 async def set_certidao_regularidade(body: CertidaoRegularidadeBody,
                                     uid: str = Depends(get_current_user_id), db=Depends(get_db)):

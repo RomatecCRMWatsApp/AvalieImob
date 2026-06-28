@@ -446,11 +446,25 @@ async def _injetar_logo(db, uid: str, doc: dict):
         pass
 
 
+async def _injetar_assinatura_tecnico(db, uid: str, doc: dict):
+    """Carrega a firma gráfica do RT em doc['_tecnico_assinatura_bytes'] — carimbada no
+    Memorial ao gerar/enviar (assinatura_tecnico_b64, fallback assinatura_visual_b64)."""
+    try:
+        import base64
+        perfil = await db.perfil_avaliador.find_one({"user_id": uid}) or {}
+        b64 = perfil.get("assinatura_tecnico_b64") or perfil.get("assinatura_visual_b64")
+        if b64:
+            doc["_tecnico_assinatura_bytes"] = base64.b64decode(str(b64).split(",")[-1])
+    except Exception:  # noqa: BLE001
+        pass
+
+
 @router.get("/projetos/{pid}/documentos/{tipo}")
 async def baixar_documento(pid: str, tipo: str, tema: str = Query(None), lote: str = Query(None),
                            uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
     doc = await _get(db, pid, uid)
     await _injetar_logo(db, uid, doc)
+    await _injetar_assinatura_tecnico(db, uid, doc)
     logo = doc.get("_brand_logo_bytes")
     tema = tema or doc.get("tema") or "prime_i"
     # Memorial de UM lote resultante (desdobro)
@@ -642,6 +656,8 @@ async def preparar_assinatura(pid: str, body: AssinarPecaBody,
     """Gera/baixa a peça, guarda no R2 e cria o registro `geo_urbano_assinaturas`.
     O front abre o assinador ICP com tipo='geo_urbano' e este id."""
     doc = await _get(db, pid, uid)
+    await _injetar_logo(db, uid, doc)
+    await _injetar_assinatura_tecnico(db, uid, doc)
     peca = body.doc
     if peca not in _PECAS_ASSINAVEIS:
         raise HTTPException(status_code=422, detail="Peça inválida para assinatura.")

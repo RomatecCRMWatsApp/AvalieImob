@@ -7,7 +7,7 @@ import {
   ArrowLeft, Upload, Trash2, Plus, FileText, AlertTriangle, CheckCircle2,
   Download, Eye, RefreshCw,
 } from 'lucide-react';
-import { geoUrbanoAPI, assinaturaPosAPI, brandingAPI } from '../../../lib/api';
+import { geoUrbanoAPI, assinaturaPosAPI, brandingAPI, perfilAPI } from '../../../lib/api';
 import { useToast } from '../../../hooks/use-toast';
 import { BrandSpinner } from '../../brand/BrandSpinner';
 import AssinaturaPosicionadaModal from '../assinatura/AssinaturaPosicionadaModal';
@@ -119,6 +119,8 @@ export default function GeoUrbanoWizard() {
   const [previewTipo, setPreviewTipo] = useState('requerimento_cartorio');
   const [previewBusy, setPreviewBusy] = useState(false);
   const previewUrlRef = useRef('');
+  const [firmaTecnico, setFirmaTecnico] = useState('');   // b64 da assinatura gráfica do RT
+  const [firmaBusy, setFirmaBusy] = useState(false);
   const [assinId, setAssinId] = useState(null);
   const [assinaturas, setAssinaturas] = useState({});
   const [preparandoAssin, setPreparandoAssin] = useState(null);
@@ -144,6 +146,31 @@ export default function GeoUrbanoWizard() {
     }
   }, [id, nav, toast]);
   useEffect(() => { carregar(); }, [carregar]);
+  useEffect(() => {
+    perfilAPI.get().then((p) => setFirmaTecnico(p?.assinatura_tecnico_b64 || p?.assinatura_visual_b64 || '')).catch(() => {});
+  }, []);
+  const onUploadFirma = (file) => {
+    if (!file) return;
+    if (file.type !== 'image/png') { toast({ title: 'Envie um PNG com fundo transparente', variant: 'destructive' }); return; }
+    setFirmaBusy(true);
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const b64 = String(reader.result).split(',')[1];
+        await perfilAPI.setAssinaturaTecnico(b64);
+        setFirmaTecnico(b64);
+        toast({ title: 'Assinatura do técnico salva', description: 'Será carimbada no Memorial ao gerar/enviar.' });
+      } catch (e) { toast({ title: 'Erro ao salvar a assinatura', variant: 'destructive' }); }
+      finally { setFirmaBusy(false); }
+    };
+    reader.readAsDataURL(file);
+  };
+  const removerFirma = async () => {
+    setFirmaBusy(true);
+    try { await perfilAPI.setAssinaturaTecnico(''); setFirmaTecnico(''); }
+    catch (e) { toast({ title: 'Erro ao remover', variant: 'destructive' }); }
+    finally { setFirmaBusy(false); }
+  };
 
   const salvar = useCallback(async (silent = true) => {
     const p = projRef.current;
@@ -942,6 +969,25 @@ export default function GeoUrbanoWizard() {
               O proprietário assina Requerimento + ART/TRT por WhatsApp (próximo increment).
               O técnico assina abaixo via ICP; a Superintendência aprova e emite o Ofício.
             </p>
+          </div>
+
+          {/* bloco Assinatura GRÁFICA do técnico — carimbada no Memorial */}
+          <div className="rounded-xl border bg-white p-4 space-y-3">
+            <h3 className="text-sm font-semibold" style={{ color: GREEN }}>Assinatura gráfica do técnico (carimbada no Memorial)</h3>
+            <p className="text-[11px] text-gray-500">PNG com fundo transparente. Vai <b>carimbada automaticamente</b> no Memorial ao gerar/enviar às partes — o selo ICP-Brasil é aplicado depois como etapa final.</p>
+            <div className="flex items-center gap-4 flex-wrap">
+              {firmaTecnico
+                ? <img src={`data:image/png;base64,${firmaTecnico}`} alt="Assinatura do técnico" className="h-16 max-w-[280px] object-contain border rounded-lg bg-white p-1" />
+                : <div className="h-16 w-[280px] border border-dashed rounded-lg flex items-center justify-center text-xs text-gray-400">Sem assinatura cadastrada</div>}
+              <div className="flex flex-col gap-2">
+                <label className="text-xs px-3 py-1.5 rounded-lg text-white cursor-pointer inline-flex items-center gap-1" style={{ background: GREEN }}>
+                  <Upload className="w-3.5 h-3.5" /> {firmaBusy ? 'Salvando…' : (firmaTecnico ? 'Trocar' : 'Enviar PNG')}
+                  <input type="file" accept="image/png" className="hidden" disabled={firmaBusy}
+                    onChange={(e) => { onUploadFirma(e.target.files?.[0]); e.target.value = ''; }} />
+                </label>
+                {firmaTecnico && <button onClick={removerFirma} disabled={firmaBusy} className="text-xs text-red-600 hover:underline">Remover</button>}
+              </div>
+            </div>
           </div>
 
           {/* bloco Técnico — assinatura ICP */}

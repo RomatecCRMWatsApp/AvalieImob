@@ -371,6 +371,9 @@ export const perfilAPI = {
   // Certificado CNAI — miniatura no currículo do PTAM
   setCertificadoCnai: (data) =>
     api.put('/perfil-avaliador/certificado-cnai', data).then(r => r.data),
+  // Assinatura gráfica do RT — carimbada no Memorial do Geo Urbano (PNG transparente)
+  setAssinaturaTecnico: (assinatura_b64) =>
+    api.put('/perfil-avaliador/assinatura-tecnico', { assinatura_b64 }).then(r => r.data),
 };
 
 // ---- Testemunhas salvas (autofill no wizard de Contratos)
