@@ -847,6 +847,10 @@ export const testemunhasAssinaturaAPI = {
     api.delete(`/testemunhas-assinatura/${modulo}/${docId}/${tid}`).then((r) => r.data),
   enviarDocumento: (modulo, docId, tid, body) =>
     api.post(`/testemunhas-assinatura/${modulo}/${docId}/${tid}/documento`, body).then((r) => r.data),
+  removerDocumento: (modulo, docId, tid) =>
+    api.delete(`/testemunhas-assinatura/${modulo}/${docId}/${tid}/documento`).then((r) => r.data),
+  documentoPreview: (modulo, docId, tid) =>
+    api.get(`/testemunhas-assinatura/${modulo}/${docId}/${tid}/documento/preview`, { responseType: 'blob' }).then((r) => r.data),
   status: (modulo, docId) =>
     api.get(`/testemunhas-assinatura/${modulo}/${docId}/status`).then((r) => r.data),
 };

@@ -112,18 +112,19 @@ async def _reconstruir_vigente(doc: dict):
         if not d.get("anexar_ao_pdf", True):
             continue
         imgs = []
-        if d.get("pdf_key"):
+        if d.get("pdf_key"):       # PDF tem PRIORIDADE — não duplica com as fotos
             try:
                 raw = await asyncio.to_thread(r2_storage.download_bytes, d["pdf_key"])
                 imgs += await asyncio.to_thread(_pdf_para_imgs, raw)
             except Exception:  # noqa: BLE001
                 logger.warning("Testemunha: falha ao baixar CNH (PDF).", exc_info=True)
-        for fk in (d.get("frente_key"), d.get("verso_key")):
-            if fk:
-                try:
-                    imgs.append(await asyncio.to_thread(r2_storage.download_bytes, fk))
-                except Exception:  # noqa: BLE001
-                    pass
+        else:                      # só usa as fotos se NÃO houver PDF
+            for fk in (d.get("frente_key"), d.get("verso_key")):
+                if fk:
+                    try:
+                        imgs.append(await asyncio.to_thread(r2_storage.download_bytes, fk))
+                    except Exception:  # noqa: BLE001
+                        pass
         if imgs:
             anexos.append((w.get("nome"), d.get("tipo") or "CNH", imgs))
 
@@ -254,10 +255,9 @@ async def editar_testemunha(db, modulo: str, doc_id: str, uid: str, tid: str, pa
 
 async def _salvar_doc_na_testemunha(uid, doc_id, t, frente_b64, verso_b64, pdf_b64, tipo):
     """Sobe a CNH/RG (foto frente/verso OU PDF) no R2 e devolve o dict `documento`."""
-    atual = t.get("documento") or {}
+    # SUBSTITUI o documento anterior (não acumula PDF + foto → evita CNH duplicada)
     meta = {"tipo": (tipo or "CNH"), "enviado_em": datetime.utcnow(), "anexar_ao_pdf": True,
-            "frente_key": atual.get("frente_key"), "verso_key": atual.get("verso_key"),
-            "pdf_key": atual.get("pdf_key")}
+            "frente_key": None, "verso_key": None, "pdf_key": None}
 
     async def _up_img(b64, face):
         raw = base64.b64decode(str(b64).split(",")[-1])
@@ -267,7 +267,7 @@ async def _salvar_doc_na_testemunha(uid, doc_id, t, frente_b64, verso_b64, pdf_b
         await asyncio.to_thread(r2_storage.upload_bytes, raw, key, "image/jpeg")
         return key
 
-    if pdf_b64:
+    if pdf_b64:                    # PDF → ignora frente/verso (um OU outro)
         raw = base64.b64decode(str(pdf_b64).split(",")[-1])
         if raw[:4] != b"%PDF":
             raise HTTPException(status_code=422, detail="Arquivo não é um PDF válido.")
@@ -276,10 +276,11 @@ async def _salvar_doc_na_testemunha(uid, doc_id, t, frente_b64, verso_b64, pdf_b
         key = f"testemunhas/{uid}/{doc_id}/{t['id']}_cnh.pdf"
         await asyncio.to_thread(r2_storage.upload_bytes, raw, key, "application/pdf")
         meta["pdf_key"] = key
-    if frente_b64:
-        meta["frente_key"] = await _up_img(frente_b64, "frente")
-    if verso_b64:
-        meta["verso_key"] = await _up_img(verso_b64, "verso")
+    else:
+        if frente_b64:
+            meta["frente_key"] = await _up_img(frente_b64, "frente")
+        if verso_b64:
+            meta["verso_key"] = await _up_img(verso_b64, "verso")
     if not (meta["pdf_key"] or meta["frente_key"] or meta["verso_key"]):
         raise HTTPException(status_code=422, detail="Envie a foto (frente) ou o PDF do documento.")
     return meta
@@ -296,9 +297,43 @@ async def salvar_documento_operador(db, modulo: str, doc_id: str, uid: str, tid:
     if not t:
         raise HTTPException(status_code=404, detail="Testemunha não encontrada.")
     t["documento"] = await _salvar_doc_na_testemunha(uid, doc_id, t, frente_b64, verso_b64, pdf_b64, tipo)
-    await _aplicar_e_reconstruir(db, modulo, doc_id, uid, doc, testemunhas, strict=True)
+    await _aplicar_e_reconstruir(db, modulo, doc_id, uid, doc, testemunhas)
     return {"ok": True, "pdf": bool(t["documento"].get("pdf_key")),
             "frente": bool(t["documento"].get("frente_key")), "verso": bool(t["documento"].get("verso_key"))}
+
+
+async def remover_documento(db, modulo: str, doc_id: str, uid: str, tid: str) -> dict:
+    """Remove a CNH/RG anexada de uma testemunha (e reconstrói o documento)."""
+    doc = await carregar_doc(db, modulo, doc_id, uid)
+    testemunhas = doc.get("testemunhas") or []
+    t = next((x for x in testemunhas if x.get("id") == tid), None)
+    if not t:
+        raise HTTPException(status_code=404, detail="Testemunha não encontrada.")
+    t["documento"] = {"tipo": "CNH", "frente_key": None, "verso_key": None, "pdf_key": None,
+                      "anexar_ao_pdf": True}
+    await _aplicar_e_reconstruir(db, modulo, doc_id, uid, doc, testemunhas)
+    return {"ok": True}
+
+
+async def documento_preview(db, modulo: str, doc_id: str, uid: str, tid: str) -> bytes:
+    """Miniatura do documento anexado (1ª página da CNH-e rasterizada OU a foto frente)."""
+    import fitz
+    doc = await carregar_doc(db, modulo, doc_id, uid)
+    t = next((x for x in (doc.get("testemunhas") or []) if x.get("id") == tid), None)
+    if not t:
+        raise HTTPException(status_code=404, detail="Testemunha não encontrada.")
+    d = t.get("documento") or {}
+    if d.get("pdf_key"):
+        raw = await asyncio.to_thread(r2_storage.download_bytes, d["pdf_key"])
+
+        def _thumb(pdf_bytes):
+            with fitz.open(stream=pdf_bytes, filetype="pdf") as pd:
+                return pd[0].get_pixmap(dpi=90).tobytes("png")
+        return await asyncio.to_thread(_thumb, raw)
+    fk = d.get("frente_key") or d.get("verso_key")
+    if fk:
+        return await asyncio.to_thread(r2_storage.download_bytes, fk)
+    raise HTTPException(status_code=404, detail="Sem documento anexado.")
 
 
 async def excluir_testemunha(db, modulo: str, doc_id: str, uid: str, tid: str) -> dict:

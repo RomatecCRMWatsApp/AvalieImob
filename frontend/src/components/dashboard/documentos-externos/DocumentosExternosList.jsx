@@ -343,7 +343,21 @@ function ModalTestemunhas({ doc, onClose }) {
   });
   const [editId, setEditId] = useState(null);
   const [editForm, setEditForm] = useState({});
-  const iniciarEdicao = (t) => { setEditId(t.id); setEditForm({ nome: t.nome || '', cpf: t.cpf || '', telefone: t.telefone || '', email: t.email || '', parte_vinculada_id: t.parte_vinculada_id || '', docTipo: t.documento_tipo || 'CNH', docFrente: '', docVerso: '', docPdf: '', docNome: '', docEnviado: !!t.documento_enviado, docPdfEnviado: !!t.documento_pdf }); };
+  const [editThumb, setEditThumb] = useState('');
+  const iniciarEdicao = (t) => {
+    setEditId(t.id);
+    setEditForm({ nome: t.nome || '', cpf: t.cpf || '', telefone: t.telefone || '', email: t.email || '', parte_vinculada_id: t.parte_vinculada_id || '', docTipo: t.documento_tipo || 'CNH', docFrente: '', docVerso: '', docPdf: '', docNome: '', docEnviado: !!t.documento_enviado, docPdfEnviado: !!t.documento_pdf });
+    setEditThumb('');
+    if (t.documento_enviado) {
+      testemunhasAssinaturaAPI.documentoPreview(_MODULO, doc.id, t.id)
+        .then((blob) => setEditThumb(URL.createObjectURL(blob))).catch(() => {});
+    }
+  };
+  const removerDoc = async () => {
+    if (!window.confirm('Remover o documento (CNH/RG) anexado desta testemunha?')) return;
+    try { await testemunhasAssinaturaAPI.removerDocumento(_MODULO, doc.id, editId); toast({ title: 'Documento removido' }); setEditThumb(''); setEditForm((f) => ({ ...f, docEnviado: false, docPdfEnviado: false, docPdf: '', docFrente: '', docVerso: '' })); recarregar(); }
+    catch (e) { toast({ title: 'Erro ao remover documento', variant: 'destructive' }); }
+  };
   const lerArquivo = (file) => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(file); });
   // aceita PDF (CNH-e) OU foto — PDF vai direto, imagem é comprimida
   const pickArquivo = (campo) => async (e) => {
@@ -439,8 +453,18 @@ function ModalTestemunhas({ doc, onClose }) {
                   {sigs.map((s) => <option key={s.id} value={s.id}>{s.nome} ({s.papel})</option>)}
                 </select>
                 <div className="rounded-lg border border-dashed border-amber-300 bg-amber-50/60 p-2">
-                  <div className="text-[11px] font-semibold text-amber-800 mb-1">Documento de identidade — CNH/RG (PDF ou foto){editForm.docEnviado ? ` · ✓ já anexado (${editForm.docPdfEnviado ? 'PDF' : 'foto'})` : ''}</div>
-                  {editForm.docEnviado && !editForm.docPdf && !editForm.docFrente && <div className="text-[10px] text-emerald-700 mb-1">O documento já está no contrato. Anexe novamente só se quiser substituir.</div>}
+                  <div className="text-[11px] font-semibold text-amber-800 mb-1">Documento de identidade — CNH/RG (PDF ou foto){editForm.docEnviado ? ` · ✓ anexado (${editForm.docPdfEnviado ? 'PDF' : 'foto'})` : ''}</div>
+                  {editForm.docEnviado && !editForm.docPdf && !editForm.docFrente && !editForm.docVerso && (
+                    <div className="flex items-center gap-2 mb-2 p-1.5 bg-white rounded border">
+                      {editThumb
+                        ? <img src={editThumb} alt="documento" className="w-14 h-20 object-cover rounded border" />
+                        : <div className="w-14 h-20 rounded border bg-gray-100 flex items-center justify-center text-[9px] text-gray-400">prévia</div>}
+                      <div className="flex-1 text-[11px] text-gray-600">
+                        <div>1 documento anexado ({editForm.docPdfEnviado ? 'PDF' : 'foto'}).</div>
+                        <button onClick={removerDoc} className="mt-1 inline-flex items-center gap-1 text-red-600 hover:underline"><Trash2 className="w-3 h-3" /> Remover documento</button>
+                      </div>
+                    </div>
+                  )}
                   <div className="flex items-center gap-1.5">
                     <select className="border rounded px-1.5 py-1 text-xs" value={editForm.docTipo} onChange={(e) => setEditForm((f) => ({ ...f, docTipo: e.target.value }))}>
                       <option value="CNH">CNH</option><option value="RG">RG</option><option value="OUTRO">Outro</option>

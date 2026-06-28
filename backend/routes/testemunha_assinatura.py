@@ -71,6 +71,20 @@ async def documento_operador(modulo: str, doc_id: str, tid: str, payload: dict,
                                               (payload or {}).get("tipo") or "CNH")
 
 
+@router.delete("/{modulo}/{doc_id}/{tid}/documento")
+async def remover_documento(modulo: str, doc_id: str, tid: str,
+                            uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    return await TS.remover_documento(db, modulo, doc_id, uid, tid)
+
+
+@router.get("/{modulo}/{doc_id}/{tid}/documento/preview")
+async def documento_preview(modulo: str, doc_id: str, tid: str,
+                            uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    img = await TS.documento_preview(db, modulo, doc_id, uid, tid)
+    return Response(content=img, media_type="image/png",
+                    headers={"Cache-Control": "no-store"})
+
+
 @router.delete("/{modulo}/{doc_id}/{tid}")
 async def excluir(modulo: str, doc_id: str, tid: str,
                   uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
