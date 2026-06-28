@@ -87,10 +87,35 @@ async def _numero(db):
     return f"URB-{ano}-{res['seq']:04d}"
 
 
+async def _autoalinhar_vertices(db, doc):
+    """Self-heal: projetos anteriores ao fix v1.4.1085 têm a coordenada de cada linha
+    apontando para o vértice PARA (deslocada em 1). Re-alinha UMA vez (flag
+    coords_alinhadas), persiste e atualiza o doc em memória. Idempotente."""
+    if doc.get("coords_alinhadas") or not doc.get("vertices"):
+        return
+    try:
+        from services.geo_urbano.extractor import alinhar_coords_aos_vertices
+        antes = [(v.get("coord_e"), v.get("coord_n")) for v in doc["vertices"]]
+        alinhar_coords_aos_vertices(doc["vertices"])
+        depois = [(v.get("coord_e"), v.get("coord_n")) for v in doc["vertices"]]
+        sets = {"coords_alinhadas": True}
+        if antes != depois:
+            sets["vertices"] = doc["vertices"]
+            if doc.get("vertices"):
+                from services.geo_urbano import geometria as _G
+                doc["area_calculada_m2"] = _G.area_m2(doc["vertices"])
+                sets["area_calculada_m2"] = doc["area_calculada_m2"]
+        await db.geo_urbano_projetos.update_one({"id": doc["id"]}, {"$set": sets})
+        doc["coords_alinhadas"] = True
+    except Exception:  # noqa: BLE001
+        pass
+
+
 async def _get(db, pid, uid):
     doc = await db.geo_urbano_projetos.find_one({"id": pid, "user_id": uid})
     if not doc:
         raise HTTPException(status_code=404, detail="Projeto não encontrado")
+    await _autoalinhar_vertices(db, doc)
     return doc
 
 

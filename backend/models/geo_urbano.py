@@ -359,6 +359,7 @@ class GeoUrbanoProjeto(BaseModel):
     extracao_por: Optional[str] = None
     etapas_concluidas: dict = Field(default_factory=dict)     # {step_index: True}
     etapas_concluidas_em: dict = Field(default_factory=dict)  # {step_index: ISO}
+    coords_alinhadas: bool = False   # self-heal do offset de coordenadas (1x)
     completude: int = 0
     created_at: datetime = Field(default_factory=_agora)
     updated_at: datetime = Field(default_factory=_agora)
