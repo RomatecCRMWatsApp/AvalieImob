@@ -80,8 +80,9 @@ async def _reconstruir_vigente(doc: dict):
     pagina = await asyncio.to_thread(pagina_testemunhas_pdf, doc, testemunhas)
     novo = await asyncio.to_thread(anexar_pagina_incremental, novo, pagina)
     # anexa CNH/RG de cada testemunha que enviou (vai JUNTO no documento p/ análise) —
-    # PDF (CNH-e) entra com suas páginas; foto entra renderizada numa página A4.
-    from services.testemunha_pagina import pagina_documentos_pdf, pagina_rotulo_anexo
+    # PDF (CNH-e) entra DIRETO com suas páginas (sem página de rótulo vazia); foto entra
+    # renderizada numa página A4.
+    from services.testemunha_pagina import pagina_documentos_pdf
     docs_itens = []
     for w in testemunhas:
         d = w.get("documento") or {}
@@ -90,10 +91,6 @@ async def _reconstruir_vigente(doc: dict):
         if d.get("pdf_key"):
             try:
                 pdf_raw = await asyncio.to_thread(r2_storage.download_bytes, d["pdf_key"])
-                rot = await asyncio.to_thread(
-                    pagina_rotulo_anexo, "ANEXO — DOCUMENTO DE IDENTIDADE DA TESTEMUNHA",
-                    f"{w.get('nome')} — {d.get('tipo') or 'CNH'}")
-                novo = await asyncio.to_thread(anexar_pagina_incremental, novo, rot)
                 novo = await asyncio.to_thread(anexar_pagina_incremental, novo, pdf_raw)
             except Exception:  # noqa: BLE001
                 logger.warning("Testemunha: falha ao anexar CNH (PDF).", exc_info=True)
@@ -268,12 +265,10 @@ async def excluir_testemunha(db, modulo: str, doc_id: str, uid: str, tid: str) -
 
 
 async def paginas_vigentes(db, modulo: str, doc_id: str, uid: str) -> dict:
-    """Páginas do CONTRATO (revisão das PARTES) p/ posicionar — MESMA base em que o
-    carimbo da firma é aplicado (`pdf_key_partes`), p/ os índices de página baterem.
-    NÃO renderiza a página de qualificação/CNH (essas são geradas pelo sistema)."""
+    """Páginas renderizadas do PDF vigente + as testemunhas cadastradas (p/ posicionar)."""
     doc = await carregar_doc(db, modulo, doc_id, uid)
     from services.pdf_preview import renderizar_paginas
-    key = doc.get("pdf_key_partes") or _pdf_key_vigente(doc)
+    key = _pdf_key_vigente(doc)
     paginas = []
     if key:
         raw = await asyncio.to_thread(r2_storage.download_bytes, key)
