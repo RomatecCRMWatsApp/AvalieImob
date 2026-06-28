@@ -149,6 +149,58 @@ async def posicionar(db, modulo: str, doc_id: str, uid: str, posicoes: dict) -> 
     return {"ok": True}
 
 
+async def _aplicar_e_reconstruir(db, modulo, doc_id, uid, doc, testemunhas, extra=None):
+    """$set das testemunhas + reconstrói a revisão vigente (página atualizada)."""
+    sets = {"testemunhas": testemunhas, "updated_at": datetime.utcnow(), **(extra or {})}
+    if testemunhas:
+        try:
+            key_out, h = await _reconstruir_vigente({**doc, **sets})
+            if key_out:
+                sets["pdf_key_testemunhas"] = key_out
+                sets["pdf_key_final"] = key_out
+                sets["hash_documento"] = h
+        except Exception:  # noqa: BLE001
+            logger.warning("Testemunha: reconstrução falhou.", exc_info=True)
+    else:  # sem testemunhas → volta à revisão das PARTES
+        sets["pdf_key_testemunhas"] = None
+        sets["pdf_key_final"] = doc.get("pdf_key_partes")
+        sets["fase_testemunhas"] = None
+    await db[_col(modulo)].update_one({"id": doc_id, "user_id": uid}, {"$set": sets})
+
+
+async def editar_testemunha(db, modulo: str, doc_id: str, uid: str, tid: str, patch: dict) -> dict:
+    from models.documento_externo import _so_dig
+    doc = await carregar_doc(db, modulo, doc_id, uid)
+    testemunhas = doc.get("testemunhas") or []
+    alvo = next((t for t in testemunhas if t.get("id") == tid), None)
+    if not alvo:
+        raise HTTPException(status_code=404, detail="Testemunha não encontrada.")
+    if alvo.get("status") == "assinado":
+        raise HTTPException(status_code=409, detail="Testemunha já assinou — não pode ser alterada.")
+    for campo in ("nome", "email", "vinculo", "parte_vinculada_id", "parte_vinculada_nome"):
+        if patch.get(campo) is not None:
+            alvo[campo] = patch[campo]
+    if patch.get("cpf") is not None:
+        alvo["cpf"] = _so_dig(patch["cpf"])
+    if patch.get("telefone") is not None:
+        alvo["telefone"] = _so_dig(patch["telefone"] or patch.get("whatsapp"))
+    await _aplicar_e_reconstruir(db, modulo, doc_id, uid, doc, testemunhas)
+    return {"ok": True}
+
+
+async def excluir_testemunha(db, modulo: str, doc_id: str, uid: str, tid: str) -> dict:
+    doc = await carregar_doc(db, modulo, doc_id, uid)
+    testemunhas = doc.get("testemunhas") or []
+    alvo = next((t for t in testemunhas if t.get("id") == tid), None)
+    if not alvo:
+        raise HTTPException(status_code=404, detail="Testemunha não encontrada.")
+    if alvo.get("status") == "assinado":
+        raise HTTPException(status_code=409, detail="Testemunha já assinou — não pode ser excluída.")
+    restantes = [t for t in testemunhas if t.get("id") != tid]
+    await _aplicar_e_reconstruir(db, modulo, doc_id, uid, doc, restantes)
+    return {"ok": True, "restantes": len(restantes)}
+
+
 async def paginas_vigentes(db, modulo: str, doc_id: str, uid: str) -> dict:
     """Páginas renderizadas do PDF vigente + as testemunhas cadastradas (p/ posicionar)."""
     doc = await carregar_doc(db, modulo, doc_id, uid)

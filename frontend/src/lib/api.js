@@ -841,6 +841,10 @@ export const testemunhasAssinaturaAPI = {
     api.post(`/testemunhas-assinatura/${modulo}/${docId}/enviar`, body || {}).then((r) => r.data),
   reenviar: (modulo, docId, tid) =>
     api.post(`/testemunhas-assinatura/${modulo}/${docId}/${tid}/reenviar`).then((r) => r.data),
+  editar: (modulo, docId, tid, body) =>
+    api.put(`/testemunhas-assinatura/${modulo}/${docId}/${tid}`, body).then((r) => r.data),
+  excluir: (modulo, docId, tid) =>
+    api.delete(`/testemunhas-assinatura/${modulo}/${docId}/${tid}`).then((r) => r.data),
   status: (modulo, docId) =>
     api.get(`/testemunhas-assinatura/${modulo}/${docId}/status`).then((r) => r.data),
 };

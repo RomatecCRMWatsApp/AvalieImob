@@ -1,7 +1,7 @@
 // @module documentos-externos/DocumentosExternosList — Documentos Externos (doc-ext):
 // upload de PDF → cadastrar N signatários → posicionar → WhatsApp → ICP opcional do RT.
 import React, { useState, useEffect, useCallback } from 'react';
-import { Send, Eye, Users, MapPin, ShieldCheck, RefreshCw, Trash2, FileText, Plus } from 'lucide-react';
+import { Send, Eye, Users, MapPin, ShieldCheck, RefreshCw, Trash2, FileText, Plus, Pencil } from 'lucide-react';
 import { documentosExternosAPI, testemunhasAssinaturaAPI, clientsAPI } from '../../../lib/api';
 import { useToast } from '../../../hooks/use-toast';
 import { Button } from '../../ui/button';
@@ -318,6 +318,22 @@ function ModalTestemunhas({ doc, onClose }) {
     catch (e) { toast({ title: 'Erro ao reenviar', variant: 'destructive' }); }
   };
 
+  const [editId, setEditId] = useState(null);
+  const [editForm, setEditForm] = useState({});
+  const iniciarEdicao = (t) => { setEditId(t.id); setEditForm({ nome: t.nome || '', cpf: t.cpf || '', telefone: t.telefone || '', email: t.email || '', parte_vinculada_id: t.parte_vinculada_id || '' }); };
+  const salvarEdicao = async () => {
+    try {
+      const sig = sigs.find((s) => s.id === editForm.parte_vinculada_id) || {};
+      await testemunhasAssinaturaAPI.editar(_MODULO, doc.id, editId, { ...editForm, vinculo: sig.papel || undefined, parte_vinculada_nome: sig.nome || undefined });
+      toast({ title: 'Testemunha atualizada' }); setEditId(null); recarregar();
+    } catch (e) { toast({ title: 'Erro ao salvar', description: e?.response?.data?.detail || '', variant: 'destructive' }); }
+  };
+  const excluirT = async (t) => {
+    if (!window.confirm(`Excluir a testemunha ${t.nome}?`)) return;
+    try { await testemunhasAssinaturaAPI.excluir(_MODULO, doc.id, t.id); toast({ title: 'Testemunha excluída' }); recarregar(); }
+    catch (e) { toast({ title: 'Erro ao excluir', description: e?.response?.data?.detail || '', variant: 'destructive' }); }
+  };
+
   const BADGE = { pendente: 'bg-gray-100 text-gray-600', enviado: 'bg-sky-100 text-sky-700', assinado: 'bg-emerald-100 text-emerald-700', recusado: 'bg-red-100 text-red-700' };
   const COR = ['#0C3320', '#0B6E4F', '#8A2BE2', '#B8860B'];
   const corTid = (tid) => COR[Math.max(0, (prep?.testemunhas || []).findIndex((t) => t.id === tid)) % COR.length];
@@ -375,15 +391,36 @@ function ModalTestemunhas({ doc, onClose }) {
         {status.length > 0 && (
           <div className="mb-3 border rounded-lg p-2 bg-gray-50">
             <div className="text-[11px] font-semibold text-gray-500 mb-1">Já cadastradas</div>
-            {status.map((t) => (
+            {status.map((t) => (editId === t.id ? (
+              <div key={t.id} className="border rounded-lg p-2 mb-1 bg-white space-y-1.5">
+                <input className="w-full border rounded-lg px-2 py-1 text-sm" placeholder="Nome" value={editForm.nome} onChange={(e) => setEditForm((f) => ({ ...f, nome: e.target.value }))} />
+                <div className="grid grid-cols-2 gap-1.5">
+                  <input className="border rounded-lg px-2 py-1 text-sm" placeholder="CPF" value={editForm.cpf} onChange={(e) => setEditForm((f) => ({ ...f, cpf: e.target.value.replace(/\D/g, '') }))} />
+                  <input className="border rounded-lg px-2 py-1 text-sm" placeholder="WhatsApp" value={editForm.telefone} onChange={(e) => setEditForm((f) => ({ ...f, telefone: e.target.value.replace(/\D/g, '') }))} />
+                </div>
+                <input className="w-full border rounded-lg px-2 py-1 text-sm" type="email" placeholder="E-mail" value={editForm.email} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))} />
+                <select className="w-full border rounded-lg px-2 py-1 text-sm" value={editForm.parte_vinculada_id} onChange={(e) => setEditForm((f) => ({ ...f, parte_vinculada_id: e.target.value }))}>
+                  <option value="">Vincular à parte…</option>
+                  {sigs.map((s) => <option key={s.id} value={s.id}>{s.nome} ({s.papel})</option>)}
+                </select>
+                <div className="flex justify-end gap-2 pt-0.5">
+                  <button onClick={() => setEditId(null)} className="text-[11px] text-gray-500 hover:underline">cancelar</button>
+                  <button onClick={salvarEdicao} className="text-[11px] font-semibold text-emerald-700 hover:underline">salvar</button>
+                </div>
+              </div>
+            ) : (
               <div key={t.id} className="flex items-center justify-between gap-2 py-1 text-sm">
-                <span>{t.nome} <span className="text-[11px] text-gray-400">· {t.parte_vinculada_nome || t.vinculo}</span></span>
-                <span className="flex items-center gap-2">
+                <span className="truncate">{t.nome} <span className="text-[11px] text-gray-400">· {t.parte_vinculada_nome || t.vinculo}</span></span>
+                <span className="flex items-center gap-2 shrink-0">
                   <span className={`text-[10px] px-2 py-0.5 rounded ${BADGE[t.status] || BADGE.pendente}`}>{t.status}</span>
-                  {t.status !== 'assinado' && <button onClick={() => reenviar(t.id)} className="text-[11px] text-emerald-700 hover:underline">reenviar</button>}
+                  {t.status !== 'assinado' && <>
+                    <button onClick={() => iniciarEdicao(t)} title="Editar" className="text-gray-500 hover:text-emerald-700"><Pencil className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => reenviar(t.id)} className="text-[11px] text-emerald-700 hover:underline">reenviar</button>
+                    <button onClick={() => excluirT(t)} title="Excluir" className="text-gray-400 hover:text-red-600"><Trash2 className="w-3.5 h-3.5" /></button>
+                  </>}
                 </span>
               </div>
-            ))}
+            )))}
           </div>
         )}
 

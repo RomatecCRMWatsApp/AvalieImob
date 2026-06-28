@@ -55,14 +55,29 @@ async def reenviar(modulo: str, doc_id: str, tid: str,
     return await TS.enviar(db, modulo, doc_id, uid, tid)
 
 
+@router.put("/{modulo}/{doc_id}/{tid}")
+async def editar(modulo: str, doc_id: str, tid: str, payload: dict,
+                 uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    return await TS.editar_testemunha(db, modulo, doc_id, uid, tid, payload or {})
+
+
+@router.delete("/{modulo}/{doc_id}/{tid}")
+async def excluir(modulo: str, doc_id: str, tid: str,
+                  uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    return await TS.excluir_testemunha(db, modulo, doc_id, uid, tid)
+
+
 @router.get("/{modulo}/{doc_id}/status")
 async def status(modulo: str, doc_id: str,
                  uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
     doc = await TS.carregar_doc(db, modulo, doc_id, uid)
     return {"status_documento": doc.get("status"),
             "testemunhas_habilitadas": doc.get("testemunhas_habilitadas", False),
-            "testemunhas": [{"id": t["id"], "nome": t["nome"], "vinculo": t.get("vinculo"),
+            "testemunhas": [{"id": t["id"], "nome": t["nome"], "cpf": t.get("cpf"),
+                             "telefone": t.get("telefone"), "email": t.get("email"),
+                             "vinculo": t.get("vinculo"), "parte_vinculada_id": t.get("parte_vinculada_id"),
                              "parte_vinculada_nome": t.get("parte_vinculada_nome"), "status": t["status"],
+                             "documento_enviado": bool((t.get("documento") or {}).get("frente_key")),
                              "enviado_em": t.get("enviado_em"), "visualizado_em": t.get("visualizado_em"),
                              "assinado_em": t.get("assinado_em"), "link": TS._link(t["token"])}
                             for t in (doc.get("testemunhas") or [])]}
