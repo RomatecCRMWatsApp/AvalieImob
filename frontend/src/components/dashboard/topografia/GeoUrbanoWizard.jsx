@@ -7,7 +7,7 @@ import {
   ArrowLeft, Upload, Trash2, Plus, FileText, AlertTriangle, CheckCircle2,
   Download, Eye, RefreshCw,
 } from 'lucide-react';
-import { geoUrbanoAPI, assinaturaPosAPI } from '../../../lib/api';
+import { geoUrbanoAPI, assinaturaPosAPI, brandingAPI } from '../../../lib/api';
 import { useToast } from '../../../hooks/use-toast';
 import { BrandSpinner } from '../../brand/BrandSpinner';
 import AssinaturaPosicionadaModal from '../assinatura/AssinaturaPosicionadaModal';
@@ -806,6 +806,9 @@ export default function GeoUrbanoWizard() {
             <p className="text-sm text-gray-400">Envie a “Imagem do imóvel” na etapa Uploads e clique em “Atualizar prévia”.</p>
           )}
         </div>
+        <div className="rounded-xl border bg-white p-5">
+          <LogoBranding toast={toast} />
+        </div>
         <div className="rounded-xl border bg-white p-5 space-y-3">
           <h2 className="font-semibold" style={{ color: GREEN }}>Gerar documentos</h2>
           <div className="grid sm:grid-cols-2 gap-2">
@@ -1056,6 +1059,88 @@ export default function GeoUrbanoWizard() {
           <button onClick={() => irPasso(step + 1)}
             className="px-4 py-2 rounded-lg text-sm font-semibold text-white" style={{ background: GREEN }}>Avançar</button>
         )}
+      </div>
+    </div>
+  );
+}
+
+// Logo white-label do usuário — aparece no cabeçalho de TODAS as peças geradas.
+// Exige PNG com fundo TRANSPARENTE (senão ganharia caixa branca sobre o tema).
+function LogoBranding({ toast }) {
+  const [info, setInfo] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const ref = useRef(null);
+  const carregar = useCallback(async () => {
+    try { setInfo(await brandingAPI.get()); } catch { /* */ }
+  }, []);
+  useEffect(() => { carregar(); }, [carregar]);
+
+  const validarPng = (file) => new Promise((resolve) => {
+    if (!/png/i.test(file.type) && !/\.png$/i.test(file.name)) { resolve('O logo precisa ser um arquivo PNG.'); return; }
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const cv = document.createElement('canvas');
+        cv.width = img.naturalWidth; cv.height = img.naturalHeight;
+        const ctx = cv.getContext('2d'); ctx.drawImage(img, 0, 0);
+        const d = ctx.getImageData(0, 0, cv.width, cv.height).data;
+        let transp = false;
+        for (let i = 3; i < d.length; i += 4) { if (d[i] < 245) { transp = true; break; } }
+        resolve(transp ? null : 'O PNG precisa ter FUNDO TRANSPARENTE (sem fundo branco/colorido).');
+      } catch { resolve(null); }
+    };
+    img.onerror = () => resolve('Não foi possível ler a imagem.');
+    img.src = URL.createObjectURL(file);
+  });
+
+  const onPick = async (file) => {
+    if (!file) return;
+    const erro = await validarPng(file);
+    if (erro) { toast({ title: 'Logo inválido', description: erro, variant: 'destructive' }); return; }
+    setBusy(true);
+    try {
+      await brandingAPI.uploadLogo(file);
+      await carregar();
+      toast({ title: 'Logo aplicado ✓', description: 'Vai sair no cabeçalho das peças geradas.' });
+    } catch (e) {
+      toast({ title: 'Falha ao enviar o logo', description: e?.response?.data?.detail || '', variant: 'destructive' });
+    } finally { setBusy(false); }
+  };
+
+  const remover = async () => {
+    setBusy(true);
+    try { await brandingAPI.deleteLogo(); await carregar(); toast({ title: 'Logo removido (volta ao padrão)' }); }
+    catch { toast({ title: 'Erro ao remover', variant: 'destructive' }); }
+    finally { setBusy(false); }
+  };
+
+  const temCustom = !!(info && info.logo_url);
+  return (
+    <div>
+      <div className="text-sm font-medium text-gray-700">Logo da empresa (white-label)</div>
+      <div className="text-xs text-gray-500 mb-1">
+        PNG com fundo <strong>transparente</strong> — aparece no cabeçalho das peças geradas (Requerimento, Memorial, DRL, Dossiê).
+      </div>
+      <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mb-2">
+        ⚠️ Envie o logo <strong>antes de assinar</strong>. Peça já assinada mantém o cabeçalho do momento da assinatura — use <strong>Reassinar</strong> para aplicar o novo logo.
+      </div>
+      <div className="flex items-center gap-3 flex-wrap">
+        {temCustom ? (
+          <img src={info.logo_url} alt="logo" className="h-10 max-w-[170px] object-contain bg-white border rounded px-1"
+            onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+        ) : (
+          <span className="inline-flex items-center gap-2 text-xs text-gray-500">
+            <img src="/icon-192.png" alt="AvalieImob" className="h-9 w-9 object-contain rounded bg-white border" />
+            Padrão do sistema (AvalieImob) — enviar o seu é opcional
+          </span>
+        )}
+        <input ref={ref} type="file" accept=".png,image/png" className="hidden"
+          onChange={(e) => { onPick(e.target.files?.[0]); e.target.value = ''; }} />
+        <button onClick={() => ref.current?.click()} disabled={busy}
+          className="text-xs font-semibold px-3 py-1.5 rounded-lg border hover:bg-white disabled:opacity-40" style={{ color: GREEN }}>
+          {busy ? 'Enviando…' : (temCustom ? 'Trocar logo' : 'Enviar logo (PNG)')}
+        </button>
+        {temCustom && <button onClick={remover} disabled={busy} className="text-xs text-gray-400 hover:text-red-500">Remover</button>}
       </div>
     </div>
   );

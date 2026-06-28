@@ -45,12 +45,38 @@ _W, _H = A4
 _M = 2.2 * cm
 
 
+def _img_para_pdf(raw: bytes) -> bytes:
+    """Converte uma IMAGEM (JPG/PNG/...) numa página A4 de PDF (centralizada)."""
+    from PIL import Image
+    from reportlab.lib.utils import ImageReader
+    from reportlab.pdfgen import canvas as rl_canvas
+    im = Image.open(io.BytesIO(raw))
+    if im.mode not in ("RGB", "L"):
+        im = im.convert("RGB")
+    buf = io.BytesIO()
+    c = rl_canvas.Canvas(buf, pagesize=A4)
+    iw, ih = im.size
+    margem = 1.5 * cm
+    maxw, maxh = _W - 2 * margem, _H - 2 * margem
+    esc = min(maxw / iw, maxh / ih)
+    w, h = iw * esc, ih * esc
+    c.drawImage(ImageReader(im), (_W - w) / 2, (_H - h) / 2, width=w, height=h)
+    c.showPage()
+    c.save()
+    return buf.getvalue()
+
+
 def _to_pdf_bytes(item) -> list:
-    """Normaliza bytes / lista de bytes em lista de PDFs legíveis (ignora inválidos)."""
+    """Normaliza bytes / lista de bytes em lista de PDFs legíveis (imagem→PDF; ignora inválidos)."""
     out = []
     for raw in (item if isinstance(item, (list, tuple)) else [item]):
         if not raw:
             continue
+        if raw[:5] != b"%PDF-":            # JPG/PNG (ex.: comprovantes) → vira página PDF
+            try:
+                raw = _img_para_pdf(raw)
+            except Exception:  # noqa: BLE001
+                continue
         try:
             r = PdfReader(io.BytesIO(raw))
             if len(r.pages):
@@ -169,38 +195,54 @@ def _sumario_bytes(itens, n_paginas_sumario) -> bytes:
     return buf.getvalue()
 
 
-def gerar_dossie(projeto: dict, partes: dict, capa_pdf: bytes = None) -> bytes:
-    """partes = {key: bytes | [bytes,...]}. Monta capa+sumário+seções na ordem §9.
-    `capa_pdf` (opcional) = Capa "Lupa Geo" pronta; senão usa a capa textual padrão."""
-    # 1) coleta seções presentes (na ordem) + contagem de páginas
+def gerar_dossie_ordenado(projeto: dict, secoes_in, capa_pdf: bytes = None) -> bytes:
+    """`secoes_in` = [(titulo, bytes|[bytes,...]), ...] JÁ na ordem desejada.
+    Monta capa → sumário (com paginação + bookmarks clicáveis) → seções na ordem dada."""
     secoes = []  # (titulo, [PdfReader,...], n_paginas)
-    for key, titulo in ORDEM_DOSSIE:
-        leitores = _to_pdf_bytes(partes.get(key))
+    for titulo, item in secoes_in:
+        leitores = _to_pdf_bytes(item)
         if leitores:
-            n = sum(len(r.pages) for r in leitores)
-            secoes.append((titulo, leitores, n))
+            secoes.append((titulo, leitores, sum(len(r.pages) for r in leitores)))
 
-    # 2) páginas do sumário (capa=1 + S) → início real de cada seção
     n_sum = max(1, math.ceil(len(secoes) / _LINES_POR_PAGINA_SUM))
-    offset = 1 + n_sum
-    itens, cursor = [], offset + 1
-    for (titulo, leitores, n) in secoes:
+    itens, cursor = [], 1 + n_sum + 1     # capa(1) + sumário(n_sum) → 1ª seção
+    for (titulo, _l, n) in secoes:
         itens.append((titulo, cursor))
         cursor += n
 
     capa = PdfReader(io.BytesIO(capa_pdf or _capa_bytes(projeto)))
     sumario = PdfReader(io.BytesIO(_sumario_bytes(itens, n_sum)))
 
-    # 3) monta o writer final
     w = PdfWriter()
     for pg in capa.pages:
         w.add_page(pg)
     for pg in sumario.pages:
         w.add_page(pg)
+    # bookmarks (TOC clicável no leitor de PDF)
+    try:
+        w.add_outline_item("Capa", 0)
+        w.add_outline_item("Sumário", 1)
+    except Exception:  # noqa: BLE001
+        pass
+    idx = 1 + len(sumario.pages)
+    inicios = []
     for (titulo, leitores, n) in secoes:
+        inicios.append((titulo, idx))
         for r in leitores:
             for pg in r.pages:
                 w.add_page(pg)
+        idx += n
+    for (titulo, pidx) in inicios:
+        try:
+            w.add_outline_item(titulo, pidx)
+        except Exception:  # noqa: BLE001
+            pass
     out = io.BytesIO()
     w.write(out)
     return out.getvalue()
+
+
+def gerar_dossie(projeto: dict, partes: dict, capa_pdf: bytes = None) -> bytes:
+    """Compat: monta na ORDEM_DOSSIE padrão a partir do dict `partes`."""
+    secoes_in = [(titulo, partes.get(key)) for key, titulo in ORDEM_DOSSIE]
+    return gerar_dossie_ordenado(projeto, secoes_in, capa_pdf)

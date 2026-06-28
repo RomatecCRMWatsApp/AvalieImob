@@ -154,12 +154,14 @@ def _texto_centrado(draw, cx, y, txt, font, fill):
 def _legenda_lupa(projeto: dict) -> str:
     tipo = projeto.get("tipo_servico")
     area = TX.m2(projeto.get("area_declarada_m2"))
+    perim = TX.metros(projeto.get("perimetro_m"))
     if tipo == "desdobro":
-        n = len(projeto.get("matriculas") or []) or "N"
+        n = projeto.get("qtd_lotes_resultantes") or len(projeto.get("lotes_resultantes") or []) or "N"
         return f"LOTE-MÃE {area} → {n} LOTES"
     if tipo == "retificacao":
         return "RETIFICAÇÃO DE ÁREA/REGISTRO"
-    return f"PERÍMETRO LEVANTADO · {area}"
+    # remembramento: a legenda mostra ÁREA e PERÍMETRO (antes dizia "PERÍMETRO" na área)
+    return f"ÁREA {area} · PERÍMETRO {perim}"
 
 
 def compor_capa(projeto: dict, img_bytes: bytes, zoom=1.18, center=(0.5, 0.5)) -> Image.Image:

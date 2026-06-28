@@ -430,17 +430,31 @@ async def gerar(pid: str, body: GerarDocumentosBody, uid: str = Depends(get_acti
     return {"ok": True, "reconciliacao": rec["resumo"]}
 
 
+async def _injetar_logo(db, uid: str, doc: dict):
+    """Carrega o logo white-label do usuário em doc['_brand_logo_bytes'] (best-effort)."""
+    try:
+        from services.branding_context import BrandContext
+        brand = await BrandContext.for_user(db, uid)
+        logo = await asyncio.to_thread(brand.custom_logo_bytes)
+        if logo:
+            doc["_brand_logo_bytes"] = logo
+    except Exception:  # noqa: BLE001
+        pass
+
+
 @router.get("/projetos/{pid}/documentos/{tipo}")
 async def baixar_documento(pid: str, tipo: str, tema: str = Query(None), lote: str = Query(None),
                            uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
     doc = await _get(db, pid, uid)
+    await _injetar_logo(db, uid, doc)
+    logo = doc.get("_brand_logo_bytes")
     tema = tema or doc.get("tema") or "prime_i"
     # Memorial de UM lote resultante (desdobro)
     if tipo == "memorial_descritivo" and lote:
         lt = next((x for x in (doc.get("lotes_resultantes") or []) if x.get("id") == lote), None)
         if not lt:
             raise HTTPException(status_code=404, detail="Lote resultante não encontrado.")
-        data = await asyncio.to_thread(PDF.gerar_pdf, "memorial_descritivo", projeto_do_lote(doc, lt), tema)
+        data = await asyncio.to_thread(PDF.gerar_pdf, "memorial_descritivo", projeto_do_lote(doc, lt), tema, logo)
         nome = f"memorial_{(lt.get('denominacao') or lote)}.pdf"
         return Response(content=data, media_type=_PDF,
                         headers={"Content-Disposition": f'inline; filename="{nome}"'})
@@ -454,7 +468,7 @@ async def baixar_documento(pid: str, tipo: str, tema: str = Query(None), lote: s
         data = await _montar_dossie(db, doc, tema)
         nome = f"dossie_{(doc.get('numero') or pid)}.pdf"
     elif tipo in _DOCS_GERAVEIS:
-        data = await asyncio.to_thread(PDF.gerar_pdf, tipo, doc, tema)
+        data = await asyncio.to_thread(PDF.gerar_pdf, tipo, doc, tema, logo)
         nome = f"{tipo}_{(doc.get('numero') or pid)}.pdf"
     else:
         raise HTTPException(status_code=422, detail=f"Documento inválido: {tipo}")
@@ -482,59 +496,85 @@ async def capa_preview(pid: str, uid: str = Depends(get_active_subscriber), db=D
     return Response(content=png, media_type="image/png")
 
 
+async def _ub(doc, tipo):
+    """Bytes de TODOS os arquivos de um tipo de upload (na ordem enviada)."""
+    out = []
+    for it in (doc.get("uploads") or {}).get(tipo) or []:
+        if it.get("key"):
+            try:
+                out.append(await asyncio.to_thread(r2_storage.download_bytes, it["key"]))
+            except Exception:  # noqa: BLE001
+                continue
+    return out
+
+
 async def _montar_dossie(db, doc, tema):
-    # Capa "Lupa Geo" quando há imagem do imóvel; senão a capa textual padrão.
+    logo = doc.get("_brand_logo_bytes")
     capa_pdf = None
     img = await _imagem_imovel_bytes(doc)
     if img:
         capa_pdf = await asyncio.to_thread(CAPA.gerar_capa_pdf, doc, img)
-    # peças geradas
-    partes = {}
-    for t in ("requerimento_cartorio", "requerimento_superintendencia", "cadeia_dominical"):
-        partes[t] = await asyncio.to_thread(PDF.gerar_pdf, t, doc, tema)
-    # Memorial: 1 (remembramento/retificação) ou N (desdobro — um por lote resultante)
-    lotes = doc.get("lotes_resultantes") or []
-    if doc.get("tipo_servico") == "desdobro" and lotes:
-        mems = []
-        for lt in sorted(lotes, key=lambda x: x.get("ordem", 0)):
-            mems.append(await asyncio.to_thread(PDF.gerar_pdf, "memorial_descritivo", projeto_do_lote(doc, lt), tema))
-        partes["memorial_descritivo"] = mems
-    else:
-        partes["memorial_descritivo"] = await asyncio.to_thread(PDF.gerar_pdf, "memorial_descritivo", doc, tema)
-    # Memorial/Mapa APROVADOS (devolvidos assinados pela Superintendência) têm
-    # prioridade sobre os gerados pelo sistema.
+    tipo = doc.get("tipo_servico")
     uploads = doc.get("uploads") or {}
+
+    # ── Remembramento / Desdobro: ordem por VIA (cada protocolo um conjunto completo)
+    if tipo in ("remembramento", "desdobro"):
+        req_cart = await asyncio.to_thread(PDF.gerar_pdf, "requerimento_cartorio", doc, tema, logo)
+        req_super = await asyncio.to_thread(PDF.gerar_pdf, "requerimento_superintendencia", doc, tema, logo)
+        # Memorial(is) — 1 (remembramento) ou N por lote (desdobro); aprovado vence
+        if uploads.get("memorial_aprovado"):
+            memoriais = await _ub(doc, "memorial_aprovado")
+        elif tipo == "desdobro" and (doc.get("lotes_resultantes") or []):
+            memoriais = [await asyncio.to_thread(PDF.gerar_pdf, "memorial_descritivo", projeto_do_lote(doc, lt), tema, logo)
+                         for lt in sorted(doc["lotes_resultantes"], key=lambda x: x.get("ordem", 0))]
+        else:
+            memoriais = [await asyncio.to_thread(PDF.gerar_pdf, "memorial_descritivo", doc, tema, logo)]
+        mapa_atual = await _ub(doc, "mapa_atual")
+        mapa_ato = (await _ub(doc, "mapa_desdobro")) if tipo == "desdobro" else (await _ub(doc, "mapa_remembramento"))
+        if uploads.get("mapa_aprovado"):
+            mapa_ato = await _ub(doc, "mapa_aprovado")
+        art = await _ub(doc, "art_trt")
+        boleto = await _ub(doc, "art_trt_boleto")
+        mapa_ato_titulo = "Mapa de Desdobro" if tipo == "desdobro" else "Mapa de Remembramento"
+
+        def via(req_bytes, titulo_req):
+            return [(titulo_req, [req_bytes]), ("Mapa Atual", mapa_atual),
+                    (mapa_ato_titulo, mapa_ato), ("Memorial Descritivo", memoriais),
+                    ("ART / TRT", art), ("Boleto da TRT", boleto)]
+
+        secoes = via(req_cart, "Requerimento — Via Cartório de RI")
+        secoes += via(req_super, "Requerimento — Via Superintendência (SHRF)")
+        secoes.append(("Ofício de Aprovação (Superintendência)", await _ub(doc, "oficio_assinado")))
+        secoes += [
+            ("Certidões de Inteiro Teor", await _ub(doc, "certidao_inteiro_teor")),
+            ("Regularidade de IPTU (CND / guias / boletos)",
+             (await _ub(doc, "cnd_iptu")) + (await _ub(doc, "guia_iptu")) + (await _ub(doc, "comprovante_pagamento_iptu"))),
+            ("Boletins de Cadastro Imobiliário (BCI)", await _ub(doc, "bci")),
+            ("Documentos do Proprietário",
+             (await _ub(doc, "contrato_social")) + (await _ub(doc, "doc_socio"))
+             + (await _ub(doc, "doc_proprietario")) + (await _ub(doc, "cnh")) + (await _ub(doc, "certidao_casamento"))),
+        ]
+        return await asyncio.to_thread(DOSSIE.gerar_dossie_ordenado, doc, secoes, capa_pdf)
+
+    # ── Retificação (e demais): ORDEM_DOSSIE padrão (Quadro + DRL + uploads)
+    partes = {}
+    for t in ("requerimento_cartorio", "requerimento_superintendencia", "memorial_descritivo", "cadeia_dominical"):
+        partes[t] = await asyncio.to_thread(PDF.gerar_pdf, t, doc, tema, logo)
     if uploads.get("memorial_aprovado"):
-        bs = [await asyncio.to_thread(r2_storage.download_bytes, it["key"])
-              for it in uploads["memorial_aprovado"] if it.get("key")]
-        if bs:
-            partes["memorial_descritivo"] = bs
-    # (o Ofício de Aprovação entra via _DOSSIE_UPLOADS — upload `oficio_assinado`;
-    #  NÃO é gerado pelo sistema, pois é expedido e assinado pela Superintendência.)
-    # Quadro de Retificação (de → para) — peça própria da retificação
-    if doc.get("tipo_servico") == "retificacao":
+        partes["memorial_descritivo"] = await _ub(doc, "memorial_aprovado")
+    if tipo == "retificacao":
         if not (doc.get("retificacao_analise") or {}).get("cadastral_diffs"):
             doc = {**doc, "retificacao_analise": RET.analisar(doc)}
-        partes["quadro_retificacao"] = await asyncio.to_thread(PDF.gerar_pdf, "quadro_retificacao", doc, tema)
-        # DRL — 1 por confrontante particular (anuência do art. 213)
-        drls = []
-        for conf in PDF.confrontantes_para_drl(doc):
-            drls.append(await asyncio.to_thread(PDF.drl, doc, conf, tema))
+        partes["quadro_retificacao"] = await asyncio.to_thread(PDF.gerar_pdf, "quadro_retificacao", doc, tema, logo)
+        drls = [await asyncio.to_thread(PDF.drl, doc, conf, tema, logo) for conf in PDF.confrontantes_para_drl(doc)]
         if drls:
             partes["drl"] = drls
-    # uploads → seções do §9
-    uploads = doc.get("uploads") or {}
     for secao, tipos in _DOSSIE_UPLOADS.items():
-        bytes_list = []
+        bs = []
         for tp in tipos:
-            for item in (uploads.get(tp) or []):
-                if item.get("key"):
-                    try:
-                        bytes_list.append(await asyncio.to_thread(r2_storage.download_bytes, item["key"]))
-                    except Exception:  # noqa: BLE001
-                        continue
-        if bytes_list:
-            partes[secao] = bytes_list
+            bs += await _ub(doc, tp)
+        if bs:
+            partes[secao] = bs
     return await asyncio.to_thread(DOSSIE.gerar_dossie, doc, partes, capa_pdf)
 
 

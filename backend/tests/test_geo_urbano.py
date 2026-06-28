@@ -460,9 +460,22 @@ def test_capa_lupa_render(proj):
 
 
 def test_capa_legenda_por_servico(proj):
-    assert "2.100,00 m²" in CAPA._legenda_lupa(proj)
+    leg = CAPA._legenda_lupa(proj)
+    assert "2.100,00 m²" in leg
+    # a legenda do remembramento mostra ÁREA + PERÍMETRO (não rotula a área como "PERÍMETRO")
+    assert leg.startswith("ÁREA") and "PERÍMETRO 220,00 m" in leg
     p = {**proj, "tipo_servico": "retificacao"}
     assert "RETIFICAÇÃO" in CAPA._legenda_lupa(p)
+
+
+def test_dossie_converte_imagem_jpg(proj):
+    # comprovantes em JPG/PNG devem virar página no dossiê (não podem ser pulados)
+    from PIL import Image
+    jb = io.BytesIO(); Image.new("RGB", (640, 480), (210, 220, 190)).save(jb, "JPEG")
+    req = PDF.gerar_pdf("requerimento_cartorio", proj, "prime_i")
+    doss = DOSSIE.gerar_dossie_ordenado(proj, [("Requerimento", [req]), ("Comprovante", [jb.getvalue()])])
+    # capa(1) + sumário(1) + requerimento(2) + comprovante(1) = 5
+    assert _paginas(doss) >= 5
 
 
 def test_dossie_usa_capa_lupa(proj):
