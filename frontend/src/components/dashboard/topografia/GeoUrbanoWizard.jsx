@@ -115,6 +115,10 @@ export default function GeoUrbanoWizard() {
   const [aprovBusy, setAprovBusy] = useState(false);
   const [capaUrl, setCapaUrl] = useState(null);
   const [capaBusy, setCapaBusy] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [previewTipo, setPreviewTipo] = useState('requerimento_cartorio');
+  const [previewBusy, setPreviewBusy] = useState(false);
+  const previewUrlRef = useRef('');
   const [assinId, setAssinId] = useState(null);
   const [assinaturas, setAssinaturas] = useState({});
   const [preparandoAssin, setPreparandoAssin] = useState(null);
@@ -352,6 +356,23 @@ export default function GeoUrbanoWizard() {
       setTimeout(() => URL.revokeObjectURL(url), 60000);
     } catch (e) { if (win) win.close(); toast({ title: 'Erro ao abrir documento', variant: 'destructive' }); }
   };
+
+  // PRÉVIA REAL embutida (aferição): renderiza o PDF da peça no próprio sistema
+  const carregarPreview = useCallback(async (tipo) => {
+    const t = tipo || previewTipo;
+    setPreviewBusy(true);
+    try {
+      const data = await geoUrbanoAPI.documento(id, t, proj.tema);
+      const blob = new Blob([data], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = url;
+      setPreviewUrl(url); setPreviewTipo(t);
+    } catch (e) {
+      toast({ title: 'Erro ao gerar a prévia', description: e?.response?.data?.detail || '', variant: 'destructive' });
+    } finally { setPreviewBusy(false); }
+  }, [id, previewTipo, proj.tema, toast]);
+  useEffect(() => () => { if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current); }, []);
 
   const gerar = async () => {
     setGerando(true);
@@ -855,6 +876,27 @@ export default function GeoUrbanoWizard() {
             className="px-4 py-2 rounded-lg text-sm font-semibold text-white" style={{ background: GREEN }}>
             {gerando ? 'Gerando…' : 'Gerar e ir para Aprovação'}
           </button>
+        </div>
+
+        {/* PRÉVIA REAL — aferição antes de gerar/protocolar (evita erros) */}
+        <div className="rounded-xl border bg-white p-5 space-y-3">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <h2 className="font-semibold" style={{ color: GREEN }}>Pré-visualização (aferição)</h2>
+            <div className="flex items-center gap-2">
+              <select className={inp + ' max-w-[280px]'} value={previewTipo}
+                onChange={(e) => carregarPreview(e.target.value)}>
+                {DOCS_GERAVEIS.map(([k, lab]) => <option key={k} value={k}>{lab}</option>)}
+              </select>
+              <button onClick={() => carregarPreview()} disabled={previewBusy}
+                className="text-xs inline-flex items-center gap-1 px-2.5 py-2 rounded-lg text-white" style={{ background: GREEN }}>
+                <RefreshCw className={`w-3.5 h-3.5 ${previewBusy ? 'animate-spin' : ''}`} /> {previewBusy ? 'Gerando…' : (previewUrl ? 'Atualizar' : 'Ver prévia')}
+              </button>
+            </div>
+          </div>
+          <p className="text-[11px] text-gray-500">Confira a peça exatamente como sairá no PDF (tema {proj.tema}) antes de gerar/protocolar.</p>
+          {previewUrl
+            ? <iframe title="Prévia do documento" src={`${previewUrl}#toolbar=1`} className="w-full rounded-lg border" style={{ height: 560 }} />
+            : <div className="text-sm text-gray-400 border border-dashed rounded-lg p-8 text-center">Escolha a peça e clique em “Ver prévia” para aferir o PDF aqui mesmo.</div>}
         </div>
         </div>
       )}

@@ -78,17 +78,17 @@ def _largura() -> float:
 
 
 def _secao_croqui(projeto: dict, cfg, st, L):
-    """Seção CROQUI DA POLIGONAL (desenho vetorial) — Requerimento e Memorial."""
+    """Seção CROQUI DA POLIGONAL (desenho vetorial) — Requerimento e Memorial.
+    O título fica SEMPRE junto do desenho (KeepTogether), nunca órfão no rodapé."""
     dwg = CROQUI.croqui_drawing(projeto)
     if dwg is None:
         return []
-    out = GP._secao("CROQUI DA POLIGONAL", cfg, st, L)
-    out.append(dwg)
-    out.append(Spacer(1, 6))
-    out.append(Paragraph(
-        "Croqui ilustrativo da poligonal resultante (vértices, medidas e confrontantes). "
-        "Vide planilha de coordenadas e o mapa anexo.", st["legenda"] if "legenda" in st else st["corpo"]))
-    return out
+    from reportlab.platypus import KeepTogether
+    bloco = GP._secao("CROQUI DA POLIGONAL", cfg, st, L) + [
+        dwg, Spacer(1, 6),
+        Paragraph("Croqui ilustrativo da poligonal resultante (vértices, medidas e confrontantes). "
+                  "Vide planilha de coordenadas e o mapa anexo.", st.get("small") or st["corpo"])]
+    return [KeepTogether(bloco)]
 
 
 def _bloco_assinaturas_partes(projeto: dict, st, L):

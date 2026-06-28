@@ -47,20 +47,25 @@ def croqui_drawing(projeto: dict, width: float = 460, height: float = 340):
     d.add(Polygon(points=[c for p in pts for c in p], fillColor=_FILL,
                   strokeColor=_GREEN, strokeWidth=1.2))
 
-    # medidas + confrontante por aresta (texto para fora do centroide)
+    # medidas + confrontante por aresta — rótulo no MEIO da aresta, deslocado pela
+    # NORMAL da própria aresta (para fora), de modo que cada cota fique sobre o seu
+    # segmento (corrige o desalinhamento do offset por centroide na poligonal em "L").
     for i, v in enumerate(verts):
         a, b = pts[i], pts[(i + 1) % len(pts)]
         mx, my = (a[0] + b[0]) / 2, (a[1] + b[1]) / 2
-        dx, dy = mx - cx, my - cy
-        ln = (dx * dx + dy * dy) ** 0.5 or 1
-        ux, uy = dx / ln, dy / ln
+        ex, ey = b[0] - a[0], b[1] - a[1]
+        eln = (ex * ex + ey * ey) ** 0.5 or 1
+        nx, ny = -ey / eln, ex / eln                 # normal à aresta
+        if nx * (mx - cx) + ny * (my - cy) < 0:      # garante apontar p/ FORA
+            nx, ny = -nx, -ny
+        lx, ly = mx + nx * 12, my + ny * 12
         if v.get("distancia_m") is not None:
-            d.add(String(mx + ux * 9, my + uy * 9 - 2, f"{TX._n_br(v.get('distancia_m'))} m",
-                         fontSize=6.5, fillColor=black, textAnchor="middle"))
+            d.add(String(lx, ly, f"{TX._n_br(v.get('distancia_m'))} m",
+                         fontSize=6.6, fillColor=black, textAnchor="middle"))
         conf = v.get("confrontante_lado")
         if conf:
-            d.add(String(mx + ux * 9, my + uy * 9 - 10, conf[:24],
-                         fontSize=5.5, fillColor=_GRAY, textAnchor="middle"))
+            d.add(String(lx, ly - 8, conf[:26],
+                         fontSize=5.6, fillColor=_GRAY, textAnchor="middle"))
 
     # vértices + rótulo (PDN1..) para fora
     for p, v in zip(pts, verts):
