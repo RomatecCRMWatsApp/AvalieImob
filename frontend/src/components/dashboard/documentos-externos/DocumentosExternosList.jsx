@@ -212,7 +212,7 @@ const _vinc = (sig) => {
 function ModalTestemunhas({ doc, onClose }) {
   const { toast } = useToast();
   const sigs = doc.signatarios || [];
-  const [linhas, setLinhas] = useState([{ nome: '', cpf: '', telefone: '', parte_vinculada_id: sigs[0]?.id || '' }]);
+  const [linhas, setLinhas] = useState([{ nome: '', cpf: '', telefone: '', email: '', parte_vinculada_id: sigs[0]?.id || '' }]);
   const [clientes, setClientes] = useState([]);
   const [status, setStatus] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -226,10 +226,10 @@ function ModalTestemunhas({ doc, onClose }) {
   useEffect(() => { recarregar(); clientsAPI.list().then((d) => setClientes(Array.isArray(d) ? d : [])).catch(() => {}); }, [recarregar]);
 
   const upd = (i, patch) => setLinhas((ls) => ls.map((l, k) => (k === i ? { ...l, ...patch } : l)));
-  const addLinha = () => setLinhas((ls) => [...ls, { nome: '', cpf: '', telefone: '', parte_vinculada_id: sigs[0]?.id || '' }]);
+  const addLinha = () => setLinhas((ls) => [...ls, { nome: '', cpf: '', telefone: '', email: '', parte_vinculada_id: sigs[0]?.id || '' }]);
   const selCliente = (i, cid) => {
     const c = clientes.find((x) => (x.id || x._id) === cid);
-    if (c) upd(i, { nome: c.name || c.nome || '', cpf: (c.doc || c.cpf || '').replace(/\D/g, ''), telefone: (c.phone || c.telefone || '').replace(/\D/g, '') });
+    if (c) upd(i, { nome: c.name || c.nome || '', cpf: (c.doc || c.cpf || '').replace(/\D/g, ''), telefone: (c.phone || c.telefone || '').replace(/\D/g, ''), email: c.email || '' });
   };
 
   const salvarEnviar = async () => {
@@ -239,7 +239,7 @@ function ModalTestemunhas({ doc, onClose }) {
     try {
       const payload = validas.map((l) => {
         const sig = sigs.find((s) => s.id === l.parte_vinculada_id) || {};
-        return { nome: l.nome, cpf: l.cpf, telefone: l.telefone,
+        return { nome: l.nome, cpf: l.cpf, telefone: l.telefone, email: l.email,
           vinculo: sig.papel || 'testemunha', parte_vinculada_id: sig.id, parte_vinculada_nome: sig.nome,
           posicoes: [_vinc(sig)] };
       });
@@ -248,7 +248,7 @@ function ModalTestemunhas({ doc, onClose }) {
       await testemunhasAssinaturaAPI.cadastrar(_MODULO, doc.id, payload);
       const r = await testemunhasAssinaturaAPI.enviarTodas(_MODULO, doc.id, fteste ? { telefone_teste: fteste } : {});
       toast({ title: modoTeste ? `Enviado p/ teste: ${r.enviadas || 0}` : `Links enviados: ${r.enviadas || 0}`, description: (r.falhas || []).length ? `${r.falhas.length} falha(s)` : '' });
-      setLinhas([{ nome: '', cpf: '', telefone: '', parte_vinculada_id: sigs[0]?.id || '' }]);
+      setLinhas([{ nome: '', cpf: '', telefone: '', email: '', parte_vinculada_id: sigs[0]?.id || '' }]);
       recarregar();
     } catch (e) {
       toast({ title: 'Erro', description: e?.response?.data?.detail || '', variant: 'destructive' });
@@ -292,9 +292,10 @@ function ModalTestemunhas({ doc, onClose }) {
             )}
             <input className="w-full border rounded-lg px-2 py-1.5 text-sm" placeholder="Nome da testemunha" value={l.nome} onChange={(e) => upd(i, { nome: e.target.value })} />
             <div className="grid grid-cols-2 gap-2">
-              <input className="border rounded-lg px-2 py-1.5 text-sm" placeholder="CPF (opcional)" value={l.cpf} onChange={(e) => upd(i, { cpf: e.target.value.replace(/\D/g, '') })} />
+              <input className="border rounded-lg px-2 py-1.5 text-sm" placeholder="CPF" value={l.cpf} onChange={(e) => upd(i, { cpf: e.target.value.replace(/\D/g, '') })} />
               <input className="border rounded-lg px-2 py-1.5 text-sm" placeholder="WhatsApp 55DDDNUMERO" value={l.telefone} onChange={(e) => upd(i, { telefone: e.target.value.replace(/\D/g, '') })} />
             </div>
+            <input className="w-full border rounded-lg px-2 py-1.5 text-sm" type="email" placeholder="E-mail" value={l.email} onChange={(e) => upd(i, { email: e.target.value })} />
             <select className="w-full border rounded-lg px-2 py-1.5 text-sm" value={l.parte_vinculada_id} onChange={(e) => upd(i, { parte_vinculada_id: e.target.value })}>
               <option value="">Vincular à parte…</option>
               {sigs.map((s) => <option key={s.id} value={s.id}>{s.nome} ({s.papel})</option>)}

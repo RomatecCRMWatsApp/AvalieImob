@@ -80,7 +80,8 @@ class Testemunha(BaseModel):
     id: str = Field(default_factory=lambda: uuid.uuid4().hex)
     nome: str
     cpf: str = ""
-    telefone: str = ""                   # whatsapp (só dígitos)
+    telefone: str = ""                   # whatsapp/contato (só dígitos)
+    email: Optional[str] = None
     vinculo: str = ""                    # papel/lado (ex.: comprador/vendedor) — texto livre
     parte_vinculada_id: Optional[str] = None    # id do signatário a quem se vincula
     parte_vinculada_nome: str = ""
@@ -107,6 +108,7 @@ def nova_testemunha(data: dict) -> dict:
         nome=str(data.get("nome") or "").strip() or "Testemunha",
         cpf=_so_dig(data.get("cpf")),
         telefone=_so_dig(data.get("telefone") or data.get("whatsapp")),
+        email=(str(data.get("email")).strip() or None) if data.get("email") else None,
         vinculo=str(data.get("vinculo") or "").strip(),
         parte_vinculada_id=data.get("parte_vinculada_id"),
         parte_vinculada_nome=str(data.get("parte_vinculada_nome") or "").strip(),

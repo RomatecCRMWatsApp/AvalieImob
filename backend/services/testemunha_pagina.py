@@ -19,9 +19,20 @@ _DOURADO = HexColor("#C9A84C")
 _CINZA = HexColor("#555555")
 
 
-def _mask_cpf(cpf):
+def _fmt_cpf(cpf):
     d = "".join(filter(str.isdigit, str(cpf or "")))
-    return f"***.{d[3:6]}.{d[6:9]}-**" if len(d) == 11 else (cpf or "—")
+    return f"{d[:3]}.{d[3:6]}.{d[6:9]}-{d[9:]}" if len(d) == 11 else (cpf or "")
+
+
+def _fmt_fone(f):
+    d = "".join(filter(str.isdigit, str(f or "")))
+    if d.startswith("55") and len(d) >= 12:
+        d = d[2:]
+    if len(d) == 11:
+        return f"({d[:2]}) {d[2:7]}-{d[7:]}"
+    if len(d) == 10:
+        return f"({d[:2]}) {d[2:6]}-{d[6:]}"
+    return f or ""
 
 
 def _fmt(dt):
@@ -69,7 +80,7 @@ def pagina_testemunhas_pdf(doc: dict, testemunhas: list) -> bytes:
                  f"já firmado pelas partes (MP 2.200-2/2001 · Lei 14.063/2020).")
 
     y = H - 4.6 * cm
-    bloco_h = 3.7 * cm
+    bloco_h = 4.25 * cm
     for t in testemunhas:
         if y - bloco_h < 2.0 * cm:   # nova página se não couber
             c.showPage()
@@ -98,17 +109,23 @@ def pagina_testemunhas_pdf(doc: dict, testemunhas: list) -> bytes:
         c.setFillColor(_CINZA)
         vinc = t.get("parte_vinculada_nome") or ""
         papel = t.get("vinculo") or ""
-        linha2 = f"CPF: {_mask_cpf(t.get('cpf'))}"
+        # qualificação completa: CPF + contato (telefone) + e-mail
+        ident = f"CPF: {_fmt_cpf(t.get('cpf')) or '—'}"
+        if t.get("telefone"):
+            ident += f"  ·  Contato: {_fmt_fone(t.get('telefone'))}"
+        c.drawString(M, y - 2.6 * cm, ident)
+        linha3 = (f"E-mail: {t.get('email')}" if t.get("email") else "")
         if vinc or papel:
-            linha2 += f"  ·  Testemunha de {vinc}{(' (' + papel + ')') if papel else ''}"
-        c.drawString(M, y - 2.65 * cm, linha2)
-        auth = f"Assinado via WhatsApp em {_fmt(t.get('assinado_em'))}"
+            linha3 += f"{'  ·  ' if linha3 else ''}Testemunha de {vinc}{(' (' + papel + ')') if papel else ''}"
+        if linha3:
+            c.drawString(M, y - 2.95 * cm, linha3)
+        auth = f"Assinado eletronicamente via WhatsApp em {_fmt(t.get('assinado_em'))}"
         if t.get("ip"):
             auth += f"  ·  IP {t.get('ip')}"
         if t.get("hash_validacao"):
             auth += f"  ·  cód. {str(t.get('hash_validacao'))[:16]}"
         c.setFont("Helvetica", 7)
-        c.drawString(M, y - 3.05 * cm, auth)
+        c.drawString(M, y - 3.35 * cm, auth)
         y -= bloco_h
 
     c.showPage()
