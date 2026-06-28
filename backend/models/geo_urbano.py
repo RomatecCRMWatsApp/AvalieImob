@@ -196,6 +196,7 @@ class DestinatarioCartorio(BaseModel):
     endereco: str = "Rua Bom Jesus, 236 – Centro – Açailândia/MA"
     cnpj: str = "07.504.590/0001-39"
     titular: str = "Bel. Maria Ester R. de Sampaio – Notária e Registradora"
+    cns: str = ""          # Código Nacional de Serventia (busca automática)
 
 
 class DestinatarioSuperintendencia(BaseModel):

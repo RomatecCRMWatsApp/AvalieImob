@@ -7,7 +7,7 @@ import {
   ArrowLeft, Upload, Trash2, Plus, FileText, AlertTriangle, CheckCircle2,
   Download, Eye, RefreshCw,
 } from 'lucide-react';
-import { geoUrbanoAPI, assinaturaPosAPI, brandingAPI, perfilAPI } from '../../../lib/api';
+import { geoUrbanoAPI, assinaturaPosAPI, brandingAPI, perfilAPI, georefAPI } from '../../../lib/api';
 import { useToast } from '../../../hooks/use-toast';
 import { BrandSpinner } from '../../brand/BrandSpinner';
 import AssinaturaPosicionadaModal from '../assinatura/AssinaturaPosicionadaModal';
@@ -121,6 +121,7 @@ export default function GeoUrbanoWizard() {
   const previewUrlRef = useRef('');
   const [firmaTecnico, setFirmaTecnico] = useState('');   // b64 da assinatura gráfica do RT
   const [firmaBusy, setFirmaBusy] = useState(false);
+  const [cnsBusy, setCnsBusy] = useState(false);
   const [assinId, setAssinId] = useState(null);
   const [assinaturas, setAssinaturas] = useState({});
   const [preparandoAssin, setPreparandoAssin] = useState(null);
@@ -170,6 +171,22 @@ export default function GeoUrbanoWizard() {
     try { await perfilAPI.setAssinaturaTecnico(''); setFirmaTecnico(''); }
     catch (e) { toast({ title: 'Erro ao remover', variant: 'destructive' }); }
     finally { setFirmaBusy(false); }
+  };
+  // Cartório pelo CNS — reusa a tabela oficial de serventias (mesma do Georref)
+  const buscarCartorioCns = async () => {
+    const cns = (proj.cartorio?.cns || '').replace(/\D/g, '');
+    if (!cns) { toast({ title: 'Informe o CNS da serventia', variant: 'destructive' }); return; }
+    setCnsBusy(true);
+    try {
+      const s = await georefAPI.buscarServentia(cns);
+      const nova = { ...proj.cartorio, cns };
+      if (s.denominacao) nova.nome = s.denominacao;
+      if (s.cidade && s.uf && (!nova.endereco || !nova.endereco.trim())) nova.endereco = `${s.cidade}/${s.uf}`;
+      upd({ cartorio: nova });
+      toast({ title: 'Cartório encontrado', description: `${s.denominacao} — ${s.cidade}/${s.uf}` });
+    } catch (e) {
+      toast({ title: 'CNS não encontrado', description: e?.response?.data?.detail || 'Confira o número.', variant: 'destructive' });
+    } finally { setCnsBusy(false); }
   };
 
   const salvar = useCallback(async (silent = true) => {
@@ -496,6 +513,16 @@ export default function GeoUrbanoWizard() {
           )}
           <section className="rounded-xl border bg-white p-5">
             <h2 className="font-semibold mb-3" style={{ color: GREEN }}>Destinatários do Requerimento (2 vias)</h2>
+            <div className="sm:col-span-2 flex items-end gap-2 mb-3 bg-emerald-50/60 border border-emerald-100 rounded-lg p-3">
+              <div className="flex-1">
+                <Field label="CNS da serventia (Código Nacional) — preenche o cartório automaticamente"
+                  value={proj.cartorio?.cns} onChange={(v) => upd({ cartorio: { ...proj.cartorio, cns: v } })} />
+              </div>
+              <button onClick={buscarCartorioCns} disabled={cnsBusy}
+                className="px-3 py-2 rounded-lg text-sm font-semibold text-white whitespace-nowrap inline-flex items-center gap-1" style={{ background: GREEN }}>
+                <RefreshCw className={`w-3.5 h-3.5 ${cnsBusy ? 'animate-spin' : ''}`} /> {cnsBusy ? 'Buscando…' : 'Buscar pelo CNS'}
+              </button>
+            </div>
             <div className="grid sm:grid-cols-2 gap-3">
               <Field label="Cartório de RI" full value={proj.cartorio?.nome} onChange={(v) => upd({ cartorio: { ...proj.cartorio, nome: v } })} />
               <Field label="Endereço do cartório" value={proj.cartorio?.endereco} onChange={(v) => upd({ cartorio: { ...proj.cartorio, endereco: v } })} />
