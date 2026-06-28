@@ -554,9 +554,12 @@ _PECA_LABEL = {
 
 
 async def _peca_pdf_bytes(db, doc, tipo, tema):
-    """Bytes do PDF de uma peça (Dossiê via merge; demais via gerador)."""
+    """Bytes do PDF de uma peça — versão ASSINADA quando houver (Dossiê via merge)."""
     if tipo == "dossie":
         return await _montar_dossie(db, doc, tema)
+    assinadas = await _pecas_assinadas(db, doc)
+    if assinadas.get(tipo):
+        return assinadas[tipo]
     if tipo in _DOCS_GERAVEIS:
         return await asyncio.to_thread(PDF.gerar_pdf, tipo, doc, tema, doc.get("_brand_logo_bytes"))
     raise HTTPException(status_code=422, detail=f"Peça inválida: {tipo}")
@@ -657,8 +660,41 @@ async def _ub(doc, tipo):
     return out
 
 
+async def _pecas_assinadas(db, doc):
+    """{tipo_peça: bytes} das versões ASSINADAS no app — para o dossiê/envio saírem
+    COM as assinaturas (e não regerados em branco). ICP do técnico (geo_urbano_assinaturas
+    → assinaturas_pdf) p/ Memorial/Mapa; carimbo do proprietário (sessão concluída) p/
+    Requerimento (2 vias) + ART/TRT (vence, é a versão que as partes assinaram)."""
+    out = {}
+    pid, uid = doc.get("id"), doc.get("user_id")
+    try:
+        from routes.assinatura import _load_assinatura_bytes
+        async for rec in db.geo_urbano_assinaturas.find({"projeto_id": pid, "user_id": uid}):
+            if not rec.get("doc"):
+                continue
+            data, _a = await _load_assinatura_bytes(db, "geo_urbano", rec["id"])
+            if data and data[:5] == b"%PDF-":
+                out[rec["doc"]] = data
+    except Exception:  # noqa: BLE001
+        logger.warning("Geo Urbano: falha ao carregar peças ICP assinadas.", exc_info=True)
+    try:
+        s = await db.geo_urbano_assinatura_sessoes.find_one(
+            {"projeto_id": pid, "user_id": uid, "status": "concluido"})
+        for d, key in ((s or {}).get("pdf_keys_final") or {}).items():
+            try:
+                data = await asyncio.to_thread(r2_storage.download_bytes, key)
+                if data and data[:5] == b"%PDF-":
+                    out[d] = data   # proprietário-assinado prevalece p/ req/art
+            except Exception:  # noqa: BLE001
+                continue
+    except Exception:  # noqa: BLE001
+        logger.warning("Geo Urbano: falha ao carregar peças carimbadas do proprietário.", exc_info=True)
+    return out
+
+
 async def _montar_dossie(db, doc, tema):
     logo = doc.get("_brand_logo_bytes")
+    assinadas = await _pecas_assinadas(db, doc)
     capa_pdf = None
     img = await _imagem_imovel_bytes(doc)
     if img:
@@ -668,10 +704,15 @@ async def _montar_dossie(db, doc, tema):
 
     # ── Remembramento / Desdobro: ordem por VIA (cada protocolo um conjunto completo)
     if tipo in ("remembramento", "desdobro"):
-        req_cart = await asyncio.to_thread(PDF.gerar_pdf, "requerimento_cartorio", doc, tema, logo)
-        req_super = await asyncio.to_thread(PDF.gerar_pdf, "requerimento_superintendencia", doc, tema, logo)
-        # Memorial(is) — 1 (remembramento) ou N por lote (desdobro); aprovado vence
-        if uploads.get("memorial_aprovado"):
+        # peça assinada (ICP/carimbo) PREVALECE sobre a regerada em branco
+        req_cart = assinadas.get("requerimento_cartorio") \
+            or await asyncio.to_thread(PDF.gerar_pdf, "requerimento_cartorio", doc, tema, logo)
+        req_super = assinadas.get("requerimento_superintendencia") \
+            or await asyncio.to_thread(PDF.gerar_pdf, "requerimento_superintendencia", doc, tema, logo)
+        # Memorial(is) — assinado ICP > aprovado (upload) > por lote/remembramento (regerado)
+        if assinadas.get("memorial_descritivo"):
+            memoriais = [assinadas["memorial_descritivo"]]
+        elif uploads.get("memorial_aprovado"):
             memoriais = await _ub(doc, "memorial_aprovado")
         elif tipo == "desdobro" and (doc.get("lotes_resultantes") or []):
             memoriais = [await asyncio.to_thread(PDF.gerar_pdf, "memorial_descritivo", projeto_do_lote(doc, lt), tema, logo)
@@ -679,10 +720,14 @@ async def _montar_dossie(db, doc, tema):
         else:
             memoriais = [await asyncio.to_thread(PDF.gerar_pdf, "memorial_descritivo", doc, tema, logo)]
         mapa_atual = await _ub(doc, "mapa_atual")
-        mapa_ato = (await _ub(doc, "mapa_desdobro")) if tipo == "desdobro" else (await _ub(doc, "mapa_remembramento"))
-        if uploads.get("mapa_aprovado"):
+        # Mapa do ato — assinado ICP > aprovado (upload) > upload do ato
+        if assinadas.get("mapa"):
+            mapa_ato = [assinadas["mapa"]]
+        elif uploads.get("mapa_aprovado"):
             mapa_ato = await _ub(doc, "mapa_aprovado")
-        art = await _ub(doc, "art_trt")
+        else:
+            mapa_ato = (await _ub(doc, "mapa_desdobro")) if tipo == "desdobro" else (await _ub(doc, "mapa_remembramento"))
+        art = ([assinadas["art_trt"]] if assinadas.get("art_trt") else await _ub(doc, "art_trt"))
         boleto = await _ub(doc, "art_trt_boleto")
         mapa_ato_titulo = "Mapa de Desdobro" if tipo == "desdobro" else "Mapa de Remembramento"
 
@@ -708,8 +753,8 @@ async def _montar_dossie(db, doc, tema):
     # ── Retificação (e demais): ORDEM_DOSSIE padrão (Quadro + DRL + uploads)
     partes = {}
     for t in ("requerimento_cartorio", "requerimento_superintendencia", "memorial_descritivo", "cadeia_dominical"):
-        partes[t] = await asyncio.to_thread(PDF.gerar_pdf, t, doc, tema, logo)
-    if uploads.get("memorial_aprovado"):
+        partes[t] = assinadas.get(t) or await asyncio.to_thread(PDF.gerar_pdf, t, doc, tema, logo)
+    if not assinadas.get("memorial_descritivo") and uploads.get("memorial_aprovado"):
         partes["memorial_descritivo"] = await _ub(doc, "memorial_aprovado")
     if tipo == "retificacao":
         if not (doc.get("retificacao_analise") or {}).get("cadastral_diffs"):
