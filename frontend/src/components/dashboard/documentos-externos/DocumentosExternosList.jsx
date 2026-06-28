@@ -272,17 +272,20 @@ function ModalTestemunhas({ doc, onClose }) {
   // PASSO 1: cadastra (sem enviar) e vai para o posicionador
   const cadastrarEPosicionar = async () => {
     const validas = linhas.filter((l) => (l.nome || '').trim() && (l.telefone || '').replace(/\D/g, '').length >= 10 && l.parte_vinculada_id);
-    if (!validas.length) { toast({ title: 'Preencha nome, WhatsApp e o vínculo de ao menos uma testemunha', variant: 'destructive' }); return; }
+    // se NÃO há novas e tampouco já cadastradas → exige preencher; senão segue (posiciona as existentes)
+    if (!validas.length && !status.length) { toast({ title: 'Preencha nome, WhatsApp e o vínculo de ao menos uma testemunha', variant: 'destructive' }); return; }
     setBusy(true);
     try {
-      const payload = validas.map((l) => {
-        const sig = sigs.find((s) => s.id === l.parte_vinculada_id) || {};
-        return { nome: l.nome, cpf: l.cpf, rg: l.rg, orgao_emissor: l.orgao_emissor,
-          nacionalidade: l.nacionalidade, estado_civil: l.estado_civil, profissao: l.profissao,
-          endereco: l.endereco, telefone: l.telefone, email: l.email,
-          vinculo: sig.papel || 'testemunha', parte_vinculada_id: sig.id, parte_vinculada_nome: sig.nome };
-      });
-      await testemunhasAssinaturaAPI.cadastrar(_MODULO, doc.id, payload);
+      if (validas.length) {
+        const payload = validas.map((l) => {
+          const sig = sigs.find((s) => s.id === l.parte_vinculada_id) || {};
+          return { nome: l.nome, cpf: l.cpf, rg: l.rg, orgao_emissor: l.orgao_emissor,
+            nacionalidade: l.nacionalidade, estado_civil: l.estado_civil, profissao: l.profissao,
+            endereco: l.endereco, telefone: l.telefone, email: l.email,
+            vinculo: sig.papel || 'testemunha', parte_vinculada_id: sig.id, parte_vinculada_nome: sig.nome };
+        });
+        await testemunhasAssinaturaAPI.cadastrar(_MODULO, doc.id, payload);
+      }
       const p = await testemunhasAssinaturaAPI.preparar(_MODULO, doc.id);
       setPrep(p);
       const init = {};
