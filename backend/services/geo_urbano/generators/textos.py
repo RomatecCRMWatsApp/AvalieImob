@@ -9,11 +9,22 @@ import re
 from typing import List, Optional
 
 
+def controle_cim_auto(base: str) -> str:
+    """Controle do CIM = ÚLTIMO dígito da Quadra + Lote + Unidade (regra de formação).
+    Base 'Distrito.Setor.Quadra.Lote.Unidade' (ex.: 01.10.041.0001.00001 → 111)."""
+    segs = [s for s in re.split(r"[.\-\s/]+", (base or "").strip()) if s]
+    if len(segs) >= 5:
+        q, l, u = segs[2], segs[3], segs[4]
+        if q[-1:].isdigit() and l[-1:].isdigit() and u[-1:].isdigit():
+            return q[-1] + l[-1] + u[-1]
+    return ""
+
+
 def cim_completo(projeto: dict) -> str:
-    """CIM com o dígito de controle: '01.10.041.0001.00001-111'. O controle (3 díg.,
-    informado pela prefeitura/BCI) é zero-padded; sem controle, retorna só a base."""
+    """CIM com o dígito de controle: '01.10.041.0001.00001-111'. Usa o controle
+    INFORMADO (cmi_controle) ou, na ausência, o CALCULADO da Quadra/Lote/Unidade."""
     base = (projeto.get("cmi_resultante") or "").strip()
-    ctrl = re.sub(r"\D", "", str(projeto.get("cmi_controle") or ""))
+    ctrl = re.sub(r"\D", "", str(projeto.get("cmi_controle") or "")) or controle_cim_auto(base)
     return f"{base}-{ctrl.zfill(3)[-3:]}" if (base and ctrl) else base
 
 _LADO_LABEL = {

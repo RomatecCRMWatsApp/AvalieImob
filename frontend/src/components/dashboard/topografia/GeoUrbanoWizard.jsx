@@ -59,6 +59,15 @@ const DOCS_GERAVEIS = [
   ['dossie', 'Dossiê consolidado (capa + sumário + tudo)'],
 ];
 
+// Controle do CIM = último dígito da Quadra + Lote + Unidade (regra de formação)
+function controleCimAuto(base) {
+  const segs = String(base || '').split(/[.\-\s/]+/).filter(Boolean);
+  if (segs.length >= 5 && /\d$/.test(segs[2]) && /\d$/.test(segs[3]) && /\d$/.test(segs[4])) {
+    return segs[2].slice(-1) + segs[3].slice(-1) + segs[4].slice(-1);
+  }
+  return '';
+}
+
 const inp = 'w-full border rounded-lg px-2.5 py-1.5 text-sm';
 const lbl = 'block text-[11px] font-medium text-gray-500 mb-0.5';
 
@@ -84,7 +93,9 @@ function Poligonal({ vertices = [] }) {
   const s = Math.min((W - 2 * pad) / (maxX - minX || 1), (H - 2 * pad) / (maxY - minY || 1));
   const ox = (W - (maxX - minX) * s) / 2, oy = (H - (maxY - minY) * s) / 2;
   const xy = pts.map((p) => ({ x: ox + (p.x - minX) * s, y: H - oy - (p.y - minY) * s, de: p.de, dist: p.dist, conf: p.conf }));
-  const cx = xy.reduce((a, p) => a + p.x, 0) / xy.length, cy = xy.reduce((a, p) => a + p.y, 0) / xy.length;
+  // orientação (shoelace) p/ achar o lado EXTERNO de cada aresta mesmo em poligonal côncava
+  const area2 = xy.reduce((s, p, i) => { const q = xy[(i + 1) % xy.length]; return s + p.x * q.y - q.x * p.y; }, 0);
+  const ccw = area2 > 0;
   const poly = xy.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
   const fmt = (n) => (n == null ? '' : Number(n).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
   return (
@@ -95,8 +106,7 @@ function Poligonal({ vertices = [] }) {
         const b = xy[(i + 1) % xy.length];
         const mx = (p.x + b.x) / 2, my = (p.y + b.y) / 2;
         const ex = b.x - p.x, ey = b.y - p.y, eln = Math.hypot(ex, ey) || 1;
-        let nx = -ey / eln, ny = ex / eln;
-        if (nx * (mx - cx) + ny * (my - cy) < 0) { nx = -nx; ny = -ny; }
+        const nx = ccw ? ey / eln : -ey / eln, ny = ccw ? -ex / eln : ex / eln;   // normal EXTERNA
         const lx = mx + nx * 15, ly = my + ny * 15;
         let ang = Math.atan2(ey, ex) * 180 / Math.PI;
         if (ang > 90 || ang < -90) ang += 180;       // mantém o texto "para cima"
@@ -507,10 +517,13 @@ export default function GeoUrbanoWizard() {
                     onChange={(e) => upd({ cmi_resultante: e.target.value })} />
                   <span className="text-gray-400 font-semibold">—</span>
                   <input className="w-16 border rounded-lg px-2 py-1.5 text-sm text-center font-mono" maxLength={3}
-                    value={proj.cmi_controle || ''} placeholder="111"
+                    value={proj.cmi_controle || ''} placeholder={controleCimAuto(proj.cmi_resultante) || '111'}
                     onChange={(e) => upd({ cmi_controle: e.target.value.replace(/\D/g, '').slice(0, 3) })} />
                 </div>
-                <p className="text-[10px] text-gray-400 mt-0.5">Controle de 3 dígitos (informado pela prefeitura/BCI). Sai como {proj.cmi_resultante || '—'}{proj.cmi_controle ? `-${proj.cmi_controle}` : ''}.</p>
+                <p className="text-[10px] text-gray-400 mt-0.5">
+                  Controle = último dígito da Quadra+Lote+Unidade (calculado automaticamente; edite p/ sobrepor).
+                  Sai como <b>{proj.cmi_resultante || '—'}{(proj.cmi_controle || controleCimAuto(proj.cmi_resultante)) ? `-${proj.cmi_controle || controleCimAuto(proj.cmi_resultante)}` : ''}</b>.
+                </p>
               </div>
               <Field label="Nº da TRT" value={proj.trt_numero} onChange={(v) => upd({ trt_numero: v })} />
               <Field label="Cadastro novo" value={proj.cadastro_novo} onChange={(v) => upd({ cadastro_novo: v })} />

@@ -49,17 +49,19 @@ def croqui_drawing(projeto: dict, width: float = 460, height: float = 340):
     d.add(Polygon(points=[c for p in pts for c in p], fillColor=_FILL,
                   strokeColor=_GREEN, strokeWidth=1.2))
 
+    # orientação do polígono (shoelace) p/ achar o lado EXTERNO de cada aresta mesmo
+    # em poligonal CÔNCAVA ("L") — o offset por centroide jogava rótulos para dentro.
+    area2 = sum(pts[i][0] * pts[(i + 1) % len(pts)][1] - pts[(i + 1) % len(pts)][0] * pts[i][1]
+                for i in range(len(pts)))
+    ccw = area2 > 0
     # medidas + confrontante por aresta — rótulo no MEIO da aresta, deslocado pela
-    # NORMAL (para fora) E ROTACIONADO para acompanhar a direção do segmento (azimute),
-    # como num croqui de agrimensura.
+    # NORMAL EXTERNA E ROTACIONADO para acompanhar a direção do segmento (azimute).
     for i, v in enumerate(verts):
         a, b = pts[i], pts[(i + 1) % len(pts)]
         mx, my = (a[0] + b[0]) / 2, (a[1] + b[1]) / 2
         ex, ey = b[0] - a[0], b[1] - a[1]
         eln = (ex * ex + ey * ey) ** 0.5 or 1
-        nx, ny = -ey / eln, ex / eln                 # normal à aresta
-        if nx * (mx - cx) + ny * (my - cy) < 0:      # garante apontar p/ FORA
-            nx, ny = -nx, -ny
+        nx, ny = (ey / eln, -ex / eln) if ccw else (-ey / eln, ex / eln)   # normal EXTERNA
         lx, ly = mx + nx * 14, my + ny * 14
         ang = math.degrees(math.atan2(ey, ex))
         if ang > 90 or ang < -90:                    # mantém o texto "para cima"
