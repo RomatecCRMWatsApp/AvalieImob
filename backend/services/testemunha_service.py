@@ -268,10 +268,12 @@ async def excluir_testemunha(db, modulo: str, doc_id: str, uid: str, tid: str) -
 
 
 async def paginas_vigentes(db, modulo: str, doc_id: str, uid: str) -> dict:
-    """Páginas renderizadas do PDF vigente + as testemunhas cadastradas (p/ posicionar)."""
+    """Páginas do CONTRATO (revisão das PARTES) p/ posicionar — MESMA base em que o
+    carimbo da firma é aplicado (`pdf_key_partes`), p/ os índices de página baterem.
+    NÃO renderiza a página de qualificação/CNH (essas são geradas pelo sistema)."""
     doc = await carregar_doc(db, modulo, doc_id, uid)
     from services.pdf_preview import renderizar_paginas
-    key = _pdf_key_vigente(doc)
+    key = doc.get("pdf_key_partes") or _pdf_key_vigente(doc)
     paginas = []
     if key:
         raw = await asyncio.to_thread(r2_storage.download_bytes, key)
