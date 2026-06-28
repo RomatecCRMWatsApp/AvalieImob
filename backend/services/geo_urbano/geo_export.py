@@ -13,6 +13,7 @@ import tempfile
 import zipfile
 
 from services.georef.geo import SIRGAS2000_PRJ, _orientar_horario
+from services.geo_urbano.generators import textos as TX
 
 # Campos do DBF (atributos da feição na malha fundiária)
 _FIELDS = [
@@ -84,7 +85,7 @@ def gerar_geojson(projeto: dict) -> dict:
     for rotulo, anel in _features(projeto):
         feats.append({"type": "Feature",
                       "properties": {"denominacao": rotulo, "matricula": _matriculas_str(projeto),
-                                     "cmi": projeto.get("cmi_resultante"), "proprietario": nome_prop},
+                                     "cmi": TX.cim_completo(projeto), "proprietario": nome_prop},
                       "geometry": {"type": "Polygon", "coordinates": [[list(p) for p in anel]]}})
     return {"type": "FeatureCollection", "crs": {"type": "name",
             "properties": {"name": "urn:ogc:def:crs:EPSG::4674"}}, "features": feats}
@@ -123,7 +124,7 @@ def gerar_shapefile_bytes(projeto: dict) -> bytes:
     for rotulo, ring in feats:
         # área/perímetro em metros (UTM) — usa coord_e/coord_n se houver, senão deixa 0
         w.poly([[list(p) for p in ring]])
-        w.record(mats[:80], (rotulo or "")[:100], str(projeto.get("cmi_resultante") or "")[:40],
+        w.record(mats[:80], (rotulo or "")[:100], str(TX.cim_completo(projeto) or "")[:40],
                  (nome_prop or "")[:100], str(doc or "")[:20],
                  float(projeto.get("area_declarada_m2") or 0), float(projeto.get("perimetro_m") or 0),
                  (projeto.get("municipio") or "")[:60], str(projeto.get("uf") or "")[:2], "SIRGAS2000")

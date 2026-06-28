@@ -232,7 +232,7 @@ def compor_capa(projeto: dict, img_bytes: bytes, zoom=1.18, center=(0.5, 0.5)) -
     pares = [
         ("Denominação", projeto.get("denominacao_imovel") or ""),
         ("Serviço · Área", f"{SERVICO_TITULO.get(projeto.get('tipo_servico'), '').title()} · {TX.m2(projeto.get('area_declarada_m2'))}"),
-        ("CMI resultante", f"{projeto.get('cmi_resultante') or '—'}   (antigo: {projeto.get('cadastro_antigo') or '—'})"),
+        ("CMI resultante", f"{TX.cim_completo(projeto) or '—'}   (antigo: {projeto.get('cadastro_antigo') or '—'})"),
         ("Requerente", req or "—"),
         ("Resp. Técnico", f"{rt.get('nome') or ''} — {rt.get('conselho') or ''}"),
     ]

@@ -322,7 +322,7 @@ def requerimento(projeto: dict, via: str, tema: str, logo_bytes=None) -> bytes:
     pares = [p for p in [
         ("Cadastro novo", projeto.get("cadastro_novo"), 2),
         ("Cadastro antigo", projeto.get("cadastro_antigo"), 2),
-        ("CMI resultante", projeto.get("cmi_resultante"), 2),
+        ("CMI resultante", TX.cim_completo(projeto), 2),
         ("Área total", TX.m2(projeto.get("area_declarada_m2"))),
         ("Perímetro", TX.metros(projeto.get("perimetro_m"))),
     ] if p[1]]
@@ -357,7 +357,7 @@ def memorial(projeto: dict, tema: str, logo_bytes=None) -> bytes:
         ("Área", TX.m2(projeto.get("area_declarada_m2"))),
         ("Perímetro", TX.metros(projeto.get("perimetro_m"))),
         ("Município/UF", f"{projeto.get('municipio') or ''}/{projeto.get('uf') or ''}", 2),
-        ("CIM", projeto.get("cmi_resultante")),
+        ("CIM", TX.cim_completo(projeto)),
         ("TRT", projeto.get("trt_numero") or "—"),
     ] if p[1]]
     story.append(_ficha_compacta(pares, cfg, st, L))
@@ -485,7 +485,7 @@ def oficio_aprovacao(projeto: dict, tema: str, logo_bytes=None) -> bytes:
         f"A {sup.get('nome') or 'Superintendência de Habitação e Regularização Fundiária'}, "
         f"no uso de suas atribuições, COMUNICA a APROVAÇÃO do Memorial Descritivo e do Mapa "
         f"referentes ao imóvel {projeto.get('denominacao_imovel') or ''}, CMI "
-        f"{projeto.get('cmi_resultante') or '—'}, com área de {TX.m2(projeto.get('area_declarada_m2'))} "
+        f"{TX.cim_completo(projeto) or '—'}, com área de {TX.m2(projeto.get('area_declarada_m2'))} "
         f"e perímetro de {TX.metros(projeto.get('perimetro_m'))}, AUTORIZANDO {acao}, com a abertura/"
         f"averbação do ato no Registro de Imóveis, conforme as peças técnicas aprovadas e anexas."
     )

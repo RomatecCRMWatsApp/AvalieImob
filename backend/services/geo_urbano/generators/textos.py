@@ -5,7 +5,16 @@
 # imóvel resultante a partir dos vértices do mapa (Memorial §7.3).
 from __future__ import annotations
 
+import re
 from typing import List, Optional
+
+
+def cim_completo(projeto: dict) -> str:
+    """CIM com o dígito de controle: '01.10.041.0001.00001-111'. O controle (3 díg.,
+    informado pela prefeitura/BCI) é zero-padded; sem controle, retorna só a base."""
+    base = (projeto.get("cmi_resultante") or "").strip()
+    ctrl = re.sub(r"\D", "", str(projeto.get("cmi_controle") or ""))
+    return f"{base}-{ctrl.zfill(3)[-3:]}" if (base and ctrl) else base
 
 _LADO_LABEL = {
     "frente": "FRENTE", "lateral_direita": "LATERAL DIREITA",

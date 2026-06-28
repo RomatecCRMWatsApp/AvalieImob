@@ -317,6 +317,7 @@ class GeoUrbanoProjeto(BaseModel):
     lote_resultante: Optional[str] = None
     endereco: Optional[str] = None
     cmi_resultante: Optional[str] = None
+    cmi_controle: Optional[str] = None     # controle de 3 dígitos do CIM (base-NNN)
     cadastro_novo: Optional[str] = None
     cadastro_antigo: Optional[str] = None
     area_declarada_m2: Optional[float] = None   # soma registral declarada (oficial)
@@ -390,6 +391,7 @@ class AtualizarProjetoBody(BaseModel):
     lote_resultante: Optional[str] = None
     endereco: Optional[str] = None
     cmi_resultante: Optional[str] = None
+    cmi_controle: Optional[str] = None     # controle de 3 dígitos do CIM (base-NNN)
     cadastro_novo: Optional[str] = None
     cadastro_antigo: Optional[str] = None
     area_declarada_m2: Optional[float] = None

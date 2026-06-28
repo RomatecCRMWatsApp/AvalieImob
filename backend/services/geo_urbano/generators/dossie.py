@@ -113,7 +113,7 @@ def _capa_bytes(projeto: dict) -> bytes:
         ("Município/UF", f"{projeto.get('municipio') or ''}/{projeto.get('uf') or ''}"),
         ("Quadra / Lote resultante", f"{projeto.get('quadra') or ''} / {projeto.get('lote_resultante') or ''}"),
         ("Lotes de origem", projeto.get("cadastro_antigo") or ""),
-        ("CMI resultante", projeto.get("cmi_resultante") or ""),
+        ("CMI resultante", TX.cim_completo(projeto) or ""),
         ("Área", TX.m2(projeto.get("area_declarada_m2"))),
         ("Perímetro", TX.metros(projeto.get("perimetro_m"))),
         ("Nº da TRT", projeto.get("trt_numero") or "—"),

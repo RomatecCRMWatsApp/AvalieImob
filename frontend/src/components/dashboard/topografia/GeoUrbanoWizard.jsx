@@ -217,7 +217,7 @@ export default function GeoUrbanoWizard() {
         denominacao_imovel: p.denominacao_imovel, tipo_servico: p.tipo_servico, tema: p.tema,
         municipio: p.municipio, uf: p.uf, bairro: p.bairro, loteamento: p.loteamento,
         quadra: p.quadra, lote_resultante: p.lote_resultante, endereco: p.endereco,
-        cmi_resultante: p.cmi_resultante, cadastro_novo: p.cadastro_novo, cadastro_antigo: p.cadastro_antigo,
+        cmi_resultante: p.cmi_resultante, cmi_controle: p.cmi_controle, cadastro_novo: p.cadastro_novo, cadastro_antigo: p.cadastro_antigo,
         area_declarada_m2: p.area_declarada_m2 === '' ? null : Number(p.area_declarada_m2),
         perimetro_m: p.perimetro_m === '' ? null : Number(p.perimetro_m),
         trt_numero: p.trt_numero, cartorio: p.cartorio, superintendencia: p.superintendencia,
@@ -500,7 +500,18 @@ export default function GeoUrbanoWizard() {
               <Field label="Quadra" value={proj.quadra} onChange={(v) => upd({ quadra: v })} />
               <Field label="Lote resultante" value={proj.lote_resultante} onChange={(v) => upd({ lote_resultante: v })} />
               <Field label="Endereço" full value={proj.endereco} onChange={(v) => upd({ endereco: v })} />
-              <Field label="CMI resultante" value={proj.cmi_resultante} onChange={(v) => upd({ cmi_resultante: v })} />
+              <div>
+                <label className={lbl}>CMI resultante (base — controle)</label>
+                <div className="flex items-center gap-1">
+                  <input className={inp} value={proj.cmi_resultante || ''} placeholder="01.10.041.0001.00001"
+                    onChange={(e) => upd({ cmi_resultante: e.target.value })} />
+                  <span className="text-gray-400 font-semibold">—</span>
+                  <input className="w-16 border rounded-lg px-2 py-1.5 text-sm text-center font-mono" maxLength={3}
+                    value={proj.cmi_controle || ''} placeholder="111"
+                    onChange={(e) => upd({ cmi_controle: e.target.value.replace(/\D/g, '').slice(0, 3) })} />
+                </div>
+                <p className="text-[10px] text-gray-400 mt-0.5">Controle de 3 dígitos (informado pela prefeitura/BCI). Sai como {proj.cmi_resultante || '—'}{proj.cmi_controle ? `-${proj.cmi_controle}` : ''}.</p>
+              </div>
               <Field label="Nº da TRT" value={proj.trt_numero} onChange={(v) => upd({ trt_numero: v })} />
               <Field label="Cadastro novo" value={proj.cadastro_novo} onChange={(v) => upd({ cadastro_novo: v })} />
               <Field label="Cadastro antigo" value={proj.cadastro_antigo} onChange={(v) => upd({ cadastro_antigo: v })} />
