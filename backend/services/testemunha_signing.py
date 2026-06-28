@@ -71,6 +71,33 @@ def anexar_pagina_incremental(pdf_bytes: bytes, pagina_pdf_bytes: bytes) -> byte
             pass
 
 
+def aplicar_sumario_incremental(pdf_bytes: bytes, toc: list) -> bytes:
+    """Define o SUMÁRIO/índice (marcadores) do PDF via INCREMENTAL UPDATE (append-only) —
+    preserva as assinaturas. `toc` = [[nivel, titulo, pagina_1idx], ...]. Em falha,
+    devolve o PDF original (best-effort)."""
+    if not toc:
+        return pdf_bytes
+    tmp = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
+    try:
+        tmp.write(pdf_bytes)
+        tmp.close()
+        doc = fitz.open(tmp.name)
+        try:
+            doc.set_toc(toc)
+            doc.save(tmp.name, incremental=True, encryption=fitz.PDF_ENCRYPT_KEEP)
+        finally:
+            doc.close()
+        with open(tmp.name, "rb") as fh:
+            return fh.read()
+    except Exception:  # noqa: BLE001
+        return pdf_bytes
+    finally:
+        try:
+            os.unlink(tmp.name)
+        except Exception:  # noqa: BLE001
+            pass
+
+
 def assinar_pades_incremental(pdf_bytes: bytes, pfx_bytes: bytes, password: str,
                               field_name: str, reason: str = "Assinatura de testemunha — Romatec AvalieImob") -> bytes:
     """Anexa uma assinatura PAdES ADICIONAL (incremental) num campo `field_name` único.

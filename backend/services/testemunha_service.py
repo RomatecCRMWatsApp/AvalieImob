@@ -77,8 +77,22 @@ async def _reconstruir_vigente(doc: dict):
             wd, ht = float(pos.get("larg_pt", 160)), float(pos.get("alt_pt", 60))
             novo = await asyncio.to_thread(carimbar_incremental, novo, int(pos.get("pagina", 0)),
                                            (x, y, x + wd, y + ht), wpng, leg)
+    import fitz  # PyMuPDF — p/ contar páginas e montar o sumário (marcadores)
+
+    def _npags(bts):
+        try:
+            with fitz.open(stream=bts, filetype="pdf") as d:
+                return d.page_count
+        except Exception:  # noqa: BLE001
+            return 1
+
+    # SUMÁRIO navegável (marcadores): Contrato + Testemunhas + a CNH de cada testemunha
+    toc = [[1, "Contrato", 1]]
+    pag = _npags(novo) + 1
     pagina = await asyncio.to_thread(pagina_testemunhas_pdf, doc, testemunhas)
     novo = await asyncio.to_thread(anexar_pagina_incremental, novo, pagina)
+    toc.append([1, "Testemunhas — qualificação", pag])
+
     # anexa CNH/RG de cada testemunha que enviou (vai JUNTO no documento p/ análise) —
     # PDF (CNH-e) entra DIRETO com suas páginas (sem página de rótulo vazia); foto entra
     # renderizada numa página A4.
@@ -91,7 +105,9 @@ async def _reconstruir_vigente(doc: dict):
         if d.get("pdf_key"):
             try:
                 pdf_raw = await asyncio.to_thread(r2_storage.download_bytes, d["pdf_key"])
+                pag = _npags(novo) + 1
                 novo = await asyncio.to_thread(anexar_pagina_incremental, novo, pdf_raw)
+                toc.append([1, f"Documento de identidade — {w.get('nome')}", pag])
             except Exception:  # noqa: BLE001
                 logger.warning("Testemunha: falha ao anexar CNH (PDF).", exc_info=True)
         for face, fk in (("frente", d.get("frente_key")), ("verso", d.get("verso_key"))):
@@ -102,8 +118,15 @@ async def _reconstruir_vigente(doc: dict):
                 except Exception:  # noqa: BLE001
                     pass
     if docs_itens:
+        pag = _npags(novo) + 1
         docpag = await asyncio.to_thread(pagina_documentos_pdf, docs_itens)
         novo = await asyncio.to_thread(anexar_pagina_incremental, novo, docpag)
+        toc.append([1, "Documentos das testemunhas", pag])
+
+    # aplica o sumário (marcadores) — append-only, preserva as assinaturas
+    from services.testemunha_signing import aplicar_sumario_incremental
+    novo = await asyncio.to_thread(aplicar_sumario_incremental, novo, toc)
+
     key_out = f"testemunhas/{doc['user_id']}/{doc['id']}_testemunhas.pdf"
     await asyncio.to_thread(r2_storage.upload_bytes, novo, key_out, "application/pdf")
     return key_out, hashlib.sha256(novo).hexdigest()
