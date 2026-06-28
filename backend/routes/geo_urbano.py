@@ -22,6 +22,7 @@ from models.geo_urbano import (
 from services import r2_storage
 from services.geo_urbano import reconcile as RECONCILE
 from services.geo_urbano import geometria as GEOM
+from services.geo_urbano import geo_export as GEXP
 from services.geo_urbano import aprovacao as APROVACAO
 from services.geo_urbano import extractor as EX
 from services.geo_urbano import assinatura_proprietario as PROP
@@ -474,6 +475,36 @@ async def baixar_documento(pid: str, tipo: str, tema: str = Query(None), lote: s
         raise HTTPException(status_code=422, detail=f"Documento inválido: {tipo}")
     return Response(content=data, media_type=_PDF,
                     headers={"Content-Disposition": f'inline; filename="{nome}"'})
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# SIG-RI (Prov. CNJ 195/2025) — Shapefile + KML + GeoJSON (malha fundiária do RI)
+# ──────────────────────────────────────────────────────────────────────────────
+@router.get("/projetos/{pid}/shapefile")
+async def baixar_shapefile(pid: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    doc = await _get(db, pid, uid)
+    try:
+        data = await asyncio.to_thread(GEXP.gerar_shapefile_bytes, doc)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    nome = f"SIGRI_{(doc.get('numero') or pid)}.zip"
+    return Response(content=data, media_type="application/zip",
+                    headers={"Content-Disposition": f'attachment; filename="{nome}"'})
+
+
+@router.get("/projetos/{pid}/kml")
+async def baixar_kml(pid: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    doc = await _get(db, pid, uid)
+    kml = await asyncio.to_thread(GEXP.gerar_kml, doc)
+    nome = f"{(doc.get('numero') or pid)}.kml"
+    return Response(content=kml.encode("utf-8"), media_type="application/vnd.google-earth.kml+xml",
+                    headers={"Content-Disposition": f'attachment; filename="{nome}"'})
+
+
+@router.get("/projetos/{pid}/geojson")
+async def baixar_geojson(pid: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    doc = await _get(db, pid, uid)
+    return GEXP.gerar_geojson(doc)
 
 
 async def _imagem_imovel_bytes(doc):

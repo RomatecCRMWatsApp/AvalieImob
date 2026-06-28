@@ -1009,6 +1009,20 @@ export default function GeoUrbanoWizard() {
               </div>
             </div>
           ))}
+          <div className="rounded-xl border bg-white p-4">
+            <div className="text-sm font-semibold mb-1" style={{ color: GREEN }}>Arquivos geoespaciais — SIG-RI (Prov. CNJ 195/2025)</div>
+            <p className="text-[11px] text-gray-500 mb-2">Obrigatório para alimentar a malha fundiária do Registro de Imóveis (SIRGAS 2000 / EPSG:4674). Exige Latitude/Longitude dos vértices.</p>
+            <div className="flex gap-2 flex-wrap">
+              <button onClick={() => geoUrbanoAPI.shapefile(id).then((b) => salvarBlob(b, `SIGRI_${nb}.zip`)).catch(() => toast({ title: 'Erro ao gerar o Shapefile', description: 'Confira se os vértices têm Latitude/Longitude.', variant: 'destructive' }))}
+                className="text-xs inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-white" style={{ background: GREEN }}>
+                <Download className="w-3.5 h-3.5" /> Shapefile SIG-RI (.zip)
+              </button>
+              <button onClick={() => geoUrbanoAPI.kml(id).then((b) => salvarBlob(b, `${nb}.kml`)).catch(() => toast({ title: 'Erro ao gerar o KML', variant: 'destructive' }))}
+                className="text-xs inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border hover:bg-gray-50">
+                <Download className="w-3.5 h-3.5" /> KML (Google Earth)
+              </button>
+            </div>
+          </div>
           {isDesdobro && lotes.length > 0 && (
             <div className="rounded-xl border bg-white p-4">
               <div className="text-sm font-semibold mb-2" style={{ color: GREEN }}>Memoriais por lote resultante</div>

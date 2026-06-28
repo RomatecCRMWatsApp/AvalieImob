@@ -12,6 +12,7 @@ from services.geo_urbano import geometria as GEOM
 from services.geo_urbano import reconcile as RECONCILE
 from services.geo_urbano import aprovacao as APROVACAO
 from services.geo_urbano import extractor as EX
+from services.geo_urbano import geo_export as GX
 
 
 def _mk_pdf(linhas):
@@ -416,6 +417,18 @@ def test_retificacao_quadro_e_requerimento():
     assert "retifique-se" in TX.relacao_retificacao(p)
     assert _paginas(PDF.gerar_pdf("quadro_retificacao", p, "prime_i")) >= 1
     assert _paginas(PDF.gerar_pdf("requerimento_cartorio", p, "prime_i")) >= 1
+
+
+def test_sigri_shapefile_e_kml(proj):
+    # Prov. CNJ 195/2025: shapefile SIG-RI (SHP/SHX/DBF/PRJ) + KML a partir do lat/long
+    assert round(GX._dms_to_dec("04°56'15,475979\"S"), 4) == -4.9376
+    assert round(GX._dms_to_dec("47°27'59,462032\"W"), 4) == -47.4665
+    import zipfile
+    z = GX.gerar_shapefile_bytes(proj)
+    exts = sorted(n.rsplit(".", 1)[-1] for n in zipfile.ZipFile(io.BytesIO(z)).namelist())
+    assert exts == ["dbf", "prj", "shp", "shx"]
+    kml = GX.gerar_kml(proj)
+    assert kml.startswith("<?xml") and "<coordinates>" in kml
 
 
 def test_aprovacao_matriz_papeis(proj):
