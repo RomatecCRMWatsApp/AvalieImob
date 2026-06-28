@@ -186,6 +186,57 @@ def pagina_rotulo_anexo(titulo: str, subtitulo: str = "") -> bytes:
     return buf.getvalue()
 
 
+def pagina_sumario_anexos(itens: list, titulo_doc: str = "") -> bytes:
+    """Índice (sumário) dos ANEXOS, no estilo do contrato (verde/dourado) — lista cada
+    seção anexada com o nº da página. `itens` = [(label, pagina_1idx)]."""
+    W, H = A4
+    M = 2.4 * cm
+    _CAIXA = HexColor("#F3E9C9")
+    buf = io.BytesIO()
+    c = rl_canvas.Canvas(buf, pagesize=A4)
+    c.setFillColor(_DOURADO)
+    c.setFont("Helvetica-Bold", 10)
+    c.drawCentredString(W / 2, H - 2.7 * cm, "ROMATEC CONSULTORIA TOTAL")
+    c.setFillColor(_VERDE)
+    c.setFont("Helvetica-Bold", 24)
+    c.drawCentredString(W / 2, H - 3.6 * cm, "ANEXOS")
+    c.setFillColor(_CINZA)
+    c.setFont("Helvetica-Oblique", 10.5)
+    c.drawCentredString(W / 2, H - 4.2 * cm, "Qualificação das testemunhas e documentos de identidade")
+    c.setStrokeColor(_DOURADO)
+    c.setLineWidth(1.3)
+    c.line(W / 2 - 3.2 * cm, H - 4.55 * cm, W / 2 + 3.2 * cm, H - 4.55 * cm)
+    y = H - 6.0 * cm
+    for label, pg in itens:
+        bw, bh = 1.25 * cm, 0.62 * cm
+        bx, by = W - M - bw, y - 0.18 * cm
+        c.setFillColor(black)
+        c.setFont("Helvetica-Bold", 11.5)
+        lbl_w = c.stringWidth(label, "Helvetica-Bold", 11.5)
+        c.drawString(M, y, label)
+        # leader pontilhado entre o texto e a caixa
+        c.setStrokeColor(HexColor("#CFCFCF"))
+        c.setLineWidth(0.6)
+        c.setDash(1, 3)
+        c.line(M + lbl_w + 6, y + 2, bx - 6, y + 2)
+        c.setDash()
+        # caixa dourada com o nº da página
+        c.setFillColor(_CAIXA)
+        c.setStrokeColor(_DOURADO)
+        c.setLineWidth(1.0)
+        c.roundRect(bx, by, bw, bh, 4, fill=1, stroke=1)
+        c.setFillColor(_VERDE)
+        c.setFont("Helvetica-Bold", 11)
+        c.drawCentredString(bx + bw / 2, by + 0.18 * cm, str(pg))
+        y -= 1.05 * cm
+    c.setFillColor(_CINZA)
+    c.setFont("Helvetica-Oblique", 8)
+    c.drawCentredString(W / 2, 2.0 * cm, f"Complemento do sumário — {titulo_doc}" if titulo_doc else "Complemento do sumário do instrumento")
+    c.showPage()
+    c.save()
+    return buf.getvalue()
+
+
 def pagina_documentos_pdf(itens: list) -> bytes:
     """itens = [(label, img_bytes)] — uma página A4 por documento (CNH/RG) da testemunha,
     com cabeçalho + legenda. Imagem ajustada à página preservando a proporção."""

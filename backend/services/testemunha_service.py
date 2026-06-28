@@ -77,7 +77,8 @@ async def _reconstruir_vigente(doc: dict):
             wd, ht = float(pos.get("larg_pt", 160)), float(pos.get("alt_pt", 60))
             novo = await asyncio.to_thread(carimbar_incremental, novo, int(pos.get("pagina", 0)),
                                            (x, y, x + wd, y + ht), wpng, leg)
-    import fitz  # PyMuPDF — p/ contar páginas e montar o sumário (marcadores)
+    import fitz  # PyMuPDF — p/ contar páginas e montar o sumário
+    from services.testemunha_pagina import (pagina_documentos_pdf, pagina_sumario_anexos)
 
     def _npags(bts):
         try:
@@ -86,44 +87,57 @@ async def _reconstruir_vigente(doc: dict):
         except Exception:  # noqa: BLE001
             return 1
 
-    # SUMÁRIO navegável (marcadores): Contrato + Testemunhas + a CNH de cada testemunha
-    toc = [[1, "Contrato", 1]]
-    pag = _npags(novo) + 1
-    pagina = await asyncio.to_thread(pagina_testemunhas_pdf, doc, testemunhas)
-    novo = await asyncio.to_thread(anexar_pagina_incremental, novo, pagina)
-    toc.append([1, "Testemunhas — qualificação", pag])
+    contract_pages = _npags(novo)            # páginas do contrato (após o carimbo)
+    titulo = doc.get("titulo") or doc.get("numero_contrato") or "instrumento"
 
-    # anexa CNH/RG de cada testemunha que enviou (vai JUNTO no documento p/ análise) —
-    # PDF (CNH-e) entra DIRETO com suas páginas (sem página de rótulo vazia); foto entra
-    # renderizada numa página A4.
-    from services.testemunha_pagina import pagina_documentos_pdf
-    docs_itens = []
+    # 1) prepara as peças anexas e CONTA as páginas p/ numerar o índice
+    qual_pdf = await asyncio.to_thread(pagina_testemunhas_pdf, doc, testemunhas)
+    qpages = _npags(qual_pdf)
+    cnhs = []        # (nome, pdf_raw, npags)
+    fotos = []       # (label, img_bytes)
     for w in testemunhas:
         d = w.get("documento") or {}
         if not d.get("anexar_ao_pdf", True):
             continue
         if d.get("pdf_key"):
             try:
-                pdf_raw = await asyncio.to_thread(r2_storage.download_bytes, d["pdf_key"])
-                pag = _npags(novo) + 1
-                novo = await asyncio.to_thread(anexar_pagina_incremental, novo, pdf_raw)
-                toc.append([1, f"Documento de identidade — {w.get('nome')}", pag])
+                raw = await asyncio.to_thread(r2_storage.download_bytes, d["pdf_key"])
+                cnhs.append((w.get("nome"), raw, _npags(raw)))
             except Exception:  # noqa: BLE001
-                logger.warning("Testemunha: falha ao anexar CNH (PDF).", exc_info=True)
+                logger.warning("Testemunha: falha ao baixar CNH (PDF).", exc_info=True)
         for face, fk in (("frente", d.get("frente_key")), ("verso", d.get("verso_key"))):
             if fk:
                 try:
                     img = await asyncio.to_thread(r2_storage.download_bytes, fk)
-                    docs_itens.append((f"{w.get('nome')} — {d.get('tipo') or 'CNH'} ({face})", img))
+                    fotos.append((f"{w.get('nome')} — {d.get('tipo') or 'CNH'} ({face})", img))
                 except Exception:  # noqa: BLE001
                     pass
-    if docs_itens:
-        pag = _npags(novo) + 1
-        docpag = await asyncio.to_thread(pagina_documentos_pdf, docs_itens)
-        novo = await asyncio.to_thread(anexar_pagina_incremental, novo, docpag)
-        toc.append([1, "Documentos das testemunhas", pag])
 
-    # aplica o sumário (marcadores) — append-only, preserva as assinaturas
+    # 2) numeração (1-idx): contrato → [índice de anexos] → qualificação → CNHs → fotos
+    idx_itens, toc = [], [[1, "Contrato", 1]]
+    p = contract_pages + 2                   # +1 do índice, +1 = começo da qualificação
+    idx_itens.append(("Testemunhas — Qualificação", p))
+    toc += [[1, "Anexos (índice)", contract_pages + 1], [1, "Testemunhas — qualificação", p]]
+    p += qpages
+    for nome, _raw, npg in cnhs:
+        idx_itens.append((f"Documento de Identidade — {nome}", p))
+        toc.append([1, f"Documento de identidade — {nome}", p])
+        p += npg
+    if fotos:
+        idx_itens.append(("Documentos (fotos)", p))
+        toc.append([1, "Documentos das testemunhas", p])
+
+    # 3) monta: índice de anexos → qualificação → CNHs (direto) → fotos (append-only)
+    idx_pdf = await asyncio.to_thread(pagina_sumario_anexos, idx_itens, titulo)
+    novo = await asyncio.to_thread(anexar_pagina_incremental, novo, idx_pdf)
+    novo = await asyncio.to_thread(anexar_pagina_incremental, novo, qual_pdf)
+    for _nome, raw, _npg in cnhs:
+        novo = await asyncio.to_thread(anexar_pagina_incremental, novo, raw)
+    if fotos:
+        docpag = await asyncio.to_thread(pagina_documentos_pdf, fotos)
+        novo = await asyncio.to_thread(anexar_pagina_incremental, novo, docpag)
+
+    # 4) sumário navegável (marcadores) — append-only, preserva as assinaturas
     from services.testemunha_signing import aplicar_sumario_incremental
     novo = await asyncio.to_thread(aplicar_sumario_incremental, novo, toc)
 
@@ -169,14 +183,14 @@ async def cadastrar(db, modulo: str, doc_id: str, uid: str, lista: list) -> list
 
 
 async def posicionar(db, modulo: str, doc_id: str, uid: str, posicoes: dict) -> dict:
-    """Salva os retângulos (posições) por testemunha — {tid: [{pagina,x_pt,y_pt,larg_pt,alt_pt}]}."""
+    """Salva os retângulos (posições) por testemunha — {tid: [{pagina,x_pt,y_pt,larg_pt,alt_pt}]}.
+    Também RECONSTRÓI a revisão vigente (aplica índice/CNH-direto/sumário ao doc atual)."""
     doc = await carregar_doc(db, modulo, doc_id, uid)
     testemunhas = doc.get("testemunhas") or []
     for t in testemunhas:
         if t["id"] in (posicoes or {}):
             t["posicoes"] = posicoes[t["id"]] or []
-    await db[_col(modulo)].update_one({"id": doc_id, "user_id": uid},
-                                      {"$set": {"testemunhas": testemunhas, "updated_at": datetime.utcnow()}})
+    await _aplicar_e_reconstruir(db, modulo, doc_id, uid, doc, testemunhas)
     return {"ok": True}
 
 
