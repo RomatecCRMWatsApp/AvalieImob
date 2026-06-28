@@ -353,6 +353,11 @@ class GeoUrbanoProjeto(BaseModel):
     uploads: dict = Field(default_factory=dict)             # {tipo: [{id,key,...}]}
     documentos_gerados: dict = Field(default_factory=dict)  # {tipo: {key, gerado_em}}
     campos_editados: dict = Field(default_factory=dict)
+    # auditoria
+    extracao_em: Optional[str] = None       # ISO da última extração dos documentos
+    extracao_por: Optional[str] = None
+    etapas_concluidas: dict = Field(default_factory=dict)     # {step_index: True}
+    etapas_concluidas_em: dict = Field(default_factory=dict)  # {step_index: ISO}
     completude: int = 0
     created_at: datetime = Field(default_factory=_agora)
     updated_at: datetime = Field(default_factory=_agora)
@@ -408,6 +413,9 @@ class AtualizarProjetoBody(BaseModel):
     vertices_atual: Optional[List[dict]] = None
     retificacao_analise: Optional[dict] = None
     confrontantes: Optional[List[dict]] = None
+    # auditoria por etapa
+    etapas_concluidas: Optional[dict] = None
+    etapas_concluidas_em: Optional[dict] = None
 
 
 class GerarDocumentosBody(BaseModel):

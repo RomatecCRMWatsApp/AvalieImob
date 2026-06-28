@@ -12,6 +12,8 @@ import { useToast } from '../../../hooks/use-toast';
 import { BrandSpinner } from '../../brand/BrandSpinner';
 import AssinaturaPosicionadaModal from '../assinatura/AssinaturaPosicionadaModal';
 import AssinaturaProprietarioModal from './AssinaturaProprietarioModal';
+import EtapaConcluidaBox from '../ptam/EtapaConcluidaBox';
+import { fmtDataHora } from '../../../utils/datasServidor';
 
 const GREEN = '#0C3320';
 const GOLD = '#C9A84C';
@@ -152,6 +154,7 @@ export default function GeoUrbanoWizard() {
         perimetro_m: p.perimetro_m === '' ? null : Number(p.perimetro_m),
         trt_numero: p.trt_numero, cartorio: p.cartorio, superintendencia: p.superintendencia,
         matriculas: p.matriculas, bci: p.bci, vertices: p.vertices, partes: p.partes, iptu: p.iptu,
+        etapas_concluidas: p.etapas_concluidas, etapas_concluidas_em: p.etapas_concluidas_em,
       };
       const upd = await geoUrbanoAPI.atualizar(p.id, payload);
       dirtyRef.current = false;
@@ -168,6 +171,18 @@ export default function GeoUrbanoWizard() {
     debounceRef.current = setTimeout(() => salvar(true), 1200);
   };
   const upd = (patch) => { setProj((p) => ({ ...p, ...patch })); mark(); };
+  // auditoria: marca/desmarca a etapa concluída e SALVA na hora (carimba data/hora)
+  const toggleEtapa = (idx, checked) => {
+    setProj((p) => {
+      const ec = { ...(p.etapas_concluidas || {}) };
+      const em = { ...(p.etapas_concluidas_em || {}) };
+      if (checked) { ec[idx] = true; em[idx] = new Date().toISOString(); }
+      else { delete ec[idx]; delete em[idx]; }
+      const np = { ...p, etapas_concluidas: ec, etapas_concluidas_em: em };
+      geoUrbanoAPI.atualizar(p.id, { etapas_concluidas: ec, etapas_concluidas_em: em }).catch(() => {});
+      return np;
+    });
+  };
   const updArr = (campo, i, patch) => {
     setProj((p) => {
       const arr = [...(p[campo] || [])];
@@ -503,6 +518,13 @@ export default function GeoUrbanoWizard() {
                 <RefreshCw className="w-3.5 h-3.5" /> Reavaliar
               </button>
             </div>
+          </div>
+
+          {/* auditoria: carimbo da última extração dos documentos */}
+          <div className="text-[11px] text-gray-500 -mt-3">
+            {proj.extracao_em
+              ? <span className="inline-flex items-center gap-1"><CheckCircle2 className="w-3 h-3 text-emerald-600" /> Dados extraídos dos documentos em <b className="text-gray-700">{fmtDataHora(proj.extracao_em)}</b> — reextrair atualiza o carimbo.</span>
+              : <span className="inline-flex items-center gap-1"><AlertTriangle className="w-3 h-3 text-amber-500" /> Ainda não extraído — clique em “Extrair dos documentos” para auditar com data/hora.</span>}
           </div>
 
           {/* painel de reconciliação */}
@@ -1065,6 +1087,10 @@ export default function GeoUrbanoWizard() {
           onFechar={() => setAssinId(null)}
         />
       )}
+
+      {/* auditoria: etapa concluída (carimba data/hora) — em todas as etapas */}
+      <EtapaConcluidaBox stepIndex={step} label={PASSOS[step]} form={proj}
+        onToggle={toggleEtapa} entidade="projeto" />
 
       {/* navegação */}
       <div className="flex justify-between mt-8">

@@ -307,12 +307,15 @@ async def extrair(pid: str, uid: str = Depends(get_active_subscriber), db=Depend
     if base.get("vertices"):
         sets["area_calculada_m2"] = GEOM.area_m2(base["vertices"])
     sets["status"] = "conferencia"
+    sets["extracao_em"] = _agora().isoformat()   # auditoria: carimbo da extração
+    sets["extracao_por"] = uid
     sets["completude"] = calcular_completude(base)
     sets["updated_at"] = _agora().isoformat()
     await db.geo_urbano_projetos.update_one({"id": pid, "user_id": uid}, {"$set": sets})
     novo = {**doc, **sets}
     return {
         "ok": True, "avisos": res.get("avisos", []),
+        "extracao_em": sets["extracao_em"],
         "extraido": {c: len(novo.get(c) or []) for c in ("matriculas", "bci", "vertices", "iptu")},
         "reconciliacao": RECONCILE.reconciliar(novo)["resumo"],
     }
