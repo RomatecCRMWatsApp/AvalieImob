@@ -173,6 +173,15 @@ def test_gera_pdf(proj, tipo, tema):
     assert _paginas(data) >= 1
 
 
+def test_quadro_vertices_no_memorial_e_requerimento(proj):
+    import fitz
+    for tipo in ("memorial_descritivo", "requerimento_cartorio"):
+        d = fitz.open("pdf", PDF.gerar_pdf(tipo, proj, "prime_i"))
+        txt = "".join(d[i].get_text() for i in range(d.page_count))
+        assert "MEDIDAS E CONFRONTAÇÕES" in txt          # o quadro do mapa entra nos dois
+        assert "Rua Suriname" in txt and "1,00052614" in txt  # confrontante + fator K
+
+
 def test_requerimento_duas_vias_diferem_so_no_destinatario(proj):
     # corpo idêntico, só muda o bloco destinatário (tamanhos próximos, ambos válidos)
     via1 = PDF.gerar_pdf("requerimento_cartorio", proj, "prime_i")

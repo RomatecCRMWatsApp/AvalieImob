@@ -75,6 +75,22 @@ def _largura() -> float:
     return A4[0] - 2 * MARGIN
 
 
+def _tabela_vertices(projeto: dict, cfg, st, L):
+    """Quadro de vértices/medidas/confrontações (do mapa) — usado no Memorial E no
+    Requerimento. Inclui Fator K e o Confrontante por segmento."""
+    verts = sorted(projeto.get("vertices") or [], key=lambda v: v.get("ordem", 0))
+    if not verts:
+        return []
+    out = GP._secao("QUADRO DE VÉRTICES, MEDIDAS E CONFRONTAÇÕES", cfg, st, L)
+    header = ["De", "Para", "Coord. N (Y)", "Coord. E (X)", "Azimute", "Dist. (m)", "Fator K", "Confrontante"]
+    rows = [[v.get("de") or "", v.get("para") or "", TX._n_br(v.get("coord_n"), 4),
+             TX._n_br(v.get("coord_e"), 4), v.get("azimute") or "", TX._n_br(v.get("distancia_m")),
+             TX._n_br(v.get("fator_k"), 8) if v.get("fator_k") is not None else "",
+             v.get("confrontante_lado") or "—"] for v in verts]
+    out.append(GP._data_table(header, rows, cfg, st, L))
+    return out
+
+
 def _partes_assinatura(projeto: dict):
     """Linhas de assinatura das partes (requerente PJ → representante; ou PF)."""
     out = []
@@ -146,6 +162,8 @@ def requerimento(projeto: dict, via: str, tema: str, logo_bytes=None) -> bytes:
     else:
         story += GP._secao("DO IMÓVEL RESULTANTE", cfg, st, L)
         story += GP._paras(TX.descricao_resultante(projeto), st["corpo"])
+        # quadro de medidas e confrontações do mapa (mesmo do Memorial)
+        story += _tabela_vertices(projeto, cfg, st, L)
 
     # cadastro / CMI
     pares = [p for p in [
@@ -201,15 +219,10 @@ def memorial(projeto: dict, tema: str, logo_bytes=None) -> bytes:
     corpo += TX.descricao_perimetrica(projeto)
     story += GP._paras(corpo, st["corpo"])
 
-    # quadro de vértices
-    verts = sorted(projeto.get("vertices") or [], key=lambda v: v.get("ordem", 0))
-    if verts:
-        story += GP._secao("QUADRO DE VÉRTICES", cfg, st, L)
-        header = ["De", "Para", "Coord. N (Y)", "Coord. E (X)", "Azimute", "Dist. (m)", "Confrontante"]
-        rows = [[v.get("de") or "", v.get("para") or "", TX._n_br(v.get("coord_n"), 4),
-                 TX._n_br(v.get("coord_e"), 4), v.get("azimute") or "", TX._n_br(v.get("distancia_m")),
-                 v.get("confrontante_lado") or ""] for v in verts]
-        story.append(GP._data_table(header, rows, cfg, st, L))
+    # quadro de vértices, medidas e confrontações (do mapa)
+    quadro = _tabela_vertices(projeto, cfg, st, L)
+    if quadro:
+        story += quadro
     else:
         # sem planilha de vértices: lista as confrontações por lado (ex.: lote de desdobro)
         confs = projeto.get("_confrontacoes_lote") or []
