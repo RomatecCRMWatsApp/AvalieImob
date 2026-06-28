@@ -43,7 +43,20 @@ DEFAULT_LOGO_URL = os.getenv(
 
 @lru_cache(maxsize=128)
 def _load_logo_bytes(ref: str) -> Optional[bytes]:
-    """Baixa/lê o logo uma vez por referência (URL http(s) ou caminho local)."""
+    """Baixa/lê o logo por referência. PRIORIZA o R2 (download autenticado, imune a
+    URL pré-assinada EXPIRADA — causa do logo sumir e cair no padrão); cai para
+    http(s) público ou caminho local."""
+    if not ref:
+        return None
+    # 1) R2 (aceita key OU URL do bucket/CDN) — autenticado, nunca expira
+    try:
+        from services import r2_storage
+        data = r2_storage.download_bytes(ref)
+        if data:
+            return data
+    except Exception:
+        pass
+    # 2) URL http(s) pública / arquivo local
     try:
         if ref.startswith("http://") or ref.startswith("https://"):
             with urllib.request.urlopen(ref, timeout=8) as resp:
