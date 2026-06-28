@@ -471,17 +471,23 @@ async def _injetar_logo(db, uid: str, doc: dict):
         pass
 
 
-async def _injetar_assinatura_tecnico(db, uid: str, doc: dict):
-    """Carrega a firma gráfica do RT em doc['_tecnico_assinatura_bytes'] — carimbada no
-    Memorial ao gerar/enviar (assinatura_tecnico_b64, fallback assinatura_visual_b64)."""
+async def _firma_tecnico_bytes(db, uid: str):
+    """Bytes do PNG da firma gráfica do RT (assinatura_tecnico_b64 → assinatura_visual_b64)."""
     try:
         import base64
         perfil = await db.perfil_avaliador.find_one({"user_id": uid}) or {}
         b64 = perfil.get("assinatura_tecnico_b64") or perfil.get("assinatura_visual_b64")
-        if b64:
-            doc["_tecnico_assinatura_bytes"] = base64.b64decode(str(b64).split(",")[-1])
+        return base64.b64decode(str(b64).split(",")[-1]) if b64 else None
     except Exception:  # noqa: BLE001
-        pass
+        return None
+
+
+async def _injetar_assinatura_tecnico(db, uid: str, doc: dict):
+    """Carrega a firma gráfica do RT em doc['_tecnico_assinatura_bytes'] — carimbada no
+    Memorial ao gerar/enviar (assinatura_tecnico_b64, fallback assinatura_visual_b64)."""
+    firma = await _firma_tecnico_bytes(db, uid)
+    if firma:
+        doc["_tecnico_assinatura_bytes"] = firma
 
 
 @router.get("/projetos/{pid}/documentos/{tipo}")
@@ -771,7 +777,10 @@ async def prop_preparar(pid: str, uid: str = Depends(get_active_subscriber), db=
     for p in pecas:
         paginas = await asyncio.to_thread(renderizar_paginas, p["bytes"], 120, 30)
         documentos.append({"doc": p["doc"], "titulo": p["titulo"], "paginas": paginas})
-    return {"documentos": documentos, "signatarios": PROP.signatarios_de(doc)}
+    firma = await _firma_tecnico_bytes(db, uid)
+    return {"documentos": documentos, "signatarios": PROP.signatarios_de(doc),
+            "tecnico": {"tem_assinatura": bool(firma),
+                        "nome": (doc.get("responsavel_tecnico") or {}).get("nome") or "Responsável Técnico"}}
 
 
 async def _disparar_links_prop(db, uid, proj, sessao, somente_pendentes=True):
@@ -803,22 +812,38 @@ async def prop_posicionar(pid: str, body: dict, uid: str = Depends(get_active_su
     tema = doc.get("tema") or "prime_i"
     sig_in = body.get("signatarios") or PROP.signatarios_de(doc)
     posicoes = body.get("posicoes") or {}            # {parte_id: {doc: [rects]}}
+    tecnico_pos = body.get("tecnico_pos") or {}      # {doc: [rects]} — opção A (firma do RT)
     if any(not s.get("telefone") for s in sig_in):
         raise HTTPException(status_code=422, detail="Informe o WhatsApp de todos os signatários.")
     docs_com_pos = {dn for mp in posicoes.values() for dn, r in (mp or {}).items() if r}
+    docs_com_pos |= {dn for dn, r in tecnico_pos.items() if r}   # peça só com firma do RT também vai
     if not docs_com_pos:
         raise HTTPException(status_code=422, detail="Posicione ao menos uma assinatura.")
+    # opção A: a firma gráfica do técnico já vai CARIMBADA nas peças antes do envio
+    firma = await _firma_tecnico_bytes(db, uid)
     pecas = await _pecas_proprietario_bytes(doc, tema)
     documentos = []
     for p in pecas:
         if p["doc"] not in docs_com_pos:
             continue
+        pbytes = p["bytes"]
+        if firma and tecnico_pos.get(p["doc"]):
+            from services.assinatura_cliente_carimbo import carimbar_traco_em_pagina
+            for rect in tecnico_pos[p["doc"]]:
+                try:
+                    x, y = float(rect.get("x_pt", 0)), float(rect.get("y_pt", 0))
+                    w, h = float(rect.get("larg_pt", 0)), float(rect.get("alt_pt", 0))
+                    pbytes = await asyncio.to_thread(
+                        carimbar_traco_em_pagina, pbytes, int(rect.get("pagina", 0)),
+                        (x, y, x + w, y + h), firma, "")
+                except Exception:  # noqa: BLE001
+                    logger.warning("Geo Urbano: falha ao carimbar a firma do técnico.", exc_info=True)
         key = f"geo-urbano/{uid}/{pid}/assin-prop/{p['doc']}_base.pdf"
-        await asyncio.to_thread(r2_storage.upload_bytes, p["bytes"], key, _PDF)
+        await asyncio.to_thread(r2_storage.upload_bytes, pbytes, key, _PDF)
         try:
             from pypdf import PdfReader
             import io as _io
-            paginas = len(PdfReader(_io.BytesIO(p["bytes"])).pages)
+            paginas = len(PdfReader(_io.BytesIO(pbytes)).pages)
         except Exception:  # noqa: BLE001
             paginas = 0
         documentos.append({"doc": p["doc"], "titulo": p["titulo"], "pdf_key_base": key, "paginas": paginas})

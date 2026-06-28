@@ -15,8 +15,10 @@ export default function AssinaturaProprietarioModal({ projetoId, onFechar, onEnv
   const [loading, setLoading] = useState(true);
   const [documentos, setDocumentos] = useState([]);
   const [sigs, setSigs] = useState([]);
-  const [ativo, setAtivo] = useState(null);          // parte_id ativo
+  const [ativo, setAtivo] = useState(null);          // parte_id ativo ('__tecnico__' = firma do RT)
   const [pos, setPos] = useState({});                // {parte_id: {doc: [{pagina,x_pt,y_pt,larg_pt,alt_pt,tipo}]}}
+  const [tecnico, setTecnico] = useState({ tem_assinatura: false, nome: '' });
+  const [tecnicoPos, setTecnicoPos] = useState({});  // {doc: [rects]} — opção A
   const [enviando, setEnviando] = useState(false);
 
   useEffect(() => {
@@ -25,6 +27,7 @@ export default function AssinaturaProprietarioModal({ projetoId, onFechar, onEnv
         setDocumentos(d.documentos || []);
         const ss = (d.signatarios || []).map((s) => ({ ...s }));
         setSigs(ss);
+        setTecnico(d.tecnico || { tem_assinatura: false, nome: '' });
         setAtivo(ss[0]?.parte_id || null);
       })
       .catch((e) => toast({ title: 'Erro ao preparar', description: e?.response?.data?.detail || '', variant: 'destructive' }))
@@ -40,9 +43,14 @@ export default function AssinaturaProprietarioModal({ projetoId, onFechar, onEnv
     const escX = pg.largura_pt / r.width, escY = pg.altura_pt / r.height;
     const x_pt = Math.max(0, Math.min(pg.largura_pt - BOX_W, cx * escX));
     const y_pt = Math.max(0, pg.altura_pt - cy * escY - BOX_H);
+    const box = { pagina: pg.pagina, x_pt, y_pt, larg_pt: BOX_W, alt_pt: BOX_H, tipo: 'assinatura' };
+    if (ativo === '__tecnico__') {
+      setTecnicoPos((p) => ({ ...p, [docNome]: [box] }));
+      return;
+    }
     setPos((p) => {
       const porSig = { ...(p[ativo] || {}) };
-      porSig[docNome] = [{ pagina: pg.pagina, x_pt, y_pt, larg_pt: BOX_W, alt_pt: BOX_H, tipo: 'assinatura' }];
+      porSig[docNome] = [box];
       return { ...p, [ativo]: porSig };
     });
   };
@@ -61,13 +69,15 @@ export default function AssinaturaProprietarioModal({ projetoId, onFechar, onEnv
 
   const enviar = async () => {
     if (sigs.some((s) => !s.telefone)) { toast({ title: 'Informe o WhatsApp de todos os signatários', variant: 'destructive' }); return; }
-    const algum = Object.values(pos).some((m) => Object.values(m).some((a) => a.length));
+    const algum = Object.values(pos).some((m) => Object.values(m).some((a) => a.length))
+      || Object.values(tecnicoPos).some((a) => a.length);
     if (!algum) { toast({ title: 'Posicione ao menos uma assinatura', variant: 'destructive' }); return; }
     setEnviando(true);
     try {
       const r = await geoUrbanoAPI.propPosicionar(projetoId, {
         signatarios: sigs.map((s) => ({ parte_id: s.parte_id, nome: s.nome, papel: s.papel, cpf_cnpj: s.cpf_cnpj, telefone: s.telefone })),
         posicoes: pos,
+        tecnico_pos: tecnicoPos,
       });
       toast({ title: `Links enviados: ${r.enviados || 0}`, description: r.falhas ? `${r.falhas} falha(s)` : '' });
       onEnviado && onEnviado();
@@ -100,6 +110,18 @@ export default function AssinaturaProprietarioModal({ projetoId, onFechar, onEnv
                   value={s.telefone || ''} onChange={(e) => setFone(s.parte_id, e.target.value)} />
               </div>
             ))}
+            {tecnico.tem_assinatura && (
+              <div className={`rounded-lg border p-2 ${ativo === '__tecnico__' ? 'ring-2' : ''}`}
+                style={{ borderColor: GOLD, ...(ativo === '__tecnico__' ? { boxShadow: `0 0 0 2px ${GOLD}` } : {}) }}>
+                <button onClick={() => setAtivo('__tecnico__')} className="text-left w-full">
+                  <div className="text-sm font-medium" style={{ color: '#9a7d2e' }}>✍️ Minha assinatura (técnico)</div>
+                  <div className="text-[11px] text-gray-500">{tecnico.nome} — já vai CARIMBADA na peça antes do envio</div>
+                </button>
+                {Object.values(tecnicoPos).some((a) => a.length) && (
+                  <button onClick={() => setTecnicoPos({})} className="mt-1 text-[11px] text-red-600 hover:underline">limpar posições</button>
+                )}
+              </div>
+            )}
           </div>
 
           {/* documentos */}
@@ -109,7 +131,8 @@ export default function AssinaturaProprietarioModal({ projetoId, onFechar, onEnv
                 <div className="text-white text-sm font-semibold mb-1">{d.titulo}</div>
                 {(d.paginas || []).map((pg) => (
                   <Pagina key={pg.pagina} pg={pg} doc={d.doc} pos={pos} sigs={sigs}
-                    corSig={corSig} caixaNaTela={caixaNaTela} onClick={(e) => clicar(e, d.doc, pg)} />
+                    corSig={corSig} caixaNaTela={caixaNaTela} tecnicoBoxes={tecnicoPos[d.doc] || []}
+                    onClick={(e) => clicar(e, d.doc, pg)} />
                 ))}
               </div>
             ))}
@@ -128,7 +151,7 @@ export default function AssinaturaProprietarioModal({ projetoId, onFechar, onEnv
   );
 }
 
-function Pagina({ pg, doc, pos, sigs, corSig, caixaNaTela, onClick }) {
+function Pagina({ pg, doc, pos, sigs, corSig, caixaNaTela, onClick, tecnicoBoxes = [] }) {
   const ref = React.useRef(null);
   const [rect, setRect] = React.useState({ w: 0, h: 0 });
   React.useEffect(() => {
@@ -148,6 +171,13 @@ function Pagina({ pg, doc, pos, sigs, corSig, caixaNaTela, onClick }) {
             <span className="text-[9px] px-1" style={{ color: corSig(s.parte_id) }}>{s.nome?.split(' ')[0]}</span>
           </div>;
         });
+      })}
+      {tecnicoBoxes.filter((b) => b.pagina === pg.pagina).map((b, i) => {
+        const c = caixaNaTela(b, pg, rect.w, rect.h);
+        return <div key={'tec' + i} className="absolute pointer-events-none rounded"
+          style={{ left: c.left, top: c.top, width: c.width, height: c.height, border: `2px dashed ${GOLD}`, background: `${GOLD}22` }}>
+          <span className="text-[9px] px-1" style={{ color: '#9a7d2e' }}>RT (firma)</span>
+        </div>;
       })}
     </div>
   );
