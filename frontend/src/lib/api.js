@@ -828,3 +828,19 @@ export const geoUrbanoPublicoAPI = {
   obter: (token) => api.get(`/publico/geo-urbano/${token}`).then((r) => r.data),
   assinar: (token, body) => api.post(`/publico/geo-urbano/${token}`, body).then((r) => r.data),
 };
+
+// Testemunhas — gestão (autenticada) + público (link tokenizado)
+export const testemunhasAssinaturaAPI = {
+  cadastrar: (modulo, docId, testemunhas) =>
+    api.post(`/testemunhas-assinatura/${modulo}/${docId}`, { testemunhas }).then((r) => r.data),
+  enviarTodas: (modulo, docId) =>
+    api.post(`/testemunhas-assinatura/${modulo}/${docId}/enviar`).then((r) => r.data),
+  reenviar: (modulo, docId, tid) =>
+    api.post(`/testemunhas-assinatura/${modulo}/${docId}/${tid}/reenviar`).then((r) => r.data),
+  status: (modulo, docId) =>
+    api.get(`/testemunhas-assinatura/${modulo}/${docId}/status`).then((r) => r.data),
+};
+export const testemunhaPublicoAPI = {
+  obter: (token) => api.get(`/publico/testemunha/${token}`).then((r) => r.data),
+  assinar: (token, body) => api.post(`/publico/testemunha/${token}/assinar`, body).then((r) => r.data),
+};
