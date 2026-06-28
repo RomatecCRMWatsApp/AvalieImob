@@ -78,7 +78,7 @@ async def _reconstruir_vigente(doc: dict):
             novo = await asyncio.to_thread(carimbar_incremental, novo, int(pos.get("pagina", 0)),
                                            (x, y, x + wd, y + ht), wpng, leg)
     import fitz  # PyMuPDF — p/ contar páginas e montar o sumário
-    from services.testemunha_pagina import (pagina_documentos_pdf, pagina_sumario_anexos)
+    from services.testemunha_pagina import pagina_documentos_pdf
 
     def _npags(bts):
         try:
@@ -128,31 +128,32 @@ async def _reconstruir_vigente(doc: dict):
         if imgs:
             anexos.append((w.get("nome"), d.get("tipo") or "CNH", imgs))
 
-    # 2) numeração (1-idx): contrato → [índice] → qualificação → 1 página por imagem
-    idx_itens, toc = [], [[1, "Contrato", 1]]
-    p = contract_pages + 2                   # +1 do índice, +1 = começo da qualificação
-    idx_itens.append(("Testemunhas — Qualificação", p))
-    toc += [[1, "Anexos (índice)", contract_pages + 1], [1, "Testemunhas — qualificação", p]]
+    # 2) numeração (1-idx): contrato → qualificação → 1 página por imagem (sem índice extra)
+    sum_itens, toc = [], [[1, "Contrato", 1]]
+    p = contract_pages + 1                   # começo da qualificação (logo após o contrato)
+    sum_itens.append(("Testemunhas — Qualificação", p))
+    toc.append([1, "Testemunhas — qualificação", p])
     p += qpages
     anexo_imgs = []      # [(label, img_bytes)] — cada um vira 1 página A4 com título
     for nome, tipo, imgs in anexos:
-        idx_itens.append((f"Documento de Identidade — {nome}", p))
+        sum_itens.append((f"Documento de Identidade — {nome}", p))
         toc.append([1, f"Documento de identidade — {nome}", p])
         for i, img in enumerate(imgs):
             sufixo = f" ({i + 1}/{len(imgs)})" if len(imgs) > 1 else ""
             anexo_imgs.append((f"{nome} — {tipo}{sufixo}", img))
         p += len(imgs)
 
-    # 3) monta: índice → qualificação → cada CNH/foto numa página A4 COM título
-    idx_pdf = await asyncio.to_thread(pagina_sumario_anexos, idx_itens, titulo)
-    novo = await asyncio.to_thread(anexar_pagina_incremental, novo, idx_pdf)
+    # 3) ALIMENTA o SUMÁRIO do contrato (linhas abaixo da última cláusula) — append-only
+    from services.testemunha_signing import inserir_no_sumario, aplicar_sumario_incremental
+    novo, _ok = await asyncio.to_thread(inserir_no_sumario, novo, sum_itens, "ANEXO")
+
+    # 4) monta: qualificação → cada CNH/foto numa página A4 COM título
     novo = await asyncio.to_thread(anexar_pagina_incremental, novo, qual_pdf)
     if anexo_imgs:
         docpag = await asyncio.to_thread(pagina_documentos_pdf, anexo_imgs)
         novo = await asyncio.to_thread(anexar_pagina_incremental, novo, docpag)
 
-    # 4) sumário navegável (marcadores) — append-only, preserva as assinaturas
-    from services.testemunha_signing import aplicar_sumario_incremental
+    # 5) sumário navegável (marcadores) — append-only, preserva as assinaturas
     novo = await asyncio.to_thread(aplicar_sumario_incremental, novo, toc)
 
     key_out = f"testemunhas/{doc['user_id']}/{doc['id']}_testemunhas.pdf"

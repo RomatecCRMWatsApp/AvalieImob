@@ -71,6 +71,68 @@ def anexar_pagina_incremental(pdf_bytes: bytes, pagina_pdf_bytes: bytes) -> byte
             pass
 
 
+def inserir_no_sumario(pdf_bytes: bytes, entries: list, tag: str = "ANEXO") -> tuple:
+    """Sobrepõe linhas no SUMÁRIO do contrato (abaixo da última cláusula) via INCREMENTAL
+    (append-only, preserva as assinaturas). `entries` = [(label, pagina_1idx)]. Acha a
+    página que contém "SUMÁRIO". Retorna (pdf_bytes, ok) — ok=False se não achou/sem espaço."""
+    if not entries:
+        return pdf_bytes, False
+    GOLD, GOLDBG, GREEN, BLACK = (0.79, 0.66, 0.30), (0.95, 0.91, 0.79), (0.047, 0.2, 0.12), (0, 0, 0)
+    tmp = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
+    try:
+        tmp.write(pdf_bytes)
+        tmp.close()
+        doc = fitz.open(tmp.name)
+        ok = False
+        try:
+            sp = None
+            for i in range(min(6, doc.page_count)):
+                hits = []
+                for termo in ("SUMÁRIO", "SUMARIO", "Sumário"):
+                    try:
+                        hits = doc[i].search_for(termo)
+                    except Exception:  # noqa: BLE001
+                        hits = []
+                    if hits:
+                        break
+                if hits:
+                    sp = doc[i]
+                    break
+            if sp is not None:
+                W, Hh, M = sp.rect.width, sp.rect.height, 64
+                blocos = [b for b in sp.get_text("blocks") if b[4].strip() and b[3] < Hh * 0.86]
+                bottom = max((b[3] for b in blocos), default=Hh * 0.5)
+                y = bottom + 16
+                for label, pg in entries:
+                    if y > Hh - 34:
+                        break
+                    tag_w = 78
+                    sp.draw_rect(fitz.Rect(M, y, M + tag_w, y + 14), color=GOLD, fill=GOLDBG, width=0.8)
+                    sp.insert_text((M + 5, y + 10), tag, fontsize=6.5, color=GREEN, fontname="hebo")
+                    sp.insert_text((M + tag_w + 12, y + 11), label[:60], fontsize=9.5, color=BLACK, fontname="hebo")
+                    bw = 36
+                    bx = W - M - bw
+                    sp.draw_rect(fitz.Rect(bx, y, bx + bw, y + 15), color=GOLD, fill=GOLDBG, width=1)
+                    sp.insert_text((bx + 11, y + 11), str(pg), fontsize=9, color=GREEN, fontname="hebo")
+                    y += 22
+                    ok = True
+                if ok:
+                    doc.save(tmp.name, incremental=True, encryption=fitz.PDF_ENCRYPT_KEEP)
+        finally:
+            doc.close()
+        if not ok:
+            return pdf_bytes, False
+        with open(tmp.name, "rb") as fh:
+            return fh.read(), True
+    except Exception:  # noqa: BLE001
+        return pdf_bytes, False
+    finally:
+        try:
+            os.unlink(tmp.name)
+        except Exception:  # noqa: BLE001
+            pass
+
+
 def aplicar_sumario_incremental(pdf_bytes: bytes, toc: list) -> bytes:
     """Define o SUMÁRIO/índice (marcadores) do PDF via INCREMENTAL UPDATE (append-only) —
     preserva as assinaturas. `toc` = [[nivel, titulo, pagina_1idx], ...]. Em falha,
