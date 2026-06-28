@@ -90,7 +90,7 @@ function Poligonal({ vertices = [] }) {
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full border rounded-lg bg-white">
       <polygon points={poly} fill="rgba(12,51,32,0.08)" stroke={GREEN} strokeWidth="1.6" />
-      {/* cotas (distância) + confrontante por aresta, deslocados pela normal da aresta */}
+      {/* cotas + confrontante por aresta: offset pela normal E rotacionados ao longo do segmento (azimute) */}
       {xy.map((p, i) => {
         const b = xy[(i + 1) % xy.length];
         const mx = (p.x + b.x) / 2, my = (p.y + b.y) / 2;
@@ -98,10 +98,12 @@ function Poligonal({ vertices = [] }) {
         let nx = -ey / eln, ny = ex / eln;
         if (nx * (mx - cx) + ny * (my - cy) < 0) { nx = -nx; ny = -ny; }
         const lx = mx + nx * 15, ly = my + ny * 15;
+        let ang = Math.atan2(ey, ex) * 180 / Math.PI;
+        if (ang > 90 || ang < -90) ang += 180;       // mantém o texto "para cima"
         return (
-          <g key={`e${i}`}>
-            {p.dist != null && <text x={lx} y={ly} fontSize="8.5" fontWeight="600" fill="#111" textAnchor="middle">{fmt(p.dist)} m</text>}
-            {p.conf && <text x={lx} y={ly + 9} fontSize="7" fill="#666" textAnchor="middle">{String(p.conf).slice(0, 22)}</text>}
+          <g key={`e${i}`} transform={`translate(${lx.toFixed(1)},${ly.toFixed(1)}) rotate(${ang.toFixed(1)})`}>
+            {p.dist != null && <text x="0" y="-2" fontSize="8.5" fontWeight="600" fill="#111" textAnchor="middle">{fmt(p.dist)} m</text>}
+            {p.conf && <text x="0" y="7" fontSize="7" fill="#666" textAnchor="middle">{String(p.conf).slice(0, 22)}</text>}
           </g>
         );
       })}

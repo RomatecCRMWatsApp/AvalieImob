@@ -5,7 +5,9 @@
 # não depender de fontes externas no container (usa Helvetica embutida).
 from __future__ import annotations
 
-from reportlab.graphics.shapes import Drawing, Polygon, Circle, String, Line
+import math
+
+from reportlab.graphics.shapes import Drawing, Polygon, Circle, String, Line, Group
 from reportlab.lib.colors import HexColor, black, white
 
 from services.geo_urbano.generators import textos as TX
@@ -48,8 +50,8 @@ def croqui_drawing(projeto: dict, width: float = 460, height: float = 340):
                   strokeColor=_GREEN, strokeWidth=1.2))
 
     # medidas + confrontante por aresta — rótulo no MEIO da aresta, deslocado pela
-    # NORMAL da própria aresta (para fora), de modo que cada cota fique sobre o seu
-    # segmento (corrige o desalinhamento do offset por centroide na poligonal em "L").
+    # NORMAL (para fora) E ROTACIONADO para acompanhar a direção do segmento (azimute),
+    # como num croqui de agrimensura.
     for i, v in enumerate(verts):
         a, b = pts[i], pts[(i + 1) % len(pts)]
         mx, my = (a[0] + b[0]) / 2, (a[1] + b[1]) / 2
@@ -58,14 +60,21 @@ def croqui_drawing(projeto: dict, width: float = 460, height: float = 340):
         nx, ny = -ey / eln, ex / eln                 # normal à aresta
         if nx * (mx - cx) + ny * (my - cy) < 0:      # garante apontar p/ FORA
             nx, ny = -nx, -ny
-        lx, ly = mx + nx * 12, my + ny * 12
+        lx, ly = mx + nx * 14, my + ny * 14
+        ang = math.degrees(math.atan2(ey, ex))
+        if ang > 90 or ang < -90:                    # mantém o texto "para cima"
+            ang += 180
+        rad = math.radians(ang)
+        ca, sa = math.cos(rad), math.sin(rad)
+        g = Group(transform=(ca, sa, -sa, ca, lx, ly))   # rotaciona em torno do ponto
         if v.get("distancia_m") is not None:
-            d.add(String(lx, ly, f"{TX._n_br(v.get('distancia_m'))} m",
+            g.add(String(0, 2.0, f"{TX._n_br(v.get('distancia_m'))} m",
                          fontSize=6.6, fillColor=black, textAnchor="middle"))
         conf = v.get("confrontante_lado")
         if conf:
-            d.add(String(lx, ly - 8, conf[:26],
+            g.add(String(0, -6.5, conf[:26],
                          fontSize=5.6, fillColor=_GRAY, textAnchor="middle"))
+        d.add(g)
 
     # vértices + rótulo (PDN1..) para fora
     for p, v in zip(pts, verts):
