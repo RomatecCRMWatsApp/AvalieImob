@@ -79,18 +79,24 @@ def _link(token: str) -> str:
     return f"{_app_url()}/assinar/testemunha/{token}"
 
 
-async def enviar(db, modulo: str, doc_id: str, uid: str, tid: str = None) -> dict:
+async def enviar(db, modulo: str, doc_id: str, uid: str, tid: str = None,
+                 telefone_teste: str = None) -> dict:
+    """Envia o link da testemunha por WhatsApp. `telefone_teste` (modo teste): envia
+    TODOS os links para esse número (não para o da testemunha) — p/ conferir antes de
+    mandar ao cliente real."""
     from services.documento_externo_service import zapi_cfg, enviar_texto
     doc = await carregar_doc(db, modulo, doc_id, uid)
     cfg = await zapi_cfg(db, uid)
     titulo = doc.get("titulo") or doc.get("numero_contrato") or "documento"
+    teste = "".join(filter(str.isdigit, str(telefone_teste or "")))
     alvos = [t for t in (doc.get("testemunhas") or [])
              if (tid is None and t.get("status") in ("pendente", "enviado")) or t.get("id") == tid]
     if not alvos:
         raise HTTPException(status_code=422, detail="Nenhuma testemunha pendente para enviar.")
     enviadas, falhas = 0, []
     for t in alvos:
-        if not t.get("telefone"):
+        destino = teste or t.get("telefone")
+        if not destino:
             falhas.append({"id": t["id"], "erro": "sem WhatsApp"})
             continue
         msg = (f"Olá, {t['nome']}. Você foi indicado(a) como *testemunha*"
@@ -99,7 +105,7 @@ async def enviar(db, modulo: str, doc_id: str, uid: str, tid: str = None) -> dic
                f"Leia o documento e assine pelo link abaixo (válido por 7 dias):\n{_link(t['token'])}\n\n"
                f"A assinatura é autenticada por este número de WhatsApp.")
         try:
-            r = await enviar_texto(cfg, t["telefone"], msg)
+            r = await enviar_texto(cfg, destino, msg)
             t["status"] = "enviado"
             t["enviado_em"] = datetime.utcnow()
             t["zaap_message_id"] = (r or {}).get("messageId") or (r or {}).get("id")
@@ -131,32 +137,8 @@ async def assinar(db, token: str, traco_b64: str, ip: str = "", ua: str = "") ->
         raise HTTPException(status_code=410, detail="Link expirado.")
     if not (traco_b64 or "").startswith("data:image/png;base64,"):
         raise HTTPException(status_code=422, detail="Assinatura inválida.")
-    png = base64.b64decode(traco_b64.split(",", 1)[1])
-
-    key_vigente = _pdf_key_vigente(doc)
-    if not key_vigente:
-        raise HTTPException(status_code=422, detail="Documento sem PDF para assinar.")
-    base = await asyncio.to_thread(r2_storage.download_bytes, key_vigente)
-
-    # carimbo INCREMENTAL (append-only) — preserva as assinaturas das partes
-    from services.testemunha_signing import carimbar_incremental
-    from services.assinatura_cliente_carimbo import _trim_png
-    png = _trim_png(png)
     agora = datetime.utcnow()
-    legenda = (f"Testemunha de {t.get('parte_vinculada_nome') or t.get('vinculo') or ''}"
-               f"{(' (' + t['vinculo'] + ')') if t.get('vinculo') else ''}: {t.get('nome')} — "
-               f"CPF {_mask_cpf(t.get('cpf'))} · Assinado via WhatsApp em {agora:%d/%m/%Y %H:%M}")
-    novo = base
-    for pos in (t.get("posicoes") or [{"pagina": 0, "x_pt": 72, "y_pt": 90, "larg_pt": 160, "alt_pt": 60}]):
-        x, y = float(pos.get("x_pt", 72)), float(pos.get("y_pt", 90))
-        w, h = float(pos.get("larg_pt", 160)), float(pos.get("alt_pt", 60))
-        novo = await asyncio.to_thread(carimbar_incremental, novo, int(pos.get("pagina", 0)),
-                                       (x, y, x + w, y + h), png, legenda)
-
-    col = MODULO_COL[modulo]
-    key_out = f"testemunhas/{doc['user_id']}/{doc['id']}_testemunhas.pdf"
-    await asyncio.to_thread(r2_storage.upload_bytes, novo, key_out, "application/pdf")
-
+    # marca ESTA testemunha (t é referência ao item em doc['testemunhas'])
     t["status"] = "assinado"
     t["assinado_em"] = agora
     t["ip"] = (ip or "")[:64]
@@ -164,7 +146,24 @@ async def assinar(db, token: str, traco_b64: str, ip: str = "", ua: str = "") ->
     t["traco_b64"] = traco_b64.split(",", 1)[1]
     t["hash_validacao"] = hashlib.sha256(f"{token}{t.get('cpf')}{agora.isoformat()}".encode()).hexdigest()
 
+    # base = revisão das PARTES (preservada) → reconstrói a página de testemunhas com
+    # TODAS as já assinadas e anexa via INCREMENTAL (idempotente; preserva as assinaturas)
+    base_key = doc.get("pdf_key_partes") or _pdf_key_vigente(doc)
+    if not base_key:
+        raise HTTPException(status_code=422, detail="Documento sem PDF para assinar.")
+    base = await asyncio.to_thread(r2_storage.download_bytes, base_key)
+
+    from services.testemunha_signing import anexar_pagina_incremental
+    from services.testemunha_pagina import pagina_testemunhas_pdf
     testemunhas = doc.get("testemunhas") or []
+    assinadas = [x for x in testemunhas if x.get("status") == "assinado"]
+    pagina = await asyncio.to_thread(pagina_testemunhas_pdf, doc, assinadas)
+    novo = await asyncio.to_thread(anexar_pagina_incremental, base, pagina)
+
+    col = MODULO_COL[modulo]
+    key_out = f"testemunhas/{doc['user_id']}/{doc['id']}_testemunhas.pdf"
+    await asyncio.to_thread(r2_storage.upload_bytes, novo, key_out, "application/pdf")
+
     exigidas = [x for x in testemunhas if not x.get("opcional")]
     todas = exigidas and all(x.get("status") == "assinado" for x in exigidas)
     sets = {"testemunhas": testemunhas, "pdf_key_testemunhas": key_out, "updated_at": agora,

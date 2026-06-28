@@ -31,9 +31,10 @@ async def cadastrar(modulo: str, doc_id: str, payload: dict,
 
 
 @router.post("/{modulo}/{doc_id}/enviar")
-async def enviar_todas(modulo: str, doc_id: str,
+async def enviar_todas(modulo: str, doc_id: str, payload: dict = None,
                        uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
-    return await TS.enviar(db, modulo, doc_id, uid, None)
+    teste = (payload or {}).get("telefone_teste")
+    return await TS.enviar(db, modulo, doc_id, uid, None, telefone_teste=teste)
 
 
 @router.post("/{modulo}/{doc_id}/{tid}/reenviar")

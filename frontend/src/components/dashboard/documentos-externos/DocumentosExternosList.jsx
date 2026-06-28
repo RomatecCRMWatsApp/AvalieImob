@@ -216,6 +216,8 @@ function ModalTestemunhas({ doc, onClose }) {
   const [clientes, setClientes] = useState([]);
   const [status, setStatus] = useState([]);
   const [busy, setBusy] = useState(false);
+  const [modoTeste, setModoTeste] = useState(false);
+  const [foneTeste, setFoneTeste] = useState('');
 
   const recarregar = useCallback(async () => {
     try { const r = await testemunhasAssinaturaAPI.status(_MODULO, doc.id); setStatus(r.testemunhas || []); }
@@ -241,9 +243,11 @@ function ModalTestemunhas({ doc, onClose }) {
           vinculo: sig.papel || 'testemunha', parte_vinculada_id: sig.id, parte_vinculada_nome: sig.nome,
           posicoes: [_vinc(sig)] };
       });
+      const fteste = modoTeste ? foneTeste.replace(/\D/g, '') : '';
+      if (modoTeste && fteste.length < 10) { toast({ title: 'Informe o número de teste (55 + DDD + número)', variant: 'destructive' }); setBusy(false); return; }
       await testemunhasAssinaturaAPI.cadastrar(_MODULO, doc.id, payload);
-      const r = await testemunhasAssinaturaAPI.enviarTodas(_MODULO, doc.id);
-      toast({ title: `Links enviados: ${r.enviadas || 0}`, description: (r.falhas || []).length ? `${r.falhas.length} falha(s)` : '' });
+      const r = await testemunhasAssinaturaAPI.enviarTodas(_MODULO, doc.id, fteste ? { telefone_teste: fteste } : {});
+      toast({ title: modoTeste ? `Enviado p/ teste: ${r.enviadas || 0}` : `Links enviados: ${r.enviadas || 0}`, description: (r.falhas || []).length ? `${r.falhas.length} falha(s)` : '' });
       setLinhas([{ nome: '', cpf: '', telefone: '', parte_vinculada_id: sigs[0]?.id || '' }]);
       recarregar();
     } catch (e) {
@@ -298,6 +302,17 @@ function ModalTestemunhas({ doc, onClose }) {
           </div>
         ))}
         <button onClick={addLinha} className="text-xs text-emerald-700 hover:underline mb-3 inline-flex items-center gap-1"><Plus className="w-3 h-3" /> Adicionar testemunha</button>
+
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-2.5 mb-3">
+          <label className="flex items-center gap-2 text-sm text-amber-900 cursor-pointer">
+            <input type="checkbox" checked={modoTeste} onChange={(e) => setModoTeste(e.target.checked)} className="w-4 h-4 accent-amber-600" />
+            🧪 Modo teste — <b>não enviar ao cliente</b>; mandar para outro número
+          </label>
+          {modoTeste && (
+            <input className="mt-2 w-full border rounded-lg px-2 py-1.5 text-sm" placeholder="Número de teste (55 + DDD + número)"
+              value={foneTeste} onChange={(e) => setFoneTeste(e.target.value.replace(/\D/g, ''))} />
+          )}
+        </div>
 
         <div className="flex justify-end gap-2">
           <button onClick={onClose} disabled={busy} className="px-3 py-2 rounded-lg text-sm border">Fechar</button>

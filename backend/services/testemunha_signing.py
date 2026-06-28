@@ -47,6 +47,30 @@ def carimbar_incremental(pdf_bytes: bytes, page_idx: int, rect, png_bytes: bytes
             pass
 
 
+def anexar_pagina_incremental(pdf_bytes: bytes, pagina_pdf_bytes: bytes) -> bytes:
+    """Anexa a(s) página(s) de `pagina_pdf_bytes` ao FIM do PDF via INCREMENTAL UPDATE
+    (append-only) — preserva os byte-ranges das assinaturas existentes."""
+    tmp = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
+    try:
+        tmp.write(pdf_bytes)
+        tmp.close()
+        doc = fitz.open(tmp.name)
+        nd = fitz.open(stream=pagina_pdf_bytes, filetype="pdf")
+        try:
+            doc.insert_pdf(nd)
+            doc.save(tmp.name, incremental=True, encryption=fitz.PDF_ENCRYPT_KEEP)
+        finally:
+            doc.close()
+            nd.close()
+        with open(tmp.name, "rb") as fh:
+            return fh.read()
+    finally:
+        try:
+            os.unlink(tmp.name)
+        except Exception:  # noqa: BLE001
+            pass
+
+
 def assinar_pades_incremental(pdf_bytes: bytes, pfx_bytes: bytes, password: str,
                               field_name: str, reason: str = "Assinatura de testemunha — Romatec AvalieImob") -> bytes:
     """Anexa uma assinatura PAdES ADICIONAL (incremental) num campo `field_name` único.
