@@ -603,6 +603,18 @@ async def startup():
         await db.georef_verificacoes.create_index([("user_id", 1), ("projeto_id", 1)])
     except Exception as e:
         logger.error(f"Erro ao criar índices de georef_projetos: {e}")
+    # Índices do módulo Geo Urbano (remembramento) — idempotente.
+    try:
+        await db.geo_urbano_projetos.create_index("id", unique=True)
+        await db.geo_urbano_projetos.create_index([("user_id", 1), ("created_at", -1)])
+        await db.geo_urbano_projetos.create_index([("user_id", 1), ("status", 1)])
+        await db.geo_urbano_assinaturas.create_index("id", unique=True)
+        await db.geo_urbano_assinaturas.create_index([("user_id", 1), ("projeto_id", 1)])
+        await db.geo_urbano_assinatura_sessoes.create_index("id", unique=True)
+        await db.geo_urbano_assinatura_sessoes.create_index("signatarios.token")
+        await db.geo_urbano_assinatura_sessoes.create_index([("projeto_id", 1), ("user_id", 1)])
+    except Exception as e:
+        logger.error(f"Erro ao criar índices de geo_urbano_projetos: {e}")
     # Documentos Externos (doc-ext)
     try:
         await db.documentos_externos.create_index("codigo", unique=True)

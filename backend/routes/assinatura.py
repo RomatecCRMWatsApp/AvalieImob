@@ -33,6 +33,8 @@ _TIPO_COLECAO = {
     "documento": "documentos_assinatura",
     # peça do Topografia & Geo (Memorial/Laudo/Requerimento/TRT/Dossiê) preparada p/ assinar
     "georef": "georef_assinaturas",
+    # peça do Geo Urbano (Memorial/Mapa) assinada pelo TÉCNICO via ICP
+    "geo_urbano": "geo_urbano_assinaturas",
     # PDF externo (módulo Documentos Externos): base do ICP = intermediário carimbado.
     "doc-ext": "documentos_externos",
 }
@@ -448,8 +450,8 @@ async def _gerar_pdf(tipo: str, doc: dict, db=None, perfil: dict | None = None) 
             raise HTTPException(status_code=500, detail="Arquivo do documento inválido.")
         pdf = await asyncio.to_thread(_normalizar_rotacao_pdf, pdf)
         return pdf
-    elif tipo in ("documento", "georef"):
-        # PDF AVULSO (usuário) ou peça do Topografia & Geo já gerada — só BAIXA do R2.
+    elif tipo in ("documento", "georef", "geo_urbano"):
+        # PDF AVULSO (usuário) ou peça do Topografia & Geo / Geo Urbano já gerada — só BAIXA do R2.
         from services import r2_storage
         key = doc.get("pdf_key")
         if not key:
@@ -994,6 +996,7 @@ async def assinar_icp_brasil(
     # Recibo assinado → reflete no card do PTAM vinculado.
     await _propagar_recibo_assinado(db, tipo, doc, data_principal)
     await _stamp_data_assinatura_contrato(db, tipo, doc, data_principal)
+    await _propagar_geo_urbano_assinado(db, tipo, doc, data_principal)
 
     return {
         "ok": True,
@@ -1062,6 +1065,32 @@ async def _propagar_recibo_assinado(db, tipo: str, doc: dict, quando=None) -> No
             )
         except Exception as e:
             logger.warning("Falha ao propagar recibo_assinado ao Contrato %s: %s", cid, e)
+
+
+async def _propagar_geo_urbano_assinado(db, tipo: str, doc: dict, quando=None) -> None:
+    """Quando o TÉCNICO assina (ICP) o Memorial/Mapa de um projeto Geo Urbano,
+    marca `aprovacao.tecnico.assinado` no projeto e recomputa o status do fluxo."""
+    if tipo != "geo_urbano":
+        return
+    try:
+        pid = (doc or {}).get("projeto_id")
+        if not pid:
+            return
+        proj = await db.geo_urbano_projetos.find_one({"id": pid})
+        if not proj:
+            return
+        from services.geo_urbano import aprovacao as _AP
+        aprov = dict(proj.get("aprovacao") or {})
+        tec = dict(aprov.get("tecnico") or {})
+        tec["assinado"] = True
+        tec["em"] = (quando or datetime.utcnow()).isoformat()
+        tec["assinatura_id"] = doc.get("id")
+        aprov["tecnico"] = tec
+        aprov["status_geral"] = _AP.status_geral(aprov)
+        await db.geo_urbano_projetos.update_one(
+            {"id": pid}, {"$set": {"aprovacao": aprov, "updated_at": datetime.utcnow().isoformat()}})
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Falha ao propagar assinatura do técnico (Geo Urbano): %s", e)
 
 
 async def _reenviar_contrato_final_ao_cliente(db, tipo: str, doc: dict, pdf_assinado: bytes) -> None:
@@ -1344,6 +1373,7 @@ async def assinar_posicionado(
     # Recibo assinado → reflete no card do PTAM vinculado.
     await _propagar_recibo_assinado(db, tipo, doc, data_assinatura)
     await _stamp_data_assinatura_contrato(db, tipo, doc, data_assinatura)
+    await _propagar_geo_urbano_assinado(db, tipo, doc, data_assinatura)
 
     try:
         await asyncio.to_thread(r2_storage.delete_object, key)

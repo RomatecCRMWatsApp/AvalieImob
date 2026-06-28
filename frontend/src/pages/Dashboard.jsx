@@ -61,6 +61,8 @@ import PainelConformidade from '../components/dashboard/conformidade/PainelConfo
 import FotosWidget from '../components/common/FotosWidget';
 import GeorefList from '../components/dashboard/topografia/GeorefList';
 import GeorefWizard from '../components/dashboard/topografia/GeorefWizard';
+import GeoUrbanoList from '../components/dashboard/topografia/GeoUrbanoList';
+import GeoUrbanoWizard from '../components/dashboard/topografia/GeoUrbanoWizard';
 
 /* ─── Brand ─────────────────────────────────────────────── */
 const GOLD       = '#D4A830';
@@ -488,6 +490,9 @@ const Dashboard = () => {
             <Route path="topografia/georef"      element={<GeorefList />} />
             <Route path="topografia/georef/novo" element={<GeorefWizard />} />
             <Route path="topografia/georef/:id"  element={<GeorefWizard />} />
+            <Route path="topografia/geo-urbano"      element={<GeoUrbanoList />} />
+            <Route path="topografia/geo-urbano/novo" element={<GeoUrbanoWizard />} />
+            <Route path="topografia/geo-urbano/:id"  element={<GeoUrbanoWizard />} />
             <Route path="*"            element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </div>

@@ -56,6 +56,8 @@ from routes.avaliacao_publica import router as avaliacao_publica_router
 from routes.admin_leads import router as admin_leads_router
 from routes.nfse import router as nfse_router
 from routes.georef import router as georef_router
+from routes.geo_urbano import router as geo_urbano_router
+from routes.geo_urbano_publico import router_publico as geo_urbano_publico_router
 
 all_routers = [
     auth_router, users_router, ptam_router, locacao_router,
@@ -79,4 +81,6 @@ all_routers = [
     admin_leads_router,
     nfse_router,
     georef_router,
+    geo_urbano_router,
+    geo_urbano_publico_router,
 ]

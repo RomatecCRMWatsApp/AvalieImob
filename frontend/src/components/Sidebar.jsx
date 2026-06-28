@@ -59,6 +59,7 @@ const MENU = [
   ]},
   { section: 'Topografia & Geo', items: [
     { id: 'georef', label: 'Georreferenciamento', icon: Compass, route: '/dashboard/topografia/georef', tag: 'NOVO' },
+    { id: 'geo-urbano', label: 'Geo Urbano', icon: MapPin, route: '/dashboard/topografia/geo-urbano', tag: 'NOVO' },
   ]},
   { section: 'Ferramentas', items: [
     { id: 'ia', label: 'Roma_IA', icon: Sparkles, route: '/dashboard/ia' },

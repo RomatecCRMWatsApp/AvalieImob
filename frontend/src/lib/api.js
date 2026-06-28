@@ -757,3 +757,61 @@ export const georefAPI = {
   kml: (id) =>
     api.get(`${GEOREF}/projetos/${id}/kml`, { responseType: 'blob' }).then((r) => r.data),
 };
+
+// Topografia & Geo — Geo Urbano (Remembramento e demais serviços urbanos)
+const GEOURB = '/topografia/geo-urbano';
+export const geoUrbanoAPI = {
+  listar: (params = {}) => api.get(`${GEOURB}/projetos`, { params }).then((r) => r.data),
+  criar: (data) => api.post(`${GEOURB}/projetos`, data).then((r) => r.data),
+  criarSeed: () => api.post(`${GEOURB}/projetos/seed`).then((r) => r.data),
+  obter: (id) => api.get(`${GEOURB}/projetos/${id}`).then((r) => r.data),
+  atualizar: (id, data) => api.patch(`${GEOURB}/projetos/${id}`, data).then((r) => r.data),
+  excluir: (id) => api.delete(`${GEOURB}/projetos/${id}`).then((r) => r.data),
+  // Upload de documento-fonte (mapas/BCI/certidões/IPTU/proprietário/TRT).
+  // NÃO fixar Content-Type: o axios precisa setar o boundary do multipart sozinho.
+  upload: (id, tipo, file, vinculo = {}) => {
+    const fd = new FormData();
+    fd.append('tipo', tipo);
+    fd.append('file', file);
+    if (vinculo.matricula_id) fd.append('matricula_id', vinculo.matricula_id);
+    if (vinculo.parte_id) fd.append('parte_id', vinculo.parte_id);
+    return api.post(`${GEOURB}/projetos/${id}/upload`, fd).then((r) => r.data);
+  },
+  removerUpload: (id, tipo, itemId) =>
+    api.delete(`${GEOURB}/projetos/${id}/uploads/${tipo}/${itemId}`).then((r) => r.data),
+  extrair: (id) => api.post(`${GEOURB}/projetos/${id}/extrair`).then((r) => r.data),
+  reconciliacao: (id) => api.get(`${GEOURB}/projetos/${id}/reconciliacao`).then((r) => r.data),
+  previewGeojson: (id) => api.get(`${GEOURB}/projetos/${id}/preview-geojson`).then((r) => r.data),
+  gerar: (id, data = {}) => api.post(`${GEOURB}/projetos/${id}/gerar`, data).then((r) => r.data),
+  documento: (id, tipo, tema, lote) =>
+    api.get(`${GEOURB}/projetos/${id}/documentos/${tipo}`,
+      { params: { ...(tema ? { tema } : {}), ...(lote ? { lote } : {}) }, responseType: 'blob' }).then((r) => r.data),
+  conservacaoArea: (id) => api.get(`${GEOURB}/projetos/${id}/conservacao-area`).then((r) => r.data),
+  retificacaoAnalise: (id) => api.get(`${GEOURB}/projetos/${id}/retificacao/analise`).then((r) => r.data),
+  retificacaoConfirmar: (id) => api.post(`${GEOURB}/projetos/${id}/retificacao/confirmar`).then((r) => r.data),
+  // Aprovação & assinaturas (Addendum)
+  aprovacaoStatus: (id) => api.get(`${GEOURB}/projetos/${id}/aprovacao/status`).then((r) => r.data),
+  aprovacaoEnviar: (id) => api.post(`${GEOURB}/projetos/${id}/aprovacao/enviar`).then((r) => r.data),
+  aprovacaoSuperintendencia: (id, body) =>
+    api.post(`${GEOURB}/projetos/${id}/aprovacao/superintendencia`, body).then((r) => r.data),
+  gerarOficio: (id) => api.post(`${GEOURB}/projetos/${id}/gerar/oficio`).then((r) => r.data),
+  // Assinatura ICP do técnico (Memorial/Mapa) — abre o assinador tipo="geo_urbano"
+  prepararAssinatura: (id, body) =>
+    api.post(`${GEOURB}/projetos/${id}/assinar`, body).then((r) => r.data),
+  listarAssinaturas: (id) =>
+    api.get(`${GEOURB}/projetos/${id}/assinaturas`).then((r) => r.data),
+  // Assinatura desenhada do PROPRIETÁRIO (Requerimento + ART/TRT) via WhatsApp
+  propPreparar: (id) => api.post(`${GEOURB}/projetos/${id}/proprietario/preparar`).then((r) => r.data),
+  propPosicionar: (id, body) => api.post(`${GEOURB}/projetos/${id}/proprietario/posicionar`, body).then((r) => r.data),
+  propSessao: (id) => api.get(`${GEOURB}/projetos/${id}/proprietario/sessao`).then((r) => r.data),
+  propReenviar: (id) => api.post(`${GEOURB}/projetos/${id}/proprietario/reenviar`).then((r) => r.data),
+  // Capa "Lupa Geo"
+  capaPreview: (id) =>
+    api.get(`${GEOURB}/projetos/${id}/capa/preview`, { responseType: 'blob' }).then((r) => r.data),
+};
+
+// Geo Urbano — assinatura pública do proprietário (página mobile, sem auth)
+export const geoUrbanoPublicoAPI = {
+  obter: (token) => api.get(`/publico/geo-urbano/${token}`).then((r) => r.data),
+  assinar: (token, body) => api.post(`/publico/geo-urbano/${token}`, body).then((r) => r.data),
+};
