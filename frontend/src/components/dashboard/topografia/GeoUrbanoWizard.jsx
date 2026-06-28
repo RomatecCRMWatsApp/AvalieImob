@@ -72,6 +72,7 @@ function Field({ label, value, onChange, full, ...rest }) {
 // Preview SVG da poligonal (UTM coord_e/coord_n)
 function Poligonal({ vertices = [] }) {
   const pts = (vertices || []).filter((v) => v.coord_e != null && v.coord_n != null)
+    .slice().sort((a, b) => (a.ordem || 0) - (b.ordem || 0))
     .map((v) => ({ x: Number(v.coord_e), y: Number(v.coord_n), de: v.de }));
   if (pts.length < 3) return <div className="text-sm text-gray-400 py-10 text-center">Sem vértices suficientes para o desenho.</div>;
   const W = 460, H = 300, pad = 30;

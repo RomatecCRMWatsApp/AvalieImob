@@ -157,6 +157,51 @@ _VERTICE_RE = re.compile(
     r"(\d+°\d+'\d+\")\s+([\d.,]+)\s*m?\s+([\d,]+)\s+([\d°'\",.]+\"?[SN])\s+([\d°'\",.]+\"?[WE])")
 
 
+def _f_num(x):
+    """float tolerante (aceita BR '226.466,3304' / '50,00' ou número)."""
+    if x is None:
+        return None
+    if isinstance(x, (int, float)):
+        return float(x)
+    s = str(x).strip()
+    if not s:
+        return None
+    if "," in s:
+        s = s.replace(".", "").replace(",", ".")
+    try:
+        return float(s)
+    except ValueError:
+        return None
+
+
+def alinhar_coords_aos_vertices(vertices: list) -> list:
+    """Algumas planilhas de mapa listam, em cada linha 'De→Para', a COORDENADA do
+    vértice PARA (destino), não do De — então as posições ficam deslocadas em 1 e o
+    desenho/Memorial não batem com as medidas. Detecta o offset comparando a
+    distância entre coords consecutivas com a distância tabelada e, se for o caso,
+    desloca coord_n/coord_e/latitude/longitude um vértice para trás (cada vértice
+    passa a carregar a SUA posição). Azimute/distância/fator_k ficam no vértice De.
+    Idempotente e seguro: só desloca quando a evidência é clara."""
+    import math
+    vs = sorted(vertices or [], key=lambda v: v.get("ordem", 0))
+    n = len(vs)
+    if n < 3:
+        return vertices
+    e0, n0 = _f_num(vs[0].get("coord_e")), _f_num(vs[0].get("coord_n"))
+    e1, n1 = _f_num(vs[1].get("coord_e")), _f_num(vs[1].get("coord_n"))
+    d0, d1 = _f_num(vs[0].get("distancia_m")), _f_num(vs[1].get("distancia_m"))
+    if None in (e0, n0, e1, n1, d0, d1):
+        return vertices
+    dcalc = math.hypot(e1 - e0, n1 - n0)
+    # coord=De → dcalc≈d0 ; coord=Para (deslocado) → dcalc≈d1
+    if abs(dcalc - d1) + 0.5 < abs(dcalc - d0):
+        pos = [(v.get("coord_n"), v.get("coord_e"), v.get("latitude"), v.get("longitude")) for v in vs]
+        for i, v in enumerate(vs):
+            cn, ce, lat, lon = pos[(i - 1) % n]
+            v["coord_n"], v["coord_e"], v["latitude"], v["longitude"] = cn, ce, lat, lon
+    return vertices
+
+
 def parse_mapa(pdf_bytes: bytes) -> dict:
     t = _texto(pdf_bytes)
     out = {}
@@ -169,7 +214,7 @@ def parse_mapa(pdf_bytes: bytes) -> dict:
             "latitude": m.group(8), "longitude": m.group(9),
         })
     if vertices:
-        out["vertices"] = vertices
+        out["vertices"] = alinhar_coords_aos_vertices(vertices)
     out["area_declarada_m2"] = _num(_busca(r"[ÁA]rea:\s*([\d.,]+)\s*m", t))
     out["perimetro_m"] = _num(_busca(r"Per[íi]metro:\s*([\d.,]+)\s*m", t))
     out["cmi_resultante"] = _busca(rf"CIM:\s*({_LOC})", t)

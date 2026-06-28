@@ -100,9 +100,14 @@ def build_seed(user_id: str = "") -> dict:
                 acordo_numero=_ACORDOS.get(ordem), valor=394.00, vencimento="2026-07-24",
                 exercicios=["2023", "2024", "2025"]))
 
-    vertices = [Vertice(ordem=o, de=de, para=para, coord_n=n, coord_e=e, azimute=az,
-                        distancia_m=d, fator_k=fk, latitude=lat, longitude=lon, confrontante_lado=lado)
-                for (o, de, para, n, e, az, d, fk, lat, lon, lado) in _VERTICES]
+    # A planilha §13 lista, por linha, a coordenada do vértice PARA — alinhamos cada
+    # vértice à SUA posição (mesma correção da extração) p/ desenho/Memorial baterem.
+    from services.geo_urbano.extractor import alinhar_coords_aos_vertices
+    _vraw = [{"ordem": o, "de": de, "para": para, "coord_n": n, "coord_e": e, "azimute": az,
+              "distancia_m": d, "fator_k": fk, "latitude": lat, "longitude": lon, "confrontante_lado": lado}
+             for (o, de, para, n, e, az, d, fk, lat, lon, lado) in _VERTICES]
+    alinhar_coords_aos_vertices(_vraw)
+    vertices = [Vertice(**v) for v in _vraw]
 
     partes = [
         Parte(papel="requerente", tipo_pessoa="juridica", razao_social=_JG[0], cnpj=_JG[1],

@@ -419,6 +419,17 @@ def test_retificacao_quadro_e_requerimento():
     assert _paginas(PDF.gerar_pdf("requerimento_cartorio", p, "prime_i")) >= 1
 
 
+def test_alinhar_coords_aos_vertices(proj):
+    # a planilha lista a coord do vértice PARA; após alinhar, a distância entre
+    # coords consecutivas deve bater com a distancia_m tabelada de cada segmento
+    import math
+    verts = sorted(proj["vertices"], key=lambda v: v.get("ordem", 0))
+    for i in range(len(verts)):
+        a, b = verts[i], verts[(i + 1) % len(verts)]
+        dc = math.hypot(b["coord_e"] - a["coord_e"], b["coord_n"] - a["coord_n"])
+        assert abs(dc - a["distancia_m"]) < 0.6, f"{a['de']}->{b['de']}: {dc:.2f} != {a['distancia_m']}"
+
+
 def test_sigri_shapefile_e_kml(proj):
     # Prov. CNJ 195/2025: shapefile SIG-RI (SHP/SHX/DBF/PRJ) + KML a partir do lat/long
     assert round(GX._dms_to_dec("04°56'15,475979\"S"), 4) == -4.9376
