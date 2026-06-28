@@ -381,6 +381,13 @@ def test_retificacao_confrontante_alterado():
     assert any(c["alterado"] for c in g["confrontantes_diff"])  # Fulano → Beltrano
 
 
+def test_parse_art_trt():
+    base = _mk_pdf(["CONSELHO FEDERAL DOS TECNICOS", "Documento de RT: CFT2605953795-MA"])
+    assert EX.parse_art_trt(base, "art.pdf") == "CFT2605953795-MA"
+    # fallback pelo nome do arquivo quando o PDF é imagem/sem texto
+    assert EX.parse_art_trt(b"%PDF-1.4 imagem", "CFT2605953795.7B6Y6.pdf") == "CFT2605953795"
+
+
 def test_drl_so_confrontante_particular():
     proj = {**_proj_retificacao(), "endereco": "Rua A, 10", "confrontantes": [
         {"id": "c1", "lado": "lateral_direita", "confrontante": "Sr. Bita", "tipo": "particular", "medida_m": 22.96},

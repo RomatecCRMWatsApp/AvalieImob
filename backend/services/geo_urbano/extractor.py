@@ -223,6 +223,26 @@ def _titular_atual(t: str) -> dict:
     return {"nome": _limpa_nome(m.group(1)), "doc": doc.group(1) if doc else None}
 
 
+def parse_art_trt(pdf_bytes: bytes, filename: str = "") -> Optional[str]:
+    """Número da ART/TRT/RRT a partir do upload (texto → OCR → nome do arquivo)."""
+    t = _texto(pdf_bytes) or ""
+    if len(t.strip()) < 40:
+        t = ocr_pdf(pdf_bytes, max_paginas=2) or t
+    # 1) código CFT (Conselho Federal dos Técnicos): CFT + dígitos (+ -UF)
+    m = re.search(r"\bCFT\s?\d{8,}(?:[-/]?[A-Z]{2})?", t)
+    if m:
+        return re.sub(r"\s+", "", m.group(0))
+    # 2) ART/TRT/RRT nº …
+    m = re.search(r"\b(ART|TRT|RRT)\b\D{0,25}(\d[\d./-]{5,})", t, re.IGNORECASE)
+    if m:
+        return f"{m.group(1).upper()} nº {m.group(2)}"
+    # 3) fallback: nome do arquivo (ex.: CFT2605953795.7B6Y6.pdf)
+    fn = re.search(r"CFT\s?\d{8,}", filename or "", re.IGNORECASE)
+    if fn:
+        return re.sub(r"\s+", "", fn.group(0)).upper()
+    return None
+
+
 def parse_matricula_text(t: str) -> dict:
     out = {}
     out["matricula"] = _busca(r"MATR[ÍI]CULA\s*n?[ºo°.]?\s*([\d.]+)", t)

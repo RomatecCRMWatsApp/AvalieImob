@@ -199,6 +199,9 @@ export default function GeoUrbanoWizard() {
     const c = (l.confrontacoes || []).find((x) => x.lado === lado);
     return c ? (c[campo] ?? '') : '';
   };
+  // Vértices (editáveis — confrontante não vem da planilha do mapa)
+  const addVert = () => upd({ vertices: [...(proj.vertices || []), { id: `tmp-${Date.now()}`, ordem: (proj.vertices || []).length + 1 }] });
+  const rmVert = (i) => upd({ vertices: (proj.vertices || []).filter((_, k) => k !== i) });
   // Confrontantes + DRL (retificação, eixo geométrico)
   const addConfr = () => upd({ confrontantes: [...(proj.confrontantes || []), { id: `tmp-${Date.now()}`, tipo: 'particular', anuencia: { status: 'pendente' } }] });
   const rmConfr = (i) => upd({ confrontantes: (proj.confrontantes || []).filter((_, k) => k !== i) });
@@ -706,35 +709,45 @@ export default function GeoUrbanoWizard() {
           </div>
           <div className="rounded-xl border bg-white p-4">
             <div className="flex items-center justify-between mb-2">
-              <h2 className="font-semibold" style={{ color: GREEN }}>Quadro de vértices</h2>
-              <span className="text-[10px] text-gray-400">arraste para o lado ↔</span>
+              <h2 className="font-semibold" style={{ color: GREEN }}>Quadro de vértices <span className="text-[11px] font-normal text-gray-400">(editável)</span></h2>
+              <div className="flex items-center gap-3">
+                <span className="text-[10px] text-gray-400">arraste ↔</span>
+                <button onClick={addVert} className="text-xs inline-flex items-center gap-1 text-emerald-700 hover:underline"><Plus className="w-3.5 h-3.5" /> Vértice</button>
+              </div>
             </div>
+            <p className="text-[11px] text-amber-600 mb-2">O <b>Confrontante</b> não vem da planilha do mapa — preencha/corrija por aqui (1 por segmento) para o Memorial sair completo.</p>
             <div className="overflow-x-auto -mx-1 px-1">
-              <table className="text-xs border-collapse" style={{ minWidth: 760 }}>
+              <table className="text-xs border-collapse" style={{ minWidth: 820 }}>
                 <thead>
                   <tr className="text-left" style={{ color: GREEN }}>
-                    {['De', 'Para', 'Coord. N (Y)', 'Coord. E (X)', 'Azimute', 'Dist. (m)', 'Fator K', 'Confrontante'].map((h) => (
-                      <th key={h} className="px-2 py-1.5 whitespace-nowrap border-b font-semibold bg-gray-50">{h}</th>
+                    {['De', 'Para', 'Coord. N (Y)', 'Coord. E (X)', 'Azimute', 'Dist. (m)', 'Fator K', 'Confrontante', ''].map((h) => (
+                      <th key={h} className="px-1.5 py-1.5 whitespace-nowrap border-b font-semibold bg-gray-50">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {(proj.vertices || []).map((v, i) => (
-                    <tr key={v.id || i} className="border-b hover:bg-emerald-50/40">
-                      <td className="px-2 py-1.5 whitespace-nowrap font-medium">{v.de}</td>
-                      <td className="px-2 py-1.5 whitespace-nowrap">{v.para}</td>
-                      <td className="px-2 py-1.5 whitespace-nowrap font-mono">{v.coord_n}</td>
-                      <td className="px-2 py-1.5 whitespace-nowrap font-mono">{v.coord_e}</td>
-                      <td className="px-2 py-1.5 whitespace-nowrap">{v.azimute}</td>
-                      <td className="px-2 py-1.5 whitespace-nowrap text-right">{v.distancia_m}</td>
-                      <td className="px-2 py-1.5 whitespace-nowrap font-mono">{v.fator_k}</td>
-                      <td className="px-2 py-1.5 whitespace-nowrap">{v.confrontante_lado || '—'}</td>
-                    </tr>
-                  ))}
+                  {(proj.vertices || []).map((v, i) => {
+                    const vci = 'w-full bg-transparent px-1.5 py-1 text-xs outline-none focus:bg-emerald-50 rounded';
+                    const set = (campo, val) => updArr('vertices', i, { [campo]: val });
+                    const setN = (campo, val) => updArr('vertices', i, { [campo]: val === '' ? null : Number(val) });
+                    return (
+                      <tr key={v.id || i} className="border-b">
+                        <td className="border-r"><input className={vci + ' font-medium'} style={{ minWidth: 92 }} value={v.de || ''} onChange={(e) => set('de', e.target.value)} /></td>
+                        <td className="border-r"><input className={vci} style={{ minWidth: 92 }} value={v.para || ''} onChange={(e) => set('para', e.target.value)} /></td>
+                        <td className="border-r"><input className={vci + ' font-mono'} style={{ minWidth: 104 }} type="number" value={v.coord_n ?? ''} onChange={(e) => setN('coord_n', e.target.value)} /></td>
+                        <td className="border-r"><input className={vci + ' font-mono'} style={{ minWidth: 104 }} type="number" value={v.coord_e ?? ''} onChange={(e) => setN('coord_e', e.target.value)} /></td>
+                        <td className="border-r"><input className={vci} style={{ minWidth: 84 }} value={v.azimute || ''} onChange={(e) => set('azimute', e.target.value)} /></td>
+                        <td className="border-r"><input className={vci + ' text-right'} style={{ minWidth: 60 }} type="number" value={v.distancia_m ?? ''} onChange={(e) => setN('distancia_m', e.target.value)} /></td>
+                        <td className="border-r"><input className={vci + ' font-mono'} style={{ minWidth: 88 }} type="number" value={v.fator_k ?? ''} onChange={(e) => setN('fator_k', e.target.value)} /></td>
+                        <td className="border-r bg-amber-50/40"><input className={vci} style={{ minWidth: 150 }} placeholder="ex.: Rua Suriname" value={v.confrontante_lado || ''} onChange={(e) => set('confrontante_lado', e.target.value)} /></td>
+                        <td className="px-1"><Trash2 className="w-3.5 h-3.5 text-gray-300 hover:text-red-500 cursor-pointer" onClick={() => rmVert(i)} /></td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
-            {!(proj.vertices || []).length && <p className="text-sm text-gray-400 mt-2">Sem vértices. Virão da planilha do mapa de remembramento (extração).</p>}
+            {!(proj.vertices || []).length && <p className="text-sm text-gray-400 mt-2">Sem vértices ainda — extraia do mapa (passo Uploads) ou adicione manualmente.</p>}
           </div>
         </div>
       )}

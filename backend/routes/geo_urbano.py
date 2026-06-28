@@ -277,6 +277,26 @@ async def extrair(pid: str, uid: str = Depends(get_active_subscriber), db=Depend
     for campo in ("area_declarada_m2", "perimetro_m", "cmi_resultante", "cadastro_novo", "cadastro_antigo"):
         if res.get(campo) is not None and not editados.get(campo):
             sets[campo] = res[campo]
+    # PRESERVA o confrontante_lado já preenchido (a planilha do mapa não o traz) —
+    # não apaga o que o usuário editou ao reextrair.
+    if "vertices" in sets:
+        antigos = {v.get("de"): v for v in (doc.get("vertices") or [])}
+        for v in sets["vertices"]:
+            if not v.get("confrontante_lado"):
+                ant = antigos.get(v.get("de"))
+                if ant and ant.get("confrontante_lado"):
+                    v["confrontante_lado"] = ant["confrontante_lado"]
+    # TRT/ART automática do upload art_trt → preenche trt_numero do projeto
+    if not editados.get("trt_numero") and not doc.get("trt_numero"):
+        art = uploads.get("art_trt") or []
+        if art and art[0].get("key"):
+            try:
+                raw = await asyncio.to_thread(r2_storage.download_bytes, art[0]["key"])
+                trt = await asyncio.to_thread(EX.parse_art_trt, raw, art[0].get("nome") or "")
+                if trt:
+                    sets["trt_numero"] = trt
+            except Exception:  # noqa: BLE001
+                pass
     base = {**doc, **sets}
     if base.get("vertices"):
         sets["area_calculada_m2"] = GEOM.area_m2(base["vertices"])
