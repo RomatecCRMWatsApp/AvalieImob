@@ -340,7 +340,7 @@ function ModalTestemunhas({ doc, onClose }) {
   });
   const [editId, setEditId] = useState(null);
   const [editForm, setEditForm] = useState({});
-  const iniciarEdicao = (t) => { setEditId(t.id); setEditForm({ nome: t.nome || '', cpf: t.cpf || '', telefone: t.telefone || '', email: t.email || '', parte_vinculada_id: t.parte_vinculada_id || '', docTipo: 'CNH', docFrente: '', docVerso: '', docPdf: '', docNome: '', docEnviado: !!t.documento_enviado }); };
+  const iniciarEdicao = (t) => { setEditId(t.id); setEditForm({ nome: t.nome || '', cpf: t.cpf || '', telefone: t.telefone || '', email: t.email || '', parte_vinculada_id: t.parte_vinculada_id || '', docTipo: t.documento_tipo || 'CNH', docFrente: '', docVerso: '', docPdf: '', docNome: '', docEnviado: !!t.documento_enviado, docPdfEnviado: !!t.documento_pdf }); };
   const lerArquivo = (file) => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(file); });
   // aceita PDF (CNH-e) OU foto — PDF vai direto, imagem é comprimida
   const pickArquivo = (campo) => async (e) => {
@@ -436,7 +436,8 @@ function ModalTestemunhas({ doc, onClose }) {
                   {sigs.map((s) => <option key={s.id} value={s.id}>{s.nome} ({s.papel})</option>)}
                 </select>
                 <div className="rounded-lg border border-dashed border-amber-300 bg-amber-50/60 p-2">
-                  <div className="text-[11px] font-semibold text-amber-800 mb-1">Documento de identidade — CNH/RG (PDF ou foto){editForm.docEnviado ? ' · ✓ já enviado' : ''}</div>
+                  <div className="text-[11px] font-semibold text-amber-800 mb-1">Documento de identidade — CNH/RG (PDF ou foto){editForm.docEnviado ? ` · ✓ já anexado (${editForm.docPdfEnviado ? 'PDF' : 'foto'})` : ''}</div>
+                  {editForm.docEnviado && !editForm.docPdf && !editForm.docFrente && <div className="text-[10px] text-emerald-700 mb-1">O documento já está no contrato. Anexe novamente só se quiser substituir.</div>}
                   <div className="flex items-center gap-1.5">
                     <select className="border rounded px-1.5 py-1 text-xs" value={editForm.docTipo} onChange={(e) => setEditForm((f) => ({ ...f, docTipo: e.target.value }))}>
                       <option value="CNH">CNH</option><option value="RG">RG</option><option value="OUTRO">Outro</option>
@@ -460,7 +461,7 @@ function ModalTestemunhas({ doc, onClose }) {
               </div>
             ) : (
               <div key={t.id} className="flex items-center justify-between gap-2 py-1 text-sm">
-                <span className="truncate">{t.nome} <span className="text-[11px] text-gray-400">· {t.parte_vinculada_nome || t.vinculo}</span></span>
+                <span className="truncate">{t.nome} <span className="text-[11px] text-gray-400">· {t.parte_vinculada_nome || t.vinculo}</span>{t.documento_enviado && <span title="CNH/RG anexada" className="text-[10px] text-emerald-700"> · 📎 doc</span>}</span>
                 <span className="flex items-center gap-2 shrink-0">
                   <span className={`text-[10px] px-2 py-0.5 rounded ${BADGE[t.status] || BADGE.pendente}`}>{t.status}</span>
                   {t.status !== 'assinado' && <>

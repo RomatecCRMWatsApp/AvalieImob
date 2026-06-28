@@ -87,7 +87,11 @@ async def status(modulo: str, doc_id: str,
                              "telefone": t.get("telefone"), "email": t.get("email"),
                              "vinculo": t.get("vinculo"), "parte_vinculada_id": t.get("parte_vinculada_id"),
                              "parte_vinculada_nome": t.get("parte_vinculada_nome"), "status": t["status"],
-                             "documento_enviado": bool((t.get("documento") or {}).get("frente_key")),
+                             "documento_enviado": bool((t.get("documento") or {}).get("frente_key")
+                                                       or (t.get("documento") or {}).get("verso_key")
+                                                       or (t.get("documento") or {}).get("pdf_key")),
+                             "documento_tipo": (t.get("documento") or {}).get("tipo"),
+                             "documento_pdf": bool((t.get("documento") or {}).get("pdf_key")),
                              "enviado_em": t.get("enviado_em"), "visualizado_em": t.get("visualizado_em"),
                              "assinado_em": t.get("assinado_em"), "link": TS._link(t["token"])}
                             for t in (doc.get("testemunhas") or [])]}

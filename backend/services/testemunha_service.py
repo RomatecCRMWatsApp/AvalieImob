@@ -160,8 +160,9 @@ async def posicionar(db, modulo: str, doc_id: str, uid: str, posicoes: dict) -> 
     return {"ok": True}
 
 
-async def _aplicar_e_reconstruir(db, modulo, doc_id, uid, doc, testemunhas, extra=None):
-    """$set das testemunhas + reconstrói a revisão vigente (página atualizada)."""
+async def _aplicar_e_reconstruir(db, modulo, doc_id, uid, doc, testemunhas, extra=None, strict=False):
+    """$set das testemunhas + reconstrói a revisão vigente (página atualizada).
+    strict=True propaga o erro de reconstrução (p/ o upload do operador avisar)."""
     sets = {"testemunhas": testemunhas, "updated_at": datetime.utcnow(), **(extra or {})}
     if testemunhas:
         try:
@@ -172,6 +173,11 @@ async def _aplicar_e_reconstruir(db, modulo, doc_id, uid, doc, testemunhas, extr
                 sets["hash_documento"] = h
         except Exception:  # noqa: BLE001
             logger.warning("Testemunha: reconstrução falhou.", exc_info=True)
+            if strict:
+                await db[_col(modulo)].update_one({"id": doc_id, "user_id": uid}, {"$set": sets})
+                raise HTTPException(status_code=500,
+                                    detail="Documento salvo, mas falhou ao montar o PDF com o anexo. "
+                                           "Verifique se o PDF da CNH não está protegido por senha.")
     else:  # sem testemunhas → volta à revisão das PARTES
         sets["pdf_key_testemunhas"] = None
         sets["pdf_key_final"] = doc.get("pdf_key_partes")
@@ -243,7 +249,7 @@ async def salvar_documento_operador(db, modulo: str, doc_id: str, uid: str, tid:
     if not t:
         raise HTTPException(status_code=404, detail="Testemunha não encontrada.")
     t["documento"] = await _salvar_doc_na_testemunha(uid, doc_id, t, frente_b64, verso_b64, pdf_b64, tipo)
-    await _aplicar_e_reconstruir(db, modulo, doc_id, uid, doc, testemunhas)
+    await _aplicar_e_reconstruir(db, modulo, doc_id, uid, doc, testemunhas, strict=True)
     return {"ok": True, "pdf": bool(t["documento"].get("pdf_key")),
             "frente": bool(t["documento"].get("frente_key")), "verso": bool(t["documento"].get("verso_key"))}
 
