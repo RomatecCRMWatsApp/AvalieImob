@@ -68,8 +68,9 @@ def novo_signatario(data: dict) -> dict:
 class DocTestemunha(BaseModel):
     """Documento de identidade da testemunha (CNH/RG) — opcionalmente anexado ao PDF."""
     tipo: Literal["CNH", "RG", "OUTRO"] = "CNH"
-    frente_key: Optional[str] = None     # key R2
-    verso_key: Optional[str] = None
+    frente_key: Optional[str] = None     # key R2 (foto da frente)
+    verso_key: Optional[str] = None      # key R2 (foto do verso)
+    pdf_key: Optional[str] = None        # key R2 (documento em PDF — CNH-e etc.)
     nome_arquivo: Optional[str] = None
     mime: Optional[str] = None
     enviado_em: Optional[datetime] = None
@@ -80,6 +81,12 @@ class Testemunha(BaseModel):
     id: str = Field(default_factory=lambda: uuid.uuid4().hex)
     nome: str
     cpf: str = ""
+    rg: str = ""                         # qualificação completa (notarial)
+    orgao_emissor: str = ""
+    nacionalidade: str = ""
+    estado_civil: str = ""
+    profissao: str = ""
+    endereco: str = ""                   # endereço completo (composto)
     telefone: str = ""                   # whatsapp/contato (só dígitos)
     email: Optional[str] = None
     vinculo: str = ""                    # papel/lado (ex.: comprador/vendedor) — texto livre
@@ -107,6 +114,12 @@ def nova_testemunha(data: dict) -> dict:
     return Testemunha(
         nome=str(data.get("nome") or "").strip() or "Testemunha",
         cpf=_so_dig(data.get("cpf")),
+        rg=str(data.get("rg") or "").strip(),
+        orgao_emissor=str(data.get("orgao_emissor") or "").strip(),
+        nacionalidade=str(data.get("nacionalidade") or "").strip(),
+        estado_civil=str(data.get("estado_civil") or "").strip(),
+        profissao=str(data.get("profissao") or "").strip(),
+        endereco=str(data.get("endereco") or "").strip(),
         telefone=_so_dig(data.get("telefone") or data.get("whatsapp")),
         email=(str(data.get("email")).strip() or None) if data.get("email") else None,
         vinculo=str(data.get("vinculo") or "").strip(),

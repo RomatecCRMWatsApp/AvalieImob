@@ -67,6 +67,7 @@ async def documento_operador(modulo: str, doc_id: str, tid: str, payload: dict,
     return await TS.salvar_documento_operador(db, modulo, doc_id, uid, tid,
                                               (payload or {}).get("frente_base64") or "",
                                               (payload or {}).get("verso_base64") or "",
+                                              (payload or {}).get("pdf_base64") or "",
                                               (payload or {}).get("tipo") or "CNH")
 
 
@@ -127,6 +128,7 @@ async def enviar_documento(token: str, payload: dict, request: Request, db=Depen
     return await TS.salvar_documento(db, token,
                                      (payload or {}).get("frente_base64") or "",
                                      (payload or {}).get("verso_base64") or "",
+                                     (payload or {}).get("pdf_base64") or "",
                                      (payload or {}).get("tipo") or "CNH")
 
 

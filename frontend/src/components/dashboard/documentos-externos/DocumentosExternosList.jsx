@@ -256,9 +256,17 @@ function ModalTestemunhas({ doc, onClose }) {
 
   const upd = (i, patch) => setLinhas((ls) => ls.map((l, k) => (k === i ? { ...l, ...patch } : l)));
   const addLinha = () => setLinhas((ls) => [...ls, { nome: '', cpf: '', telefone: '', email: '', parte_vinculada_id: sigs[0]?.id || '' }]);
+  const composEndereco = (c) => [c.endereco, c.numero && `nº ${c.numero}`, c.complemento, c.bairro,
+    (c.city && c.uf) ? `${c.city}/${c.uf}` : (c.city || c.uf), c.cep && `CEP ${c.cep}`].filter(Boolean).join(', ');
   const selCliente = (i, cid) => {
     const c = clientes.find((x) => (x.id || x._id) === cid);
-    if (c) upd(i, { nome: c.name || c.nome || '', cpf: (c.doc || c.cpf || '').replace(/\D/g, ''), telefone: (c.phone || c.telefone || '').replace(/\D/g, ''), email: c.email || '' });
+    if (c) upd(i, {
+      nome: c.name || c.nome || '', cpf: (c.doc || c.cpf || '').replace(/\D/g, ''),
+      telefone: (c.phone || c.telefone || '').replace(/\D/g, ''), email: c.email || '',
+      rg: c.rg || '', orgao_emissor: c.orgao_emissor || '', nacionalidade: c.nacionalidade || '',
+      estado_civil: c.estado_civil || '', profissao: c.profissao || '', endereco: composEndereco(c),
+      _qualif: true,
+    });
   };
 
   // PASSO 1: cadastra (sem enviar) e vai para o posicionador
@@ -269,7 +277,9 @@ function ModalTestemunhas({ doc, onClose }) {
     try {
       const payload = validas.map((l) => {
         const sig = sigs.find((s) => s.id === l.parte_vinculada_id) || {};
-        return { nome: l.nome, cpf: l.cpf, telefone: l.telefone, email: l.email,
+        return { nome: l.nome, cpf: l.cpf, rg: l.rg, orgao_emissor: l.orgao_emissor,
+          nacionalidade: l.nacionalidade, estado_civil: l.estado_civil, profissao: l.profissao,
+          endereco: l.endereco, telefone: l.telefone, email: l.email,
           vinculo: sig.papel || 'testemunha', parte_vinculada_id: sig.id, parte_vinculada_nome: sig.nome };
       });
       await testemunhasAssinaturaAPI.cadastrar(_MODULO, doc.id, payload);
@@ -330,14 +340,22 @@ function ModalTestemunhas({ doc, onClose }) {
   });
   const [editId, setEditId] = useState(null);
   const [editForm, setEditForm] = useState({});
-  const iniciarEdicao = (t) => { setEditId(t.id); setEditForm({ nome: t.nome || '', cpf: t.cpf || '', telefone: t.telefone || '', email: t.email || '', parte_vinculada_id: t.parte_vinculada_id || '', docTipo: 'CNH', docFrente: '', docVerso: '', docEnviado: !!t.documento_enviado }); };
-  const pickEdit = (campo) => async (e) => { const f = e.target.files?.[0]; if (f) { try { const b = await lerImg(f); setEditForm((s) => ({ ...s, [campo]: b })); } catch { /* */ } } };
+  const iniciarEdicao = (t) => { setEditId(t.id); setEditForm({ nome: t.nome || '', cpf: t.cpf || '', telefone: t.telefone || '', email: t.email || '', parte_vinculada_id: t.parte_vinculada_id || '', docTipo: 'CNH', docFrente: '', docVerso: '', docPdf: '', docNome: '', docEnviado: !!t.documento_enviado }); };
+  const lerArquivo = (file) => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(file); });
+  // aceita PDF (CNH-e) OU foto — PDF vai direto, imagem é comprimida
+  const pickArquivo = (campo) => async (e) => {
+    const f = e.target.files?.[0]; if (!f) return;
+    try {
+      if (f.type === 'application/pdf') { const b = await lerArquivo(f); setEditForm((s) => ({ ...s, docPdf: b, docNome: f.name, docFrente: '', docVerso: '' })); }
+      else { const b = await lerImg(f); setEditForm((s) => ({ ...s, [campo]: b, docPdf: '' })); }
+    } catch { /* */ }
+  };
   const salvarEdicao = async () => {
     try {
       const sig = sigs.find((s) => s.id === editForm.parte_vinculada_id) || {};
       await testemunhasAssinaturaAPI.editar(_MODULO, doc.id, editId, { nome: editForm.nome, cpf: editForm.cpf, telefone: editForm.telefone, email: editForm.email, parte_vinculada_id: editForm.parte_vinculada_id, vinculo: sig.papel || undefined, parte_vinculada_nome: sig.nome || undefined });
-      if (editForm.docFrente || editForm.docVerso) {
-        await testemunhasAssinaturaAPI.enviarDocumento(_MODULO, doc.id, editId, { tipo: editForm.docTipo, frente_base64: editForm.docFrente, verso_base64: editForm.docVerso });
+      if (editForm.docPdf || editForm.docFrente || editForm.docVerso) {
+        await testemunhasAssinaturaAPI.enviarDocumento(_MODULO, doc.id, editId, { tipo: editForm.docTipo, pdf_base64: editForm.docPdf, frente_base64: editForm.docFrente, verso_base64: editForm.docVerso });
       }
       toast({ title: 'Testemunha atualizada' }); setEditId(null); recarregar();
     } catch (e) { toast({ title: 'Erro ao salvar', description: e?.response?.data?.detail || '', variant: 'destructive' }); }
@@ -418,17 +436,21 @@ function ModalTestemunhas({ doc, onClose }) {
                   {sigs.map((s) => <option key={s.id} value={s.id}>{s.nome} ({s.papel})</option>)}
                 </select>
                 <div className="rounded-lg border border-dashed border-amber-300 bg-amber-50/60 p-2">
-                  <div className="text-[11px] font-semibold text-amber-800 mb-1">Documento de identidade (CNH/RG){editForm.docEnviado ? ' · ✓ já enviado' : ''}</div>
+                  <div className="text-[11px] font-semibold text-amber-800 mb-1">Documento de identidade — CNH/RG (PDF ou foto){editForm.docEnviado ? ' · ✓ já enviado' : ''}</div>
                   <div className="flex items-center gap-1.5">
                     <select className="border rounded px-1.5 py-1 text-xs" value={editForm.docTipo} onChange={(e) => setEditForm((f) => ({ ...f, docTipo: e.target.value }))}>
                       <option value="CNH">CNH</option><option value="RG">RG</option><option value="OUTRO">Outro</option>
                     </select>
-                    {[['Frente', 'docFrente'], ['Verso', 'docVerso']].map(([lbl, campo]) => (
-                      <label key={campo} className={`flex-1 text-center text-[11px] rounded border-2 border-dashed py-1.5 cursor-pointer ${editForm[campo] ? 'border-emerald-400 text-emerald-700' : 'border-amber-300 text-amber-700'}`}>
-                        {editForm[campo] ? '✓ ' + lbl : '📷 ' + lbl}
-                        <input type="file" accept="image/*" capture="environment" onChange={pickEdit(campo)} className="hidden" />
+                    <label className={`flex-1 text-center text-[11px] rounded border-2 border-dashed py-1.5 cursor-pointer ${(editForm.docPdf || editForm.docFrente) ? 'border-emerald-400 text-emerald-700' : 'border-amber-300 text-amber-700'}`}>
+                      {editForm.docPdf ? `✓ ${editForm.docNome || 'PDF anexado'}` : editForm.docFrente ? '✓ Frente' : '📎 Anexar PDF / 📷 Frente'}
+                      <input type="file" accept="image/*,application/pdf" onChange={pickArquivo('docFrente')} className="hidden" />
+                    </label>
+                    {!editForm.docPdf && (
+                      <label className={`text-center text-[11px] rounded border-2 border-dashed py-1.5 px-2 cursor-pointer ${editForm.docVerso ? 'border-emerald-400 text-emerald-700' : 'border-amber-300 text-amber-700'}`}>
+                        {editForm.docVerso ? '✓ Verso' : '📷 Verso'}
+                        <input type="file" accept="image/*" capture="environment" onChange={pickArquivo('docVerso')} className="hidden" />
                       </label>
-                    ))}
+                    )}
                   </div>
                 </div>
                 <div className="flex justify-end gap-2 pt-0.5">

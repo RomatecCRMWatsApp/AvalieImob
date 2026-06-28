@@ -35,6 +35,39 @@ def _fmt_fone(f):
     return f or ""
 
 
+_ESTADO_CIVIL = {"solteiro": "solteiro(a)", "casado": "casado(a)", "uniao_estavel": "em união estável",
+                 "divorciado": "divorciado(a)", "viuvo": "viúvo(a)", "separado": "separado(a)"}
+
+
+def _qualificacao(t: dict) -> str:
+    """Qualificação notarial completa da testemunha (omite o que estiver vazio)."""
+    quals = [t.get("nacionalidade"), _ESTADO_CIVIL.get(t.get("estado_civil"), t.get("estado_civil")),
+             t.get("profissao")]
+    partes = [str(q).strip() for q in quals if q and str(q).strip()]
+    rg = str(t.get("rg") or "").strip()
+    if rg:
+        org = str(t.get("orgao_emissor") or "").strip()
+        partes.append(f"portador(a) do RG nº {rg}{(' ' + org) if org else ''}")
+    cpf = _fmt_cpf(t.get("cpf"))
+    if cpf:
+        partes.append(f"inscrito(a) no CPF nº {cpf}")
+    end = str(t.get("endereco") or "").strip()
+    if end:
+        partes.append(f"residente e domiciliado(a) em {end}")
+    cont = []
+    if t.get("telefone"):
+        cont.append(f"contato {_fmt_fone(t.get('telefone'))}")
+    if t.get("email"):
+        cont.append(f"e-mail {t.get('email')}")
+    if cont:
+        partes.append(", ".join(cont))
+    vinc = str(t.get("parte_vinculada_nome") or "").strip()
+    papel = str(t.get("vinculo") or "").strip()
+    if vinc or papel:
+        partes.append(f"na qualidade de testemunha de {vinc}{(' (' + papel + ')') if papel else ''}")
+    return (", ".join(partes) + ".") if partes else ""
+
+
 def _fmt(dt):
     if not dt:
         return ""
@@ -79,15 +112,18 @@ def pagina_testemunhas_pdf(doc: dict, testemunhas: list) -> bytes:
                  f"Testemunhas do instrumento \"{titulo}\", que assinam eletronicamente o documento "
                  f"já firmado pelas partes (MP 2.200-2/2001 · Lei 14.063/2020).")
 
-    y = H - 4.6 * cm
-    bloco_h = 4.25 * cm
+    from reportlab.lib.utils import simpleSplit
+    y = H - 4.4 * cm
     for t in testemunhas:
+        qual = _qualificacao(t)
+        qlinhas = simpleSplit(qual, "Helvetica", 8.3, W - 2 * M) if qual else []
+        bloco_h = 1.95 * cm + 0.5 * cm + len(qlinhas) * 0.345 * cm + 0.95 * cm
         if y - bloco_h < 2.0 * cm:   # nova página se não couber
             c.showPage()
             c.setFillColor(_VERDE)
             c.setFont("Helvetica-Bold", 16)
             c.drawString(M, H - 2.4 * cm, "TESTEMUNHAS (cont.)")
-            y = H - 4.0 * cm
+            y = H - 3.8 * cm
         # firma desenhada acima da linha (ou "aguardando" se ainda não assinou)
         reader = _firma_reader(t.get("traco_b64")) if t.get("status") == "assinado" else None
         if reader:
@@ -105,33 +141,46 @@ def pagina_testemunhas_pdf(doc: dict, testemunhas: list) -> bytes:
         c.setStrokeColor(black)
         c.setLineWidth(0.8)
         c.line(M, y - 1.85 * cm, M + 8.0 * cm, y - 1.85 * cm)
-        # qualificação
+        # nome + qualificação notarial completa (quebrada em linhas)
         c.setFillColor(black)
-        c.setFont("Helvetica-Bold", 10)
+        c.setFont("Helvetica-Bold", 10.5)
         c.drawString(M, y - 2.25 * cm, (t.get("nome") or "—"))
-        c.setFont("Helvetica", 8.5)
+        c.setFont("Helvetica", 8.3)
         c.setFillColor(_CINZA)
-        vinc = t.get("parte_vinculada_nome") or ""
-        papel = t.get("vinculo") or ""
-        # qualificação completa: CPF + contato (telefone) + e-mail
-        ident = f"CPF: {_fmt_cpf(t.get('cpf')) or '—'}"
-        if t.get("telefone"):
-            ident += f"  ·  Contato: {_fmt_fone(t.get('telefone'))}"
-        c.drawString(M, y - 2.6 * cm, ident)
-        linha3 = (f"E-mail: {t.get('email')}" if t.get("email") else "")
-        if vinc or papel:
-            linha3 += f"{'  ·  ' if linha3 else ''}Testemunha de {vinc}{(' (' + papel + ')') if papel else ''}"
-        if linha3:
-            c.drawString(M, y - 2.95 * cm, linha3)
+        yy = y - 2.62 * cm
+        for ln in qlinhas:
+            c.drawString(M, yy, ln)
+            yy -= 0.345 * cm
         auth = f"Assinado eletronicamente via WhatsApp em {_fmt(t.get('assinado_em'))}"
         if t.get("ip"):
             auth += f"  ·  IP {t.get('ip')}"
         if t.get("hash_validacao"):
             auth += f"  ·  cód. {str(t.get('hash_validacao'))[:16]}"
         c.setFont("Helvetica", 7)
-        c.drawString(M, y - 3.35 * cm, auth)
+        c.drawString(M, yy - 0.05 * cm, auth)
         y -= bloco_h
 
+    c.showPage()
+    c.save()
+    return buf.getvalue()
+
+
+def pagina_rotulo_anexo(titulo: str, subtitulo: str = "") -> bytes:
+    """Página A4 só com o rótulo do anexo (antecede o PDF anexado da CNH)."""
+    W, H = A4
+    M = 2.2 * cm
+    buf = io.BytesIO()
+    c = rl_canvas.Canvas(buf, pagesize=A4)
+    c.setFillColor(_VERDE)
+    c.setFont("Helvetica-Bold", 13)
+    c.drawString(M, H - 2.4 * cm, titulo)
+    c.setStrokeColor(_DOURADO)
+    c.setLineWidth(1.0)
+    c.line(M, H - 2.7 * cm, W - M, H - 2.7 * cm)
+    if subtitulo:
+        c.setFillColor(_CINZA)
+        c.setFont("Helvetica", 10)
+        c.drawString(M, H - 3.2 * cm, subtitulo)
     c.showPage()
     c.save()
     return buf.getvalue()
