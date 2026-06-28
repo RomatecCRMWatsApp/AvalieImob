@@ -29,6 +29,7 @@ ORDEM_DOSSIE = [
     ("mapa_desdobro", "Mapas de Desdobro (por lote resultante)"),
     ("mapa_retificado", "Mapa Retificado"),
     ("memorial_descritivo", "Memorial Descritivo"),
+    ("drl", "Declarações de Reconhecimento de Limites (DRL — anuência)"),
     ("cadeia_dominical", "Cadeia Dominical"),
     ("art_trt", "ART / TRT / RRT"),
     ("boleto_trt", "Boleto da TRT"),

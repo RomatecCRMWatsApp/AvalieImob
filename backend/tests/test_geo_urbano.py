@@ -367,6 +367,18 @@ def test_retificacao_confrontante_alterado():
     assert any(c["alterado"] for c in g["confrontantes_diff"])  # Fulano → Beltrano
 
 
+def test_drl_so_confrontante_particular():
+    proj = {**_proj_retificacao(), "endereco": "Rua A, 10", "confrontantes": [
+        {"id": "c1", "lado": "lateral_direita", "confrontante": "Sr. Bita", "tipo": "particular", "medida_m": 22.96},
+        {"id": "c2", "lado": "frente", "confrontante": "Rua X", "tipo": "via_publica", "medida_m": 21.40},
+        {"id": "c3", "lado": "fundo", "confrontante": "Praça", "tipo": "area_publica", "medida_m": 10.0},
+    ]}
+    drls = PDF.confrontantes_para_drl(proj)
+    assert [c["confrontante"] for c in drls] == ["Sr. Bita"]  # via/área pública dispensam
+    pdf = PDF.drl(proj, proj["confrontantes"][0], "prime_i")
+    assert _paginas(pdf) >= 1
+
+
 def test_retificacao_quadro_e_requerimento():
     from services.geo_urbano import retificacao as RET
     p = _proj_retificacao()

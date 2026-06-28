@@ -41,7 +41,7 @@ const UPLOADS = [
   { tipo: 'comprovante_pagamento_iptu', label: 'Comprovante de pagamento do IPTU', req: false, multi: true },
   { tipo: 'art_trt', label: 'ART / TRT / RRT', req: true, multi: false },
   { tipo: 'art_trt_boleto', label: 'Boleto da TRT', req: true, multi: false },
-  { tipo: 'comprovante_pagamento_trt', label: 'Comprovante de pagamento da TRT', req: true, multi: false },
+  { tipo: 'comprovante_pagamento_trt', label: 'Comprovante de pagamento da TRT (opcional — o boleto já sai com carimbo de pago)', req: false, multi: false },
   { tipo: 'contrato_social', label: 'Contrato social (PJ)', req: false, multi: true },
   { tipo: 'doc_socio', label: 'Documento do sócio (PJ)', req: false, multi: true },
   { tipo: 'doc_proprietario', label: 'Documento do proprietário (PF)', req: false, multi: true },
@@ -198,6 +198,14 @@ export default function GeoUrbanoWizard() {
   const confDe = (l, lado, campo) => {
     const c = (l.confrontacoes || []).find((x) => x.lado === lado);
     return c ? (c[campo] ?? '') : '';
+  };
+  // Confrontantes + DRL (retificação, eixo geométrico)
+  const addConfr = () => upd({ confrontantes: [...(proj.confrontantes || []), { id: `tmp-${Date.now()}`, tipo: 'particular', anuencia: { status: 'pendente' } }] });
+  const rmConfr = (i) => upd({ confrontantes: (proj.confrontantes || []).filter((_, k) => k !== i) });
+  const verDrl = (cid) => verBlob(geoUrbanoAPI.baixarDrl(id, cid, proj.tema));
+  const setAnuencia = async (cid, status) => {
+    try { await geoUrbanoAPI.drlAnuencia(id, cid, status); await carregar(); toast({ title: `Anuência: ${status}` }); }
+    catch (e) { toast({ title: 'Erro ao registrar anuência', variant: 'destructive' }); }
   };
 
   // troca de passo → flush + carrega reconciliação/aprovação ao entrar
@@ -599,6 +607,48 @@ export default function GeoUrbanoWizard() {
                   {(retAnalise.geometrico.confrontantes_diff || []).filter((c) => c.alterado).map((c, i) => (
                     <div key={i} className="text-amber-700">Confrontação {c.lado}: “{c.de}” → “{c.para}”</div>
                   ))}
+                </div>
+              )}
+              {/* confrontantes & DRL (anuência art. 213) */}
+              {proj.retificacao_tipo !== 'cadastral' && (
+                <div className="pt-2 border-t">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-semibold text-gray-600">Confrontantes &amp; DRL (anuência — art. 213)</span>
+                    <button onClick={addConfr} className="text-xs text-emerald-700 hover:underline"><Plus className="w-3 h-3 inline" /> Confrontante</button>
+                  </div>
+                  {(proj.confrontantes || []).map((c, i) => (
+                    <div key={c.id || i} className="rounded-lg border p-2 mb-2">
+                      <div className="grid sm:grid-cols-4 gap-2">
+                        <input className={inp} placeholder="lado" value={c.lado || ''} onChange={(e) => updArr('confrontantes', i, { lado: e.target.value })} />
+                        <input className={inp} placeholder="confrontante" value={c.confrontante || ''} onChange={(e) => updArr('confrontantes', i, { confrontante: e.target.value })} />
+                        <select className={inp} value={c.tipo || 'particular'} onChange={(e) => updArr('confrontantes', i, { tipo: e.target.value })}>
+                          <option value="particular">Particular</option>
+                          <option value="via_publica">Via pública</option>
+                          <option value="area_publica">Área pública</option>
+                        </select>
+                        <input className={inp} type="number" placeholder="medida (m)" value={c.medida_m ?? ''} onChange={(e) => updArr('confrontantes', i, { medida_m: e.target.value === '' ? null : Number(e.target.value) })} />
+                      </div>
+                      {(c.tipo || 'particular') === 'particular' && (
+                        <div className="grid sm:grid-cols-2 gap-2 mt-1">
+                          <input className={inp} placeholder="CPF/CNPJ" value={c.doc || ''} onChange={(e) => updArr('confrontantes', i, { doc: e.target.value })} />
+                          <input className={inp} placeholder="endereço" value={c.endereco || ''} onChange={(e) => updArr('confrontantes', i, { endereco: e.target.value })} />
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                        {(c.tipo || 'particular') === 'particular' ? (
+                          <>
+                            <span className={`text-[11px] px-1.5 py-0.5 rounded ${c.anuencia?.status === 'assinada' ? 'bg-emerald-100 text-emerald-700' : c.anuencia?.status === 'recusada' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{c.anuencia?.status || 'pendente'}</span>
+                            <button onClick={() => verDrl(c.id)} className="text-xs text-emerald-700 hover:underline">Ver DRL</button>
+                            <button onClick={() => setAnuencia(c.id, 'assinada')} className="text-xs text-emerald-700 hover:underline">marcar assinada</button>
+                            <button onClick={() => setAnuencia(c.id, 'recusada')} className="text-xs text-red-600 hover:underline">recusada</button>
+                            <button onClick={() => setAnuencia(c.id, 'notificado')} className="text-xs text-amber-700 hover:underline">notificado</button>
+                          </>
+                        ) : <span className="text-[11px] text-gray-400">DRL dispensada (via/área pública)</span>}
+                        <Trash2 className="w-3.5 h-3.5 text-gray-300 hover:text-red-500 cursor-pointer ml-auto" onClick={() => rmConfr(i)} />
+                      </div>
+                    </div>
+                  ))}
+                  {!(proj.confrontantes || []).length && <p className="text-xs text-gray-400">Cadastre os confrontantes — cada particular gera uma DRL para anuência.</p>}
                 </div>
               )}
               {!retAnalise && <p className="text-sm text-gray-400">Clique em “Reavaliar” para rodar a análise.</p>}

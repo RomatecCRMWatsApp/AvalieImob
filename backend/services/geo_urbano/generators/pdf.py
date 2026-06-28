@@ -377,6 +377,45 @@ def quadro_retificacao(projeto: dict, tema: str, logo_bytes=None) -> bytes:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# DRL — Declaração de Reconhecimento de Limites (anuência do confrontante, art. 213)
+# ──────────────────────────────────────────────────────────────────────────────
+def drl(projeto: dict, confrontante: dict, tema: str, logo_bytes=None) -> bytes:
+    cfg = GP._cfg(tema)
+    st = GP._styles(cfg)
+    L = _largura()
+    mat = (projeto.get("matriculas") or [{}])[0]
+    nome = confrontante.get("confrontante") or "—"
+    story = GP._titulo("DECLARAÇÃO DE RECONHECIMENTO DE LIMITES (DRL)", cfg, st, L)
+    qual = []
+    if confrontante.get("doc"):
+        qual.append(f"inscrito(a) sob o nº {confrontante['doc']}")
+    if confrontante.get("endereco"):
+        qual.append(f"residente e domiciliado(a) em {confrontante['endereco']}")
+    corpo = (
+        f"Eu, {nome}{(', ' + ', '.join(qual)) if qual else ''}, na qualidade de CONFRONTANTE do imóvel objeto "
+        f"da Matrícula nº {mat.get('matricula') or '—'}"
+        f"{(', situado em ' + projeto['endereco']) if projeto.get('endereco') else ''}, no Município de "
+        f"{projeto.get('municipio') or ''}/{projeto.get('uf') or ''}, DECLARO, para os fins do art. 213 da "
+        f"Lei nº 6.015/1973, RECONHECER e ANUIR com os limites e confrontações constantes do Memorial Descritivo "
+        f"e do Mapa Retificado do referido imóvel, especialmente quanto ao lado "
+        f"{(confrontante.get('lado') or '').replace('_', ' ').upper()}, medindo "
+        f"{TX.metros(confrontante.get('medida_m'))}, que divisa com a minha propriedade, nada tendo a opor à "
+        f"presente retificação."
+    )
+    story += GP._paras(corpo, st["corpo"])
+    story.append(Spacer(1, 6))
+    story.append(Paragraph(GP._esc(_data_extenso(projeto.get("municipio") or "Açailândia",
+                                                 projeto.get("uf") or "MA")), st["corpo_c"]))
+    story += GP._bloco_assinaturas([(nome, "Confrontante anuente")], st, L)
+    return _build(story, cfg, f"DRL — {nome}", logo_bytes)
+
+
+def confrontantes_para_drl(projeto: dict) -> list:
+    """Só confrontantes PARTICULARES geram DRL (via/área pública dispensam)."""
+    return [c for c in (projeto.get("confrontantes") or []) if (c.get("tipo") or "particular") == "particular"]
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Dispatcher
 # ──────────────────────────────────────────────────────────────────────────────
 def gerar_pdf(tipo: str, projeto: dict, tema: str = "prime_i", logo_bytes=None) -> bytes:

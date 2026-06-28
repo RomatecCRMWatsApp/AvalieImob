@@ -268,6 +268,32 @@ class LoteResultante(BaseModel):
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Confrontante + DRL (Retificação — eixo geométrico, anuência do art. 213)
+# ──────────────────────────────────────────────────────────────────────────────
+TipoConfrontante = Literal["particular", "via_publica", "area_publica"]
+StatusAnuencia = Literal["pendente", "assinada", "recusada", "notificado"]
+
+
+class Anuencia(BaseModel):
+    status: StatusAnuencia = "pendente"
+    em: Optional[str] = None
+    assinatura_id: Optional[str] = None
+
+
+class ConfrontanteRetificacao(BaseModel):
+    id: str = Field(default_factory=_uid)
+    lado: Optional[str] = None
+    confrontante: Optional[str] = None
+    tipo: TipoConfrontante = "particular"     # via/área pública dispensam DRL
+    doc: Optional[str] = None
+    endereco: Optional[str] = None
+    medida_m: Optional[float] = None
+    telefone: Optional[str] = None            # p/ anuência via WhatsApp
+    drl_doc_id: Optional[str] = None
+    anuencia: Anuencia = Field(default_factory=Anuencia)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Projeto (documento raiz da collection geo_urbano_projetos)
 # ──────────────────────────────────────────────────────────────────────────────
 RetificacaoTipo = Literal["cadastral", "area_perimetro", "mista"]
@@ -308,6 +334,7 @@ class GeoUrbanoProjeto(BaseModel):
     retificacao_tipo: Optional[RetificacaoTipo] = None
     vertices_atual: List[Vertice] = Field(default_factory=list)  # geometria "antes"
     retificacao_analise: dict = Field(default_factory=dict)      # diffs confirmados
+    confrontantes: List[ConfrontanteRetificacao] = Field(default_factory=list)  # DRL/anuência
     # coleções aninhadas
     matriculas: List[Matricula] = Field(default_factory=list)
     bci: List[BCI] = Field(default_factory=list)
@@ -380,6 +407,7 @@ class AtualizarProjetoBody(BaseModel):
     retificacao_tipo: Optional[RetificacaoTipo] = None
     vertices_atual: Optional[List[dict]] = None
     retificacao_analise: Optional[dict] = None
+    confrontantes: Optional[List[dict]] = None
 
 
 class GerarDocumentosBody(BaseModel):
@@ -412,6 +440,7 @@ class CamposAssinaturaBody(BaseModel):
 # Resolve forward-refs (Pydantic v2)
 Matricula.model_rebuild()
 LoteResultante.model_rebuild()
+ConfrontanteRetificacao.model_rebuild()
 GeoUrbanoProjeto.model_rebuild()
 
 

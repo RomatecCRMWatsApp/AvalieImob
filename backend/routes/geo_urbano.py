@@ -166,7 +166,8 @@ async def atualizar_projeto(pid: str, body: AtualizarProjetoBody,
             atual = dict(doc.get(grupo) or {})
             atual.update(dados[grupo])
             sets[grupo] = atual
-    for grupo in ("matriculas", "bci", "vertices", "partes", "iptu", "lotes_resultantes", "vertices_atual"):
+    for grupo in ("matriculas", "bci", "vertices", "partes", "iptu", "lotes_resultantes",
+                  "vertices_atual", "confrontantes"):
         if grupo in dados and dados[grupo] is not None:
             sets[grupo] = dados[grupo]
             editados[grupo] = True
@@ -333,6 +334,51 @@ async def retificacao_confirmar(pid: str, uid: str = Depends(get_active_subscrib
     return analise
 
 
+@router.get("/projetos/{pid}/drls")
+async def listar_drls(pid: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    """Confrontantes que geram DRL (particulares) + status da anuência."""
+    doc = await _get(db, pid, uid)
+    return [{"id": c["id"], "confrontante": c.get("confrontante"), "lado": c.get("lado"),
+             "medida_m": c.get("medida_m"), "tipo": c.get("tipo"),
+             "anuencia": (c.get("anuencia") or {}).get("status", "pendente")}
+            for c in PDF.confrontantes_para_drl(doc)]
+
+
+@router.get("/projetos/{pid}/drl/{cid}")
+async def baixar_drl(pid: str, cid: str, tema: str = Query(None),
+                     uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    doc = await _get(db, pid, uid)
+    conf = next((c for c in (doc.get("confrontantes") or []) if c.get("id") == cid), None)
+    if not conf:
+        raise HTTPException(status_code=404, detail="Confrontante não encontrado.")
+    if (conf.get("tipo") or "particular") != "particular":
+        raise HTTPException(status_code=422, detail="Confrontante de via/área pública dispensa DRL.")
+    tema = tema or doc.get("tema") or "prime_i"
+    data = await asyncio.to_thread(PDF.drl, doc, conf, tema)
+    nome = f"drl_{(conf.get('confrontante') or cid)}.pdf"
+    return Response(content=data, media_type=_PDF,
+                    headers={"Content-Disposition": f'inline; filename="{nome}"'})
+
+
+@router.post("/projetos/{pid}/drl/{cid}/anuencia")
+async def drl_anuencia(pid: str, cid: str, body: dict,
+                       uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    """Registra a anuência do confrontante (assinada/recusada/notificado)."""
+    doc = await _get(db, pid, uid)
+    confs = [dict(c) for c in (doc.get("confrontantes") or [])]
+    alvo = next((c for c in confs if c.get("id") == cid), None)
+    if not alvo:
+        raise HTTPException(status_code=404, detail="Confrontante não encontrado.")
+    status = (body or {}).get("status") or "assinada"
+    if status not in ("pendente", "assinada", "recusada", "notificado"):
+        raise HTTPException(status_code=422, detail="Status de anuência inválido.")
+    alvo["anuencia"] = {"status": status, "em": _agora().isoformat(),
+                        "assinatura_id": (body or {}).get("assinatura_id")}
+    await db.geo_urbano_projetos.update_one(
+        {"id": pid, "user_id": uid}, {"$set": {"confrontantes": confs, "updated_at": _agora().isoformat()}})
+    return {"ok": True, "status": status}
+
+
 @router.get("/projetos/{pid}/preview-geojson")
 async def preview_geojson(pid: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
     doc = await _get(db, pid, uid)
@@ -438,6 +484,12 @@ async def _montar_dossie(db, doc, tema):
         if not (doc.get("retificacao_analise") or {}).get("cadastral_diffs"):
             doc = {**doc, "retificacao_analise": RET.analisar(doc)}
         partes["quadro_retificacao"] = await asyncio.to_thread(PDF.gerar_pdf, "quadro_retificacao", doc, tema)
+        # DRL — 1 por confrontante particular (anuência do art. 213)
+        drls = []
+        for conf in PDF.confrontantes_para_drl(doc):
+            drls.append(await asyncio.to_thread(PDF.drl, doc, conf, tema))
+        if drls:
+            partes["drl"] = drls
     # uploads → seções do §9
     uploads = doc.get("uploads") or {}
     for secao, tipos in _DOSSIE_UPLOADS.items():
