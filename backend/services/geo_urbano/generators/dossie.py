@@ -162,15 +162,17 @@ def _requerente_nome(projeto: dict) -> str:
     return ""
 
 
-def _sumario_bytes(itens, n_paginas_sumario) -> bytes:
-    """itens = [(titulo, pagina_inicial), ...] (página já no espaço final)."""
+def _sumario_bytes(itens, n_paginas_sumario):
+    """itens = [(titulo, pagina_inicial), ...]. Retorna (bytes, links) — links =
+    [{sum_page, rect, target}] (retângulos CLICÁVEIS que apontam a cada seção)."""
     buf = io.BytesIO()
     c = rl_canvas.Canvas(buf, pagesize=A4)
     f = T.fonts()
     verde, dourado = T.C_VERDE_ESCURO, T.C_DOURADO
     por_pag = _LINES_POR_PAGINA_SUM
     paginas = [itens[i:i + por_pag] for i in range(0, len(itens), por_pag)] or [[]]
-    for chunk in paginas:
+    links, gi = [], 0
+    for sp, chunk in enumerate(paginas):
         c.setFillColor(verde)
         c.setFont(f["serif_bold"], 18)
         c.drawString(_M, _H - 2.6 * cm, "SUMÁRIO")
@@ -178,21 +180,23 @@ def _sumario_bytes(itens, n_paginas_sumario) -> bytes:
         c.setLineWidth(1.0)
         c.line(_M, _H - 2.9 * cm, _W - _M, _H - 2.9 * cm)
         y = _H - 4.0 * cm
-        for i, (titulo, pag) in enumerate(chunk):
+        for (titulo, pag) in chunk:
             c.setFillColor(black)
             c.setFont(f["sans"], 10)
-            num = f"{itens.index((titulo, pag)) + 1:02d}.  "
-            c.drawString(_M, y, num + titulo[:70])
+            c.drawString(_M, y, f"{gi + 1:02d}.  " + titulo[:70])
             c.setFont(f["sans_bold"], 10)
             c.setFillColor(verde)
             c.drawRightString(_W - _M, y, f"p. {pag}")
             c.setStrokeColor(HexColor("#DDDDDD"))
             c.setLineWidth(0.3)
             c.line(_M, y - 0.18 * cm, _W - _M, y - 0.18 * cm)
+            links.append({"sum_page": sp, "rect": (_M, y - 0.20 * cm, _W - _M, y + 0.34 * cm),
+                          "target": pag - 1})
+            gi += 1
             y -= 0.78 * cm
         c.showPage()
     c.save()
-    return buf.getvalue()
+    return buf.getvalue(), links
 
 
 def gerar_dossie_ordenado(projeto: dict, secoes_in, capa_pdf: bytes = None) -> bytes:
@@ -211,20 +215,22 @@ def gerar_dossie_ordenado(projeto: dict, secoes_in, capa_pdf: bytes = None) -> b
         cursor += n
 
     capa = PdfReader(io.BytesIO(capa_pdf or _capa_bytes(projeto)))
-    sumario = PdfReader(io.BytesIO(_sumario_bytes(itens, n_sum)))
+    sum_bytes, links = _sumario_bytes(itens, n_sum)
+    sumario = PdfReader(io.BytesIO(sum_bytes))
 
     w = PdfWriter()
     for pg in capa.pages:
         w.add_page(pg)
+    n_capa = len(capa.pages)
     for pg in sumario.pages:
         w.add_page(pg)
     # bookmarks (TOC clicável no leitor de PDF)
     try:
         w.add_outline_item("Capa", 0)
-        w.add_outline_item("Sumário", 1)
+        w.add_outline_item("Sumário", n_capa)
     except Exception:  # noqa: BLE001
         pass
-    idx = 1 + len(sumario.pages)
+    idx = n_capa + len(sumario.pages)
     inicios = []
     for (titulo, leitores, n) in secoes:
         inicios.append((titulo, idx))
@@ -237,6 +243,33 @@ def gerar_dossie_ordenado(projeto: dict, secoes_in, capa_pdf: bytes = None) -> b
             w.add_outline_item(titulo, pidx)
         except Exception:  # noqa: BLE001
             pass
+    # LINKS clicáveis no texto do sumário → cada linha aponta à 1ª página da seção.
+    # add_annotation/Link(target_page_index) gera [int /Fit] que muitos visualizadores
+    # ignoram; inserimos /Dest com a REFERÊNCIA da página direto no /Annots (igual Georref).
+    try:
+        from pypdf.generic import (DictionaryObject, NameObject, ArrayObject,
+                                   FloatObject, NumberObject)
+        total = len(w.pages)
+        for lk in links:
+            tgt = lk["target"]
+            if tgt < 0 or tgt >= total:
+                continue
+            sum_pg = w.pages[n_capa + lk["sum_page"]]
+            page_ref = w.pages[tgt].indirect_reference
+            annot = DictionaryObject({
+                NameObject("/Type"): NameObject("/Annot"),
+                NameObject("/Subtype"): NameObject("/Link"),
+                NameObject("/Rect"): ArrayObject([FloatObject(v) for v in lk["rect"]]),
+                NameObject("/Border"): ArrayObject([NumberObject(0), NumberObject(0), NumberObject(0)]),
+                NameObject("/Dest"): ArrayObject([page_ref, NameObject("/Fit")]),
+            })
+            ref = w._add_object(annot)
+            if "/Annots" in sum_pg:
+                sum_pg[NameObject("/Annots")].append(ref)
+            else:
+                sum_pg[NameObject("/Annots")] = ArrayObject([ref])
+    except Exception:  # noqa: BLE001
+        pass
     out = io.BytesIO()
     w.write(out)
     return out.getvalue()
