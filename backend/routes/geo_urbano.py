@@ -661,22 +661,14 @@ async def _ub(doc, tipo):
 
 
 async def _pecas_assinadas(db, doc):
-    """{tipo_peça: bytes} das versões ASSINADAS no app — para o dossiê/envio saírem
-    COM as assinaturas (e não regerados em branco). ICP do técnico (geo_urbano_assinaturas
-    → assinaturas_pdf) p/ Memorial/Mapa; carimbo do proprietário (sessão concluída) p/
-    Requerimento (2 vias) + ART/TRT (vence, é a versão que as partes assinaram)."""
+    """{tipo_peça: bytes} das peças CARIMBADAS pelo proprietário (Requerimento 2 vias +
+    ART/TRT da sessão CONCLUÍDA). As demais peças técnicas (Memorial/Cadeia/Requerimento
+    não assinado) são SEMPRE regeradas frescas p/ ficarem EM SINCRONIA com o sistema
+    (logo atual + firma gráfica do RT que já carimba o Memorial); o Mapa vem do upload
+    (já traz a assinatura do RT). O selo ICP-Brasil é etapa FINAL sobre o dossiê — não se
+    usa a peça ICP congelada (que ficaria com o logo do momento da assinatura)."""
     out = {}
     pid, uid = doc.get("id"), doc.get("user_id")
-    try:
-        from routes.assinatura import _load_assinatura_bytes
-        async for rec in db.geo_urbano_assinaturas.find({"projeto_id": pid, "user_id": uid}):
-            if not rec.get("doc"):
-                continue
-            data, _a = await _load_assinatura_bytes(db, "geo_urbano", rec["id"])
-            if data and data[:5] == b"%PDF-":
-                out[rec["doc"]] = data
-    except Exception:  # noqa: BLE001
-        logger.warning("Geo Urbano: falha ao carregar peças ICP assinadas.", exc_info=True)
     try:
         s = await db.geo_urbano_assinatura_sessoes.find_one(
             {"projeto_id": pid, "user_id": uid, "status": "concluido"})
@@ -684,7 +676,7 @@ async def _pecas_assinadas(db, doc):
             try:
                 data = await asyncio.to_thread(r2_storage.download_bytes, key)
                 if data and data[:5] == b"%PDF-":
-                    out[d] = data   # proprietário-assinado prevalece p/ req/art
+                    out[d] = data   # versão que as partes receberam e assinaram
             except Exception:  # noqa: BLE001
                 continue
     except Exception:  # noqa: BLE001
@@ -709,10 +701,9 @@ async def _montar_dossie(db, doc, tema):
             or await asyncio.to_thread(PDF.gerar_pdf, "requerimento_cartorio", doc, tema, logo)
         req_super = assinadas.get("requerimento_superintendencia") \
             or await asyncio.to_thread(PDF.gerar_pdf, "requerimento_superintendencia", doc, tema, logo)
-        # Memorial(is) — assinado ICP > aprovado (upload) > por lote/remembramento (regerado)
-        if assinadas.get("memorial_descritivo"):
-            memoriais = [assinadas["memorial_descritivo"]]
-        elif uploads.get("memorial_aprovado"):
+        # Memorial(is) — aprovado (upload do órgão) > por lote/remembramento (regerado FRESCO,
+        # já com logo atual + firma gráfica do RT carimbada)
+        if uploads.get("memorial_aprovado"):
             memoriais = await _ub(doc, "memorial_aprovado")
         elif tipo == "desdobro" and (doc.get("lotes_resultantes") or []):
             memoriais = [await asyncio.to_thread(PDF.gerar_pdf, "memorial_descritivo", projeto_do_lote(doc, lt), tema, logo)
@@ -720,10 +711,8 @@ async def _montar_dossie(db, doc, tema):
         else:
             memoriais = [await asyncio.to_thread(PDF.gerar_pdf, "memorial_descritivo", doc, tema, logo)]
         mapa_atual = await _ub(doc, "mapa_atual")
-        # Mapa do ato — assinado ICP > aprovado (upload) > upload do ato
-        if assinadas.get("mapa"):
-            mapa_ato = [assinadas["mapa"]]
-        elif uploads.get("mapa_aprovado"):
+        # Mapa do ato — aprovado (upload) > upload do ato (já traz a assinatura do RT)
+        if uploads.get("mapa_aprovado"):
             mapa_ato = await _ub(doc, "mapa_aprovado")
         else:
             mapa_ato = (await _ub(doc, "mapa_desdobro")) if tipo == "desdobro" else (await _ub(doc, "mapa_remembramento"))
