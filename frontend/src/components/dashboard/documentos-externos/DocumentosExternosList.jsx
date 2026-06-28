@@ -137,8 +137,31 @@ export default function DocumentosExternosList() {
                   </div>
                 )}
                 {sigs.length > 0 && assinados === sigs.length ? (
-                  <div className="text-[11px] font-semibold text-emerald-700 mb-3">✓ Todos os signatários assinaram</div>
+                  <div className="text-[11px] font-semibold text-emerald-700 mb-1.5">✓ Todos os signatários assinaram</div>
                 ) : <div className="mb-1" />}
+
+                {(d.testemunhas || []).length > 0 && (
+                  <div className="mb-2 rounded-lg border border-amber-200 bg-amber-50/60 p-2">
+                    <div className="text-[11px] font-semibold text-amber-800 mb-1">
+                      Testemunhas · {(d.testemunhas || []).filter((t) => t.status === 'assinado').length}/{d.testemunhas.length} assinaram
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {d.testemunhas.map((t) => {
+                        const ok = t.status === 'assinado';
+                        const cls = ok ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : t.status === 'enviado' ? 'bg-sky-50 text-sky-700 border-sky-200'
+                          : 'bg-white text-gray-500 border-gray-200';
+                        return (
+                          <span key={t.id} title={`${t.nome} · testemunha de ${t.parte_vinculada_nome || t.vinculo || ''} · ${t.status}`}
+                            className={`text-[10px] px-1.5 py-0.5 rounded-full border ${cls}`}>
+                            {ok ? '✓' : t.status === 'enviado' ? '✈' : '⏳'} {(t.nome || '').split(' ')[0]}
+                            <span className="opacity-60"> (test. {(t.parte_vinculada_nome || t.vinculo || '').split(' ')[0]})</span>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-1.5 mt-auto">
                   <Btn icon={Users} label="Signatários" onClick={() => setSignatarios(d)} cls="border-gray-200 text-gray-700 hover:bg-gray-50" />

@@ -89,6 +89,12 @@ def _slim_card(d: dict) -> dict:
          "assinado_em": (s.get("assinado_em").isoformat()
                          if hasattr(s.get("assinado_em"), "isoformat") else s.get("assinado_em"))}
         for s in (d.get("signatarios") or [])]
+    out["testemunhas"] = [
+        {"id": t.get("id"), "nome": t.get("nome"), "status": t.get("status"),
+         "vinculo": t.get("vinculo"), "parte_vinculada_nome": t.get("parte_vinculada_nome"),
+         "assinado_em": (t.get("assinado_em").isoformat()
+                         if hasattr(t.get("assinado_em"), "isoformat") else t.get("assinado_em"))}
+        for t in (d.get("testemunhas") or [])]
     out.pop("historico", None)
     return out
 
