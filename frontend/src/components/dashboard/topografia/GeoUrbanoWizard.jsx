@@ -704,21 +704,36 @@ export default function GeoUrbanoWizard() {
               Área declarada {proj.area_declarada_m2 ? Number(proj.area_declarada_m2).toLocaleString('pt-BR') : '—'} m² · Perímetro {proj.perimetro_m || '—'} m
             </p>
           </div>
-          <div className="rounded-xl border bg-white p-4 overflow-x-auto">
-            <h2 className="font-semibold mb-2" style={{ color: GREEN }}>Quadro de vértices</h2>
-            <table className="w-full text-xs">
-              <thead><tr className="text-gray-400 text-left">
-                <th className="py-1">De</th><th>Para</th><th>Coord. N</th><th>Coord. E</th><th>Azimute</th><th>Dist.</th><th>Confrontante</th>
-              </tr></thead>
-              <tbody>
-                {(proj.vertices || []).map((v, i) => (
-                  <tr key={v.id || i} className="border-t">
-                    <td className="py-1">{v.de}</td><td>{v.para}</td>
-                    <td>{v.coord_n}</td><td>{v.coord_e}</td><td>{v.azimute}</td><td>{v.distancia_m}</td><td>{v.confrontante_lado}</td>
+          <div className="rounded-xl border bg-white p-4">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="font-semibold" style={{ color: GREEN }}>Quadro de vértices</h2>
+              <span className="text-[10px] text-gray-400">arraste para o lado ↔</span>
+            </div>
+            <div className="overflow-x-auto -mx-1 px-1">
+              <table className="text-xs border-collapse" style={{ minWidth: 760 }}>
+                <thead>
+                  <tr className="text-left" style={{ color: GREEN }}>
+                    {['De', 'Para', 'Coord. N (Y)', 'Coord. E (X)', 'Azimute', 'Dist. (m)', 'Fator K', 'Confrontante'].map((h) => (
+                      <th key={h} className="px-2 py-1.5 whitespace-nowrap border-b font-semibold bg-gray-50">{h}</th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {(proj.vertices || []).map((v, i) => (
+                    <tr key={v.id || i} className="border-b hover:bg-emerald-50/40">
+                      <td className="px-2 py-1.5 whitespace-nowrap font-medium">{v.de}</td>
+                      <td className="px-2 py-1.5 whitespace-nowrap">{v.para}</td>
+                      <td className="px-2 py-1.5 whitespace-nowrap font-mono">{v.coord_n}</td>
+                      <td className="px-2 py-1.5 whitespace-nowrap font-mono">{v.coord_e}</td>
+                      <td className="px-2 py-1.5 whitespace-nowrap">{v.azimute}</td>
+                      <td className="px-2 py-1.5 whitespace-nowrap text-right">{v.distancia_m}</td>
+                      <td className="px-2 py-1.5 whitespace-nowrap font-mono">{v.fator_k}</td>
+                      <td className="px-2 py-1.5 whitespace-nowrap">{v.confrontante_lado || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
             {!(proj.vertices || []).length && <p className="text-sm text-gray-400 mt-2">Sem vértices. Virão da planilha do mapa de remembramento (extração).</p>}
           </div>
         </div>

@@ -220,9 +220,12 @@ def memorial(projeto: dict, tema: str, logo_bytes=None) -> bytes:
                      TX.metros(c.get("medida_m")), c.get("confrontante") or ""] for c in confs]
             story.append(GP._data_table(["Lado", "Medida", "Confrontante"], rows, cfg, st, L))
 
+    # papel do RT — SEMPRE traz a TRT/ART do processo
+    papel_rt = f"Responsável Técnico — {rt.get('conselho') or ''} · INCRA {rt.get('credenciamento_incra') or ''}"
+    papel_rt += f" · TRT/ART {projeto.get('trt_numero') or '—'}"
     story += GP._bloco_assinaturas([
         ("Superintendência de Habitação e Regularização Fundiária", "Aprovação municipal"),
-        (rt.get("nome") or "", f"Responsável Técnico — {rt.get('conselho') or ''} · INCRA {rt.get('credenciamento_incra') or ''}"),
+        (rt.get("nome") or "", papel_rt),
     ], st, L)
     return _build(story, cfg, "Memorial Descritivo — " + (projeto.get("lote_resultante") or ""), logo_bytes)
 
