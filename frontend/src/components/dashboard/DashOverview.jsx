@@ -2,7 +2,7 @@
 // Compõe os subcomponentes via hook useDashboard. Mantém o shell (Sidebar + TopBar)
 // fornecido por pages/Dashboard.jsx — este componente é apenas o conteúdo da home.
 import React from 'react';
-import { Loader2 } from 'lucide-react';
+import { BrandSpinner } from '../brand/BrandSpinner';
 import useDashboard from '../../hooks/useDashboard';
 import DashboardHero from './DashboardHero';
 import KpiStrip from './KpiStrip';
@@ -20,7 +20,7 @@ const DashOverview = () => {
   if (loading) {
     return (
       <div className="py-24 flex justify-center">
-        <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--dash-green-mid)' }} />
+        <BrandSpinner label="Carregando…" />
       </div>
     );
   }
