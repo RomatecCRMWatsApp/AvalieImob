@@ -11,7 +11,8 @@ from datetime import datetime, timezone
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm, mm
-from reportlab.lib.colors import HexColor, black
+from reportlab.lib.colors import HexColor, black, white
+from reportlab.lib.styles import ParagraphStyle
 from reportlab.platypus import Paragraph, Spacer, Image as RLImage, Table, TableStyle
 
 from pdf.templates.resilient import ResilientSimpleDocTemplate
@@ -128,20 +129,88 @@ def _bloco_assinaturas_partes(projeto: dict, st, L):
     return elems
 
 
+def _short_vert(s):
+    """FQNS-P-PDN1 → PDN1 (rótulo curto p/ a tabela não quebrar)."""
+    return (s or "").split("-")[-1]
+
+
 def _tabela_vertices(projeto: dict, cfg, st, L):
     """Quadro de vértices/medidas/confrontações (do mapa) — usado no Memorial E no
-    Requerimento. Inclui Fator K e o Confrontante por segmento."""
+    Requerimento. Larguras de coluna calibradas + rótulos curtos + fonte menor nas
+    colunas numéricas para que as COORDENADAS não quebrem de linha."""
     verts = sorted(projeto.get("vertices") or [], key=lambda v: v.get("ordem", 0))
     if not verts:
         return []
     out = GP._secao("QUADRO DE VÉRTICES, MEDIDAS E CONFRONTAÇÕES", cfg, st, L)
-    header = ["De", "Para", "Coord. N (Y)", "Coord. E (X)", "Azimute", "Dist. (m)", "Fator K", "Confrontante"]
-    rows = [[v.get("de") or "", v.get("para") or "", TX._n_br(v.get("coord_n"), 4),
-             TX._n_br(v.get("coord_e"), 4), v.get("azimute") or "", TX._n_br(v.get("distancia_m")),
-             TX._n_br(v.get("fator_k"), 8) if v.get("fator_k") is not None else "",
-             v.get("confrontante_lado") or "—"] for v in verts]
-    out.append(GP._data_table(header, rows, cfg, st, L))
+    stn = ParagraphStyle("gu_tabn", parent=st["tab"], fontSize=6.6, leading=8.4)  # numéricas
+    header = ["De", "Para", "Coord. N (Y)", "Coord. E (X)", "Azimute", "Dist. (m)", "Fator K", "Confront."]
+    head = [Paragraph(GP._esc(h), st["tab_h"]) for h in header]
+    body = []
+    for v in verts:
+        body.append([
+            Paragraph(GP._esc(_short_vert(v.get("de"))), st["tab"]),
+            Paragraph(GP._esc(_short_vert(v.get("para"))), st["tab"]),
+            Paragraph(GP._esc(TX._n_br(v.get("coord_n"), 4)), stn),
+            Paragraph(GP._esc(TX._n_br(v.get("coord_e"), 4)), stn),
+            Paragraph(GP._esc(v.get("azimute") or ""), stn),
+            Paragraph(GP._esc(TX._n_br(v.get("distancia_m"))), stn),
+            Paragraph(GP._esc(TX._n_br(v.get("fator_k"), 8) if v.get("fator_k") is not None else ""), stn),
+            Paragraph(GP._esc(v.get("confrontante_lado") or "—"), st["tab"]),
+        ])
+    fr = [0.07, 0.07, 0.16, 0.16, 0.12, 0.075, 0.115, 0.23]  # soma 1.0
+    t = Table([head] + body, colWidths=[L * f for f in fr], repeatRows=1)
+    t.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), cfg["tab_head_bg"]),
+        ("GRID", (0, 0), (-1, -1), 0.4, GP.CINZA_BORDA),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, -1), 2), ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+        ("LEFTPADDING", (0, 0), (-1, -1), 3), ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [white, GP.CINZA_TAB]),
+    ]))
+    out.append(t)
     return out
+
+
+def _ficha_compacta(pares, cfg, st, L, cols=4):
+    """Ficha de identificação COMPACTA (multi-coluna, fundo verde claro) — economiza
+    espaço vs o kv vertical. Cada par = (label, value) ou (label, value, span). O par
+    flui na grade de `cols` colunas; `span` permite um campo ocupar mais colunas."""
+    val = ParagraphStyle("gu_fc", parent=st["kv"], fontSize=8.4, leading=11)
+
+    def _cel(lb, vv):
+        return Paragraph(f"<b>{GP._esc(lb)}:</b> {GP._esc('' if vv is None else str(vv))}", val)
+
+    grid, spans, row, col = [], [], [], 0
+
+    def _flush():
+        nonlocal row, col
+        while len(row) < cols:
+            row.append("")
+        grid.append(row)
+        row, col = [], 0
+
+    for p in pares:
+        span = min(p[2] if len(p) > 2 else 1, cols)
+        if col + span > cols:
+            _flush()
+        rowidx, c0 = len(grid), col
+        row.append(_cel(p[0], p[1]))
+        row.extend([""] * (span - 1))
+        if span > 1:
+            spans.append(("SPAN", (c0, rowidx), (c0 + span - 1, rowidx)))
+        col += span
+    if row:
+        _flush()
+
+    t = Table(grid, colWidths=[L / cols] * cols)
+    t.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), HexColor("#EAF3EA")),
+        ("GRID", (0, 0), (-1, -1), 0.5, HexColor("#C2D6C2")),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6), ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+    ] + spans))
+    return t
 
 
 def _partes_assinatura(projeto: dict):
@@ -219,17 +288,17 @@ def requerimento(projeto: dict, via: str, tema: str, logo_bytes=None) -> bytes:
         story += _tabela_vertices(projeto, cfg, st, L)
         story += _secao_croqui(projeto, cfg, st, L)
 
-    # cadastro / CMI
+    # cadastro / CMI (ficha compacta)
     pares = [p for p in [
-        ("Cadastro novo", projeto.get("cadastro_novo")),
-        ("Cadastro antigo", projeto.get("cadastro_antigo")),
-        ("CMI resultante", projeto.get("cmi_resultante")),
+        ("Cadastro novo", projeto.get("cadastro_novo"), 2),
+        ("Cadastro antigo", projeto.get("cadastro_antigo"), 2),
+        ("CMI resultante", projeto.get("cmi_resultante"), 2),
         ("Área total", TX.m2(projeto.get("area_declarada_m2"))),
         ("Perímetro", TX.metros(projeto.get("perimetro_m"))),
     ] if p[1]]
     if pares:
         story.append(Spacer(1, 6))
-        story.append(GP._kv_table(pares, cfg, st, L))
+        story.append(_ficha_compacta(pares, cfg, st, L))
 
     # fecho
     story += GP._paras("Nestes termos,\nPede deferimento.", st["corpo"])
@@ -252,16 +321,16 @@ def memorial(projeto: dict, tema: str, logo_bytes=None) -> bytes:
 
     pares = [p for p in [
         ("Bairro", projeto.get("bairro")),
-        ("Logradouro", projeto.get("endereco")),
+        ("Logradouro", projeto.get("endereco"), 3),
         ("Quadra", projeto.get("quadra")),
         ("Lote", projeto.get("lote_resultante")),
         ("Área", TX.m2(projeto.get("area_declarada_m2"))),
         ("Perímetro", TX.metros(projeto.get("perimetro_m"))),
-        ("Município/UF", f"{projeto.get('municipio') or ''}/{projeto.get('uf') or ''}"),
+        ("Município/UF", f"{projeto.get('municipio') or ''}/{projeto.get('uf') or ''}", 2),
         ("CIM", projeto.get("cmi_resultante")),
         ("TRT", projeto.get("trt_numero") or "—"),
     ] if p[1]]
-    story.append(GP._kv_table(pares, cfg, st, L))
+    story.append(_ficha_compacta(pares, cfg, st, L))
     story.append(Spacer(1, 6))
     story.append(Paragraph("( ) Rural    (X) Urbano", st["corpo"]))
     story.append(Spacer(1, 8))
