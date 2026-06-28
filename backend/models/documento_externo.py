@@ -65,6 +65,56 @@ def novo_signatario(data: dict) -> dict:
     ).model_dump(mode="json")
 
 
+class DocTestemunha(BaseModel):
+    """Documento de identidade da testemunha (CNH/RG) — opcionalmente anexado ao PDF."""
+    tipo: Literal["CNH", "RG", "OUTRO"] = "CNH"
+    frente_key: Optional[str] = None     # key R2
+    verso_key: Optional[str] = None
+    nome_arquivo: Optional[str] = None
+    mime: Optional[str] = None
+    enviado_em: Optional[datetime] = None
+    anexar_ao_pdf: bool = True
+
+
+class Testemunha(BaseModel):
+    id: str = Field(default_factory=lambda: uuid.uuid4().hex)
+    nome: str
+    cpf: str = ""
+    telefone: str = ""                   # whatsapp (só dígitos)
+    vinculo: str = ""                    # papel/lado (ex.: comprador/vendedor) — texto livre
+    parte_vinculada_id: Optional[str] = None    # id do signatário a quem se vincula
+    parte_vinculada_nome: str = ""
+    posicoes: List[PosicaoAssinatura] = Field(default_factory=list)
+    token: str = Field(default_factory=gerar_token)
+    status: StatusSignatario = "pendente"        # pendente|enviado|assinado|recusado (+ visualizado via campo)
+    visualizado_em: Optional[datetime] = None
+    enviado_em: Optional[datetime] = None
+    assinado_em: Optional[datetime] = None
+    expira_em: Optional[datetime] = None
+    ip: Optional[str] = None
+    user_agent: Optional[str] = None
+    traco_b64: Optional[str] = None
+    documento: DocTestemunha = Field(default_factory=DocTestemunha)
+    hash_validacao: Optional[str] = None
+    criado_em: datetime = Field(default_factory=datetime.utcnow)
+
+
+def nova_testemunha(data: dict) -> dict:
+    """Cria o dict de uma testemunha a partir do input do front."""
+    from datetime import timedelta
+    pos = data.get("posicoes") or []
+    return Testemunha(
+        nome=str(data.get("nome") or "").strip() or "Testemunha",
+        cpf=_so_dig(data.get("cpf")),
+        telefone=_so_dig(data.get("telefone") or data.get("whatsapp")),
+        vinculo=str(data.get("vinculo") or "").strip(),
+        parte_vinculada_id=data.get("parte_vinculada_id"),
+        parte_vinculada_nome=str(data.get("parte_vinculada_nome") or "").strip(),
+        posicoes=[PosicaoAssinatura(**p) for p in pos if p],
+        expira_em=datetime.utcnow() + timedelta(days=7),
+    ).model_dump(mode="json")
+
+
 def recalcular_status(doc: dict) -> StatusDoc:
     """Status global derivado dos signatários. requer_icp_rt define se 'todos assinaram'
     vira clientes_ok (falta ICP) ou finalizado direto."""
