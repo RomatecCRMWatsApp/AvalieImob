@@ -1,6 +1,7 @@
 # @module routes.documentos_externos_publico — página pública de assinatura do doc-ext.
 # SEM auth + rate-limit. O signatário desenha a assinatura (PNG) e consente; quando todos
 # assinam, dispara o carimbo (service.processar_carimbo).
+import asyncio
 import logging
 from datetime import datetime
 
@@ -29,9 +30,20 @@ async def obter_por_token(token: str, request: Request, db=Depends(get_db)):
     sig = _sig(doc, token)
     if not sig:
         raise HTTPException(status_code=404, detail="Link inválido")
+    # mostra o documento + a posição da assinatura deste signatário (quadro/seta)
+    from services.pdf_preview import renderizar_paginas
+    from services import r2_storage
+    paginas = []
+    try:
+        raw = await asyncio.to_thread(r2_storage.download_bytes, doc.get("pdf_key"))
+        paginas = await asyncio.to_thread(renderizar_paginas, raw)
+    except Exception:  # noqa: BLE001
+        paginas = []
+    documentos = [{"tipo": "documento", "titulo": doc.get("titulo") or "Documento",
+                   "paginas": paginas, "posicoes": sig.get("posicoes") or []}]
     return {"ok": True, "nome": sig.get("nome"), "papel": sig.get("papel"),
             "titulo": doc.get("titulo"), "cpf_cnpj": sig.get("cpf_cnpj"),
-            "ja_assinado": sig.get("status") == "assinado"}
+            "ja_assinado": sig.get("status") == "assinado", "documentos": documentos}
 
 
 @router_publico.post("/{token}")

@@ -520,8 +520,21 @@ async def obter_por_token(token: str, request: Request, db=Depends(get_db)):
     sig = next((s for s in sessao["signatarios"] if s.get("token") == token), None)
     if not sig:
         raise HTTPException(status_code=404, detail="Link inválido")
+    # mostra o(s) documento(s) + a posição da assinatura deste signatário (quadro/seta)
+    from services.pdf_preview import renderizar_paginas
+    from services import r2_storage
+    documentos = []
+    for d in sessao.get("documentos") or []:
+        rects = [a for a in (d.get("ancoras") or []) if a.get("role") == sig.get("role")]
+        try:
+            raw = await asyncio.to_thread(r2_storage.download_bytes, d["pdf_key_base"])
+            paginas = await asyncio.to_thread(renderizar_paginas, raw)
+        except Exception:  # noqa: BLE001
+            paginas = []
+        documentos.append({"tipo": d.get("tipo"), "titulo": d.get("titulo") or (d.get("tipo") or "Documento").capitalize(),
+                           "paginas": paginas, "posicoes": rects})
     return {"ok": True, "nome": sig.get("nome"), "role": sig.get("role"),
-            "ja_assinado": sig.get("status") == "assinado"}
+            "ja_assinado": sig.get("status") == "assinado", "documentos": documentos}
 
 
 @router_publico.post("/{token}")

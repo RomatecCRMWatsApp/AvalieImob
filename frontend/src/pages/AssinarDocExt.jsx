@@ -116,7 +116,39 @@ export default function AssinarDocExt() {
         {info?.titulo && <p style={{ marginTop: 8, fontSize: 13, color: '#9bbfae' }}>📄 {info.titulo}</p>}
         <p style={{ marginTop: 10, fontSize: 15 }}>Olá, <b>{info?.nome}</b>.</p>
         <p style={{ margin: '2px 0', fontSize: 14 }}>Você assina como <b style={{ color: DOURADO }}>{info?.papel}</b>.</p>
-        <p style={{ fontSize: 13, color: '#9bbfae', marginTop: 6 }}>Desenhe sua assinatura no quadro abaixo com o dedo.</p>
+        {(info?.documentos || []).length > 0 && (
+          <div style={{ marginTop: 12 }}>
+            <div style={{ fontSize: 13, color: '#cfe3d8', marginBottom: 6 }}>
+              Confira o documento abaixo. O <b style={{ color: DOURADO }}>quadro com a seta</b> mostra onde a sua assinatura será inserida.
+            </div>
+            {info.documentos.map((d) => (
+              <div key={d.tipo} style={{ marginBottom: 12 }}>
+                {(d.paginas || []).map((pg) => {
+                  const boxes = (d.posicoes || []).filter((b) => b.pagina === pg.pagina && pg.largura_pt && pg.altura_pt);
+                  const LBL = { assinatura: '➜ sua assinatura', rubrica: '➜ rubrica', data: '➜ data', nome_extenso: '➜ nome' };
+                  return (
+                    <div key={pg.pagina} style={{ position: 'relative', marginBottom: 6, borderRadius: 8, overflow: 'hidden', border: '1px solid #1c3a2c' }}>
+                      <img src={`data:image/png;base64,${pg.imagem_b64}`} alt={`pág ${pg.pagina + 1}`} style={{ width: '100%', display: 'block' }} />
+                      {boxes.map((b, i) => (
+                        <div key={i} style={{
+                          position: 'absolute',
+                          left: `${(b.x_pt / pg.largura_pt) * 100}%`,
+                          top: `${((pg.altura_pt - b.y_pt - b.alt_pt) / pg.altura_pt) * 100}%`,
+                          width: `${(b.larg_pt / pg.largura_pt) * 100}%`,
+                          height: `${(b.alt_pt / pg.altura_pt) * 100}%`,
+                          border: `2px dashed ${DOURADO}`, borderRadius: 6, background: 'rgba(184,134,11,.18)',
+                        }}>
+                          <span style={{ position: 'absolute', top: -20, left: 0, background: DOURADO, color: '#1a1a1a', fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 5, whiteSpace: 'nowrap' }}>{LBL[b.tipo] || '➜ aqui'}</span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        )}
+        <p style={{ fontSize: 13, color: '#9bbfae', marginTop: 6 }}>Desenhe sua assinatura no quadro abaixo com o dedo — assine grande, ocupando todo o quadro.</p>
 
         <div ref={wrapRef} style={{ background: '#fff', borderRadius: 12, marginTop: 12, border: `2px dashed ${DOURADO}`, position: 'relative', overflow: 'hidden' }}>
           {!temTraco && <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
