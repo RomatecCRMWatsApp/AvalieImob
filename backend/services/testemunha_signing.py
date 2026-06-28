@@ -77,7 +77,13 @@ def inserir_no_sumario(pdf_bytes: bytes, entries: list, tag: str = "ANEXO") -> t
     página que contém "SUMÁRIO". Retorna (pdf_bytes, ok) — ok=False se não achou/sem espaço."""
     if not entries:
         return pdf_bytes, False
-    GOLD, GOLDBG, GREEN, BLACK = (0.79, 0.66, 0.30), (0.95, 0.91, 0.79), (0.047, 0.2, 0.12), (0, 0, 0)
+    # paleta do SUMÁRIO escuro do contrato (olive/dourado/creme)
+    GOLD = (0.79, 0.66, 0.30)        # borda dourada
+    OLIVE = (0.21, 0.19, 0.09)       # preenchimento da tag (olive escuro)
+    CREAM = (0.93, 0.89, 0.80)       # texto do label/tag (creme)
+    NUMGOLD = (0.85, 0.74, 0.42)     # número (dourado claro)
+    DARKBOX = (0.04, 0.12, 0.08)     # preenchimento da caixa do número (~fundo)
+    DOTS = (0.55, 0.47, 0.26)        # pontilhado dourado
     tmp = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
     try:
         tmp.write(pdf_bytes)
@@ -102,19 +108,30 @@ def inserir_no_sumario(pdf_bytes: bytes, entries: list, tag: str = "ANEXO") -> t
                 W, Hh, M = sp.rect.width, sp.rect.height, 64
                 blocos = [b for b in sp.get_text("blocks") if b[4].strip() and b[3] < Hh * 0.86]
                 bottom = max((b[3] for b in blocos), default=Hh * 0.5)
-                y = bottom + 16
+                y = bottom + 10
+                rh = 18                       # altura da linha (igual às cláusulas)
                 for label, pg in entries:
-                    if y > Hh - 34:
+                    if y + rh > Hh - 28:
                         break
-                    tag_w = 78
-                    sp.draw_rect(fitz.Rect(M, y, M + tag_w, y + 14), color=GOLD, fill=GOLDBG, width=0.8)
-                    sp.insert_text((M + 5, y + 10), tag, fontsize=6.5, color=GREEN, fontname="hebo")
-                    sp.insert_text((M + tag_w + 12, y + 11), label[:60], fontsize=9.5, color=BLACK, fontname="hebo")
-                    bw = 36
+                    # tag dourada/olive à esquerda
+                    tag_w = 104
+                    sp.draw_rect(fitz.Rect(M, y, M + tag_w, y + rh), color=GOLD, fill=OLIVE, width=0.8)
+                    tw = fitz.get_text_length(tag, fontname="hebo", fontsize=7)
+                    sp.insert_text((M + (tag_w - tw) / 2, y + 12), tag, fontsize=7, color=CREAM, fontname="hebo")
+                    # label em serif creme
+                    lx = M + tag_w + 14
+                    sp.insert_text((lx, y + 12.5), label[:58], fontsize=10.5, color=CREAM, fontname="tibo")
+                    lbl_w = fitz.get_text_length(label[:58], fontname="tibo", fontsize=10.5)
+                    # caixa do número (escura, borda dourada, nº dourado)
+                    bw = 42
                     bx = W - M - bw
-                    sp.draw_rect(fitz.Rect(bx, y, bx + bw, y + 15), color=GOLD, fill=GOLDBG, width=1)
-                    sp.insert_text((bx + 11, y + 11), str(pg), fontsize=9, color=GREEN, fontname="hebo")
-                    y += 22
+                    sp.draw_rect(fitz.Rect(bx, y, bx + bw, y + rh), color=GOLD, fill=DARKBOX, width=1)
+                    nw = fitz.get_text_length(str(pg), fontname="tibo", fontsize=10)
+                    sp.insert_text((bx + (bw - nw) / 2, y + 12.5), str(pg), fontsize=10, color=NUMGOLD, fontname="tibo")
+                    # pontilhado dourado entre o label e a caixa
+                    sp.draw_line(fitz.Point(lx + lbl_w + 8, y + rh / 2 + 1), fitz.Point(bx - 8, y + rh / 2 + 1),
+                                 color=DOTS, width=0.9, dashes="[1 3] 0")
+                    y += 29
                     ok = True
                 if ok:
                     doc.save(tmp.name, incremental=True, encryption=fitz.PDF_ENCRYPT_KEEP)
