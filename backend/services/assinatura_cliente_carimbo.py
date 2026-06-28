@@ -19,6 +19,30 @@ _VERDE_HEX = "#0B6E4F"
 _DOURADO_HEX = "#B8860B"
 
 
+def _trim_png(raw: bytes) -> bytes:
+    """Recorta o PNG até o conteúdo (tira margem vazia em volta do traço) p/ a
+    assinatura preencher ao máximo a caixa. Lida com fundo transparente OU branco.
+    Devolve o original em qualquer falha."""
+    try:
+        from PIL import Image as _PILImage, ImageChops
+        im = _PILImage.open(io.BytesIO(raw)).convert("RGBA")
+        bbox = im.split()[3].getbbox()  # canal alpha (fundo transparente)
+        if bbox is None or bbox == (0, 0, im.width, im.height):
+            rgb = im.convert("RGB")
+            bg = _PILImage.new("RGB", rgb.size, (255, 255, 255))
+            bbox = ImageChops.difference(rgb, bg).getbbox()  # fundo branco
+        if bbox:
+            pad = 6
+            im = im.crop((max(0, bbox[0] - pad), max(0, bbox[1] - pad),
+                          min(im.width, bbox[2] + pad), min(im.height, bbox[3] + pad)))
+            out = io.BytesIO()
+            im.save(out, "PNG")
+            return out.getvalue()
+    except Exception:  # noqa: BLE001
+        pass
+    return raw
+
+
 def _png_size(raw: bytes) -> Tuple[int, int]:
     """Largura/altura do PNG (via PIL; fallback 1x1)."""
     try:
@@ -38,8 +62,9 @@ def _overlay_traco(page_w: float, page_h: float, rect: Tuple[float, float, float
     from reportlab.lib.utils import ImageReader
 
     x0, y0, x1, y1 = rect
-    box_w = max(1.0, (x1 - x0) - 8)
-    box_h = max(1.0, (y1 - y0) - 8)
+    traco_png = _trim_png(traco_png)            # preenche a caixa ao máximo
+    box_w = max(1.0, (x1 - x0) - 6)
+    box_h = max(1.0, (y1 - y0) - 6)
     iw, ih = _png_size(traco_png)
     escala = min(box_w / iw, box_h / ih)
     w, h = iw * escala, ih * escala

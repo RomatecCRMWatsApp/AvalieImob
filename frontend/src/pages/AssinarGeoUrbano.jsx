@@ -91,20 +91,47 @@ export default function AssinarGeoUrbano() {
         <div style={{ fontSize: 13, opacity: 0.85 }}>{dados?.nome} · {dados?.papel}</div>
       </header>
       <div style={{ padding: 14, maxWidth: 620, margin: '0 auto' }}>
+        <div style={{ background: '#fffbeb', border: `1px solid ${GOLD}`, borderRadius: 10, padding: '8px 12px', fontSize: 12.5, color: '#92400e', marginBottom: 12 }}>
+          Confira o documento abaixo. O <b>quadro pontilhado com a seta</b> indica onde a sua assinatura será inserida em cada peça.
+        </div>
         {(dados?.documentos || []).map((d) => (
           <div key={d.doc} style={{ marginBottom: 14 }}>
             <div style={{ fontWeight: 600, color: GREEN, marginBottom: 6 }}>{d.titulo}</div>
-            {(d.paginas || []).map((pg) => (
-              <img key={pg.pagina} src={`data:image/png;base64,${pg.imagem_b64}`} alt={`pág ${pg.pagina + 1}`}
-                style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: 8, marginBottom: 6 }} />
-            ))}
+            {(d.paginas || []).map((pg) => {
+              const boxes = (d.posicoes || []).filter((b) => b.pagina === pg.pagina && pg.largura_pt && pg.altura_pt);
+              return (
+                <div key={pg.pagina} style={{ position: 'relative', marginBottom: 6 }}>
+                  <img src={`data:image/png;base64,${pg.imagem_b64}`} alt={`pág ${pg.pagina + 1}`}
+                    style={{ width: '100%', display: 'block', border: '1px solid #e2e8f0', borderRadius: 8 }} />
+                  {boxes.map((b, i) => {
+                    const st = {
+                      position: 'absolute',
+                      left: `${(b.x_pt / pg.largura_pt) * 100}%`,
+                      top: `${((pg.altura_pt - b.y_pt - b.alt_pt) / pg.altura_pt) * 100}%`,
+                      width: `${(b.larg_pt / pg.largura_pt) * 100}%`,
+                      height: `${(b.alt_pt / pg.altura_pt) * 100}%`,
+                      border: `2px dashed ${GOLD}`, borderRadius: 6, background: 'rgba(201,168,76,.12)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    };
+                    return (
+                      <div key={i} style={st}>
+                        <span style={{ position: 'absolute', top: -22, left: 0, background: GOLD, color: '#3a2e00', fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 5, whiteSpace: 'nowrap' }}>
+                          ➜ sua assinatura aqui
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
           </div>
         ))}
 
         <div style={{ background: 'white', borderRadius: 12, padding: 14, boxShadow: '0 1px 3px rgba(0,0,0,.08)' }}>
           <div style={{ fontWeight: 600, color: GREEN, marginBottom: 6 }}>Desenhe sua assinatura ✍️</div>
+          <div style={{ fontSize: 12, color: '#64748b', marginBottom: 6 }}>Assine grande, ocupando todo o quadro — sua firma será aplicada nas peças no tamanho da caixa indicada.</div>
           <canvas ref={canvasRef}
-            style={{ width: '100%', height: 180, border: `2px dashed ${GOLD}`, borderRadius: 10, touchAction: 'none', background: '#fff' }}
+            style={{ width: '100%', height: 260, border: `2px dashed ${GOLD}`, borderRadius: 10, touchAction: 'none', background: '#fff' }}
             onMouseDown={start} onMouseMove={move} onMouseUp={end} onMouseLeave={end}
             onTouchStart={start} onTouchMove={move} onTouchEnd={end} />
           <button onClick={limpar} style={{ marginTop: 6, fontSize: 13, color: '#64748b', background: 'none', border: 'none' }}>Limpar</button>

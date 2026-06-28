@@ -17,6 +17,7 @@ from reportlab.platypus import Paragraph, Spacer, Image as RLImage, Table, Table
 from pdf.templates.resilient import ResilientSimpleDocTemplate
 from services.georef.generators import pdf as GP   # blocos genéricos reusados
 from services.geo_urbano.generators import textos as TX
+from services.geo_urbano.generators import croqui as CROQUI
 
 MARGIN = GP.MARGIN
 _MESES = ["", "janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho",
@@ -73,6 +74,58 @@ def _build(story, cfg, titulo_curto, logo_bytes=None) -> bytes:
 
 def _largura() -> float:
     return A4[0] - 2 * MARGIN
+
+
+def _secao_croqui(projeto: dict, cfg, st, L):
+    """Seção CROQUI DA POLIGONAL (desenho vetorial) — Requerimento e Memorial."""
+    dwg = CROQUI.croqui_drawing(projeto)
+    if dwg is None:
+        return []
+    out = GP._secao("CROQUI DA POLIGONAL", cfg, st, L)
+    out.append(dwg)
+    out.append(Spacer(1, 6))
+    out.append(Paragraph(
+        "Croqui ilustrativo da poligonal resultante (vértices, medidas e confrontantes). "
+        "Vide planilha de coordenadas e o mapa anexo.", st["legenda"] if "legenda" in st else st["corpo"]))
+    return out
+
+
+def _bloco_assinaturas_partes(projeto: dict, st, L):
+    """Bloco de assinaturas do requerente. PJ → razão social + CNPJ e, abaixo, o
+    representante/sócio que anui (assina pela empresa); PF → nome + papel."""
+    from reportlab.platypus import KeepTogether
+    partes = projeto.get("partes") or []
+    requerente = next((p for p in partes if p.get("papel") == "requerente"), None)
+    elems = [Spacer(1, 24)]
+
+    def _add(linhas):
+        b = [Spacer(1, 42),  # espaço amplo p/ a firma manuscrita
+             Table([[""]], colWidths=[L * 0.6], style=[("LINEABOVE", (0, 0), (-1, -1), 0.8, black)])]
+        for txt, bold in linhas:
+            b.append(Paragraph(f"<b>{GP._esc(txt)}</b>" if bold else GP._esc(txt), st["assina"]))
+        b.append(Spacer(1, 14))
+        elems.append(KeepTogether(b))
+
+    if requerente and requerente.get("tipo_pessoa") == "juridica":
+        rep = next((p for p in partes if p.get("papel") in ("representante", "socio")), None)
+        razao = requerente.get("razao_social") or requerente.get("nome") or ""
+        linhas = [(razao, True)]
+        if requerente.get("cnpj"):
+            linhas.append((f"CNPJ: {requerente['cnpj']}", False))
+        if rep and rep.get("nome"):
+            papel = "Representante legal" if rep.get("papel") == "representante" else "Sócio administrador"
+            linhas.append((f"{rep['nome']} — {papel}", False))
+            if rep.get("cpf"):
+                linhas.append((f"CPF: {rep['cpf']}", False))
+        _add(linhas)
+        for p in partes:  # sócios anuentes adicionais
+            if p.get("papel") == "socio" and p is not rep and p.get("nome"):
+                _add([(p["nome"], True), ("Sócio anuente", False)])
+        return elems
+
+    for nome, papel in _partes_assinatura(projeto):
+        _add([(nome, True), (papel, False)])
+    return elems
 
 
 def _tabela_vertices(projeto: dict, cfg, st, L):
@@ -164,6 +217,7 @@ def requerimento(projeto: dict, via: str, tema: str, logo_bytes=None) -> bytes:
         story += GP._paras(TX.descricao_resultante(projeto), st["corpo"])
         # quadro de medidas e confrontações do mapa (mesmo do Memorial)
         story += _tabela_vertices(projeto, cfg, st, L)
+        story += _secao_croqui(projeto, cfg, st, L)
 
     # cadastro / CMI
     pares = [p for p in [
@@ -182,7 +236,7 @@ def requerimento(projeto: dict, via: str, tema: str, logo_bytes=None) -> bytes:
     story.append(Spacer(1, 4))
     story.append(Paragraph(GP._esc(_data_extenso(projeto.get("municipio") or "Açailândia",
                                                  projeto.get("uf") or "MA")), st["corpo_c"]))
-    story += GP._bloco_assinaturas(_partes_assinatura(projeto), st, L)
+    story += _bloco_assinaturas_partes(projeto, st, L)
     return _build(story, cfg, titulo_curto, logo_bytes)
 
 
@@ -219,10 +273,11 @@ def memorial(projeto: dict, tema: str, logo_bytes=None) -> bytes:
     corpo += TX.descricao_perimetrica(projeto)
     story += GP._paras(corpo, st["corpo"])
 
-    # quadro de vértices, medidas e confrontações (do mapa)
+    # quadro de vértices, medidas e confrontações (do mapa) + croqui da poligonal
     quadro = _tabela_vertices(projeto, cfg, st, L)
     if quadro:
         story += quadro
+        story += _secao_croqui(projeto, cfg, st, L)
     else:
         # sem planilha de vértices: lista as confrontações por lado (ex.: lote de desdobro)
         confs = projeto.get("_confrontacoes_lote") or []

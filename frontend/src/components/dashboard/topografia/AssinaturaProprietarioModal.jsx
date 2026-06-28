@@ -8,7 +8,7 @@ import { BrandSpinner } from '../../brand/BrandSpinner';
 
 const GREEN = '#0C3320';
 const GOLD = '#C9A84C';
-const BOX_W = 170, BOX_H = 52;          // tamanho da caixa de assinatura (pt)
+const BOX_W = 230, BOX_H = 84;          // tamanho da caixa de assinatura (pt) — amplo p/ a firma
 
 export default function AssinaturaProprietarioModal({ projetoId, onFechar, onEnviado }) {
   const { toast } = useToast();
