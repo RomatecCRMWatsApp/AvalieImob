@@ -846,5 +846,6 @@ export const testemunhasAssinaturaAPI = {
 };
 export const testemunhaPublicoAPI = {
   obter: (token) => api.get(`/publico/testemunha/${token}`).then((r) => r.data),
+  enviarDocumento: (token, body) => api.post(`/publico/testemunha/${token}/documento`, body).then((r) => r.data),
   assinar: (token, body) => api.post(`/publico/testemunha/${token}/assinar`, body).then((r) => r.data),
 };

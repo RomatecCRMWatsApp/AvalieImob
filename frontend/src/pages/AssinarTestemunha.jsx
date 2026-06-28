@@ -19,6 +19,9 @@ export default function AssinarTestemunha() {
   const canvasRef = useRef(null);
   const desenhou = useRef(false);
   const drawing = useRef(false);
+  const [docTipo, setDocTipo] = useState('CNH');
+  const [frente, setFrente] = useState('');
+  const [verso, setVerso] = useState('');
 
   useEffect(() => {
     testemunhaPublicoAPI.obter(token)
@@ -49,11 +52,33 @@ export default function AssinarTestemunha() {
   const end = () => { drawing.current = false; };
   const limpar = () => { const c = canvasRef.current; c.getContext('2d').clearRect(0, 0, c.width, c.height); desenhou.current = false; };
 
+  const lerImagem = (file) => new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const max = 1600; let w = img.width, h = img.height;
+        if (w > max || h > max) { const s = Math.min(max / w, max / h); w = Math.round(w * s); h = Math.round(h * s); }
+        const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+        cv.getContext('2d').drawImage(img, 0, 0, w, h);
+        res(cv.toDataURL('image/jpeg', 0.82));
+      };
+      img.onerror = rej; img.src = fr.result;
+    };
+    fr.onerror = rej; fr.readAsDataURL(file);
+  });
+  const pick = (set) => async (e) => { const f = e.target.files?.[0]; if (f) { try { set(await lerImagem(f)); } catch { set(''); } } };
+
+  const docEnviado = dados?.documento_enviado;
   const assinar = async () => {
+    if (!docEnviado && !frente) { setErro('Envie a frente do seu documento (CNH ou RG).'); return; }
     if (!desenhou.current) { setErro('Desenhe sua assinatura.'); return; }
     if (!concordo) { setErro('Marque o aceite para assinar.'); return; }
     setEnviando(true); setErro('');
     try {
+      if (!docEnviado && frente) {
+        await testemunhaPublicoAPI.enviarDocumento(token, { tipo: docTipo, frente_base64: frente, verso_base64: verso });
+      }
       const assinatura_base64 = canvasRef.current.toDataURL('image/png');
       await testemunhaPublicoAPI.assinar(token, { assinatura_base64, concordo: true });
       setOk(true);
@@ -108,6 +133,30 @@ export default function AssinarTestemunha() {
             </div>
           );
         })}
+
+        <div style={{ background: 'white', borderRadius: 12, padding: 14, boxShadow: '0 1px 3px rgba(0,0,0,.08)', marginTop: 8 }}>
+          <div style={{ fontWeight: 600, color: GREEN, marginBottom: 6 }}>Documento de identidade (CNH ou RG)</div>
+          {docEnviado ? (
+            <p style={{ color: '#15803d', fontSize: 13, margin: 0 }}>✓ Documento já enviado — seguirá anexado.</p>
+          ) : (
+            <>
+              <p style={{ fontSize: 12.5, color: '#64748b', margin: '0 0 8px' }}>Anexe a foto do seu documento. Ela vai junto ao contrato para identificação.</p>
+              <select value={docTipo} onChange={(e) => setDocTipo(e.target.value)}
+                style={{ width: '100%', padding: '9px', borderRadius: 8, border: '1px solid #cbd5e1', marginBottom: 8 }}>
+                <option value="CNH">CNH</option><option value="RG">RG</option><option value="OUTRO">Outro documento</option>
+              </select>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {[['Frente', frente, pick(setFrente)], ['Verso (opcional)', verso, pick(setVerso)]].map(([lbl, val, on]) => (
+                  <label key={lbl} style={{ flex: 1, border: `2px dashed ${val ? '#15803d' : GOLD}`, borderRadius: 10, padding: 8, textAlign: 'center', cursor: 'pointer', background: '#fafafa' }}>
+                    {val ? <img src={val} alt={lbl} style={{ width: '100%', borderRadius: 6, maxHeight: 110, objectFit: 'cover' }} />
+                      : <span style={{ fontSize: 12.5, color: '#64748b' }}>📷 {lbl}</span>}
+                    <input type="file" accept="image/*" capture="environment" onChange={on} style={{ display: 'none' }} />
+                  </label>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
 
         <div style={{ background: 'white', borderRadius: 12, padding: 14, boxShadow: '0 1px 3px rgba(0,0,0,.08)', marginTop: 8 }}>
           <div style={{ fontWeight: 600, color: GREEN, marginBottom: 6 }}>Desenhe sua assinatura ✍️</div>

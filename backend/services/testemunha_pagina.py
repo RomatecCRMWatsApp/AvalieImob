@@ -135,3 +135,35 @@ def pagina_testemunhas_pdf(doc: dict, testemunhas: list) -> bytes:
     c.showPage()
     c.save()
     return buf.getvalue()
+
+
+def pagina_documentos_pdf(itens: list) -> bytes:
+    """itens = [(label, img_bytes)] — uma página A4 por documento (CNH/RG) da testemunha,
+    com cabeçalho + legenda. Imagem ajustada à página preservando a proporção."""
+    from reportlab.lib.utils import ImageReader
+    W, H = A4
+    M = 1.6 * cm
+    buf = io.BytesIO()
+    c = rl_canvas.Canvas(buf, pagesize=A4)
+    for label, img in itens:
+        try:
+            reader = ImageReader(io.BytesIO(img))
+            iw, ih = reader.getSize()
+            maxw, maxh = W - 2 * M, H - 3.6 * cm
+            esc = min(maxw / iw, maxh / ih)
+            fw, fh = iw * esc, ih * esc
+            c.setFillColor(_VERDE)
+            c.setFont("Helvetica-Bold", 12)
+            c.drawString(M, H - 1.7 * cm, "ANEXO — DOCUMENTO DE IDENTIDADE DA TESTEMUNHA")
+            c.setStrokeColor(_DOURADO)
+            c.setLineWidth(1.0)
+            c.line(M, H - 2.0 * cm, W - M, H - 2.0 * cm)
+            c.setFillColor(_CINZA)
+            c.setFont("Helvetica", 9)
+            c.drawString(M, H - 2.45 * cm, label)
+            c.drawImage(reader, (W - fw) / 2, M, width=fw, height=fh, mask="auto")
+        except Exception:  # noqa: BLE001
+            continue
+        c.showPage()
+    c.save()
+    return buf.getvalue()

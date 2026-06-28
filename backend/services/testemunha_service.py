@@ -79,6 +79,23 @@ async def _reconstruir_vigente(doc: dict):
                                            (x, y, x + wd, y + ht), wpng, leg)
     pagina = await asyncio.to_thread(pagina_testemunhas_pdf, doc, testemunhas)
     novo = await asyncio.to_thread(anexar_pagina_incremental, novo, pagina)
+    # anexa CNH/RG de cada testemunha que enviou (vai JUNTO no documento p/ análise)
+    from services.testemunha_pagina import pagina_documentos_pdf
+    docs_itens = []
+    for w in testemunhas:
+        d = w.get("documento") or {}
+        if not d.get("anexar_ao_pdf", True):
+            continue
+        for face, fk in (("frente", d.get("frente_key")), ("verso", d.get("verso_key"))):
+            if fk:
+                try:
+                    img = await asyncio.to_thread(r2_storage.download_bytes, fk)
+                    docs_itens.append((f"{w.get('nome')} — {d.get('tipo') or 'CNH'} ({face})", img))
+                except Exception:  # noqa: BLE001
+                    pass
+    if docs_itens:
+        docpag = await asyncio.to_thread(pagina_documentos_pdf, docs_itens)
+        novo = await asyncio.to_thread(anexar_pagina_incremental, novo, docpag)
     key_out = f"testemunhas/{doc['user_id']}/{doc['id']}_testemunhas.pdf"
     await asyncio.to_thread(r2_storage.upload_bytes, novo, key_out, "application/pdf")
     return key_out, hashlib.sha256(novo).hexdigest()
@@ -236,6 +253,39 @@ async def assinar(db, token: str, traco_b64: str, ip: str = "", ua: str = "") ->
     # NÃO mexe no `status` do doc-ext (já é 'finalizado' das partes)
     await db[col].update_one({"id": doc["id"]}, {"$set": sets})
     return {"ok": True, "documento_finalizado": bool(todas)}
+
+
+async def salvar_documento(db, token: str, frente_b64: str = "", verso_b64: str = "",
+                           tipo: str = "CNH") -> dict:
+    """A testemunha envia a CNH/RG (frente/verso) — sobe no R2 e vincula à testemunha.
+    A imagem é anexada ao documento na próxima reconstrução (ao assinar)."""
+    modulo, doc, t = await localizar_por_token(db, token)
+    col = MODULO_COL[modulo]
+    atual = t.get("documento") or {}
+
+    async def _up(b64, face):
+        if not b64:
+            return atual.get(f"{face}_key")
+        raw = base64.b64decode(str(b64).split(",")[-1])
+        if len(raw) > 12 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="Imagem muito grande (máx 12MB).")
+        key = f"testemunhas/{doc['user_id']}/{doc['id']}/{t['id']}_{face}.jpg"
+        await asyncio.to_thread(r2_storage.upload_bytes, raw, key, "image/jpeg")
+        return key
+
+    fk = await _up(frente_b64, "frente")
+    vk = await _up(verso_b64, "verso")
+    if not (fk or vk):
+        raise HTTPException(status_code=422, detail="Envie ao menos a frente do documento.")
+    t["documento"] = {"tipo": (tipo or "CNH"), "frente_key": fk, "verso_key": vk,
+                      "enviado_em": datetime.utcnow(), "anexar_ao_pdf": True}
+    testemunhas = doc.get("testemunhas") or []
+    for i, x in enumerate(testemunhas):
+        if x.get("id") == t["id"]:
+            testemunhas[i] = t
+    await db[col].update_one({"id": doc["id"]},
+                             {"$set": {"testemunhas": testemunhas, "updated_at": datetime.utcnow()}})
+    return {"ok": True, "frente": bool(fk), "verso": bool(vk)}
 
 
 def _parse(v):

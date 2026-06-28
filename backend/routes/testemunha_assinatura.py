@@ -88,11 +88,22 @@ async def obter(token: str, request: Request, db=Depends(get_db)):
         except Exception:  # noqa: BLE001
             paginas = []
     titulo = doc.get("titulo") or doc.get("numero_contrato") or "Documento"
+    doc_id_face = (t.get("documento") or {})
     return {"ok": True, "documento": {"titulo": titulo, "modulo": modulo},
             "testemunha": {"nome": t.get("nome"), "vinculo": t.get("vinculo"),
                            "parte_vinculada_nome": t.get("parte_vinculada_nome")},
             "paginas": paginas, "posicoes": t.get("posicoes") or [],
+            "documento_enviado": bool(doc_id_face.get("frente_key")),
             "ja_assinado": t.get("status") == "assinado"}
+
+
+@router_publico.post("/{token}/documento")
+@limiter.limit("10/minute")
+async def enviar_documento(token: str, payload: dict, request: Request, db=Depends(get_db)):
+    return await TS.salvar_documento(db, token,
+                                     (payload or {}).get("frente_base64") or "",
+                                     (payload or {}).get("verso_base64") or "",
+                                     (payload or {}).get("tipo") or "CNH")
 
 
 @router_publico.get("/{token}/pdf")
