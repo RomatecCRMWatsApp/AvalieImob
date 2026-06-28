@@ -318,13 +318,27 @@ function ModalTestemunhas({ doc, onClose }) {
     catch (e) { toast({ title: 'Erro ao reenviar', variant: 'destructive' }); }
   };
 
+  const lerImg = (file) => new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onload = () => { const img = new Image(); img.onload = () => {
+      const max = 1600; let w = img.width, h = img.height;
+      if (w > max || h > max) { const s = Math.min(max / w, max / h); w = Math.round(w * s); h = Math.round(h * s); }
+      const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+      cv.getContext('2d').drawImage(img, 0, 0, w, h); res(cv.toDataURL('image/jpeg', 0.82));
+    }; img.onerror = rej; img.src = fr.result; };
+    fr.onerror = rej; fr.readAsDataURL(file);
+  });
   const [editId, setEditId] = useState(null);
   const [editForm, setEditForm] = useState({});
-  const iniciarEdicao = (t) => { setEditId(t.id); setEditForm({ nome: t.nome || '', cpf: t.cpf || '', telefone: t.telefone || '', email: t.email || '', parte_vinculada_id: t.parte_vinculada_id || '' }); };
+  const iniciarEdicao = (t) => { setEditId(t.id); setEditForm({ nome: t.nome || '', cpf: t.cpf || '', telefone: t.telefone || '', email: t.email || '', parte_vinculada_id: t.parte_vinculada_id || '', docTipo: 'CNH', docFrente: '', docVerso: '', docEnviado: !!t.documento_enviado }); };
+  const pickEdit = (campo) => async (e) => { const f = e.target.files?.[0]; if (f) { try { const b = await lerImg(f); setEditForm((s) => ({ ...s, [campo]: b })); } catch { /* */ } } };
   const salvarEdicao = async () => {
     try {
       const sig = sigs.find((s) => s.id === editForm.parte_vinculada_id) || {};
-      await testemunhasAssinaturaAPI.editar(_MODULO, doc.id, editId, { ...editForm, vinculo: sig.papel || undefined, parte_vinculada_nome: sig.nome || undefined });
+      await testemunhasAssinaturaAPI.editar(_MODULO, doc.id, editId, { nome: editForm.nome, cpf: editForm.cpf, telefone: editForm.telefone, email: editForm.email, parte_vinculada_id: editForm.parte_vinculada_id, vinculo: sig.papel || undefined, parte_vinculada_nome: sig.nome || undefined });
+      if (editForm.docFrente || editForm.docVerso) {
+        await testemunhasAssinaturaAPI.enviarDocumento(_MODULO, doc.id, editId, { tipo: editForm.docTipo, frente_base64: editForm.docFrente, verso_base64: editForm.docVerso });
+      }
       toast({ title: 'Testemunha atualizada' }); setEditId(null); recarregar();
     } catch (e) { toast({ title: 'Erro ao salvar', description: e?.response?.data?.detail || '', variant: 'destructive' }); }
   };
@@ -403,6 +417,20 @@ function ModalTestemunhas({ doc, onClose }) {
                   <option value="">Vincular à parte…</option>
                   {sigs.map((s) => <option key={s.id} value={s.id}>{s.nome} ({s.papel})</option>)}
                 </select>
+                <div className="rounded-lg border border-dashed border-amber-300 bg-amber-50/60 p-2">
+                  <div className="text-[11px] font-semibold text-amber-800 mb-1">Documento de identidade (CNH/RG){editForm.docEnviado ? ' · ✓ já enviado' : ''}</div>
+                  <div className="flex items-center gap-1.5">
+                    <select className="border rounded px-1.5 py-1 text-xs" value={editForm.docTipo} onChange={(e) => setEditForm((f) => ({ ...f, docTipo: e.target.value }))}>
+                      <option value="CNH">CNH</option><option value="RG">RG</option><option value="OUTRO">Outro</option>
+                    </select>
+                    {[['Frente', 'docFrente'], ['Verso', 'docVerso']].map(([lbl, campo]) => (
+                      <label key={campo} className={`flex-1 text-center text-[11px] rounded border-2 border-dashed py-1.5 cursor-pointer ${editForm[campo] ? 'border-emerald-400 text-emerald-700' : 'border-amber-300 text-amber-700'}`}>
+                        {editForm[campo] ? '✓ ' + lbl : '📷 ' + lbl}
+                        <input type="file" accept="image/*" capture="environment" onChange={pickEdit(campo)} className="hidden" />
+                      </label>
+                    ))}
+                  </div>
+                </div>
                 <div className="flex justify-end gap-2 pt-0.5">
                   <button onClick={() => setEditId(null)} className="text-[11px] text-gray-500 hover:underline">cancelar</button>
                   <button onClick={salvarEdicao} className="text-[11px] font-semibold text-emerald-700 hover:underline">salvar</button>

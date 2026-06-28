@@ -61,6 +61,15 @@ async def editar(modulo: str, doc_id: str, tid: str, payload: dict,
     return await TS.editar_testemunha(db, modulo, doc_id, uid, tid, payload or {})
 
 
+@router.post("/{modulo}/{doc_id}/{tid}/documento")
+async def documento_operador(modulo: str, doc_id: str, tid: str, payload: dict,
+                             uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    return await TS.salvar_documento_operador(db, modulo, doc_id, uid, tid,
+                                              (payload or {}).get("frente_base64") or "",
+                                              (payload or {}).get("verso_base64") or "",
+                                              (payload or {}).get("tipo") or "CNH")
+
+
 @router.delete("/{modulo}/{doc_id}/{tid}")
 async def excluir(modulo: str, doc_id: str, tid: str,
                   uid: str = Depends(get_active_subscriber), db=Depends(get_db)):

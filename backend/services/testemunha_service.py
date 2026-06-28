@@ -188,6 +188,37 @@ async def editar_testemunha(db, modulo: str, doc_id: str, uid: str, tid: str, pa
     return {"ok": True}
 
 
+async def salvar_documento_operador(db, modulo: str, doc_id: str, uid: str, tid: str,
+                                    frente_b64: str = "", verso_b64: str = "", tipo: str = "CNH") -> dict:
+    """O OPERADOR anexa a CNH/RG de uma testemunha (pela tela de gestão). Sobe no R2,
+    vincula à testemunha e reconstrói a revisão (o documento já vai anexado)."""
+    doc = await carregar_doc(db, modulo, doc_id, uid)
+    testemunhas = doc.get("testemunhas") or []
+    t = next((x for x in testemunhas if x.get("id") == tid), None)
+    if not t:
+        raise HTTPException(status_code=404, detail="Testemunha não encontrada.")
+    atual = t.get("documento") or {}
+
+    async def _up(b64, face):
+        if not b64:
+            return atual.get(f"{face}_key")
+        raw = base64.b64decode(str(b64).split(",")[-1])
+        if len(raw) > 12 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="Imagem muito grande (máx 12MB).")
+        key = f"testemunhas/{uid}/{doc_id}/{tid}_{face}.jpg"
+        await asyncio.to_thread(r2_storage.upload_bytes, raw, key, "image/jpeg")
+        return key
+
+    fk = await _up(frente_b64, "frente")
+    vk = await _up(verso_b64, "verso")
+    if not (fk or vk):
+        raise HTTPException(status_code=422, detail="Envie ao menos a frente do documento.")
+    t["documento"] = {"tipo": (tipo or "CNH"), "frente_key": fk, "verso_key": vk,
+                      "enviado_em": datetime.utcnow(), "anexar_ao_pdf": True}
+    await _aplicar_e_reconstruir(db, modulo, doc_id, uid, doc, testemunhas)
+    return {"ok": True, "frente": bool(fk), "verso": bool(vk)}
+
+
 async def excluir_testemunha(db, modulo: str, doc_id: str, uid: str, tid: str) -> dict:
     doc = await carregar_doc(db, modulo, doc_id, uid)
     testemunhas = doc.get("testemunhas") or []
