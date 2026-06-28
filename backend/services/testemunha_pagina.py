@@ -39,6 +39,73 @@ _ESTADO_CIVIL = {"solteiro": "solteiro(a)", "casado": "casado(a)", "uniao_estave
                  "divorciado": "divorciado(a)", "viuvo": "viúvo(a)", "separado": "separado(a)"}
 
 
+def _papel_testemunha(t: dict) -> str:
+    v = str(t.get("vinculo") or "").strip()
+    if not v:
+        return "Testemunha instrumentária"
+    art = "da" if v.lower().endswith("a") else "do"
+    return f"Testemunha {art} {v}"
+
+
+def pagina_manifestacao_testemunhas(doc: dict, testemunhas: list) -> bytes:
+    """Página MANIFESTAÇÃO DE VONTADE E AUTORIA das TESTEMUNHAS (trilha de autenticação:
+    CPF, papel, data/hora, IP, geolocalização, dispositivo, hash) — igual à das partes."""
+    from reportlab.lib.utils import simpleSplit
+    W, H = A4
+    M = 2.2 * cm
+    buf = io.BytesIO()
+    c = rl_canvas.Canvas(buf, pagesize=A4)
+    c.setFillColor(_VERDE)
+    c.setFont("Helvetica-Bold", 13)
+    c.drawString(M, H - 2.3 * cm, "MANIFESTAÇÃO DE VONTADE E AUTORIA — ASSINATURA ELETRÔNICA")
+    c.setStrokeColor(_DOURADO)
+    c.setLineWidth(1.0)
+    c.line(M, H - 2.6 * cm, W - M, H - 2.6 * cm)
+    c.setFillColor(_CINZA)
+    c.setFont("Helvetica", 7.5)
+    c.drawString(M, H - 3.0 * cm,
+                 "Lei nº 14.063/2020 (assinatura avançada) · MP 2.200-2/2001 · CC arts. 219, 221 e 1.647 · "
+                 "CPC art. 411 — TESTEMUNHAS instrumentárias")
+    y = H - 3.9 * cm
+    for t in testemunhas:
+        papel = _papel_testemunha(t)
+        if y < 3.0 * cm:
+            c.showPage()
+            c.setFillColor(_VERDE)
+            c.setFont("Helvetica-Bold", 13)
+            c.drawString(M, H - 2.3 * cm, "MANIFESTAÇÃO DE VONTADE E AUTORIA (cont.)")
+            y = H - 3.6 * cm
+        if t.get("status") == "assinado":
+            c.setFillColor(black)
+            c.setFont("Helvetica-Bold", 9)
+            c.drawString(M, y, f"Signatário: {t.get('nome')}  ·  CPF {_fmt_cpf(t.get('cpf')) or '—'}  ·  Papel: {papel}")
+            c.setFillColor(_CINZA)
+            c.setFont("Helvetica", 8)
+            c.drawString(M, y - 0.42 * cm, f"Data/hora: {_fmt(t.get('assinado_em'))}  ·  IP: {t.get('ip') or '—'}")
+            geo = "-, -"
+            if t.get("geo_lat") and t.get("geo_lng"):
+                geo = f"{t.get('geo_lat')}, {t.get('geo_lng')}"
+            ua = str(t.get("user_agent") or "—")
+            disp = simpleSplit(f"Geolocalização: {geo}  ·  Dispositivo: {ua}", "Helvetica", 8, W - 2 * M)
+            yy = y - 0.78 * cm
+            for ln in disp[:2]:
+                c.drawString(M, yy, ln)
+                yy -= 0.34 * cm
+            c.drawString(M, yy, f"Hash do traço (SHA-256): {t.get('hash_validacao') or '—'}")
+            y = yy - 0.7 * cm
+        else:
+            c.setFillColor(black)
+            c.setFont("Helvetica-Bold", 9)
+            c.drawString(M, y, f"Signatário: {t.get('nome')}  ·  Papel: {papel}")
+            c.setFillColor(_DOURADO)
+            c.setFont("Helvetica-Oblique", 8)
+            c.drawString(M, y - 0.42 * cm, "(aguardando assinatura por WhatsApp)")
+            y -= 1.1 * cm
+    c.showPage()
+    c.save()
+    return buf.getvalue()
+
+
 def _qualificacao(t: dict) -> str:
     """Qualificação notarial completa da testemunha (omite o que estiver vazio)."""
     quals = [t.get("nacionalidade"), _ESTADO_CIVIL.get(t.get("estado_civil"), t.get("estado_civil")),

@@ -104,8 +104,11 @@ async def _reconstruir_vigente(doc: dict):
 
     # 1) prepara os ANEXOS por testemunha como IMAGENS (CNH-e em PDF é rasterizada;
     #    foto frente/verso já é imagem). Cada imagem vira UMA página A4 com o título.
+    from services.testemunha_pagina import pagina_manifestacao_testemunhas
     qual_pdf = await asyncio.to_thread(pagina_testemunhas_pdf, doc, testemunhas)
     qpages = _npags(qual_pdf)
+    manif_pdf = await asyncio.to_thread(pagina_manifestacao_testemunhas, doc, testemunhas)
+    mpages = _npags(manif_pdf)
     anexos = []        # (nome, tipo, [img_bytes])
     for w in testemunhas:
         d = w.get("documento") or {}
@@ -128,12 +131,15 @@ async def _reconstruir_vigente(doc: dict):
         if imgs:
             anexos.append((w.get("nome"), w.get("vinculo") or "", d.get("tipo") or "CNH", imgs))
 
-    # 2) numeração (1-idx): contrato → qualificação → 1 página por imagem (sem índice extra)
+    # 2) numeração (1-idx): contrato → qualificação → manifestação → 1 pág. por imagem
     sum_itens, toc = [], [[1, "Contrato", 1]]
     p = contract_pages + 1                   # começo da qualificação (logo após o contrato)
     sum_itens.append(("Testemunhas — Qualificação", p))
     toc.append([1, "Testemunhas — qualificação", p])
     p += qpages
+    sum_itens.append(("Manifestação de Vontade — Testemunhas", p))
+    toc.append([1, "Manifestação de Vontade — Testemunhas", p])
+    p += mpages
     anexo_imgs = []      # [(label, img_bytes)] — cada um vira 1 página A4 com título
     for nome, vinculo, tipo, imgs in anexos:
         # no SUMÁRIO usa o VÍNCULO à parte (ex.: "Testemunha do Vendedor"), não o nome
@@ -153,8 +159,9 @@ async def _reconstruir_vigente(doc: dict):
     from services.testemunha_signing import inserir_no_sumario, aplicar_sumario_incremental
     novo, _ok = await asyncio.to_thread(inserir_no_sumario, novo, sum_itens, "ANEXO")
 
-    # 4) monta: qualificação → cada CNH/foto numa página A4 COM título
+    # 4) monta: qualificação → manifestação → cada CNH/foto numa página A4 COM título
     novo = await asyncio.to_thread(anexar_pagina_incremental, novo, qual_pdf)
+    novo = await asyncio.to_thread(anexar_pagina_incremental, novo, manif_pdf)
     if anexo_imgs:
         docpag = await asyncio.to_thread(pagina_documentos_pdf, anexo_imgs)
         novo = await asyncio.to_thread(anexar_pagina_incremental, novo, docpag)
