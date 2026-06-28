@@ -34,6 +34,11 @@ async def _carregar(db, doc_id: str, uid: str) -> dict:
     doc = await db[COL].find_one({"id": doc_id, "user_id": uid})
     if not doc:
         raise HTTPException(status_code=404, detail="Documento não encontrado.")
+    # self-heal: um bug breve gravou status='coletando_testemunhas' (não é status do
+    # doc-ext). Testemunhas só entram em doc já finalizado → restaura p/ 'finalizado'.
+    if doc.get("status") == "coletando_testemunhas":
+        doc["status"] = "finalizado"
+        await db[COL].update_one({"id": doc_id, "user_id": uid}, {"$set": {"status": "finalizado"}})
     return doc
 
 
@@ -89,6 +94,8 @@ def _slim_card(d: dict) -> dict:
          "assinado_em": (s.get("assinado_em").isoformat()
                          if hasattr(s.get("assinado_em"), "isoformat") else s.get("assinado_em"))}
         for s in (d.get("signatarios") or [])]
+    if out.get("status") == "coletando_testemunhas":
+        out["status"] = "finalizado"   # status legado inválido (ver _carregar)
     out["testemunhas"] = [
         {"id": t.get("id"), "nome": t.get("nome"), "status": t.get("status"),
          "vinculo": t.get("vinculo"), "parte_vinculada_nome": t.get("parte_vinculada_nome"),

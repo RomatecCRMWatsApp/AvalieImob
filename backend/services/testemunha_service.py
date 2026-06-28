@@ -65,9 +65,10 @@ async def cadastrar(db, modulo: str, doc_id: str, uid: str, lista: list) -> list
         existentes[t["vinculo"]] = t
         out.append(t)
     testemunhas = list(existentes.values())
-    # preserva revisão das partes (antes de testemunhas), se ainda não preservada
+    # NÃO sobrescreve o `status` do doc-ext (a UI dele só conhece o enum próprio); a fase
+    # de testemunhas é derivada do array. Marca a flag + preserva a revisão das partes.
     sets = {"testemunhas": testemunhas, "testemunhas_habilitadas": True,
-            "status": "coletando_testemunhas", "updated_at": datetime.utcnow()}
+            "fase_testemunhas": "coletando", "updated_at": datetime.utcnow()}
     if not doc.get("pdf_key_partes"):
         sets["pdf_key_partes"] = _pdf_key_vigente(doc)
         sets["hash_partes"] = doc.get("hash_documento")
@@ -210,11 +211,12 @@ async def assinar(db, token: str, traco_b64: str, ip: str = "", ua: str = "") ->
 
     exigidas = [x for x in testemunhas if not x.get("opcional")]
     todas = exigidas and all(x.get("status") == "assinado" for x in exigidas)
-    sets = {"testemunhas": testemunhas, "pdf_key_testemunhas": key_out, "updated_at": agora,
-            "hash_documento": hashlib.sha256(novo).hexdigest()}
-    if todas:
-        sets["status"] = "finalizado"
-        sets["pdf_key_final"] = key_out   # revisão vigente vira a final
+    # a revisão com a(s) testemunha(s) + a PÁGINA de qualificação vira a vigente/final
+    # já a CADA assinatura (não só no fim) — assim "Ver final" mostra a página na hora.
+    sets = {"testemunhas": testemunhas, "pdf_key_testemunhas": key_out, "pdf_key_final": key_out,
+            "updated_at": agora, "hash_documento": hashlib.sha256(novo).hexdigest(),
+            "fase_testemunhas": ("concluido" if todas else "coletando")}
+    # NÃO mexe no `status` do doc-ext (já é 'finalizado' das partes)
     await db[col].update_one({"id": doc["id"]}, {"$set": sets})
     return {"ok": True, "documento_finalizado": bool(todas)}
 
