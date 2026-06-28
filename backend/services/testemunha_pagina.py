@@ -88,8 +88,8 @@ def pagina_testemunhas_pdf(doc: dict, testemunhas: list) -> bytes:
             c.setFont("Helvetica-Bold", 16)
             c.drawString(M, H - 2.4 * cm, "TESTEMUNHAS (cont.)")
             y = H - 4.0 * cm
-        # firma desenhada acima da linha
-        reader = _firma_reader(t.get("traco_b64"))
+        # firma desenhada acima da linha (ou "aguardando" se ainda não assinou)
+        reader = _firma_reader(t.get("traco_b64")) if t.get("status") == "assinado" else None
         if reader:
             iw, ih = reader.getSize()
             esc = min((6.0 * cm) / iw, (1.7 * cm) / ih)
@@ -98,6 +98,10 @@ def pagina_testemunhas_pdf(doc: dict, testemunhas: list) -> bytes:
                 c.drawImage(reader, M, y - fh + 0.2 * cm, width=fw, height=fh, mask="auto")
             except Exception:  # noqa: BLE001
                 pass
+        elif t.get("status") != "assinado":
+            c.setFillColor(_DOURADO)
+            c.setFont("Helvetica-Oblique", 7.5)
+            c.drawString(M, y - 1.4 * cm, "(aguardando assinatura por WhatsApp)")
         c.setStrokeColor(black)
         c.setLineWidth(0.8)
         c.line(M, y - 1.85 * cm, M + 8.0 * cm, y - 1.85 * cm)

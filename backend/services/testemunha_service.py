@@ -50,6 +50,40 @@ def _pdf_key_vigente(doc: dict) -> str:
             or doc.get("pdf_key_intermediario") or doc.get("pdf_key"))
 
 
+async def _reconstruir_vigente(doc: dict):
+    """Reconstrói a revisão vigente = revisão das PARTES + carimbo das testemunhas
+    ASSINADAS (na posição) + PÁGINA de testemunhas (todas; assinadas mostram a firma,
+    pendentes mostram 'aguardando'). Tudo APPEND-ONLY (idempotente, a partir da revisão
+    das partes). Já no CADASTRO os dados entram no documento. Retorna (key_out, hash)."""
+    base_key = doc.get("pdf_key_partes") or _pdf_key_vigente(doc)
+    if not base_key:
+        return None, None
+    base = await asyncio.to_thread(r2_storage.download_bytes, base_key)
+    from services.testemunha_signing import anexar_pagina_incremental, carimbar_incremental
+    from services.testemunha_pagina import pagina_testemunhas_pdf
+    from services.assinatura_cliente_carimbo import _trim_png
+    testemunhas = doc.get("testemunhas") or []
+    novo = base
+    for w in testemunhas:
+        if w.get("status") != "assinado" or not w.get("traco_b64") or not (w.get("posicoes") or []):
+            continue
+        try:
+            wpng = _trim_png(base64.b64decode(w["traco_b64"]))
+        except Exception:  # noqa: BLE001
+            continue
+        leg = f"Testemunha: {w.get('nome')} — CPF {_mask_cpf(w.get('cpf'))}"
+        for pos in w["posicoes"]:
+            x, y = float(pos.get("x_pt", 72)), float(pos.get("y_pt", 90))
+            wd, ht = float(pos.get("larg_pt", 160)), float(pos.get("alt_pt", 60))
+            novo = await asyncio.to_thread(carimbar_incremental, novo, int(pos.get("pagina", 0)),
+                                           (x, y, x + wd, y + ht), wpng, leg)
+    pagina = await asyncio.to_thread(pagina_testemunhas_pdf, doc, testemunhas)
+    novo = await asyncio.to_thread(anexar_pagina_incremental, novo, pagina)
+    key_out = f"testemunhas/{doc['user_id']}/{doc['id']}_testemunhas.pdf"
+    await asyncio.to_thread(r2_storage.upload_bytes, novo, key_out, "application/pdf")
+    return key_out, hashlib.sha256(novo).hexdigest()
+
+
 async def cadastrar(db, modulo: str, doc_id: str, uid: str, lista: list) -> list:
     from models.documento_externo import nova_testemunha
     doc = await carregar_doc(db, modulo, doc_id, uid)
@@ -72,6 +106,16 @@ async def cadastrar(db, modulo: str, doc_id: str, uid: str, lista: list) -> list
     if not doc.get("pdf_key_partes"):
         sets["pdf_key_partes"] = _pdf_key_vigente(doc)
         sets["hash_partes"] = doc.get("hash_documento")
+    # já INSERE os dados das testemunhas no documento (página) p/ posicionar/enviar
+    doc_at = {**doc, **sets}
+    try:
+        key_out, h = await _reconstruir_vigente(doc_at)
+        if key_out:
+            sets["pdf_key_testemunhas"] = key_out
+            sets["pdf_key_final"] = key_out
+            sets["hash_documento"] = h
+    except Exception:  # noqa: BLE001
+        logger.warning("Testemunha: reconstrução no cadastro falhou.", exc_info=True)
     await db[_col(modulo)].update_one({"id": doc_id, "user_id": uid}, {"$set": sets})
     return out
 
@@ -174,47 +218,20 @@ async def assinar(db, token: str, traco_b64: str, ip: str = "", ua: str = "") ->
     t["traco_b64"] = traco_b64.split(",", 1)[1]
     t["hash_validacao"] = hashlib.sha256(f"{token}{t.get('cpf')}{agora.isoformat()}".encode()).hexdigest()
 
-    # base = revisão das PARTES (preservada) → reconstrói a página de testemunhas com
-    # TODAS as já assinadas e anexa via INCREMENTAL (idempotente; preserva as assinaturas)
-    base_key = doc.get("pdf_key_partes") or _pdf_key_vigente(doc)
-    if not base_key:
+    # reconstrói a revisão vigente (carimbo nas posições + página) a partir da revisão
+    # das PARTES — APPEND-ONLY, preserva as assinaturas das partes (idempotente)
+    if not (doc.get("pdf_key_partes") or _pdf_key_vigente(doc)):
         raise HTTPException(status_code=422, detail="Documento sem PDF para assinar.")
-    base = await asyncio.to_thread(r2_storage.download_bytes, base_key)
-
-    from services.testemunha_signing import anexar_pagina_incremental, carimbar_incremental
-    from services.testemunha_pagina import pagina_testemunhas_pdf
-    from services.assinatura_cliente_carimbo import _trim_png
-    testemunhas = doc.get("testemunhas") or []
-    assinadas = [x for x in testemunhas if x.get("status") == "assinado"]
-    novo = base
-    # 1) carimba a firma de CADA testemunha na POSIÇÃO marcada pelo operador (append-only)
-    for w in assinadas:
-        if not w.get("traco_b64") or not (w.get("posicoes") or []):
-            continue
-        try:
-            wpng = _trim_png(base64.b64decode(w["traco_b64"]))
-        except Exception:  # noqa: BLE001
-            continue
-        leg = f"Testemunha: {w.get('nome')} — CPF {_mask_cpf(w.get('cpf'))}"
-        for pos in w["posicoes"]:
-            x, y = float(pos.get("x_pt", 72)), float(pos.get("y_pt", 90))
-            wd, ht = float(pos.get("larg_pt", 160)), float(pos.get("alt_pt", 60))
-            novo = await asyncio.to_thread(carimbar_incremental, novo, int(pos.get("pagina", 0)),
-                                           (x, y, x + wd, y + ht), wpng, leg)
-    # 2) anexa a PÁGINA de qualificação completa das testemunhas
-    pagina = await asyncio.to_thread(pagina_testemunhas_pdf, doc, assinadas)
-    novo = await asyncio.to_thread(anexar_pagina_incremental, novo, pagina)
-
     col = MODULO_COL[modulo]
-    key_out = f"testemunhas/{doc['user_id']}/{doc['id']}_testemunhas.pdf"
-    await asyncio.to_thread(r2_storage.upload_bytes, novo, key_out, "application/pdf")
+    testemunhas = doc.get("testemunhas") or []
+    key_out, hash_doc = await _reconstruir_vigente(doc)
 
     exigidas = [x for x in testemunhas if not x.get("opcional")]
     todas = exigidas and all(x.get("status") == "assinado" for x in exigidas)
     # a revisão com a(s) testemunha(s) + a PÁGINA de qualificação vira a vigente/final
     # já a CADA assinatura (não só no fim) — assim "Ver final" mostra a página na hora.
     sets = {"testemunhas": testemunhas, "pdf_key_testemunhas": key_out, "pdf_key_final": key_out,
-            "updated_at": agora, "hash_documento": hashlib.sha256(novo).hexdigest(),
+            "updated_at": agora, "hash_documento": hash_doc,
             "fase_testemunhas": ("concluido" if todas else "coletando")}
     # NÃO mexe no `status` do doc-ext (já é 'finalizado' das partes)
     await db[col].update_one({"id": doc["id"]}, {"$set": sets})
