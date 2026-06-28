@@ -398,7 +398,7 @@ export default function GeoUrbanoWizard() {
     } catch (e) {
       toast({ title: 'Erro ao gerar a prévia', description: e?.response?.data?.detail || '', variant: 'destructive' });
     } finally { setPreviewBusy(false); }
-  }, [id, previewTipo, proj.tema, toast]);
+  }, [id, previewTipo, proj?.tema, toast]);
   useEffect(() => () => { if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current); }, []);
 
   const gerar = async () => {
