@@ -90,51 +90,64 @@ async def _reconstruir_vigente(doc: dict):
     contract_pages = _npags(novo)            # páginas do contrato (após o carimbo)
     titulo = doc.get("titulo") or doc.get("numero_contrato") or "instrumento"
 
-    # 1) prepara as peças anexas e CONTA as páginas p/ numerar o índice
+    def _pdf_para_imgs(pdf_bytes, dpi=200):
+        """Renderiza cada página do PDF (CNH-e) numa imagem PNG (p/ caber numa página A4
+        COM o título — em vez de a CNH 'transbordar' para a página seguinte)."""
+        imgs = []
+        try:
+            with fitz.open(stream=pdf_bytes, filetype="pdf") as d:
+                for pg in d:
+                    imgs.append(pg.get_pixmap(dpi=dpi).tobytes("png"))
+        except Exception:  # noqa: BLE001
+            logger.warning("Testemunha: falha ao rasterizar CNH (PDF).", exc_info=True)
+        return imgs
+
+    # 1) prepara os ANEXOS por testemunha como IMAGENS (CNH-e em PDF é rasterizada;
+    #    foto frente/verso já é imagem). Cada imagem vira UMA página A4 com o título.
     qual_pdf = await asyncio.to_thread(pagina_testemunhas_pdf, doc, testemunhas)
     qpages = _npags(qual_pdf)
-    cnhs = []        # (nome, pdf_raw, npags)
-    fotos = []       # (label, img_bytes)
+    anexos = []        # (nome, tipo, [img_bytes])
     for w in testemunhas:
         d = w.get("documento") or {}
         if not d.get("anexar_ao_pdf", True):
             continue
+        imgs = []
         if d.get("pdf_key"):
             try:
                 raw = await asyncio.to_thread(r2_storage.download_bytes, d["pdf_key"])
-                cnhs.append((w.get("nome"), raw, _npags(raw)))
+                imgs += await asyncio.to_thread(_pdf_para_imgs, raw)
             except Exception:  # noqa: BLE001
                 logger.warning("Testemunha: falha ao baixar CNH (PDF).", exc_info=True)
-        for face, fk in (("frente", d.get("frente_key")), ("verso", d.get("verso_key"))):
+        for fk in (d.get("frente_key"), d.get("verso_key")):
             if fk:
                 try:
-                    img = await asyncio.to_thread(r2_storage.download_bytes, fk)
-                    fotos.append((f"{w.get('nome')} — {d.get('tipo') or 'CNH'} ({face})", img))
+                    imgs.append(await asyncio.to_thread(r2_storage.download_bytes, fk))
                 except Exception:  # noqa: BLE001
                     pass
+        if imgs:
+            anexos.append((w.get("nome"), d.get("tipo") or "CNH", imgs))
 
-    # 2) numeração (1-idx): contrato → [índice de anexos] → qualificação → CNHs → fotos
+    # 2) numeração (1-idx): contrato → [índice] → qualificação → 1 página por imagem
     idx_itens, toc = [], [[1, "Contrato", 1]]
     p = contract_pages + 2                   # +1 do índice, +1 = começo da qualificação
     idx_itens.append(("Testemunhas — Qualificação", p))
     toc += [[1, "Anexos (índice)", contract_pages + 1], [1, "Testemunhas — qualificação", p]]
     p += qpages
-    for nome, _raw, npg in cnhs:
+    anexo_imgs = []      # [(label, img_bytes)] — cada um vira 1 página A4 com título
+    for nome, tipo, imgs in anexos:
         idx_itens.append((f"Documento de Identidade — {nome}", p))
         toc.append([1, f"Documento de identidade — {nome}", p])
-        p += npg
-    if fotos:
-        idx_itens.append(("Documentos (fotos)", p))
-        toc.append([1, "Documentos das testemunhas", p])
+        for i, img in enumerate(imgs):
+            sufixo = f" ({i + 1}/{len(imgs)})" if len(imgs) > 1 else ""
+            anexo_imgs.append((f"{nome} — {tipo}{sufixo}", img))
+        p += len(imgs)
 
-    # 3) monta: índice de anexos → qualificação → CNHs (direto) → fotos (append-only)
+    # 3) monta: índice → qualificação → cada CNH/foto numa página A4 COM título
     idx_pdf = await asyncio.to_thread(pagina_sumario_anexos, idx_itens, titulo)
     novo = await asyncio.to_thread(anexar_pagina_incremental, novo, idx_pdf)
     novo = await asyncio.to_thread(anexar_pagina_incremental, novo, qual_pdf)
-    for _nome, raw, _npg in cnhs:
-        novo = await asyncio.to_thread(anexar_pagina_incremental, novo, raw)
-    if fotos:
-        docpag = await asyncio.to_thread(pagina_documentos_pdf, fotos)
+    if anexo_imgs:
+        docpag = await asyncio.to_thread(pagina_documentos_pdf, anexo_imgs)
         novo = await asyncio.to_thread(anexar_pagina_incremental, novo, docpag)
 
     # 4) sumário navegável (marcadores) — append-only, preserva as assinaturas
