@@ -162,7 +162,23 @@ async def listar_projetos(status: str = Query(None), uid: str = Depends(get_acti
     if status:
         q["status"] = status
     cur = db.geo_urbano_projetos.find(q).sort("created_at", -1)
-    return [serialize_doc(d) async for d in cur]
+    docs = [serialize_doc(d) async for d in cur]
+    # enriquece o card com o status da assinatura do proprietário (sessão por projeto)
+    ids = [d["id"] for d in docs]
+    sess = {}
+    if ids:
+        async for s in db.geo_urbano_assinatura_sessoes.find({"projeto_id": {"$in": ids}, "user_id": uid}):
+            sigs = s.get("signatarios") or []
+            sess[s["projeto_id"]] = {
+                "existe": True, "status": s.get("status"),
+                "assinados": sum(1 for x in sigs if x.get("status") == "assinado"),
+                "total": len(sigs),
+                "signatarios": [{"nome": x.get("nome"), "papel": x.get("papel"),
+                                 "status": x.get("status")} for x in sigs],
+            }
+    for d in docs:
+        d["assinatura_prop"] = sess.get(d["id"])
+    return docs
 
 
 @router.get("/projetos/{pid}")

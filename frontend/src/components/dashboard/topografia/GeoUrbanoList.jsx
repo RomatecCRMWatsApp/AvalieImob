@@ -1,7 +1,7 @@
 // @module topografia/GeoUrbanoList — Lista de projetos de Geo Urbano + criação.
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Plus, Trash2, ChevronRight, MapPin, Sparkles } from 'lucide-react';
+import { Building2, Plus, Trash2, ChevronRight, MapPin, Sparkles, CheckCircle2, Clock, Send } from 'lucide-react';
 import { geoUrbanoAPI } from '../../../lib/api';
 import { useToast } from '../../../hooks/use-toast';
 import { BrandSpinner } from '../../brand/BrandSpinner';
@@ -87,6 +87,18 @@ export default function GeoUrbanoList() {
     } catch (err) {
       toast({ title: 'Erro ao excluir', variant: 'destructive' });
     }
+  };
+
+  const [reenviando, setReenviando] = useState(null);
+  const reenviarAssin = async (id, e) => {
+    e.stopPropagation();
+    setReenviando(id);
+    try {
+      const r = await geoUrbanoAPI.propReenviar(id);
+      toast({ title: `Links reenviados: ${r.enviados || 0}`, description: r.falhas ? `${r.falhas} falha(s)` : '' });
+    } catch (err) {
+      toast({ title: 'Erro ao reenviar', description: err?.response?.data?.detail || '', variant: 'destructive' });
+    } finally { setReenviando(null); }
   };
 
   if (loading) return <div className="py-24"><BrandSpinner label="Carregando projetos…" /></div>;
@@ -213,6 +225,37 @@ export default function GeoUrbanoList() {
                   </div>
                   <ChevronRight className="w-4 h-4 text-emerald-600" />
                 </div>
+
+                {/* confirmação da assinatura do proprietário */}
+                {p.assinatura_prop?.existe && (() => {
+                  const a = p.assinatura_prop;
+                  const todos = a.total > 0 && a.assinados >= a.total;
+                  const cls = todos ? 'border-emerald-300 bg-emerald-50' : (a.assinados > 0 ? 'border-amber-300 bg-amber-50' : 'border-sky-200 bg-sky-50');
+                  const cor = todos ? 'text-emerald-700' : (a.assinados > 0 ? 'text-amber-700' : 'text-sky-700');
+                  return (
+                    <div className={`mt-3 rounded-lg border p-2 ${cls}`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={`text-[11px] font-semibold inline-flex items-center gap-1 ${cor}`}>
+                          {todos ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
+                          {todos ? 'Proprietário assinou ✓' : `Assinatura · ${a.assinados}/${a.total} assinaram`}
+                        </span>
+                        {!todos && (
+                          <span role="button" tabIndex={0} onClick={(e) => reenviarAssin(p.id, e)}
+                            className="text-[11px] inline-flex items-center gap-1 px-2 py-0.5 rounded border bg-white hover:bg-gray-50 text-gray-700">
+                            <Send className="w-3 h-3" /> {reenviando === p.id ? '…' : 'Reenviar'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {(a.signatarios || []).map((s, i) => (
+                          <span key={i} className={`text-[10px] px-1.5 py-0.5 rounded ${s.status === 'assinado' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+                            {s.status === 'assinado' ? '✓' : '⏳'} {(s.nome || '').split(' ')[0]}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
               </button>
             );
           })}
