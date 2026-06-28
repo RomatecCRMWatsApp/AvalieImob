@@ -75,6 +75,33 @@ async def cadastrar(db, modulo: str, doc_id: str, uid: str, lista: list) -> list
     return out
 
 
+async def posicionar(db, modulo: str, doc_id: str, uid: str, posicoes: dict) -> dict:
+    """Salva os retângulos (posições) por testemunha — {tid: [{pagina,x_pt,y_pt,larg_pt,alt_pt}]}."""
+    doc = await carregar_doc(db, modulo, doc_id, uid)
+    testemunhas = doc.get("testemunhas") or []
+    for t in testemunhas:
+        if t["id"] in (posicoes or {}):
+            t["posicoes"] = posicoes[t["id"]] or []
+    await db[_col(modulo)].update_one({"id": doc_id, "user_id": uid},
+                                      {"$set": {"testemunhas": testemunhas, "updated_at": datetime.utcnow()}})
+    return {"ok": True}
+
+
+async def paginas_vigentes(db, modulo: str, doc_id: str, uid: str) -> dict:
+    """Páginas renderizadas do PDF vigente + as testemunhas cadastradas (p/ posicionar)."""
+    doc = await carregar_doc(db, modulo, doc_id, uid)
+    from services.pdf_preview import renderizar_paginas
+    key = _pdf_key_vigente(doc)
+    paginas = []
+    if key:
+        raw = await asyncio.to_thread(r2_storage.download_bytes, key)
+        paginas = await asyncio.to_thread(renderizar_paginas, raw)
+    return {"paginas": paginas,
+            "testemunhas": [{"id": t["id"], "nome": t["nome"], "vinculo": t.get("vinculo"),
+                             "parte_vinculada_nome": t.get("parte_vinculada_nome"),
+                             "posicoes": t.get("posicoes") or []} for t in (doc.get("testemunhas") or [])]}
+
+
 def _link(token: str) -> str:
     return f"{_app_url()}/assinar/testemunha/{token}"
 
@@ -153,12 +180,29 @@ async def assinar(db, token: str, traco_b64: str, ip: str = "", ua: str = "") ->
         raise HTTPException(status_code=422, detail="Documento sem PDF para assinar.")
     base = await asyncio.to_thread(r2_storage.download_bytes, base_key)
 
-    from services.testemunha_signing import anexar_pagina_incremental
+    from services.testemunha_signing import anexar_pagina_incremental, carimbar_incremental
     from services.testemunha_pagina import pagina_testemunhas_pdf
+    from services.assinatura_cliente_carimbo import _trim_png
     testemunhas = doc.get("testemunhas") or []
     assinadas = [x for x in testemunhas if x.get("status") == "assinado"]
+    novo = base
+    # 1) carimba a firma de CADA testemunha na POSIÇÃO marcada pelo operador (append-only)
+    for w in assinadas:
+        if not w.get("traco_b64") or not (w.get("posicoes") or []):
+            continue
+        try:
+            wpng = _trim_png(base64.b64decode(w["traco_b64"]))
+        except Exception:  # noqa: BLE001
+            continue
+        leg = f"Testemunha: {w.get('nome')} — CPF {_mask_cpf(w.get('cpf'))}"
+        for pos in w["posicoes"]:
+            x, y = float(pos.get("x_pt", 72)), float(pos.get("y_pt", 90))
+            wd, ht = float(pos.get("larg_pt", 160)), float(pos.get("alt_pt", 60))
+            novo = await asyncio.to_thread(carimbar_incremental, novo, int(pos.get("pagina", 0)),
+                                           (x, y, x + wd, y + ht), wpng, leg)
+    # 2) anexa a PÁGINA de qualificação completa das testemunhas
     pagina = await asyncio.to_thread(pagina_testemunhas_pdf, doc, assinadas)
-    novo = await asyncio.to_thread(anexar_pagina_incremental, base, pagina)
+    novo = await asyncio.to_thread(anexar_pagina_incremental, novo, pagina)
 
     col = MODULO_COL[modulo]
     key_out = f"testemunhas/{doc['user_id']}/{doc['id']}_testemunhas.pdf"

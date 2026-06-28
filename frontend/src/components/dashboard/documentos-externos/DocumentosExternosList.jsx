@@ -209,15 +209,21 @@ const _vinc = (sig) => {
     : { pagina: 0, x_pt: 72, y_pt: 90, larg_pt: 160, alt_pt: 60 };
 };
 
+const T_BOX_W = 170, T_BOX_H = 52;   // caixa da assinatura da testemunha (pt)
+
 function ModalTestemunhas({ doc, onClose }) {
   const { toast } = useToast();
   const sigs = doc.signatarios || [];
+  const [step, setStep] = useState('cadastro');   // cadastro | posicionar
   const [linhas, setLinhas] = useState([{ nome: '', cpf: '', telefone: '', email: '', parte_vinculada_id: sigs[0]?.id || '' }]);
   const [clientes, setClientes] = useState([]);
   const [status, setStatus] = useState([]);
   const [busy, setBusy] = useState(false);
   const [modoTeste, setModoTeste] = useState(false);
   const [foneTeste, setFoneTeste] = useState('');
+  const [prep, setPrep] = useState(null);          // {paginas, testemunhas}
+  const [ativoTid, setAtivoTid] = useState(null);
+  const [posBox, setPosBox] = useState({});        // {tid: [{pagina,x_pt,y_pt,larg_pt,alt_pt}]}
 
   const recarregar = useCallback(async () => {
     try { const r = await testemunhasAssinaturaAPI.status(_MODULO, doc.id); setStatus(r.testemunhas || []); }
@@ -232,7 +238,8 @@ function ModalTestemunhas({ doc, onClose }) {
     if (c) upd(i, { nome: c.name || c.nome || '', cpf: (c.doc || c.cpf || '').replace(/\D/g, ''), telefone: (c.phone || c.telefone || '').replace(/\D/g, ''), email: c.email || '' });
   };
 
-  const salvarEnviar = async () => {
+  // PASSO 1: cadastra (sem enviar) e vai para o posicionador
+  const cadastrarEPosicionar = async () => {
     const validas = linhas.filter((l) => (l.nome || '').trim() && (l.telefone || '').replace(/\D/g, '').length >= 10 && l.parte_vinculada_id);
     if (!validas.length) { toast({ title: 'Preencha nome, WhatsApp e o vínculo de ao menos uma testemunha', variant: 'destructive' }); return; }
     setBusy(true);
@@ -240,18 +247,46 @@ function ModalTestemunhas({ doc, onClose }) {
       const payload = validas.map((l) => {
         const sig = sigs.find((s) => s.id === l.parte_vinculada_id) || {};
         return { nome: l.nome, cpf: l.cpf, telefone: l.telefone, email: l.email,
-          vinculo: sig.papel || 'testemunha', parte_vinculada_id: sig.id, parte_vinculada_nome: sig.nome,
-          posicoes: [_vinc(sig)] };
+          vinculo: sig.papel || 'testemunha', parte_vinculada_id: sig.id, parte_vinculada_nome: sig.nome };
       });
-      const fteste = modoTeste ? foneTeste.replace(/\D/g, '') : '';
-      if (modoTeste && fteste.length < 10) { toast({ title: 'Informe o número de teste (55 + DDD + número)', variant: 'destructive' }); setBusy(false); return; }
       await testemunhasAssinaturaAPI.cadastrar(_MODULO, doc.id, payload);
-      const r = await testemunhasAssinaturaAPI.enviarTodas(_MODULO, doc.id, fteste ? { telefone_teste: fteste } : {});
-      toast({ title: modoTeste ? `Enviado p/ teste: ${r.enviadas || 0}` : `Links enviados: ${r.enviadas || 0}`, description: (r.falhas || []).length ? `${r.falhas.length} falha(s)` : '' });
-      setLinhas([{ nome: '', cpf: '', telefone: '', email: '', parte_vinculada_id: sigs[0]?.id || '' }]);
+      const p = await testemunhasAssinaturaAPI.preparar(_MODULO, doc.id);
+      setPrep(p);
+      const init = {};
+      (p.testemunhas || []).forEach((t) => { if ((t.posicoes || []).length) init[t.id] = t.posicoes; });
+      setPosBox(init);
+      setAtivoTid((p.testemunhas || []).find((t) => !init[t.id])?.id || (p.testemunhas || [])[0]?.id || null);
+      setStep('posicionar');
       recarregar();
     } catch (e) {
       toast({ title: 'Erro', description: e?.response?.data?.detail || '', variant: 'destructive' });
+    } finally { setBusy(false); }
+  };
+
+  const clicarPagina = (e, pg) => {
+    if (!ativoTid) { toast({ title: 'Selecione uma testemunha' }); return; }
+    const r = e.currentTarget.getBoundingClientRect();
+    const cx = e.clientX - r.left, cy = e.clientY - r.top;
+    const escX = pg.largura_pt / r.width, escY = pg.altura_pt / r.height;
+    const x_pt = Math.max(0, Math.min(pg.largura_pt - T_BOX_W, cx * escX));
+    const y_pt = Math.max(0, pg.altura_pt - cy * escY - T_BOX_H);
+    setPosBox((p) => ({ ...p, [ativoTid]: [{ pagina: pg.pagina, x_pt, y_pt, larg_pt: T_BOX_W, alt_pt: T_BOX_H }] }));
+  };
+
+  // PASSO 2: salva posições e envia (com modo teste)
+  const posicionarEEnviar = async () => {
+    const semPos = (prep.testemunhas || []).filter((t) => !(posBox[t.id] || []).length);
+    if (semPos.length) { toast({ title: 'Posicione a assinatura de todas as testemunhas', description: semPos.map((t) => t.nome).join(', '), variant: 'destructive' }); return; }
+    const fteste = modoTeste ? foneTeste.replace(/\D/g, '') : '';
+    if (modoTeste && fteste.length < 10) { toast({ title: 'Informe o número de teste (55 + DDD + número)', variant: 'destructive' }); return; }
+    setBusy(true);
+    try {
+      await testemunhasAssinaturaAPI.posicionar(_MODULO, doc.id, posBox);
+      const r = await testemunhasAssinaturaAPI.enviarTodas(_MODULO, doc.id, fteste ? { telefone_teste: fteste } : {});
+      toast({ title: modoTeste ? `Enviado p/ teste: ${r.enviadas || 0}` : `Links enviados: ${r.enviadas || 0}`, description: (r.falhas || []).length ? `${r.falhas.length} falha(s)` : '' });
+      onClose();
+    } catch (e) {
+      toast({ title: 'Erro ao enviar', description: e?.response?.data?.detail || '', variant: 'destructive' });
     } finally { setBusy(false); }
   };
 
@@ -261,11 +296,58 @@ function ModalTestemunhas({ doc, onClose }) {
   };
 
   const BADGE = { pendente: 'bg-gray-100 text-gray-600', enviado: 'bg-sky-100 text-sky-700', assinado: 'bg-emerald-100 text-emerald-700', recusado: 'bg-red-100 text-red-700' };
+  const COR = ['#0C3320', '#0B6E4F', '#8A2BE2', '#B8860B'];
+  const corTid = (tid) => COR[Math.max(0, (prep?.testemunhas || []).findIndex((t) => t.id === tid)) % COR.length];
+
+  // ── PASSO 2: posicionador ──
+  if (step === 'posicionar' && prep) {
+    return (
+      <div className="fixed inset-0 bg-black/80 flex flex-col z-[1000]" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-4 py-3" style={{ background: '#0C3320' }}>
+          <h2 className="text-white font-semibold text-sm">Posicionar a assinatura das testemunhas</h2>
+          <button onClick={onClose} className="text-white"><Trash2 className="w-0 h-0" /><span className="text-xl leading-none">×</span></button>
+        </div>
+        <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
+          <div className="md:w-72 shrink-0 bg-white p-3 overflow-y-auto space-y-2">
+            <div className="text-xs text-gray-500">Selecione a testemunha e clique na página onde ela assina (ex.: abaixo da parte vinculada).</div>
+            {(prep.testemunhas || []).map((t) => (
+              <button key={t.id} onClick={() => setAtivoTid(t.id)}
+                className={`w-full text-left rounded-lg border p-2 ${ativoTid === t.id ? 'ring-2' : ''}`}
+                style={{ borderColor: corTid(t.id), ...(ativoTid === t.id ? { boxShadow: `0 0 0 2px ${corTid(t.id)}` } : {}) }}>
+                <div className="text-sm font-medium" style={{ color: corTid(t.id) }}>{t.nome}</div>
+                <div className="text-[11px] text-gray-500">Testemunha de {t.parte_vinculada_nome || t.vinculo} {(posBox[t.id] || []).length ? '· ✓ posicionada' : '· posicionar'}</div>
+              </button>
+            ))}
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-2 mt-2">
+              <label className="flex items-center gap-2 text-xs text-amber-900 cursor-pointer">
+                <input type="checkbox" checked={modoTeste} onChange={(e) => setModoTeste(e.target.checked)} className="w-4 h-4 accent-amber-600" />
+                🧪 Modo teste — não enviar ao cliente
+              </label>
+              {modoTeste && <input className="mt-2 w-full border rounded px-2 py-1 text-xs" placeholder="Número de teste 55DDDNUMERO" value={foneTeste} onChange={(e) => setFoneTeste(e.target.value.replace(/\D/g, ''))} />}
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto bg-gray-800 p-3 space-y-2">
+            {(prep.paginas || []).map((pg) => (
+              <TPagina key={pg.pagina} pg={pg} posBox={posBox} corTid={corTid} onClick={(e) => clicarPagina(e, pg)} />
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center justify-end gap-2 px-4 py-3 bg-white">
+          <button onClick={() => setStep('cadastro')} disabled={busy} className="px-4 py-2 rounded-lg text-sm border">Voltar</button>
+          <button onClick={posicionarEEnviar} disabled={busy} className="px-4 py-2 rounded-lg text-sm font-semibold text-white inline-flex items-center gap-2" style={{ background: '#0C3320' }}>
+            <Send className="w-4 h-4" /> {busy ? 'Enviando…' : (modoTeste ? 'Enviar p/ teste' : 'Enviar links')}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── PASSO 1: cadastro ──
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000] p-4" onClick={() => !busy && onClose()}>
       <div className="bg-white rounded-xl p-5 w-full max-w-lg max-h-[88vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <h3 className="font-semibold text-lg" style={{ color: '#0C3320' }}>Testemunhas</h3>
-        <p className="text-xs text-gray-500 mb-3">A testemunha assina por WhatsApp o documento já assinado pelas partes. Vincule cada uma a uma parte.</p>
+        <p className="text-xs text-gray-500 mb-3">Cadastre, posicione a assinatura no documento e envie o link por WhatsApp. A testemunha assina o documento já firmado pelas partes.</p>
 
         {status.length > 0 && (
           <div className="mb-3 border rounded-lg p-2 bg-gray-50">
@@ -304,24 +386,36 @@ function ModalTestemunhas({ doc, onClose }) {
         ))}
         <button onClick={addLinha} className="text-xs text-emerald-700 hover:underline mb-3 inline-flex items-center gap-1"><Plus className="w-3 h-3" /> Adicionar testemunha</button>
 
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-2.5 mb-3">
-          <label className="flex items-center gap-2 text-sm text-amber-900 cursor-pointer">
-            <input type="checkbox" checked={modoTeste} onChange={(e) => setModoTeste(e.target.checked)} className="w-4 h-4 accent-amber-600" />
-            🧪 Modo teste — <b>não enviar ao cliente</b>; mandar para outro número
-          </label>
-          {modoTeste && (
-            <input className="mt-2 w-full border rounded-lg px-2 py-1.5 text-sm" placeholder="Número de teste (55 + DDD + número)"
-              value={foneTeste} onChange={(e) => setFoneTeste(e.target.value.replace(/\D/g, ''))} />
-          )}
-        </div>
-
         <div className="flex justify-end gap-2">
           <button onClick={onClose} disabled={busy} className="px-3 py-2 rounded-lg text-sm border">Fechar</button>
-          <button onClick={salvarEnviar} disabled={busy} className="px-4 py-2 rounded-lg text-sm font-semibold text-white inline-flex items-center gap-1" style={{ background: '#0C3320' }}>
-            <Send className="w-4 h-4" /> {busy ? 'Enviando…' : 'Cadastrar e enviar'}
+          <button onClick={cadastrarEPosicionar} disabled={busy} className="px-4 py-2 rounded-lg text-sm font-semibold text-white inline-flex items-center gap-1" style={{ background: '#0C3320' }}>
+            <MapPin className="w-4 h-4" /> {busy ? 'Preparando…' : 'Cadastrar e posicionar'}
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function TPagina({ pg, posBox, corTid, onClick }) {
+  const ref = React.useRef(null);
+  const [rect, setRect] = useState({ w: 0, h: 0 });
+  useEffect(() => {
+    const u = () => { if (ref.current) setRect({ w: ref.current.clientWidth, h: ref.current.clientHeight }); };
+    u(); window.addEventListener('resize', u); return () => window.removeEventListener('resize', u);
+  }, []);
+  return (
+    <div className="relative inline-block w-full max-w-[820px] mb-2" style={{ cursor: 'crosshair' }}>
+      <img ref={ref} src={`data:image/png;base64,${pg.imagem_b64}`} alt={`pág ${pg.pagina + 1}`}
+        className="w-full rounded border border-gray-600" onClick={onClick} draggable={false} />
+      {Object.entries(posBox).map(([tid, boxes]) => (boxes || []).filter((b) => b.pagina === pg.pagina).map((b, i) => {
+        const c = { left: (b.x_pt / pg.largura_pt) * rect.w, top: ((pg.altura_pt - b.y_pt - b.alt_pt) / pg.altura_pt) * rect.h,
+          width: (b.larg_pt / pg.largura_pt) * rect.w, height: (b.alt_pt / pg.altura_pt) * rect.h };
+        return <div key={tid + i} className="absolute pointer-events-none rounded"
+          style={{ left: c.left, top: c.top, width: c.width, height: c.height, border: `2px solid ${corTid(tid)}`, background: `${corTid(tid)}22` }}>
+          <span className="text-[9px] px-1" style={{ color: corTid(tid) }}>testemunha</span>
+        </div>;
+      }))}
     </div>
   );
 }

@@ -30,6 +30,18 @@ async def cadastrar(modulo: str, doc_id: str, payload: dict,
                              "status": t["status"], "link": TS._link(t["token"])} for t in out]}
 
 
+@router.get("/{modulo}/{doc_id}/preparar")
+async def preparar(modulo: str, doc_id: str,
+                   uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    return await TS.paginas_vigentes(db, modulo, doc_id, uid)
+
+
+@router.post("/{modulo}/{doc_id}/posicionar")
+async def posicionar(modulo: str, doc_id: str, payload: dict,
+                     uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    return await TS.posicionar(db, modulo, doc_id, uid, (payload or {}).get("posicoes") or {})
+
+
 @router.post("/{modulo}/{doc_id}/enviar")
 async def enviar_todas(modulo: str, doc_id: str, payload: dict = None,
                        uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
