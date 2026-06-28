@@ -314,9 +314,49 @@ async def enviar(db, modulo: str, doc_id: str, uid: str, tid: str = None,
         except Exception as e:  # noqa: BLE001
             logger.warning("Testemunha: envio Z-API falhou: %s", e)
             falhas.append({"id": t["id"], "erro": str(e)})
-    await db[_col(modulo)].update_one({"id": doc_id, "user_id": uid},
-                                      {"$set": {"testemunhas": doc["testemunhas"], "updated_at": datetime.utcnow()}})
+    # guarda (ou limpa) o nº de teste — o disparo final ao concluir respeita o modo teste
+    await db[_col(modulo)].update_one(
+        {"id": doc_id, "user_id": uid},
+        {"$set": {"testemunhas": doc["testemunhas"], "updated_at": datetime.utcnow(),
+                  "testemunhas_teste_fone": (teste if teste else None)}})
     return {"enviadas": enviadas, "falhas": falhas}
+
+
+async def _distribuir_final(db, doc: dict, pdf_bytes: bytes) -> int:
+    """Concluídas TODAS as testemunhas: envia o PDF FINAL (todas as partes + testemunhas)
+    por WhatsApp a TODOS — signatários (partes) + testemunhas. Em modo teste, só ao nº de
+    teste. Best-effort (não derruba a assinatura)."""
+    from services.documento_externo_service import zapi_cfg, enviar_pdf
+    try:
+        cfg = await zapi_cfg(db, doc.get("user_id"))
+    except Exception:  # noqa: BLE001
+        logger.warning("Z-API indisponível p/ distribuir final (testemunhas) %s", doc.get("id"))
+        return 0
+    titulo = doc.get("titulo") or doc.get("numero_contrato") or "documento"
+    filename = f"{titulo}.pdf"
+    caption = (f"✅ Documento \"{titulo}\" FINALIZADO — assinado por todas as partes e "
+               f"testemunhas. Segue a via final (Romatec Consultoria Total).")
+    teste = "".join(filter(str.isdigit, str(doc.get("testemunhas_teste_fone") or "")))
+    destinos: dict = {}
+    if len(teste) >= 10:
+        destinos[teste] = "Modo teste"
+    else:
+        for s in (doc.get("signatarios") or []):
+            f = "".join(filter(str.isdigit, str(s.get("whatsapp") or "")))
+            if len(f) >= 10:
+                destinos[f] = s.get("nome")
+        for t in (doc.get("testemunhas") or []):
+            f = "".join(filter(str.isdigit, str(t.get("telefone") or "")))
+            if len(f) >= 10:
+                destinos.setdefault(f, t.get("nome"))
+    enviados = 0
+    for fone in destinos:
+        try:
+            await enviar_pdf(cfg, fone, pdf_bytes, filename, caption)
+            enviados += 1
+        except Exception:  # noqa: BLE001
+            logger.warning("Falha ao enviar via final (testemunhas) p/ %s", fone, exc_info=True)
+    return enviados
 
 
 async def localizar_por_token(db, token: str):
@@ -364,7 +404,19 @@ async def assinar(db, token: str, traco_b64: str, ip: str = "", ua: str = "") ->
             "fase_testemunhas": ("concluido" if todas else "coletando")}
     # NÃO mexe no `status` do doc-ext (já é 'finalizado' das partes)
     await db[col].update_one({"id": doc["id"]}, {"$set": sets})
-    return {"ok": True, "documento_finalizado": bool(todas)}
+
+    # CONCLUÍDO: dispara o contrato FINAL (3 partes + 2 testemunhas) a TODOS
+    distribuidos = 0
+    if todas and not doc.get("final_distribuido_em"):
+        try:
+            final_pdf = await asyncio.to_thread(r2_storage.download_bytes, key_out)
+            distribuidos = await _distribuir_final(db, {**doc, **sets}, final_pdf)
+            await db[col].update_one({"id": doc["id"]},
+                                     {"$set": {"final_distribuido_em": datetime.utcnow(),
+                                               "final_distribuido_qtd": distribuidos}})
+        except Exception:  # noqa: BLE001
+            logger.warning("Testemunha: falha ao distribuir o final.", exc_info=True)
+    return {"ok": True, "documento_finalizado": bool(todas), "final_enviado_a": distribuidos}
 
 
 async def salvar_documento(db, token: str, frente_b64: str = "", verso_b64: str = "",
