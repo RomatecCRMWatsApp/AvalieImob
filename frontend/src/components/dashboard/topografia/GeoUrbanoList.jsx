@@ -89,6 +89,24 @@ export default function GeoUrbanoList() {
     }
   };
 
+  const [wa, setWa] = useState(null);   // {id, nome} do projeto p/ enviar por WhatsApp
+  const [waPeca, setWaPeca] = useState('dossie');
+  const [waFone, setWaFone] = useState('');
+  const [waEnviando, setWaEnviando] = useState(false);
+  const abrirWa = (p, e) => { e.stopPropagation(); setWa({ id: p.id, nome: p.denominacao_imovel }); setWaPeca('dossie'); setWaFone(''); };
+  const enviarWa = async () => {
+    const fone = waFone.replace(/\D/g, '');
+    if (fone.length < 10) { toast({ title: 'Informe um WhatsApp válido (55 + DDD + número)', variant: 'destructive' }); return; }
+    setWaEnviando(true);
+    try {
+      await geoUrbanoAPI.enviarWhatsapp(wa.id, { peca: waPeca, telefone: fone });
+      toast({ title: 'Enviado pelo WhatsApp ✓', description: `${fone}` });
+      setWa(null);
+    } catch (err) {
+      toast({ title: 'Erro ao enviar', description: err?.response?.data?.detail || '', variant: 'destructive' });
+    } finally { setWaEnviando(false); }
+  };
+
   const [reenviando, setReenviando] = useState(null);
   const reenviarAssin = async (id, e) => {
     e.stopPropagation();
@@ -226,6 +244,14 @@ export default function GeoUrbanoList() {
                   <ChevronRight className="w-4 h-4 text-emerald-600" />
                 </div>
 
+                {/* enviar PDF por WhatsApp a um contato */}
+                <div className="mt-2">
+                  <span role="button" tabIndex={0} onClick={(e) => abrirWa(p, e)}
+                    className="text-[11px] inline-flex items-center gap-1 px-2 py-1 rounded border bg-white hover:bg-emerald-50 text-emerald-700">
+                    <Send className="w-3 h-3" /> Enviar PDF por WhatsApp
+                  </span>
+                </div>
+
                 {/* confirmação da assinatura do proprietário */}
                 {p.assinatura_prop?.existe && (() => {
                   const a = p.assinatura_prop;
@@ -259,6 +285,33 @@ export default function GeoUrbanoList() {
               </button>
             );
           })}
+        </div>
+      )}
+
+      {wa && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000] p-4" onClick={() => !waEnviando && setWa(null)}>
+          <div className="bg-white rounded-xl p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-semibold mb-1" style={{ color: GREEN }}>Enviar por WhatsApp</h3>
+            <p className="text-xs text-gray-500 mb-3 line-clamp-1">{wa.nome}</p>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Peça</label>
+            <select className="w-full border rounded-lg px-2.5 py-2 text-sm mb-3" value={waPeca} onChange={(e) => setWaPeca(e.target.value)}>
+              <option value="dossie">Dossiê consolidado</option>
+              <option value="requerimento_cartorio">Requerimento — Cartório de RI</option>
+              <option value="requerimento_superintendencia">Requerimento — Superintendência</option>
+              <option value="memorial_descritivo">Memorial Descritivo</option>
+              <option value="cadeia_dominical">Cadeia Dominical</option>
+            </select>
+            <label className="block text-xs font-medium text-gray-600 mb-1">WhatsApp do contato</label>
+            <input className="w-full border rounded-lg px-2.5 py-2 text-sm mb-4" placeholder="55 + DDD + número (ex.: 5599999999999)"
+              value={waFone} onChange={(e) => setWaFone(e.target.value)} />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setWa(null)} disabled={waEnviando} className="px-3 py-2 rounded-lg text-sm border">Cancelar</button>
+              <button onClick={enviarWa} disabled={waEnviando}
+                className="px-4 py-2 rounded-lg text-sm font-semibold text-white inline-flex items-center gap-1" style={{ background: GREEN }}>
+                <Send className="w-4 h-4" /> {waEnviando ? 'Enviando…' : 'Enviar'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

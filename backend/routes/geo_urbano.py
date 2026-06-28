@@ -7,6 +7,7 @@
 # (mantém as anotações de body resolvidas pelo FastAPI).
 import asyncio
 import logging
+import re
 import uuid
 from datetime import datetime, timezone
 
@@ -543,6 +544,55 @@ async def baixar_documento(pid: str, tipo: str, tema: str = Query(None), lote: s
         raise HTTPException(status_code=422, detail=f"Documento inválido: {tipo}")
     return Response(content=data, media_type=_PDF,
                     headers={"Content-Disposition": f'inline; filename="{nome}"'})
+
+
+_PECA_LABEL = {
+    "dossie": "Dossiê consolidado", "requerimento_cartorio": "Requerimento (Cartório de RI)",
+    "requerimento_superintendencia": "Requerimento (Superintendência)",
+    "memorial_descritivo": "Memorial Descritivo", "cadeia_dominical": "Cadeia Dominical",
+}
+
+
+async def _peca_pdf_bytes(db, doc, tipo, tema):
+    """Bytes do PDF de uma peça (Dossiê via merge; demais via gerador)."""
+    if tipo == "dossie":
+        return await _montar_dossie(db, doc, tema)
+    if tipo in _DOCS_GERAVEIS:
+        return await asyncio.to_thread(PDF.gerar_pdf, tipo, doc, tema, doc.get("_brand_logo_bytes"))
+    raise HTTPException(status_code=422, detail=f"Peça inválida: {tipo}")
+
+
+@router.post("/projetos/{pid}/enviar-whatsapp")
+async def enviar_whatsapp(pid: str, body: dict, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    """Envia o PDF de uma peça (Dossiê/Requerimento/Memorial/Cadeia) por WhatsApp a um contato."""
+    telefone = re.sub(r"\D", "", str((body or {}).get("telefone") or ""))
+    if len(telefone) < 10:
+        raise HTTPException(status_code=422, detail="Informe um WhatsApp válido (55 + DDD + número).")
+    doc = await _get(db, pid, uid)
+    await _injetar_logo(db, uid, doc)
+    await _injetar_assinatura_tecnico(db, uid, doc)
+    tema = doc.get("tema") or "prime_i"
+    peca = (body or {}).get("peca") or "dossie"
+    pdf_bytes = await _peca_pdf_bytes(db, doc, peca, tema)
+    if not pdf_bytes or pdf_bytes[:5] != b"%PDF-":
+        raise HTTPException(status_code=500, detail="Falha ao gerar o PDF da peça.")
+    cfg = await PROP.zapi_cfg(db, uid)
+    if not cfg.get("zapi_instance_id") or not cfg.get("zapi_token"):
+        raise HTTPException(status_code=422, detail="Configure a integração Z-API (WhatsApp) antes de enviar.")
+    label = _PECA_LABEL.get(peca, "Documento")
+    caption = ((body or {}).get("legenda")
+               or f"{label} — {doc.get('denominacao_imovel') or ''} ({doc.get('numero') or ''})").strip()
+    fname = f"{peca}_{(doc.get('numero') or pid)}.pdf".replace("/", "-")
+    from services import zapi_service
+    try:
+        await zapi_service.send_document_pdf(
+            instance_id=cfg.get("zapi_instance_id"), token=cfg.get("zapi_token"),
+            security_token=cfg.get("zapi_security_token"), phone=telefone,
+            pdf_bytes=pdf_bytes, filename=fname, caption=caption)
+    except Exception as e:  # noqa: BLE001
+        logger.error("Geo Urbano: envio WhatsApp falhou: %s", e, exc_info=True)
+        raise HTTPException(status_code=502, detail=f"Falha ao enviar pelo WhatsApp: {e}")
+    return {"ok": True, "enviado": telefone, "peca": peca}
 
 
 # ──────────────────────────────────────────────────────────────────────────────

@@ -816,6 +816,8 @@ export const geoUrbanoAPI = {
   propPosicionar: (id, body) => api.post(`${GEOURB}/projetos/${id}/proprietario/posicionar`, body).then((r) => r.data),
   propSessao: (id) => api.get(`${GEOURB}/projetos/${id}/proprietario/sessao`).then((r) => r.data),
   propReenviar: (id) => api.post(`${GEOURB}/projetos/${id}/proprietario/reenviar`).then((r) => r.data),
+  // Envio de PDF por WhatsApp a um contato qualquer
+  enviarWhatsapp: (id, body) => api.post(`${GEOURB}/projetos/${id}/enviar-whatsapp`, body).then((r) => r.data),
   // Capa "Lupa Geo"
   capaPreview: (id) =>
     api.get(`${GEOURB}/projetos/${id}/capa/preview`, { responseType: 'blob' }).then((r) => r.data),
