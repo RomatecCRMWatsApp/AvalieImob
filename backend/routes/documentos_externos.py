@@ -167,12 +167,25 @@ async def pdf_intermediario(doc_id: str, uid: str = Depends(get_active_subscribe
 
 @router.get("/{doc_id}/pdf-final")
 async def pdf_final(doc_id: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
-    """Serve o PDF ASSINADO ICP se houver; senão o intermediário; senão o original."""
+    """Serve a revisão MAIS COMPLETA: com TESTEMUNHAS se houver (partes + testemunhas +
+    CNHs); senão o PDF ASSINADO ICP; senão o intermediário; senão o original."""
+    doc = await _carregar(db, doc_id, uid)
+    # 1) revisão com testemunhas (a mais completa) — onde a assinatura das testemunhas está
+    key_test = doc.get("pdf_key_testemunhas")
+    if key_test:
+        try:
+            pdf = await asyncio.to_thread(r2_storage.download_bytes, key_test)
+            return Response(content=pdf, media_type="application/pdf",
+                            headers={"Content-Disposition": 'inline; filename="documento_final.pdf"', "Cache-Control": "no-store"})
+        except Exception:  # noqa: BLE001
+            pass
+    # 2) ICP do RT
     from routes.assinatura import _load_assinatura_bytes
     assinado, _ = await _load_assinatura_bytes(db, "doc-ext", doc_id)
     if assinado:
         return Response(content=assinado, media_type="application/pdf",
                         headers={"Content-Disposition": 'inline; filename="documento_final.pdf"', "Cache-Control": "no-store"})
+    # 3) intermediário/original
     return await _servir_pdf(db, doc_id, uid, "pdf_key_intermediario", "documento_final.pdf")
 
 
@@ -371,8 +384,17 @@ def _dig(v) -> str:
 
 
 async def _via_final_bytes(db, doc: dict, doc_id: str):
-    """(bytes, via) da VIA FINAL: o PDF assinado por ICP se houver; senão o intermediário
-    carimbado (assinaturas dos clientes + folha de auditoria). (None, None) se ainda não há."""
+    """(bytes, via) da VIA FINAL: revisão com TESTEMUNHAS se houver (mais completa); senão
+    o PDF assinado por ICP; senão o intermediário carimbado. (None, None) se não há."""
+    # revisão com testemunhas (partes + testemunhas + CNHs) é a mais completa
+    key_test = doc.get("pdf_key_testemunhas")
+    if key_test:
+        try:
+            b = await asyncio.to_thread(r2_storage.download_bytes, key_test)
+            if b and b.startswith(b"%PDF-"):
+                return b, "final (partes + testemunhas)"
+        except Exception:  # noqa: BLE001
+            pass
     from routes.assinatura import _load_assinatura_bytes
     assinado, _ = await _load_assinatura_bytes(db, "doc-ext", doc_id)
     if assinado and assinado.startswith(b"%PDF-"):
