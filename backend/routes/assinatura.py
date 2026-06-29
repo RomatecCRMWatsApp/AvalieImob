@@ -439,10 +439,12 @@ async def _gerar_pdf(tipo: str, doc: dict, db=None, perfil: dict | None = None) 
                 logger.warning("Falha ao pré-carregar avaliador (procuração ICP).", exc_info=True)
         return await asyncio.to_thread(_generate_procuracao_pdf_bytes, doc, uid or "", empresa)
     elif tipo == "doc-ext":
-        # PDF externo: a base do ICP é o intermediário JÁ carimbado com as assinaturas dos
-        # clientes (se houver); senão, o original. Só BAIXA do R2 + normaliza rotação.
+        # PDF externo: a base do ICP é a revisão MAIS COMPLETA — com TESTEMUNHAS se houver
+        # (partes + testemunhas + CNHs), senão o intermediário carimbado, senão o original.
+        # Assim o selo ICP do RT cobre TUDO. Só BAIXA do R2 + normaliza rotação.
         from services import r2_storage
-        key = doc.get("pdf_key_intermediario") or doc.get("pdf_key")
+        key = (doc.get("pdf_key_testemunhas") or doc.get("pdf_key_intermediario")
+               or doc.get("pdf_key"))
         if not key:
             raise HTTPException(status_code=400, detail="Documento sem arquivo (pdf_key vazio).")
         pdf = await asyncio.to_thread(r2_storage.download_bytes, key)

@@ -170,7 +170,13 @@ async def pdf_final(doc_id: str, uid: str = Depends(get_active_subscriber), db=D
     """Serve a revisão MAIS COMPLETA: com TESTEMUNHAS se houver (partes + testemunhas +
     CNHs); senão o PDF ASSINADO ICP; senão o intermediário; senão o original."""
     doc = await _carregar(db, doc_id, uid)
-    # 1) revisão com testemunhas (a mais completa) — onde a assinatura das testemunhas está
+    # 1) ICP do RT (SELO FINAL — base já inclui as testemunhas) se houver
+    from routes.assinatura import _load_assinatura_bytes
+    assinado, _ = await _load_assinatura_bytes(db, "doc-ext", doc_id)
+    if assinado and assinado.startswith(b"%PDF-"):
+        return Response(content=assinado, media_type="application/pdf",
+                        headers={"Content-Disposition": 'inline; filename="documento_final.pdf"', "Cache-Control": "no-store"})
+    # 2) revisão com testemunhas (partes + testemunhas + CNHs)
     key_test = doc.get("pdf_key_testemunhas")
     if key_test:
         try:
@@ -179,12 +185,6 @@ async def pdf_final(doc_id: str, uid: str = Depends(get_active_subscriber), db=D
                             headers={"Content-Disposition": 'inline; filename="documento_final.pdf"', "Cache-Control": "no-store"})
         except Exception:  # noqa: BLE001
             pass
-    # 2) ICP do RT
-    from routes.assinatura import _load_assinatura_bytes
-    assinado, _ = await _load_assinatura_bytes(db, "doc-ext", doc_id)
-    if assinado:
-        return Response(content=assinado, media_type="application/pdf",
-                        headers={"Content-Disposition": 'inline; filename="documento_final.pdf"', "Cache-Control": "no-store"})
     # 3) intermediário/original
     return await _servir_pdf(db, doc_id, uid, "pdf_key_intermediario", "documento_final.pdf")
 

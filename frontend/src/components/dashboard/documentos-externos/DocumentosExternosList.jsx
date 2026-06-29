@@ -104,7 +104,12 @@ export default function DocumentosExternosList() {
             const st = STATUS[d.status] || STATUS.rascunho;
             const sigs = d.signatarios || [];
             const assinados = sigs.filter((s) => s.status === 'assinado').length;
-            const podeIcp = d.requer_icp_rt && d.status === 'clientes_ok';
+            const tests = d.testemunhas || [];
+            const testPendentes = tests.some((t) => t.status !== 'assinado');
+            // ICP do RT é o SELO FINAL — disponível quando os signatários assinaram E não
+            // há testemunha pendente (senão a assinatura da testemunha seguinte refaria a
+            // revisão e o selo precisaria ser refeito). Posiciona nas páginas que quiser.
+            const podeIcp = d.requer_icp_rt && ['clientes_ok', 'finalizado'].includes(d.status) && !testPendentes;
             return (
               <div key={d.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 flex flex-col">
                 <div className="flex items-start gap-2 mb-2">
