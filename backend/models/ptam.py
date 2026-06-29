@@ -553,6 +553,9 @@ class PerfilAvaliadorBase(BaseModel):
     rg_orgao: str = ""
     bio_resumo: str = ""
     registros: List[RegistroProfissional] = []
+    # qualidades p/ o carimbo do ICP (cada {label, value}) — editáveis pelo usuário;
+    # o seletor do assinador usa estas (TTI/Agrimensura/Edificações) ou os defaults.
+    carimbo_qualidades: List[Any] = []
     formacoes: List[Formacao] = []
     experiencias: List[Experiencia] = []
     especializacoes: List[str] = []

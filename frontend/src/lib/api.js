@@ -374,6 +374,8 @@ export const perfilAPI = {
   // Assinatura gráfica do RT — carimbada no Memorial do Geo Urbano (PNG transparente)
   setAssinaturaTecnico: (assinatura_b64) =>
     api.put('/perfil-avaliador/assinatura-tecnico', { assinatura_b64 }).then(r => r.data),
+  setCarimboQualidades: (carimbo_qualidades) =>
+    api.put('/perfil-avaliador/carimbo-qualidades', { carimbo_qualidades }).then(r => r.data),
 };
 
 // ---- Testemunhas salvas (autofill no wizard de Contratos)

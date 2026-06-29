@@ -88,6 +88,29 @@ async def set_cartao_regularidade(body: CartaoRegularidadeBody,
     return serialize_doc(doc)
 
 
+@router.put("/perfil-avaliador/carimbo-qualidades")
+async def set_carimbo_qualidades(body: dict, uid: str = Depends(get_current_user_id), db=Depends(get_db)):
+    """Salva as QUALIDADES do carimbo do ICP (lista de {label, value}) — o usuário edita
+    os papéis em que pode assinar (TTI/Agrimensura/Edificações/…)."""
+    itens = (body or {}).get("carimbo_qualidades") or []
+    limpos = []
+    for it in itens:
+        if not isinstance(it, dict):
+            continue
+        lab = str(it.get("label") or "").strip()
+        val = str(it.get("value") or "").strip()
+        if lab:
+            limpos.append({"label": lab[:80], "value": val[:200]})
+    await db.perfil_avaliador.update_one(
+        {"user_id": uid},
+        {"$set": {"carimbo_qualidades": limpos[:12], "updated_at": datetime.utcnow()},
+         "$setOnInsert": {"id": str(uuid.uuid4()), "created_at": datetime.utcnow()}},
+        upsert=True,
+    )
+    doc = await db.perfil_avaliador.find_one({"user_id": uid})
+    return serialize_doc(doc)
+
+
 @router.put("/perfil-avaliador/assinatura-tecnico")
 async def set_assinatura_tecnico(body: dict, uid: str = Depends(get_current_user_id), db=Depends(get_db)):
     """Salva a assinatura GRÁFICA do responsável técnico (PNG transparente). É carimbada

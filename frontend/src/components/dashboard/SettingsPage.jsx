@@ -315,6 +315,31 @@ const SettingsPage = () => {
     }
   };
 
+  // ── Qualidades do carimbo do ICP (papéis em que assina) ──
+  const QUAL_DEFAULT = [
+    { label: 'Técnico em Transações Imobiliárias', value: 'Técnico em Transações Imobiliárias — CRECI 4705 (20ª Região) · CNAI 031161' },
+    { label: 'Técnico em Agrimensura', value: 'Técnico em Agrimensura — CFT/MA 0120918536-9 · Credenciamento INCRA Cód: FQNS' },
+    { label: 'Técnico em Edificações', value: 'Técnico em Edificações — CFT/MA 0120918536-9' },
+  ];
+  const [quals, setQuals] = useState(QUAL_DEFAULT);
+  const [savingQuals, setSavingQuals] = useState(false);
+  useEffect(() => {
+    perfilAPI.get().then((p) => { if (p?.carimbo_qualidades?.length) setQuals(p.carimbo_qualidades); }).catch(() => {});
+  }, []);
+  const updQual = (i, campo, v) => setQuals((qs) => qs.map((q, k) => (k === i ? { ...q, [campo]: v } : q)));
+  const addQual = () => setQuals((qs) => [...qs, { label: '', value: '' }]);
+  const rmQual = (i) => setQuals((qs) => qs.filter((_, k) => k !== i));
+  const salvarQuals = async () => {
+    setSavingQuals(true);
+    try {
+      const limpos = quals.filter((q) => (q.label || '').trim());
+      await perfilAPI.setCarimboQualidades(limpos);
+      toast({ title: 'Qualidades do carimbo salvas', description: 'Disponíveis no seletor ao assinar com ICP.' });
+    } catch (e) {
+      toast({ title: 'Erro ao salvar', description: e.response?.data?.detail, variant: 'destructive' });
+    } finally { setSavingQuals(false); }
+  };
+
   return (
     <div className="space-y-6 max-w-3xl">
       <div>
@@ -713,6 +738,25 @@ const SettingsPage = () => {
               />
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* ── Qualidades do carimbo do ICP (papéis em que assina) ── */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <h3 className="font-semibold text-gray-900">Qualidades para o carimbo do ICP</h3>
+        <p className="text-xs text-gray-500 mb-4">Os papéis em que você pode assinar (TTI, Agrimensura, Edificações…). Aparecem num seletor toda vez que você assina com ICP-Brasil — escolha o adequado ao documento. O texto vai no carimbo da assinatura.</p>
+        <div className="space-y-2">
+          {quals.map((q, i) => (
+            <div key={i} className="grid grid-cols-1 sm:grid-cols-[180px,1fr,auto] gap-2 items-center">
+              <input className="border rounded-lg px-2.5 py-2 text-sm" placeholder="Rótulo (ex.: Técnico em Agrimensura)" value={q.label || ''} onChange={(e) => updQual(i, 'label', e.target.value)} />
+              <input className="border rounded-lg px-2.5 py-2 text-sm" placeholder="Texto no carimbo (ex.: Técnico em Agrimensura — CFT/MA … · INCRA …)" value={q.value || ''} onChange={(e) => updQual(i, 'value', e.target.value)} />
+              <button onClick={() => rmQual(i)} className="text-red-500 hover:text-red-700 text-sm px-2 py-1 justify-self-start">Remover</button>
+            </div>
+          ))}
+        </div>
+        <div className="flex items-center gap-3 mt-3">
+          <button onClick={addQual} className="text-sm text-emerald-700 hover:underline">+ Adicionar qualidade</button>
+          <Button size="sm" onClick={salvarQuals} disabled={savingQuals}>{savingQuals ? 'Salvando…' : 'Salvar qualidades'}</Button>
         </div>
       </div>
 

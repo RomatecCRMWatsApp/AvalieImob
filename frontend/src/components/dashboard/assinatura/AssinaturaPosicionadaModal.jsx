@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { X, Loader2, PenLine, Copy, CheckCircle2 } from 'lucide-react';
 import { useToast } from '../../../hooks/use-toast';
-import { assinaturaPosAPI } from '../../../lib/api';
+import { assinaturaPosAPI, perfilAPI } from '../../../lib/api';
 
 // Qualidades em que José Romário pode assinar — o carimbo do ICP mostra a escolhida.
-// "" = padrão do perfil (registros cadastrados). Edite os números se mudarem.
-const PRESETS_CARIMBO = [
+// "" = padrão do perfil (registros cadastrados). Editáveis no Perfil (carimbo_qualidades).
+const PRESETS_CARIMBO_DEFAULT = [
   { label: 'Padrão do perfil (registros cadastrados)', value: '' },
   { label: 'Técnico em Transações Imobiliárias (CRECI/CNAI)', value: 'Técnico em Transações Imobiliárias — CRECI 4705 (20ª Região) · CNAI 031161' },
   { label: 'Técnico em Agrimensura (CFT/INCRA)', value: 'Técnico em Agrimensura — CFT/MA 0120918536-9 · Credenciamento INCRA Cód: FQNS' },
@@ -34,6 +34,7 @@ export default function AssinaturaPosicionadaModal({ tipo, documentId, onAssinad
   const [certId, setCertId] = useState(null);
   const [certs, setCerts] = useState([]);
   const [carimboQualif, setCarimboQualif] = useState('');   // qualificação a exibir no carimbo
+  const [presets, setPresets] = useState(PRESETS_CARIMBO_DEFAULT);
   const imgRef = useRef(null);
 
   const certSel = certs.find((c) => c.id === certId) || null;
@@ -48,11 +49,14 @@ export default function AssinaturaPosicionadaModal({ tipo, documentId, onAssinad
     let alive = true;
     (async () => {
       try {
-        const [prep, cs] = await Promise.all([
+        const [prep, cs, perfil] = await Promise.all([
           assinaturaPosAPI.preparar(tipo, documentId),
           assinaturaPosAPI.certificados().catch(() => []),
+          perfilAPI.get().catch(() => null),
         ]);
         if (!alive) return;
+        const qs = (perfil?.carimbo_qualidades || []).filter((q) => q && q.label);
+        if (qs.length) setPresets([{ label: 'Padrão do perfil (registros cadastrados)', value: '' }, ...qs]);
         setPaginas(prep.paginas || []);
         const lista = (Array.isArray(cs) ? cs : (cs?.certificados || [])).filter((c) => c.ativo !== false);
         setCerts(lista);
@@ -231,10 +235,10 @@ export default function AssinaturaPosicionadaModal({ tipo, documentId, onAssinad
         <div>
           <label className="block text-[11px] text-gray-400 mb-1">Assinar nesta qualidade (escolha conforme o documento)</label>
           <select
-            value={PRESETS_CARIMBO.some((p) => p.value === carimboQualif) ? carimboQualif : '__custom__'}
+            value={presets.some((p) => p.value === carimboQualif) ? carimboQualif : '__custom__'}
             onChange={(e) => { if (e.target.value !== '__custom__') setCarimboQualif(e.target.value); }}
             className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-2 text-xs text-gray-100 mb-1.5">
-            {PRESETS_CARIMBO.map((p) => <option key={p.label} value={p.value}>{p.label}</option>)}
+            {presets.map((p) => <option key={p.label} value={p.value}>{p.label}</option>)}
             <option value="__custom__">Personalizado (editar abaixo)…</option>
           </select>
           <input value={carimboQualif} onChange={(e) => setCarimboQualif(e.target.value)}
