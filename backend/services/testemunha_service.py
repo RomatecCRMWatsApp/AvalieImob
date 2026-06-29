@@ -168,19 +168,41 @@ async def _reconstruir_vigente(doc: dict):
             anexo_imgs.append((f"{quem} — {tipo}{sufixo}", img))
         p += len(imgs)
 
-    # 3) ALIMENTA o SUMÁRIO do contrato (linhas abaixo da última cláusula) — append-only
+    # 3) ALIMENTA o SUMÁRIO do contrato (linhas abaixo da última cláusula) — append-only.
+    #    RESILIENTE: cada etapa é protegida — se uma falhar, o PDF final ainda sai com o
+    #    que já tem (no mínimo: contrato + carimbo + Qualificação com a assinatura).
     from services.testemunha_signing import inserir_no_sumario, aplicar_sumario_incremental
-    novo, _ok = await asyncio.to_thread(inserir_no_sumario, novo, sum_itens, "ANEXO")
 
-    # 4) monta: qualificação → manifestação → cada CNH/foto numa página A4 COM título
-    novo = await asyncio.to_thread(anexar_pagina_incremental, novo, qual_pdf)
-    novo = await asyncio.to_thread(anexar_pagina_incremental, novo, manif_pdf)
+    async def _passo(fn, *a):
+        nonlocal novo
+        try:
+            novo = await asyncio.to_thread(fn, *a)
+        except Exception:  # noqa: BLE001
+            logger.warning("Testemunha: passo da reconstrução falhou (%s).", getattr(fn, "__name__", fn), exc_info=True)
+
+    # 4) PRIMEIRO os appends (qualificação tem a assinatura) — garante que o final tenha
+    #    as páginas das testemunhas mesmo se o overlay do sumário falhar.
+    await _passo(anexar_pagina_incremental, novo, qual_pdf)
+    await _passo(anexar_pagina_incremental, novo, manif_pdf)
     if anexo_imgs:
-        docpag = await asyncio.to_thread(pagina_documentos_pdf, anexo_imgs)
-        novo = await asyncio.to_thread(anexar_pagina_incremental, novo, docpag)
+        try:
+            docpag = await asyncio.to_thread(pagina_documentos_pdf, anexo_imgs)
+            await _passo(anexar_pagina_incremental, novo, docpag)
+        except Exception:  # noqa: BLE001
+            logger.warning("Testemunha: páginas de documentos (CNH) falharam.", exc_info=True)
 
-    # 5) sumário navegável (marcadores) — append-only, preserva as assinaturas
-    novo = await asyncio.to_thread(aplicar_sumario_incremental, novo, toc)
+    # 5) overlay do SUMÁRIO no contrato — POR ÚLTIMO, best-effort (não quebra os appends)
+    try:
+        novo2, _ok = await asyncio.to_thread(inserir_no_sumario, novo, sum_itens, "ANEXO")
+        novo = novo2
+    except Exception:  # noqa: BLE001
+        logger.warning("Testemunha: inserir_no_sumario falhou.", exc_info=True)
+
+    # 6) marcadores (sumário navegável) — best-effort
+    try:
+        novo = await asyncio.to_thread(aplicar_sumario_incremental, novo, toc)
+    except Exception:  # noqa: BLE001
+        pass
 
     key_out = f"testemunhas/{doc['user_id']}/{doc['id']}_testemunhas.pdf"
     await asyncio.to_thread(r2_storage.upload_bytes, novo, key_out, "application/pdf")
