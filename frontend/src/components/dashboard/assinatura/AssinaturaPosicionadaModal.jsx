@@ -7,9 +7,9 @@ import { assinaturaPosAPI } from '../../../lib/api';
 // "" = padrão do perfil (registros cadastrados). Edite os números se mudarem.
 const PRESETS_CARIMBO = [
   { label: 'Padrão do perfil (registros cadastrados)', value: '' },
-  { label: 'Técnico em Transações Imobiliárias (CRECI/CNAI)', value: 'Técnico em Transações Imobiliárias — CRECI 4705 (20ª Região) · CNAI' },
-  { label: 'Técnico em Agrimensura (CFT/INCRA)', value: 'Técnico em Agrimensura — CFT 0120918536-9 · INCRA: FQNS' },
-  { label: 'Técnico em Edificações (CFT)', value: 'Técnico em Edificações — CFT 0120918536-9' },
+  { label: 'Técnico em Transações Imobiliárias (CRECI/CNAI)', value: 'Técnico em Transações Imobiliárias — CRECI 4705 (20ª Região) · CNAI 031161' },
+  { label: 'Técnico em Agrimensura (CFT/INCRA)', value: 'Técnico em Agrimensura — CFT/MA 0120918536-9 · Credenciamento INCRA Cód: FQNS' },
+  { label: 'Técnico em Edificações (CFT)', value: 'Técnico em Edificações — CFT/MA 0120918536-9' },
 ];
 
 /**
