@@ -81,6 +81,10 @@ function useLocalizacao() {
       if (cancelled) return;
       navigator.geolocation.getCurrentPosition(
       async ({ coords }) => {
+        // Só confia na localização quando a precisão é boa (GPS, ~celular). No desktop a
+        // geolocalização usa IP/Wi-Fi e cai na cidade do PROVEDOR (ex.: Fortaleza/CE) —
+        // nesse caso (precisão > 3km) mantém o padrão "Açailândia, MA".
+        if (coords.accuracy && coords.accuracy > 3000) return;
         try {
           const res = await fetch(
             `https://nominatim.openstreetmap.org/reverse?lat=${coords.latitude}&lon=${coords.longitude}&format=json&accept-language=pt-BR`
@@ -93,7 +97,8 @@ function useLocalizacao() {
           if (cidade && !cancelled) setLocal(estado ? `${cidade}, ${estado}` : cidade);
         } catch { /* mantém fallback */ }
       },
-        () => { /* sem permissão → fallback */ }
+        () => { /* sem permissão → fallback */ },
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 600000 }
       );
     };
     // Só busca a localização se o usuário JÁ concedeu permissão antes — evita o
