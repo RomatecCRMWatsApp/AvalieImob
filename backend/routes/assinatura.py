@@ -1211,6 +1211,9 @@ class AssinarPosicionadoRequest(BaseModel):
     y_pt: Optional[float] = None
     largura_pt: Optional[float] = None
     altura_pt: Optional[float] = None
+    # qualificação a EXIBIR no carimbo (ex.: "Técnico em Agrimensura — CFT/MA nº … ·
+    # Credenciamento INCRA: FQNS" no Memorial). Vazio = usa o padrão do perfil.
+    carimbo_qualificacao: Optional[str] = None
 
 
 def _dados_carimbo(cert: dict, perfil: dict, user: dict):
@@ -1321,6 +1324,10 @@ async def assinar_posicionado(
     user = await db.users.find_one({"id": uid}) or {}
     perfil = await db.perfil_avaliador.find_one({"user_id": uid}) or {}
     titular, documento, emissor, registro_full = _dados_carimbo(cert, perfil, user)
+    # override da qualificação no carimbo (ex.: assinatura como Técnico em Agrimensura
+    # nos memoriais descritivos — em vez do padrão "Avaliador …")
+    if (body.carimbo_qualificacao or "").strip():
+        registro_full = body.carimbo_qualificacao.strip()
 
     # Normaliza posições: lista (multi-página) OU campos únicos (compat).
     if body.posicoes:

@@ -24,6 +24,7 @@ export default function AssinaturaPosicionadaModal({ tipo, documentId, onAssinad
   const [erro, setErro] = useState('');
   const [certId, setCertId] = useState(null);
   const [certs, setCerts] = useState([]);
+  const [carimboQualif, setCarimboQualif] = useState('');   // qualificação a exibir no carimbo
   const imgRef = useRef(null);
 
   const certSel = certs.find((c) => c.id === certId) || null;
@@ -116,7 +117,7 @@ export default function AssinaturaPosicionadaModal({ tipo, documentId, onAssinad
     setAssinando(true);
     setErro('');
     try {
-      const r = await assinaturaPosAPI.assinar(tipo, documentId, { cert_id: certId, posicoes });
+      const r = await assinaturaPosAPI.assinar(tipo, documentId, { cert_id: certId, posicoes, carimbo_qualificacao: carimboQualif.trim() || undefined });
       toast({ title: 'Documento assinado', description: `ICP-Brasil aplicada em ${posicoes.length} página(s).` });
       onAssinado?.(r);
     } catch (e) {
@@ -218,6 +219,17 @@ export default function AssinaturaPosicionadaModal({ tipo, documentId, onAssinad
             {box && <button onClick={limparPagina} className="text-xs text-gray-400 underline">Limpar esta página</button>}
           </div>
         )}
+        <div>
+          <label className="block text-[11px] text-gray-400 mb-1">Qualificação no carimbo (opcional — ex.: assinatura como Técnico em Agrimensura)</label>
+          <input value={carimboQualif} onChange={(e) => setCarimboQualif(e.target.value)}
+            placeholder="Técnico em Agrimensura — CFT/MA nº 01209185369 · Credenciamento INCRA: FQNS"
+            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-2 text-xs text-gray-100 placeholder-gray-500" />
+          <div className="flex gap-2 mt-1">
+            <button type="button" onClick={() => setCarimboQualif('Técnico em Agrimensura — CFT/MA nº 01209185369 · Credenciamento INCRA: FQNS')}
+              className="text-[10px] text-emerald-300 underline">usar "Técnico em Agrimensura"</button>
+            {carimboQualif && <button type="button" onClick={() => setCarimboQualif('')} className="text-[10px] text-gray-500 underline">limpar (usar padrão do perfil)</button>}
+          </div>
+        </div>
         <div className="text-center text-xs text-gray-400">
           {paginasMarcadas > 0
             ? `${paginasMarcadas} página(s) marcada(s). Navegue e desenhe em outras, ou assine.`
