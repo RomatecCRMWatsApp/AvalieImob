@@ -3,6 +3,15 @@ import { X, Loader2, PenLine, Copy, CheckCircle2 } from 'lucide-react';
 import { useToast } from '../../../hooks/use-toast';
 import { assinaturaPosAPI } from '../../../lib/api';
 
+// Qualidades em que José Romário pode assinar — o carimbo do ICP mostra a escolhida.
+// "" = padrão do perfil (registros cadastrados). Edite os números se mudarem.
+const PRESETS_CARIMBO = [
+  { label: 'Padrão do perfil (registros cadastrados)', value: '' },
+  { label: 'Corretor de Imóveis (CRECI/CNAI)', value: 'Corretor de Imóveis — CRECI/MA nº 4705 · CNAI nº 031161' },
+  { label: 'Técnico em Agrimensura (CFT/INCRA)', value: 'Técnico em Agrimensura — CFT/MA nº 01209185369 · Credenciamento INCRA: FQNS' },
+  { label: 'Técnico em Edificações (CFT)', value: 'Técnico em Edificações — CFT/MA nº 01209185369' },
+];
+
 /**
  * Assinatura ICP-Brasil posicionada — MULTI-PÁGINA. O usuário desenha o retângulo
  * da assinatura em cada página que quiser; o sistema carimba o visual em todas e
@@ -220,15 +229,17 @@ export default function AssinaturaPosicionadaModal({ tipo, documentId, onAssinad
           </div>
         )}
         <div>
-          <label className="block text-[11px] text-gray-400 mb-1">Qualificação no carimbo (opcional — ex.: assinatura como Técnico em Agrimensura)</label>
+          <label className="block text-[11px] text-gray-400 mb-1">Assinar nesta qualidade (escolha conforme o documento)</label>
+          <select
+            value={PRESETS_CARIMBO.some((p) => p.value === carimboQualif) ? carimboQualif : '__custom__'}
+            onChange={(e) => { if (e.target.value !== '__custom__') setCarimboQualif(e.target.value); }}
+            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-2 text-xs text-gray-100 mb-1.5">
+            {PRESETS_CARIMBO.map((p) => <option key={p.label} value={p.value}>{p.label}</option>)}
+            <option value="__custom__">Personalizado (editar abaixo)…</option>
+          </select>
           <input value={carimboQualif} onChange={(e) => setCarimboQualif(e.target.value)}
-            placeholder="Técnico em Agrimensura — CFT/MA nº 01209185369 · Credenciamento INCRA: FQNS"
+            placeholder="Padrão do perfil (CRECI/registros). Ou digite a qualificação para o carimbo."
             className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-2 text-xs text-gray-100 placeholder-gray-500" />
-          <div className="flex gap-2 mt-1">
-            <button type="button" onClick={() => setCarimboQualif('Técnico em Agrimensura — CFT/MA nº 01209185369 · Credenciamento INCRA: FQNS')}
-              className="text-[10px] text-emerald-300 underline">usar "Técnico em Agrimensura"</button>
-            {carimboQualif && <button type="button" onClick={() => setCarimboQualif('')} className="text-[10px] text-gray-500 underline">limpar (usar padrão do perfil)</button>}
-          </div>
         </div>
         <div className="text-center text-xs text-gray-400">
           {paginasMarcadas > 0
