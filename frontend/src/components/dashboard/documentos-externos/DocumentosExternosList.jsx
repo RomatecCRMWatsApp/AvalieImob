@@ -160,6 +160,9 @@ export default function DocumentosExternosList() {
                         );
                       })}
                     </div>
+                    {d.testemunhas.length > 0 && d.testemunhas.every((t) => t.status === 'assinado') && (
+                      <div className="text-[11px] font-semibold text-emerald-700 mt-1.5">✓ Todas as testemunhas assinaram</div>
+                    )}
                   </div>
                 )}
 

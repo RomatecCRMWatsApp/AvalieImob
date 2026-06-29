@@ -64,6 +64,12 @@ async def _reconstruir_vigente(doc: dict):
     from services.assinatura_cliente_carimbo import _trim_png
     testemunhas = doc.get("testemunhas") or []
     novo = base
+    import fitz  # PyMuPDF — p/ contar páginas e montar o sumário
+    try:
+        with fitz.open(stream=base, filetype="pdf") as _bd:
+            base_pages = _bd.page_count
+    except Exception:  # noqa: BLE001
+        base_pages = None
     for w in testemunhas:
         if w.get("status") != "assinado" or not w.get("traco_b64") or not (w.get("posicoes") or []):
             continue
@@ -73,11 +79,18 @@ async def _reconstruir_vigente(doc: dict):
             continue
         leg = f"Testemunha: {w.get('nome')} — CPF {_mask_cpf(w.get('cpf'))}"
         for pos in w["posicoes"]:
+            pg = int(pos.get("pagina", 0))
+            # pula posição FORA do contrato (a base do carimbo é só o contrato) —
+            # a firma já aparece na página de Qualificação; o carimbo é um extra
+            if base_pages is not None and not (0 <= pg < base_pages):
+                continue
             x, y = float(pos.get("x_pt", 72)), float(pos.get("y_pt", 90))
             wd, ht = float(pos.get("larg_pt", 160)), float(pos.get("alt_pt", 60))
-            novo = await asyncio.to_thread(carimbar_incremental, novo, int(pos.get("pagina", 0)),
-                                           (x, y, x + wd, y + ht), wpng, leg)
-    import fitz  # PyMuPDF — p/ contar páginas e montar o sumário
+            try:
+                novo = await asyncio.to_thread(carimbar_incremental, novo, pg,
+                                               (x, y, x + wd, y + ht), wpng, leg)
+            except Exception:  # noqa: BLE001
+                logger.warning("Testemunha: carimbo na posição falhou (pág %s).", pg, exc_info=True)
     from services.testemunha_pagina import pagina_documentos_pdf
 
     def _npags(bts):
@@ -489,30 +502,37 @@ async def assinar(db, token: str, traco_b64: str, ip: str = "", ua: str = "") ->
     t["traco_b64"] = traco_b64.split(",", 1)[1]
     t["hash_validacao"] = hashlib.sha256(f"{token}{t.get('cpf')}{agora.isoformat()}".encode()).hexdigest()
 
-    # reconstrói a revisão vigente (carimbo nas posições + página) a partir da revisão
-    # das PARTES — APPEND-ONLY, preserva as assinaturas das partes (idempotente)
-    if not (doc.get("pdf_key_partes") or _pdf_key_vigente(doc)):
-        raise HTTPException(status_code=422, detail="Documento sem PDF para assinar.")
     col = MODULO_COL[modulo]
     testemunhas = doc.get("testemunhas") or []
-    key_out, hash_doc = await _reconstruir_vigente(doc)
-
     exigidas = [x for x in testemunhas if not x.get("opcional")]
     todas = exigidas and all(x.get("status") == "assinado" for x in exigidas)
-    # a revisão com a(s) testemunha(s) + a PÁGINA de qualificação vira a vigente/final
-    # já a CADA assinatura (não só no fim) — assim "Ver final" mostra a página na hora.
-    sets = {"testemunhas": testemunhas, "pdf_key_testemunhas": key_out, "pdf_key_final": key_out,
-            "updated_at": agora, "hash_documento": hash_doc,
-            "fase_testemunhas": ("concluido" if todas else "coletando")}
-    # NÃO mexe no `status` do doc-ext (já é 'finalizado' das partes)
-    await db[col].update_one({"id": doc["id"]}, {"$set": sets})
 
-    # CONCLUÍDO: dispara o contrato FINAL (3 partes + 2 testemunhas) a TODOS
+    # 1) PERSISTE a assinatura JÁ — não pode se perder se a montagem do PDF falhar
+    await db[col].update_one({"id": doc["id"]},
+                             {"$set": {"testemunhas": testemunhas, "updated_at": agora,
+                                       "fase_testemunhas": ("concluido" if todas else "coletando")}})
+
+    # 2) reconstrói a revisão vigente (carimbo + página) — BEST-EFFORT (a firma já está
+    #    salva; se a montagem falhar, é refeita no próximo posicionar/assinar)
+    key_out = None
+    if doc.get("pdf_key_partes") or _pdf_key_vigente(doc):
+        try:
+            key_out, hash_doc = await _reconstruir_vigente(doc)
+            if key_out:
+                await db[col].update_one(
+                    {"id": doc["id"]},
+                    {"$set": {"pdf_key_testemunhas": key_out, "pdf_key_final": key_out,
+                              "hash_documento": hash_doc}})
+        except Exception:  # noqa: BLE001
+            logger.warning("Testemunha: assinatura registrada, mas falhou ao montar o PDF.",
+                           exc_info=True)
+
+    # 3) CONCLUÍDO: dispara o contrato FINAL a TODOS (só se o PDF foi montado)
     distribuidos = 0
-    if todas and not doc.get("final_distribuido_em"):
+    if todas and key_out and not doc.get("final_distribuido_em"):
         try:
             final_pdf = await asyncio.to_thread(r2_storage.download_bytes, key_out)
-            distribuidos = await _distribuir_final(db, {**doc, **sets}, final_pdf)
+            distribuidos = await _distribuir_final(db, {**doc, "testemunhas": testemunhas}, final_pdf)
             await db[col].update_one({"id": doc["id"]},
                                      {"$set": {"final_distribuido_em": datetime.utcnow(),
                                                "final_distribuido_qtd": distribuidos}})
