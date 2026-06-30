@@ -732,6 +732,57 @@ def edital_usucapiao(projeto: dict, tema: str, logo_bytes=None) -> bytes:
     return _build(story, cfg, "Edital de Usucapião", logo_bytes)
 
 
+def declaracao_anuencia(projeto: dict, anuente: dict, tema: str, logo_bytes=None) -> bytes:
+    cfg = GP._cfg(tema)
+    st = GP._styles(cfg)
+    L = _largura()
+    nome = anuente.get("nome") or "—"
+    papel = "TITULAR DE DIREITOS" if anuente.get("papel") == "titular_tabular" else "CONFRONTANTE"
+    story = GP._titulo("DECLARAÇÃO DE ANUÊNCIA", cfg, st, L)
+    qual = []
+    if anuente.get("doc"):
+        qual.append(f"inscrito(a) sob o nº {anuente['doc']}")
+    if anuente.get("endereco"):
+        qual.append(f"residente e domiciliado(a) em {anuente['endereco']}")
+    lado_txt = ""
+    if anuente.get("lado"):
+        lado_txt = (f", especialmente quanto ao lado {(anuente.get('lado') or '').replace('_', ' ').upper()}"
+                    f", medindo {TX.metros(anuente.get('medida_m'))}")
+    corpo = (
+        f"Eu, {nome}{(', ' + ', '.join(qual)) if qual else ''}, na qualidade de {papel} do imóvel "
+        f"objeto do pedido de reconhecimento extrajudicial de usucapião — {projeto.get('denominacao_imovel') or '—'}, "
+        f"situado em {projeto.get('endereco') or '—'}, {projeto.get('municipio') or ''}/{projeto.get('uf') or ''} —, "
+        f"DECLARO, para os fins do art. 216-A da Lei nº 6.015/1973, RECONHECER e ANUIR com os limites e "
+        f"confrontações constantes da Planta e do Memorial Descritivo do referido imóvel{lado_txt}, nada "
+        f"tendo a opor ao presente pedido."
+    )
+    story += GP._paras(corpo, st["corpo"])
+    story.append(Spacer(1, 6))
+    story.append(Paragraph(GP._esc(_data_extenso(projeto.get("municipio") or "Açailândia",
+                                                 projeto.get("uf") or "MA")), st["corpo_c"]))
+    story += GP._bloco_assinaturas([(nome, papel.title() + " anuente")], st, L)
+    return _build(story, cfg, f"Anuência — {nome}", logo_bytes)
+
+
+def notificacao(projeto: dict, anuente: dict, tema: str, logo_bytes=None) -> bytes:
+    cfg = GP._cfg(tema)
+    st = GP._styles(cfg)
+    L = _largura()
+    nome = anuente.get("nome") or "—"
+    story = GP._titulo("NOTIFICAÇÃO DE CONFRONTANTE", cfg, st, L)
+    story += GP._paras(f"Prezado(a) Sr.(a) {nome},", st["corpo"])
+    story += GP._paras(
+        "Fica V.Sa. NOTIFICADO(A), na qualidade de confrontante/titular de direitos, acerca do pedido "
+        f"de reconhecimento extrajudicial de usucapião do imóvel {projeto.get('denominacao_imovel') or '—'}, "
+        f"situado em {projeto.get('endereco') or '—'}, {projeto.get('municipio') or ''}/{projeto.get('uf') or ''}, "
+        "para que se manifeste no prazo de 15 (quinze) dias. O silêncio será interpretado como CONCORDÂNCIA "
+        "(art. 216-A, § 4º, da Lei nº 6.015/1973, com a redação da Lei nº 13.465/2017).", st["corpo"])
+    story.append(Spacer(1, 6))
+    story.append(Paragraph(GP._esc(_data_extenso(projeto.get("municipio") or "Açailândia",
+                                                 projeto.get("uf") or "MA")), st["corpo_c"]))
+    return _build(story, cfg, f"Notificação — {nome}", logo_bytes)
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Dispatcher
 # ──────────────────────────────────────────────────────────────────────────────

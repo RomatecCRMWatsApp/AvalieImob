@@ -207,3 +207,21 @@ def test_edital_usucapiao_render():
     data = GPDF.gerar_pdf("edital_usucapiao", _proj_usucapiao(), "prime_i")
     assert _paginas(data) >= 1
     assert "EDITAL" in _pdf_text(data).upper()
+
+
+def test_declaracao_anuencia_render():
+    proj = _proj_usucapiao()
+    anuente = {"papel": "confrontante", "nome": "Vizinho Norte", "lado": "fundo",
+               "medida_m": 12.0, "doc": "CPF 111.222.333-44"}
+    data = GPDF.declaracao_anuencia(proj, anuente, "prime_i")
+    assert _paginas(data) >= 1
+    txt = _pdf_text(data)
+    assert "ANUÊNCIA" in txt.upper() and "Vizinho Norte" in txt
+
+
+def test_notificacao_render():
+    proj = _proj_usucapiao()
+    anuente = {"papel": "confrontante", "nome": "Vizinho Norte", "lado": "fundo"}
+    data = GPDF.notificacao(proj, anuente, "prime_i")
+    assert _paginas(data) >= 1
+    assert "NOTIFICA" in _pdf_text(data).upper()
