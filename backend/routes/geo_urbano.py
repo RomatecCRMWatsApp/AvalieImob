@@ -831,14 +831,18 @@ async def _montar_dossie(db, doc, tema):
         conteudo = {
             "requerimento_usucapiao": [req],
             "ata_notarial": (await _ub(doc, "ata_notarial_assinada")) or [ata],
-            "planta_mapa": await _ub(doc, "planta_usucapiao"),
+            # mapa único da usucapião — aceita a planta dedicada OU os mapas reusados das abas técnicas
+            "planta_mapa": (await _ub(doc, "planta_usucapiao")) + (await _ub(doc, "mapa_remembramento")) + (await _ub(doc, "mapa_atual")),
             "memorial_descritivo": [memorial],
-            "art_trt": await _ub(doc, "art_trt"),
-            "certidao_matricula": (await _ub(doc, "certidao_matricula")) + (await _ub(doc, "negativa_propriedade")),
+            "art_trt": (await _ub(doc, "art_trt")) + (await _ub(doc, "art_trt_boleto")),
+            # certidão — tipo dedicado OU a "certidão de inteiro teor" reusada das abas técnicas
+            "certidao_matricula": (await _ub(doc, "certidao_matricula")) + (await _ub(doc, "negativa_propriedade"))
+                                  + (await _ub(doc, "certidao_inteiro_teor")),
             "declaracoes_anuencia": decls,
             "certidoes_confrontantes": await _ub(doc, "certidao_confrontante"),
             "certidoes_negativas": await _ub(doc, "certidao_negativa"),
-            "iptu_valor_venal": await _ub(doc, "iptu_usucapiao"),
+            "iptu_valor_venal": (await _ub(doc, "iptu_usucapiao")) + (await _ub(doc, "cnd_iptu"))
+                                + (await _ub(doc, "guia_iptu")) + (await _ub(doc, "comprovante_pagamento_iptu")),
             "provas_posse": await _ub(doc, "prova_posse"),
             "relatorio_fotografico": await _ub(doc, "foto_imovel"),
             "docs_herdeiro": (await _ub(doc, "certidao_obito")) + (await _ub(doc, "formal_partilha")),
@@ -846,7 +850,8 @@ async def _montar_dossie(db, doc, tema):
             "certidoes_distribuidores": await _ub(doc, "certidao_distribuidor"),
             "notificacoes_edital": notifs + [edital],
             "docs_requerente": (await _ub(doc, "doc_requerente")) + (await _ub(doc, "certidao_estado_civil"))
-                               + (await _ub(doc, "procuracao_oab")),
+                               + (await _ub(doc, "procuracao_oab")) + (await _ub(doc, "doc_proprietario"))
+                               + (await _ub(doc, "cnh")) + (await _ub(doc, "certidao_casamento")),
         }
         secoes = [(titulo, conteudo.get(key)) for key, titulo in DOSSIE.ORDEM_DOSSIE_USUCAPIAO]
         return await asyncio.to_thread(DOSSIE.gerar_dossie_ordenado, doc, secoes, capa_pdf)

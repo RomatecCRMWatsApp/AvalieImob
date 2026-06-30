@@ -50,6 +50,7 @@ const UPLOADS = [
   { tipo: 'mapa_remembramento', label: 'Mapa de remembramento', req: true, multi: false },
   { tipo: 'mapa_desdobro', label: 'Mapa(s) de desdobro (por lote resultante)', req: true, multi: true },
   { tipo: 'mapa_retificado', label: 'Mapa retificado (como está)', req: true, multi: false },
+  { tipo: 'planta_usucapiao', label: 'Mapa / Planta georreferenciada (área usucapienda)', req: true, multi: false },
   { tipo: 'bci', label: 'BCI de cada lote', req: true, multi: true },
   { tipo: 'certidao_inteiro_teor', label: 'Certidão de inteiro teor (por matrícula)', req: true, multi: true },
   { tipo: 'cnd_iptu', label: 'CND de IPTU (negativa)', req: false, multi: true },
@@ -674,7 +675,7 @@ export default function GeoUrbanoWizard() {
       {(passoAtual === 'Uploads' || passoAtual === 'Uploads & Extração') && (
         <>
         <div className="flex items-center justify-between mb-3 rounded-xl border border-emerald-200 bg-emerald-50/50 p-3">
-          <span className="text-sm text-gray-600">Depois de enviar o Mapa de Remembramento e os BCIs/IPTU, extraia os dados automaticamente.</span>
+          <span className="text-sm text-gray-600">Depois de enviar {isUsucapiao ? 'a Planta/Mapa, a Certidão e o BCI/IPTU' : 'o Mapa de Remembramento e os BCIs/IPTU'}, extraia os dados automaticamente.</span>
           <button onClick={extrairDocs} disabled={extraindo}
             className="text-xs inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-white shrink-0" style={{ background: GREEN }}>
             <RefreshCw className={`w-3.5 h-3.5 ${extraindo ? 'animate-spin' : ''}`} /> {extraindo ? 'Extraindo…' : 'Extrair dos documentos'}
@@ -682,7 +683,10 @@ export default function GeoUrbanoWizard() {
         </div>
         <div className="grid sm:grid-cols-2 gap-3">
           {UPLOADS.filter((u) => {
-            if (u.tipo === 'mapa_remembramento') return !isDesdobro && !isRetificacao;
+            // Usucapião: UM único mapa (planta). Os demais serviços usam DOIS (atual + do ato).
+            if (u.tipo === 'planta_usucapiao') return isUsucapiao;
+            if (u.tipo === 'mapa_atual') return !isUsucapiao;
+            if (u.tipo === 'mapa_remembramento') return !isDesdobro && !isRetificacao && !isUsucapiao;
             if (u.tipo === 'mapa_desdobro') return isDesdobro;
             if (u.tipo === 'mapa_retificado') return isRetificacao;
             return true;
