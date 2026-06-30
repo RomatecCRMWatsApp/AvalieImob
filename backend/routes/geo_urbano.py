@@ -364,7 +364,12 @@ async def extrair(pid: str, uid: str = Depends(get_active_subscriber), db=Depend
     for campo in ("matriculas", "bci", "vertices", "iptu"):
         if campo in res and res[campo] and (not editados.get(campo) or not (doc.get(campo) or [])):
             sets[campo] = res[campo]
-    for campo in ("area_declarada_m2", "perimetro_m", "cmi_resultante", "cadastro_novo", "cadastro_antigo"):
+    # área/perímetro são valores DO DOCUMENTO — a re-extração os ATUALIZA (o documento é a
+    # autoridade; o usuário re-extrai justamente para refletir o memorial/mapa).
+    for campo in ("area_declarada_m2", "perimetro_m"):
+        if res.get(campo) is not None:
+            sets[campo] = res[campo]
+    for campo in ("cmi_resultante", "cadastro_novo", "cadastro_antigo"):
         if res.get(campo) is not None and (not editados.get(campo) or not doc.get(campo)):
             sets[campo] = res[campo]
     # PRESERVA o confrontante_lado já preenchido (a planilha do mapa não o traz) —
