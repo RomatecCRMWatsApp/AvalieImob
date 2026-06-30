@@ -135,15 +135,17 @@ def _short_vert(s):
     return (s or "").split("-")[-1]
 
 
-def _firma_image(raw, max_w=150, max_h=46):
-    """RLImage da firma gráfica (PNG), recortada ao conteúdo e escalada p/ caber.
-    None em qualquer falha (degrada para a linha em branco)."""
+def _firma_image(raw, largura=150, max_h=70):
+    """RLImage da firma gráfica (PNG), recortada ao conteúdo e escalada p/ a `largura`
+    (pt) escolhida, com teto de altura. None em qualquer falha (degrada p/ linha vazia)."""
     try:
         from services.assinatura_cliente_carimbo import _trim_png
         from reportlab.lib.utils import ImageReader
         raw = _trim_png(raw)
         iw, ih = ImageReader(io.BytesIO(raw)).getSize()
-        sc = min(max_w / iw, max_h / ih)
+        sc = largura / iw
+        if ih * sc > max_h:          # respeita o teto de altura
+            sc = max_h / ih
         img = RLImage(io.BytesIO(raw), width=iw * sc, height=ih * sc)
         img.hAlign = "LEFT"
         return img
@@ -151,13 +153,31 @@ def _firma_image(raw, max_w=150, max_h=46):
         return None
 
 
-def _assina_rt_memorial(rt_nome, papel_rt, firma_bytes, st, L):
-    """Bloco de assinatura do RT com a firma GRÁFICA (PNG) carimbada acima da linha —
-    o Memorial já sai assinado pelo técnico ao ser enviado às partes (o ICP sela depois)."""
+def _assina_rt_memorial(rt_nome, papel_rt, firma_bytes, st, L, pos=None):
+    """Bloco de assinatura do RT com a firma GRÁFICA (PNG) carimbada acima da linha.
+    `pos` = {largura, align, dx, dy} controla tamanho/alinhamento/deslocamento fino."""
     from reportlab.platypus import KeepTogether
-    bloco = [Spacer(1, 16)]
-    firma = _firma_image(firma_bytes) if firma_bytes else None
-    bloco.append(firma if firma else Spacer(1, 30))
+    p = pos or {}
+    largura = float(p.get("largura") or 150)
+    align = (p.get("align") or "left").upper()
+    dx = float(p.get("dx") or 0)
+    dy = float(p.get("dy") or 0)
+    bloco = [Spacer(1, 16)]                # folga fixa acima da firma
+    firma = _firma_image(firma_bytes, largura=largura) if firma_bytes else None
+    if firma:
+        firma.hAlign = align if align in ("LEFT", "CENTER", "RIGHT") else "LEFT"
+        if dx:   # dx: nudge horizontal via padding de uma tabela-wrapper
+            lado = "RIGHTPADDING" if (align == "RIGHT") else "LEFTPADDING"
+            wrap = Table([[firma]], style=[(lado, (0, 0), (-1, -1), abs(dx)),
+                                           ("TOPPADDING", (0, 0), (-1, -1), 0),
+                                           ("BOTTOMPADDING", (0, 0), (-1, -1), 0)])
+            wrap.hAlign = firma.hAlign
+            bloco.append(wrap)
+        else:
+            bloco.append(firma)
+    else:
+        bloco.append(Spacer(1, 30))
+    bloco.append(Spacer(1, max(0, dy)))    # dy: folga ENTRE a firma e a linha (flutua acima)
     bloco += [
         Table([[""]], colWidths=[L * 0.6], style=[("LINEABOVE", (0, 0), (-1, -1), 0.8, black)]),
         Paragraph(f"<b>{GP._esc(rt_nome)}</b>", st["assina"]),
@@ -398,7 +418,8 @@ def memorial(projeto: dict, tema: str, logo_bytes=None) -> bytes:
     ], st, L)
     # RT com a firma gráfica já carimbada (se houver no perfil); senão só a linha
     story += _assina_rt_memorial(rt.get("nome") or "", papel_rt,
-                                 projeto.get("_tecnico_assinatura_bytes"), st, L)
+                                 projeto.get("_tecnico_assinatura_bytes"), st, L,
+                                 projeto.get("_tecnico_assinatura_pos"))
     return _build(story, cfg, "Memorial Descritivo — " + (projeto.get("lote_resultante") or ""), logo_bytes)
 
 
