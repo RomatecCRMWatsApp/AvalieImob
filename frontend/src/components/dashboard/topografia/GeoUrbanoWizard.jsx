@@ -13,6 +13,7 @@ import { BrandSpinner } from '../../brand/BrandSpinner';
 import AssinaturaPosicionadaModal from '../assinatura/AssinaturaPosicionadaModal';
 import AssinaturaProprietarioModal from './AssinaturaProprietarioModal';
 import EtapaConcluidaBox from '../ptam/EtapaConcluidaBox';
+import GeoUrbanoUsucapiaoWizard from './GeoUrbanoUsucapiaoWizard';
 import { fmtDataHora } from '../../../utils/datasServidor';
 
 const GREEN = '#0C3320';
@@ -463,6 +464,9 @@ export default function GeoUrbanoWizard() {
   };
 
   if (loading || !proj) return <div className="py-24"><BrandSpinner label="Carregando…" /></div>;
+
+  // Usucapião tem fluxo próprio (modalidade/posse/provas/anuências/checklist) — wizard dedicado.
+  if (proj.tipo_servico === 'usucapiao') return <GeoUrbanoUsucapiaoWizard id={proj.id} />;
 
   const nb = proj.numero || 'geo-urbano';
   const uploads = proj.uploads || {};
