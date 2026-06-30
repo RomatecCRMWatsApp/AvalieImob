@@ -264,3 +264,62 @@ def anuentes_de(projeto: dict) -> list:
         if chave not in vistos:
             out.append(a)
     return out
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Seeding do bloco JURÍDICO a partir do bloco TÉCNICO (best-effort, não-destrutivo).
+# A advogada só revisa/completa — não redigita o que o técnico já lançou.
+# ──────────────────────────────────────────────────────────────────────────────
+# Uploads do bloco técnico que viram "provas" pré-carregadas (rótulo, tipo de prova).
+_PROVAS_DE_UPLOAD = [
+    ("certidao_matricula", "contrato", "Certidão de inteiro teor / matrícula"),
+    ("certidao_inteiro_teor", "contrato", "Certidão de inteiro teor"),
+    ("negativa_propriedade", "declaracao", "Certidão negativa de propriedade"),
+    ("bci", "iptu", "BCI / Cadastro Imobiliário"),
+    ("cnd_iptu", "iptu", "CND de IPTU"),
+    ("iptu_usucapiao", "iptu", "IPTU"),
+    ("prova_posse", "outro", "Comprovante de posse"),
+]
+
+
+def seed_juridico(projeto: dict) -> dict:
+    """Deriva campos do bloco jurídico a partir do técnico (idempotente: só preenche o
+    que está vazio). Retorna o dict a aplicar via $set. Não sobrescreve edição da advogada."""
+    sets = {}
+    uploads = projeto.get("uploads") or {}
+
+    # Provas ← uploads anexados (matrícula/BCI/CND/comprovantes)
+    if not (projeto.get("provas_posse") or []):
+        provas = []
+        for tipo_up, tipo_prova, rotulo in _PROVAS_DE_UPLOAD:
+            for it in (uploads.get(tipo_up) or []):
+                provas.append({"tipo": tipo_prova, "descricao": f"{rotulo} — {it.get('filename') or ''}".strip(" —"),
+                               "upload_id": it.get("id"), "ano": None})
+        if provas:
+            sets["provas_posse"] = provas
+
+    # Confrontantes ← lados dos vértices (se ainda vazio)
+    if not (projeto.get("confrontantes") or []):
+        vistos, confr = set(), []
+        for v in sorted(projeto.get("vertices") or [], key=lambda x: x.get("ordem", 0)):
+            nome = v.get("confrontante_lado")
+            if nome and nome not in vistos:
+                vistos.add(nome)
+                confr.append({"lado": "", "confrontante": nome, "tipo": "particular",
+                              "anuencia": {"status": "pendente"}})
+        if confr:
+            sets["confrontantes"] = confr
+
+    # Checklist ← marca como ANEXADO os itens já satisfeitos pelo técnico (planta/ART)
+    base = projeto.get("confrontantes") or sets.get("confrontantes")  # noqa: F841 (legibilidade)
+    chk = checklist_para(projeto)
+    tem_planta = bool(uploads.get("planta_usucapiao") or uploads.get("mapa_remembramento") or uploads.get("mapa_atual"))
+    tem_art = bool(uploads.get("art_trt"))
+    for item in chk:
+        if item["chave"] == "planta_memorial" and tem_planta and item["status"] == "pendente":
+            item["status"] = "anexado"
+        if item["chave"] == "art_trt" and tem_art and item["status"] == "pendente":
+            item["status"] = "anexado"
+    sets["checklist"] = chk
+
+    return sets

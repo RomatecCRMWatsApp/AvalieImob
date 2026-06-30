@@ -13,13 +13,26 @@ import { BrandSpinner } from '../../brand/BrandSpinner';
 import AssinaturaPosicionadaModal from '../assinatura/AssinaturaPosicionadaModal';
 import AssinaturaProprietarioModal from './AssinaturaProprietarioModal';
 import EtapaConcluidaBox from '../ptam/EtapaConcluidaBox';
-import GeoUrbanoUsucapiaoWizard from './GeoUrbanoUsucapiaoWizard';
+import JuridicoBloco from './JuridicoBloco';
 import { fmtDataHora } from '../../../utils/datasServidor';
 
 const GREEN = '#0C3320';
 const GOLD = '#C9A84C';
 
-const PASSOS = ['Projeto', 'Uploads', 'Matrículas & BCI', 'Vértices & Mapa', 'Partes', 'Geração', 'Aprovação', 'Entrega'];
+const PASSOS_REMEMBRAMENTO = ['Projeto', 'Uploads', 'Matrículas & BCI', 'Vértices & Mapa', 'Partes', 'Geração', 'Aprovação', 'Entrega'];
+// Usucapião é técnico-first: peça de agrimensura é o motor; jurídico (Posse/Provas/
+// Partes/Anuências/Checklist) vai ao FIM como um bloco só (etapa da advogada).
+const PASSOS_USUCAPIAO = ['Projeto', 'Uploads & Extração', 'Certidões & BCI', 'Vértices & Mapa', 'Peças Técnicas', 'Aprovação', 'Entrega', 'Jurídico'];
+const MODALIDADES_USU = [
+  ['extraordinaria', 'Extraordinária (15/10 anos)'], ['ordinaria', 'Ordinária (10/5 anos) — exige justo título'],
+  ['especial_urbana', 'Especial Urbana (5 anos / 250 m²)'], ['especial_rural', 'Especial Rural (5 anos / 50 ha)'],
+  ['familiar', 'Familiar (2 anos / 250 m²)'], ['coletiva', 'Coletiva (Estatuto da Cidade)'], ['outra', 'Outra (cartório define)'],
+];
+const SITUACOES_USU = [
+  ['nao_matriculado', 'Não matriculado / sem registro (pede abertura de matrícula)'],
+  ['matriculado_terceiro', 'Matriculado em nome de terceiro'],
+  ['transcricao_antiga', 'Transcrição antiga / parte de maior porção'],
+];
 const STATUS_GERAL = {
   rascunho: 'Rascunho', assinatura_partes: 'Assinatura das partes', assinatura_tecnico: 'Assinatura do técnico',
   enviado_superintendencia: 'Enviado à Superintendência', aprovado: 'Aprovado', oficio_emitido: 'Ofício anexado', protocolado: 'Protocolado',
@@ -57,6 +70,14 @@ const DOCS_GERAVEIS = [
   ['requerimento_superintendencia', 'Requerimento — Via 2 (Superintendência)'],
   ['memorial_descritivo', 'Memorial Descritivo'],
   ['cadeia_dominical', 'Cadeia Dominical'],
+  ['dossie', 'Dossiê consolidado (capa + sumário + tudo)'],
+];
+// Peças Técnicas da Usucapião (art. 216-A LRP / Prov. CNJ 149/2023)
+const DOCS_GERAVEIS_USUCAPIAO = [
+  ['requerimento_usucapiao', 'Requerimento de Usucapião'],
+  ['ata_notarial', 'Minuta da Ata Notarial'],
+  ['memorial_descritivo', 'Memorial Descritivo'],
+  ['edital_usucapiao', 'Edital'],
   ['dossie', 'Dossiê consolidado (capa + sumário + tudo)'],
 ];
 
@@ -160,16 +181,28 @@ export default function GeoUrbanoWizard() {
   const [propSessao, setPropSessao] = useState(null);
   const [propBusy, setPropBusy] = useState(false);
 
+  const [usuValid, setUsuValid] = useState(null);   // aferição ao vivo (usucapião)
+
   const projRef = useRef(proj);
   const dirtyRef = useRef(false);
   const debounceRef = useRef(null);
   useEffect(() => { projRef.current = proj; }, [proj]);
+  // Aferição (NBR 14.653 · Prov. CNJ 149/2023) — só usucapião
+  const usuSomaKey = JSON.stringify(proj?.soma_posses || []);
+  const usuPosseKey = JSON.stringify(proj?.posse || {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (proj?.tipo_servico !== 'usucapiao') return;
+    geoUrbanoAPI.usucapiaoValidacao(id).then(setUsuValid).catch(() => {});
+  }, [id, proj?.tipo_servico, proj?.modalidade_usucapiao, proj?.area_declarada_m2, usuSomaKey, usuPosseKey]);
 
   const carregar = useCallback(async () => {
     setLoading(true);
     try {
       const d = await geoUrbanoAPI.obter(id);
       setProj(d);
+      const docs = d.tipo_servico === 'usucapiao' ? DOCS_GERAVEIS_USUCAPIAO : DOCS_GERAVEIS;
+      setDocsSel(docs.map((x) => x[0]));
     } catch (e) {
       toast({ title: 'Projeto não encontrado', variant: 'destructive' });
       nav('/dashboard/topografia/geo-urbano');
@@ -234,6 +267,12 @@ export default function GeoUrbanoWizard() {
         trt_numero: p.trt_numero, cartorio: p.cartorio, superintendencia: p.superintendencia,
         matriculas: p.matriculas, bci: p.bci, vertices: p.vertices, partes: p.partes, iptu: p.iptu,
         etapas_concluidas: p.etapas_concluidas, etapas_concluidas_em: p.etapas_concluidas_em,
+        // usucapião (undefined em outros serviços → JSON omite → backend não altera)
+        modalidade_usucapiao: p.modalidade_usucapiao, fundamento_legal: p.fundamento_legal,
+        valor_atribuido: p.valor_atribuido === '' ? null : p.valor_atribuido,
+        situacao_registral: p.situacao_registral, matricula_usucapienda_id: p.matricula_usucapienda_id,
+        posse: p.posse, soma_posses: p.soma_posses, provas_posse: p.provas_posse,
+        anuentes: p.anuentes, checklist: p.checklist, confrontantes: p.confrontantes,
       };
       const upd = await geoUrbanoAPI.atualizar(p.id, payload);
       dirtyRef.current = false;
@@ -457,7 +496,8 @@ export default function GeoUrbanoWizard() {
       setProj((p) => ({ ...p, status: 'assinatura' }));
       const blo = r?.reconciliacao?.bloqueantes || 0;
       toast({ title: 'Documentos prontos', description: blo ? `${blo} alerta(s) bloqueante(s) na reconciliação` : 'Reconciliação OK' });
-      setStep(6);
+      const passos = (projRef.current?.tipo_servico === 'usucapiao') ? PASSOS_USUCAPIAO : PASSOS_REMEMBRAMENTO;
+      setStep(Math.max(0, passos.indexOf('Aprovação')));
     } catch (e) {
       toast({ title: 'Erro ao gerar', description: e?.response?.data?.detail || '', variant: 'destructive' });
     } finally { setGerando(false); }
@@ -465,14 +505,18 @@ export default function GeoUrbanoWizard() {
 
   if (loading || !proj) return <div className="py-24"><BrandSpinner label="Carregando…" /></div>;
 
-  // Usucapião tem fluxo próprio (modalidade/posse/provas/anuências/checklist) — wizard dedicado.
-  if (proj.tipo_servico === 'usucapiao') return <GeoUrbanoUsucapiaoWizard id={proj.id} />;
-
   const nb = proj.numero || 'geo-urbano';
   const uploads = proj.uploads || {};
   const isDesdobro = proj.tipo_servico === 'desdobro';
   const isRetificacao = proj.tipo_servico === 'retificacao';
+  const isUsucapiao = proj.tipo_servico === 'usucapiao';
   const lotes = proj.lotes_resultantes || [];
+  // Usucapião reusa as abas técnicas do Remembramento, em outra ordem, + bloco Jurídico ao fim.
+  const PASSOS = isUsucapiao ? PASSOS_USUCAPIAO : PASSOS_REMEMBRAMENTO;
+  const passoAtual = PASSOS[step] || PASSOS[0];
+  const docsGeraveis = isUsucapiao ? DOCS_GERAVEIS_USUCAPIAO : DOCS_GERAVEIS;
+  const servicoLabel = isUsucapiao ? 'Usucapião Extrajudicial'
+    : isDesdobro ? 'Desdobro' : isRetificacao ? 'Retificação' : 'Remembramento';
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
@@ -482,7 +526,7 @@ export default function GeoUrbanoWizard() {
         </button>
         <div className="flex-1">
           <h1 className="text-lg font-bold leading-tight" style={{ color: GREEN }}>{proj.denominacao_imovel || 'Projeto'}</h1>
-          <p className="text-xs text-gray-500">{nb} · Remembramento · Etapa {step + 1} de {PASSOS.length} · {proj.completude || 0}% preenchido</p>
+          <p className="text-xs text-gray-500">{nb} · {servicoLabel} · Etapa {step + 1} de {PASSOS.length} · {proj.completude || 0}% preenchido</p>
         </div>
       </header>
 
@@ -501,7 +545,7 @@ export default function GeoUrbanoWizard() {
       </div>
 
       {/* ─────────────────────────── Passo 1: Projeto ─────────────────────────── */}
-      {step === 0 && (
+      {passoAtual === 'Projeto' && (
         <div className="space-y-6">
           <section className="rounded-xl border bg-white p-5">
             <h2 className="font-semibold mb-3" style={{ color: GREEN }}>Identificação do imóvel resultante</h2>
@@ -536,6 +580,49 @@ export default function GeoUrbanoWizard() {
               <Field label="Perímetro (m)" type="number" value={proj.perimetro_m} onChange={(v) => upd({ perimetro_m: v })} />
             </div>
           </section>
+          {isUsucapiao && (
+            <section className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-5">
+              <h2 className="font-semibold mb-3" style={{ color: GREEN }}>Usucapião — modalidade & aferição</h2>
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div>
+                  <label className={lbl}>Modalidade</label>
+                  <select className={inp} value={proj.modalidade_usucapiao || 'extraordinaria'} onChange={(e) => upd({ modalidade_usucapiao: e.target.value })}>
+                    {MODALIDADES_USU.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className={lbl}>Situação registral</label>
+                  <select className={inp} value={proj.situacao_registral || 'nao_matriculado'} onChange={(e) => upd({ situacao_registral: e.target.value })}>
+                    {SITUACOES_USU.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                  </select>
+                </div>
+                {proj.modalidade_usucapiao === 'outra' && (
+                  <Field label="Fundamento legal (texto livre)" full value={proj.fundamento_legal} onChange={(v) => upd({ fundamento_legal: v })} />
+                )}
+                <Field label="Valor atribuído (R$)" type="number" value={proj.valor_atribuido} onChange={(v) => upd({ valor_atribuido: v === '' ? null : Number(v) })} />
+              </div>
+              {usuValid && (
+                <div className="grid sm:grid-cols-3 gap-3 text-xs mt-4">
+                  <div className={`rounded-lg p-2 border ${usuValid.prazo_ok ? 'border-emerald-300 bg-emerald-50' : 'border-amber-300 bg-amber-50'}`}>
+                    <div className="font-semibold">Tempo de posse</div>
+                    <div>{usuValid.anos_cobertos} ano(s){usuValid.prazo_exigido ? ` / ${usuValid.prazo_exigido} exigidos` : ''}</div>
+                    <div className={usuValid.prazo_ok ? 'text-emerald-700' : 'text-amber-700'}>{usuValid.prazo_ok ? '✓ prazo atingido' : `faltam ${usuValid.faltam_anos}`}</div>
+                  </div>
+                  <div className={`rounded-lg p-2 border ${usuValid.area_ok ? 'border-emerald-300 bg-emerald-50' : 'border-amber-300 bg-amber-50'}`}>
+                    <div className="font-semibold">Área</div>
+                    <div>{usuValid.area_m2 != null ? `${Number(usuValid.area_m2).toLocaleString('pt-BR')} m²` : '—'}{usuValid.area_max ? ` / máx ${usuValid.area_max}` : (usuValid.area_max_ha ? ` / máx ${usuValid.area_max_ha} ha` : ' · sem limite')}</div>
+                    <div className={usuValid.area_ok ? 'text-emerald-700' : 'text-amber-700'}>{usuValid.area_ok ? '✓ dentro do limite' : '⚠ excede'}</div>
+                  </div>
+                  <div className={`rounded-lg p-2 border ${usuValid.justo_titulo_ok ? 'border-emerald-300 bg-emerald-50' : 'border-amber-300 bg-amber-50'}`}>
+                    <div className="font-semibold">Justo título</div>
+                    <div>{usuValid.exige_justo_titulo ? 'exigido (ordinária)' : 'dispensado'}</div>
+                    <div className={usuValid.justo_titulo_ok ? 'text-emerald-700' : 'text-amber-700'}>{usuValid.justo_titulo_ok ? '✓ ok' : '⚠ na aba Jurídico'}</div>
+                  </div>
+                </div>
+              )}
+              {(usuValid?.avisos || []).map((a, i) => <p key={i} className="text-[11px] text-gray-500 mt-2">• {a}</p>)}
+            </section>
+          )}
           {isDesdobro && (
             <section className="rounded-xl border border-amber-200 bg-amber-50/40 p-5">
               <h2 className="font-semibold mb-3" style={{ color: GREEN }}>Desdobro — lote-mãe → N lotes</h2>
@@ -584,7 +671,7 @@ export default function GeoUrbanoWizard() {
       )}
 
       {/* ─────────────────────────── Passo 2: Uploads ─────────────────────────── */}
-      {step === 1 && (
+      {(passoAtual === 'Uploads' || passoAtual === 'Uploads & Extração') && (
         <>
         <div className="flex items-center justify-between mb-3 rounded-xl border border-emerald-200 bg-emerald-50/50 p-3">
           <span className="text-sm text-gray-600">Depois de enviar o Mapa de Remembramento e os BCIs/IPTU, extraia os dados automaticamente.</span>
@@ -629,7 +716,7 @@ export default function GeoUrbanoWizard() {
       )}
 
       {/* ───────────────────── Passo 3: Matrículas & BCI + reconcile ───────────── */}
-      {step === 2 && (
+      {(passoAtual === 'Matrículas & BCI' || passoAtual === 'Certidões & BCI') && (
         <div className="space-y-5">
           <div className="flex items-center justify-between">
             <h2 className="font-semibold" style={{ color: GREEN }}>Conferência — Matrículas, BCI e reconciliação</h2>
@@ -834,7 +921,7 @@ export default function GeoUrbanoWizard() {
       )}
 
       {/* ───────────────────────── Passo 4: Vértices & Mapa ─────────────────────── */}
-      {step === 3 && (
+      {passoAtual === 'Vértices & Mapa' && (
         <div className="grid md:grid-cols-2 gap-5">
           <div className="rounded-xl border bg-white p-4">
             <h2 className="font-semibold mb-2" style={{ color: GREEN }}>Poligonal resultante</h2>
@@ -889,7 +976,7 @@ export default function GeoUrbanoWizard() {
       )}
 
       {/* ─────────────────────────── Passo 5: Partes ─────────────────────────── */}
-      {step === 4 && (
+      {passoAtual === 'Partes' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="font-semibold" style={{ color: GREEN }}>Requerentes e representantes</h2>
@@ -936,7 +1023,7 @@ export default function GeoUrbanoWizard() {
       )}
 
       {/* ─────────────────────────── Passo 6: Geração ─────────────────────────── */}
-      {step === 5 && (
+      {(passoAtual === 'Geração' || passoAtual === 'Peças Técnicas') && (
         <div className="space-y-5">
         <div className="rounded-xl border bg-white p-5">
           <div className="flex items-center justify-between mb-2">
@@ -958,7 +1045,7 @@ export default function GeoUrbanoWizard() {
         <div className="rounded-xl border bg-white p-5 space-y-3">
           <h2 className="font-semibold" style={{ color: GREEN }}>Gerar documentos</h2>
           <div className="grid sm:grid-cols-2 gap-2">
-            {DOCS_GERAVEIS.map(([k, lab]) => (
+            {docsGeraveis.map(([k, lab]) => (
               <label key={k} className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={docsSel.includes(k)}
                   onChange={(e) => setDocsSel((s) => e.target.checked ? [...s, k] : s.filter((x) => x !== k))} />
@@ -987,7 +1074,7 @@ export default function GeoUrbanoWizard() {
             <div className="flex items-center gap-2">
               <select className={inp + ' max-w-[280px]'} value={previewTipo}
                 onChange={(e) => carregarPreview(e.target.value)}>
-                {DOCS_GERAVEIS.map(([k, lab]) => <option key={k} value={k}>{lab}</option>)}
+                {docsGeraveis.map(([k, lab]) => <option key={k} value={k}>{lab}</option>)}
               </select>
               <button onClick={() => carregarPreview()} disabled={previewBusy}
                 className="text-xs inline-flex items-center gap-1 px-2.5 py-2 rounded-lg text-white" style={{ background: GREEN }}>
@@ -1004,7 +1091,7 @@ export default function GeoUrbanoWizard() {
       )}
 
       {/* ─────────────────────── Passo 7: Aprovação & Assinaturas ──────────────── */}
-      {step === 6 && (
+      {passoAtual === 'Aprovação' && (
         <div className="space-y-5">
           <div className="flex items-center justify-between">
             <h2 className="font-semibold" style={{ color: GREEN }}>Aprovação & Assinaturas</h2>
@@ -1111,7 +1198,8 @@ export default function GeoUrbanoWizard() {
             )}
           </div>
 
-          {/* bloco Superintendência */}
+          {/* bloco Superintendência — não se aplica à usucapião (vai ao Cartório de RI) */}
+          {!isUsucapiao && (
           <div className="rounded-xl border bg-white p-4 space-y-3">
             <h3 className="text-sm font-semibold" style={{ color: GREEN }}>Superintendência de Habitação e Regularização Fundiária</h3>
             <p className="text-xs text-gray-500">
@@ -1169,16 +1257,17 @@ export default function GeoUrbanoWizard() {
               )}
             </div>
           </div>
+          )}
         </div>
       )}
 
       {/* ─────────────────────────── Passo 8: Entrega ─────────────────────────── */}
-      {step === 7 && (
+      {passoAtual === 'Entrega' && (
         <div className="space-y-3">
           <h2 className="font-semibold" style={{ color: GREEN }}>Entrega — documentos gerados</h2>
           {[
             ...((uploads.imagem_imovel || []).length ? [['capa', 'Capa do processo (Lupa Geo)']] : []),
-            ...DOCS_GERAVEIS,
+            ...docsGeraveis,
             ...(isRetificacao ? [['quadro_retificacao', 'Quadro de Retificação (de → para)']] : []),
           ].map(([k, lab]) => (
             <div key={k} className="rounded-xl border bg-white p-4 flex items-center justify-between">
@@ -1249,6 +1338,11 @@ export default function GeoUrbanoWizard() {
           }}
           onFechar={() => setAssinId(null)}
         />
+      )}
+
+      {/* Usucapião — BLOCO JURÍDICO (etapa da advogada): Posse/Provas/Partes/Anuências/Checklist */}
+      {passoAtual === 'Jurídico' && (
+        <JuridicoBloco id={id} proj={proj} upd={upd} reload={carregar} toast={toast} />
       )}
 
       {/* auditoria: etapa concluída (carimba data/hora) — em todas as etapas */}

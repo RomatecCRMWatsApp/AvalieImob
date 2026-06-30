@@ -21,6 +21,19 @@ PECAS_PROPRIETARIO = [
     ("requerimento_superintendencia", "Requerimento — Via Superintendência"),
     ("art_trt", "ART / TRT"),
 ]
+# Usucapião vai ao Cartório de RI (sem Superintendência); a Ata é do tabelião (não
+# entra na assinatura desenhada). O possuidor/advogado assina o Requerimento + ART/TRT.
+PECAS_PROPRIETARIO_USUCAPIAO = [
+    ("requerimento_usucapiao", "Requerimento de Usucapião"),
+    ("art_trt", "ART / TRT"),
+]
+
+
+def pecas_proprietario(projeto: dict):
+    """Peças que o proprietário/possuidor assina, conforme o tipo de serviço."""
+    if (projeto.get("tipo_servico") or "remembramento") == "usucapiao":
+        return PECAS_PROPRIETARIO_USUCAPIAO
+    return PECAS_PROPRIETARIO
 
 
 def _agora_iso():
@@ -118,7 +131,7 @@ async def _marcar_aprovacao(db, sessao: dict):
     if not proj:
         return
     docs = {d["doc"] for d in (sessao.get("documentos") or [])}
-    tem_req = bool(docs & {"requerimento_cartorio", "requerimento_superintendencia"})
+    tem_req = bool(docs & {"requerimento_cartorio", "requerimento_superintendencia", "requerimento_usucapiao"})
     tem_art = "art_trt" in docs
     aprov = dict(proj.get("aprovacao") or {})
     props = {p.get("parte_id"): dict(p) for p in (aprov.get("proprietarios") or [])}
