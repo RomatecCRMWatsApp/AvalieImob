@@ -600,8 +600,9 @@ def _bloco_advogado(projeto: dict, st, L):
     if not adv or not adv.get("nome"):
         return []
     oab = adv.get("oab") or ""
-    if oab and adv.get("uf_oab") and adv["uf_oab"] not in oab:
-        oab = f"OAB/{adv['uf_oab']} {oab}"
+    uf = adv.get("uf_oab") or ""
+    if oab and uf and not oab.upper().startswith(("OAB/", "OAB ")):
+        oab = f"OAB/{uf} {oab}"
     linhas = [(adv["nome"], True), (f"Advogado(a) — {oab}".rstrip(" —"), False)]
     b = [Spacer(1, 42),
          Table([[""]], colWidths=[L * 0.6], style=[("LINEABOVE", (0, 0), (-1, -1), 0.8, black)])]

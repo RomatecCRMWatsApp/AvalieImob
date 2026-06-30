@@ -810,29 +810,29 @@ async def _montar_dossie(db, doc, tema):
                  for a in anuentes if a.get("nome")]
         notifs = [await asyncio.to_thread(PDF.notificacao, doc, a, tema, logo)
                   for a in anuentes if a.get("nome")]
-        secoes = [
-            ("Requerimento de Usucapião (advogado)", [req]),
-            ("Ata Notarial de Posse", (await _ub(doc, "ata_notarial_assinada")) or [ata]),
-            ("Planta / Mapa Georreferenciado", await _ub(doc, "planta_usucapiao")),
-            ("Memorial Descritivo", [memorial]),
-            ("ART / TRT / RRT", await _ub(doc, "art_trt")),
-            ("Certidão da Matrícula / Negativa de Propriedade",
-             (await _ub(doc, "certidao_matricula")) + (await _ub(doc, "negativa_propriedade"))),
-            ("Declarações de Anuência", decls),
-            ("Certidões dos Confrontantes", await _ub(doc, "certidao_confrontante")),
-            ("Certidões Negativas (ônus / ações reais)", await _ub(doc, "certidao_negativa")),
-            ("IPTU / Valor Venal", await _ub(doc, "iptu_usucapiao")),
-            ("Provas de Posse (linha do tempo)", await _ub(doc, "prova_posse")),
-            ("Relatório Fotográfico", await _ub(doc, "foto_imovel")),
-            ("Documentos do Herdeiro (óbito / partilha)",
-             (await _ub(doc, "certidao_obito")) + (await _ub(doc, "formal_partilha"))),
-            ("Justo Título", await _ub(doc, "justo_titulo")),
-            ("Certidões dos Distribuidores", await _ub(doc, "certidao_distribuidor")),
-            ("Notificações / Edital", notifs + [edital]),
-            ("Documentos Pessoais do Requerente",
-             (await _ub(doc, "doc_requerente")) + (await _ub(doc, "certidao_estado_civil"))
-             + (await _ub(doc, "procuracao_oab"))),
-        ]
+        # Conteúdo por seção (chaves de DOSSIE.ORDEM_DOSSIE_USUCAPIAO) → a ordem e os
+        # títulos vêm da constante (fonte única; nunca diverge da ORDEM_DOSSIE_USUCAPIAO).
+        conteudo = {
+            "requerimento_usucapiao": [req],
+            "ata_notarial": (await _ub(doc, "ata_notarial_assinada")) or [ata],
+            "planta_mapa": await _ub(doc, "planta_usucapiao"),
+            "memorial_descritivo": [memorial],
+            "art_trt": await _ub(doc, "art_trt"),
+            "certidao_matricula": (await _ub(doc, "certidao_matricula")) + (await _ub(doc, "negativa_propriedade")),
+            "declaracoes_anuencia": decls,
+            "certidoes_confrontantes": await _ub(doc, "certidao_confrontante"),
+            "certidoes_negativas": await _ub(doc, "certidao_negativa"),
+            "iptu_valor_venal": await _ub(doc, "iptu_usucapiao"),
+            "provas_posse": await _ub(doc, "prova_posse"),
+            "relatorio_fotografico": await _ub(doc, "foto_imovel"),
+            "docs_herdeiro": (await _ub(doc, "certidao_obito")) + (await _ub(doc, "formal_partilha")),
+            "justo_titulo": await _ub(doc, "justo_titulo"),
+            "certidoes_distribuidores": await _ub(doc, "certidao_distribuidor"),
+            "notificacoes_edital": notifs + [edital],
+            "docs_requerente": (await _ub(doc, "doc_requerente")) + (await _ub(doc, "certidao_estado_civil"))
+                               + (await _ub(doc, "procuracao_oab")),
+        }
+        secoes = [(titulo, conteudo.get(key)) for key, titulo in DOSSIE.ORDEM_DOSSIE_USUCAPIAO]
         return await asyncio.to_thread(DOSSIE.gerar_dossie_ordenado, doc, secoes, capa_pdf)
 
     # ── Retificação (e demais): ORDEM_DOSSIE padrão (Quadro + DRL + uploads)
