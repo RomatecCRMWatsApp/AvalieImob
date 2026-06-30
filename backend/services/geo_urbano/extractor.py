@@ -248,41 +248,38 @@ def parse_mapa(pdf_bytes: bytes) -> dict:
 # ... segue confrontando com NOME ... : AZ e DIST m até o vértice Y, de coordenadas
 # ...". Distinto do parse_mapa (planilha tabular). Calibrado no Memorial da Lindaura.
 # ──────────────────────────────────────────────────────────────────────────────
-def parse_memorial_usucapiao(pdf_bytes: bytes) -> dict:
-    raw = _texto(pdf_bytes) or ""
-    if not raw:
-        try:
-            raw = ocr_pdf(pdf_bytes)
-        except Exception:  # noqa: BLE001
-            raw = ""
-    # o memorial quebra linha no meio de nomes/frases → normaliza o whitespace
-    t = re.sub(r"\s+", " ", raw)
+# Azimute tolerante a variações de extração (° pode vir como º/o; aspas '/′/"/″; espaços).
+_AZ = r"[0-9][0-9°ºoO'′`´\"″:\s.,\-]*?"
+
+
+def _parse_memorial_texto(t: str) -> dict:
+    """Roda os regexes sobre UM texto já normalizado (whitespace colapsado)."""
     out: dict = {}
     coords = {}
-    for m in re.finditer(r"v[ée]rtice\s+([\w.\-]+),\s+de\s+coordenadas\s+N\s+([\d.,]+)\s*m\s+e\s+E\s+([\d.,]+)", t):
+    for m in re.finditer(r"v[ée]rtice\s*([\w.\-]+)[,\s]*de\s*coordenadas?\s*N\s*([\d.,]+)\s*m?\s*e\s*E\s*([\d.,]+)", t):
         coords[m.group(1)] = (_num(m.group(2)), _num(m.group(3)))
-    ini = re.search(r"no v[ée]rtice\s+([\w.\-]+)", t)
+    ini = re.search(r"\bno\s*v[ée]rtice\s*([\w.\-]+)", t)
     de = ini.group(1) if ini else None
     pat = re.compile(
-        r"confrontando com\s+(?P<conf>.+?)(?:,\s*inscrito|,\s*com os seguintes)"
-        r"|(?P<az>\d{1,3}°\d{1,2}'[\d.,]+\")\s+e\s+(?P<dist>[\d.,]+)\s*m\s+at[ée] o v[ée]rtice\s+(?P<para>[\w.\-]+)")
+        r"confrontando\s*com\s*(?P<conf>.+?)(?:,?\s*inscrito|,?\s*com\s*os\s*seguintes)"
+        r"|(?P<az>" + _AZ + r")\s*e\s*(?P<dist>[\d.,]+)\s*m\s*at[ée]\s*o\s*v[ée]rtice\s*(?P<para>[\w.\-]+)")
     cur, ordem, verts = None, 0, []
     for m in pat.finditer(t):
         if m.group("conf"):
-            cur = m.group("conf").strip(" .")
+            cur = re.sub(r"\s+", " ", m.group("conf")).strip(" .,")
         elif de:
             ordem += 1
             cn, ce = coords.get(de, (None, None))
             verts.append({
                 "ordem": ordem, "de": de, "para": m.group("para"),
-                "coord_n": cn, "coord_e": ce, "azimute": m.group("az"),
+                "coord_n": cn, "coord_e": ce, "azimute": (m.group("az") or "").strip(),
                 "distancia_m": _num(m.group("dist")), "confrontante_lado": cur,
             })
             de = m.group("para")
     if verts:
         out["vertices"] = verts
-    am = re.search(r"rea\s*\(?\s*m.{0,4}\)?\s*:?\s*([\d.,]+)", t)
-    pm = re.search(r"er[íi]metro\s*\(?\s*m\)?\s*:?\s*([\d.,]+)", t)
+    am = re.search(r"[ÁA]rea\s*\(?\s*m.{0,4}\)?\s*:?\s*([\d.,]+)", t)
+    pm = re.search(r"[Pp]er[íi]metro\s*\(?\s*m\)?\s*:?\s*([\d.,]+)", t)
     if am:
         out["area_declarada_m2"] = _num(am.group(1))
     if pm:
@@ -297,6 +294,42 @@ def parse_memorial_usucapiao(pdf_bytes: bytes) -> dict:
         if ctrl:
             out["cmi_controle"] = ctrl.group(1)
     return {k: v for k, v in out.items() if v not in (None, "", [])}
+
+
+def _textos_candidatos(pdf_bytes: bytes) -> list:
+    """Várias extrações de texto (pdfplumber + PyMuPDF + OCR) — o layout/versão da lib
+    muda o espaçamento; tentamos todas e escolhemos a que rende mais vértices."""
+    cands = []
+    t1 = _texto(pdf_bytes) or ""
+    if t1.strip():
+        cands.append(t1)
+    try:
+        import fitz
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        t2 = "\n".join(p.get_text("text") for p in doc)
+        if t2.strip():
+            cands.append(t2)
+    except Exception:  # noqa: BLE001
+        pass
+    if not cands:
+        try:
+            cands.append(ocr_pdf(pdf_bytes))
+        except Exception:  # noqa: BLE001
+            pass
+    return cands
+
+
+def parse_memorial_usucapiao(pdf_bytes: bytes) -> dict:
+    """Memorial Descritivo em PROSA: tenta cada motor de texto e fica com o melhor."""
+    melhor = {}
+    for raw in _textos_candidatos(pdf_bytes):
+        t = re.sub(r"\s+", " ", raw)
+        r = _parse_memorial_texto(t)
+        if len(r.get("vertices") or []) > len(melhor.get("vertices") or []):
+            melhor = r
+        elif not melhor:
+            melhor = r
+    return melhor
 
 
 # ──────────────────────────────────────────────────────────────────────────────
