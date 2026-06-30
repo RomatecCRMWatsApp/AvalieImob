@@ -830,6 +830,8 @@ export const geoUrbanoAPI = {
       { params: { ...(anoRef ? { ano_ref: anoRef } : {}) } }).then((r) => r.data),
   usucapiaoChecklist: (id) =>
     api.get(`${GEOURB}/projetos/${id}/usucapiao/checklist`).then((r) => r.data),
+  usucapiaoSeedJuridico: (id) =>
+    api.post(`${GEOURB}/projetos/${id}/usucapiao/seed-juridico`).then((r) => r.data),
   usucapiaoAnuenciaPdf: (id, aid, modo, tema) =>
     api.get(`${GEOURB}/projetos/${id}/usucapiao/anuencia/${aid}`,
       { params: { ...(modo ? { modo } : {}), ...(tema ? { tema } : {}) }, responseType: 'blob' }).then((r) => r.data),
