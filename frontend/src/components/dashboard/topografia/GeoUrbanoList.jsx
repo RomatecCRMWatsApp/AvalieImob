@@ -13,8 +13,8 @@ export const TIPOS_SERVICO = [
   { value: 'remembramento', label: 'Remembramento (unificação de lotes)', pronto: true },
   { value: 'desdobro', label: 'Desdobro (fracionamento)', pronto: true },
   { value: 'retificacao', label: 'Retificação de área/registro', pronto: true },
+  { value: 'usucapiao', label: 'Usucapião extrajudicial', pronto: true },
   { value: 'reurb', label: 'REURB (regularização fundiária urbana)', pronto: false },
-  { value: 'usucapiao', label: 'Usucapião extrajudicial', pronto: false },
 ];
 
 const STATUS = {
@@ -69,6 +69,19 @@ export default function GeoUrbanoList() {
     try {
       const p = await geoUrbanoAPI.criarSeed();
       toast({ title: 'Projeto-teste J&G criado' });
+      nav(`/dashboard/topografia/geo-urbano/${p.id}`);
+    } catch (e) {
+      toast({ title: 'Erro ao criar projeto-teste', variant: 'destructive' });
+    } finally {
+      setCriando(false);
+    }
+  };
+
+  const criarSeedUsucapiao = async () => {
+    setCriando(true);
+    try {
+      const p = await geoUrbanoAPI.criarSeedUsucapiao();
+      toast({ title: 'Projeto-teste Usucapião (herdeiro) criado' });
       nav(`/dashboard/topografia/geo-urbano/${p.id}`);
     } catch (e) {
       toast({ title: 'Erro ao criar projeto-teste', variant: 'destructive' });
@@ -149,6 +162,13 @@ export default function GeoUrbanoList() {
             style={{ borderColor: GOLD, color: GREEN }}
           >
             <Sparkles className="w-3.5 h-3.5" /> Projeto-teste J&G
+          </button>
+          <button
+            onClick={criarSeedUsucapiao} disabled={criando}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border hover:bg-amber-50"
+            style={{ borderColor: GOLD, color: GREEN }}
+          >
+            <Sparkles className="w-3.5 h-3.5" /> Projeto-teste Usucapião
           </button>
         </div>
       </header>

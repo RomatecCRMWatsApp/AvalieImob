@@ -607,6 +607,9 @@ _PECA_LABEL = {
     "dossie": "Dossiê consolidado", "requerimento_cartorio": "Requerimento (Cartório de RI)",
     "requerimento_superintendencia": "Requerimento (Superintendência)",
     "memorial_descritivo": "Memorial Descritivo", "cadeia_dominical": "Cadeia Dominical",
+    # usucapião
+    "requerimento_usucapiao": "Requerimento de Usucapião", "ata_notarial": "Minuta da Ata Notarial",
+    "edital_usucapiao": "Edital de Usucapião",
 }
 
 

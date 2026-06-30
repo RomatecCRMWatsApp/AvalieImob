@@ -823,6 +823,16 @@ export const geoUrbanoAPI = {
   // Capa "Lupa Geo"
   capaPreview: (id) =>
     api.get(`${GEOURB}/projetos/${id}/capa/preview`, { responseType: 'blob' }).then((r) => r.data),
+  // Usucapião Extrajudicial
+  criarSeedUsucapiao: () => api.post(`${GEOURB}/projetos/seed-usucapiao`).then((r) => r.data),
+  usucapiaoValidacao: (id, anoRef) =>
+    api.get(`${GEOURB}/projetos/${id}/usucapiao/validacao`,
+      { params: { ...(anoRef ? { ano_ref: anoRef } : {}) } }).then((r) => r.data),
+  usucapiaoChecklist: (id) =>
+    api.get(`${GEOURB}/projetos/${id}/usucapiao/checklist`).then((r) => r.data),
+  usucapiaoAnuenciaPdf: (id, aid, modo, tema) =>
+    api.get(`${GEOURB}/projetos/${id}/usucapiao/anuencia/${aid}`,
+      { params: { ...(modo ? { modo } : {}), ...(tema ? { tema } : {}) }, responseType: 'blob' }).then((r) => r.data),
 };
 
 // Geo Urbano — assinatura pública do proprietário (página mobile, sem auth)
