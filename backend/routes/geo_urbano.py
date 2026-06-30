@@ -50,6 +50,11 @@ _TIPOS_UPLOAD = {
     "cnd_iptu", "guia_iptu", "comprovante_pagamento_iptu",
     "contrato_social", "doc_socio", "doc_proprietario", "cnh", "certidao_casamento",
     "art_trt", "art_trt_boleto", "comprovante_pagamento_trt",
+    # usucapião
+    "planta_usucapiao", "ata_notarial_assinada", "certidao_matricula", "negativa_propriedade",
+    "certidao_confrontante", "certidao_negativa", "iptu_usucapiao", "justo_titulo",
+    "certidao_obito", "formal_partilha", "certidao_estado_civil", "procuracao_oab",
+    "certidao_distribuidor", "prova_posse", "doc_requerente", "foto_imovel",
 }
 _MAX_UPLOAD = 30 * 1024 * 1024
 _PDF = "application/pdf"
@@ -72,7 +77,9 @@ _DOSSIE_UPLOADS = {
 }
 _DOCS_GERAVEIS = {"requerimento_cartorio", "requerimento_superintendencia",
                   "memorial_descritivo", "cadeia_dominical", "oficio_aprovacao",
-                  "quadro_retificacao"}
+                  "quadro_retificacao",
+                  # usucapião
+                  "requerimento_usucapiao", "ata_notarial", "edital_usucapiao"}
 
 
 def _agora():
@@ -202,7 +209,10 @@ async def atualizar_projeto(pid: str, body: AtualizarProjetoBody,
                  "matricula_mae_id", "area_mae_m2", "qtd_lotes_resultantes", "area_via_doacao_m2",
                  "lote_minimo_municipal_m2", "testada_minima_m",
                  # retificação
-                 "retificacao_tipo")
+                 "retificacao_tipo",
+                 # usucapião
+                 "modalidade_usucapiao", "fundamento_legal", "valor_atribuido",
+                 "situacao_registral", "matricula_usucapienda_id")
     for c in escalares:
         if c in dados:
             sets[c] = dados[c]
@@ -213,13 +223,14 @@ async def atualizar_projeto(pid: str, body: AtualizarProjetoBody,
     for campo in ("etapas_concluidas", "etapas_concluidas_em"):
         if campo in dados and isinstance(dados[campo], dict):
             sets[campo] = dados[campo]
-    for grupo in ("cartorio", "superintendencia", "responsavel_tecnico"):
+    for grupo in ("cartorio", "superintendencia", "responsavel_tecnico", "posse"):
         if grupo in dados and isinstance(dados[grupo], dict):
             atual = dict(doc.get(grupo) or {})
             atual.update(dados[grupo])
             sets[grupo] = atual
     for grupo in ("matriculas", "bci", "vertices", "partes", "iptu", "lotes_resultantes",
-                  "vertices_atual", "confrontantes"):
+                  "vertices_atual", "confrontantes",
+                  "soma_posses", "provas_posse", "anuentes", "checklist"):
         if grupo in dados and dados[grupo] is not None:
             sets[grupo] = dados[grupo]
             editados[grupo] = True
@@ -407,6 +418,52 @@ async def retificacao_confirmar(pid: str, uid: str = Depends(get_active_subscrib
         {"id": pid, "user_id": uid},
         {"$set": {"retificacao_analise": analise, "updated_at": _agora().isoformat()}})
     return analise
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Usucapião Extrajudicial — validação, checklist, anuências, seed
+# ──────────────────────────────────────────────────────────────────────────────
+@router.get("/projetos/{pid}/usucapiao/validacao")
+async def usucapiao_validacao(pid: str, ano_ref: int = Query(None),
+                              uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    from services.geo_urbano import usucapiao as USU
+    doc = await _get(db, pid, uid)
+    return USU.validar_posse(doc, ano_ref)
+
+
+@router.get("/projetos/{pid}/usucapiao/checklist")
+async def usucapiao_checklist(pid: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    from services.geo_urbano import usucapiao as USU
+    doc = await _get(db, pid, uid)
+    return {"checklist": USU.checklist_para(doc), "anuentes": USU.anuentes_de(doc)}
+
+
+@router.get("/projetos/{pid}/usucapiao/anuencia/{aid}")
+async def usucapiao_anuencia_pdf(pid: str, aid: str, modo: str = Query("declaracao"),
+                                 tema: str = Query(None),
+                                 uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    from services.geo_urbano import usucapiao as USU
+    doc = await _get(db, pid, uid)
+    await _injetar_logo(db, uid, doc)
+    logo = doc.get("_brand_logo_bytes")
+    tema = tema or doc.get("tema") or "prime_i"
+    anuente = next((a for a in USU.anuentes_de(doc) if a.get("id") == aid or a.get("nome") == aid), None)
+    if not anuente:
+        raise HTTPException(status_code=404, detail="Anuente não encontrado.")
+    fn = PDF.notificacao if modo == "notificacao" else PDF.declaracao_anuencia
+    data = await asyncio.to_thread(fn, doc, anuente, tema, logo)
+    nome = f"{modo}_{(anuente.get('nome') or aid)}.pdf"
+    return Response(content=data, media_type=_PDF,
+                    headers={"Content-Disposition": f'inline; filename="{nome}"'})
+
+
+@router.post("/projetos/seed-usucapiao")
+async def criar_seed_usucapiao(uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    from services.geo_urbano.seed import build_seed_usucapiao
+    doc = build_seed_usucapiao(uid)
+    doc["numero"] = await _numero(db)
+    await db.geo_urbano_projetos.insert_one(doc)
+    return serialize_doc(doc)
 
 
 @router.get("/projetos/{pid}/drls")
@@ -736,6 +793,45 @@ async def _montar_dossie(db, doc, tema):
             ("Documentos do Proprietário",
              (await _ub(doc, "contrato_social")) + (await _ub(doc, "doc_socio"))
              + (await _ub(doc, "doc_proprietario")) + (await _ub(doc, "cnh")) + (await _ub(doc, "certidao_casamento"))),
+        ]
+        return await asyncio.to_thread(DOSSIE.gerar_dossie_ordenado, doc, secoes, capa_pdf)
+
+    # ── Usucapião Extrajudicial: ordem de protocolo do art. 216-A LRP
+    if tipo == "usucapiao":
+        from services.geo_urbano import usucapiao as USU
+        req = assinadas.get("requerimento_usucapiao") \
+            or await asyncio.to_thread(PDF.gerar_pdf, "requerimento_usucapiao", doc, tema, logo)
+        memorial = assinadas.get("memorial_descritivo") \
+            or await asyncio.to_thread(PDF.gerar_pdf, "memorial_descritivo", doc, tema, logo)
+        ata = await asyncio.to_thread(PDF.gerar_pdf, "ata_notarial", doc, tema, logo)
+        edital = await asyncio.to_thread(PDF.gerar_pdf, "edital_usucapiao", doc, tema, logo)
+        anuentes = USU.anuentes_de(doc)
+        decls = [await asyncio.to_thread(PDF.declaracao_anuencia, doc, a, tema, logo)
+                 for a in anuentes if a.get("nome")]
+        notifs = [await asyncio.to_thread(PDF.notificacao, doc, a, tema, logo)
+                  for a in anuentes if a.get("nome")]
+        secoes = [
+            ("Requerimento de Usucapião (advogado)", [req]),
+            ("Ata Notarial de Posse", (await _ub(doc, "ata_notarial_assinada")) or [ata]),
+            ("Planta / Mapa Georreferenciado", await _ub(doc, "planta_usucapiao")),
+            ("Memorial Descritivo", [memorial]),
+            ("ART / TRT / RRT", await _ub(doc, "art_trt")),
+            ("Certidão da Matrícula / Negativa de Propriedade",
+             (await _ub(doc, "certidao_matricula")) + (await _ub(doc, "negativa_propriedade"))),
+            ("Declarações de Anuência", decls),
+            ("Certidões dos Confrontantes", await _ub(doc, "certidao_confrontante")),
+            ("Certidões Negativas (ônus / ações reais)", await _ub(doc, "certidao_negativa")),
+            ("IPTU / Valor Venal", await _ub(doc, "iptu_usucapiao")),
+            ("Provas de Posse (linha do tempo)", await _ub(doc, "prova_posse")),
+            ("Relatório Fotográfico", await _ub(doc, "foto_imovel")),
+            ("Documentos do Herdeiro (óbito / partilha)",
+             (await _ub(doc, "certidao_obito")) + (await _ub(doc, "formal_partilha"))),
+            ("Justo Título", await _ub(doc, "justo_titulo")),
+            ("Certidões dos Distribuidores", await _ub(doc, "certidao_distribuidor")),
+            ("Notificações / Edital", notifs + [edital]),
+            ("Documentos Pessoais do Requerente",
+             (await _ub(doc, "doc_requerente")) + (await _ub(doc, "certidao_estado_civil"))
+             + (await _ub(doc, "procuracao_oab"))),
         ]
         return await asyncio.to_thread(DOSSIE.gerar_dossie_ordenado, doc, secoes, capa_pdf)
 
