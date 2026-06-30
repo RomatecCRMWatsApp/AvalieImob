@@ -606,11 +606,17 @@ async def _firma_tecnico_bytes(db, uid: str):
 
 
 async def _injetar_assinatura_tecnico(db, uid: str, doc: dict):
-    """Carrega a firma gráfica do RT em doc['_tecnico_assinatura_bytes'] — carimbada no
-    Memorial ao gerar/enviar (assinatura_tecnico_b64, fallback assinatura_visual_b64)."""
+    """Carrega a firma gráfica do RT em doc['_tecnico_assinatura_bytes'] + a posição/dimensão
+    em doc['_tecnico_assinatura_pos'] — carimbada no Memorial ao gerar/enviar."""
     firma = await _firma_tecnico_bytes(db, uid)
     if firma:
         doc["_tecnico_assinatura_bytes"] = firma
+    try:
+        perfil = await db.perfil_avaliador.find_one({"user_id": uid}) or {}
+        if perfil.get("assinatura_tecnico_pos"):
+            doc["_tecnico_assinatura_pos"] = perfil["assinatura_tecnico_pos"]
+    except Exception:  # noqa: BLE001
+        pass
 
 
 @router.get("/projetos/{pid}/documentos/{tipo}")

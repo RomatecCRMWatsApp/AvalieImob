@@ -128,6 +128,32 @@ async def set_assinatura_tecnico(body: dict, uid: str = Depends(get_current_user
     return serialize_doc(doc)
 
 
+@router.put("/perfil-avaliador/assinatura-tecnico-pos")
+async def set_assinatura_tecnico_pos(body: dict, uid: str = Depends(get_current_user_id), db=Depends(get_db)):
+    """Posição/dimensão da firma gráfica do RT no Memorial: {largura, align, dx, dy}.
+    largura em pt (60–320); align ∈ left|center|right; dx/dy deslocamento fino em pt."""
+    b = body or {}
+    try:
+        largura = max(60.0, min(320.0, float(b.get("largura") or 150)))
+    except (TypeError, ValueError):
+        largura = 150.0
+    align = b.get("align") if b.get("align") in ("left", "center", "right") else "left"
+
+    def _f(v, lo, hi):
+        try:
+            return max(lo, min(hi, float(v or 0)))
+        except (TypeError, ValueError):
+            return 0.0
+    pos = {"largura": largura, "align": align, "dx": _f(b.get("dx"), -200, 200), "dy": _f(b.get("dy"), -40, 80)}
+    await db.perfil_avaliador.update_one(
+        {"user_id": uid},
+        {"$set": {"assinatura_tecnico_pos": pos, "updated_at": datetime.utcnow()},
+         "$setOnInsert": {"id": str(uuid.uuid4()), "created_at": datetime.utcnow()}},
+        upsert=True,
+    )
+    return serialize_doc(await db.perfil_avaliador.find_one({"user_id": uid}))
+
+
 @router.put("/perfil-avaliador/certidao-regularidade")
 async def set_certidao_regularidade(body: CertidaoRegularidadeBody,
                                     uid: str = Depends(get_current_user_id), db=Depends(get_db)):

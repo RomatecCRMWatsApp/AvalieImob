@@ -174,6 +174,8 @@ export default function GeoUrbanoWizard() {
   const [previewBusy, setPreviewBusy] = useState(false);
   const previewUrlRef = useRef('');
   const [firmaTecnico, setFirmaTecnico] = useState('');   // b64 da assinatura gráfica do RT
+  const [firmaPos, setFirmaPos] = useState({ largura: 150, align: 'left', dx: 0, dy: 0 });
+  const firmaPosDebounce = useRef(null);
   const [firmaBusy, setFirmaBusy] = useState(false);
   const [cnsBusy, setCnsBusy] = useState(false);
   const [assinId, setAssinId] = useState(null);
@@ -214,8 +216,23 @@ export default function GeoUrbanoWizard() {
   }, [id, nav, toast]);
   useEffect(() => { carregar(); }, [carregar]);
   useEffect(() => {
-    perfilAPI.get().then((p) => setFirmaTecnico(p?.assinatura_tecnico_b64 || p?.assinatura_visual_b64 || '')).catch(() => {});
+    perfilAPI.get().then((p) => {
+      setFirmaTecnico(p?.assinatura_tecnico_b64 || p?.assinatura_visual_b64 || '');
+      const pos = p?.assinatura_tecnico_pos;
+      if (pos) setFirmaPos({ largura: pos.largura ?? 150, align: pos.align || 'left', dx: pos.dx ?? 0, dy: pos.dy ?? 0 });
+    }).catch(() => {});
   }, []);
+  // atualiza a posição/dimensão da firma + salva no perfil (debounce)
+  const updFirmaPos = (partial) => {
+    setFirmaPos((cur) => {
+      const next = { ...cur, ...partial };
+      if (firmaPosDebounce.current) clearTimeout(firmaPosDebounce.current);
+      firmaPosDebounce.current = setTimeout(() => {
+        perfilAPI.setAssinaturaTecnicoPos(next).catch(() => {});
+      }, 700);
+      return next;
+    });
+  };
   const onUploadFirma = (file) => {
     if (!file) return;
     if (file.type !== 'image/png') { toast({ title: 'Envie um PNG com fundo transparente', variant: 'destructive' }); return; }
@@ -1158,6 +1175,60 @@ export default function GeoUrbanoWizard() {
                 {firmaTecnico && <button onClick={removerFirma} disabled={firmaBusy} className="text-xs text-red-600 hover:underline">Remover</button>}
               </div>
             </div>
+
+            {/* posicionamento + dimensionamento da firma no Memorial */}
+            {firmaTecnico && (
+              <div className="grid sm:grid-cols-2 gap-5 pt-3 border-t">
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 flex justify-between">
+                      <span>Largura (tamanho)</span><span className="font-mono">{Math.round(firmaPos.largura)} pt</span>
+                    </label>
+                    <input type="range" min={60} max={320} step={2} value={firmaPos.largura}
+                      onChange={(e) => updFirmaPos({ largura: Number(e.target.value) })} className="w-full accent-emerald-700" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 block mb-1">Alinhamento</label>
+                    <div className="inline-flex rounded-lg border overflow-hidden text-xs">
+                      {[['left', 'Esquerda'], ['center', 'Centro'], ['right', 'Direita']].map(([v, l]) => (
+                        <button key={v} onClick={() => updFirmaPos({ align: v })}
+                          className={`px-3 py-1.5 border-r last:border-r-0 ${firmaPos.align === v ? 'text-white' : 'bg-white hover:bg-gray-50'}`}
+                          style={firmaPos.align === v ? { background: GREEN } : {}}>{l}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 block mb-1">Ajuste fino (posição)</label>
+                    <div className="inline-grid grid-cols-3 gap-1 text-xs">
+                      <span /><button onClick={() => updFirmaPos({ dy: Math.min(40, firmaPos.dy + 2) })} className="px-2 py-1 border rounded hover:bg-gray-50">↑</button><span />
+                      <button onClick={() => updFirmaPos({ dx: Math.max(-200, firmaPos.dx - 4) })} className="px-2 py-1 border rounded hover:bg-gray-50">←</button>
+                      <button onClick={() => updFirmaPos({ dx: 0, dy: 0 })} className="px-2 py-1 border rounded hover:bg-gray-50 text-[10px]">zerar</button>
+                      <button onClick={() => updFirmaPos({ dx: Math.min(200, firmaPos.dx + 4) })} className="px-2 py-1 border rounded hover:bg-gray-50">→</button>
+                      <span /><button onClick={() => updFirmaPos({ dy: Math.max(0, firmaPos.dy - 2) })} className="px-2 py-1 border rounded hover:bg-gray-50">↓</button><span />
+                    </div>
+                    <p className="text-[10px] text-gray-400 mt-1">← → desloca · ↑ ↓ flutua acima da linha (dx {Math.round(firmaPos.dx)} · dy {Math.round(firmaPos.dy)} pt)</p>
+                  </div>
+                </div>
+                {/* prévia: como sai no fim do Memorial */}
+                <div>
+                  <div className="text-xs font-medium text-gray-600 mb-1">Prévia (bloco do RT no Memorial)</div>
+                  <div className="border rounded-lg bg-white px-4 pt-3 pb-2" style={{ width: 360 }}>
+                    <div style={{ position: 'relative', height: 70,
+                      textAlign: firmaPos.align === 'center' ? 'center' : firmaPos.align === 'right' ? 'right' : 'left' }}>
+                      <img src={`data:image/png;base64,${firmaTecnico}`} alt="firma"
+                        style={{ display: 'inline-block', width: firmaPos.largura * 0.78, maxHeight: 70, objectFit: 'contain',
+                          position: 'absolute', bottom: firmaPos.dy * 0.78,
+                          left: firmaPos.align !== 'right' ? firmaPos.dx * 0.78 : undefined,
+                          right: firmaPos.align === 'right' ? Math.abs(firmaPos.dx) * 0.78 : undefined,
+                          ...(firmaPos.align === 'center' ? { left: '50%', transform: `translateX(calc(-50% + ${firmaPos.dx * 0.78}px))` } : {}) }} />
+                    </div>
+                    <div style={{ width: '60%', borderTop: '1px solid #111', marginTop: 2 }} />
+                    <div className="text-[11px] font-semibold mt-0.5">{proj.responsavel_tecnico?.nome || 'José Romário Pinto Bezerra'}</div>
+                    <div className="text-[10px] text-gray-500">Responsável Técnico — {proj.responsavel_tecnico?.conselho || 'CFT/MA'}</div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* bloco Técnico — assinatura ICP */}
