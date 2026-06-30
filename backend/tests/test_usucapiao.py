@@ -193,3 +193,17 @@ def test_requerimento_usucapiao_render():
     assert "1.238" in txt                      # fundamento da extraordinária
     assert "Maria das Dores" in txt            # possuidor somado
     assert "OAB/MA 12345" in txt               # advogado
+
+
+def test_ata_notarial_render():
+    data = GPDF.gerar_pdf("ata_notarial", _proj_usucapiao(), "prime_i")
+    assert _paginas(data) >= 1
+    txt = _pdf_text(data).upper()
+    assert "ATA NOTARIAL" in txt
+    assert "POSSE" in txt
+
+
+def test_edital_usucapiao_render():
+    data = GPDF.gerar_pdf("edital_usucapiao", _proj_usucapiao(), "prime_i")
+    assert _paginas(data) >= 1
+    assert "EDITAL" in _pdf_text(data).upper()

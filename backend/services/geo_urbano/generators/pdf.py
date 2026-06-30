@@ -675,6 +675,63 @@ def requerimento_usucapiao(projeto: dict, tema: str, logo_bytes=None) -> bytes:
     return _build(story, cfg, "Requerimento de Usucapião", logo_bytes)
 
 
+def ata_notarial(projeto: dict, tema: str, logo_bytes=None) -> bytes:
+    cfg = GP._cfg(tema)
+    st = GP._styles(cfg)
+    L = _largura()
+    story = GP._titulo("MINUTA DE ATA NOTARIAL DE POSSE", cfg, st, L)
+    story += GP._paras(
+        "SAIBAM quantos esta virem que, perante o Tabelionato de Notas da circunscrição do imóvel, "
+        "comparece o requerente abaixo qualificado, a fim de que seja lavrada ATA NOTARIAL atestando, "
+        "com fé pública, o tempo, a natureza e as condições da posse exercida (art. 216-A da Lei nº "
+        "6.015/1973; Provimento CNJ nº 149/2023).", st["corpo"])
+    story += GP._paras(TX.bloco_requerentes(projeto), st["corpo"])
+    posse = projeto.get("posse") or {}
+    story += GP._secao("DA POSSE DECLARADA", cfg, st, L)
+    story += GP._paras(
+        f"O requerente declara exercer posse {posse.get('natureza') or 'mansa, pacífica e ininterrupta'} "
+        f"sobre o imóvel denominado {projeto.get('denominacao_imovel') or '—'}, situado em "
+        f"{projeto.get('endereco') or '—'}, {projeto.get('municipio') or ''}/{projeto.get('uf') or ''}, "
+        f"desde {posse.get('inicio') or '—'}. {TX.soma_posses_texto(projeto)}", st["corpo"])
+    testemunhas = [p for p in (projeto.get("partes") or []) if p.get("papel") == "testemunha"]
+    if testemunhas:
+        story += GP._secao("DAS TESTEMUNHAS", cfg, st, L)
+        story += GP._paras("Ouvidas as testemunhas: "
+                           + "; ".join(t.get("nome") or "—" for t in testemunhas) + ".", st["corpo"])
+    story += GP._paras("Documentos apresentados e demais declarações são consignados pelo Tabelião no "
+                       "ato da lavratura. Esta minuta serve de subsídio ao Tabelionato de Notas.", st["small"])
+    story.append(Spacer(1, 6))
+    story.append(Paragraph(GP._esc(_data_extenso(projeto.get("municipio") or "Açailândia",
+                                                 projeto.get("uf") or "MA")), st["corpo_c"]))
+    story += _bloco_assinaturas_partes(projeto, st, L)
+    return _build(story, cfg, "Minuta de Ata Notarial", logo_bytes)
+
+
+def edital_usucapiao(projeto: dict, tema: str, logo_bytes=None) -> bytes:
+    cfg = GP._cfg(tema)
+    st = GP._styles(cfg)
+    L = _largura()
+    info = USU.MODALIDADES.get(projeto.get("modalidade_usucapiao") or "extraordinaria") or {}
+    story = GP._titulo("EDITAL DE RECONHECIMENTO EXTRAJUDICIAL DE USUCAPIÃO", cfg, st, L)
+    story += GP._paras(
+        "O Oficial de Registro de Imóveis FAZ SABER, para conhecimento de eventuais interessados "
+        "incertos e não sabidos, que tramita pedido de reconhecimento extrajudicial de usucapião "
+        f"(art. 216-A da Lei nº 6.015/1973; Provimento CNJ nº 149/2023), na modalidade "
+        f"{info.get('label') or '—'} ({USU.fundamento_legal(projeto)}), referente ao imóvel "
+        f"{projeto.get('denominacao_imovel') or '—'}, situado em {projeto.get('endereco') or '—'}, "
+        f"{projeto.get('municipio') or ''}/{projeto.get('uf') or ''}, com área de "
+        f"{TX.m2(projeto.get('area_declarada_m2'))}, requerido por "
+        f"{TX.bloco_requerentes(projeto).rstrip(', ')}.", st["corpo"])
+    story += GP._paras(
+        "Ficam INTIMADOS eventuais interessados a se manifestarem no prazo de 15 (quinze) dias. "
+        "Decorrido o prazo sem impugnação fundamentada, presumir-se-á a concordância (art. 216-A, "
+        "§ 4º, da Lei nº 6.015/1973, com a redação da Lei nº 13.465/2017).", st["corpo"])
+    story.append(Spacer(1, 6))
+    story.append(Paragraph(GP._esc(_data_extenso(projeto.get("municipio") or "Açailândia",
+                                                 projeto.get("uf") or "MA")), st["corpo_c"]))
+    return _build(story, cfg, "Edital de Usucapião", logo_bytes)
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Dispatcher
 # ──────────────────────────────────────────────────────────────────────────────
@@ -693,4 +750,8 @@ def gerar_pdf(tipo: str, projeto: dict, tema: str = "prime_i", logo_bytes=None) 
         return oficio_aprovacao(projeto, tema, logo_bytes)
     if tipo == "requerimento_usucapiao":
         return requerimento_usucapiao(projeto, tema, logo_bytes)
+    if tipo == "ata_notarial":
+        return ata_notarial(projeto, tema, logo_bytes)
+    if tipo == "edital_usucapiao":
+        return edital_usucapiao(projeto, tema, logo_bytes)
     raise ValueError(f"tipo de documento desconhecido: {tipo}")
