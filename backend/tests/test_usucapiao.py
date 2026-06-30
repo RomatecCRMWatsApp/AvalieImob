@@ -152,3 +152,44 @@ def test_anuentes_de_funde_confrontantes_e_titular():
     assert "confrontante" in papeis and "titular_tabular" in papeis
     tit = next(a for a in out if a["papel"] == "titular_tabular")
     assert tit["nome"] == "Antigo Dono"
+
+
+from services.geo_urbano.generators import pdf as GPDF
+
+
+def _pdf_text(data: bytes) -> str:
+    return "\n".join((p.extract_text() or "") for p in PdfReader(io.BytesIO(data)).pages)
+
+
+def _proj_usucapiao():
+    return {
+        "denominacao_imovel": "Lote 12 — Quadra 8 — Vila São Francisco",
+        "tipo_servico": "usucapiao", "modalidade_usucapiao": "extraordinaria",
+        "situacao_registral": "nao_matriculado", "municipio": "Açailândia", "uf": "MA",
+        "tema": "prime_i", "endereco": "Rua Safira, nº 147, Vila São Francisco",
+        "area_declarada_m2": 360.0, "valor_atribuido": 85000.0,
+        "posse": {"inicio": "2008", "origem": "ocupação para moradia",
+                  "natureza": "mansa, pacífica, ininterrupta, com animus domini"},
+        "soma_posses": [
+            {"possuidor_nome": "Maria das Dores", "vinculo": "de_cujus", "inicio": "2008", "fim": "2018"},
+            {"possuidor_nome": "João Filho", "vinculo": "proprio", "inicio": "2018", "fim": "atual"}],
+        "partes": [
+            {"papel": "requerente", "tipo_pessoa": "fisica", "nome": "João Filho",
+             "cpf": "012.345.678-90", "estado_civil": "solteiro", "profissao": "lavrador"},
+            {"papel": "advogado", "tipo_pessoa": "fisica", "nome": "Dra. Ana Souza",
+             "oab": "OAB/MA 12345"}],
+        "confrontantes": [
+            {"confrontante": "Vizinho Norte", "lado": "fundo", "tipo": "particular", "medida_m": 12.0}],
+        "cartorio": {"nome": "Cartório do 1º Ofício Extrajudicial da Comarca de Açailândia/MA",
+                     "endereco": "Rua Bom Jesus, 236 — Centro — Açailândia/MA"},
+    }
+
+
+def test_requerimento_usucapiao_render():
+    data = GPDF.gerar_pdf("requerimento_usucapiao", _proj_usucapiao(), "prime_i")
+    assert _paginas(data) >= 1
+    txt = _pdf_text(data)
+    assert "USUCAPIÃO" in txt.upper()
+    assert "1.238" in txt                      # fundamento da extraordinária
+    assert "Maria das Dores" in txt            # possuidor somado
+    assert "OAB/MA 12345" in txt               # advogado

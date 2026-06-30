@@ -19,6 +19,7 @@ from pdf.templates.resilient import ResilientSimpleDocTemplate
 from services.georef.generators import pdf as GP   # blocos genéricos reusados
 from services.geo_urbano.generators import textos as TX
 from services.geo_urbano.generators import croqui as CROQUI
+from services.geo_urbano import usucapiao as USU
 
 MARGIN = GP.MARGIN
 _MESES = ["", "janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho",
@@ -244,16 +245,18 @@ def _ficha_compacta(pares, cfg, st, L, cols=4):
 
 
 def _partes_assinatura(projeto: dict):
-    """Linhas de assinatura das partes (requerente PJ → representante; ou PF)."""
+    """Linhas de assinatura das partes (requerente PJ → representante; ou PF + cônjuge)."""
+    _LABEL = {"requerente": "Requerente", "representante": "Representante legal",
+              "socio": "Sócio", "conjuge": "Cônjuge anuente"}
     out = []
     for p in projeto.get("partes") or []:
         if p.get("papel") == "requerente" and p.get("tipo_pessoa") == "juridica":
             continue  # PJ assina via representante
+        if p.get("papel") not in _LABEL:   # advogado/herdeiro/testemunha/titular: bloco próprio
+            continue
         nome = p.get("nome") or p.get("razao_social") or ""
-        papel = {"requerente": "Requerente", "representante": "Representante legal",
-                 "socio": "Sócio", "conjuge": "Cônjuge anuente"}.get(p.get("papel"), "Requerente")
         if nome:
-            out.append((nome, papel))
+            out.append((nome, _LABEL[p.get("papel")]))
     if not out:
         out = [("", "Requerente")]
     return out
@@ -588,6 +591,91 @@ def confrontantes_para_drl(projeto: dict) -> list:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Usucapião Extrajudicial — Requerimento, Ata Notarial, Anuência, Notificação, Edital
+# ──────────────────────────────────────────────────────────────────────────────
+def _bloco_advogado(projeto: dict, st, L):
+    """Bloco de assinatura do ADVOGADO (com OAB) — exigido no usucapião (art. 216-A)."""
+    from reportlab.platypus import KeepTogether
+    adv = next((p for p in (projeto.get("partes") or []) if p.get("papel") == "advogado"), None)
+    if not adv or not adv.get("nome"):
+        return []
+    oab = adv.get("oab") or ""
+    if oab and adv.get("uf_oab") and adv["uf_oab"] not in oab:
+        oab = f"OAB/{adv['uf_oab']} {oab}"
+    linhas = [(adv["nome"], True), (f"Advogado(a) — {oab}".rstrip(" —"), False)]
+    b = [Spacer(1, 42),
+         Table([[""]], colWidths=[L * 0.6], style=[("LINEABOVE", (0, 0), (-1, -1), 0.8, black)])]
+    for txt, bold in linhas:
+        b.append(Paragraph(f"<b>{GP._esc(txt)}</b>" if bold else GP._esc(txt), st["assina"]))
+    b.append(Spacer(1, 14))
+    return [KeepTogether(b)]
+
+
+def requerimento_usucapiao(projeto: dict, tema: str, logo_bytes=None) -> bytes:
+    cfg = GP._cfg(tema)
+    st = GP._styles(cfg)
+    L = _largura()
+    d = projeto.get("cartorio") or {}
+    story = []
+    for ln in [f"Ao Ilustríssimo Senhor Oficial do {d.get('nome') or 'Cartório de Registro de Imóveis'}",
+               d.get("endereco") or ""]:
+        if ln:
+            story.append(Paragraph(GP._esc(ln), st["corpo"]))
+    story.append(Spacer(1, 16))
+    story += GP._titulo("REQUERIMENTO DE USUCAPIÃO EXTRAJUDICIAL", cfg, st, L)
+
+    info = USU.MODALIDADES.get(projeto.get("modalidade_usucapiao") or "extraordinaria") or {}
+    fund = USU.fundamento_legal(projeto)
+    intro = (TX.bloco_requerentes(projeto)
+             + "por seu advogado adiante assinado (art. 216-A da Lei nº 6.015/1973), vem REQUERER "
+             + f"o RECONHECIMENTO EXTRAJUDICIAL DE USUCAPIÃO, na modalidade {info.get('label') or '—'} "
+             + f"({fund}), do imóvel adiante descrito:")
+    story += GP._paras(intro, st["corpo"])
+
+    # Descrição do imóvel (matrícula ou pedido de abertura de matrícula).
+    sit = projeto.get("situacao_registral") or "nao_matriculado"
+    mats = projeto.get("matriculas") or []
+    if sit == "nao_matriculado" or not mats:
+        desc = (f"Imóvel urbano denominado {projeto.get('denominacao_imovel') or '—'}, situado em "
+                f"{projeto.get('endereco') or '—'}, no Município de {projeto.get('municipio') or ''}/"
+                f"{projeto.get('uf') or ''}, com área de {TX.m2(projeto.get('area_declarada_m2'))}, "
+                f"SEM REGISTRO ANTERIOR, requerendo-se a ABERTURA DE MATRÍCULA.")
+    else:
+        desc = TX.transcricao_matricula(mats[0], projeto.get("municipio") or "", projeto.get("uf") or "")
+    story += GP._secao("DO IMÓVEL", cfg, st, L)
+    story += GP._paras(desc, st["corpo"])
+
+    # Da posse + soma de posses.
+    posse = projeto.get("posse") or {}
+    pcorpo = (f"O requerente exerce posse {posse.get('natureza') or 'mansa, pacífica e ininterrupta'} "
+              f"sobre o imóvel desde {posse.get('inicio') or '—'}"
+              + (f", com origem em {posse['origem']}" if posse.get("origem") else "") + ". "
+              + TX.soma_posses_texto(projeto))
+    if posse.get("benfeitorias"):
+        pcorpo += (f" Existem as seguintes benfeitorias: {posse['benfeitorias']}"
+                   + (f" (desde {posse['benfeitorias_data']})" if posse.get("benfeitorias_data") else "") + ".")
+    story += GP._secao("DA POSSE", cfg, st, L)
+    story += GP._paras(pcorpo, st["corpo"])
+
+    # Confrontantes + valor atribuído.
+    confs = projeto.get("confrontantes") or []
+    if confs:
+        rol = "; ".join(f"{(c.get('lado') or '').replace('_', ' ')}: {c.get('confrontante') or '—'}"
+                        for c in confs)
+        story += GP._secao("DOS CONFRONTANTES", cfg, st, L)
+        story += GP._paras("O imóvel confronta com: " + rol + ".", st["corpo"])
+    story += GP._paras(f"Valor atribuído ao imóvel: {TX.valor_atribuido_texto(projeto)}.", st["corpo"])
+
+    story += GP._paras("Nestes termos,\nPede deferimento.", st["corpo"])
+    story.append(Spacer(1, 4))
+    story.append(Paragraph(GP._esc(_data_extenso(projeto.get("municipio") or "Açailândia",
+                                                 projeto.get("uf") or "MA")), st["corpo_c"]))
+    story += _bloco_assinaturas_partes(projeto, st, L)
+    story += _bloco_advogado(projeto, st, L)
+    return _build(story, cfg, "Requerimento de Usucapião", logo_bytes)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Dispatcher
 # ──────────────────────────────────────────────────────────────────────────────
 def gerar_pdf(tipo: str, projeto: dict, tema: str = "prime_i", logo_bytes=None) -> bytes:
@@ -603,4 +691,6 @@ def gerar_pdf(tipo: str, projeto: dict, tema: str = "prime_i", logo_bytes=None) 
         return cadeia_dominical(projeto, tema, logo_bytes)
     if tipo == "oficio_aprovacao":
         return oficio_aprovacao(projeto, tema, logo_bytes)
+    if tipo == "requerimento_usucapiao":
+        return requerimento_usucapiao(projeto, tema, logo_bytes)
     raise ValueError(f"tipo de documento desconhecido: {tipo}")

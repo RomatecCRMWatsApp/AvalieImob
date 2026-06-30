@@ -281,3 +281,26 @@ def descricao_resultante(projeto: dict) -> str:
     if desc:
         txt += ". " + desc
     return txt
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Usucapião Extrajudicial — textos auxiliares
+# ──────────────────────────────────────────────────────────────────────────────
+def soma_posses_texto(projeto: dict) -> str:
+    """Descreve a soma de posses (art. 1.243 CC): possuidores anteriores + períodos."""
+    periodos = projeto.get("soma_posses") or []
+    if not periodos:
+        return ""
+    partes = []
+    for p in periodos:
+        per = " a ".join(x for x in (p.get("inicio"), p.get("fim")) if x)
+        vinc = {"de_cujus": " (de cujus, posse somada)", "cedente": " (cedente)",
+                "proprio": ""}.get(p.get("vinculo") or "proprio", "")
+        partes.append(f"{p.get('possuidor_nome') or '—'}{vinc}: {per or '—'}")
+    return ("Para o cômputo do prazo, soma-se a posse dos antecessores (art. 1.243 do "
+            "Código Civil): " + "; ".join(partes) + ".")
+
+
+def valor_atribuido_texto(projeto: dict) -> str:
+    v = projeto.get("valor_atribuido")
+    return f"R$ {_n_br(v)}" if v is not None else "—"
