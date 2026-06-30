@@ -944,7 +944,9 @@ export default function GeoUrbanoWizard() {
                 <button onClick={addVert} className="text-xs inline-flex items-center gap-1 text-emerald-700 hover:underline"><Plus className="w-3.5 h-3.5" /> Vértice</button>
               </div>
             </div>
-            <p className="text-[11px] text-amber-600 mb-2">O <b>Confrontante</b> não vem da planilha do mapa — preencha/corrija por aqui (1 por segmento) para o Memorial sair completo.</p>
+            <p className="text-[11px] text-amber-600 mb-2">{isUsucapiao
+              ? <>Vértices/confrontantes/coordenadas extraídos do <b>Memorial</b>. O <b>Fator K</b> consta só no mapa/planilha (não no memorial em prosa) — digite-o por vértice se precisar no quadro.</>
+              : <>O <b>Confrontante</b> não vem da planilha do mapa — preencha/corrija por aqui (1 por segmento) para o Memorial sair completo.</>}</p>
             <div className="overflow-x-auto -mx-1 px-1">
               <table className="text-xs border-collapse" style={{ minWidth: 820 }}>
                 <thead>
