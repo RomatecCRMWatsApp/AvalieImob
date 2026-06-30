@@ -253,3 +253,36 @@ def test_dossie_usucapiao_ordem_e_render():
     ]
     doss = DOSSIE.gerar_dossie_ordenado(doc, secoes)
     assert _paginas(doss) >= 6   # capa + sumário + 4 peças
+
+
+def test_pecas_proprietario_tipo_aware():
+    from services.geo_urbano import assinatura_proprietario as PROP
+    usu = PROP.pecas_proprietario({"tipo_servico": "usucapiao"})
+    chaves = [c for c, _ in usu]
+    assert chaves == ["requerimento_usucapiao", "art_trt"]   # sem Superintendência; Ata fora
+    rem = PROP.pecas_proprietario({"tipo_servico": "remembramento"})
+    assert [c for c, _ in rem][0] == "requerimento_cartorio"
+
+
+def test_seed_juridico_nao_destrutivo():
+    proj = {
+        "tipo_servico": "usucapiao", "modalidade_usucapiao": "extraordinaria",
+        "uploads": {
+            "prova_posse": [{"id": "u1", "filename": "iptu2010.pdf"}],
+            "art_trt": [{"id": "u2", "filename": "art.pdf"}],
+            "planta_usucapiao": [{"id": "u3", "filename": "planta.pdf"}],
+        },
+        "vertices": [{"ordem": 1, "confrontante_lado": "Rua Safira"},
+                     {"ordem": 2, "confrontante_lado": "Lote 13"}],
+        "provas_posse": [], "confrontantes": [],
+    }
+    sets = USU.seed_juridico(proj)
+    assert any(p["upload_id"] == "u1" for p in sets["provas_posse"])
+    assert {c["confrontante"] for c in sets["confrontantes"]} == {"Rua Safira", "Lote 13"}
+    chk = {c["chave"]: c["status"] for c in sets["checklist"]}
+    assert chk.get("planta_memorial") == "anexado" and chk.get("art_trt") == "anexado"
+    # idempotente: já preenchido → não sobrescreve provas/confrontantes
+    proj["provas_posse"] = [{"tipo": "luz", "ano": "2014"}]
+    proj["confrontantes"] = [{"confrontante": "Vizinho X"}]
+    sets2 = USU.seed_juridico(proj)
+    assert "provas_posse" not in sets2 and "confrontantes" not in sets2

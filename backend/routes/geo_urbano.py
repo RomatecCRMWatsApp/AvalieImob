@@ -438,6 +438,19 @@ async def usucapiao_checklist(pid: str, uid: str = Depends(get_active_subscriber
     return {"checklist": USU.checklist_para(doc), "anuentes": USU.anuentes_de(doc)}
 
 
+@router.post("/projetos/{pid}/usucapiao/seed-juridico")
+async def usucapiao_seed_juridico(pid: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    """Pré-preenche o bloco jurídico a partir do técnico (provas←uploads, confrontantes←
+    vértices, checklist marca planta/ART). Idempotente: não sobrescreve o que já existe."""
+    from services.geo_urbano import usucapiao as USU
+    doc = await _get(db, pid, uid)
+    sets = USU.seed_juridico(doc)
+    if sets:
+        sets["updated_at"] = _agora().isoformat()
+        await db.geo_urbano_projetos.update_one({"id": pid, "user_id": uid}, {"$set": sets})
+    return serialize_doc({**doc, **sets})
+
+
 @router.get("/projetos/{pid}/usucapiao/anuencia/{aid}")
 async def usucapiao_anuencia_pdf(pid: str, aid: str, modo: str = Query("declaracao"),
                                  tema: str = Query(None),
@@ -954,7 +967,7 @@ async def listar_assinaturas(pid: str, uid: str = Depends(get_active_subscriber)
 async def _pecas_proprietario_bytes(doc, tema):
     """Lista [{doc,titulo,bytes}] das peças que o proprietário assina (art_trt só se enviado)."""
     pecas = []
-    for nome, titulo in PROP.PECAS_PROPRIETARIO:
+    for nome, titulo in PROP.pecas_proprietario(doc):
         if nome == "art_trt":
             raw = await _bytes_upload(doc, "art_trt")
             if not raw:
