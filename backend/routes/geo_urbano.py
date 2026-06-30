@@ -310,7 +310,7 @@ async def remover_upload(pid: str, tipo: str, item_id: str,
 # ──────────────────────────────────────────────────────────────────────────────
 # Extração automática (parsers calibrados nos PDFs reais; OCR p/ matrículas)
 # ──────────────────────────────────────────────────────────────────────────────
-_TIPOS_EXTRACAO = ["mapa_remembramento", "certidao_inteiro_teor", "bci", "cnd_iptu", "guia_iptu"]
+_TIPOS_EXTRACAO = ["mapa_remembramento", "planta_usucapiao", "certidao_inteiro_teor", "bci", "cnd_iptu", "guia_iptu"]
 
 
 @router.post("/projetos/{pid}/extrair")
@@ -328,8 +328,12 @@ async def extrair(pid: str, uid: str = Depends(get_active_subscriber), db=Depend
                     continue
         if blobs:
             ups_bytes[tp] = blobs
+    # Usucapião usa UM único mapa (planta_usucapiao) — o extractor lê a chave
+    # "mapa_remembramento", então a planta entra por ela quando não há mapa de remembramento.
+    if not ups_bytes.get("mapa_remembramento") and ups_bytes.get("planta_usucapiao"):
+        ups_bytes["mapa_remembramento"] = ups_bytes["planta_usucapiao"]
     if not ups_bytes:
-        raise HTTPException(status_code=422, detail="Envie ao menos o Mapa de Remembramento (e BCIs/IPTU) para extrair.")
+        raise HTTPException(status_code=422, detail="Envie ao menos a Planta/Mapa (e Certidão/BCI/IPTU) para extrair.")
 
     res = await asyncio.to_thread(EX.extrair_tudo, ups_bytes)
     editados = doc.get("campos_editados") or {}
