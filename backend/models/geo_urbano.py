@@ -38,6 +38,21 @@ TemaPdf = Literal["tradicional", "prime_i", "prime_ii"]
 # + comprovante de quitação) quando havia débito em aberto.
 ViaRegularidade = Literal["cnd", "guia_paga"]
 
+ModalidadeUsucapiao = Literal[
+    "extraordinaria", "ordinaria", "especial_urbana", "especial_rural",
+    "familiar", "coletiva", "outra",
+]
+SituacaoRegistral = Literal["matriculado_terceiro", "nao_matriculado", "transcricao_antiga"]
+TipoProvaPosse = Literal[
+    "agua", "luz", "iptu", "telefone", "contrato", "benfeitoria",
+    "comprovante_endereco", "declaracao", "foto", "outro",
+]
+StatusDocChecklist = Literal["pendente", "anexado", "dispensado"]
+BlocoChecklist = Literal["A", "B", "C", "D", "E", "F", "G"]
+VinculoPosse = Literal["proprio", "de_cujus", "cedente"]
+CanalAnuencia = Literal["whatsapp", "presencial"]
+PapelAnuente = Literal["confrontante", "titular_tabular"]
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Confrontação registral (uma por lado da matrícula — FIEL à certidão)
@@ -136,7 +151,10 @@ class Vertice(BaseModel):
 # ──────────────────────────────────────────────────────────────────────────────
 # Parte (requerente PF/PJ, cônjuge, representante, sócio)
 # ──────────────────────────────────────────────────────────────────────────────
-PapelParte = Literal["requerente", "conjuge", "representante", "socio"]
+PapelParte = Literal[
+    "requerente", "conjuge", "representante", "socio",
+    "advogado", "herdeiro", "titular_tabular", "testemunha",
+]
 TipoPessoa = Literal["fisica", "juridica"]
 
 
@@ -155,6 +173,8 @@ class Parte(BaseModel):
     cpf: Optional[str] = None
     rg: Optional[str] = None
     cnh: Optional[str] = None
+    oab: Optional[str] = None       # advogado (art. 216-A exige acompanhamento)
+    uf_oab: Optional[str] = None
     nacionalidade: Optional[str] = "brasileiro"
     estado_civil: Optional[str] = None
     profissao: Optional[str] = None
@@ -295,6 +315,67 @@ class ConfrontanteRetificacao(BaseModel):
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Usucapião Extrajudicial (Prov. CNJ 149/2023) — sub-models embutidos no projeto
+# ──────────────────────────────────────────────────────────────────────────────
+class Posse(BaseModel):
+    inicio: Optional[str] = None          # ano ou data ISO
+    natureza: str = "mansa, pacífica, ininterrupta, com animus domini"
+    origem: Optional[str] = None          # compra verbal, cessão, ocupação...
+    benfeitorias: Optional[str] = None
+    benfeitorias_data: Optional[str] = None
+    valor_venal: Optional[float] = None
+    justo_titulo: Optional[str] = None    # exigido na ordinária
+
+
+class PossePeriodo(BaseModel):
+    id: str = Field(default_factory=_uid)
+    possuidor_nome: Optional[str] = None
+    possuidor_doc: Optional[str] = None
+    vinculo: VinculoPosse = "proprio"     # soma de posses (art. 1.243 CC)
+    inicio: Optional[str] = None          # ano ou data ISO
+    fim: Optional[str] = None             # ano/data ISO ou "atual"
+    natureza: Optional[str] = None
+    observacao: Optional[str] = None
+
+
+class ProvaPosse(BaseModel):
+    id: str = Field(default_factory=_uid)
+    tipo: TipoProvaPosse = "outro"
+    descricao: Optional[str] = None
+    ano: Optional[str] = None             # linha do tempo: ano principal
+    periodo_inicio: Optional[str] = None
+    periodo_fim: Optional[str] = None
+    upload_id: Optional[str] = None
+    observacao: Optional[str] = None
+
+
+class AnuenteUsucapiao(BaseModel):
+    id: str = Field(default_factory=_uid)
+    papel: PapelAnuente = "confrontante"
+    nome: Optional[str] = None
+    doc: Optional[str] = None
+    lado: Optional[str] = None
+    medida_m: Optional[float] = None
+    tipo: TipoConfrontante = "particular"  # via/área pública dispensam
+    endereco: Optional[str] = None
+    telefone: Optional[str] = None
+    canal: CanalAnuencia = "presencial"
+    anuencia: Anuencia = Field(default_factory=Anuencia)
+    doc_id: Optional[str] = None           # declaração de anuência gerada
+
+
+class DocChecklistItem(BaseModel):
+    id: str = Field(default_factory=_uid)
+    bloco: BlocoChecklist = "A"
+    chave: str = ""
+    label: str = ""
+    obrigatorio: bool = True
+    status: StatusDocChecklist = "pendente"
+    upload_id: Optional[str] = None
+    observacao: Optional[str] = None
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Projeto (documento raiz da collection geo_urbano_projetos)
 # ──────────────────────────────────────────────────────────────────────────────
 RetificacaoTipo = Literal["cadastral", "area_perimetro", "mista"]
@@ -337,6 +418,17 @@ class GeoUrbanoProjeto(BaseModel):
     vertices_atual: List[Vertice] = Field(default_factory=list)  # geometria "antes"
     retificacao_analise: dict = Field(default_factory=dict)      # diffs confirmados
     confrontantes: List[ConfrontanteRetificacao] = Field(default_factory=list)  # DRL/anuência
+    # Usucapião Extrajudicial (Prov. CNJ 149/2023)
+    modalidade_usucapiao: ModalidadeUsucapiao = "extraordinaria"
+    fundamento_legal: Optional[str] = None        # usado quando modalidade = "outra"
+    valor_atribuido: Optional[float] = None
+    situacao_registral: SituacaoRegistral = "nao_matriculado"
+    matricula_usucapienda_id: Optional[str] = None  # aponta p/ Matricula em matriculas[]
+    posse: Posse = Field(default_factory=Posse)
+    soma_posses: List[PossePeriodo] = Field(default_factory=list)
+    provas_posse: List[ProvaPosse] = Field(default_factory=list)
+    anuentes: List[AnuenteUsucapiao] = Field(default_factory=list)
+    checklist: List[DocChecklistItem] = Field(default_factory=list)
     # coleções aninhadas
     matriculas: List[Matricula] = Field(default_factory=list)
     bci: List[BCI] = Field(default_factory=list)
@@ -417,6 +509,17 @@ class AtualizarProjetoBody(BaseModel):
     vertices_atual: Optional[List[dict]] = None
     retificacao_analise: Optional[dict] = None
     confrontantes: Optional[List[dict]] = None
+    # Usucapião
+    modalidade_usucapiao: Optional[ModalidadeUsucapiao] = None
+    fundamento_legal: Optional[str] = None
+    valor_atribuido: Optional[float] = None
+    situacao_registral: Optional[SituacaoRegistral] = None
+    matricula_usucapienda_id: Optional[str] = None
+    posse: Optional[dict] = None
+    soma_posses: Optional[List[dict]] = None
+    provas_posse: Optional[List[dict]] = None
+    anuentes: Optional[List[dict]] = None
+    checklist: Optional[List[dict]] = None
     # auditoria por etapa
     etapas_concluidas: Optional[dict] = None
     etapas_concluidas_em: Optional[dict] = None
@@ -453,6 +556,11 @@ class CamposAssinaturaBody(BaseModel):
 Matricula.model_rebuild()
 LoteResultante.model_rebuild()
 ConfrontanteRetificacao.model_rebuild()
+Posse.model_rebuild()
+PossePeriodo.model_rebuild()
+ProvaPosse.model_rebuild()
+AnuenteUsucapiao.model_rebuild()
+DocChecklistItem.model_rebuild()
 GeoUrbanoProjeto.model_rebuild()
 
 

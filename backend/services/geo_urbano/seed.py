@@ -137,3 +137,68 @@ def build_seed(user_id: str = "") -> dict:
     doc = proj.model_dump(mode="json")
     doc["completude"] = calcular_completude(doc)
     return doc
+
+
+def build_seed_usucapiao(user_id: str = "") -> dict:
+    """Caso-teste do HERDEIRO: usucapião extraordinária com soma da posse do de cujus
+    (2008–2018) + posse própria do herdeiro (2018–atual) sobre lote urbano em
+    Açailândia/MA, imóvel sem registro (pede abertura de matrícula)."""
+    from models.geo_urbano import (
+        GeoUrbanoProjeto, Parte, Posse, PossePeriodo, ProvaPosse,
+        AnuenteUsucapiao, Confrontacao, calcular_completude,
+    )
+    partes = [
+        Parte(papel="requerente", tipo_pessoa="fisica", nome="João Filho da Silva",
+              cpf="012.345.678-90", rg="0123456 SSP/MA", nacionalidade="brasileiro",
+              estado_civil="solteiro", profissao="lavrador",
+              filiacao="filho de José da Silva e Maria das Dores da Silva",
+              endereco="Rua Safira, nº 147, Vila São Francisco, Açailândia/MA"),
+        Parte(papel="advogado", tipo_pessoa="fisica", nome="Dra. Ana Souza",
+              oab="12345", uf_oab="MA",
+              endereco="Av. Central, nº 100, Centro, Açailândia/MA"),
+        Parte(papel="herdeiro", tipo_pessoa="fisica", nome="Pedro da Silva",
+              cpf="098.765.432-10", nacionalidade="brasileiro", estado_civil="casado"),
+        Parte(papel="testemunha", tipo_pessoa="fisica", nome="Carlos Pereira"),
+    ]
+    confs = [
+        Confrontacao(lado="frente", medida_m=12.0, confrontante="Rua Safira"),
+        Confrontacao(lado="lateral_direita", medida_m=30.0, confrontante="Lote 13"),
+        Confrontacao(lado="lateral_esquerda", medida_m=30.0, confrontante="Lote 11"),
+        Confrontacao(lado="fundo", medida_m=12.0, confrontante="Lote 20 (Vizinho Norte)"),
+    ]
+    proj = GeoUrbanoProjeto(
+        user_id=user_id,
+        denominacao_imovel="Lote 12 — Quadra 8 — Vila São Francisco",
+        tipo_servico="usucapiao", tema="prime_i", status="conferencia",
+        modalidade_usucapiao="extraordinaria", situacao_registral="nao_matriculado",
+        municipio="Açailândia", uf="MA", bairro="Vila São Francisco", quadra="8",
+        lote_resultante="12",
+        endereco="Rua Safira, nº 147, Quadra 8, Lote 12, Vila São Francisco, Açailândia/MA",
+        area_declarada_m2=360.00, perimetro_m=84.00, valor_atribuido=85000.00,
+        posse=Posse(inicio="2008", origem="ocupação para moradia da família",
+                    benfeitorias="casa de alvenaria com 3 cômodos", benfeitorias_data="2009"),
+        soma_posses=[
+            PossePeriodo(possuidor_nome="Maria das Dores da Silva", vinculo="de_cujus",
+                         inicio="2008", fim="2018",
+                         observacao="posse da genitora (de cujus), somada por sucessão"),
+            PossePeriodo(possuidor_nome="João Filho da Silva", vinculo="proprio",
+                         inicio="2018", fim="atual",
+                         observacao="posse exclusiva do herdeiro (rompimento da composse)"),
+        ],
+        provas_posse=[
+            ProvaPosse(tipo="iptu", ano="2010", descricao="Carnê de IPTU 2010"),
+            ProvaPosse(tipo="luz", ano="2014", descricao="Fatura de energia 2014"),
+            ProvaPosse(tipo="agua", ano="2020", descricao="Fatura de água 2020"),
+        ],
+        anuentes=[AnuenteUsucapiao(papel="confrontante", nome="Vizinho Norte",
+                                   lado="fundo", medida_m=12.0, tipo="particular",
+                                   canal="presencial")],
+        partes=partes,
+    )
+    doc = proj.model_dump(mode="json")
+    # confrontantes da poligonal (usados pela anuência/requerimento)
+    doc["confrontantes"] = [
+        {"id": c.lado, "lado": c.lado, "confrontante": c.confrontante, "medida_m": c.medida_m,
+         "tipo": "particular"} for c in confs]
+    doc["completude"] = calcular_completude(doc)
+    return doc

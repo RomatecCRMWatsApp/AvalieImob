@@ -40,6 +40,27 @@ ORDEM_DOSSIE = [
     ("documentos_proprietario", "Documentos do Proprietário"),
 ]
 
+# Ordem de protocolo do dossiê de USUCAPIÃO (art. 216-A LRP / Prov. CNJ 149/2023).
+ORDEM_DOSSIE_USUCAPIAO = [
+    ("requerimento_usucapiao", "Requerimento de Usucapião (advogado)"),
+    ("ata_notarial", "Ata Notarial de Posse"),
+    ("planta_mapa", "Planta / Mapa Georreferenciado"),
+    ("memorial_descritivo", "Memorial Descritivo"),
+    ("art_trt", "ART / TRT / RRT"),
+    ("certidao_matricula", "Certidão da Matrícula / Negativa de Propriedade"),
+    ("declaracoes_anuencia", "Declarações de Anuência (confrontantes/titulares)"),
+    ("certidoes_confrontantes", "Certidões dos Confrontantes"),
+    ("certidoes_negativas", "Certidões Negativas (ônus / ações reais)"),
+    ("iptu_valor_venal", "IPTU / Valor Venal"),
+    ("provas_posse", "Provas de Posse (linha do tempo)"),
+    ("relatorio_fotografico", "Relatório Fotográfico"),
+    ("docs_herdeiro", "Documentos do Herdeiro (óbito / partilha)"),
+    ("justo_titulo", "Justo Título"),
+    ("certidoes_distribuidores", "Certidões dos Distribuidores"),
+    ("notificacoes_edital", "Notificações / Edital"),
+    ("docs_requerente", "Documentos Pessoais do Requerente"),
+]
+
 _LINES_POR_PAGINA_SUM = 26
 _W, _H = A4
 _M = 2.2 * cm
