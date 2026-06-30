@@ -101,3 +101,54 @@ def test_validar_posse_ordinaria_exige_justo_titulo():
     proj["posse"]["justo_titulo"] = "Cessão de direitos hereditários, fls. 12"
     r2 = USU.validar_posse(proj, ano_ref=2026)
     assert r2["justo_titulo_ok"] is True
+
+
+def _chaves(items):
+    return {i["chave"] for i in items}
+
+
+def test_checklist_base_e_ordinaria_justo_titulo():
+    base = USU.checklist_para({"modalidade_usucapiao": "extraordinaria",
+                               "situacao_registral": "nao_matriculado"})
+    ch = _chaves(base)
+    assert {"requerimento", "ata_notarial", "procuracao_oab", "planta_memorial",
+            "art_trt"} <= ch
+    assert "justo_titulo" not in ch          # extraordinária dispensa
+    ord_ = USU.checklist_para({"modalidade_usucapiao": "ordinaria"})
+    assert "justo_titulo" in _chaves(ord_)   # ordinária exige
+
+
+def test_checklist_herdeiro_adiciona_obito_partilha():
+    proj = {"modalidade_usucapiao": "extraordinaria",
+            "soma_posses": [{"vinculo": "de_cujus", "inicio": "2008", "fim": "2018"}]}
+    ch = _chaves(USU.checklist_para(proj))
+    assert {"certidao_obito", "formal_partilha"} <= ch
+
+
+def test_checklist_rural_adiciona_ccir_car():
+    ch = _chaves(USU.checklist_para({"modalidade_usucapiao": "especial_rural"}))
+    assert {"ccir", "car", "georef_sigef"} <= ch
+
+
+def test_checklist_preserva_status_existente():
+    proj = {"modalidade_usucapiao": "extraordinaria",
+            "checklist": [{"chave": "requerimento", "status": "anexado", "upload_id": "img-1"}]}
+    item = next(i for i in USU.checklist_para(proj) if i["chave"] == "requerimento")
+    assert item["status"] == "anexado" and item["upload_id"] == "img-1"
+
+
+def test_anuentes_de_funde_confrontantes_e_titular():
+    proj = {
+        "situacao_registral": "matriculado_terceiro",
+        "matriculas": [{"matricula": "12.345",
+                        "proprietario_registral": {"nome": "Antigo Dono", "doc": "111"}}],
+        "matricula_usucapienda_id": None,
+        "confrontantes": [{"confrontante": "Vizinho Sul", "lado": "frente",
+                           "tipo": "particular", "medida_m": 12.0}],
+        "anuentes": [],
+    }
+    out = USU.anuentes_de(proj)
+    papeis = {a["papel"] for a in out}
+    assert "confrontante" in papeis and "titular_tabular" in papeis
+    tit = next(a for a in out if a["papel"] == "titular_tabular")
+    assert tit["nome"] == "Antigo Dono"
