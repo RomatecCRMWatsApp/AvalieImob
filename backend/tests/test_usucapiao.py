@@ -255,6 +255,68 @@ def test_dossie_usucapiao_ordem_e_render():
     assert _paginas(doss) >= 6   # capa + sumário + 4 peças
 
 
+def _mk_pdf_prosa(texto):
+    """PDF com o texto quebrado em linhas (~90 chars) — espelha o Memorial em prosa."""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.pdfgen import canvas as rl_canvas
+    palavras, linhas, atual = texto.split(" "), [], ""
+    for w in palavras:
+        if len(atual) + len(w) + 1 > 90:
+            linhas.append(atual); atual = w
+        else:
+            atual = f"{atual} {w}".strip()
+    if atual:
+        linhas.append(atual)
+    buf = io.BytesIO()
+    c = rl_canvas.Canvas(buf, pagesize=A4)
+    y = 800
+    for ln in linhas:
+        c.drawString(40, y, ln); y -= 13
+    c.showPage(); c.save()
+    return buf.getvalue()
+
+
+def test_parse_memorial_usucapiao_prosa():
+    from services.geo_urbano import extractor as EX
+    texto = (
+        "MEMORIAL DESCRITIVO Imóvel: LOTE 08 QD 01 BARRA AZUL Proprietário(a): FULANA "
+        "Área ( m²): 1.106,00 m² Perímetro (m): 143,20 m LOC. CARTOGRAFICA: 01.57.001.0008.00004 - 184 "
+        "DESCRIÇÃO DO PERÍMETRO Inicia-se a descrição deste perímetro no vértice FQNS-P-001, de "
+        "coordenadas N 9.455.020,51m e E 222.460,41m; deste, segue confrontando com Srª Ilzom Teófilo, "
+        "inscrito no CPF: 333.682.953-49, com os seguintes azimutes e distâncias: 166°01'06\" e 22,89 m "
+        "até o vértice FQNS-P-002, de coordenadas N 9.454.998,30m e E 222.465,94m; 258°41'52\" e 49,37 m "
+        "até o vértice FQNS-P-007, de coordenadas N 9.454.988,62m e E 222.417,52m; deste, segue "
+        "confrontando com ROD. BR-010 KM 1418, com os seguintes azimutes e distâncias: 347°40'38\" e "
+        "22,24 m até o vértice FQNS-P-006, de coordenadas N 9.455.010,35m e E 222.412,78m; deste, segue "
+        "confrontando com Sr José Genivaldo, inscrito no CPF: 146.899.793-91, com os seguintes azimutes "
+        "e distâncias: 77°57'39\" e 48,70 m até o vértice FQNS-P-001, ponto inicial."
+    )
+    r = EX.parse_memorial_usucapiao(_mk_pdf_prosa(texto))
+    v = r["vertices"]
+    assert len(v) == 4
+    assert r["area_declarada_m2"] == 1106.0 and r["perimetro_m"] == 143.2
+    assert v[0]["de"] == "FQNS-P-001" and v[0]["para"] == "FQNS-P-002"
+    assert v[0]["coord_n"] == 9455020.51 and v[0]["coord_e"] == 222460.41
+    assert v[2]["confrontante_lado"].startswith("ROD")
+    assert v[3]["para"] == "FQNS-P-001"   # polígono fecha
+    assert r.get("cmi_resultante") == "01.57.001.0008.00004"
+
+
+def test_extrair_tudo_usa_memorial_usucapiao():
+    from services.geo_urbano import extractor as EX
+    texto = (
+        "Inicia-se a descrição deste perímetro no vértice V1, de coordenadas N 9.455.020,51m e E "
+        "222.460,41m; deste, segue confrontando com Vizinho A, inscrito no CPF: 111, com os seguintes "
+        "azimutes e distâncias: 166°01'06\" e 22,89 m até o vértice V2, de coordenadas N 9.454.998,30m "
+        "e E 222.465,94m; deste, segue confrontando com Vizinho B, com os seguintes azimutes e "
+        "distâncias: 258°41'52\" e 49,37 m até o vértice V1, ponto inicial. Área ( m²): 500,00 m²"
+    )
+    res = EX.extrair_tudo({"memorial_usucapiao": [_mk_pdf_prosa(texto)]})
+    assert len(res.get("vertices", [])) == 2
+    assert res.get("area_declarada_m2") == 500.0
+    assert not any("não enviado" in a for a in res.get("avisos", []))
+
+
 def test_pecas_proprietario_tipo_aware():
     from services.geo_urbano import assinatura_proprietario as PROP
     usu = PROP.pecas_proprietario({"tipo_servico": "usucapiao"})

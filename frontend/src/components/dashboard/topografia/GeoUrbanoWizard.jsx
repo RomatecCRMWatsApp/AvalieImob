@@ -51,6 +51,7 @@ const UPLOADS = [
   { tipo: 'mapa_desdobro', label: 'Mapa(s) de desdobro (por lote resultante)', req: true, multi: true },
   { tipo: 'mapa_retificado', label: 'Mapa retificado (como está)', req: true, multi: false },
   { tipo: 'planta_usucapiao', label: 'Mapa / Planta georreferenciada (área usucapienda)', req: true, multi: false },
+  { tipo: 'memorial_usucapiao', label: 'Memorial Descritivo (georreferenciado — vértices/confrontantes)', req: true, multi: false },
   { tipo: 'bci', label: 'BCI de cada lote', req: true, multi: true },
   { tipo: 'certidao_inteiro_teor', label: 'Certidão de inteiro teor (por matrícula)', req: true, multi: true },
   { tipo: 'cnd_iptu', label: 'CND de IPTU (negativa)', req: false, multi: true },
@@ -683,8 +684,9 @@ export default function GeoUrbanoWizard() {
         </div>
         <div className="grid sm:grid-cols-2 gap-3">
           {UPLOADS.filter((u) => {
-            // Usucapião: UM único mapa (planta). Os demais serviços usam DOIS (atual + do ato).
+            // Usucapião: UM único mapa (planta) + Memorial Descritivo (fonte dos vértices).
             if (u.tipo === 'planta_usucapiao') return isUsucapiao;
+            if (u.tipo === 'memorial_usucapiao') return isUsucapiao;
             if (u.tipo === 'mapa_atual') return !isUsucapiao;
             if (u.tipo === 'mapa_remembramento') return !isDesdobro && !isRetificacao && !isUsucapiao;
             if (u.tipo === 'mapa_desdobro') return isDesdobro;
