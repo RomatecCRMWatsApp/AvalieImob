@@ -337,20 +337,25 @@ async def extrair(pid: str, uid: str = Depends(get_active_subscriber), db=Depend
         raise HTTPException(status_code=422, detail="Envie ao menos a Planta/Mapa (e Certidão/BCI/IPTU) para extrair.")
 
     res = await asyncio.to_thread(EX.extrair_tudo, ups_bytes)
-    # DIAGNÓSTICO (temporário): se a usucapião não extraiu vértices, expõe no toast o que
-    # o servidor viu (tamanho do memorial, motores de texto, frases-chave encontradas).
-    if doc.get("tipo_servico") == "usucapiao" and not res.get("vertices") and ups_bytes.get("memorial_usucapiao"):
+    # DIAGNÓSTICO (temporário): SEMPRE dispara na usucapião sem vértices — mostra o que
+    # está no BANCO vs o que foi COLETADO (revela se o memorial chega na extração).
+    if doc.get("tipo_servico") == "usucapiao" and not res.get("vertices"):
         try:
-            mb = ups_bytes["memorial_usucapiao"][0]
-            textos = await asyncio.to_thread(EX._textos_candidatos, mb)
-            diag = f"diag: tipos={list(ups_bytes.keys())} · mem={len(mb)}B · motores={len(textos)}"
-            for i, txt in enumerate(textos):
-                tn = re.sub(r"\s+", " ", txt)
-                diag += (f" · m{i}={len(tn)}c/coord={tn.count('de coordenadas')}"
-                         f"/seg={len(re.findall(r'at[ée] o v', tn))}/grau={tn.count(chr(176))}")
-            res.setdefault("avisos", []).append(diag[:480])
+            up = doc.get("uploads") or {}
+            mem_items = up.get("memorial_usucapiao") or []
+            diag = (f"diag · DB={[k for k, v in up.items() if v]}"
+                    f" · mem-itens={len(mem_items)},keys={sum(1 for i in mem_items if i.get('key'))}"
+                    f" · coletados={list(ups_bytes.keys())}")
+            if ups_bytes.get("memorial_usucapiao"):
+                mb = ups_bytes["memorial_usucapiao"][0]
+                textos = await asyncio.to_thread(EX._textos_candidatos, mb)
+                diag += f" · mem={len(mb)}B,motores={len(textos)}"
+                for i, txt in enumerate(textos):
+                    tn = re.sub(r"\s+", " ", txt)
+                    diag += f",m{i}={len(tn)}c/seg={len(re.findall(r'at[ée] o v', tn))}"
+            res.setdefault("avisos", []).append(diag[:500])
         except Exception as _e:  # noqa: BLE001
-            res.setdefault("avisos", []).append(f"diag-erro: {type(_e).__name__}: {str(_e)[:120]}")
+            res.setdefault("avisos", []).append(f"diag-erro: {type(_e).__name__}: {str(_e)[:140]}")
     editados = doc.get("campos_editados") or {}
     sets = {}
     for campo in ("matriculas", "bci", "vertices", "iptu"):
