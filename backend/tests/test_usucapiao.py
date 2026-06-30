@@ -225,3 +225,31 @@ def test_notificacao_render():
     data = GPDF.notificacao(proj, anuente, "prime_i")
     assert _paginas(data) >= 1
     assert "NOTIFICA" in _pdf_text(data).upper()
+
+
+from services.geo_urbano.seed import build_seed_usucapiao
+from services.geo_urbano.generators import dossie as DOSSIE
+
+
+def test_seed_usucapiao_valido():
+    doc = build_seed_usucapiao("u-test")
+    m = GeoUrbanoProjeto(**doc)
+    assert m.tipo_servico == "usucapiao"
+    assert m.modalidade_usucapiao == "extraordinaria"
+    assert any(p.vinculo == "de_cujus" for p in m.soma_posses)   # caso herdeiro
+    # a soma de posses alcança o prazo da extraordinária (15 anos)
+    r = USU.validar_posse(doc, ano_ref=2026)
+    assert r["prazo_ok"] is True
+
+
+def test_dossie_usucapiao_ordem_e_render():
+    assert DOSSIE.ORDEM_DOSSIE_USUCAPIAO[0][0] == "requerimento_usucapiao"
+    doc = build_seed_usucapiao("u-test")
+    secoes = [
+        ("Requerimento de Usucapião", [GPDF.gerar_pdf("requerimento_usucapiao", doc, "prime_i")]),
+        ("Minuta de Ata Notarial", [GPDF.gerar_pdf("ata_notarial", doc, "prime_i")]),
+        ("Memorial Descritivo", [GPDF.gerar_pdf("memorial_descritivo", doc, "prime_i")]),
+        ("Edital", [GPDF.gerar_pdf("edital_usucapiao", doc, "prime_i")]),
+    ]
+    doss = DOSSIE.gerar_dossie_ordenado(doc, secoes)
+    assert _paginas(doss) >= 6   # capa + sumário + 4 peças
