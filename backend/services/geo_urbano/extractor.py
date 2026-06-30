@@ -243,6 +243,63 @@ def parse_mapa(pdf_bytes: bytes) -> dict:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Memorial Descritivo URBANO em PROSA (usucapião georreferenciada, N/E UTM).
+# Formato: "Inicia-se a descrição ... no vértice X, de coordenadas N ... e E ...;
+# ... segue confrontando com NOME ... : AZ e DIST m até o vértice Y, de coordenadas
+# ...". Distinto do parse_mapa (planilha tabular). Calibrado no Memorial da Lindaura.
+# ──────────────────────────────────────────────────────────────────────────────
+def parse_memorial_usucapiao(pdf_bytes: bytes) -> dict:
+    raw = _texto(pdf_bytes) or ""
+    if not raw:
+        try:
+            raw = ocr_pdf(pdf_bytes)
+        except Exception:  # noqa: BLE001
+            raw = ""
+    # o memorial quebra linha no meio de nomes/frases → normaliza o whitespace
+    t = re.sub(r"\s+", " ", raw)
+    out: dict = {}
+    coords = {}
+    for m in re.finditer(r"v[ée]rtice\s+([\w.\-]+),\s+de\s+coordenadas\s+N\s+([\d.,]+)\s*m\s+e\s+E\s+([\d.,]+)", t):
+        coords[m.group(1)] = (_num(m.group(2)), _num(m.group(3)))
+    ini = re.search(r"no v[ée]rtice\s+([\w.\-]+)", t)
+    de = ini.group(1) if ini else None
+    pat = re.compile(
+        r"confrontando com\s+(?P<conf>.+?)(?:,\s*inscrito|,\s*com os seguintes)"
+        r"|(?P<az>\d{1,3}°\d{1,2}'[\d.,]+\")\s+e\s+(?P<dist>[\d.,]+)\s*m\s+at[ée] o v[ée]rtice\s+(?P<para>[\w.\-]+)")
+    cur, ordem, verts = None, 0, []
+    for m in pat.finditer(t):
+        if m.group("conf"):
+            cur = m.group("conf").strip(" .")
+        elif de:
+            ordem += 1
+            cn, ce = coords.get(de, (None, None))
+            verts.append({
+                "ordem": ordem, "de": de, "para": m.group("para"),
+                "coord_n": cn, "coord_e": ce, "azimute": m.group("az"),
+                "distancia_m": _num(m.group("dist")), "confrontante_lado": cur,
+            })
+            de = m.group("para")
+    if verts:
+        out["vertices"] = verts
+    am = re.search(r"rea\s*\(?\s*m.{0,4}\)?\s*:?\s*([\d.,]+)", t)
+    pm = re.search(r"er[íi]metro\s*\(?\s*m\)?\s*:?\s*([\d.,]+)", t)
+    if am:
+        out["area_declarada_m2"] = _num(am.group(1))
+    if pm:
+        out["perimetro_m"] = _num(pm.group(1))
+    den = re.search(r"Im[óo]vel:\s*(.+?)\s*(?:Propriet|CPF|$)", t)
+    if den:
+        out["denominacao"] = den.group(1).strip(" .,")
+    loc = re.search(_LOC, t)
+    if loc:
+        out["cmi_resultante"] = loc.group(0)
+        ctrl = re.search(_LOC + r"\s*-\s*(\d{1,3})", t)
+        if ctrl:
+            out["cmi_controle"] = ctrl.group(1)
+    return {k: v for k, v in out.items() if v not in (None, "", [])}
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Matrícula (certidão) — parser de TEXTO (vem do OCR; certidões são imagem)
 # ──────────────────────────────────────────────────────────────────────────────
 _DOC_RE = r"(\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2}|\d{3}\.?\d{3}\.?\d{3}-?\d{2})"
@@ -328,11 +385,21 @@ def extrair_tudo(uploads_bytes: dict) -> dict:
     """uploads_bytes = {tipo: [bytes,...]}. Retorna campos extraídos do projeto."""
     res: dict = {"avisos": []}
 
-    # 1) Mapa de remembramento — vértices/área/perímetro/CMI/matrículas/lotes
+    # 1) Vértices/área/perímetro/CMI — do MEMORIAL (usucapião, prosa) OU do MAPA (planilha).
+    #    O Memorial georreferenciado em prosa tem prioridade quando enviado (usucapião urbana).
+    mem_raw = (uploads_bytes.get("memorial_usucapiao") or [None])[0]
     mapa_raw = (uploads_bytes.get("mapa_remembramento") or [None])[0]
     lotes_quadro = []
     mat_numeros = []
-    if mapa_raw:
+    if mem_raw:
+        mp = parse_memorial_usucapiao(mem_raw)
+        for k in ("vertices", "area_declarada_m2", "perimetro_m", "cmi_resultante",
+                  "cmi_controle", "denominacao"):
+            if mp.get(k) is not None:
+                res[k] = mp[k]
+        if not mp.get("vertices"):
+            res["avisos"].append("Memorial enviado, mas não foi possível extrair os vértices — confira o layout/PDF.")
+    elif mapa_raw:
         mp = parse_mapa(mapa_raw)
         for k in ("vertices", "area_declarada_m2", "perimetro_m", "cmi_resultante",
                   "cadastro_novo", "cadastro_antigo"):
@@ -341,7 +408,7 @@ def extrair_tudo(uploads_bytes: dict) -> dict:
         lotes_quadro = mp.get("lotes_quadro") or []
         mat_numeros = mp.get("matriculas_numeros") or []
     else:
-        res["avisos"].append("Mapa de remembramento não enviado — vértices/área não extraídos.")
+        res["avisos"].append("Planta/Mapa (ou Memorial) não enviado — vértices/área não extraídos.")
 
     # 2) Matrículas: lista autoritativa = nºs do mapa (ordem do lote 01..N); anexa
     #    cod_imóvel/localização do quadro de áreas casando pelo nº do lote.

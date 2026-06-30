@@ -51,7 +51,7 @@ _TIPOS_UPLOAD = {
     "contrato_social", "doc_socio", "doc_proprietario", "cnh", "certidao_casamento",
     "art_trt", "art_trt_boleto", "comprovante_pagamento_trt",
     # usucapião
-    "planta_usucapiao", "ata_notarial_assinada", "certidao_matricula", "negativa_propriedade",
+    "planta_usucapiao", "memorial_usucapiao", "ata_notarial_assinada", "certidao_matricula", "negativa_propriedade",
     "certidao_confrontante", "certidao_negativa", "iptu_usucapiao", "justo_titulo",
     "certidao_obito", "formal_partilha", "certidao_estado_civil", "procuracao_oab",
     "certidao_distribuidor", "prova_posse", "doc_requerente", "foto_imovel",
@@ -310,7 +310,8 @@ async def remover_upload(pid: str, tipo: str, item_id: str,
 # ──────────────────────────────────────────────────────────────────────────────
 # Extração automática (parsers calibrados nos PDFs reais; OCR p/ matrículas)
 # ──────────────────────────────────────────────────────────────────────────────
-_TIPOS_EXTRACAO = ["mapa_remembramento", "planta_usucapiao", "certidao_inteiro_teor", "bci", "cnd_iptu", "guia_iptu"]
+_TIPOS_EXTRACAO = ["mapa_remembramento", "planta_usucapiao", "memorial_usucapiao",
+                   "certidao_inteiro_teor", "bci", "cnd_iptu", "guia_iptu"]
 
 
 @router.post("/projetos/{pid}/extrair")
@@ -821,7 +822,10 @@ async def _montar_dossie(db, doc, tema):
         from services.geo_urbano import usucapiao as USU
         req = assinadas.get("requerimento_usucapiao") \
             or await asyncio.to_thread(PDF.gerar_pdf, "requerimento_usucapiao", doc, tema, logo)
-        memorial = assinadas.get("memorial_descritivo") \
+        # Memorial: prioriza o ENVIADO pela agrimensura (memorial_usucapiao) > assinado > gerado
+        memorial_up = await _ub(doc, "memorial_usucapiao")
+        memorial = (memorial_up[0] if memorial_up else None) \
+            or assinadas.get("memorial_descritivo") \
             or await asyncio.to_thread(PDF.gerar_pdf, "memorial_descritivo", doc, tema, logo)
         ata = await asyncio.to_thread(PDF.gerar_pdf, "ata_notarial", doc, tema, logo)
         edital = await asyncio.to_thread(PDF.gerar_pdf, "edital_usucapiao", doc, tema, logo)
