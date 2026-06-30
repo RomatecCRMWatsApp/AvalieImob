@@ -358,11 +358,14 @@ async def extrair(pid: str, uid: str = Depends(get_active_subscriber), db=Depend
             res.setdefault("avisos", []).append(f"diag-erro: {type(_e).__name__}: {str(_e)[:140]}")
     editados = doc.get("campos_editados") or {}
     sets = {}
+    # Persiste o extraído quando o campo NÃO foi editado À MÃO, OU quando está VAZIO no
+    # projeto (o autosave do wizard marca 'vertices' como editado mesmo vazio — não pode
+    # bloquear a extração de popular um campo que não tem nada).
     for campo in ("matriculas", "bci", "vertices", "iptu"):
-        if campo in res and not editados.get(campo):
+        if campo in res and res[campo] and (not editados.get(campo) or not (doc.get(campo) or [])):
             sets[campo] = res[campo]
     for campo in ("area_declarada_m2", "perimetro_m", "cmi_resultante", "cadastro_novo", "cadastro_antigo"):
-        if res.get(campo) is not None and not editados.get(campo):
+        if res.get(campo) is not None and (not editados.get(campo) or not doc.get(campo)):
             sets[campo] = res[campo]
     # PRESERVA o confrontante_lado já preenchido (a planilha do mapa não o traz) —
     # não apaga o que o usuário editou ao reextrair.
