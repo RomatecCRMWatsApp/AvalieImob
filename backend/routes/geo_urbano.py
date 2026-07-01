@@ -1261,6 +1261,27 @@ async def prop_reenviar(pid: str, uid: str = Depends(get_active_subscriber), db=
     return {"ok": True, **res}
 
 
+@router.post("/projetos/{pid}/proprietario/reset")
+async def prop_reset(pid: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    """ZERA as assinaturas já coletadas (mantém tokens e posições) e REENVIA os links —
+    para todos reassinarem (ex.: usar a nova modalidade digitada). Não reposiciona."""
+    s = await db.geo_urbano_assinatura_sessoes.find_one({"projeto_id": pid, "user_id": uid})
+    if not s:
+        raise HTTPException(status_code=404, detail="Nenhuma sessão de assinatura para resetar.")
+    novos = [{**x, "status": "pendente", "assinado_em": None, "ip": None, "user_agent": None,
+              "geo_lat": None, "geo_lng": None, "traco_b64": None, "tipo_assinatura": None,
+              "cpf_assinante": None, "fonte_assinatura": None}
+             for x in (s.get("signatarios") or [])]
+    await db.geo_urbano_assinatura_sessoes.update_one(
+        {"id": s["id"]},
+        {"$set": {"signatarios": novos, "status": "aguardando", "pdf_keys_final": {},
+                  "updated_at": _agora().isoformat()}})
+    s["signatarios"] = novos
+    proj = await _get(db, pid, uid)
+    res = await _disparar_links_prop(db, uid, proj, s)
+    return {"ok": True, "reset": len(novos), **res}
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Aprovação & Assinaturas (Addendum) — esqueleto do fluxo
 # ──────────────────────────────────────────────────────────────────────────────

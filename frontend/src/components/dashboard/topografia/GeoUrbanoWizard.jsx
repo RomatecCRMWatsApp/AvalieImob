@@ -434,6 +434,16 @@ export default function GeoUrbanoWizard() {
     catch (e) { toast({ title: 'Erro ao reenviar', variant: 'destructive' }); }
     finally { setPropBusy(false); }
   };
+  const resetProp = async () => {
+    if (!window.confirm('Resetar as assinaturas já coletadas e reenviar os links para todos assinarem de novo (com o novo método Digitar/Desenhar)? As posições são mantidas.')) return;
+    setPropBusy(true);
+    try {
+      const r = await geoUrbanoAPI.propReset(id);
+      toast({ title: `Assinaturas resetadas — links reenviados: ${r.enviados || 0}` });
+      recarregarAssinaturas();
+    } catch (e) { toast({ title: 'Erro ao resetar', description: e?.response?.data?.detail || '', variant: 'destructive' }); }
+    finally { setPropBusy(false); }
+  };
   const abrirAssinaturaTecnico = async (peca) => {
     setPreparandoAssin(peca);
     try {
@@ -1382,6 +1392,9 @@ export default function GeoUrbanoWizard() {
                 <div className="flex flex-wrap gap-2">
                   <button onClick={() => setPropModal(true)} className="text-xs px-3 py-1.5 rounded-lg border hover:bg-gray-50">Reposicionar e reenviar</button>
                   <button onClick={reenviarProp} disabled={propBusy} className="text-xs px-3 py-1.5 rounded-lg border hover:bg-gray-50">{propBusy ? 'Reenviando…' : 'Reenviar pendentes'}</button>
+                  <button onClick={resetProp} disabled={propBusy} title="Zera as assinaturas já coletadas e reenvia os links para todos reassinarem com o novo método (Digitar/Desenhar)"
+                    className="text-xs px-3 py-1.5 rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-50">
+                    <RefreshCw className="w-3 h-3 inline mr-1" />{propBusy ? '…' : 'Resetar e reenviar (novo método)'}</button>
                 </div>
               </>
             ) : (
