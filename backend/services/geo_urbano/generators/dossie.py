@@ -67,8 +67,28 @@ _W, _H = A4
 _M = 2.2 * cm
 
 
-def _img_para_pdf(raw: bytes) -> bytes:
-    """Converte uma IMAGEM (JPG/PNG/...) numa página A4 de PDF (centralizada)."""
+def _cabecalho_doc(c, titulo, subtitulo=None):
+    """Desenha o título do documento no topo da página A4 e devolve o Y do topo útil
+    (abaixo do cabeçalho) para posicionar o conteúdo."""
+    f = T.fonts()
+    if not titulo:
+        return _H - 1.5 * cm
+    c.setFillColor(T.C_VERDE_ESCURO)
+    c.setFont(f["serif_bold"], 15)
+    c.drawCentredString(_W / 2, _H - 1.7 * cm, str(titulo)[:80])
+    if subtitulo:
+        c.setFillColor(HexColor("#666666"))
+        c.setFont(f["sans"], 9)
+        c.drawCentredString(_W / 2, _H - 2.25 * cm, str(subtitulo)[:95])
+    c.setStrokeColor(T.C_DOURADO)
+    c.setLineWidth(1.0)
+    c.line(_M, _H - 2.55 * cm, _W - _M, _H - 2.55 * cm)
+    return _H - 2.85 * cm
+
+
+def _img_para_pdf(raw: bytes, titulo: str = None, subtitulo: str = None) -> bytes:
+    """Converte uma IMAGEM numa página A4 de PDF; com `titulo`, imprime o cabeçalho do
+    documento no topo e centraliza a imagem no espaço restante."""
     from PIL import Image
     from reportlab.lib.utils import ImageReader
     from reportlab.pdfgen import canvas as rl_canvas
@@ -77,15 +97,54 @@ def _img_para_pdf(raw: bytes) -> bytes:
         im = im.convert("RGB")
     buf = io.BytesIO()
     c = rl_canvas.Canvas(buf, pagesize=A4)
+    top = _cabecalho_doc(c, titulo, subtitulo)
     iw, ih = im.size
     margem = 1.5 * cm
-    maxw, maxh = _W - 2 * margem, _H - 2 * margem
+    maxw, maxh = _W - 2 * margem, top - margem
     esc = min(maxw / iw, maxh / ih)
     w, h = iw * esc, ih * esc
-    c.drawImage(ImageReader(im), (_W - w) / 2, (_H - h) / 2, width=w, height=h)
+    y = margem + (maxh - h) / 2
+    c.drawImage(ImageReader(im), (_W - w) / 2, y, width=w, height=h)
     c.showPage()
     c.save()
     return buf.getvalue()
+
+
+def _rotulo_page(titulo: str, subtitulo: str = None) -> bytes:
+    """Página A4 só com o TÍTULO do documento (usada como capa de um anexo em PDF)."""
+    buf = io.BytesIO()
+    c = rl_canvas.Canvas(buf, pagesize=A4)
+    _cabecalho_doc(c, titulo, subtitulo)
+    f = T.fonts()
+    c.setFillColor(HexColor("#999999"))
+    c.setFont(f["sans"], 10)
+    c.drawCentredString(_W / 2, _H / 2, "(documento anexo nas páginas seguintes)")
+    c.showPage()
+    c.save()
+    return buf.getvalue()
+
+
+def pagina_documento(raw: bytes, titulo: str, subtitulo: str = None) -> bytes:
+    """Um upload → PDF titulado: IMAGEM vira página A4 com o título no topo; PDF recebe
+    uma PÁGINA DE RÓTULO com o título antes das suas páginas."""
+    if not raw:
+        return b""
+    if raw[:5] != b"%PDF-":
+        try:
+            return _img_para_pdf(raw, titulo, subtitulo)
+        except Exception:  # noqa: BLE001
+            return b""
+    try:
+        w = PdfWriter()
+        for pg in PdfReader(io.BytesIO(_rotulo_page(titulo, subtitulo))).pages:
+            w.add_page(pg)
+        for pg in PdfReader(io.BytesIO(raw)).pages:
+            w.add_page(pg)
+        out = io.BytesIO()
+        w.write(out)
+        return out.getvalue()
+    except Exception:  # noqa: BLE001
+        return raw
 
 
 def _to_pdf_bytes(item) -> list:

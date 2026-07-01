@@ -807,6 +807,46 @@ async def _ub(doc, tipo):
     return out
 
 
+# Rótulo amigável de cada tipo de upload — vira o TÍTULO da página do anexo no Dossiê.
+_TITULO_UPLOAD = {
+    "planta_usucapiao": "Planta / Mapa Georreferenciado", "mapa_remembramento": "Mapa",
+    "mapa_atual": "Mapa Atual", "mapa_desdobro": "Mapa de Desdobro", "mapa_retificado": "Mapa Retificado",
+    "art_trt": "ART / TRT / RRT", "art_trt_boleto": "Boleto da TRT",
+    "certidao_inteiro_teor": "Certidão de Inteiro Teor", "certidao_matricula": "Certidão da Matrícula",
+    "negativa_propriedade": "Negativa de Propriedade", "certidao_confrontante": "Certidão do Confrontante",
+    "certidao_negativa": "Certidão Negativa (ônus/ações reais)", "certidao_distribuidor": "Certidão do Distribuidor",
+    "certidao_obito": "Certidão de Óbito", "formal_partilha": "Formal de Partilha",
+    "certidao_estado_civil": "Certidão de Estado Civil", "certidao_casamento": "Certidão de Casamento",
+    "prova_posse": "Prova de Posse", "justo_titulo": "Justo Título", "foto_imovel": "Relatório Fotográfico",
+    "iptu_usucapiao": "IPTU / Valor Venal", "cnd_iptu": "CND de IPTU", "guia_iptu": "Guia de IPTU (DAM)",
+    "comprovante_pagamento_iptu": "Comprovante de Pagamento do IPTU", "bci": "BCI — Boletim de Cadastro Imobiliário",
+    "doc_advogado": "Documento de Identidade do Advogado(a)", "carteira_oab": "Carteira da OAB",
+    "procuracao_oab": "Procuração (OAB)", "doc_requerente": "Documento de Identidade do Requerente",
+    "doc_proprietario": "Documento do Proprietário", "cnh": "CNH",
+}
+
+
+async def _ub_titulado(doc, tipo):
+    """Como `_ub`, mas cada arquivo vira um PDF com o TÍTULO do documento no topo
+    (imagem) ou uma página de rótulo (PDF). O subtítulo é o nome do arquivo enviado —
+    útil p/ distinguir frente/verso etc. Assim cada anexo sai em página própria e
+    identificada no Dossiê."""
+    base = _TITULO_UPLOAD.get(tipo, tipo.replace("_", " ").title())
+    out = []
+    for it in (doc.get("uploads") or {}).get(tipo) or []:
+        if not it.get("key"):
+            continue
+        try:
+            raw = await asyncio.to_thread(r2_storage.download_bytes, it["key"])
+        except Exception:  # noqa: BLE001
+            continue
+        sub = (it.get("nome") or "").rsplit(".", 1)[0].strip() or None
+        pdf = await asyncio.to_thread(DOSSIE.pagina_documento, raw, base, sub)
+        if pdf:
+            out.append(pdf)
+    return out
+
+
 async def _pecas_assinadas(db, doc):
     """{tipo_peça: bytes} das peças CARIMBADAS pelo proprietário (Requerimento 2 vias +
     ART/TRT da sessão CONCLUÍDA). As demais peças técnicas (Memorial/Cadeia/Requerimento
@@ -909,28 +949,28 @@ async def _montar_dossie(db, doc, tema):
             "requerimento_usucapiao": [req],
             "ata_notarial": (await _ub(doc, "ata_notarial_assinada")) or [ata],
             # mapa único da usucapião — aceita a planta dedicada OU os mapas reusados das abas técnicas
-            "planta_mapa": (await _ub(doc, "planta_usucapiao")) + (await _ub(doc, "mapa_remembramento")) + (await _ub(doc, "mapa_atual")),
+            "planta_mapa": (await _ub_titulado(doc, "planta_usucapiao")) + (await _ub_titulado(doc, "mapa_remembramento")) + (await _ub_titulado(doc, "mapa_atual")),
             "memorial_descritivo": [memorial],
-            "art_trt": (await _ub(doc, "art_trt")) + (await _ub(doc, "art_trt_boleto")),
+            "art_trt": (await _ub_titulado(doc, "art_trt")) + (await _ub_titulado(doc, "art_trt_boleto")),
             # certidão — tipo dedicado OU a "certidão de inteiro teor" reusada das abas técnicas
-            "certidao_matricula": (await _ub(doc, "certidao_matricula")) + (await _ub(doc, "negativa_propriedade"))
-                                  + (await _ub(doc, "certidao_inteiro_teor")),
+            "certidao_matricula": (await _ub_titulado(doc, "certidao_matricula")) + (await _ub_titulado(doc, "negativa_propriedade"))
+                                  + (await _ub_titulado(doc, "certidao_inteiro_teor")),
             "declaracoes_anuencia": decls,
-            "certidoes_confrontantes": await _ub(doc, "certidao_confrontante"),
-            "certidoes_negativas": await _ub(doc, "certidao_negativa"),
-            "iptu_valor_venal": (await _ub(doc, "iptu_usucapiao")) + (await _ub(doc, "cnd_iptu"))
-                                + (await _ub(doc, "guia_iptu")) + (await _ub(doc, "comprovante_pagamento_iptu")),
-            "provas_posse": await _ub(doc, "prova_posse"),
-            "relatorio_fotografico": await _ub(doc, "foto_imovel"),
-            "docs_herdeiro": (await _ub(doc, "certidao_obito")) + (await _ub(doc, "formal_partilha")),
-            "justo_titulo": await _ub(doc, "justo_titulo"),
-            "certidoes_distribuidores": await _ub(doc, "certidao_distribuidor"),
+            "certidoes_confrontantes": await _ub_titulado(doc, "certidao_confrontante"),
+            "certidoes_negativas": await _ub_titulado(doc, "certidao_negativa"),
+            "iptu_valor_venal": (await _ub_titulado(doc, "iptu_usucapiao")) + (await _ub_titulado(doc, "cnd_iptu"))
+                                + (await _ub_titulado(doc, "guia_iptu")) + (await _ub_titulado(doc, "comprovante_pagamento_iptu")),
+            "provas_posse": await _ub_titulado(doc, "prova_posse"),
+            "relatorio_fotografico": await _ub_titulado(doc, "foto_imovel"),
+            "docs_herdeiro": (await _ub_titulado(doc, "certidao_obito")) + (await _ub_titulado(doc, "formal_partilha")),
+            "justo_titulo": await _ub_titulado(doc, "justo_titulo"),
+            "certidoes_distribuidores": await _ub_titulado(doc, "certidao_distribuidor"),
             "notificacoes_edital": notifs + [edital],
-            "docs_advogado": (await _ub(doc, "doc_advogado")) + (await _ub(doc, "carteira_oab"))
-                             + (await _ub(doc, "procuracao_oab")),
-            "docs_requerente": (await _ub(doc, "doc_requerente")) + (await _ub(doc, "certidao_estado_civil"))
-                               + (await _ub(doc, "doc_proprietario"))
-                               + (await _ub(doc, "cnh")) + (await _ub(doc, "certidao_casamento")),
+            "docs_advogado": (await _ub_titulado(doc, "doc_advogado")) + (await _ub_titulado(doc, "carteira_oab"))
+                             + (await _ub_titulado(doc, "procuracao_oab")),
+            "docs_requerente": (await _ub_titulado(doc, "doc_requerente")) + (await _ub_titulado(doc, "certidao_estado_civil"))
+                               + (await _ub_titulado(doc, "doc_proprietario"))
+                               + (await _ub_titulado(doc, "cnh")) + (await _ub_titulado(doc, "certidao_casamento")),
         }
         secoes = [(titulo, conteudo.get(key)) for key, titulo in DOSSIE.ORDEM_DOSSIE_USUCAPIAO]
         return await asyncio.to_thread(DOSSIE.gerar_dossie_ordenado, doc, secoes, capa_pdf)

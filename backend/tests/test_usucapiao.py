@@ -356,6 +356,19 @@ def test_extrair_tudo_usucapiao_semeia_matricula_do_memorial(monkeypatch):
     assert mats[0].get("denominacao")   # semeada do Memorial
 
 
+def test_anexo_do_dossie_tem_titulo():
+    """Cada anexo (imagem/PDF) vira uma página do Dossiê COM o título do documento."""
+    from services.geo_urbano.generators import dossie as D
+    from PIL import Image
+    import io, fitz
+    b = io.BytesIO(); Image.new("RGB", (500, 350), (210, 190, 170)).save(b, "JPEG")
+    pdf = D.pagina_documento(b.getvalue(), "Carteira da OAB", "Carteira OAB verso")
+    d = fitz.open("pdf", pdf)
+    assert d.page_count == 1
+    t = d[0].get_text()
+    assert "Carteira da OAB" in t and "verso" in t
+
+
 def test_advogado_assina_so_requerimento():
     """Assinatura por WhatsApp: o advogado recebe link e assina SÓ o Requerimento; o
     requerente/possuidor assina Requerimento + ART/TRT."""
