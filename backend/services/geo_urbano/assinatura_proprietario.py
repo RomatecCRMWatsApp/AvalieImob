@@ -41,8 +41,12 @@ def _agora_iso():
 
 
 def signatarios_de(projeto: dict) -> list:
-    """Quem assina pelo proprietário: PF requerente, representante, sócio, cônjuge.
-    (PJ requerente assina pelo representante legal.)"""
+    """Quem assina por WhatsApp: requerente/possuidor (e herdeiro-usucapiente), cônjuge,
+    representante/sócio E o ADVOGADO(A). Cada signatário traz `pecas` = as peças que
+    ELE assina — o advogado assina SOMENTE o Requerimento; os demais, Requerimento +
+    ART/TRT. (PJ requerente assina pelo representante legal.)"""
+    todas = [k for k, _ in pecas_proprietario(projeto)]
+    req_pecas = [k for k in todas if k.startswith("requerimento")]
     out = []
     for p in projeto.get("partes") or []:
         papel = p.get("papel")
@@ -51,9 +55,11 @@ def signatarios_de(projeto: dict) -> list:
         nome = p.get("nome") or p.get("razao_social")
         if not nome:
             continue
+        pecas = req_pecas if papel == "advogado" else todas
         out.append({
             "parte_id": p.get("id"), "nome": nome, "papel": papel or "requerente",
             "cpf_cnpj": p.get("cpf") or p.get("cnpj"), "telefone": p.get("telefone"),
+            "pecas": pecas,   # peças que ESTE signatário assina
         })
     return out
 

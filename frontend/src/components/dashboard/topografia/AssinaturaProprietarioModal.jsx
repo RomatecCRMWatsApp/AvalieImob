@@ -36,8 +36,20 @@ export default function AssinaturaProprietarioModal({ projetoId, onFechar, onEnv
 
   const setFone = (pid, fone) => setSigs((ss) => ss.map((s) => (s.parte_id === pid ? { ...s, telefone: fone } : s)));
 
+  const podeAssinar = (pid, docNome) => {
+    if (pid === '__tecnico__') return true;
+    const s = sigs.find((x) => x.parte_id === pid);
+    return !s?.pecas || s.pecas.includes(docNome);   // sem lista = assina tudo (compat)
+  };
+
   const clicar = (e, docNome, pg) => {
     if (!ativo) { toast({ title: 'Selecione um signatário' }); return; }
+    if (!podeAssinar(ativo, docNome)) {
+      const s = sigs.find((x) => x.parte_id === ativo);
+      toast({ title: `${(s?.nome || '').split(' ')[0]} não assina esta peça`,
+        description: s?.papel === 'advogado' ? 'O advogado(a) assina somente o Requerimento.' : '', variant: 'destructive' });
+      return;
+    }
     const r = e.currentTarget.getBoundingClientRect();
     const cx = e.clientX - r.left, cy = e.clientY - r.top;
     const escX = pg.largura_pt / r.width, escY = pg.altura_pt / r.height;
@@ -104,7 +116,7 @@ export default function AssinaturaProprietarioModal({ projetoId, onFechar, onEnv
                 style={{ borderColor: corSig(s.parte_id), ...(ativo === s.parte_id ? { boxShadow: `0 0 0 2px ${corSig(s.parte_id)}` } : {}) }}>
                 <button onClick={() => setAtivo(s.parte_id)} className="text-left w-full">
                   <div className="text-sm font-medium" style={{ color: corSig(s.parte_id) }}>{s.nome}</div>
-                  <div className="text-[11px] text-gray-500">{s.papel}</div>
+                  <div className="text-[11px] text-gray-500">{s.papel}{s.papel === 'advogado' ? ' · assina só o Requerimento' : ''}</div>
                 </button>
                 <input className="mt-1 w-full border rounded px-2 py-1 text-xs" placeholder="WhatsApp (55DDDNUMERO)"
                   value={s.telefone || ''} onChange={(e) => setFone(s.parte_id, e.target.value)} />
@@ -126,16 +138,21 @@ export default function AssinaturaProprietarioModal({ projetoId, onFechar, onEnv
 
           {/* documentos */}
           <div className="flex-1 overflow-y-auto bg-gray-800 p-3 space-y-4">
-            {documentos.map((d) => (
-              <div key={d.doc}>
-                <div className="text-white text-sm font-semibold mb-1">{d.titulo}</div>
+            {documentos.map((d) => {
+              const bloqueado = ativo && ativo !== '__tecnico__' && !podeAssinar(ativo, d.doc);
+              return (
+              <div key={d.doc} style={{ opacity: bloqueado ? 0.4 : 1 }}>
+                <div className="text-white text-sm font-semibold mb-1">
+                  {d.titulo}{bloqueado && <span className="text-[11px] font-normal text-amber-300 ml-2">— este signatário não assina esta peça</span>}
+                </div>
                 {(d.paginas || []).map((pg) => (
                   <Pagina key={pg.pagina} pg={pg} doc={d.doc} pos={pos} sigs={sigs}
                     corSig={corSig} caixaNaTela={caixaNaTela} tecnicoBoxes={tecnicoPos[d.doc] || []}
                     onClick={(e) => clicar(e, d.doc, pg)} />
                 ))}
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

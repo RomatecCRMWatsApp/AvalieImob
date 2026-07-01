@@ -1357,9 +1357,10 @@ export default function GeoUrbanoWizard() {
             <p className="text-[11px] text-gray-400">Assina-se sobre a peça gerada; o selo ICP-Brasil (PAdES) é aplicado posicionando o carimbo.</p>
           </div>
 
-          {/* bloco Proprietário — WhatsApp */}
+          {/* bloco Proprietário / Advogado — WhatsApp */}
           <div className="rounded-xl border bg-white p-4 space-y-3">
-            <h3 className="text-sm font-semibold" style={{ color: GREEN }}>Proprietário — assinatura por WhatsApp (Requerimento + ART/TRT)</h3>
+            <h3 className="text-sm font-semibold" style={{ color: GREEN }}>{isUsucapiao ? 'Requerente/Possuidor e Advogado(a)' : 'Proprietário'} — assinatura por WhatsApp</h3>
+            {isUsucapiao && <p className="text-[11px] text-gray-500">O requerente/possuidor assina o Requerimento + ART/TRT; a <b>advogada(o)</b> assina <b>somente o Requerimento</b>. Cada um recebe seu link (posicione as assinaturas e dispare).</p>}
             {propSessao?.existe ? (
               <>
                 <div className="text-xs text-gray-600">Enviado · {propSessao.assinados}/{propSessao.total} assinaram · {propSessao.status}</div>

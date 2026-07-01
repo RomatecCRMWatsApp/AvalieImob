@@ -356,6 +356,19 @@ def test_extrair_tudo_usucapiao_semeia_matricula_do_memorial(monkeypatch):
     assert mats[0].get("denominacao")   # semeada do Memorial
 
 
+def test_advogado_assina_so_requerimento():
+    """Assinatura por WhatsApp: o advogado recebe link e assina SÓ o Requerimento; o
+    requerente/possuidor assina Requerimento + ART/TRT."""
+    from services.geo_urbano import assinatura_proprietario as P
+    proj = {"tipo_servico": "usucapiao", "partes": [
+        {"id": "a", "papel": "herdeiro", "nome": "LINDAURA", "usucapiente": True, "telefone": "5591"},
+        {"id": "b", "papel": "advogado", "nome": "JULIETA", "oab": "11", "telefone": "5592"}]}
+    sigs = {s["nome"]: s for s in P.signatarios_de(proj)}
+    assert sigs["JULIETA"]["pecas"] == ["requerimento_usucapiao"]        # advogada só o requerimento
+    assert "art_trt" in sigs["LINDAURA"]["pecas"]                        # possuidora assina o ART/TRT
+    assert sigs["JULIETA"]["telefone"] == "5592"                         # link vai ao WhatsApp dela
+
+
 def test_usucapiente_vira_requerente():
     """Parte marcada 'usucapiente' (mesmo papel=herdeiro) é tratada como REQUERENTE:
     assina, lidera a qualificação/intro e vai à capa como requerente."""
