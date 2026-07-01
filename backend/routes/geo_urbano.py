@@ -696,7 +696,7 @@ _PECA_LABEL = {
     "memorial_descritivo": "Memorial Descritivo", "cadeia_dominical": "Cadeia Dominical",
     # usucapião
     "requerimento_usucapiao": "Requerimento de Usucapião", "ata_notarial": "Minuta da Ata Notarial",
-    "edital_usucapiao": "Edital de Usucapião",
+    "edital_usucapiao": "Edital de Usucapião", "art_trt": "ART / TRT",
 }
 
 
@@ -707,6 +707,12 @@ async def _peca_pdf_bytes(db, doc, tipo, tema):
     assinadas = await _pecas_assinadas(db, doc)
     if assinadas.get(tipo):
         return assinadas[tipo]
+    if tipo == "art_trt":
+        # ART/TRT é UPLOAD (não gerável) — envia o arquivo enviado (imagem→PDF)
+        ups = await _ub(doc, "art_trt")
+        if ups:
+            return ups[0]
+        raise HTTPException(status_code=422, detail="ART/TRT ainda não foi enviada.")
     if tipo in _DOCS_GERAVEIS:
         return await asyncio.to_thread(PDF.gerar_pdf, tipo, doc, tema, doc.get("_brand_logo_bytes"))
     raise HTTPException(status_code=422, detail=f"Peça inválida: {tipo}")
@@ -951,7 +957,10 @@ async def _montar_dossie(db, doc, tema):
             # mapa único da usucapião — aceita a planta dedicada OU os mapas reusados das abas técnicas
             "planta_mapa": (await _ub_titulado(doc, "planta_usucapiao")) + (await _ub_titulado(doc, "mapa_remembramento")) + (await _ub_titulado(doc, "mapa_atual")),
             "memorial_descritivo": [memorial],
-            "art_trt": (await _ub_titulado(doc, "art_trt")) + (await _ub_titulado(doc, "art_trt_boleto")),
+            # ART/TRT — versão ASSINADA (carimbo do proprietário/ICP) prevalece sobre o upload
+            "art_trt": ([await asyncio.to_thread(DOSSIE.pagina_documento, assinadas["art_trt"], "ART / TRT / RRT", None)]
+                        if assinadas.get("art_trt") else await _ub_titulado(doc, "art_trt"))
+                       + (await _ub_titulado(doc, "art_trt_boleto")),
             # certidão — tipo dedicado OU a "certidão de inteiro teor" reusada das abas técnicas
             "certidao_matricula": (await _ub_titulado(doc, "certidao_matricula")) + (await _ub_titulado(doc, "negativa_propriedade"))
                                   + (await _ub_titulado(doc, "certidao_inteiro_teor")),

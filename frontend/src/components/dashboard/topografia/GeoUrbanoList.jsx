@@ -106,7 +106,7 @@ export default function GeoUrbanoList() {
   const [waPeca, setWaPeca] = useState('dossie');
   const [waFone, setWaFone] = useState('');
   const [waEnviando, setWaEnviando] = useState(false);
-  const abrirWa = (p, e) => { e.stopPropagation(); setWa({ id: p.id, nome: p.denominacao_imovel }); setWaPeca('dossie'); setWaFone(''); };
+  const abrirWa = (p, e) => { e.stopPropagation(); setWa({ id: p.id, nome: p.denominacao_imovel, tipo_servico: p.tipo_servico }); setWaPeca('dossie'); setWaFone(''); };
   const enviarWa = async () => {
     const fone = waFone.replace(/\D/g, '');
     if (fone.length < 10) { toast({ title: 'Informe um WhatsApp válido (55 + DDD + número)', variant: 'destructive' }); return; }
@@ -315,11 +315,21 @@ export default function GeoUrbanoList() {
             <p className="text-xs text-gray-500 mb-3 line-clamp-1">{wa.nome}</p>
             <label className="block text-xs font-medium text-gray-600 mb-1">Peça</label>
             <select className="w-full border rounded-lg px-2.5 py-2 text-sm mb-3" value={waPeca} onChange={(e) => setWaPeca(e.target.value)}>
-              <option value="dossie">Dossiê consolidado</option>
-              <option value="requerimento_cartorio">Requerimento — Cartório de RI</option>
-              <option value="requerimento_superintendencia">Requerimento — Superintendência</option>
-              <option value="memorial_descritivo">Memorial Descritivo</option>
-              <option value="cadeia_dominical">Cadeia Dominical</option>
+              <option value="dossie">Dossiê consolidado (com as assinaturas)</option>
+              {wa.tipo_servico === 'usucapiao' ? (
+                <>
+                  <option value="requerimento_usucapiao">Requerimento de Usucapião (assinado)</option>
+                  <option value="art_trt">ART / TRT</option>
+                  <option value="memorial_descritivo">Memorial Descritivo</option>
+                </>
+              ) : (
+                <>
+                  <option value="requerimento_cartorio">Requerimento — Cartório de RI</option>
+                  <option value="requerimento_superintendencia">Requerimento — Superintendência</option>
+                  <option value="memorial_descritivo">Memorial Descritivo</option>
+                  <option value="cadeia_dominical">Cadeia Dominical</option>
+                </>
+              )}
             </select>
             <label className="block text-xs font-medium text-gray-600 mb-1">WhatsApp do contato</label>
             <input className="w-full border rounded-lg px-2.5 py-2 text-sm mb-4" placeholder="55 + DDD + número (ex.: 5599999999999)"
