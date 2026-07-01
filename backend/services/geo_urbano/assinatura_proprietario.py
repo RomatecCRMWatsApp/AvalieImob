@@ -47,10 +47,18 @@ def signatarios_de(projeto: dict) -> list:
     ART/TRT. (PJ requerente assina pelo representante legal.)"""
     todas = [k for k, _ in pecas_proprietario(projeto)]
     req_pecas = [k for k in todas if k.startswith("requerimento")]
+    # QUEM assina o Requerimento por WhatsApp: requerente/possuidor, herdeiro, cônjuge,
+    # representante/sócio (PJ) e o advogado. O PROPRIETÁRIO REGISTRAL (titular tabular —
+    # muitas vezes FALECIDO) e as TESTEMUNHAS NÃO assinam aqui.
+    ASSINAM = {"requerente", "herdeiro", "conjuge", "representante", "socio", "advogado"}
     out = []
     for p in projeto.get("partes") or []:
         papel = p.get("papel")
         if papel == "requerente" and p.get("tipo_pessoa") == "juridica":
+            continue
+        if p.get("falecido"):                                   # falecido não assina
+            continue
+        if not (papel in ASSINAM or p.get("usucapiente")):      # titular tabular/testemunha fora
             continue
         nome = p.get("nome") or p.get("razao_social")
         if not nome:

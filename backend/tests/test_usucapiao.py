@@ -397,6 +397,20 @@ def test_advogado_assina_so_requerimento():
     assert sigs["JULIETA"]["telefone"] == "5592"                         # link vai ao WhatsApp dela
 
 
+def test_signatarios_excluem_falecido_titular_e_testemunha():
+    """Proprietário registral FALECIDO (titular tabular) e TESTEMUNHA não recebem link
+    de assinatura por WhatsApp — só requerente/possuidor/herdeiro e advogado."""
+    from services.geo_urbano import assinatura_proprietario as P
+    proj = {"tipo_servico": "usucapiao", "partes": [
+        {"id": "a", "papel": "titular_tabular", "nome": "LAURINDA", "falecido": True, "telefone": "1"},
+        {"id": "b", "papel": "herdeiro", "nome": "LINDAURA", "usucapiente": True, "telefone": "2"},
+        {"id": "c", "papel": "advogado", "nome": "JULIETA", "oab": "11", "telefone": "3"},
+        {"id": "d", "papel": "testemunha", "nome": "FULANO", "telefone": "4"}]}
+    nomes = {s["nome"] for s in P.signatarios_de(proj)}
+    assert nomes == {"LINDAURA", "JULIETA"}
+    assert "LAURINDA" not in nomes and "FULANO" not in nomes
+
+
 def test_usucapiente_vira_requerente():
     """Parte marcada 'usucapiente' (mesmo papel=herdeiro) é tratada como REQUERENTE:
     assina, lidera a qualificação/intro e vai à capa como requerente."""
