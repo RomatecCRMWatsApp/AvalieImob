@@ -1365,9 +1365,9 @@ export default function GeoUrbanoWizard() {
 
           {/* bloco Técnico — assinatura ICP */}
           <div className="rounded-xl border bg-white p-4 space-y-3">
-            <h3 className="text-sm font-semibold" style={{ color: GREEN }}>Técnico — assinatura ICP (Memorial + Mapa)</h3>
+            <h3 className="text-sm font-semibold" style={{ color: GREEN }}>Técnico — assinatura ICP (Memorial + Mapa + ART/TRT)</h3>
             <div className="flex flex-wrap gap-3">
-              {[['memorial_descritivo', 'Memorial'], ['mapa', 'Mapa']].map(([peca, lab]) => {
+              {[['memorial_descritivo', 'Memorial'], ['mapa', 'Mapa'], ['art_trt', 'ART/TRT']].map(([peca, lab]) => {
                 const a = assinaturas[peca];
                 return (
                   <div key={peca} className="flex items-center gap-1.5">
