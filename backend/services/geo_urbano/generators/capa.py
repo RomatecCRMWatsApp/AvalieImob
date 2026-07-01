@@ -211,12 +211,19 @@ def compor_capa(projeto: dict, img_bytes: bytes, zoom=1.18, center=(0.5, 0.5)) -
     _texto_centrado(d, cx, 170, "DOSSIÊ", _font(96, bold=True), OFFWHITE)
     _texto_centrado(d, cx, 290, SERVICO_TITULO.get(projeto.get("tipo_servico"), "PROCESSO"),
                     _font(58, bold=True), DOURADO_CLARO)
-    sub = " · ".join([x for x in [
-        f"Quadra {_num_quadra(projeto.get('quadra'))}" if _num_quadra(projeto.get("quadra")) else None,
-        projeto.get("loteamento"),
-        f"{projeto.get('municipio') or ''}/{projeto.get('uf') or ''}",
-    ] if x])
-    _texto_centrado(d, cx, 372, sub[:90], _font(24, serif=False), OFFWHITE)
+    # subtítulo = IDENTIFICAÇÃO completa do imóvel (endereço) + Município/UF; sem endereço,
+    # cai p/ Quadra/Loteamento. Fonte auto-ajustada p/ caber em 1 linha.
+    end = (projeto.get("endereco") or "").strip()
+    if not end:
+        end = " · ".join([x for x in [
+            f"Quadra {_num_quadra(projeto.get('quadra'))}" if _num_quadra(projeto.get("quadra")) else None,
+            projeto.get("loteamento")] if x])
+    mun = f"{projeto.get('municipio') or ''}/{projeto.get('uf') or ''}".strip("/")
+    sub = " · ".join([x for x in [end, mun] if x])[:120]
+    fsz = 24
+    while fsz > 15 and d.textbbox((0, 0), sub, font=_font(fsz, serif=False))[2] > (W - 2 * M):
+        fsz -= 1
+    _texto_centrado(d, cx, 372, sub, _font(fsz, serif=False), OFFWHITE)
 
     # LUPA herói — recorta o padding transparente e fixa a altura no espaço útil
     lupa_bottom = 1010
