@@ -194,21 +194,30 @@ def _tabela_vertices(projeto: dict, cfg, st, L):
         return []
     out = GP._secao("QUADRO DE VÉRTICES, MEDIDAS E CONFRONTAÇÕES", cfg, st, L)
     stn = ParagraphStyle("gu_tabn", parent=st["tab"], fontSize=6.6, leading=8.4)  # numéricas
-    header = ["De", "Para", "Coord. N (Y)", "Coord. E (X)", "Azimute", "Dist. (m)", "Fator K", "Confront."]
+    # Coluna Fator K só aparece se ALGUM vértice a tem (usucapião: o mapa é imagem, não
+    # traz o Fator K — sem valor, a coluna é OCULTADA para não sair vazia).
+    mostra_fk = any(v.get("fator_k") is not None for v in verts)
+    header = ["De", "Para", "Coord. N (Y)", "Coord. E (X)", "Azimute", "Dist. (m)"]
+    if mostra_fk:
+        header.append("Fator K")
+    header.append("Confront.")
     head = [Paragraph(GP._esc(h), st["tab_h"]) for h in header]
     body = []
     for v in verts:
-        body.append([
+        linha = [
             Paragraph(GP._esc(v.get("de") or ""), stn),     # código INCRA completo (fiel)
             Paragraph(GP._esc(v.get("para") or ""), stn),
             Paragraph(GP._esc(TX._n_br(v.get("coord_n"), 4)), stn),
             Paragraph(GP._esc(TX._n_br(v.get("coord_e"), 4)), stn),
             Paragraph(GP._esc(v.get("azimute") or ""), stn),
             Paragraph(GP._esc(TX._n_br(v.get("distancia_m"))), stn),
-            Paragraph(GP._esc(TX._n_br(v.get("fator_k"), 8) if v.get("fator_k") is not None else ""), stn),
-            Paragraph(GP._esc(v.get("confrontante_lado") or "—"), st["tab"]),
-        ])
-    fr = [0.115, 0.115, 0.145, 0.145, 0.10, 0.06, 0.10, 0.22]  # soma 1.0 (De/Para mais largos)
+        ]
+        if mostra_fk:
+            linha.append(Paragraph(GP._esc(TX._n_br(v.get("fator_k"), 8) if v.get("fator_k") is not None else ""), stn))
+        linha.append(Paragraph(GP._esc(v.get("confrontante_lado") or "—"), st["tab"]))
+        body.append(linha)
+    fr = ([0.115, 0.115, 0.145, 0.145, 0.10, 0.06, 0.10, 0.22] if mostra_fk       # soma 1.0
+          else [0.13, 0.13, 0.16, 0.16, 0.11, 0.07, 0.24])                        # sem Fator K
     t = Table([head] + body, colWidths=[L * f for f in fr], repeatRows=1)
     t.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), cfg["tab_head_bg"]),

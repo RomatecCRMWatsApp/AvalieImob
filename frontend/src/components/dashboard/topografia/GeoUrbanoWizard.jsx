@@ -177,7 +177,6 @@ export default function GeoUrbanoWizard() {
   const [firmaPos, setFirmaPos] = useState({ largura: 150, align: 'left', dx: 0, dy: 0 });
   const firmaPosDebounce = useRef(null);
   const [firmaBusy, setFirmaBusy] = useState(false);
-  const [fkTodos, setFkTodos] = useState('');   // Fator K p/ aplicar a todos os vértices
   const [cnsBusy, setCnsBusy] = useState(false);
   const [assinId, setAssinId] = useState(null);
   const [assinaturas, setAssinaturas] = useState({});
@@ -356,12 +355,6 @@ export default function GeoUrbanoWizard() {
   // Vértices (editáveis — confrontante não vem da planilha do mapa)
   const addVert = () => upd({ vertices: [...(proj.vertices || []), { id: `tmp-${Date.now()}`, ordem: (proj.vertices || []).length + 1 }] });
   const rmVert = (i) => upd({ vertices: (proj.vertices || []).filter((_, k) => k !== i) });
-  const aplicarFkTodos = () => {
-    const n = Number(String(fkTodos).replace(',', '.').trim());
-    if (!n || isNaN(n)) { toast({ title: 'Informe um Fator K válido (ex.: 1,0005535)', variant: 'destructive' }); return; }
-    upd({ vertices: (proj.vertices || []).map((v) => ({ ...v, fator_k: n })) });
-    toast({ title: 'Fator K aplicado a todos os vértices' });
-  };
   // Confrontantes + DRL (retificação, eixo geométrico)
   const addConfr = () => upd({ confrontantes: [...(proj.confrontantes || []), { id: `tmp-${Date.now()}`, tipo: 'particular', anuencia: { status: 'pendente' } }] });
   const rmConfr = (i) => upd({ confrontantes: (proj.confrontantes || []).filter((_, k) => k !== i) });
@@ -969,22 +962,14 @@ export default function GeoUrbanoWizard() {
               </div>
             </div>
             <p className="text-[11px] text-amber-600 mb-2">{isUsucapiao
-              ? <>Vértices/confrontantes/coordenadas extraídos do <b>Memorial</b>. O <b>Fator K</b> só consta no <b>mapa</b> (o mapa é imagem/vetor — não dá para ler nem calcular com fidelidade, pois varia com a altitude): preencha do seu mapa abaixo.</>
+              ? <>Vértices, confrontantes e coordenadas extraídos do <b>Memorial</b> — confira/ajuste se necessário.</>
               : <>O <b>Confrontante</b> não vem da planilha do mapa — preencha/corrija por aqui (1 por segmento) para o Memorial sair completo.</>}</p>
-            {isUsucapiao && (
-              <div className="flex items-center flex-wrap gap-2 mb-2 text-xs bg-emerald-50/60 border border-emerald-100 rounded-lg p-2">
-                <span className="text-gray-600"><b>Fator K</b> (do seu mapa) — aplicar a todos os vértices:</span>
-                <input className="border rounded px-2 py-1 w-36 font-mono" inputMode="decimal" placeholder="1,0005535"
-                  value={fkTodos} onChange={(e) => setFkTodos(e.target.value)} />
-                <button onClick={aplicarFkTodos} className="px-3 py-1 rounded-lg text-white text-xs" style={{ background: GREEN }}>Aplicar a todos</button>
-                <span className="text-[10px] text-gray-400">(os 4 valores do seu mapa são quase idênticos; ajuste por linha se quiser exatos)</span>
-              </div>
-            )}
             <div className="overflow-x-auto -mx-1 px-1">
               <table className="text-xs border-collapse" style={{ minWidth: 820 }}>
                 <thead>
                   <tr className="text-left" style={{ color: GREEN }}>
-                    {['De', 'Para', 'Coord. N (Y)', 'Coord. E (X)', 'Azimute', 'Dist. (m)', 'Fator K', 'Confrontante', ''].map((h) => (
+                    {['De', 'Para', 'Coord. N (Y)', 'Coord. E (X)', 'Azimute', 'Dist. (m)',
+                      ...(isUsucapiao ? [] : ['Fator K']), 'Confrontante', ''].map((h) => (
                       <th key={h} className="px-1.5 py-1.5 whitespace-nowrap border-b font-semibold bg-gray-50">{h}</th>
                     ))}
                   </tr>
@@ -1002,8 +987,10 @@ export default function GeoUrbanoWizard() {
                         <td className="border-r"><input className={vci + ' font-mono'} style={{ minWidth: 104 }} type="number" value={v.coord_e ?? ''} onChange={(e) => setN('coord_e', e.target.value)} /></td>
                         <td className="border-r"><input className={vci} style={{ minWidth: 84 }} value={v.azimute || ''} onChange={(e) => set('azimute', e.target.value)} /></td>
                         <td className="border-r"><input className={vci + ' text-right'} style={{ minWidth: 60 }} type="number" value={v.distancia_m ?? ''} onChange={(e) => setN('distancia_m', e.target.value)} /></td>
+                        {!isUsucapiao && (
                         <td className="border-r"><input className={vci + ' font-mono'} style={{ minWidth: 96 }} inputMode="decimal" placeholder="1,0005535"
                           value={v.fator_k ?? ''} onChange={(e) => { const x = e.target.value.replace(',', '.').trim(); updArr('vertices', i, { fator_k: x === '' ? null : (isNaN(Number(x)) ? v.fator_k : Number(x)) }); }} /></td>
+                        )}
                         <td className="border-r bg-amber-50/40"><input className={vci} style={{ minWidth: 150 }} placeholder="ex.: Rua Suriname" value={v.confrontante_lado || ''} onChange={(e) => set('confrontante_lado', e.target.value)} /></td>
                         <td className="px-1"><Trash2 className="w-3.5 h-3.5 text-gray-300 hover:text-red-500 cursor-pointer" onClick={() => rmVert(i)} /></td>
                       </tr>
