@@ -7,7 +7,18 @@ from __future__ import annotations
 
 import base64
 import io
+import re
 from datetime import datetime, timezone
+
+
+def _fmt_data_br(v) -> str:
+    """Formata a data da posse: ISO 'AAAA-MM-DD' → 'DD/MM/AAAA'; ano ou outro formato,
+    devolve como está (o usuário pode digitar '2008', 'maio/2008', etc.)."""
+    s = str(v or "").strip()
+    m = re.match(r"^(\d{4})-(\d{2})-(\d{2})", s)
+    if m:
+        return f"{m.group(3)}/{m.group(2)}/{m.group(1)}"
+    return s
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm, mm
@@ -736,8 +747,11 @@ def requerimento_usucapiao(projeto: dict, tema: str, logo_bytes=None) -> bytes:
     posse = projeto.get("posse") or {}
     inicio = posse.get("inicio") or next((p.get("inicio") for p in (projeto.get("soma_posses") or [])
                                           if p.get("inicio")), None)
-    pcorpo = (f"O(a) requerente exerce posse {posse.get('natureza') or 'mansa, pacífica e ininterrupta'}, "
-              f"com animus domini, sobre o imóvel desde {inicio or '—'}"
+    natureza = posse.get("natureza") or "mansa, pacífica e ininterrupta"
+    if "animus" not in natureza.lower():          # não duplica se o usuário já digitou
+        natureza += ", com animus domini"
+    desde = f" desde {_fmt_data_br(inicio)}" if inicio else " há tempo suficiente ao reconhecimento"
+    pcorpo = (f"O(a) requerente exerce posse {natureza}, sobre o imóvel{desde}"
               + (f", com origem em {posse['origem']}" if posse.get("origem") else "") + ". "
               + TX.soma_posses_texto(projeto))
     if posse.get("benfeitorias"):

@@ -668,7 +668,16 @@ export default function GeoUrbanoWizard() {
                   <Field label="Fundamento legal (texto livre)" full value={proj.fundamento_legal} onChange={(v) => upd({ fundamento_legal: v })} />
                 )}
                 <Field label="Valor atribuído (R$)" type="number" value={proj.valor_atribuido} onChange={(v) => upd({ valor_atribuido: v === '' ? null : Number(v) })} />
+                <Field label="Início da posse (data)" type="date" value={(proj.posse || {}).inicio || ''}
+                  onChange={(v) => upd({ posse: { ...(proj.posse || {}), inicio: v } })} />
+                <Field label="Natureza da posse" value={(proj.posse || {}).natureza ?? ''}
+                  placeholder="mansa, pacífica e ininterrupta"
+                  onChange={(v) => upd({ posse: { ...(proj.posse || {}), natureza: v } })} />
+                <Field label="Origem da posse (opcional)" full value={(proj.posse || {}).origem || ''}
+                  placeholder="ex.: herança / cessão de posse / compra sem registro"
+                  onChange={(v) => upd({ posse: { ...(proj.posse || {}), origem: v } })} />
               </div>
+              <p className="text-[11px] text-gray-500 mt-1">A <b>data de início da posse</b> alimenta o Requerimento ("exerce posse … desde …") e a <b>aferição do prazo</b>. Para <b>soma de posses</b> (posse dos antecessores/de cujus), use a aba <b>Jurídico</b>.</p>
               {usuValid && (
                 <div className="grid sm:grid-cols-3 gap-3 text-xs mt-4">
                   <div className={`rounded-lg p-2 border ${usuValid.prazo_ok ? 'border-emerald-300 bg-emerald-50' : 'border-amber-300 bg-amber-50'}`}>

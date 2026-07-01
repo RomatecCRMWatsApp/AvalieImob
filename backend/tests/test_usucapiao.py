@@ -356,6 +356,21 @@ def test_extrair_tudo_usucapiao_semeia_matricula_do_memorial(monkeypatch):
     assert mats[0].get("denominacao")   # semeada do Memorial
 
 
+def test_da_posse_sem_animus_duplicado_e_com_data():
+    from services.geo_urbano.generators import pdf as PDF
+    import fitz
+    proj = {"tipo_servico": "usucapiao", "modalidade_usucapiao": "extraordinaria",
+            "denominacao_imovel": "LOTE 08", "municipio": "Açailândia", "uf": "MA",
+            "area_declarada_m2": 1106.0, "partes": [{"papel": "herdeiro", "nome": "LINDAURA", "usucapiente": True}],
+            "posse": {"natureza": "mansa, pacífica, ininterrupta, com animus domini", "inicio": "2008-05-01"}}
+    d = fitz.open("pdf", PDF.gerar_pdf("requerimento_usucapiao", proj, "prime_i"))
+    txt = " ".join(" ".join(p.get_text().split()) for p in d)
+    import re
+    posse = re.search(r"exerce posse[^.]*\.", txt).group(0)
+    assert posse.count("animus domini") == 1          # NÃO duplica na DA POSSE
+    assert "desde 01/05/2008" in posse                # data ISO → DD/MM/AAAA
+
+
 def test_anexo_do_dossie_tem_titulo():
     """Cada anexo (imagem/PDF) vira uma página do Dossiê COM o título do documento."""
     from services.geo_urbano.generators import dossie as D
