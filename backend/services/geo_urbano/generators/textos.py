@@ -81,6 +81,17 @@ def _juntar(partes: List[str]) -> str:
     return ", ".join(p for p in partes if p and str(p).strip())
 
 
+def _contato_email(p: dict) -> List[str]:
+    """Contato (WhatsApp) e e-mail — anexados ao fim da qualificação de qualquer parte."""
+    seg = []
+    tel = p.get("telefone") or p.get("whatsapp")
+    if tel:
+        seg.append(f"contato/WhatsApp {tel}")
+    if p.get("email"):
+        seg.append(f"e-mail {p['email']}")
+    return seg
+
+
 def qualificar_parte(p: dict) -> str:
     if (p.get("tipo_pessoa") or "juridica") == "juridica":
         seg = [p.get("razao_social") or "",
@@ -93,20 +104,21 @@ def qualificar_parte(p: dict) -> str:
             seg.append(f"registro na {p['junta']}")
         if p.get("sede"):
             seg.append(f"com sede na {p['sede']}")
-        return _juntar(seg)
+        return _juntar(seg + _contato_email(p))
     seg = [p.get("nome") or ""]
     seg += [x for x in (p.get("nacionalidade"), p.get("estado_civil"), p.get("profissao")) if x]
     if p.get("rg"):
-        seg.append(f"portador do RG nº {p['rg']}")
+        rg = p["rg"] + (f" {p['orgao_emissor']}" if p.get("orgao_emissor") else "")
+        seg.append(f"portador(a) do RG nº {rg}")
     if p.get("cpf"):
-        seg.append(f"inscrito no CPF sob o nº {p['cpf']}")
+        seg.append(f"inscrito(a) no CPF sob o nº {p['cpf']}")
     if p.get("cnh"):
         seg.append(f"CNH nº {p['cnh']}")
     if p.get("filiacao"):
         seg.append(p["filiacao"])
     if p.get("endereco"):
-        seg.append(f"residente e domiciliado na {p['endereco']}")
-    return _juntar(seg)
+        seg.append(f"residente e domiciliado(a) na {p['endereco']}")
+    return _juntar(seg + _contato_email(p))
 
 
 def bloco_requerentes(projeto: dict) -> str:
@@ -361,11 +373,14 @@ def _qualifica_advogado(p: dict) -> str:
     oab, uf = (p.get("oab") or ""), (p.get("uf_oab") or "")
     if oab:
         seg.append(f"inscrito(a) na OAB/{uf} sob o nº {oab}" if uf else f"inscrito(a) na OAB sob o nº {oab}")
+    if p.get("rg"):
+        rg = p["rg"] + (f" {p['orgao_emissor']}" if p.get("orgao_emissor") else "")
+        seg.append(f"RG nº {rg}")
     if p.get("cpf"):
         seg.append(f"CPF nº {p['cpf']}")
     if p.get("endereco"):
         seg.append(f"com escritório profissional na {p['endereco']}")
-    return _juntar(seg)
+    return _juntar(seg + _contato_email(p))
 
 
 def qualificacao_partes_usucapiao(projeto: dict) -> List[tuple]:
