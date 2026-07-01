@@ -962,13 +962,28 @@ async def _montar_dossie(db, doc, tema):
 # ──────────────────────────────────────────────────────────────────────────────
 _PECAS_ASSINAVEIS = {
     "memorial_descritivo": "Memorial Descritivo",
-    "mapa": "Mapa de Remembramento",
+    "mapa": "Planta / Mapa Georreferenciado",
     "requerimento_cartorio": "Requerimento — Via Cartório",
     "requerimento_superintendencia": "Requerimento — Via Superintendência",
+    "requerimento_usucapiao": "Requerimento de Usucapião",
     "art_trt": "ART / TRT",
 }
-# Peças que vêm de um UPLOAD (PDF/imagem). doc → tipo de upload.
-_PECA_UPLOAD = {"mapa": "mapa_remembramento", "art_trt": "art_trt"}
+# Peça "mapa" — o UPLOAD e o RÓTULO variam por serviço (cada módulo tem sua peça):
+# usucapião = Planta georreferenciada; remembramento/desdobro/retificação = seu mapa.
+_MAPA_UPLOADS_POR_SERVICO = {
+    "usucapiao": ["planta_usucapiao", "mapa_remembramento", "mapa_atual"],
+    "desdobro": ["mapa_desdobro", "mapa_atual"],
+    "retificacao": ["mapa_retificado", "mapa_atual"],
+    "remembramento": ["mapa_remembramento", "mapa_atual"],
+    "desmembramento": ["mapa_remembramento", "mapa_atual"],
+}
+_MAPA_LABEL_POR_SERVICO = {
+    "usucapiao": "Planta / Mapa Georreferenciado (área usucapienda)",
+    "desdobro": "Mapa de Desdobro", "retificacao": "Mapa Retificado",
+    "remembramento": "Mapa de Remembramento", "desmembramento": "Mapa de Desmembramento",
+}
+# Peças (não-mapa) que vêm de um UPLOAD (PDF/imagem). doc → tipo de upload.
+_PECA_UPLOAD = {"art_trt": "art_trt"}
 
 
 async def _bytes_upload(doc, tipo):
@@ -993,7 +1008,24 @@ async def preparar_assinatura(pid: str, body: AssinarPecaBody,
     if peca not in _PECAS_ASSINAVEIS:
         raise HTTPException(status_code=422, detail="Peça inválida para assinatura.")
     tema = body.tema or doc.get("tema") or "prime_i"
-    if peca in _PECA_UPLOAD:
+    servico = doc.get("tipo_servico") or "remembramento"
+    if peca == "mapa":
+        # cada serviço tem sua peça de mapa — tenta os uploads na ordem de prioridade
+        tipos = _MAPA_UPLOADS_POR_SERVICO.get(servico, ["mapa_remembramento", "mapa_atual"])
+        raw = None
+        for tp in tipos:
+            raw = await _bytes_upload(doc, tp)
+            if raw:
+                break
+        if not raw:
+            label = _MAPA_LABEL_POR_SERVICO.get(servico, "Mapa / Planta")
+            raise HTTPException(status_code=422, detail=f"{label} não enviado (etapa Uploads).")
+        if raw[:5] == b"%PDF-":
+            pdf_bytes = raw
+        else:
+            from services.georef.generators.dossie import _img_para_pdf
+            pdf_bytes = await asyncio.to_thread(_img_para_pdf, raw)
+    elif peca in _PECA_UPLOAD:
         raw = await _bytes_upload(doc, _PECA_UPLOAD[peca])
         if not raw:
             raise HTTPException(status_code=422, detail=f"{_PECAS_ASSINAVEIS[peca]} não enviado (etapa Uploads).")

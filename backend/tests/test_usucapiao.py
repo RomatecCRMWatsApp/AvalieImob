@@ -356,6 +356,26 @@ def test_extrair_tudo_usucapiao_semeia_matricula_do_memorial(monkeypatch):
     assert mats[0].get("denominacao")   # semeada do Memorial
 
 
+def test_capa_nao_duplica_quadra_e_acha_requerente():
+    from services.geo_urbano.generators import capa as C
+    assert C._num_quadra("Quadra 01") == "01"   # não sai "Quadra Quadra 01"
+    assert C._num_quadra("Qd 41") == "41" and C._num_quadra("07") == "07"
+    proj = {"partes": [{"papel": "advogado", "nome": "Adv"},
+                       {"papel": "requerente", "nome": "Lindaura Maria"}]}
+    assert C._requerente_nome(proj) == "Lindaura Maria"
+    # fallback: sem requerente, usa o titular tabular (espólio)
+    assert C._requerente_nome({"partes": [{"papel": "titular_tabular", "nome": "Laurinda"}]}) == "Laurinda"
+
+
+def test_assinatura_mapa_por_servico():
+    """A peça 'mapa' resolve o UPLOAD certo por serviço — usucapião usa a planta, não o
+    mapa de remembramento (cada módulo com sua nomenclatura)."""
+    from routes.geo_urbano import _MAPA_UPLOADS_POR_SERVICO as U, _MAPA_LABEL_POR_SERVICO as Lb
+    assert U["usucapiao"][0] == "planta_usucapiao"
+    assert U["desdobro"][0] == "mapa_desdobro" and U["remembramento"][0] == "mapa_remembramento"
+    assert "Usucap" not in Lb["remembramento"] and "usucapienda" in Lb["usucapiao"]
+
+
 def test_requerimento_usucapiao_completo():
     """O Requerimento deve trazer DAS PARTES (com proprietário FALECIDO + advogado/OAB),
     o imóvel com descrição perimétrica (memorial), a soma de posses e a FUNDAMENTAÇÃO

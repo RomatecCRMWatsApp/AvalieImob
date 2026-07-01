@@ -9,6 +9,7 @@ from __future__ import annotations
 import io
 import math
 import os
+import re
 from datetime import datetime, timezone
 
 from PIL import Image, ImageDraw, ImageFilter, ImageOps, ImageFont
@@ -151,6 +152,26 @@ def _texto_centrado(draw, cx, y, txt, font, fill):
     return (bb[3] - bb[1])
 
 
+def _num_quadra(v) -> str:
+    """Só o identificador da quadra — remove um prefixo 'Quadra/Qd./Q.' já digitado no
+    campo (senão a capa saía 'Quadra Quadra 01')."""
+    return re.sub(r"^\s*(quadra|qd\.?|q\.?)\s*", "", str(v or "").strip(), flags=re.I).strip()
+
+
+def _requerente_nome(projeto: dict) -> str:
+    """Nome do requerente (possuidor). Cai p/ o titular tabular e, por fim, p/ a 1ª
+    parte nomeada que não seja advogado/testemunha."""
+    partes = projeto.get("partes") or []
+    for papel in ("requerente", None, "titular_tabular"):
+        for p in partes:
+            if p.get("papel") == papel and (p.get("razao_social") or p.get("nome")):
+                return p.get("razao_social") or p.get("nome")
+    for p in partes:
+        if p.get("papel") not in ("advogado", "testemunha", "representante") and (p.get("razao_social") or p.get("nome")):
+            return p.get("razao_social") or p.get("nome")
+    return ""
+
+
 def _legenda_lupa(projeto: dict) -> str:
     tipo = projeto.get("tipo_servico")
     area = TX.m2(projeto.get("area_declarada_m2"))
@@ -191,7 +212,7 @@ def compor_capa(projeto: dict, img_bytes: bytes, zoom=1.18, center=(0.5, 0.5)) -
     _texto_centrado(d, cx, 290, SERVICO_TITULO.get(projeto.get("tipo_servico"), "PROCESSO"),
                     _font(58, bold=True), DOURADO_CLARO)
     sub = " · ".join([x for x in [
-        f"Quadra {projeto.get('quadra')}" if projeto.get("quadra") else None,
+        f"Quadra {_num_quadra(projeto.get('quadra'))}" if _num_quadra(projeto.get("quadra")) else None,
         projeto.get("loteamento"),
         f"{projeto.get('municipio') or ''}/{projeto.get('uf') or ''}",
     ] if x])
@@ -224,11 +245,7 @@ def compor_capa(projeto: dict, img_bytes: bytes, zoom=1.18, center=(0.5, 0.5)) -
     d.text((cardx0 + 30, cardy0 + 22), "IDENTIFICAÇÃO DO PROCESSO",
            font=_font(22, bold=True, serif=False), fill=DOURADO_CLARO)
     rt = projeto.get("responsavel_tecnico") or {}
-    req = ""
-    for p in projeto.get("partes") or []:
-        if p.get("papel") == "requerente":
-            req = p.get("razao_social") or p.get("nome") or ""
-            break
+    req = _requerente_nome(projeto)
     pares = [
         ("Denominação", projeto.get("denominacao_imovel") or ""),
         ("Serviço · Área", f"{SERVICO_TITULO.get(projeto.get('tipo_servico'), '').title()} · {TX.m2(projeto.get('area_declarada_m2'))}"),
