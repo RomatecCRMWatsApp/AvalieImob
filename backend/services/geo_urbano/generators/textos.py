@@ -341,3 +341,105 @@ def soma_posses_texto(projeto: dict) -> str:
 def valor_atribuido_texto(projeto: dict) -> str:
     v = projeto.get("valor_atribuido")
     return f"R$ {_n_br(v)}" if v is not None else "—"
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Requerimento de Usucapião — DAS PARTES (qualificação) + FUNDAMENTAÇÃO jurídica
+# ──────────────────────────────────────────────────────────────────────────────
+_PAPEL_USUCAPIAO_LABEL = {
+    "requerente": "REQUERENTE (possuidor)", "titular_tabular": "PROPRIETÁRIO REGISTRAL (titular tabular)",
+    "herdeiro": "HERDEIRO / COMUNEIRO DO ESPÓLIO", "advogado": "ADVOGADO(A)",
+    "conjuge": "CÔNJUGE", "representante": "REPRESENTANTE LEGAL", "socio": "SÓCIO",
+}
+_ORDEM_PAPEL_USUCAPIAO = ["requerente", "conjuge", "representante", "socio",
+                          "titular_tabular", "herdeiro", "advogado"]
+
+
+def _qualifica_advogado(p: dict) -> str:
+    seg = [p.get("nome") or ""]
+    seg += [x for x in (p.get("nacionalidade"), p.get("estado_civil"), p.get("profissao") or "advogado(a)") if x]
+    oab, uf = (p.get("oab") or ""), (p.get("uf_oab") or "")
+    if oab:
+        seg.append(f"inscrito(a) na OAB/{uf} sob o nº {oab}" if uf else f"inscrito(a) na OAB sob o nº {oab}")
+    if p.get("cpf"):
+        seg.append(f"CPF nº {p['cpf']}")
+    if p.get("endereco"):
+        seg.append(f"com escritório profissional na {p['endereco']}")
+    return _juntar(seg)
+
+
+def qualificacao_partes_usucapiao(projeto: dict) -> List[tuple]:
+    """Lista [(rótulo do papel, qualificação)] p/ a seção DAS PARTES do Requerimento —
+    requerente/possuidor, cônjuge, proprietário registral (marca falecido), herdeiros,
+    advogado(a) com OAB (art. 216-A LRP)."""
+    partes = projeto.get("partes") or []
+    out = []
+    for papel in _ORDEM_PAPEL_USUCAPIAO:
+        for p in partes:
+            if p.get("papel") != papel:
+                continue
+            if not (p.get("nome") or p.get("razao_social")):
+                continue
+            txt = _qualifica_advogado(p) if papel == "advogado" else qualificar_parte(p)
+            label = _PAPEL_USUCAPIAO_LABEL.get(papel, (papel or "PARTE").upper())
+            if papel == "titular_tabular" and p.get("falecido"):
+                label += " — FALECIDO(A)"
+                txt += " (falecido(a); a posse é exercida pelo(s) requerente(s)/herdeiros do espólio)"
+            out.append((label, txt))
+    return out
+
+
+def justificativa_juridica_usucapiao(projeto: dict) -> List[str]:
+    """Fundamentação jurídico-técnica do pedido (art. 216-A LRP + modalidade do CC/CF),
+    com a subsunção dos requisitos (posse/prazo via soma de posses, área, justo título)
+    a partir de `usucapiao.validar_posse`. Retorna parágrafos prontos."""
+    from services.geo_urbano import usucapiao as USU
+    v = USU.validar_posse(projeto)
+    info = USU.MODALIDADES.get(v.get("modalidade")) or {}
+    paras = [
+        "O reconhecimento extrajudicial da usucapião encontra fundamento no art. 216-A da Lei nº "
+        "6.015/1973 (Lei de Registros Públicos), regulamentado pelo Provimento CNJ nº 149/2023, "
+        "processado perante o Registro de Imóveis da situação do imóvel e dispensada a via judicial "
+        "(art. 1.071 do Código de Processo Civil).",
+    ]
+    prazo = info.get("prazo_anos")
+    prazo_txt = f"{prazo} anos" if prazo else "o prazo legal"
+    req = (f"A pretensão amolda-se à modalidade {info.get('label') or '—'} da usucapião ({v.get('fundamento')}), "
+           f"cujos requisitos são: (i) posse mansa, pacífica e ininterrupta, exercida com animus domini; "
+           f"(ii) decurso do prazo de {prazo_txt}")
+    if info.get("prazo_reduzido"):
+        req += f", reduzível a {info['prazo_reduzido']} anos ({info.get('condicao_reducao')})"
+    if info.get("area_max_m2"):
+        req += f"; (iii) área não superior a {m2(info['area_max_m2'])}"
+    if info.get("exige_justo_titulo"):
+        req += "; (iv) justo título e boa-fé"
+    paras.append(req + ".")
+
+    anos = v.get("anos_cobertos") or 0
+    if v.get("prazo_exigido"):
+        if v.get("prazo_ok"):
+            paras.append(
+                f"No caso concreto, o(a) requerente e seus antecessores exercem posse contínua há {anos} "
+                f"anos (computada a soma de posses — art. 1.243 do Código Civil), lapso que SUPERA o prazo "
+                f"de {v['prazo_exigido']} anos da modalidade, restando cumprido o requisito temporal.")
+        else:
+            paras.append(
+                f"O período de posse comprovado (soma de posses — art. 1.243 do Código Civil) é de {anos} "
+                f"anos; faltam {v.get('faltam_anos')} anos para o prazo de {v['prazo_exigido']} anos da "
+                f"modalidade — recomenda-se reforçar a prova do período aquisitivo antes do protocolo.")
+    if info.get("area_max_m2") is not None:
+        area = projeto.get("area_declarada_m2")
+        if v.get("area_ok"):
+            paras.append(f"A área do imóvel ({m2(area)}) observa o limite de {m2(info['area_max_m2'])} "
+                         f"previsto para a modalidade.")
+        else:
+            paras.append(f"ATENÇÃO: a área ({m2(area)}) EXCEDE o limite de {m2(info['area_max_m2'])} da "
+                         f"modalidade — reavaliar o enquadramento.")
+    for aviso in v.get("avisos", []):
+        paras.append(aviso)
+    paras.append(
+        "A individualização do imóvel está tecnicamente demonstrada pela planta e pelo memorial descritivo "
+        "georreferenciados, acompanhados da respectiva ART/TRT, tendo a delimitação sido submetida à "
+        "anuência dos confrontantes e do(s) titular(es) de direitos reais, na forma do art. 216-A, §§ 2º a "
+        "4º, da Lei de Registros Públicos.")
+    return paras

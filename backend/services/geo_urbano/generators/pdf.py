@@ -672,49 +672,85 @@ def requerimento_usucapiao(projeto: dict, tema: str, logo_bytes=None) -> bytes:
     story.append(Spacer(1, 16))
     story += GP._titulo("REQUERIMENTO DE USUCAPIÃO EXTRAJUDICIAL", cfg, st, L)
 
+    municipio, uf = (projeto.get("municipio") or ""), (projeto.get("uf") or "")
     info = USU.MODALIDADES.get(projeto.get("modalidade_usucapiao") or "extraordinaria") or {}
     fund = USU.fundamento_legal(projeto)
     intro = (TX.bloco_requerentes(projeto)
              + "por seu advogado adiante assinado (art. 216-A da Lei nº 6.015/1973), vem REQUERER "
              + f"o RECONHECIMENTO EXTRAJUDICIAL DE USUCAPIÃO, na modalidade {info.get('label') or '—'} "
-             + f"({fund}), do imóvel adiante descrito:")
+             + f"({fund}), do imóvel adiante descrito e qualificado:")
     story += GP._paras(intro, st["corpo"])
 
-    # Descrição do imóvel (matrícula ou pedido de abertura de matrícula).
+    # ── DAS PARTES — qualificação (requerente/proprietário registral/herdeiros/advogado)
+    partes_q = TX.qualificacao_partes_usucapiao(projeto)
+    if partes_q:
+        story += GP._secao("DAS PARTES", cfg, st, L)
+        for label, txt in partes_q:
+            story += GP._paras_bold(f"{label}: {txt}", [label], st["corpo"])
+
+    # ── DO IMÓVEL — identificação + matrícula (ou abertura) + área/perímetro + memorial
     sit = projeto.get("situacao_registral") or "nao_matriculado"
     mats = projeto.get("matriculas") or []
-    if sit == "nao_matriculado" or not mats:
-        desc = (f"Imóvel urbano denominado {projeto.get('denominacao_imovel') or '—'}, situado em "
-                f"{projeto.get('endereco') or '—'}, no Município de {projeto.get('municipio') or ''}/"
-                f"{projeto.get('uf') or ''}, com área de {TX.m2(projeto.get('area_declarada_m2'))}, "
-                f"SEM REGISTRO ANTERIOR, requerendo-se a ABERTURA DE MATRÍCULA.")
-    else:
-        desc = TX.transcricao_matricula(mats[0], projeto.get("municipio") or "", projeto.get("uf") or "")
+    matriculado = not (sit == "nao_matriculado" or not mats)
     story += GP._secao("DO IMÓVEL", cfg, st, L)
-    story += GP._paras(desc, st["corpo"])
+    ident = (f"Imóvel urbano denominado {projeto.get('denominacao_imovel') or '—'}, situado em "
+             f"{projeto.get('endereco') or '—'}, no Município de {municipio}/{uf}")
+    cim = TX.cim_completo(projeto)
+    if cim:
+        ident += f", Cadastro Imobiliário Municipal (CIM) nº {cim}"
+    story += GP._paras(ident + ".", st["corpo"])
+    if matriculado:
+        story += GP._paras("Consta do Registro Geral: " + TX.transcricao_matricula(mats[0], municipio, uf),
+                           st["corpo"])
+    else:
+        story += GP._paras("O imóvel NÃO possui registro anterior, requerendo-se a ABERTURA DE MATRÍCULA "
+                           "com base na presente usucapião (art. 216-A, § 1º, da LRP).", st["corpo"])
+    story += GP._paras(
+        f"Possui área de {TX.m2_ext(projeto.get('area_declarada_m2'))} e perímetro de "
+        f"{TX.metros_ext(projeto.get('perimetro_m'))}, conforme planta e memorial descritivo "
+        f"georreferenciados anexos.", st["corpo"])
+    desc = TX.descricao_perimetrica(projeto)
+    if desc:
+        story += GP._paras_bold("Descrição perimétrica (memorial): " + desc,
+                                ["Descrição perimétrica (memorial):"], st["corpo"])
+    story += _tabela_vertices(projeto, cfg, st, L)
 
-    # Da posse + soma de posses.
-    posse = projeto.get("posse") or {}
-    pcorpo = (f"O requerente exerce posse {posse.get('natureza') or 'mansa, pacífica e ininterrupta'} "
-              f"sobre o imóvel desde {posse.get('inicio') or '—'}"
-              + (f", com origem em {posse['origem']}" if posse.get("origem") else "") + ". "
-              + TX.soma_posses_texto(projeto))
-    if posse.get("benfeitorias"):
-        pcorpo += (f" Existem as seguintes benfeitorias: {posse['benfeitorias']}"
-                   + (f" (desde {posse['benfeitorias_data']})" if posse.get("benfeitorias_data") else "") + ".")
-    story += GP._secao("DA POSSE", cfg, st, L)
-    story += GP._paras(pcorpo, st["corpo"])
-
-    # Confrontantes + valor atribuído.
+    # Confrontantes (rol por lado, quando informado no quadro de confrontantes)
     confs = projeto.get("confrontantes") or []
     if confs:
         rol = "; ".join(f"{(c.get('lado') or '').replace('_', ' ')}: {c.get('confrontante') or '—'}"
                         for c in confs)
-        story += GP._secao("DOS CONFRONTANTES", cfg, st, L)
-        story += GP._paras("O imóvel confronta com: " + rol + ".", st["corpo"])
-    story += GP._paras(f"Valor atribuído ao imóvel: {TX.valor_atribuido_texto(projeto)}.", st["corpo"])
+        story += GP._paras("Confronta o imóvel com: " + rol + ".", st["corpo"])
 
-    story += GP._paras("Nestes termos,\nPede deferimento.", st["corpo"])
+    # ── DA POSSE + soma de posses
+    posse = projeto.get("posse") or {}
+    inicio = posse.get("inicio") or next((p.get("inicio") for p in (projeto.get("soma_posses") or [])
+                                          if p.get("inicio")), None)
+    pcorpo = (f"O(a) requerente exerce posse {posse.get('natureza') or 'mansa, pacífica e ininterrupta'}, "
+              f"com animus domini, sobre o imóvel desde {inicio or '—'}"
+              + (f", com origem em {posse['origem']}" if posse.get("origem") else "") + ". "
+              + TX.soma_posses_texto(projeto))
+    if posse.get("benfeitorias"):
+        pcorpo += (f" Sobre o imóvel existem as seguintes benfeitorias: {posse['benfeitorias']}"
+                   + (f" (desde {posse['benfeitorias_data']})" if posse.get("benfeitorias_data") else "") + ".")
+    story += GP._secao("DA POSSE", cfg, st, L)
+    story += GP._paras(pcorpo, st["corpo"])
+
+    # ── DA FUNDAMENTAÇÃO JURÍDICO-TÉCNICA
+    story += GP._secao("DA FUNDAMENTAÇÃO JURÍDICO-TÉCNICA", cfg, st, L)
+    for p in TX.justificativa_juridica_usucapiao(projeto):
+        story += GP._paras(p, st["corpo"])
+
+    # ── DO PEDIDO
+    story += GP._secao("DO PEDIDO", cfg, st, L)
+    ato = ("o registro da aquisição da propriedade em nome do(s) requerente(s) na matrícula do imóvel"
+           if matriculado else
+           "o registro da propriedade em nome do(s) requerente(s), com a ABERTURA da respectiva matrícula")
+    story += GP._paras(
+        f"Ante o exposto, REQUER o reconhecimento extrajudicial da usucapião e {ato}, atribuindo-se ao "
+        f"imóvel o valor de {TX.valor_atribuido_texto(projeto)}, com o processamento na forma do art. 216-A "
+        f"da LRP e do Provimento CNJ nº 149/2023.", st["corpo"])
+    story += GP._paras("Nestes termos, pede deferimento.", st["corpo"])
     story.append(Spacer(1, 4))
     story.append(Paragraph(GP._esc(_data_extenso(projeto.get("municipio") or "Açailândia",
                                                  projeto.get("uf") or "MA")), st["corpo_c"]))

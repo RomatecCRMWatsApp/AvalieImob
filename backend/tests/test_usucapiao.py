@@ -356,6 +356,42 @@ def test_extrair_tudo_usucapiao_semeia_matricula_do_memorial(monkeypatch):
     assert mats[0].get("denominacao")   # semeada do Memorial
 
 
+def test_requerimento_usucapiao_completo():
+    """O Requerimento deve trazer DAS PARTES (com proprietário FALECIDO + advogado/OAB),
+    o imóvel com descrição perimétrica (memorial), a soma de posses e a FUNDAMENTAÇÃO
+    jurídico-técnica (art. 216-A + art. 1.238 + prazo da modalidade)."""
+    from services.geo_urbano.generators import pdf as PDF
+    import fitz
+    proj = {
+        "tipo_servico": "usucapiao", "modalidade_usucapiao": "extraordinaria",
+        "situacao_registral": "matriculado", "denominacao_imovel": "LOTE 08 QD 01",
+        "endereco": "ROD BR 010 KM 1418", "municipio": "Açailândia", "uf": "MA",
+        "area_declarada_m2": 1106.0, "perimetro_m": 143.2, "valor_atribuido": 110600.0,
+        "vertices": [
+            {"ordem": 1, "de": "V1", "para": "V2", "coord_n": 9455020.51, "coord_e": 222460.41,
+             "distancia_m": 22.89, "azimute": "166°01'06\"", "confrontante_lado": "Sr Ilzom"},
+            {"ordem": 2, "de": "V2", "para": "V3", "coord_n": 9454998.30, "coord_e": 222465.94,
+             "distancia_m": 49.37, "azimute": "258°41'52\"", "confrontante_lado": "ROD BR-010"},
+            {"ordem": 3, "de": "V3", "para": "V1", "coord_n": 9454988.62, "coord_e": 222417.52,
+             "distancia_m": 22.24, "azimute": "347°40'38\"", "confrontante_lado": "Sr José"}],
+        "matriculas": [{"matricula": "4.686", "livro": "2-AB", "folhas": "195",
+                        "natureza": "UM TERRENO", "quadra": "01", "lote_origem": "08"}],
+        "posse": {"inicio": "2008", "natureza": "mansa, pacífica e ininterrupta"},
+        "soma_posses": [{"possuidor_nome": "de cujus", "vinculo": "de_cujus", "inicio": "2008", "fim": "2018"},
+                        {"possuidor_nome": "Lindaura", "vinculo": "proprio", "inicio": "2018"}],
+        "partes": [
+            {"papel": "requerente", "tipo_pessoa": "fisica", "nome": "Lindaura Maria", "cpf": "000"},
+            {"papel": "titular_tabular", "tipo_pessoa": "fisica", "nome": "Laurinda Maria", "falecido": True},
+            {"papel": "advogado", "tipo_pessoa": "fisica", "nome": "JULIETA CARVALHO", "oab": "11.164", "uf_oab": "MA"}],
+    }
+    txt = "".join(p.get_text() for p in fitz.open("pdf", PDF.gerar_pdf("requerimento_usucapiao", proj, "prime_i")))
+    for termo in ["DAS PARTES", "REQUERENTE", "PROPRIETÁRIO REGISTRAL", "FALECIDO", "ADVOGADO",
+                  "OAB/MA 11.164", "DO IMÓVEL", "Descrição perimétrica", "QUADRO DE VÉRTICES",
+                  "DA POSSE", "soma-se a posse", "FUNDAMENTAÇÃO JURÍDICO", "art. 216-A",
+                  "art. 1.238", "15 anos", "DO PEDIDO", "pede deferimento"]:
+        assert termo in txt, f"faltou no requerimento: {termo}"
+
+
 def test_pecas_proprietario_tipo_aware():
     from services.geo_urbano import assinatura_proprietario as PROP
     usu = PROP.pecas_proprietario({"tipo_servico": "usucapiao"})
