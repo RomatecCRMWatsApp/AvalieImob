@@ -101,7 +101,7 @@ def parse_bci(pdf_bytes: bytes) -> dict:
         out["bairro"] = mb.group(1).strip()
         out["data_cadastro"] = mb.group(2)
     # medidas (testada, prof, área edif, área terreno, área total)
-    mm = re.search(r"[ÁA]rea Total da Edifica[çc][ãa]o\s*\n\s*\d+\s+\d+\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)", t)
+    mm = re.search(r"[ÁA]rea Total da Edifica[çc][ãa]o\s*\n\s*\d+\s+\d+\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)", t)
     if mm:
         out["testada_principal_m"] = _num(mm.group(1))
         out["profundidade_m"] = _num(mm.group(2))
@@ -507,9 +507,19 @@ def extrair_tudo(uploads_bytes: dict) -> dict:
         b = parse_bci(raw)
         if not b:
             continue
-        alvo = next((m for m in matriculas if _so_digitos(m.get("cod_imovel")) == _so_digitos(b.get("cod_imovel"))), None)
+        cb = _so_digitos(b.get("cod_imovel"))
+        alvo = next((m for m in matriculas if cb and _so_digitos(m.get("cod_imovel")) == cb), None)
+        # Imóvel único (usucapião): 1 matrícula → o BCI é dela mesmo sem cod. na matrícula.
+        if not alvo and len(matriculas) == 1:
+            alvo = matriculas[0]
         if alvo:
             b["matricula_id"] = alvo.get("id")
+            # enriquece a matrícula com os IDENTIFICADORES do BCI (preenche Cód./Loc. que o
+            # OCR da certidão não pegou); NÃO copia área (mantém a checagem de divergência).
+            if not alvo.get("cod_imovel") and b.get("cod_imovel"):
+                alvo["cod_imovel"] = b["cod_imovel"]
+            if not alvo.get("loc_cartografica") and b.get("loc_cartografica"):
+                alvo["loc_cartografica"] = b["loc_cartografica"]
         bci.append(b)
     if bci:
         res["bci"] = bci
@@ -524,6 +534,8 @@ def extrair_tudo(uploads_bytes: dict) -> dict:
             alvo = next((m for m in matriculas
                          if (it.get("loc_cartografica") and m.get("loc_cartografica") == it["loc_cartografica"])
                          or (it.get("cod_imovel") and _so_digitos(m.get("cod_imovel")) == _so_digitos(it.get("cod_imovel")))), None)
+            if not alvo and len(matriculas) == 1:   # imóvel único → é desta matrícula
+                alvo = matriculas[0]
             if alvo:
                 it["matricula_id"] = alvo.get("id")
             iptu.append(it)

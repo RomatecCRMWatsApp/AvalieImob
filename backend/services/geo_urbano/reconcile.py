@@ -45,6 +45,12 @@ def reconciliar(projeto: dict) -> dict:
     iptu_por_mat = {i.get("matricula_id"): i for i in iptu_list if i.get("matricula_id")}
 
     alertas: List[dict] = []
+    # Imóvel ÚNICO (usucapião): há 1 matrícula → o (único) BCI e o (único) IPTU/CND são
+    # DELA, ainda que o OCR da certidão não tenha trazido o cod. imóvel p/ casar.
+    unica = len(matriculas) == 1
+    # Na usucapião a titularidade DIVERGE por definição (o possuidor não é o titular
+    # registral) — logo é ALERTA informativo, não bloqueante.
+    is_usucapiao = projeto.get("tipo_servico") == "usucapiao"
 
     def add(tipo, severidade, mensagem, matricula=None, acao=None):
         alertas.append({"tipo": tipo, "severidade": severidade, "mensagem": mensagem,
@@ -53,6 +59,8 @@ def reconciliar(projeto: dict) -> dict:
     for mat in matriculas:
         rotulo = mat.get("matricula") or mat.get("lote_origem") or "?"
         bci = _bci_da_matricula(mat, idx_cod, bci_list)
+        if not bci and unica and bci_list:
+            bci = bci_list[0]
 
         if not bci:
             add("bci_ausente", "alerta",
@@ -62,12 +70,14 @@ def reconciliar(projeto: dict) -> dict:
             doc_mat = _so_digitos((mat.get("proprietario_registral") or {}).get("doc"))
             doc_bci = _so_digitos((bci.get("proprietario_cadastral") or {}).get("doc"))
             if doc_mat and doc_bci and doc_mat != doc_bci:
-                add("titularidade_divergente", "bloqueante",
+                extra = (" — esperado na usucapião (o possuidor não é o titular registral)"
+                         if is_usucapiao else "")
+                add("titularidade_divergente", "alerta" if is_usucapiao else "bloqueante",
                     (f"Matrícula {rotulo}: titularidade DIVERGENTE — registro em "
                      f"{(mat.get('proprietario_registral') or {}).get('nome') or doc_mat} "
-                     f"e BCI/IPTU ainda em "
-                     f"{(bci.get('proprietario_cadastral') or {}).get('nome') or doc_bci}."),
-                    rotulo, "atualizar o cadastro municipal antes do protocolo")
+                     f"e BCI/IPTU em "
+                     f"{(bci.get('proprietario_cadastral') or {}).get('nome') or doc_bci}{extra}."),
+                    rotulo, None if is_usucapiao else "atualizar o cadastro municipal antes do protocolo")
             am, ab = mat.get("area_m2"), bci.get("area_terreno_m2")
             if am and ab and abs(float(am) - float(ab)) > TOLERANCIA_AREA_M2:
                 add("area_divergente", "alerta",
@@ -82,6 +92,9 @@ def reconciliar(projeto: dict) -> dict:
 
         # fiscal: precisa de UMA via válida (CND negativa ou guia paga)
         iptu = iptu_por_mat.get(mat.get("id"))
+        if not iptu and unica and iptu_list:
+            # prefere uma via já regular (CND negativa / quitado); senão a primeira
+            iptu = next((i for i in iptu_list if i.get("situacao") in ("cnd_negativa", "quitado")), iptu_list[0])
         if not iptu:
             add("iptu_irregular", "bloqueante",
                 f"Matrícula {rotulo}: sem regularidade de IPTU (anexar CND negativa ou guia paga).",

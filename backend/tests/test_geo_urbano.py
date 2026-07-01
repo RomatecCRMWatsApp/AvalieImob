@@ -247,6 +247,65 @@ def test_extrair_tudo_orquestra_e_vincula():
     assert len(res["iptu"]) == 2
 
 
+def test_parse_bci_area_com_separador_milhar():
+    # "1.106,00 m²" (separador de milhar) precisa virar 1106.0 — regressão do parser.
+    linhas = [
+        "Cód imóvel Loc. Cartográfica Distrito Setor Quadra Lote Unid Situação Natureza",
+        "0002132801 00.57.001.0008.00004 00 57 0001 0008 00004 Ativo Predio",
+        "Nome do Proprietário ou detentor", "LAURINDA MARIA DE OLIVEIRA",
+        "Inscrição do Contribuinte 276209 CPF/CNPJ 03433334307",
+        "No.Frentes No.Unid.Lote Testada Principal Prof. do Lote Área da Edificação Área do Terreno M2 Área Total da Edificação",
+        "0 0 22,24 22,91 211,98 1.106,00 211,98",
+    ]
+    b = EX.parse_bci(_mk_pdf(linhas))
+    assert b["cod_imovel"] == "0002132801"
+    assert b["area_terreno_m2"] == 1106.0
+
+
+def test_extrair_tudo_usucapiao_vincula_bci_iptu(monkeypatch):
+    """Imóvel único (usucapião): o BCI e o CND vinculam à matrícula 4686 mesmo sem cod.
+    na certidão, e a matrícula é enriquecida com cod./loc. do BCI → sem alertas de BCI/IPTU."""
+    monkeypatch.setattr(EX, "ocr_pdf", lambda *a, **k: "REGISTRO GERAL MATRÍCULA nº 4.686 Livro nº 2-AB fls. 195")
+    mem = _mk_pdf([
+        "Imóvel: LOTE 08 QD 01 Área ( m²): 1.106,00 m²",
+        "Inicia-se a descrição deste perímetro no vértice V1, de coordenadas N 1,00m e E 2,00m;",
+        "deste, segue confrontando com Vizinho, com os seguintes azimutes e distâncias: 10°00'00\" e 5,00 m até o vértice V1, ponto inicial.",
+    ])
+    res = EX.extrair_tudo({"memorial_usucapiao": [mem], "certidao_inteiro_teor": [b"x"],
+                           "bci": [_BCI], "cnd_iptu": [_CND]})
+    assert len(res["matriculas"]) == 1
+    m = res["matriculas"][0]
+    assert (m.get("matricula") or "").replace(".", "") == "4686"
+    assert res["bci"][0]["matricula_id"] == m["id"]        # BCI vinculado
+    assert res["iptu"][0]["matricula_id"] == m["id"]       # CND vinculado
+    assert m["cod_imovel"] == "0000012424"                 # matrícula enriquecida do BCI
+    out = RECONCILE.reconciliar({**res, "tipo_servico": "usucapiao"})
+    tipos = {a["tipo"] for a in out["alertas"]}
+    assert "bci_ausente" not in tipos and "iptu_irregular" not in tipos
+    assert out["resumo"]["bloqueantes"] == 0 and out["resumo"]["pode_protocolar"] is True
+
+
+def test_reconcile_usucapiao_unico_sem_bci_ainda_alerta():
+    """Regressão: 1 matrícula mas SEM BCI/IPTU anexados → alertas continuam aparecendo."""
+    proj = {"tipo_servico": "usucapiao",
+            "matriculas": [{"id": "m1", "matricula": "4686"}], "bci": [], "iptu": []}
+    tipos = {a["tipo"] for a in RECONCILE.reconciliar(proj)["alertas"]}
+    assert "bci_ausente" in tipos and "iptu_irregular" in tipos
+
+
+def test_reconcile_usucapiao_titularidade_nao_bloqueia():
+    """Na usucapião a titularidade DIVERGE por definição → alerta, não bloqueante."""
+    proj = {"tipo_servico": "usucapiao",
+            "matriculas": [{"id": "m1", "matricula": "4686",
+                            "proprietario_registral": {"nome": "DE CUJUS", "doc": "111"}}],
+            "bci": [{"proprietario_cadastral": {"nome": "LAURINDA", "doc": "222"}}],
+            "iptu": [{"via_regularidade": "cnd", "situacao": "cnd_negativa"}]}
+    out = RECONCILE.reconciliar(proj)
+    div = [a for a in out["alertas"] if a["tipo"] == "titularidade_divergente"]
+    assert div and div[0]["severidade"] == "alerta"
+    assert out["resumo"]["bloqueantes"] == 0
+
+
 def test_parse_matricula_text():
     # certidão real do 34.161 (estado atual: transmitido p/ J&G via R-01)
     txt = ("CERTIFICO, revendo o Livro nº 2-HN, sob as fls. 70, MATRÍCULA Nº 34.161 - UM TERRENO, "
