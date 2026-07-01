@@ -356,6 +356,22 @@ def test_extrair_tudo_usucapiao_semeia_matricula_do_memorial(monkeypatch):
     assert mats[0].get("denominacao")   # semeada do Memorial
 
 
+def test_usucapiente_vira_requerente():
+    """Parte marcada 'usucapiente' (mesmo papel=herdeiro) é tratada como REQUERENTE:
+    assina, lidera a qualificação/intro e vai à capa como requerente."""
+    from services.geo_urbano.generators import pdf as PDF, textos as TX, capa as C
+    proj = {"tipo_servico": "usucapiao", "partes": [
+        {"papel": "titular_tabular", "tipo_pessoa": "fisica", "nome": "LAURINDA", "falecido": True},
+        {"papel": "herdeiro", "tipo_pessoa": "fisica", "nome": "LINDAURA", "usucapiente": True, "cpf": "253"},
+        {"papel": "advogado", "tipo_pessoa": "fisica", "nome": "JULIETA", "oab": "11"}]}
+    ass = PDF._partes_assinatura(proj)
+    assert ("LINDAURA", "Requerente (usucapiente/possuidor(a))") in ass
+    assert C._requerente_nome(proj) == "LINDAURA"
+    assert TX.bloco_requerentes(proj).startswith("LINDAURA")
+    labs = [lab for lab, _ in TX.qualificacao_partes_usucapiao(proj)]
+    assert any("USUCAPIENTE" in l for l in labs)
+
+
 def test_assinatura_herdeiro_possuidor_assina():
     """Usucapião de herança: a possuidora é cadastrada como HERDEIRO — deve assinar o
     requerimento (é a requerente/possuidora). Titular registral NÃO assina."""

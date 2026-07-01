@@ -124,7 +124,8 @@ def qualificar_parte(p: dict) -> str:
 def bloco_requerentes(projeto: dict) -> str:
     """Qualificação completa dos requerentes (PJ + representante; ou PF + cônjuge)."""
     partes = projeto.get("partes") or []
-    requerentes = [p for p in partes if p.get("papel") in ("requerente", None)]
+    # requerente por papel OU marcado como "Usucapiente" no card (herdeiro-possuidor etc.)
+    requerentes = [p for p in partes if p.get("papel") in ("requerente", None) or p.get("usucapiente")]
     reps = [p for p in partes if p.get("papel") in ("representante", "socio")]
     blocos = []
     for r in requerentes:
@@ -400,6 +401,8 @@ def qualificacao_partes_usucapiao(projeto: dict) -> List[tuple]:
             if papel == "titular_tabular" and p.get("falecido"):
                 label += " — FALECIDO(A)"
                 txt += " (falecido(a); a posse é exercida pelo(s) requerente(s)/herdeiros do espólio)"
+            if p.get("usucapiente") and papel != "requerente":
+                label += " · USUCAPIENTE (REQUERENTE/POSSUIDOR)"
             out.append((label, txt))
     return out
 

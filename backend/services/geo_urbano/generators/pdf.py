@@ -302,11 +302,17 @@ def _partes_assinatura(projeto: dict):
     for p in projeto.get("partes") or []:
         if p.get("papel") == "requerente" and p.get("tipo_pessoa") == "juridica":
             continue  # PJ assina via representante
-        if p.get("papel") not in _LABEL:   # advogado/testemunha/titular: bloco próprio/não assina
+        # Marca "Usucapiente" (no card) → a parte É o requerente/possuidor e assina como tal,
+        # qualquer que seja o papel (ex.: herdeiro marcado como usucapiente).
+        if p.get("usucapiente"):
+            label = "Requerente (usucapiente/possuidor(a))"
+        elif p.get("papel") in _LABEL:
+            label = _LABEL[p.get("papel")]
+        else:   # advogado/testemunha/titular: bloco próprio/não assina
             continue
         nome = p.get("nome") or p.get("razao_social") or ""
         if nome:
-            out.append((nome, _LABEL[p.get("papel")]))
+            out.append((nome, label))
     if not out:
         out = [("", "Requerente")]
     return out

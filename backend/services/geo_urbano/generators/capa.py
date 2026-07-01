@@ -162,6 +162,10 @@ def _requerente_nome(projeto: dict) -> str:
     """Nome do requerente (possuidor). Cai p/ o titular tabular e, por fim, p/ a 1ª
     parte nomeada que não seja advogado/testemunha."""
     partes = projeto.get("partes") or []
+    # marcado como "Usucapiente" no card tem prioridade (é o requerente/possuidor)
+    for p in partes:
+        if p.get("usucapiente") and (p.get("razao_social") or p.get("nome")):
+            return p.get("razao_social") or p.get("nome")
     for papel in ("requerente", None, "titular_tabular"):
         for p in partes:
             if p.get("papel") == papel and (p.get("razao_social") or p.get("nome")):

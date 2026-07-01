@@ -1102,6 +1102,13 @@ export default function GeoUrbanoWizard() {
                     <input type="checkbox" checked={!!p.falecido} onChange={(e) => updArr('partes', i, { falecido: e.target.checked })} /> Falecido
                   </label>
                 )}
+                {isUsucapiao && p.papel !== 'titular_tabular' && p.papel !== 'advogado' && (
+                  <label className="text-xs inline-flex items-center gap-1 whitespace-nowrap px-2 py-1 rounded-lg border cursor-pointer"
+                    style={{ borderColor: p.usucapiente ? GOLD : '#e5e7eb', color: p.usucapiente ? GREEN : '#6b7280', fontWeight: p.usucapiente ? 700 : 400 }}
+                    title="Marca esta parte como o USUCAPIENTE — o sistema a trata como REQUERENTE/possuidor (qualifica, assina e leva à capa)">
+                    <input type="checkbox" checked={!!p.usucapiente} onChange={(e) => updArr('partes', i, { usucapiente: e.target.checked })} /> Usucapiente (requerente)
+                  </label>
+                )}
                 <Trash2 className="w-4 h-4 text-gray-300 hover:text-red-500 cursor-pointer ml-auto"
                   onClick={() => upd({ partes: proj.partes.filter((_, k) => k !== i) })} />
               </div>
