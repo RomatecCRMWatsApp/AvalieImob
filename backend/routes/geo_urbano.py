@@ -1218,7 +1218,15 @@ async def prop_posicionar(pid: str, body: dict, uid: str = Depends(get_active_su
             paginas = len(PdfReader(_io.BytesIO(pbytes)).pages)
         except Exception:  # noqa: BLE001
             paginas = 0
-        documentos.append({"doc": p["doc"], "titulo": p["titulo"], "pdf_key_base": key, "paginas": paginas})
+        # RENDERIZA as páginas UMA vez aqui (no envio) e guarda — a página pública do
+        # signatário deixa de rerenderizar a cada carregamento (evita ~75s de "Carregando…").
+        try:
+            from services.pdf_preview import renderizar_paginas
+            paginas_render = await asyncio.to_thread(renderizar_paginas, pbytes, 110, 30)
+        except Exception:  # noqa: BLE001
+            paginas_render = []
+        documentos.append({"doc": p["doc"], "titulo": p["titulo"], "pdf_key_base": key,
+                           "paginas": paginas, "paginas_render": paginas_render})
 
     sigs = []
     for s in sig_in:

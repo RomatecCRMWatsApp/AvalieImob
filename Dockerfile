@@ -42,7 +42,7 @@ RUN pip install --no-cache-dir -r backend/requirements.txt
 # CACHEBUST_BACKEND: o stage do backend NÃO era invalidado pelo CACHEBUST do frontend,
 # então o Railway servia o código Python em CACHE (backend antigo com badge novo). Bumpar
 # este valor força a RE-CÓPIA do backend a cada release que muda código Python.
-ARG CACHEBUST_BACKEND=2026-06-30-117
+ARG CACHEBUST_BACKEND=2026-06-30-118
 RUN echo "backend rebuild ${CACHEBUST_BACKEND}"
 COPY backend/ ./backend/
 

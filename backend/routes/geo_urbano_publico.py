@@ -38,15 +38,23 @@ async def _sessao_por_token(db, token: str):
 @limiter.limit("30/minute")
 async def obter_por_token(token: str, request: Request, db=Depends(get_db)):
     s, sig = await _sessao_por_token(db, token)
-    from services.pdf_preview import renderizar_paginas
     documentos = []
     for d in s.get("documentos") or []:
         pos = (sig.get("posicoes") or {}).get(d["doc"]) or []
-        try:
-            raw = await asyncio.to_thread(r2_storage.download_bytes, d["pdf_key_base"])
-            paginas = await asyncio.to_thread(renderizar_paginas, raw, 110, 30)
-        except Exception:  # noqa: BLE001
-            paginas = []
+        paginas = d.get("paginas_render")   # cache criado no envio (prop_posicionar)
+        if paginas is None:                 # sessão antiga sem cache: renderiza 1x e GUARDA
+            from services.pdf_preview import renderizar_paginas
+            try:
+                raw = await asyncio.to_thread(r2_storage.download_bytes, d["pdf_key_base"])
+                paginas = await asyncio.to_thread(renderizar_paginas, raw, 110, 30)
+            except Exception:  # noqa: BLE001
+                paginas = []
+            try:
+                await db.geo_urbano_assinatura_sessoes.update_one(
+                    {"id": s["id"], "documentos.doc": d["doc"]},
+                    {"$set": {"documentos.$.paginas_render": paginas}})
+            except Exception:  # noqa: BLE001
+                pass
         documentos.append({"doc": d["doc"], "titulo": d["titulo"], "paginas": paginas, "posicoes": pos})
     from services.fontes_assinatura import fontes_disponiveis
     return {"ok": True, "nome": sig.get("nome"), "papel": sig.get("papel"),
