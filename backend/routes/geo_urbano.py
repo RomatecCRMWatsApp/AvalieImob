@@ -55,6 +55,7 @@ _TIPOS_UPLOAD = {
     "certidao_confrontante", "certidao_negativa", "iptu_usucapiao", "justo_titulo",
     "certidao_obito", "formal_partilha", "certidao_estado_civil", "procuracao_oab",
     "certidao_distribuidor", "prova_posse", "doc_requerente", "foto_imovel",
+    "doc_advogado", "carteira_oab",   # identidade + carteira da OAB do advogado (art. 216-A)
 }
 _MAX_UPLOAD = 30 * 1024 * 1024
 _PDF = "application/pdf"
@@ -925,8 +926,10 @@ async def _montar_dossie(db, doc, tema):
             "justo_titulo": await _ub(doc, "justo_titulo"),
             "certidoes_distribuidores": await _ub(doc, "certidao_distribuidor"),
             "notificacoes_edital": notifs + [edital],
+            "docs_advogado": (await _ub(doc, "doc_advogado")) + (await _ub(doc, "carteira_oab"))
+                             + (await _ub(doc, "procuracao_oab")),
             "docs_requerente": (await _ub(doc, "doc_requerente")) + (await _ub(doc, "certidao_estado_civil"))
-                               + (await _ub(doc, "procuracao_oab")) + (await _ub(doc, "doc_proprietario"))
+                               + (await _ub(doc, "doc_proprietario"))
                                + (await _ub(doc, "cnh")) + (await _ub(doc, "certidao_casamento")),
         }
         secoes = [(titulo, conteudo.get(key)) for key, titulo in DOSSIE.ORDEM_DOSSIE_USUCAPIAO]

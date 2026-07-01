@@ -58,6 +58,7 @@ ORDEM_DOSSIE_USUCAPIAO = [
     ("justo_titulo", "Justo Título"),
     ("certidoes_distribuidores", "Certidões dos Distribuidores"),
     ("notificacoes_edital", "Notificações / Edital"),
+    ("docs_advogado", "Documentos do Advogado (identidade + carteira da OAB)"),
     ("docs_requerente", "Documentos Pessoais do Requerente"),
 ]
 

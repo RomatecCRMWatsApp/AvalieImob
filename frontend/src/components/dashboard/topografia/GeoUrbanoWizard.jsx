@@ -486,6 +486,29 @@ export default function GeoUrbanoWizard() {
     try { await geoUrbanoAPI.removerUpload(id, tipo, itemId); await carregar(); }
     catch (e) { toast({ title: 'Erro ao remover', variant: 'destructive' }); }
   };
+  // Uploader compacto inline (usado p/ os documentos do advogado na etapa Partes).
+  const renderUploadDoc = (tipo, label) => {
+    const itens = (proj.uploads && proj.uploads[tipo]) || [];
+    return (
+      <div className="rounded-lg border bg-gray-50/60 p-2">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-medium text-gray-600">{label}</span>
+          <label className="text-[11px] text-emerald-700 hover:underline cursor-pointer inline-flex items-center gap-1">
+            <Upload className="w-3 h-3" /> enviar
+            <input type="file" className="hidden" accept="image/*,application/pdf"
+              onChange={(e) => { enviar(tipo, e.target.files); e.target.value = ''; }} />
+          </label>
+        </div>
+        {itens.map((it) => (
+          <div key={it.id} className="flex items-center justify-between text-[11px] text-gray-500 mt-1">
+            <span className="truncate mr-2">📎 {it.nome || 'arquivo'}</span>
+            <Trash2 className="w-3 h-3 text-gray-300 hover:text-red-500 cursor-pointer shrink-0" onClick={() => removerUp(tipo, it.id)} />
+          </div>
+        ))}
+        {!itens.length && <p className="text-[10px] text-gray-400 mt-1">nenhum arquivo enviado</p>}
+      </div>
+    );
+  };
 
   const carregarCapa = async () => {
     setCapaBusy(true);
@@ -1102,6 +1125,15 @@ export default function GeoUrbanoWizard() {
                   <Field label="Endereço" full value={p.endereco} onChange={(v) => updArr('partes', i, { endereco: v })} />
                   <Field label="WhatsApp" value={p.telefone} onChange={(v) => updArr('partes', i, { telefone: v })} />
                   <Field label="E-mail" value={p.email} onChange={(v) => updArr('partes', i, { email: v })} />
+                </div>
+              )}
+              {p.papel === 'advogado' && (
+                <div className="mt-3 border-t pt-3">
+                  <p className="text-xs font-medium text-gray-600 mb-2">📎 Documentos do advogado(a) — anexados ao <b>Dossiê</b> (art. 216-A)</p>
+                  <div className="grid sm:grid-cols-2 gap-2">
+                    {renderUploadDoc('doc_advogado', 'Documento de identidade (RG/CNH)')}
+                    {renderUploadDoc('carteira_oab', 'Carteira da OAB')}
+                  </div>
                 </div>
               )}
             </div>
