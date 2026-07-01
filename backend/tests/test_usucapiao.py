@@ -154,6 +154,37 @@ def test_anuentes_de_funde_confrontantes_e_titular():
     assert tit["nome"] == "Antigo Dono"
 
 
+def test_anuentes_pula_titular_falecido_e_deriva_confrontantes_dos_vertices():
+    """Titular registral FALECIDO não anui; confrontantes vêm dos lados dos vértices
+    (quando o quadro está vazio) e a via pública é marcada p/ dispensa."""
+    proj = {
+        "tipo_servico": "usucapiao", "situacao_registral": "matriculado",
+        "partes": [{"papel": "titular_tabular", "nome": "LAURINDA MARIA DE OLIVEIRA", "falecido": True},
+                   {"papel": "herdeiro", "nome": "LINDAURA MARIA", "usucapiente": True}],
+        "matriculas": [{"proprietario_registral": {"nome": "LAURINDA MARIA DE OLIVEIRA"}}],
+        "confrontantes": [],
+        "vertices": [
+            {"ordem": 1, "confrontante_lado": "Sr Ilzom Teofilo", "lado": "FUNDOS"},
+            {"ordem": 2, "confrontante_lado": "Sr Ilzom Teofilo", "lado": "LATERAL ESQUERDA"},
+            {"ordem": 3, "confrontante_lado": "ROD. BR -010 KM 1418 - QD 001", "lado": "FRENTE"},
+            {"ordem": 4, "confrontante_lado": "Sr Jose Genivaldo", "lado": "LATERAL DIREITA"},
+        ],
+    }
+    out = USU.anuentes_de(proj)
+    nomes = {a["nome"] for a in out}
+    # falecida fora
+    assert "LAURINDA MARIA DE OLIVEIRA" not in nomes
+    # confrontantes dos vértices, dedup (Ilzom 1x) + via pública marcada
+    ilzom = [a for a in out if a["nome"] == "Sr Ilzom Teofilo"]
+    assert len(ilzom) == 1 and ilzom[0]["tipo"] == "particular"
+    via = next(a for a in out if a["nome"].startswith("ROD"))
+    assert via["tipo"] == "via_publica"
+    assert "Sr Jose Genivaldo" in nomes
+    # os que assinam (dossiê) = particulares, sem via pública nem falecida
+    assinam = [a["nome"] for a in out if a.get("tipo") != "via_publica"]
+    assert set(assinam) == {"Sr Ilzom Teofilo", "Sr Jose Genivaldo"}
+
+
 from services.geo_urbano.generators import pdf as GPDF
 
 

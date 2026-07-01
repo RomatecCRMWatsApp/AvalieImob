@@ -944,11 +944,12 @@ async def _montar_dossie(db, doc, tema):
             or await asyncio.to_thread(PDF.gerar_pdf, "memorial_descritivo", doc, tema, logo)
         ata = await asyncio.to_thread(PDF.gerar_pdf, "ata_notarial", doc, tema, logo)
         edital = await asyncio.to_thread(PDF.gerar_pdf, "edital_usucapiao", doc, tema, logo)
-        anuentes = USU.anuentes_de(doc)
-        decls = [await asyncio.to_thread(PDF.declaracao_anuencia, doc, a, tema, logo)
-                 for a in anuentes if a.get("nome")]
-        notifs = [await asyncio.to_thread(PDF.notificacao, doc, a, tema, logo)
-                  for a in anuentes if a.get("nome")]
+        # Anuência/notificação: só p/ confrontantes/titulares que ASSINAM — exclui via
+        # pública (dispensada, art. 216-A) e o titular registral FALECIDO (já fora de anuentes_de).
+        anuentes = [a for a in USU.anuentes_de(doc)
+                    if a.get("nome") and a.get("tipo") != "via_publica"]
+        decls = [await asyncio.to_thread(PDF.declaracao_anuencia, doc, a, tema, logo) for a in anuentes]
+        notifs = [await asyncio.to_thread(PDF.notificacao, doc, a, tema, logo) for a in anuentes]
         # Conteúdo por seção (chaves de DOSSIE.ORDEM_DOSSIE_USUCAPIAO) → a ordem e os
         # títulos vêm da constante (fonte única; nunca diverge da ORDEM_DOSSIE_USUCAPIAO).
         conteudo = {

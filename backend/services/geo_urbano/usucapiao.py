@@ -223,11 +223,33 @@ def _matricula_usucapienda(projeto: dict) -> dict:
     return mats[0] if mats else {}
 
 
+def _eh_via_publica(nome: str) -> bool:
+    """True quando o confrontante é logradouro/via pública (dispensa anuência)."""
+    n = (nome or "").strip().upper()
+    return bool(re.match(r"^(ROD\.?|RODOVIA|RUA|AV\.?|AVENIDA|ESTRADA|TRAVESSA|TV\.?|"
+                         r"ALAMEDA|PRA[CÇ]A|VIA|BR[-\s]?\d)", n))
+
+
+def _titulares_falecidos(projeto: dict) -> set:
+    """Nomes (normalizados) dos titulares registrais marcados FALECIDOS nas partes —
+    um falecido não anui nem é notificado (a legitimação vem dos herdeiros/espólio)."""
+    out = set()
+    for p in (projeto.get("partes") or []):
+        if p.get("falecido") and (p.get("papel") == "titular_tabular" or p.get("usucapiente") is not True):
+            nome = (p.get("nome") or p.get("razao_social") or "").strip().lower()
+            if nome:
+                out.add(nome)
+    return out
+
+
 def anuentes_de(projeto: dict) -> list:
     """Deriva os anuentes de `confrontantes` (lados) + titular tabular da matrícula,
-    fundindo com os anuentes já cadastrados (por nome+doc)."""
+    fundindo com os anuentes já cadastrados (por nome+doc). NÃO gera anuência p/ o
+    titular registral FALECIDO, e marca via pública (dispensada). Se o quadro de
+    confrontantes estiver vazio, deriva-os dos LADOS dos vértices do memorial."""
     existentes = {((a.get("nome") or "").strip().lower(), (a.get("doc") or "")): a
                   for a in (projeto.get("anuentes") or [])}
+    falecidos = _titulares_falecidos(projeto)
 
     def _merge(base: dict) -> dict:
         chave = ((base.get("nome") or "").strip().lower(), (base.get("doc") or ""))
@@ -238,12 +260,28 @@ def anuentes_de(projeto: dict) -> list:
             return merged
         return base
 
+    # Confrontantes cadastrados OU, se vazio, derivados dos lados dos vértices do memorial
+    confrontantes = list(projeto.get("confrontantes") or [])
+    if not confrontantes:
+        vistos = set()
+        for v in sorted(projeto.get("vertices") or [], key=lambda x: x.get("ordem", 0)):
+            nome = (v.get("confrontante_lado") or "").strip()
+            chave = nome.lower()
+            if nome and chave not in vistos:
+                vistos.add(chave)
+                confrontantes.append({
+                    "confrontante": nome, "lado": v.get("lado") or "",
+                    "tipo": "via_publica" if _eh_via_publica(nome) else "particular",
+                    "anuencia": {"status": "pendente"}})
+
     out = []
-    for c in (projeto.get("confrontantes") or []):
+    for c in confrontantes:
+        nome = c.get("confrontante")
+        tipo = c.get("tipo") or ("via_publica" if _eh_via_publica(nome) else "particular")
         out.append(_merge({
-            "papel": "confrontante", "nome": c.get("confrontante"), "doc": c.get("doc"),
+            "papel": "confrontante", "nome": nome, "doc": c.get("doc"),
             "lado": c.get("lado"), "medida_m": c.get("medida_m"),
-            "tipo": c.get("tipo") or "particular", "endereco": c.get("endereco"),
+            "tipo": tipo, "endereco": c.get("endereco"),
             "telefone": c.get("telefone"), "canal": "presencial",
             "anuencia": {"status": "pendente"},
         }))
@@ -251,9 +289,11 @@ def anuentes_de(projeto: dict) -> list:
     if (projeto.get("situacao_registral") or "nao_matriculado") != "nao_matriculado":
         mat = _matricula_usucapienda(projeto)
         tit = (mat.get("proprietario_registral") or {}) if mat else {}
-        if tit.get("nome"):
+        nome_tit = tit.get("nome")
+        # Titular FALECIDO não anui (a posse é exercida pelos herdeiros/requerentes)
+        if nome_tit and (nome_tit or "").strip().lower() not in falecidos:
             out.append(_merge({
-                "papel": "titular_tabular", "nome": tit.get("nome"), "doc": tit.get("doc"),
+                "papel": "titular_tabular", "nome": nome_tit, "doc": tit.get("doc"),
                 "tipo": "particular", "canal": "presencial", "anuencia": {"status": "pendente"},
             }))
 
