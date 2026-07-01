@@ -72,10 +72,24 @@ async def zapi_cfg(db, uid: str) -> dict:
         return await carregar_integracoes(db, uid)
 
 
+def _guia_url() -> str:
+    """URL pública do guia 'Como assinar' — reusa a mesma base do link de assinatura.
+    Fallback seguro: '' quando a base não está configurada (envia só o link)."""
+    try:
+        from routes.assinatura_cliente import APP_URL
+        base = (APP_URL or "").rstrip("/")
+        return f"{base}/como-assinar" if base else ""
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 async def enviar_link(cfg: dict, telefone: str, nome: str, titulo: str, url: str):
     from services import zapi_service
     msg = (f"Olá, {nome}! Para assinar eletronicamente o(s) documento(s) do processo "
-           f"de {titulo}, acesse o link e desenhe sua assinatura no celular:\n{url}")
+           f"de {titulo}, acesse o link e assine no celular (você pode DIGITAR ou DESENHAR):\n{url}")
+    guia = _guia_url()
+    if guia:
+        msg += (f"\n\n👉 Primeira vez assinando? Veja o passo a passo (leva 1 minuto):\n{guia}")
     await zapi_service.send_text(
         instance_id=cfg.get("zapi_instance_id"), token=cfg.get("zapi_token"),
         security_token=cfg.get("zapi_security_token"), phone=telefone, message=msg)
