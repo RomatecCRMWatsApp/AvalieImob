@@ -356,6 +356,25 @@ def test_extrair_tudo_usucapiao_semeia_matricula_do_memorial(monkeypatch):
     assert mats[0].get("denominacao")   # semeada do Memorial
 
 
+def test_assinatura_herdeiro_possuidor_assina():
+    """Usucapião de herança: a possuidora é cadastrada como HERDEIRO — deve assinar o
+    requerimento (é a requerente/possuidora). Titular registral NÃO assina."""
+    from services.geo_urbano.generators import pdf as PDF
+    proj = {"partes": [
+        {"papel": "titular_tabular", "tipo_pessoa": "fisica", "nome": "LAURINDA", "falecido": True},
+        {"papel": "herdeiro", "tipo_pessoa": "fisica", "nome": "LINDAURA MARIA"},
+        {"papel": "advogado", "tipo_pessoa": "fisica", "nome": "JULIETA", "oab": "11.164", "uf_oab": "MA"}]}
+    ass = PDF._partes_assinatura(proj)
+    nomes = [n for n, _ in ass]
+    assert "LINDAURA MARIA" in nomes            # herdeira-possuidora assina
+    assert "LAURINDA" not in nomes              # titular registral (falecida) NÃO assina
+    assert "JULIETA" not in nomes               # advogada tem bloco próprio
+    # requerente explícito + herdeiro → ambos assinam
+    p2 = {"partes": [{"papel": "requerente", "tipo_pessoa": "fisica", "nome": "A"},
+                     {"papel": "herdeiro", "tipo_pessoa": "fisica", "nome": "B"}]}
+    assert {n for n, _ in PDF._partes_assinatura(p2)} == {"A", "B"}
+
+
 def test_capa_nao_duplica_quadra_e_acha_requerente():
     from services.geo_urbano.generators import capa as C
     assert C._num_quadra("Quadra 01") == "01"   # não sai "Quadra Quadra 01"

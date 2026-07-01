@@ -291,14 +291,18 @@ def _ficha_compacta(pares, cfg, st, L, cols=4):
 
 
 def _partes_assinatura(projeto: dict):
-    """Linhas de assinatura das partes (requerente PJ → representante; ou PF + cônjuge)."""
+    """Linhas de assinatura das partes que ASSINAM o requerimento: o REQUERENTE (possuidor)
+    e, na usucapião de herança, o(s) HERDEIRO(S)/comuneiro(s) do espólio — que são os
+    possuidores-requerentes. O proprietário registral (titular tabular) e o advogado NÃO
+    entram aqui (o advogado tem bloco próprio; o titular apenas anui/é notificado)."""
     _LABEL = {"requerente": "Requerente", "representante": "Representante legal",
-              "socio": "Sócio", "conjuge": "Cônjuge anuente"}
+              "socio": "Sócio", "conjuge": "Cônjuge anuente",
+              "herdeiro": "Requerente — herdeiro(a)/possuidor(a) do espólio"}
     out = []
     for p in projeto.get("partes") or []:
         if p.get("papel") == "requerente" and p.get("tipo_pessoa") == "juridica":
             continue  # PJ assina via representante
-        if p.get("papel") not in _LABEL:   # advogado/herdeiro/testemunha/titular: bloco próprio
+        if p.get("papel") not in _LABEL:   # advogado/testemunha/titular: bloco próprio/não assina
             continue
         nome = p.get("nome") or p.get("razao_social") or ""
         if nome:
