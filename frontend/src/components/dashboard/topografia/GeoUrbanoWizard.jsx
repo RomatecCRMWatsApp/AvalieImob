@@ -989,8 +989,8 @@ export default function GeoUrbanoWizard() {
               </div>
             </div>
             <p className="text-[11px] text-amber-600 mb-2">{isUsucapiao
-              ? <>Vértices, confrontantes e coordenadas extraídos do <b>Memorial</b> — confira/ajuste se necessário. Use <b>Orientar lados</b> para rotular FRENTE/LATERAIS/FUNDO no Memorial.</>
-              : <>O <b>Confrontante</b> não vem da planilha do mapa — preencha/corrija por aqui (1 por segmento). <b>Orientar lados</b> rotula FRENTE/LATERAIS/FUNDO (rua = frente); se nenhum confrontante for rua, marque a <b>Frente</b> na linha da testada.</>}</p>
+              ? <>Vértices, confrontantes e coordenadas extraídos do <b>Memorial</b> — confira/ajuste se necessário. Os <b>Lados</b> (FRENTE/LATERAIS/FUNDO) são calculados automaticamente; ajuste no seletor se precisar.</>
+              : <>O <b>Confrontante</b> não vem da planilha do mapa — preencha/corrija por aqui (1 por segmento). Os <b>Lados</b> saem automáticos (rua = frente); se nenhum confrontante for rua, marque a <b>Frente</b> na testada e clique em <b>Orientar lados</b>.</>}</p>
             <div className="overflow-x-auto -mx-1 px-1">
               <table className="text-xs border-collapse" style={{ minWidth: 820 }}>
                 <thead>

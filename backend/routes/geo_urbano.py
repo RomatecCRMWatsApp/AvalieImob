@@ -119,11 +119,25 @@ async def _autoalinhar_vertices(db, doc):
         pass
 
 
+def _auto_orientar_inmemory(doc):
+    """Preenche `lado` (calculado) em cada vértice p/ exibição no quadro/Memorial,
+    respeitando `frente_idx` e overrides manuais (`lado_manual`). NÃO persiste — o
+    Memorial recalcula na geração e o autosave grava quando o usuário edita. Assim
+    os lados já aparecem ao ABRIR o projeto, sem precisar clicar em 'Orientar lados'."""
+    try:
+        if len(doc.get("vertices") or []) >= 3:
+            from services.geo_urbano.orientacao import aplicar_lados
+            aplicar_lados(doc)   # escreve `lado` in-place (honra lado_manual/frente_idx)
+    except Exception:  # noqa: BLE001
+        pass
+
+
 async def _get(db, pid, uid):
     doc = await db.geo_urbano_projetos.find_one({"id": pid, "user_id": uid})
     if not doc:
         raise HTTPException(status_code=404, detail="Projeto não encontrado")
     await _autoalinhar_vertices(db, doc)
+    _auto_orientar_inmemory(doc)
     return doc
 
 
