@@ -213,6 +213,9 @@ export default function GeoUrbanoWizard() {
       setProj(d);
       const docs = d.tipo_servico === 'usucapiao' ? DOCS_GERAVEIS_USUCAPIAO : DOCS_GERAVEIS;
       setDocsSel(docs.map((x) => x[0]));
+      // prévia/aferição inicia na peça CERTA do serviço (usucapião → Requerimento de
+      // Usucapião, não o requerimento genérico de cartório).
+      setPreviewTipo((t) => (docs.some(([k]) => k === t) ? t : docs[0][0]));
     } catch (e) {
       toast({ title: 'Projeto não encontrado', variant: 'destructive' });
       nav('/dashboard/topografia/geo-urbano');
