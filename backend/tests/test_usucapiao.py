@@ -317,6 +317,45 @@ def test_extrair_tudo_usa_memorial_usucapiao():
     assert not any("não enviado" in a for a in res.get("avisos", []))
 
 
+def test_extrair_tudo_usucapiao_cria_matricula_da_certidao(monkeypatch):
+    """Bug: usucapião (sem planilha de mapa) devolvia 0 matrículas — a matrícula lida
+    da certidão (OCR) era descartada por não haver registro p/ anexar. Deve CRIAR."""
+    from services.geo_urbano import extractor as EX
+    cert_txt = ("REGISTRO GERAL MATRÍCULA nº 4.686 Livro nº 2-AB fls. 15 "
+                "Lote nº 08 Quadra nº 01 Área de 1.106,00 m² "
+                "PROPRIETÁRIO(A): LINDAURA MARIA OLIVEIRA DA ROCHA, brasileira, "
+                "inscrita no CPF: 123.456.789-00.")
+    monkeypatch.setattr(EX, "ocr_pdf", lambda *a, **k: cert_txt)
+    mem = _mk_pdf_prosa(
+        "Imóvel: LOTE 08 QD 01 BARRA AZUL Área ( m²): 1.106,00 m² "
+        "Inicia-se a descrição deste perímetro no vértice V1, de coordenadas N 1,00m e E 2,00m; "
+        "deste, segue confrontando com Vizinho A, com os seguintes azimutes e distâncias: "
+        "10°00'00\" e 5,00 m até o vértice V1, ponto inicial.")
+    res = EX.extrair_tudo({"memorial_usucapiao": [mem],
+                           "certidao_inteiro_teor": [b"%PDF-fake-cert"]})
+    mats = res.get("matriculas") or []
+    assert len(mats) == 1, f"esperava 1 matrícula, veio {len(mats)}"
+    assert (mats[0].get("matricula") or "").replace(".", "") == "4686"
+    assert mats[0].get("proprietario_registral", {}).get("nome")   # OCR trouxe o titular
+
+
+def test_extrair_tudo_usucapiao_semeia_matricula_do_memorial(monkeypatch):
+    """Certidão ilegível (OCR vazio): semeia 1 matrícula com a denominação do Memorial
+    p/ o imóvel usucapiendo ter registro a conferir/preencher."""
+    from services.geo_urbano import extractor as EX
+    monkeypatch.setattr(EX, "ocr_pdf", lambda *a, **k: "")
+    mem = _mk_pdf_prosa(
+        "Imóvel: LOTE 08 QD 01 BARRA AZUL. "
+        "Inicia-se a descrição deste perímetro no vértice V1, de coordenadas N 1,00m e E 2,00m; "
+        "deste, segue confrontando com Vizinho A, com os seguintes azimutes e distâncias: "
+        "10°00'00\" e 5,00 m até o vértice V1, ponto inicial.")
+    res = EX.extrair_tudo({"memorial_usucapiao": [mem],
+                           "certidao_inteiro_teor": [b"%PDF-fake"]})
+    mats = res.get("matriculas") or []
+    assert len(mats) == 1
+    assert mats[0].get("denominacao")   # semeada do Memorial
+
+
 def test_pecas_proprietario_tipo_aware():
     from services.geo_urbano import assinatura_proprietario as PROP
     usu = PROP.pecas_proprietario({"tipo_servico": "usucapiao"})

@@ -462,6 +462,8 @@ def extrair_tudo(uploads_bytes: dict) -> dict:
         })
     # OCR das certidões (se tesseract disponível) — enriquece a matrícula correspondente
     cert_list = uploads_bytes.get("certidao_inteiro_teor") or []
+    # Sem planilha de mapa (usucapião / imóvel único) a CERTIDÃO é a fonte da matrícula.
+    sem_mapa = not mat_numeros and not lotes_quadro
     ocr_ok = 0
     for raw in cert_list:
         texto = ocr_pdf(raw)
@@ -474,10 +476,25 @@ def extrair_tudo(uploads_bytes: dict) -> dict:
             alvo = next((m for m in matriculas if (m.get("matricula") or "").replace(".", "") == dados["matricula"].replace(".", "")), None)
         if not alvo and dados.get("lote_origem"):
             alvo = next((m for m in matriculas if m.get("lote_origem") == dados["lote_origem"]), None)
+        # Usucapião: cria o registro da matrícula a partir da certidão (senão a matrícula
+        # lida pelo OCR seria descartada por não haver planilha de mapa).
+        if not alvo and sem_mapa:
+            alvo = {"id": str(uuid.uuid4()), "ordem": len(matriculas) + 1,
+                    "proprietario_registral": {}, "confrontacoes": [], "cadeia": []}
+            matriculas.append(alvo)
         if alvo:
             for k, v in dados.items():
                 if v:
                     alvo[k] = v
+    # Usucapião sem certidão legível: semeia UMA matrícula com os dados do Memorial
+    # (denominação/CIM) para o imóvel usucapiendo ter registro a conferir/preencher.
+    if sem_mapa and not matriculas and (res.get("denominacao") or res.get("cmi_resultante")):
+        matriculas.append({
+            "id": str(uuid.uuid4()), "ordem": 1,
+            "denominacao": res.get("denominacao"),
+            "loc_cartografica": res.get("cmi_resultante"),
+            "proprietario_registral": {}, "confrontacoes": [], "cadeia": [],
+        })
     if cert_list and ocr_ok == 0:
         res["avisos"].append("Certidões enviadas são imagem e o OCR não está disponível neste ambiente — "
                              "matrículas/confrontações precisam ser preenchidas/conferidas manualmente.")
