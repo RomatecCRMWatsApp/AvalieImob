@@ -1165,6 +1165,15 @@ export default function GeoUrbanoWizard() {
                   </div>
                 </div>
               )}
+              {p.papel === 'titular_tabular' && p.falecido && (
+                <div className="mt-3 border-t pt-3">
+                  <p className="text-xs font-medium text-gray-600 mb-2">📎 Documentos do proprietário falecido — anexados ao <b>Dossiê</b></p>
+                  <div className="grid sm:grid-cols-2 gap-2">
+                    {renderUploadDoc('certidao_obito', 'Certidão de óbito')}
+                    {renderUploadDoc('doc_proprietario', 'Documento de identidade (RG/CNH)')}
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
