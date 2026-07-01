@@ -125,8 +125,9 @@ def _rotulo_page(titulo: str, subtitulo: str = None) -> bytes:
 
 
 def pagina_documento(raw: bytes, titulo: str, subtitulo: str = None) -> bytes:
-    """Um upload → PDF titulado: IMAGEM vira página A4 com o título no topo; PDF recebe
-    uma PÁGINA DE RÓTULO com o título antes das suas páginas."""
+    """Um upload → PDF titulado com o TÍTULO e o DOCUMENTO na MESMA página. IMAGEM: título
+    no topo + imagem abaixo. PDF: RASTERIZA cada página (fitz) e a renderiza como imagem
+    titulada — assim a certidão/documento e seu título ficam juntos, uma página por folha."""
     if not raw:
         return b""
     if raw[:5] != b"%PDF-":
@@ -134,17 +135,36 @@ def pagina_documento(raw: bytes, titulo: str, subtitulo: str = None) -> bytes:
             return _img_para_pdf(raw, titulo, subtitulo)
         except Exception:  # noqa: BLE001
             return b""
+    # PDF → rasteriza cada página e titula (título + documento na mesma folha)
     try:
+        import fitz
+        d = fitz.open(stream=raw, filetype="pdf")
+        n = d.page_count
         w = PdfWriter()
-        for pg in PdfReader(io.BytesIO(_rotulo_page(titulo, subtitulo))).pages:
-            w.add_page(pg)
-        for pg in PdfReader(io.BytesIO(raw)).pages:
-            w.add_page(pg)
+        for i in range(n):
+            pix = d[i].get_pixmap(dpi=150)
+            sub = subtitulo
+            if n > 1:
+                sub = f"{(subtitulo + ' · ') if subtitulo else ''}página {i + 1} de {n}"
+            titled = _img_para_pdf(pix.tobytes("png"), titulo, sub)
+            for p in PdfReader(io.BytesIO(titled)).pages:
+                w.add_page(p)
         out = io.BytesIO()
         w.write(out)
         return out.getvalue()
     except Exception:  # noqa: BLE001
-        return raw
+        # fallback: rótulo + PDF original (se a rasterização falhar)
+        try:
+            w = PdfWriter()
+            for pg in PdfReader(io.BytesIO(_rotulo_page(titulo, subtitulo))).pages:
+                w.add_page(pg)
+            for pg in PdfReader(io.BytesIO(raw)).pages:
+                w.add_page(pg)
+            out = io.BytesIO()
+            w.write(out)
+            return out.getvalue()
+        except Exception:  # noqa: BLE001
+            return raw
 
 
 def _to_pdf_bytes(item) -> list:
