@@ -185,6 +185,12 @@ def _assina_rt_memorial(rt_nome, papel_rt, firma_bytes, st, L, pos=None):
     return [KeepTogether(bloco)]
 
 
+# Rótulo COMPACTO do lado p/ a coluna da tabela (uma linha); o texto pleno
+# (LATERAL DIREITA/ESQUERDA) fica na descrição perimétrica e no quadro do wizard.
+_LADO_ABREV = {"frente": "FRENTE", "lateral_direita": "LAT. DIR.",
+               "lateral_esquerda": "LAT. ESQ.", "fundo": "FUNDOS", "fundos": "FUNDOS"}
+
+
 def _tabela_vertices(projeto: dict, cfg, st, L):
     """Quadro de vértices/medidas/confrontações (do mapa) — usado no Memorial E no
     Requerimento. Larguras de coluna calibradas + rótulos curtos + fonte menor nas
@@ -197,13 +203,20 @@ def _tabela_vertices(projeto: dict, cfg, st, L):
     # Coluna Fator K só aparece se ALGUM vértice a tem (usucapião: o mapa é imagem, não
     # traz o Fator K — sem valor, a coluna é OCULTADA para não sair vazia).
     mostra_fk = any(v.get("fator_k") is not None for v in verts)
+    # Lado (FRENTE/LATERAIS/FUNDO) calculado na hora — mesma lógica da descrição
+    # perimétrica, então tabela e texto batem. "—" quando a frente é indefinida.
+    try:
+        from ..orientacao import classificar_lados
+        lados = classificar_lados(verts, frente_idx=projeto.get("frente_idx")).get("lados") or []
+    except Exception:  # noqa: BLE001
+        lados = []
     header = ["De", "Para", "Coord. N (Y)", "Coord. E (X)", "Azimute", "Dist. (m)"]
     if mostra_fk:
         header.append("Fator K")
-    header.append("Confront.")
+    header += ["Lado", "Confront."]
     head = [Paragraph(GP._esc(h), st["tab_h"]) for h in header]
     body = []
-    for v in verts:
+    for i, v in enumerate(verts):
         linha = [
             Paragraph(GP._esc(v.get("de") or ""), stn),     # código INCRA completo (fiel)
             Paragraph(GP._esc(v.get("para") or ""), stn),
@@ -214,10 +227,14 @@ def _tabela_vertices(projeto: dict, cfg, st, L):
         ]
         if mostra_fk:
             linha.append(Paragraph(GP._esc(TX._n_br(v.get("fator_k"), 8) if v.get("fator_k") is not None else ""), stn))
+        lado = lados[i] if i < len(lados) else None
+        linha.append(Paragraph(GP._esc(_LADO_ABREV.get(lado, "—")), stn))
         linha.append(Paragraph(GP._esc(v.get("confrontante_lado") or "—"), st["tab"]))
         body.append(linha)
-    fr = ([0.115, 0.115, 0.145, 0.145, 0.10, 0.06, 0.10, 0.22] if mostra_fk       # soma 1.0
-          else [0.13, 0.13, 0.16, 0.16, 0.11, 0.07, 0.24])                        # sem Fator K
+    # Fator K precisa de ~0.10 (o valor "1,00052614" não pode quebrar de linha);
+    # o rótulo do Lado pode quebrar em 2 linhas (LATERAL / ESQUERDA), então recebe menos.
+    fr = ([0.095, 0.095, 0.135, 0.135, 0.085, 0.05, 0.10, 0.105, 0.20] if mostra_fk  # soma 1.0
+          else [0.115, 0.115, 0.15, 0.15, 0.10, 0.065, 0.10, 0.205])                 # sem Fator K
     t = Table([head] + body, colWidths=[L * f for f in fr], repeatRows=1)
     t.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), cfg["tab_head_bg"]),
