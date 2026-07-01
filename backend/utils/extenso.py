@@ -138,3 +138,54 @@ def valor_por_extenso(valor: Optional[float]) -> str:
         return _fallback_extenso(v)
     except Exception:
         return ""
+
+
+# ── Métricas por extenso (área / distância) — usado no Memorial urbano ─────────
+def area_extenso(area_m2: Optional[float]) -> str:
+    """Área em m² por extenso. Ex.: 1106.00 -> 'mil cento e seis metros quadrados';
+    fração não nula vira '… e N centésimos'. Retorna '' para valor inválido/<=0."""
+    try:
+        v = float(area_m2 or 0)
+    except (TypeError, ValueError):
+        return ""
+    if v <= 0:
+        return ""
+    inteiro = int(v)
+    centesimos = int(round((round(v, 2) - inteiro) * 100))
+    if centesimos >= 100:                       # arredondamento de borda
+        inteiro += 1
+        centesimos -= 100
+    if inteiro == 1 and centesimos == 0:
+        return "um metro quadrado"
+    try:
+        base = f"{_inteiro_extenso(inteiro)} metros quadrados" if inteiro else ""
+        if centesimos:
+            cent = f"{_inteiro_extenso(centesimos)} centésimos"
+            return f"{base} e {cent}" if base else cent
+        return base
+    except Exception:
+        return ""
+
+
+def distancia_extenso(d_m: Optional[float]) -> str:
+    """Distância em metros por extenso: parte inteira = metros, 2 casas = centímetros.
+    Ex.: 22.89 -> 'vinte e dois metros e oitenta e nove centímetros'."""
+    try:
+        v = float(d_m or 0)
+    except (TypeError, ValueError):
+        return ""
+    if v < 0:
+        return ""
+    total_cm = int(round(v * 100))
+    metros_i, centimetros = divmod(total_cm, 100)
+    partes = []
+    try:
+        if metros_i:
+            partes.append(f"{_inteiro_extenso(metros_i)} " + ("metro" if metros_i == 1 else "metros"))
+        if centimetros:
+            partes.append(f"{_inteiro_extenso(centimetros)} " + ("centímetro" if centimetros == 1 else "centímetros"))
+    except Exception:
+        return ""
+    if not partes:
+        return "zero metro"
+    return " e ".join(partes)

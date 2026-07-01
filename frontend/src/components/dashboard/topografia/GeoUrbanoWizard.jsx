@@ -5,7 +5,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft, Upload, Trash2, Plus, FileText, AlertTriangle, CheckCircle2,
-  Download, Eye, RefreshCw,
+  Download, Eye, RefreshCw, Compass,
 } from 'lucide-react';
 import { geoUrbanoAPI, assinaturaPosAPI, brandingAPI, perfilAPI, georefAPI } from '../../../lib/api';
 import { useToast } from '../../../hooks/use-toast';
@@ -18,6 +18,11 @@ import { fmtDataHora } from '../../../utils/datasServidor';
 
 const GREEN = '#0C3320';
 const GOLD = '#C9A84C';
+// Rótulos dos lados do lote (orientação frente/laterais/fundo).
+const LADO_LABEL = {
+  frente: 'FRENTE', lateral_direita: 'LATERAL DIREITA',
+  lateral_esquerda: 'LATERAL ESQUERDA', fundo: 'FUNDOS', fundos: 'FUNDOS',
+};
 
 const PASSOS_REMEMBRAMENTO = ['Projeto', 'Uploads', 'Matrículas & BCI', 'Vértices & Mapa', 'Partes', 'Geração', 'Aprovação', 'Entrega'];
 // Usucapião é técnico-first: peça de agrimensura é o motor; jurídico (Posse/Provas/
@@ -177,6 +182,7 @@ export default function GeoUrbanoWizard() {
   const [firmaPos, setFirmaPos] = useState({ largura: 150, align: 'left', dx: 0, dy: 0 });
   const firmaPosDebounce = useRef(null);
   const [firmaBusy, setFirmaBusy] = useState(false);
+  const [orientBusy, setOrientBusy] = useState(false);
   const [cnsBusy, setCnsBusy] = useState(false);
   const [assinId, setAssinId] = useState(null);
   const [assinaturas, setAssinaturas] = useState({});
@@ -355,6 +361,23 @@ export default function GeoUrbanoWizard() {
   // Vértices (editáveis — confrontante não vem da planilha do mapa)
   const addVert = () => upd({ vertices: [...(proj.vertices || []), { id: `tmp-${Date.now()}`, ordem: (proj.vertices || []).length + 1 }] });
   const rmVert = (i) => upd({ vertices: (proj.vertices || []).filter((_, k) => k !== i) });
+  // Orientação dos lados (frente/laterais/fundo). frenteIdx opcional força a testada.
+  const orientarLados = async (frenteIdx) => {
+    setOrientBusy(true);
+    try {
+      const r = await geoUrbanoAPI.orientar(id, frenteIdx);
+      await carregar();
+      if (r.frente_indefinida) {
+        toast({ title: 'Frente não identificada — marque a FRENTE (rua) na coluna Lado da linha voltada para a via', variant: 'destructive' });
+      } else {
+        toast({ title: 'Lados orientados (frente/laterais/fundo) ✓' });
+      }
+    } catch (e) {
+      toast({ title: 'Erro ao orientar lados', variant: 'destructive' });
+    } finally {
+      setOrientBusy(false);
+    }
+  };
   // Confrontantes + DRL (retificação, eixo geométrico)
   const addConfr = () => upd({ confrontantes: [...(proj.confrontantes || []), { id: `tmp-${Date.now()}`, tipo: 'particular', anuencia: { status: 'pendente' } }] });
   const rmConfr = (i) => upd({ confrontantes: (proj.confrontantes || []).filter((_, k) => k !== i) });
@@ -958,18 +981,22 @@ export default function GeoUrbanoWizard() {
               <h2 className="font-semibold" style={{ color: GREEN }}>Quadro de vértices <span className="text-[11px] font-normal text-gray-400">(editável)</span></h2>
               <div className="flex items-center gap-3">
                 <span className="text-[10px] text-gray-400">arraste ↔</span>
+                <button onClick={() => orientarLados()} disabled={orientBusy}
+                  className="text-xs inline-flex items-center gap-1 text-emerald-700 hover:underline disabled:opacity-50"
+                  title="Classifica os lados (rua = FRENTE; direita/esquerda de quem está no lote olhando a rua)">
+                  <Compass className="w-3.5 h-3.5" /> {orientBusy ? 'Orientando…' : 'Orientar lados'}</button>
                 <button onClick={addVert} className="text-xs inline-flex items-center gap-1 text-emerald-700 hover:underline"><Plus className="w-3.5 h-3.5" /> Vértice</button>
               </div>
             </div>
             <p className="text-[11px] text-amber-600 mb-2">{isUsucapiao
-              ? <>Vértices, confrontantes e coordenadas extraídos do <b>Memorial</b> — confira/ajuste se necessário.</>
-              : <>O <b>Confrontante</b> não vem da planilha do mapa — preencha/corrija por aqui (1 por segmento) para o Memorial sair completo.</>}</p>
+              ? <>Vértices, confrontantes e coordenadas extraídos do <b>Memorial</b> — confira/ajuste se necessário. Use <b>Orientar lados</b> para rotular FRENTE/LATERAIS/FUNDO no Memorial.</>
+              : <>O <b>Confrontante</b> não vem da planilha do mapa — preencha/corrija por aqui (1 por segmento). <b>Orientar lados</b> rotula FRENTE/LATERAIS/FUNDO (rua = frente); se nenhum confrontante for rua, marque a <b>Frente</b> na linha da testada.</>}</p>
             <div className="overflow-x-auto -mx-1 px-1">
               <table className="text-xs border-collapse" style={{ minWidth: 820 }}>
                 <thead>
                   <tr className="text-left" style={{ color: GREEN }}>
                     {['De', 'Para', 'Coord. N (Y)', 'Coord. E (X)', 'Azimute', 'Dist. (m)',
-                      ...(isUsucapiao ? [] : ['Fator K']), 'Confrontante', ''].map((h) => (
+                      ...(isUsucapiao ? [] : ['Fator K']), 'Lado', 'Confrontante', ''].map((h) => (
                       <th key={h} className="px-1.5 py-1.5 whitespace-nowrap border-b font-semibold bg-gray-50">{h}</th>
                     ))}
                   </tr>
@@ -991,6 +1018,17 @@ export default function GeoUrbanoWizard() {
                         <td className="border-r"><input className={vci + ' font-mono'} style={{ minWidth: 96 }} inputMode="decimal" placeholder="1,0005535"
                           value={v.fator_k ?? ''} onChange={(e) => { const x = e.target.value.replace(',', '.').trim(); updArr('vertices', i, { fator_k: x === '' ? null : (isNaN(Number(x)) ? v.fator_k : Number(x)) }); }} /></td>
                         )}
+                        <td className="border-r">
+                          <select className={vci} style={{ minWidth: 128 }} value={v.lado_manual || ''}
+                            title={v.lado ? `calculado: ${LADO_LABEL[v.lado] || v.lado}` : 'clique em "Orientar lados"'}
+                            onChange={(e) => updArr('vertices', i, { lado_manual: e.target.value || null })}>
+                            <option value="">{v.lado ? `• ${LADO_LABEL[v.lado] || v.lado}` : '(auto)'}</option>
+                            <option value="frente">Frente</option>
+                            <option value="lateral_direita">Lateral direita</option>
+                            <option value="lateral_esquerda">Lateral esquerda</option>
+                            <option value="fundo">Fundo</option>
+                          </select>
+                        </td>
                         <td className="border-r bg-amber-50/40"><input className={vci} style={{ minWidth: 150 }} placeholder="ex.: Rua Suriname" value={v.confrontante_lado || ''} onChange={(e) => set('confrontante_lado', e.target.value)} /></td>
                         <td className="px-1"><Trash2 className="w-3.5 h-3.5 text-gray-300 hover:text-red-500 cursor-pointer" onClick={() => rmVert(i)} /></td>
                       </tr>

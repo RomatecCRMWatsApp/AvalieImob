@@ -799,6 +799,9 @@ export const geoUrbanoAPI = {
   kml: (id) => api.get(`${GEOURB}/projetos/${id}/kml`, { responseType: 'blob' }).then((r) => r.data),
   retificacaoAnalise: (id) => api.get(`${GEOURB}/projetos/${id}/retificacao/analise`).then((r) => r.data),
   retificacaoConfirmar: (id) => api.post(`${GEOURB}/projetos/${id}/retificacao/confirmar`).then((r) => r.data),
+  // Orientação dos lados do lote (frente/laterais/fundo); frenteIdx opcional força a testada
+  orientar: (id, frenteIdx) => api.post(`${GEOURB}/projetos/${id}/orientar`,
+    null, { params: frenteIdx == null ? {} : { frente_idx: frenteIdx } }).then((r) => r.data),
   // DRL — anuência dos confrontantes (eixo geométrico)
   listarDrls: (id) => api.get(`${GEOURB}/projetos/${id}/drls`).then((r) => r.data),
   baixarDrl: (id, cid, tema) =>

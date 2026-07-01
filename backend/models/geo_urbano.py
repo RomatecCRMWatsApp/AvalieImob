@@ -453,6 +453,7 @@ class GeoUrbanoProjeto(BaseModel):
     etapas_concluidas: dict = Field(default_factory=dict)     # {step_index: True}
     etapas_concluidas_em: dict = Field(default_factory=dict)  # {step_index: ISO}
     coords_alinhadas: bool = False   # self-heal do offset de coordenadas (1x)
+    frente_idx: Optional[int] = None  # índice do segmento da FRENTE (rua) — marcado no desenho
     completude: int = 0
     created_at: datetime = Field(default_factory=_agora)
     updated_at: datetime = Field(default_factory=_agora)
@@ -489,6 +490,7 @@ class AtualizarProjetoBody(BaseModel):
     area_declarada_m2: Optional[float] = None
     perimetro_m: Optional[float] = None
     trt_numero: Optional[str] = None
+    frente_idx: Optional[int] = None   # segmento da FRENTE (rua) marcado no desenho
     matriculas: Optional[List[dict]] = None
     bci: Optional[List[dict]] = None
     vertices: Optional[List[dict]] = None

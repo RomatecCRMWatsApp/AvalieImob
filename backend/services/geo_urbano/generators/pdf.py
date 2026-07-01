@@ -399,8 +399,8 @@ def memorial(projeto: dict, tema: str, logo_bytes=None) -> bytes:
 
     story += GP._secao("DESCRIÇÃO PERIMÉTRICA", cfg, st, L)
     corpo = (f"Imóvel urbano denominado {projeto.get('denominacao_imovel') or ''}, "
-             f"com área de {TX.m2(projeto.get('area_declarada_m2'))} e perímetro de "
-             f"{TX.metros(projeto.get('perimetro_m'))}, assim descrito: ")
+             f"com área de {TX.m2_ext(projeto.get('area_declarada_m2'))} e perímetro de "
+             f"{TX.metros_ext(projeto.get('perimetro_m'))}, assim descrito: ")
     corpo += TX.descricao_perimetrica(projeto)
     story += GP._paras(corpo, st["corpo"])
 

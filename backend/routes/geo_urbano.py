@@ -204,7 +204,7 @@ async def atualizar_projeto(pid: str, body: AtualizarProjetoBody,
     escalares = ("denominacao_imovel", "tipo_servico", "tema", "status", "municipio", "uf",
                  "bairro", "loteamento", "quadra", "lote_resultante", "endereco",
                  "cmi_resultante", "cmi_controle", "cadastro_novo", "cadastro_antigo",
-                 "area_declarada_m2", "perimetro_m", "trt_numero",
+                 "area_declarada_m2", "perimetro_m", "trt_numero", "frente_idx",
                  # desdobro
                  "matricula_mae_id", "area_mae_m2", "qtd_lotes_resultantes", "area_via_doacao_m2",
                  "lote_minimo_municipal_m2", "testada_minima_m",
@@ -450,6 +450,27 @@ async def retificacao_confirmar(pid: str, uid: str = Depends(get_active_subscrib
         {"id": pid, "user_id": uid},
         {"$set": {"retificacao_analise": analise, "updated_at": _agora().isoformat()}})
     return analise
+
+
+@router.post("/projetos/{pid}/orientar")
+async def orientar_lados(pid: str, frente_idx: int = Query(None),
+                         uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    """Classifica os segmentos da poligonal em FRENTE/LATERAL DIREITA/ESQUERDA/FUNDO
+    (convenção: rua = frente; direita/esquerda de quem está no lote olhando a rua) e
+    grava o `lado` em cada vértice. `frente_idx` (opcional) força a testada quando os
+    confrontantes não trazem logradouro. Retorna `frente_indefinida` p/ a UI pedir a
+    marcação manual da frente quando não houver rua nas confrontações."""
+    from services.geo_urbano.orientacao import aplicar_lados
+    doc = await _get(db, pid, uid)
+    if frente_idx is not None:
+        doc["frente_idx"] = frente_idx
+    cls = aplicar_lados(doc)   # escreve `lado` nos vértices (in-place)
+    sets = {"vertices": doc.get("vertices") or [], "updated_at": _agora().isoformat()}
+    if frente_idx is not None:
+        sets["frente_idx"] = frente_idx
+    await db.geo_urbano_projetos.update_one({"id": pid, "user_id": uid}, {"$set": sets})
+    return {"frente_indefinida": cls["frente_indefinida"], "lados": cls["lados"],
+            "vertices": doc.get("vertices") or []}
 
 
 # ──────────────────────────────────────────────────────────────────────────────

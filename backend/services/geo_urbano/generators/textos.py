@@ -49,6 +49,31 @@ def metros(v) -> str:
     return f"{_n_br(v)} m" if v is not None else "—"
 
 
+def m2_ext(v) -> str:
+    """Área com número e por extenso entre parênteses: '1.106,00 m² (mil cento e seis…)'."""
+    if v is None:
+        return "—"
+    from utils.extenso import area_extenso
+    ext = area_extenso(v)
+    return f"{m2(v)} ({ext})" if ext else m2(v)
+
+
+def metros_ext(v) -> str:
+    """Distância/perímetro com número e por extenso: '143,20 m (cento e quarenta e três…)'."""
+    if v is None:
+        return "—"
+    from utils.extenso import distancia_extenso
+    ext = distancia_extenso(v)
+    return f"{metros(v)} ({ext})" if ext else metros(v)
+
+
+# Rótulo do lado na Descrição Perimétrica ("segue {rótulo}, …"), preposição correta.
+_ROT_LADO = {
+    "frente": "pela FRENTE", "lateral_direita": "pela LATERAL DIREITA",
+    "lateral_esquerda": "pela LATERAL ESQUERDA", "fundo": "pelos FUNDOS", "fundos": "pelos FUNDOS",
+}
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Qualificação das partes
 # ──────────────────────────────────────────────────────────────────────────────
@@ -160,14 +185,26 @@ def lista_transcricoes(projeto: dict) -> List[str]:
 # Descrição perimétrica do imóvel resultante (a partir dos vértices) — §7.3/§7.2
 # ──────────────────────────────────────────────────────────────────────────────
 def descricao_perimetrica(projeto: dict) -> str:
+    """Descrição perimétrica com distâncias por extenso e, quando a FRENTE (rua) é
+    identificável, o rótulo do lado (FRENTE/LATERAL DIREITA/ESQUERDA/FUNDOS).
+    Se a frente não puder ser inferida (nenhum confrontante é logradouro e não há
+    `frente_idx`), não inventa lado — sai só 'segue …, confrontando com …'."""
     verts = sorted(projeto.get("vertices") or [], key=lambda v: v.get("ordem", 0))
     if not verts:
         return ""
+    try:
+        from ..orientacao import classificar_lados
+        lados = classificar_lados(verts, frente_idx=projeto.get("frente_idx")).get("lados") or []
+    except Exception:
+        lados = []
     partes = [f"Inicia-se a descrição no vértice {verts[0].get('de')}"]
-    for v in verts:
+    for i, v in enumerate(verts):
+        lado = lados[i] if i < len(lados) else None
+        rot = _ROT_LADO.get(lado)
+        segue = f"segue {rot}" if rot else "segue"
         partes.append(
-            f"deste, segue com azimute {v.get('azimute') or '—'} e distância de "
-            f"{metros(v.get('distancia_m'))} até o vértice {v.get('para') or '—'}, "
+            f"deste, {segue}, com azimute {v.get('azimute') or '—'} e distância de "
+            f"{metros_ext(v.get('distancia_m'))} até o vértice {v.get('para') or '—'}, "
             f"confrontando neste segmento com {v.get('confrontante_lado') or '—'}"
         )
     return "; ".join(partes) + ", fechando o polígono."
