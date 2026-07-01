@@ -175,6 +175,7 @@ class Parte(BaseModel):
     cnh: Optional[str] = None
     oab: Optional[str] = None       # advogado (art. 216-A exige acompanhamento)
     uf_oab: Optional[str] = None
+    falecido: Optional[bool] = None  # titular registral falecido → espólio/herdeiros (usucapião de herança)
     nacionalidade: Optional[str] = "brasileiro"
     estado_civil: Optional[str] = None
     profissao: Optional[str] = None

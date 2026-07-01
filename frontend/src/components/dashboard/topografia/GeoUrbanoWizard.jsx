@@ -27,7 +27,7 @@ const LADO_LABEL = {
 const PASSOS_REMEMBRAMENTO = ['Projeto', 'Uploads', 'Matrículas & BCI', 'Vértices & Mapa', 'Partes', 'Geração', 'Aprovação', 'Entrega'];
 // Usucapião é técnico-first: peça de agrimensura é o motor; jurídico (Posse/Provas/
 // Partes/Anuências/Checklist) vai ao FIM como um bloco só (etapa da advogada).
-const PASSOS_USUCAPIAO = ['Projeto', 'Uploads & Extração', 'Certidões & BCI', 'Vértices & Mapa', 'Peças Técnicas', 'Aprovação', 'Entrega', 'Jurídico'];
+const PASSOS_USUCAPIAO = ['Projeto', 'Uploads & Extração', 'Certidões & BCI', 'Vértices & Mapa', 'Partes', 'Peças Técnicas', 'Aprovação', 'Entrega', 'Jurídico'];
 const MODALIDADES_USU = [
   ['extraordinaria', 'Extraordinária (15/10 anos)'], ['ordinaria', 'Ordinária (10/5 anos) — exige justo título'],
   ['especial_urbana', 'Especial Urbana (5 anos / 250 m²)'], ['especial_rural', 'Especial Rural (5 anos / 50 ha)'],
@@ -1046,15 +1046,23 @@ export default function GeoUrbanoWizard() {
       {passoAtual === 'Partes' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold" style={{ color: GREEN }}>Requerentes e representantes</h2>
+            <h2 className="font-semibold" style={{ color: GREEN }}>{isUsucapiao
+              ? 'Partes — possuidor, proprietário registral, herdeiros/espólio e advogado(a)'
+              : 'Requerentes e representantes'}</h2>
             <button onClick={() => { upd({ partes: [...(proj.partes || []), { id: `tmp-${Date.now()}`, papel: 'requerente', tipo_pessoa: 'fisica' }] }); }}
               className="text-xs inline-flex items-center gap-1 text-emerald-700 hover:underline"><Plus className="w-3.5 h-3.5" /> Adicionar parte</button>
           </div>
+          {isUsucapiao && (
+            <p className="text-[11px] text-amber-600">Informe o <b>possuidor</b> (requerente), o <b>proprietário registral</b> (titular da matrícula) — marque <b>“Falecido”</b> se for o caso, e então adicione os <b>herdeiros/comuneiros do espólio</b> — e o(a) <b>advogado(a)</b> com OAB (exigido pelo art. 216-A da LRP).</p>
+          )}
           {(proj.partes || []).map((p, i) => (
             <div key={p.id || i} className="rounded-xl border bg-white p-4">
               <div className="flex items-center gap-2 mb-2">
-                <select className={inp + ' max-w-[150px]'} value={p.papel} onChange={(e) => updArr('partes', i, { papel: e.target.value })}>
-                  <option value="requerente">Requerente</option>
+                <select className={inp + ' max-w-[210px]'} value={p.papel} onChange={(e) => updArr('partes', i, { papel: e.target.value })}>
+                  <option value="requerente">{isUsucapiao ? 'Requerente (possuidor)' : 'Requerente'}</option>
+                  {isUsucapiao && <option value="titular_tabular">Proprietário (registro)</option>}
+                  {isUsucapiao && <option value="herdeiro">Herdeiro / comuneiro do espólio</option>}
+                  {isUsucapiao && <option value="advogado">Advogado(a)</option>}
                   <option value="representante">Representante</option>
                   <option value="socio">Sócio</option>
                   <option value="conjuge">Cônjuge</option>
@@ -1063,9 +1071,17 @@ export default function GeoUrbanoWizard() {
                   <option value="juridica">Pessoa Jurídica</option>
                   <option value="fisica">Pessoa Física</option>
                 </select>
+                {p.papel === 'titular_tabular' && (
+                  <label className="text-xs inline-flex items-center gap-1 text-gray-600 whitespace-nowrap">
+                    <input type="checkbox" checked={!!p.falecido} onChange={(e) => updArr('partes', i, { falecido: e.target.checked })} /> Falecido
+                  </label>
+                )}
                 <Trash2 className="w-4 h-4 text-gray-300 hover:text-red-500 cursor-pointer ml-auto"
                   onClick={() => upd({ partes: proj.partes.filter((_, k) => k !== i) })} />
               </div>
+              {p.papel === 'titular_tabular' && p.falecido && (
+                <p className="text-[11px] text-amber-700 mb-2">⚠ Proprietário falecido — adicione os <b>herdeiros/comuneiros do espólio</b> como partes (papel “Herdeiro / comuneiro do espólio”).</p>
+              )}
               {p.tipo_pessoa === 'juridica' ? (
                 <div className="grid sm:grid-cols-2 gap-2">
                   <Field label="Razão social" value={p.razao_social} onChange={(v) => updArr('partes', i, { razao_social: v })} />
@@ -1081,7 +1097,11 @@ export default function GeoUrbanoWizard() {
                   <Field label="RG" value={p.rg} onChange={(v) => updArr('partes', i, { rg: v })} />
                   <Field label="Profissão" value={p.profissao} onChange={(v) => updArr('partes', i, { profissao: v })} />
                   <Field label="Estado civil" value={p.estado_civil} onChange={(v) => updArr('partes', i, { estado_civil: v })} />
+                  {p.papel === 'advogado' && <Field label="OAB nº" value={p.oab} onChange={(v) => updArr('partes', i, { oab: v })} />}
+                  {p.papel === 'advogado' && <Field label="UF da OAB" value={p.uf_oab} onChange={(v) => updArr('partes', i, { uf_oab: v })} />}
                   <Field label="Endereço" full value={p.endereco} onChange={(v) => updArr('partes', i, { endereco: v })} />
+                  <Field label="WhatsApp" value={p.telefone} onChange={(v) => updArr('partes', i, { telefone: v })} />
+                  <Field label="E-mail" value={p.email} onChange={(v) => updArr('partes', i, { email: v })} />
                 </div>
               )}
             </div>
