@@ -1,13 +1,33 @@
 // @module topografia/GeoUrbanoList — Lista de projetos de Geo Urbano + criação.
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Plus, Trash2, ChevronRight, MapPin, Sparkles, CheckCircle2, Clock, Send } from 'lucide-react';
+import { Building2, Plus, Trash2, MapPin, Sparkles, CheckCircle2, Clock, Send, Eye, RefreshCw, FolderOpen } from 'lucide-react';
 import { geoUrbanoAPI } from '../../../lib/api';
 import { useToast } from '../../../hooks/use-toast';
 import { BrandSpinner } from '../../brand/BrandSpinner';
 
 const GREEN = '#0C3320';
 const GOLD = '#C9A84C';
+
+// abre o PDF de uma peça (Dossiê) numa nova aba — mesmo padrão do módulo Documentos Externos
+const abrirBlob = async (apiPromise, toast) => {
+  const win = window.open('', '_blank');
+  try {
+    const blob = await apiPromise;
+    const url = URL.createObjectURL(blob instanceof Blob ? blob : new Blob([blob], { type: 'application/pdf' }));
+    if (win) win.location.href = url; else window.location.href = url;
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch {
+    if (win) win.close();
+    toast({ title: 'Erro ao abrir o PDF', variant: 'destructive' });
+  }
+};
+
+const Btn = ({ icon: Icon, label, onClick, cls }) => (
+  <button onClick={onClick} className={`flex items-center justify-center gap-1.5 border rounded-lg py-2 text-xs font-medium ${cls}`}>
+    <Icon className="w-3.5 h-3.5" /> {label}
+  </button>
+);
 
 export const TIPOS_SERVICO = [
   { value: 'remembramento', label: 'Remembramento (unificação de lotes)', pronto: true },
@@ -229,80 +249,89 @@ export default function GeoUrbanoList() {
           <p>Nenhum projeto ainda. Crie o primeiro — ou abra o <strong>projeto-teste J&G</strong> para ver tudo pronto.</p>
         </div>
       ) : (
-        <div className="grid sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {projetos.map((p) => {
             const st = STATUS[p.status] || STATUS.rascunho;
             const tipo = TIPOS_SERVICO.find((t) => t.value === p.tipo_servico);
+            const a = p.assinatura_prop;
+            const temSig = a?.existe && a.total > 0;
+            const todosSig = temSig && a.assinados >= a.total;
             return (
-              <button
-                key={p.id}
-                onClick={() => nav(`/dashboard/topografia/geo-urbano/${p.id}`)}
-                className="text-left rounded-xl border border-gray-200 bg-white p-5 hover:shadow-md hover:border-emerald-300 transition group"
-              >
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${st.cls}`}>{st.label}</span>
-                  <Trash2 onClick={(e) => excluir(p.id, e)}
-                    className="w-4 h-4 text-gray-300 hover:text-red-500 shrink-0" />
-                </div>
-                <div className="font-semibold text-gray-800 group-hover:text-emerald-800 line-clamp-2">
-                  {p.denominacao_imovel || 'Sem denominação'}
-                </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  {p.numero ? `${p.numero} · ` : ''}{tipo?.label || p.tipo_servico}
-                </div>
-                <div className="text-xs text-gray-400 mt-0.5">
-                  {(p.matriculas?.length || 0)} matrícula(s)
-                  {p.area_declarada_m2 ? ` · ${Number(p.area_declarada_m2).toLocaleString('pt-BR')} m²` : ''}
-                </div>
-                <div className="mt-3 flex items-center justify-between">
-                  <div className="flex-1 mr-3">
-                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full" style={{ width: `${p.completude || 0}%`, background: GOLD }} />
-                    </div>
-                    <span className="text-[10px] text-gray-400">{p.completude || 0}% preenchido</span>
+              <div key={p.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 flex flex-col">
+                {/* cabeçalho: ícone + código + denominação + tipo */}
+                <div className="flex items-start gap-2 mb-2">
+                  <div className="w-9 h-9 rounded-lg bg-[rgba(201,168,76,0.16)] flex items-center justify-center flex-shrink-0">
+                    <MapPin className="w-4 h-4 text-[#C9A84C]" />
                   </div>
-                  <ChevronRight className="w-4 h-4 text-emerald-600" />
-                </div>
-
-                {/* enviar PDF por WhatsApp a um contato */}
-                <div className="mt-2">
-                  <span role="button" tabIndex={0} onClick={(e) => abrirWa(p, e)}
-                    className="text-[11px] inline-flex items-center gap-1 px-2 py-1 rounded border bg-white hover:bg-emerald-50 text-emerald-700">
-                    <Send className="w-3 h-3" /> Enviar PDF por WhatsApp
-                  </span>
-                </div>
-
-                {/* confirmação da assinatura do proprietário */}
-                {p.assinatura_prop?.existe && (() => {
-                  const a = p.assinatura_prop;
-                  const todos = a.total > 0 && a.assinados >= a.total;
-                  const cls = todos ? 'border-emerald-300 bg-emerald-50' : (a.assinados > 0 ? 'border-amber-300 bg-amber-50' : 'border-sky-200 bg-sky-50');
-                  const cor = todos ? 'text-emerald-700' : (a.assinados > 0 ? 'text-amber-700' : 'text-sky-700');
-                  return (
-                    <div className={`mt-3 rounded-lg border p-2 ${cls}`}>
-                      <div className="flex items-center justify-between gap-2">
-                        <span className={`text-[11px] font-semibold inline-flex items-center gap-1 ${cor}`}>
-                          {todos ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
-                          {todos ? 'Proprietário assinou ✓' : `Assinatura · ${a.assinados}/${a.total} assinaram`}
-                        </span>
-                        {!todos && (
-                          <span role="button" tabIndex={0} onClick={(e) => reenviarAssin(p.id, e)}
-                            className="text-[11px] inline-flex items-center gap-1 px-2 py-0.5 rounded border bg-white hover:bg-gray-50 text-gray-700">
-                            <Send className="w-3 h-3" /> {reenviando === p.id ? '…' : 'Reenviar'}
-                          </span>
-                        )}
-                      </div>
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {(a.signatarios || []).map((s, i) => (
-                          <span key={i} className={`text-[10px] px-1.5 py-0.5 rounded ${s.status === 'assinado' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
-                            {s.status === 'assinado' ? '✓' : '⏳'} {(s.nome || '').split(' ')[0]}
-                          </span>
-                        ))}
-                      </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[11px] text-gray-400">{p.numero || '—'}</div>
+                    <div className="font-semibold text-sm text-gray-900 line-clamp-2" title={p.denominacao_imovel}>
+                      {p.denominacao_imovel || 'Sem denominação'}
                     </div>
-                  );
-                })()}
-              </button>
+                    <div className="text-[11px] text-gray-400">
+                      {tipo?.label || p.tipo_servico}
+                      {' · '}{(p.matriculas?.length || 0)} matrícula(s)
+                      {p.area_declarada_m2 ? ` · ${Number(p.area_declarada_m2).toLocaleString('pt-BR')} m²` : ''}
+                    </div>
+                  </div>
+                </div>
+
+                <div className={`text-[11px] font-medium mb-2 inline-block px-2 py-0.5 rounded-full self-start ${st.cls}`}>{st.label}</div>
+
+                {/* progresso de preenchimento */}
+                <div className="mb-2">
+                  <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full" style={{ width: `${p.completude || 0}%`, background: GOLD }} />
+                  </div>
+                  <span className="text-[10px] text-gray-400">{p.completude || 0}% preenchido</span>
+                </div>
+
+                {/* assinatura do proprietário — chips + status (padrão doc-ext) */}
+                {temSig && (
+                  <>
+                    <div className="text-[11px] text-gray-500 mb-1.5">Assinaturas · {a.assinados}/{a.total}</div>
+                    <div className="flex flex-wrap gap-1 mb-1.5">
+                      {(a.signatarios || []).map((s, i) => {
+                        const ok = s.status === 'assinado';
+                        const cls = ok ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : s.status === 'enviado' ? 'bg-sky-50 text-sky-700 border-sky-200'
+                          : 'bg-amber-50 text-amber-700 border-amber-200';
+                        return (
+                          <span key={i} title={`${s.nome} · ${s.papel || ''} · ${ok ? 'assinou' : 'pendente'}`}
+                            className={`text-[10px] px-1.5 py-0.5 rounded-full border ${cls}`}>
+                            {ok ? '✓' : s.status === 'enviado' ? '✈' : '⏳'} {(s.nome || '').split(' ')[0]}
+                          </span>
+                        );
+                      })}
+                    </div>
+                    {todosSig ? (
+                      <div className="text-[11px] font-semibold text-emerald-700 mb-1.5 inline-flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Proprietário assinou ✓
+                      </div>
+                    ) : (
+                      <div className="text-[11px] font-semibold text-amber-700 mb-1.5 inline-flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5" /> Aguardando assinaturas
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* ações — mesmo grid do módulo Documentos Externos */}
+                <div className="grid grid-cols-2 gap-1.5 mt-auto">
+                  <Btn icon={FolderOpen} label="Abrir" onClick={() => nav(`/dashboard/topografia/geo-urbano/${p.id}`)}
+                    cls="border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100" />
+                  <Btn icon={Eye} label="Ver Dossiê" onClick={() => abrirBlob(geoUrbanoAPI.documento(p.id, 'dossie', p.tema), toast)}
+                    cls="border-gray-200 text-gray-700 hover:bg-gray-50" />
+                  <Btn icon={Send} label="Enviar por WhatsApp" onClick={(e) => abrirWa(p, e)}
+                    cls="border-emerald-300 bg-emerald-600 text-white hover:bg-emerald-700 col-span-2" />
+                  {temSig && !todosSig && (
+                    <Btn icon={RefreshCw} label={reenviando === p.id ? 'Reenviando…' : 'Reenviar assinatura'} onClick={(e) => reenviarAssin(p.id, e)}
+                      cls="border-emerald-200 text-emerald-700 hover:bg-emerald-50 col-span-2" />
+                  )}
+                  <Btn icon={Trash2} label="Excluir" onClick={(e) => excluir(p.id, e)}
+                    cls="border-red-200 text-red-600 hover:bg-red-50 col-span-2" />
+                </div>
+              </div>
             );
           })}
         </div>

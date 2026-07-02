@@ -854,14 +854,16 @@ async def _ub_titulado(doc, tipo):
 
 
 async def _pecas_assinadas(db, doc):
-    """{tipo_peça: bytes} das peças CARIMBADAS pelo proprietário (Requerimento 2 vias +
-    ART/TRT da sessão CONCLUÍDA). As demais peças técnicas (Memorial/Cadeia/Requerimento
-    não assinado) são SEMPRE regeradas frescas p/ ficarem EM SINCRONIA com o sistema
-    (logo atual + firma gráfica do RT que já carimba o Memorial); o Mapa vem do upload
-    (já traz a assinatura do RT). O selo ICP-Brasil é etapa FINAL sobre o dossiê — não se
-    usa a peça ICP congelada (que ficaria com o logo do momento da assinatura)."""
+    """{tipo_peça: bytes} das peças ASSINADAS que devem entrar no Dossiê:
+    (1) carimbo DESENHADO do proprietário (Requerimento + ART/TRT da sessão CONCLUÍDA) —
+        traz os traços das partes/advogado; PREVALECE;
+    (2) selo ICP-Brasil do TÉCNICO (Memorial/Mapa/ART/TRT/Requerimento) de
+        `geo_urbano_assinaturas` (icp_status=assinado) — PREENCHE as peças que o
+        proprietário não assina (Memorial/Mapa) e serve de fallback nas demais.
+    Assim as peças que o RT assinou por ICP vão ao Dossiê final."""
     out = {}
     pid, uid = doc.get("id"), doc.get("user_id")
+    # 1) carimbo desenhado do proprietário (sessão concluída) — prevalece
     try:
         s = await db.geo_urbano_assinatura_sessoes.find_one(
             {"projeto_id": pid, "user_id": uid, "status": "concluido"})
@@ -874,6 +876,23 @@ async def _pecas_assinadas(db, doc):
                 continue
     except Exception:  # noqa: BLE001
         logger.warning("Geo Urbano: falha ao carregar peças carimbadas do proprietário.", exc_info=True)
+    # 2) selo ICP-Brasil do técnico — preenche as peças ainda sem carimbo do proprietário
+    try:
+        from routes.assinatura import _load_assinatura_bytes
+        recs = await db.geo_urbano_assinaturas.find(
+            {"user_id": uid, "projeto_id": pid, "icp_status": "assinado"}).to_list(50)
+        for r in recs:
+            d = r.get("doc")
+            if not d or d in out:   # carimbo do proprietário prevalece
+                continue
+            try:
+                data, _a = await _load_assinatura_bytes(db, "geo_urbano", r["id"])
+                if data and data[:5] == b"%PDF-":
+                    out[d] = data
+            except Exception:  # noqa: BLE001
+                continue
+    except Exception:  # noqa: BLE001
+        logger.warning("Geo Urbano: falha ao carregar peças ICP do técnico.", exc_info=True)
     return out
 
 
@@ -937,10 +956,11 @@ async def _montar_dossie(db, doc, tema):
         from services.geo_urbano import usucapiao as USU
         req = assinadas.get("requerimento_usucapiao") \
             or await asyncio.to_thread(PDF.gerar_pdf, "requerimento_usucapiao", doc, tema, logo)
-        # Memorial: prioriza o ENVIADO pela agrimensura (memorial_usucapiao) > assinado > gerado
+        # Memorial: ICP-assinado pelo RT PREVALECE (é a peça que o técnico assinou) >
+        # enviado pela agrimensura (memorial_usucapiao) > gerado fresco
         memorial_up = await _ub(doc, "memorial_usucapiao")
-        memorial = (memorial_up[0] if memorial_up else None) \
-            or assinadas.get("memorial_descritivo") \
+        memorial = assinadas.get("memorial_descritivo") \
+            or (memorial_up[0] if memorial_up else None) \
             or await asyncio.to_thread(PDF.gerar_pdf, "memorial_descritivo", doc, tema, logo)
         ata = await asyncio.to_thread(PDF.gerar_pdf, "ata_notarial", doc, tema, logo)
         edital = await asyncio.to_thread(PDF.gerar_pdf, "edital_usucapiao", doc, tema, logo)
@@ -955,8 +975,10 @@ async def _montar_dossie(db, doc, tema):
         conteudo = {
             "requerimento_usucapiao": [req],
             "ata_notarial": (await _ub(doc, "ata_notarial_assinada")) or [ata],
-            # mapa único da usucapião — aceita a planta dedicada OU os mapas reusados das abas técnicas
-            "planta_mapa": (await _ub_titulado(doc, "planta_usucapiao")) + (await _ub_titulado(doc, "mapa_remembramento")) + (await _ub_titulado(doc, "mapa_atual")),
+            # Mapa — ICP-assinado pelo RT PREVALECE; senão a planta dedicada/mapas reusados das abas técnicas
+            "planta_mapa": ([await asyncio.to_thread(DOSSIE.pagina_documento, assinadas["mapa"], "Planta / Mapa Georreferenciado", None)]
+                            if assinadas.get("mapa")
+                            else (await _ub_titulado(doc, "planta_usucapiao")) + (await _ub_titulado(doc, "mapa_remembramento")) + (await _ub_titulado(doc, "mapa_atual"))),
             "memorial_descritivo": [memorial],
             # ART/TRT — versão ASSINADA (carimbo do proprietário/ICP) prevalece sobre o upload
             "art_trt": ([await asyncio.to_thread(DOSSIE.pagina_documento, assinadas["art_trt"], "ART / TRT / RRT", None)]
