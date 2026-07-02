@@ -1,7 +1,7 @@
 // @module topografia/GeoUrbanoList — Lista de projetos de Geo Urbano + criação.
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Plus, Trash2, MapPin, Sparkles, CheckCircle2, Clock, Send, Eye, RefreshCw, FolderOpen } from 'lucide-react';
+import { Building2, Plus, Trash2, MapPin, Sparkles, CheckCircle2, Clock, Send, Eye, RefreshCw, FolderOpen, ShieldCheck } from 'lucide-react';
 import { geoUrbanoAPI } from '../../../lib/api';
 import { useToast } from '../../../hooks/use-toast';
 import { BrandSpinner } from '../../brand/BrandSpinner';
@@ -315,6 +315,32 @@ export default function GeoUrbanoList() {
                     )}
                   </>
                 )}
+
+                {/* assinatura ICP do técnico (Memorial/Mapa/ART) */}
+                {p.assinatura_tecnico?.existe && (() => {
+                  const t = p.assinatura_tecnico;
+                  const todosT = t.total > 0 && t.assinados >= t.total;
+                  return (
+                    <div className="mb-1.5">
+                      <div className="text-[11px] text-gray-500 mb-1 inline-flex items-center gap-1">
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> Técnico (ICP) · {t.assinados}/{t.total}
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {(t.pecas || []).map((pc, i) => (
+                          <span key={i} title={`${pc.nome} · ${pc.assinado ? 'assinado (ICP)' : 'pendente'}`}
+                            className={`text-[10px] px-1.5 py-0.5 rounded-full border ${pc.assinado ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>
+                            {pc.assinado ? '✓' : '⏳'} {(pc.nome || '').split(' ')[0].replace('Requerimento', 'Req.')}
+                          </span>
+                        ))}
+                      </div>
+                      {todosT && (
+                        <div className="text-[11px] font-semibold text-emerald-700 mt-1 inline-flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5" /> Técnico assinou (ICP) ✓
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* ações — mesmo grid do módulo Documentos Externos */}
                 <div className="grid grid-cols-2 gap-1.5 mt-auto">

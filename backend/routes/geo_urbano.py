@@ -186,8 +186,8 @@ async def listar_projetos(status: str = Query(None), uid: str = Depends(get_acti
         q["status"] = status
     cur = db.geo_urbano_projetos.find(q).sort("created_at", -1)
     docs = [serialize_doc(d) async for d in cur]
-    # enriquece o card com o status da assinatura do proprietário (sessão por projeto)
     ids = [d["id"] for d in docs]
+    # enriquece o card com o status da assinatura do proprietário (sessão por projeto)
     sess = {}
     if ids:
         async for s in db.geo_urbano_assinatura_sessoes.find({"projeto_id": {"$in": ids}, "user_id": uid}):
@@ -199,8 +199,26 @@ async def listar_projetos(status: str = Query(None), uid: str = Depends(get_acti
                 "signatarios": [{"nome": x.get("nome"), "papel": x.get("papel"),
                                  "status": x.get("status")} for x in sigs],
             }
+    # assinaturas ICP do TÉCNICO (Memorial/Mapa/ART) por projeto
+    tec = {}
+    if ids:
+        async for r in db.geo_urbano_assinaturas.find({"projeto_id": {"$in": ids}, "user_id": uid}):
+            tec.setdefault(r["projeto_id"], []).append({
+                "doc": r.get("doc"), "nome": _PECAS_ASSINAVEIS.get(r.get("doc"), r.get("doc")),
+                "assinado": r.get("icp_status") == "assinado"})
     for d in docs:
         d["assinatura_prop"] = sess.get(d["id"])
+        peças = tec.get(d["id"]) or []
+        d["assinatura_tecnico"] = {
+            "existe": bool(peças),
+            "assinados": sum(1 for x in peças if x["assinado"]),
+            "total": len(peças), "pecas": peças,
+        } if peças else None
+        # % do card = MAIOR entre a heurística de dados e as ETAPAS marcadas concluídas
+        total_etapas = 9 if (d.get("tipo_servico") == "usucapiao") else 8
+        n_etapas = sum(1 for v in (d.get("etapas_concluidas") or {}).values() if v)
+        andamento = int(round(100 * n_etapas / total_etapas)) if total_etapas else 0
+        d["completude"] = max(int(d.get("completude") or 0), andamento)
     return docs
 
 
