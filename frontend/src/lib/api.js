@@ -750,6 +750,7 @@ export const georefAPI = {
   previewGeojson: (id) => api.get(`${GEOREF}/projetos/${id}/preview-geojson`).then((r) => r.data),
   validar: (id) => api.get(`${GEOREF}/projetos/${id}/validar`).then((r) => r.data),
   gerar: (id, data = {}) => api.post(`${GEOREF}/projetos/${id}/gerar`, data).then((r) => r.data),
+  enviarWhatsapp: (id, body) => api.post(`${GEOREF}/projetos/${id}/enviar-whatsapp`, body).then((r) => r.data),
 
   // Downloads (blob). `modo` (unificado|separado) só afeta o Laudo/Dossiê em desmembramento.
   documento: (id, tipo, fmt = 'pdf', tema, modo, parcela) =>

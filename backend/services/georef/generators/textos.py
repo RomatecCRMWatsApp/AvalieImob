@@ -6,7 +6,27 @@
 # Base normativa citada: Lei 6.015/1973 (art. 176 §§3º–5º), Lei 10.267/2001,
 # Decreto 4.449/2002, IN INCRA 82/2015, Lei 4.947/1966 (art. 22), NBR 13133,
 # Provimento CNJ 195/2025 (SIG-RI/IERI-e) e Decreto 12.689/2025 (prazo até 2029).
+import re
 from datetime import datetime, timezone, timedelta
+
+
+def _flt(v):
+    """Número OU string BR/EN com unidade → float.
+    '267,8345 ha'→267.8345 · '8.694,20 m'→8694.2 · '3.4967'→3.4967 · 96.818→96.818."""
+    if v is None:
+        return None
+    if isinstance(v, (int, float)):
+        return float(v)
+    s = re.sub(r"[^0-9,.\-]", "", str(v))     # remove unidade/espaços (ha, m, …)
+    if not s:
+        return None
+    if "," in s:                              # BR: ponto = milhar, vírgula = decimal
+        s = s.replace(".", "").replace(",", ".")
+    try:
+        return float(s)
+    except ValueError:
+        return None
+
 
 _MESES = [
     "janeiro", "fevereiro", "março", "abril", "maio", "junho",
@@ -115,17 +135,13 @@ def _v(d, k, default="—"):
 
 
 def _ha(v):
-    try:
-        return f"{float(v):.4f}".replace(".", ",")
-    except (TypeError, ValueError):
-        return "—"
+    x = _flt(v)
+    return f"{x:.4f}".replace(".", ",") if x is not None else "—"
 
 
 def _m(v):
-    try:
-        return f"{float(v):.2f}".replace(".", ",")
-    except (TypeError, ValueError):
-        return "—"
+    x = _flt(v)
+    return f"{x:.2f}".replace(".", ",") if x is not None else "—"
 
 
 def data_extenso(municipio=None, uf=None) -> str:
@@ -563,11 +579,8 @@ def render_laudo_tecnico(projeto) -> dict:
             "tabela": [_crow(c) for c in (p.get("confrontantes") or [])],
         } for p in partes]
         # Conferência de áreas: Σ(partes) ≈ área registral da matrícula (tolerância 1%).
-        soma = sum((float(p.get("area_ha")) for p in partes if p.get("area_ha") not in (None, "")))
-        try:
-            area_orig = float(_area_atual(im)) if _area_atual(im) not in (None, "") else None
-        except (TypeError, ValueError):
-            area_orig = None
+        soma = sum((_flt(p.get("area_ha")) or 0.0) for p in partes if p.get("area_ha") not in (None, ""))
+        area_orig = _flt(_area_atual(im))
         confere = None
         if area_orig and area_orig > 0:
             dif = abs(soma - area_orig)

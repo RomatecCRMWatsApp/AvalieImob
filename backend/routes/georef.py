@@ -9,6 +9,7 @@ import hashlib
 import io
 import logging
 import os
+import re
 import uuid
 from datetime import datetime, timezone
 from urllib.parse import quote
@@ -35,7 +36,8 @@ from services.georef.generators import dossie as DOSSIE
 logger = logging.getLogger("romatec")
 router = APIRouter(prefix="/topografia/georef", tags=["topografia-geo"])
 
-_TIPOS_UPLOAD = {"memorial", "mapa", "ccir", "certidao", "art_trt", "car", "cnd_itr", "itr", "doc_cliente"}
+_TIPOS_UPLOAD = {"memorial", "mapa", "ccir", "certidao", "art_trt", "car", "cnd_itr", "itr",
+                 "doc_cliente", "imagem_imovel"}
 # Tipos que aceitam VÁRIOS arquivos (lista) — ITR: últimos 5 exercícios.
 _TIPOS_MULTI = {"itr"}
 _MAX_UPLOAD = 30 * 1024 * 1024  # 30 MB
@@ -305,6 +307,8 @@ async def upload_parcela(pid: str, parcela_id: str, tipo: str = Form(...),
 
 def _download_upload(uploads: dict, tipo: str):
     info = (uploads or {}).get(tipo)
+    if isinstance(info, list):
+        info = info[0] if info else None
     if not info or not info.get("key"):
         return None
     try:
@@ -312,6 +316,17 @@ def _download_upload(uploads: dict, tipo: str):
     except Exception as e:  # noqa: BLE001
         logger.warning("Topografia: download R2 falhou p/ %s (%s)", tipo, e)
         return None
+
+
+async def _injetar_imagem_capa(doc: dict) -> dict:
+    """Carrega a imagem aérea/satélite enviada (upload `imagem_imovel`) p/ a CAPA do Dossiê."""
+    try:
+        img = await asyncio.to_thread(_download_upload, doc.get("uploads") or {}, "imagem_imovel")
+        if img:
+            doc["_imagem_capa_bytes"] = img
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Topografia: imagem da capa indisponível (%s)", e)
+    return doc
 
 
 def _executar_extracao(doc: dict) -> dict:
@@ -680,6 +695,7 @@ async def baixar_documento(pid: str, tipo: str, fmt: str = Query("pdf"),
         doc.pop("_verify_url", None)
 
     if tipo == "dossie":
+        await _injetar_imagem_capa(doc)
         assinados = await _carregar_pecas_assinadas(db, pid, uid)
         laudo_seals = await _selos_laudos_separados(db, uid, doc) if laudo_separado else None
         data = await asyncio.to_thread(_montar_dossie, doc, tema, assinados, laudo_modo, laudo_seals)
@@ -711,6 +727,82 @@ async def baixar_documento(pid: str, tipo: str, fmt: str = Query("pdf"),
         return _resp(data, "docx", f"{tipo}{sufixo}_{nb}.docx")
     data = await asyncio.to_thread(PDF.gerar_pdf, tipo, alvo, tema)
     return _resp(data, "pdf", f"{tipo}{sufixo}_{nb}.pdf", inline=True)
+
+
+async def _dossie_bytes_completo(db, uid: str, doc: dict, tema: str, laudo_modo: str) -> bytes:
+    """Monta o Dossiê consolidado FINAL (logo white-label + imagem da capa + peças
+    ASSINADAS embutidas + selos SHA-256/QR) — mesma pipeline do download do Dossiê."""
+    await _injetar_logo(db, uid, doc)
+    await _injetar_imagem_capa(doc)
+    doc["_plantas_laudo"] = await asyncio.to_thread(_plantas_laudo, doc)
+    await _aplicar_selo(db, uid, doc, "requerimento")
+    await _aplicar_selo(db, uid, doc, "laudo")
+    doc.pop("_seal_code", None)
+    doc.pop("_verify_url", None)
+    laudo_separado = laudo_modo == "separado" and tem_multiparcela(doc)
+    assinados = await _carregar_pecas_assinadas(db, doc.get("id"), uid)
+    laudo_seals = await _selos_laudos_separados(db, uid, doc) if laudo_separado else None
+    return await asyncio.to_thread(_montar_dossie, doc, tema, assinados, laudo_modo, laudo_seals)
+
+
+_PECA_LABEL_WA = {
+    "dossie": "Dossiê Técnico de Georreferenciamento",
+    "requerimento": "Requerimento ao Cartório",
+    "laudo_tecnico": "Laudo Técnico de Agrimensura",
+    "memorial": "Memorial Descritivo",
+}
+
+
+@router.post("/projetos/{pid}/enviar-whatsapp")
+async def enviar_whatsapp(pid: str, body: dict, uid: str = Depends(get_active_subscriber),
+                          db=Depends(get_db)):
+    """Envia o PDF de uma peça (Dossiê final/assinado por padrão) por WhatsApp a um contato."""
+    telefone = re.sub(r"\D", "", str((body or {}).get("telefone") or ""))
+    if len(telefone) < 10:
+        raise HTTPException(status_code=422, detail="Informe um WhatsApp válido (55 + DDD + número).")
+    doc = await _get_projeto(db, pid, uid)
+    tema = (body or {}).get("tema") or doc.get("tema_pdf") or "prime_i"
+    peca = (body or {}).get("peca") or "dossie"
+    laudo_modo = _laudo_modo(doc, (body or {}).get("modo"))
+
+    if peca == "dossie":
+        pdf_bytes = await _dossie_bytes_completo(db, uid, doc, tema, laudo_modo)
+    elif peca in ("requerimento", "laudo_tecnico", "memorial"):
+        await _injetar_logo(db, uid, doc)
+        if peca in ("laudo_tecnico",):
+            doc["_plantas_laudo"] = await asyncio.to_thread(_plantas_laudo, doc)
+            await _aplicar_selo(db, uid, doc, "laudo")
+        elif peca == "requerimento":
+            await _aplicar_selo(db, uid, doc, "requerimento")
+        gen = "laudo_tecnico" if peca == "laudo_tecnico" else peca
+        pdf_bytes = await asyncio.to_thread(PDF.gerar_pdf, gen, doc, tema)
+    else:
+        raise HTTPException(status_code=422, detail="Peça inválida para envio.")
+
+    if not pdf_bytes or pdf_bytes[:5] != b"%PDF-":
+        raise HTTPException(status_code=500, detail="Falha ao gerar o PDF da peça.")
+
+    from services.integracoes_util import carregar_integracoes
+    cfg = await carregar_integracoes(db, uid, fallback_zapi=True)
+    if not cfg.get("zapi_instance_id") or not cfg.get("zapi_token"):
+        raise HTTPException(status_code=422, detail="Configure a integração Z-API (WhatsApp) antes de enviar.")
+
+    im = doc.get("imovel") or {}
+    label = _PECA_LABEL_WA.get(peca, "Documento")
+    caption = ((body or {}).get("legenda")
+               or f"{label} — {im.get('denominacao_matricula') or im.get('denominacao') or ''} "
+                  f"({doc.get('numero') or ''})").strip()
+    fname = f"{peca}_{(doc.get('numero') or pid)}.pdf".replace("/", "-")
+    from services import zapi_service
+    try:
+        await zapi_service.send_document_pdf(
+            instance_id=cfg.get("zapi_instance_id"), token=cfg.get("zapi_token"),
+            security_token=cfg.get("zapi_security_token"), phone=telefone,
+            pdf_bytes=pdf_bytes, filename=fname, caption=caption)
+    except Exception as e:  # noqa: BLE001
+        logger.error("Topografia: envio WhatsApp falhou: %s", e, exc_info=True)
+        raise HTTPException(status_code=502, detail=f"Falha ao enviar pelo WhatsApp: {e}")
+    return {"ok": True, "enviado": telefone, "peca": peca}
 
 
 @router.get("/projetos/{pid}/documentos/drl/{conf_key:path}")

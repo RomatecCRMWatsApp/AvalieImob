@@ -161,10 +161,9 @@ def _capa_bytes(projeto, tema="prime_i") -> bytes:
     c.setFont(f["sans_bold"], 11)
     c.drawCentredString(w / 2, h - 6.5 * cm, "DOSSIÊ TÉCNICO DE GEORREFERENCIAMENTO")
     def _fmt(v, casas):
-        try:
-            return f"{float(v):.{casas}f}".replace(".", ",")
-        except (TypeError, ValueError):
-            return None
+        from services.georef.generators.textos import _flt
+        x = _flt(v)
+        return f"{x:.{casas}f}".replace(".", ",") if x is not None else None
 
     # Imóvel ATUAL/de origem: prefere a denominação/área/perímetro da MATRÍCULA.
     denom_atual = im.get("denominacao_matricula") or im.get("denominacao")
@@ -239,6 +238,32 @@ def _capa_bytes(projeto, tema="prime_i") -> bytes:
             c.setFont(f["sans"], 9)
             c.drawCentredString(w / 2, y, f"(+{len(partes_data) - 8} parte(s))")
             y -= 0.5 * cm
+
+    # Imagem aérea/satélite enviada (upload `imagem_imovel`) — banner na CAPA,
+    # entre os dados do imóvel e o rodapé do Responsável Técnico.
+    img_capa = projeto.get("_imagem_capa_bytes")
+    if img_capa:
+        try:
+            from PIL import Image
+            from reportlab.lib.utils import ImageReader
+            pim = Image.open(io.BytesIO(img_capa))
+            if pim.mode not in ("RGB", "L"):
+                pim = pim.convert("RGB")
+            band_top = min(y - 0.3 * cm, h - 11.0 * cm)
+            band_bot = 5.5 * cm
+            if band_top - band_bot > 3.0 * cm:
+                maxw = w - 4.4 * cm
+                maxh = min(band_top - band_bot, 7.2 * cm)
+                iw, ih = pim.size
+                esc = min(maxw / iw, maxh / ih)
+                dw, dh = iw * esc, ih * esc
+                ix, iy = (w - dw) / 2, band_top - dh
+                c.drawImage(ImageReader(pim), ix, iy, dw, dh, preserveAspectRatio=True, mask="auto")
+                c.setStrokeColor(accent)
+                c.setLineWidth(1.2)
+                c.rect(ix, iy, dw, dh, fill=0, stroke=1)
+        except Exception:  # noqa: BLE001
+            pass
 
     c.setStrokeColor(accent)
     c.setLineWidth(1)

@@ -32,6 +32,7 @@ const ordenarPorExercicio = (itens) =>
     || String(a.filename || '').localeCompare(String(b.filename || '')));
 
 const UPLOADS = [
+  { tipo: 'imagem_imovel', label: 'Imagem do imóvel (aérea/satélite — vai na CAPA do Dossiê)', accept: 'image/*' },
   { tipo: 'memorial', label: 'Memorial Descritivo (SIGEF)', accept: '.pdf', req: true },
   { tipo: 'mapa', label: 'Mapa / Planta (SIGEF)', accept: '.pdf,image/*' },
   { tipo: 'ccir', label: 'CCIR', accept: '.pdf' },
