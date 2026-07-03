@@ -483,33 +483,53 @@ def pdf_laudo(projeto, tema="prime_i") -> bytes:
     return _build(e, cfg, d["titulo"], projeto.get("_brand_logo_bytes"))
 
 
+def _sub_laudo_parcela(projeto, pv, seal=None) -> dict:
+    """Sub-projeto ISOLADO de uma parcela p/ o laudo (parcela única + planta própria)."""
+    from services.georef.parcelas import projeto_da_parcela
+    rot = pv.get("rotulo")
+    sub = projeto_da_parcela(projeto, pv)
+    sub["parcelas"] = []                             # renderiza como parcela ÚNICA
+    sub["_parcela_isolada"] = {"rotulo": rot}
+    plantas = projeto.get("_plantas_laudo") or []
+    rl = (rot or "").strip().lower()
+    sub["_plantas_laudo"] = [pl for pl in plantas
+                             if rl and (pl.get("legenda") or "").strip().lower().endswith(rl)]
+    seal = seal or {}
+    if seal.get("code"):
+        sub["_seal_code"], sub["_verify_url"] = seal["code"], seal.get("url")
+    else:
+        sub.pop("_seal_code", None)
+        sub.pop("_verify_url", None)
+    sub["_brand_logo_bytes"] = projeto.get("_brand_logo_bytes")
+    return sub
+
+
+def pdf_laudo_parcela(projeto, parcela_id, tema="prime_i", seal=None) -> bytes:
+    """Laudo ISOLADO de UMA parcela (id ou 'principal'). Cai no laudo unificado se não achar."""
+    from services.georef.parcelas import parcelas_do_projeto
+    partes = parcelas_do_projeto(projeto)
+    if parcela_id in (None, "principal"):
+        pv = next((p for p in partes if p.get("principal")), partes[0] if partes else None)
+    else:
+        pv = next((p for p in partes if p.get("id") == parcela_id), None)
+    if not pv:
+        return pdf_laudo(projeto, tema)
+    return pdf_laudo(_sub_laudo_parcela(projeto, pv, seal), tema)
+
+
 def pdf_laudos_separados(projeto, tema="prime_i", seals=None) -> list:
     """Modo SEPARADO: gera UM laudo por parcela (cada um descreve só a sua parcela,
     citando a matriz de origem). Retorna [{rotulo, matricula, bytes}].
     `seals`: {rotulo: {"code", "url"}} para o selo SHA-256/QR de cada laudo."""
-    from services.georef.parcelas import (
-        parcelas_do_projeto, projeto_da_parcela, tem_multiparcela)
+    from services.georef.parcelas import parcelas_do_projeto, tem_multiparcela
     if not tem_multiparcela(projeto):
         return [{"rotulo": None, "matricula": (projeto.get("imovel") or {}).get("matricula"),
                  "bytes": pdf_laudo(projeto, tema)}]
     seals = seals or {}
-    plantas = projeto.get("_plantas_laudo") or []
     out = []
     for pv in parcelas_do_projeto(projeto):
         rot = pv.get("rotulo")
-        sub = projeto_da_parcela(projeto, pv)
-        sub["parcelas"] = []                         # renderiza como parcela ÚNICA
-        sub["_parcela_isolada"] = {"rotulo": rot}
-        # planta apenas da parcela correspondente (legenda termina com o rótulo)
-        rl = (rot or "").strip().lower()
-        sub["_plantas_laudo"] = [pl for pl in plantas
-                                 if rl and (pl.get("legenda") or "").strip().lower().endswith(rl)]
-        sl = seals.get(rot) or {}
-        if sl.get("code"):
-            sub["_seal_code"], sub["_verify_url"] = sl["code"], sl.get("url")
-        else:
-            sub.pop("_seal_code", None)
-            sub.pop("_verify_url", None)
+        sub = _sub_laudo_parcela(projeto, pv, seals.get(rot))
         out.append({"rotulo": rot, "matricula": (sub.get("imovel") or {}).get("matricula"),
                     "bytes": pdf_laudo(sub, tema)})
     return out

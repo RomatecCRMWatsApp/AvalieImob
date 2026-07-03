@@ -671,7 +671,7 @@ async def baixar_documento(pid: str, tipo: str, fmt: str = Query("pdf"),
     # Selo de autenticidade (QR + código SHA-256) no requerimento/laudo.
     if tipo == "requerimento":
         await _aplicar_selo(db, uid, doc, "requerimento")
-    elif tipo == "laudo_tecnico" and not laudo_separado:
+    elif tipo == "laudo_tecnico" and not laudo_separado and not parcela:
         await _aplicar_selo(db, uid, doc, "laudo")
     elif tipo == "dossie":               # registra as peças; o selo é por-peça no _montar_dossie
         await _aplicar_selo(db, uid, doc, "requerimento")
@@ -687,6 +687,13 @@ async def baixar_documento(pid: str, tipo: str, fmt: str = Query("pdf"),
 
     if tipo not in ("requerimento", "memorial", "laudo_tecnico"):
         raise HTTPException(status_code=404, detail="Documento desconhecido")
+
+    # Laudo de UMA parcela específica (?parcela=<id>) — modo separado, view/sign individual.
+    if tipo == "laudo_tecnico" and parcela and tem_multiparcela(doc) and fmt != "docx":
+        await _aplicar_selo(db, uid, doc, "laudo", parcela)
+        seal = {"code": doc.get("_seal_code"), "url": doc.get("_verify_url")}
+        data = await asyncio.to_thread(PDF.pdf_laudo_parcela, doc, parcela, tema, seal)
+        return _resp(data, "pdf", f"laudo_{(parcela or '')[:6]}_{nb}.pdf", inline=True)
 
     # Laudo SEPARADO (desmembramento multi-parcela): N laudos concatenados num PDF.
     if tipo == "laudo_tecnico" and laudo_separado and fmt != "docx":
@@ -810,9 +817,16 @@ def _montar_dossie(doc: dict, tema: str, assinados: dict = None,
         return PDF.gerar_pdf("laudo_tecnico", doc, tema)
 
     if laudo_separado:                     # 1 laudo por parcela → 1 seção de sumário cada
-        laudos = PDF.pdf_laudos_separados(doc, tema, seals=laudo_seals)
-        laudo_secao = [{"titulo": f"Laudo Técnico de Agrimensura — {lp['rotulo']}",
-                        "bytes": lp["bytes"]} for lp in laudos if lp.get("bytes")]
+        laudo_secao = []
+        for pv in parcelas_do_projeto(doc):
+            rot = pv.get("rotulo")
+            pk = "principal" if pv.get("principal") else pv.get("id")
+            b = assinados.get(("laudo", pk))          # versão ASSINADA da parcela, se houver
+            if not b:
+                sub = PDF._sub_laudo_parcela(doc, pv, (laudo_seals or {}).get(rot))
+                b = PDF.pdf_laudo(sub, tema)
+            if b:
+                laudo_secao.append({"titulo": f"Laudo Técnico de Agrimensura — {rot}", "bytes": b})
     else:
         laudo_secao = _peca("laudo", _gen_laudo)
 
@@ -896,9 +910,12 @@ async def _carregar_pecas_assinadas(db, pid: str, uid: str) -> dict:
         if not b or b[:5] != b"%PDF-":
             continue
         dock = r.get("doc")
-        # memorial/mapa/memorial_sigef são por-parcela (None → principal); demais = None
+        # memorial/mapa/memorial_sigef são por-parcela (None → principal); laudo pode ser
+        # unificado (None) OU por-parcela (id/'principal'); demais = None.
         if dock in ("memorial", "mapa", "memorial_sigef"):
             parc = r.get("parcela") or "principal"
+        elif dock == "laudo":
+            parc = r.get("parcela")
         else:
             parc = None
         out[(dock, parc)] = b
@@ -944,6 +961,9 @@ def _pdf_para_assinatura(doc: dict, tipo_doc: str, parcela: str, tema: str,
     if tipo_doc == "memorial":
         return PDF.gerar_pdf("memorial", _doc_para_memorial(doc, parcela), tema)
     if tipo_doc == "laudo":
+        if parcela and tem_multiparcela(doc):     # laudo de UMA parcela (modo separado)
+            seal = {"code": doc.get("_seal_code"), "url": doc.get("_verify_url")}
+            return PDF.pdf_laudo_parcela(doc, parcela, tema, seal)
         return PDF.gerar_pdf("laudo_tecnico", doc, tema)
     if tipo_doc == "requerimento":
         return PDF.gerar_pdf("requerimento", doc, tema)
@@ -962,7 +982,8 @@ async def preparar_assinatura(pid: str, body: AssinarPecaBody,
     if body.doc in ("laudo", "dossie"):
         doc["_plantas_laudo"] = await asyncio.to_thread(_plantas_laudo, doc)
     if body.doc in ("requerimento", "laudo"):
-        await _aplicar_selo(db, uid, doc, body.doc)
+        await _aplicar_selo(db, uid, doc, body.doc,
+                            body.parcela if body.doc == "laudo" else None)
     elif body.doc == "dossie":
         await _aplicar_selo(db, uid, doc, "requerimento")
         await _aplicar_selo(db, uid, doc, "laudo")

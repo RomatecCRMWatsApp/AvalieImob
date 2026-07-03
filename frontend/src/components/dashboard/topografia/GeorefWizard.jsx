@@ -314,6 +314,7 @@ export default function GeorefWizard() {
     : [];
   const suportaParcelas = MULTIPARCELA_TIPOS.includes(proj.tipo_servico);
   const parcelas = proj.parcelas || [];
+  const laudoSeparado = parcelas.length > 0 && (proj.laudo_modo === 'separado');
   const nb = (proj.imovel?.matricula || proj.numero || 'projeto');
 
   return (
@@ -612,7 +613,7 @@ export default function GeorefWizard() {
             <div className="space-y-3">
               {[
                 ['requerimento', 'Requerimento ao Cartório', 'requerimento', undefined],
-                ['laudo_tecnico', 'Laudo Técnico de Agrimensura', 'laudo', undefined],
+                ...(laudoSeparado ? [] : [['laudo_tecnico', 'Laudo Técnico de Agrimensura', 'laudo', undefined]]),
                 ...(parcelas.length > 0 ? [] : [['memorial', 'Memorial Descritivo', 'memorial', 'principal']]),
               ].map(([k, lab, adoc, aparc]) => {
                 const a = statusAssin(adoc, aparc);
@@ -673,6 +674,34 @@ export default function GeorefWizard() {
               })}
             </div>
           </Card>
+
+          {laudoSeparado && (
+            <Card>
+              <H title="Laudos por parcela" sub="Um Laudo Técnico de Agrimensura para CADA parcela resultante (modo Separado)." />
+              <div className="space-y-3">
+                {(() => {
+                  const a = statusAssin('laudo', 'principal');
+                  return (
+                    <DocRow label={`Parte I — ${proj.imovel?.denominacao || 'principal'}`}
+                      assinado={a?.assinado} onVerAssinado={a?.assinado ? () => verAssinado(a.id) : null}
+                      onVer={() => verBlob(georefAPI.documento(proj.id, 'laudo_tecnico', 'pdf', proj.tema_pdf, 'separado', 'principal'))}
+                      onPdf={() => baixar(georefAPI.documento(proj.id, 'laudo_tecnico', 'pdf', proj.tema_pdf, 'separado', 'principal'), `laudo_PI_${nb}.pdf`)}
+                      onAssinar={() => abrirAssinatura('laudo', 'principal')} />
+                  );
+                })()}
+                {parcelas.map((pc, i) => {
+                  const a = statusAssin('laudo', pc.id);
+                  return (
+                    <DocRow key={pc.id} label={`${pc.rotulo || `Parte ${i + 2}`}${pc.denominacao ? ` — ${pc.denominacao}` : ''}`}
+                      assinado={a?.assinado} onVerAssinado={a?.assinado ? () => verAssinado(a.id) : null}
+                      onVer={() => verBlob(georefAPI.documento(proj.id, 'laudo_tecnico', 'pdf', proj.tema_pdf, 'separado', pc.id))}
+                      onPdf={() => baixar(georefAPI.documento(proj.id, 'laudo_tecnico', 'pdf', proj.tema_pdf, 'separado', pc.id), `laudo_${nb}.pdf`)}
+                      onAssinar={() => abrirAssinatura('laudo', pc.id)} />
+                  );
+                })}
+              </div>
+            </Card>
+          )}
 
           {parcelas.length > 0 && (
             <Card>
