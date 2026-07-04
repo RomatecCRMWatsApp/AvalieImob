@@ -533,8 +533,10 @@ async def obter_por_token(token: str, request: Request, db=Depends(get_db)):
             paginas = []
         documentos.append({"tipo": d.get("tipo"), "titulo": d.get("titulo") or (d.get("tipo") or "Documento").capitalize(),
                            "paginas": paginas, "posicoes": rects})
+    from services.fontes_assinatura import fontes_disponiveis
     return {"ok": True, "nome": sig.get("nome"), "role": sig.get("role"),
-            "ja_assinado": sig.get("status") == "assinado", "documentos": documentos}
+            "ja_assinado": sig.get("status") == "assinado", "documentos": documentos,
+            "fontes": fontes_disponiveis(), "modalidades": ["desenhada", "digitada"]}
 
 
 @router_publico.post("/{token}")
@@ -550,25 +552,54 @@ async def assinar(token: str, payload: dict, request: Request, db=Depends(get_db
         raise HTTPException(status_code=404, detail="Link inválido")
     if sig.get("status") == "assinado":
         return {"ok": True, "ja_assinado": True}
-    traco = payload.get("traco_base64") or ""
-    if not traco.startswith("data:image/png;base64,"):
-        raise HTTPException(status_code=400, detail="Assinatura (traço) inválida")
     if not payload.get("concordo"):
         raise HTTPException(status_code=400, detail="É necessário concordar para assinar")
 
+    from utils.cpf import limpar_cpf, validar_cpf
+    tipo = payload.get("tipo_assinatura") or "desenhada"
+    nome = (payload.get("nome_assinante") or sig.get("nome") or "").strip()
+    cpf = limpar_cpf(payload.get("cpf_assinante"))
+    fonte = None
+    if tipo == "digitada":
+        # DIGITADA: nome na fonte cursiva → PNG (reusa 100% o carimbo/posição da desenhada)
+        from services import fontes_assinatura as FA
+        fonte = payload.get("fonte_assinatura")
+        if fonte not in FA.FONTES_ASSINATURA:
+            raise HTTPException(status_code=422, detail="Fonte de assinatura inválida.")
+        if len(nome) < 3:
+            raise HTTPException(status_code=422, detail="Informe o nome completo.")
+        if not validar_cpf(cpf):
+            raise HTTPException(status_code=422, detail="CPF inválido.")
+        png = await asyncio.to_thread(FA.render_assinatura_png, nome, fonte)
+        traco_b64 = base64.b64encode(png).decode()
+    else:
+        # DESENHADA (legado): traço PNG do canvas; CPF validado se informado
+        traco = payload.get("traco_base64") or ""
+        if not traco.startswith("data:image/png;base64,"):
+            raise HTTPException(status_code=400, detail="Assinatura (traço) inválida")
+        if cpf and not validar_cpf(cpf):
+            raise HTTPException(status_code=422, detail="CPF inválido.")
+        traco_b64 = traco.split(",", 1)[1]
+
     ip = request.headers.get("x-forwarded-for", request.client.host if request.client else "0.0.0.0")
     ua = (request.headers.get("user-agent") or "")[:255]
-    await db[COL].update_one(
-        {"id": sessao["id"], "signatarios.token": token},
-        {"$set": {
-            "signatarios.$.status": "assinado",
-            "signatarios.$.assinado_em": datetime.utcnow(),
-            "signatarios.$.ip": ip, "signatarios.$.user_agent": ua,
-            "signatarios.$.geo_lat": payload.get("geo_lat"),
-            "signatarios.$.geo_lng": payload.get("geo_lng"),
-            "signatarios.$.traco_b64": traco.split(",", 1)[1],
-            "updated_at": datetime.utcnow(),
-        }})
+    campos = {
+        "signatarios.$.status": "assinado",
+        "signatarios.$.assinado_em": datetime.utcnow(),
+        "signatarios.$.ip": ip, "signatarios.$.user_agent": ua,
+        "signatarios.$.geo_lat": payload.get("geo_lat"),
+        "signatarios.$.geo_lng": payload.get("geo_lng"),
+        "signatarios.$.traco_b64": traco_b64,
+        "signatarios.$.tipo_assinatura": tipo,
+        "signatarios.$.nome_assinante": nome or sig.get("nome"),
+        "signatarios.$.fonte_assinatura": fonte,
+        "updated_at": datetime.utcnow(),
+    }
+    if cpf:
+        # o carimbo/folha de autoria do contrato lê `cpf` do signatário
+        campos["signatarios.$.cpf"] = cpf
+        campos["signatarios.$.cpf_assinante"] = cpf
+    await db[COL].update_one({"id": sessao["id"], "signatarios.token": token}, {"$set": campos})
     sessao = await db[COL].find_one({"id": sessao["id"]})
     todos = all(s.get("status") == "assinado" for s in sessao["signatarios"])
     await db[COL].update_one({"id": sessao["id"]},

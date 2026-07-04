@@ -1,6 +1,8 @@
-// Página pública de assinatura DESENHADA do cliente (link enviado por WhatsApp).
-// Rota: /assinar-cliente/:token (fora do guard). MOBILE-FIRST: a maioria assina no celular.
-// Canvas responsivo (resolução = tamanho real × devicePixelRatio → sem distorção, nítido).
+// Página pública de assinatura do cliente (link enviado por WhatsApp).
+// Rota: /assinar-cliente/:token (fora do guard). MOBILE-FIRST. O cliente lê o próprio
+// documento no link e assina em DUAS opções (como no Geo Urbano / doc-ext):
+// DIGITAR (nome + CPF + fonte manuscrita) ou DESENHAR (traço no canvas). O backend
+// renderiza a digitada em PNG e reusa o mesmo carimbo/posição da desenhada.
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { assinaturaClienteAPI } from '../lib/api';
@@ -8,6 +10,24 @@ import { assinaturaClienteAPI } from '../lib/api';
 const VERDE = '#0B6E4F';
 const DOURADO = '#B8860B';
 const ROLE_LABEL = { contratante: 'Contratante', conjuge_anuente: 'Cônjuge anuente', outorgante: 'Outorgante' };
+const FONTES_FALLBACK = [
+  { id: 'DancingScript', label: 'Dancing Script' }, { id: 'GreatVibes', label: 'Great Vibes' },
+  { id: 'Sacramento', label: 'Sacramento' }, { id: 'Allura', label: 'Allura' },
+  { id: 'HomemadeApple', label: 'Homemade Apple' }, { id: 'Pacifico', label: 'Pacifico' },
+];
+// @font-face em runtime (TTF em /public/fonts/assinatura; não passa pelo css-loader do CRA).
+const FONT_FACE_CSS = FONTES_FALLBACK.map((f) =>
+  `@font-face{font-family:'${f.id}';src:url('/fonts/assinatura/${f.id}-Regular.ttf') format('truetype');font-display:swap;}`
+).join('');
+
+const limparCpf = (v) => (v || '').replace(/\D/g, '').slice(0, 11);
+const mascaraCpf = (v) => limparCpf(v).replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+function validarCpf(cpf) {
+  cpf = limparCpf(cpf);
+  if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
+  const dig = (parc, pesoIni) => { let s = 0; for (let i = 0; i < parc.length; i++) s += +parc[i] * (pesoIni - i); const r = (s * 10) % 11; return r === 10 ? 0 : r; };
+  return dig(cpf.slice(0, 9), 10) === +cpf[9] && dig(cpf.slice(0, 10), 11) === +cpf[10];
+}
 
 export default function AssinarCliente() {
   const { token } = useParams();
@@ -15,6 +35,10 @@ export default function AssinarCliente() {
   const [info, setInfo] = useState(null);
   const [erro, setErro] = useState('');
   const [concordo, setConcordo] = useState(false);
+  const [modo, setModo] = useState('digitada'); // 'digitada' | 'desenhada'
+  const [nome, setNome] = useState('');
+  const [cpf, setCpf] = useState('');
+  const [fonte, setFonte] = useState('DancingScript');
   const [temTraco, setTemTraco] = useState(false);
   const [geo, setGeo] = useState({ lat: null, lng: null });
   const canvasRef = useRef(null);
@@ -23,9 +47,17 @@ export default function AssinarCliente() {
 
   useEffect(() => {
     assinaturaClienteAPI.obter(token)
-      .then((d) => { setInfo(d); setEstado(d.ja_assinado ? 'jaassinado' : 'pronto'); })
+      .then((d) => { setInfo(d); setNome(d?.nome || ''); setEstado(d.ja_assinado ? 'jaassinado' : 'pronto'); })
       .catch((e) => { setErro(e?.response?.data?.detail || 'Link inválido ou expirado'); setEstado('erro'); });
   }, [token]);
+
+  // geolocalização uma vez, ao ficar pronto
+  useEffect(() => {
+    if (estado !== 'pronto' || !navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => setGeo({ lat: coords.latitude, lng: coords.longitude }),
+      () => {}, { enableHighAccuracy: false, timeout: 6000 });
+  }, [estado]);
 
   // dimensiona o canvas ao container (mobile-first), com nitidez (dpr) e sem distorção
   const setupCanvas = useCallback(() => {
@@ -45,20 +77,15 @@ export default function AssinarCliente() {
   }, []);
 
   useEffect(() => {
-    if (estado !== 'pronto') return;
-    setupCanvas();
+    if (estado !== 'pronto' || modo !== 'desenhada') return;
+    setTimeout(setupCanvas, 0);
     window.addEventListener('resize', setupCanvas);
     window.addEventListener('orientationchange', setupCanvas);
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        ({ coords }) => setGeo({ lat: coords.latitude, lng: coords.longitude }),
-        () => {}, { enableHighAccuracy: false, timeout: 6000 });
-    }
     return () => {
       window.removeEventListener('resize', setupCanvas);
       window.removeEventListener('orientationchange', setupCanvas);
     };
-  }, [estado, setupCanvas]);
+  }, [estado, modo, setupCanvas]);
 
   const pos = (e) => {
     const c = canvasRef.current; const r = c.getBoundingClientRect();
@@ -79,13 +106,22 @@ export default function AssinarCliente() {
     setTemTraco(false);
   }, []);
 
+  const cpfOk = validarCpf(cpf);
+  const fontes = info?.fontes?.length ? info.fontes : FONTES_FALLBACK;
+
   const enviar = async () => {
-    if (!temTraco) { setErro('Desenhe sua assinatura antes de continuar.'); return; }
+    if (nome.trim().length < 3) { setErro('Informe seu nome completo.'); return; }
+    if (!cpfOk) { setErro('CPF inválido.'); return; }
     if (!concordo) { setErro('Marque a concordância para assinar.'); return; }
+    if (modo === 'desenhada' && !temTraco) { setErro('Desenhe sua assinatura antes de continuar.'); return; }
+    if (modo === 'digitada' && !fonte) { setErro('Escolha um estilo de assinatura.'); return; }
     setErro(''); setEstado('enviando');
     try {
-      const traco_base64 = canvasRef.current.toDataURL('image/png');
-      const r = await assinaturaClienteAPI.assinar(token, { traco_base64, concordo: true, geo_lat: geo.lat, geo_lng: geo.lng });
+      const base = { concordo: true, geo_lat: geo.lat, geo_lng: geo.lng, nome_assinante: nome.trim(), cpf_assinante: limparCpf(cpf) };
+      const payload = modo === 'digitada'
+        ? { ...base, tipo_assinatura: 'digitada', fonte_assinatura: fonte }
+        : { ...base, tipo_assinatura: 'desenhada', traco_base64: canvasRef.current.toDataURL('image/png') };
+      const r = await assinaturaClienteAPI.assinar(token, payload);
       setEstado(r.ja_assinado ? 'jaassinado' : 'sucesso');
     } catch (e) {
       setErro(e?.response?.data?.detail || 'Falha ao registrar a assinatura.'); setEstado('pronto');
@@ -109,9 +145,13 @@ export default function AssinarCliente() {
     <p>Obrigado, {info?.nome}. O documento final será enviado a você pelo WhatsApp assim que todas as partes assinarem.</p>
     <p style={{ fontSize: 12, color: '#9bbfae' }}>Assinatura eletrônica · Lei nº 14.063/2020</p></div></div>;
 
-  const podeAssinar = temTraco && concordo && estado !== 'enviando';
+  const inpSt = { width: '100%', padding: '11px 12px', border: '1px solid #cbd5e1', borderRadius: 10, fontSize: 15, boxSizing: 'border-box', background: '#fff', color: '#111' };
+  const tabSt = (on) => ({ flex: 1, padding: '12px', fontSize: 14, fontWeight: 700, border: 'none', cursor: 'pointer', background: on ? DOURADO : '#122a20', color: on ? '#1a1a1a' : '#cfe3d8' });
+  const podeAssinar = nome.trim().length >= 3 && cpfOk && concordo && (modo === 'digitada' ? !!fonte : temTraco) && estado !== 'enviando';
+
   return (
     <div style={page}>
+      <style>{FONT_FACE_CSS}</style>
       <div style={inner}>
         <div style={{ fontFamily: 'Georgia, serif', fontSize: 21, color: '#fff', fontWeight: 700, lineHeight: 1.15 }}>
           Romatec <span style={{ color: DOURADO }}>Consultoria Total</span>
@@ -121,7 +161,7 @@ export default function AssinarCliente() {
         {(info?.documentos || []).length > 0 && (
           <div style={{ marginTop: 12 }}>
             <div style={{ fontSize: 13, color: '#cfe3d8', marginBottom: 6 }}>
-              Confira o documento abaixo. O <b style={{ color: DOURADO }}>quadro com a seta</b> mostra onde a sua assinatura será inserida.
+              Leia o documento abaixo. O <b style={{ color: DOURADO }}>quadro com a seta</b> mostra onde a sua assinatura será inserida.
             </div>
             {info.documentos.map((d) => (
               <div key={d.tipo} style={{ marginBottom: 12 }}>
@@ -150,23 +190,60 @@ export default function AssinarCliente() {
             ))}
           </div>
         )}
-        <p style={{ fontSize: 13, color: '#9bbfae', marginTop: 6 }}>Desenhe sua assinatura no quadro abaixo com o dedo — assine grande, ocupando todo o quadro.</p>
 
-        <div ref={wrapRef} style={{ background: '#fff', borderRadius: 12, marginTop: 12, border: `2px dashed ${DOURADO}`, position: 'relative', overflow: 'hidden' }}>
-          {!temTraco && <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#bbb', fontSize: 14, pointerEvents: 'none' }}>assine aqui ✍️</span>}
-          <canvas ref={canvasRef}
-            style={{ display: 'block', width: '100%', touchAction: 'none' }}
-            onMouseDown={start} onMouseMove={move} onMouseUp={end} onMouseLeave={end}
-            onTouchStart={start} onTouchMove={move} onTouchEnd={end} />
+        {/* Dados do assinante — valem para as duas modalidades */}
+        <div style={{ marginTop: 14 }}>
+          <label style={{ fontSize: 13, color: '#cfe3d8', fontWeight: 600 }}>Nome completo</label>
+          <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Seu nome completo" style={{ ...inpSt, marginTop: 4, marginBottom: 10 }} />
+          <label style={{ fontSize: 13, color: '#cfe3d8', fontWeight: 600 }}>CPF</label>
+          <input value={mascaraCpf(cpf)} onChange={(e) => setCpf(e.target.value)} inputMode="numeric" placeholder="000.000.000-00"
+            style={{ ...inpSt, marginTop: 4, marginBottom: cpf && !cpfOk ? 2 : 12, borderColor: cpf && !cpfOk ? '#ef4444' : '#cbd5e1' }} />
+          {cpf && !cpfOk && <p style={{ color: '#ff9b9b', fontSize: 12, margin: '0 0 10px' }}>CPF inválido</p>}
         </div>
-        <button onClick={limpar} style={{ marginTop: 10, background: 'none', border: `1px solid ${DOURADO}`, color: DOURADO,
-          borderRadius: 10, padding: '10px 18px', cursor: 'pointer', fontSize: 14, minHeight: 44 }}>Limpar</button>
+
+        {/* Toggle de modalidade */}
+        <div style={{ display: 'flex', border: `1px solid ${DOURADO}55`, borderRadius: 10, overflow: 'hidden', marginBottom: 12 }}>
+          <button onClick={() => setModo('digitada')} style={tabSt(modo === 'digitada')}>Digitar</button>
+          <button onClick={() => setModo('desenhada')} style={tabSt(modo === 'desenhada')}>Desenhar</button>
+        </div>
+
+        {modo === 'digitada' ? (
+          <>
+            <div style={{ fontSize: 12, color: '#9bbfae', marginBottom: 8 }}>Escolha o estilo da sua assinatura:</div>
+            <div style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
+              {fontes.map((f) => (
+                <button key={f.id} onClick={() => setFonte(f.id)}
+                  style={{ textAlign: 'left', padding: '8px 14px', borderRadius: 10, cursor: 'pointer', background: '#fff',
+                    border: fonte === f.id ? `2px solid ${DOURADO}` : '1px solid #e2e8f0', boxShadow: fonte === f.id ? `0 0 0 3px ${DOURADO}44` : 'none' }}>
+                  <span style={{ fontFamily: f.id, fontSize: 30, color: '#0d1f17', lineHeight: 1.2 }}>{nome.trim() || 'Sua assinatura'}</span>
+                </button>
+              ))}
+            </div>
+            <div style={{ border: `2px dashed ${DOURADO}`, borderRadius: 12, padding: 18, textAlign: 'center', marginBottom: 4, background: '#fff' }}>
+              <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>Pré-visualização</div>
+              <span style={{ fontFamily: fonte, fontSize: 40, color: '#0d1f17' }}>{nome.trim() || 'Sua assinatura'}</span>
+            </div>
+          </>
+        ) : (
+          <>
+            <p style={{ fontSize: 13, color: '#9bbfae', margin: '0 0 8px' }}>Desenhe sua assinatura no quadro com o dedo — assine grande, ocupando todo o quadro.</p>
+            <div ref={wrapRef} style={{ background: '#fff', borderRadius: 12, border: `2px dashed ${DOURADO}`, position: 'relative', overflow: 'hidden' }}>
+              {!temTraco && <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: '#bbb', fontSize: 14, pointerEvents: 'none' }}>assine aqui ✍️</span>}
+              <canvas ref={canvasRef}
+                style={{ display: 'block', width: '100%', touchAction: 'none' }}
+                onMouseDown={start} onMouseMove={move} onMouseUp={end} onMouseLeave={end}
+                onTouchStart={start} onTouchMove={move} onTouchEnd={end} />
+            </div>
+            <button onClick={limpar} style={{ marginTop: 10, background: 'none', border: `1px solid ${DOURADO}`, color: DOURADO,
+              borderRadius: 10, padding: '10px 18px', cursor: 'pointer', fontSize: 14, minHeight: 44 }}>Limpar</button>
+          </>
+        )}
 
         <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginTop: 16, fontSize: 13.5, lineHeight: 1.4 }}>
           <input type="checkbox" checked={concordo} onChange={(e) => setConcordo(e.target.checked)}
             style={{ width: 22, height: 22, marginTop: 1, flexShrink: 0, accentColor: VERDE }} />
-          <span>Declaro que li e concordo em assinar eletronicamente este documento (Lei nº 14.063/2020). Autorizo o registro de data/hora, IP e localização como evidência de autoria.</span>
+          <span>Declaro que li e concordo em assinar eletronicamente este documento (Lei nº 14.063/2020 · MP 2.200-2/2001). Autorizo o registro de nome, CPF, data/hora, IP e localização como evidência de autoria.</span>
         </label>
 
         {erro && <p style={{ color: '#ff9b9b', fontSize: 13.5, marginTop: 12 }}>{erro}</p>}
