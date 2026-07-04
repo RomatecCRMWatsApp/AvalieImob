@@ -61,6 +61,23 @@ async def buscar_clientes(
 
 @router.post("/clients", response_model=Client)
 async def create_client(data: ClientBase, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    # Dedup por CPF/CNPJ (mesma pessoa não tem dois documentos): se já existe um cliente
+    # com o mesmo doc para este usuário, ATUALIZA (preenche contato/e-mail faltantes) e o
+    # devolve em vez de criar um duplicado. Evita a enxurrada de cadastros repetidos ao
+    # adicionar signatários/testemunhas com o mesmo CPF.
+    doc_digits = _digits(getattr(data, "doc", ""))
+    if doc_digits:
+        async for cand in db.clients.find({"user_id": uid, "doc": {"$nin": ["", None]}}):
+            if _digits(cand.get("doc")) == doc_digits:
+                patch = {}
+                if not (cand.get("phone") or "").strip() and (data.phone or "").strip():
+                    patch["phone"] = data.phone
+                if not (cand.get("email") or "").strip() and (data.email or "").strip():
+                    patch["email"] = data.email
+                if patch:
+                    await db.clients.update_one({"id": cand["id"]}, {"$set": patch})
+                    cand.update(patch)
+                return Client(**serialize_doc(cand))
     c = Client(user_id=uid, **data.model_dump())
     await db.clients.insert_one(c.model_dump())
     return c

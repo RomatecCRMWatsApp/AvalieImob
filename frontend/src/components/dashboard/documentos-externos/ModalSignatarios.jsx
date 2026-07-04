@@ -60,13 +60,23 @@ export default function ModalSignatarios({ doc, onClose, onChanged }) {
       await documentosExternosAPI.addSignatario(doc.id, {
         nome: form.nome.trim(), cpf_cnpj: soDig(form.cpf_cnpj),
         papel: form.papel.trim() || 'Signatário', whatsapp: soDig(form.whatsapp), email: form.email.trim() || null });
-      // cadastra também no cadastro de Clientes (reutilizável no dropdown), sem bloquear o signatário
+      // cadastra também no cadastro de Clientes (reutilizável no dropdown), sem bloquear o signatário.
+      // Só cria se AINDA NÃO existe (dedup por CPF/CNPJ; sem doc, dedup por nome) — evita duplicar.
       if (salvarNoCadastro && form.nome.trim()) {
-        try {
-          await clientsAPI.create({ name: form.nome.trim(), doc: soDig(form.cpf_cnpj),
-            phone: soDig(form.whatsapp), email: form.email.trim() || '' });
-          clientsAPI.list().then((d) => setClientes(Array.isArray(d) ? d : [])).catch(() => {});
-        } catch { /* duplicado/erro de cadastro não impede o signatário */ }
+        const docDig = soDig(form.cpf_cnpj);
+        const nomeNorm = form.nome.trim().toLowerCase();
+        const jaExiste = clientes.some((c) => {
+          const cd = soDig(c.doc || c.cpf_cnpj || '');
+          if (docDig && cd) return cd === docDig;
+          return (c.name || c.nome || '').trim().toLowerCase() === nomeNorm;
+        });
+        if (!jaExiste) {
+          try {
+            await clientsAPI.create({ name: form.nome.trim(), doc: docDig,
+              phone: soDig(form.whatsapp), email: form.email.trim() || '' });
+            clientsAPI.list().then((d) => setClientes(Array.isArray(d) ? d : [])).catch(() => {});
+          } catch { /* duplicado/erro de cadastro não impede o signatário */ }
+        }
       }
       setForm({ nome: '', cpf_cnpj: '', papel: '', whatsapp: '', email: '' });
       await recarregar();

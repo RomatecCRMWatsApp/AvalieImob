@@ -297,33 +297,68 @@ def render(conteudo: dict, tema: str = "prime1") -> bytes:
         st["y"] = y
 
     def tricol(colunas):
-        pair_h = 14
-        alturas = [10 + len(col) * pair_h for col in colunas]
-        H = max(alturas)
+        cw = W / 3.0
+        pad = 5
+
+        def hardwrap(v, font, size, maxw):
+            """Quebra por palavra e, se um token (URL/código) não couber, por caractere."""
+            out = []
+            for ln in _wrap(c, v, font, size, maxw):
+                if c.stringWidth(ln, font, size) <= maxw:
+                    out.append(ln)
+                    continue
+                cur = ""
+                for ch in ln:
+                    if not cur or c.stringWidth(cur + ch, font, size) <= maxw:
+                        cur += ch
+                    else:
+                        out.append(cur)
+                        cur = ch
+                if cur:
+                    out.append(cur)
+            return out or [""]
+
+        def ops_da_col(col):
+            # cada par vira 1+ "ops"; número curto = rótulo+valor na MESMA linha (valor à direita),
+            # texto = rótulo numa linha e o valor (quebrado) nas linhas seguintes → sem sobreposição.
+            ops = []
+            for (rot, val, dest) in col:
+                v = str(val or "")
+                is_num = any(ch.isdigit() for ch in v) and len(v) <= 16
+                if is_num:
+                    ops.append(("num", rot, v, dest, 13))
+                else:
+                    ops.append(("lbl", rot, "", False, 8))
+                    for ln in hardwrap(v, SANS_B if dest else SANS, 8, cw - 2 * pad):
+                        ops.append(("txt", "", ln, dest, 10))
+            return ops
+
+        cols = [ops_da_col(col) for col in colunas]
+        H = max((sum(o[4] for o in ops) for ops in cols), default=0) + 8
         quebra(H + 2)
         y = st["y"] - H
-        cw = W / 3.0
-        for i, col in enumerate(colunas):
+        for i, ops in enumerate(cols):
             x = MX + i * cw
             c.setStrokeColor(_hex(T["borda"])); c.setLineWidth(0.5)
             c.rect(x, y, cw, H, fill=0, stroke=1)
-            yy = y + H - 4
-            for (rot, val, dest) in col:
-                c.setFillColor(_hex(T["label_fg"])); c.setFont(SANS, 6.3)
-                c.drawString(x + 5, yy - 6, (rot or "").upper())
-                vfont = SANS_B if dest else SANS
-                vsize = 9 if dest else 8
-                c.setFillColor(_hex(T["destaque_fg"]) if dest else _hex(T["valor_fg"]))
-                c.setFont(vfont, vsize)
-                # valores monetários/curtos à direita; textos à esquerda
-                if any(ch.isdigit() for ch in str(val)) and len(str(val)) <= 16:
-                    c.drawRightString(x + cw - 5, yy - 6, str(val or ""))
-                else:
-                    txt = str(val or "")
-                    while txt and c.stringWidth(txt, vfont, vsize) > cw - 10:
-                        txt = txt[:-1]
-                    c.drawString(x + 5, yy - 6, txt)
-                yy -= pair_h
+            yy = y + H - 10
+            for kind, rot, v, dest, adv in ops:
+                if kind == "num":
+                    c.setFillColor(_hex(T["label_fg"])); c.setFont(SANS, 6.3)
+                    c.drawString(x + pad, yy, (rot or "").upper())
+                    vf, vs = (SANS_B, 9) if dest else (SANS, 8)
+                    c.setFillColor(_hex(T["destaque_fg"]) if dest else _hex(T["valor_fg"]))
+                    c.setFont(vf, vs)
+                    c.drawRightString(x + cw - pad, yy, v)
+                elif kind == "lbl":
+                    c.setFillColor(_hex(T["label_fg"])); c.setFont(SANS, 6.3)
+                    c.drawString(x + pad, yy, (rot or "").upper())
+                else:  # txt
+                    vf, vs = (SANS_B, 8) if dest else (SANS, 8)
+                    c.setFillColor(_hex(T["destaque_fg"]) if dest else _hex(T["valor_fg"]))
+                    c.setFont(vf, vs)
+                    c.drawString(x + pad, yy, v)
+                yy -= adv
         st["y"] = y
 
     def rodape(r):

@@ -83,6 +83,24 @@ def test_doc_importado_gera_danfse_nos_3_temas():
         assert len(pdf) > 3000
 
 
+@pytest.mark.skipif(not os.path.exists(_FIX), reason="fixture do PDF ausente")
+def test_secao05_textos_nao_sobrepoem_no_render():
+    """Regressão: a col. do meio (Natureza/Código/Link/ISS a Reter) saía sobreposta ao rótulo.
+    Agora rótulo e valor ficam em linhas separadas e os textos longos não são truncados."""
+    import io
+    import pdfplumber
+    from pdf.templates.registry import gerar_danfse
+    d = parse_nfse_pdf(_fixture_bytes())["doc"]
+    for tema in ("prime1", "prime2", "tradicional"):
+        pdf = gerar_danfse(d, tema)
+        with pdfplumber.open(io.BytesIO(pdf)) as p:
+            texto = "\n".join((pg.extract_text() or "") for pg in p.pages)
+        # valores por extenso/URL/código chegam INTEIROS (não truncados pela sobreposição)
+        assert "https://servicos2.speedgov.com.br/acailandia/" in texto, tema
+        assert "74uklt59y2vc3wmrdnxbpaghjzo" in texto, tema
+        assert "Tributada no Município" in texto, tema
+
+
 def test_pdf_ilegivel_levanta_erro():
     with pytest.raises(ImportacaoNFSeError):
         parse_nfse_pdf(b"%PDF-1.4 not really a nfse tiny stub")
