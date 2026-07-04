@@ -126,3 +126,6 @@ credentials.json
 .credentials
 frontend/package-lock.json 
 PR_pdf_unificado.md
+
+# Fixtures de NFS-e REAIS (contêm dados fiscais de terceiros) — nunca versionar
+backend/tests/fixtures/*.pdf

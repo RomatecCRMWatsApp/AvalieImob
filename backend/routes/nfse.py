@@ -6,9 +6,10 @@ NÃO existe; aqui entregamos o GERADOR visual do DANFSe — endpoints de exemplo
 (funcionais agora) + a rota por-id já cabeada p/ quando a coleção `nfse_documentos` existir.
 Tema selecionável por ?tema=prime1|prime2|tradicional (default prime1).
 """
+import asyncio
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile
 
 from db import get_db
 from dependencies import get_admin_user
@@ -61,6 +62,33 @@ async def danfse_exemplo(tema: str = Query("prime1"), _admin: str = Depends(get_
     """Preview do DANFSe com o caso real NFS-e 59 (Açailândia) no tema escolhido."""
     pdf = gerar_danfse(documento_exemplo_59(), _tema(tema))
     return _pdf_response(pdf, f"danfse-exemplo-{_tema(tema)}.pdf")
+
+
+@router.post("/danfse/importar")
+async def danfse_importar(
+    file: UploadFile = File(..., description="PDF de uma NFS-e já emitida (máx 15 MB)"),
+    _admin: str = Depends(get_admin_user),
+):
+    """Recebe o PDF de uma NFS-e JÁ EXPEDIDA (portal SpeedGov/Açailândia), extrai todos os
+    dados e devolve o documento FLAT do DANFSe — pronto p/ re-tematizar e exportar/baixar.
+    NÃO persiste nada; só lê e devolve os campos p/ o formulário preencher."""
+    from services.nfse.danfse_import import parse_nfse_pdf, ImportacaoNFSeError
+
+    conteudo = await file.read()
+    if not conteudo:
+        raise HTTPException(400, "Arquivo vazio.")
+    if len(conteudo) > 15 * 1024 * 1024:
+        raise HTTPException(413, f"Arquivo excede 15 MB ({len(conteudo)/1024/1024:.1f} MB).")
+    if not conteudo.startswith(b"%PDF-"):
+        raise HTTPException(400, "Envie um arquivo PDF válido (a nota emitida em PDF).")
+    try:
+        resultado = await asyncio.to_thread(parse_nfse_pdf, conteudo)
+    except ImportacaoNFSeError as e:
+        raise HTTPException(422, str(e))
+    except Exception as e:  # noqa: BLE001
+        logger.exception("danfse_importar: falha ao extrair a NFS-e")
+        raise HTTPException(500, "Falha ao ler os dados da nota fiscal.") from e
+    return {"doc": resultado["doc"], "avisos": resultado["avisos"]}
 
 
 @router.post("/danfse/preview")

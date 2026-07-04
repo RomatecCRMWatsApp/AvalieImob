@@ -2,7 +2,7 @@
 // Formulário dos campos da nota (pré-preenchido c/ a NFS-e 59), Discriminação e Outras
 // Informações em RICH TEXT, escolha de tema (Prime I/II/Tradicional) e preview ao vivo.
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { FileText, Download, Loader2 } from 'lucide-react';
+import { FileText, Download, Loader2, Upload } from 'lucide-react';
 import { adminAPI } from '../../lib/api';
 import { useToast } from '../../hooks/use-toast';
 import { Input } from '../../components/ui/input';
@@ -63,10 +63,35 @@ export default function DanfseTemas() {
   const [doc, setDoc] = useState(DOC0);
   const [pdfUrl, setPdfUrl] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [importando, setImportando] = useState(false);
   const urlRef = useRef(null);
   const debRef = useRef(null);
+  const fileRef = useRef(null);
 
   const set = (k, v) => setDoc((d) => ({ ...d, [k]: v }));
+
+  // Importa uma NFS-e JÁ emitida (PDF) → extrai os campos e preenche o formulário.
+  const importar = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // permite reimportar o mesmo arquivo
+    if (!file) return;
+    if (file.type && file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+      toast({ title: 'Envie um PDF', description: 'Selecione o PDF da nota fiscal emitida.', variant: 'destructive' });
+      return;
+    }
+    setImportando(true);
+    try {
+      const { doc: extraido, avisos } = await adminAPI.danfseImportar(file);
+      setDoc((d) => ({ ...d, ...extraido }));
+      if (avisos?.length) {
+        toast({ title: 'Nota importada com ressalvas', description: avisos.join(' '), variant: 'destructive' });
+      } else {
+        toast({ title: 'Nota importada ✓', description: `Nota ${extraido.numero_nfse || ''} — confira os campos e escolha o tema.` });
+      }
+    } catch (err) {
+      toast({ title: 'Falha ao importar', description: err.response?.data?.detail || 'Não foi possível ler o PDF.', variant: 'destructive' });
+    } finally { setImportando(false); }
+  };
 
   useEffect(() => () => { if (urlRef.current) URL.revokeObjectURL(urlRef.current); }, []);
 
@@ -104,8 +129,22 @@ export default function DanfseTemas() {
 
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto">
-      <h1 className="text-2xl font-bold mb-1 font-display" style={{ color: VERDE }}>DANFSe — Editar & Gerar</h1>
-      <p className="text-sm text-gray-500 mb-4">Edite os campos da nota; Discriminação e Outras Informações aceitam formatação (negrito/itálico). O PDF atualiza ao vivo no tema escolhido.</p>
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+        <div>
+          <h1 className="text-2xl font-bold mb-1 font-display" style={{ color: VERDE }}>DANFSe — Editar & Gerar</h1>
+          <p className="text-sm text-gray-500">Edite os campos da nota; Discriminação e Outras Informações aceitam formatação (negrito/itálico). O PDF atualiza ao vivo no tema escolhido.</p>
+        </div>
+        <div className="flex flex-col items-end">
+          <input ref={fileRef} type="file" accept="application/pdf,.pdf" onChange={importar} className="hidden" />
+          <button type="button" onClick={() => fileRef.current?.click()} disabled={importando}
+            className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white shadow disabled:opacity-60"
+            style={{ backgroundColor: DOURADO }}>
+            {importando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+            {importando ? 'Extraindo dados…' : 'Importar nota fiscal (PDF)'}
+          </button>
+          <span className="text-[11px] text-gray-400 mt-1 max-w-[240px] text-right">Suba uma nota já emitida no portal — os campos são preenchidos automaticamente para você re-tematizar.</span>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_440px] gap-5">
         {/* Formulário */}
