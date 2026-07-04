@@ -102,6 +102,57 @@ async def danfse_preview(doc: dict, tema: str = Query("prime1"), _admin: str = D
     return _pdf_response(pdf, f"danfse-preview-{_tema(tema)}.pdf")
 
 
+@router.post("/danfse/enviar-whatsapp")
+async def danfse_enviar_whatsapp(body: dict, tema: str = Query("prime1"),
+                                 db=Depends(get_db), _admin: str = Depends(get_admin_user)):
+    """Gera o DANFSe (doc FLAT + tema) e envia o PDF por WhatsApp (Z-API ou Meta) do usuário."""
+    import re as _re
+    from services.integracoes_util import carregar_integracoes
+    from services import zapi_service
+    from services import meta_whatsapp_service as meta
+
+    doc = (body or {}).get("doc") or {}
+    telefone = _re.sub(r"\D", "", str((body or {}).get("telefone") or ""))
+    if len(telefone) < 10:
+        raise HTTPException(422, "Informe um WhatsApp válido (DDD + número; use 55 no início).")
+    try:
+        pdf = gerar_danfse(doc, _tema(tema))
+    except Exception as e:  # noqa: BLE001
+        logger.exception("danfse_enviar_whatsapp: erro ao gerar")
+        raise HTTPException(500, "Falha ao gerar o DANFSe para envio.") from e
+
+    cfg = await carregar_integracoes(db, _admin)
+    if not cfg:
+        raise HTTPException(400, "Nenhum provedor WhatsApp configurado em Configurações → Integrações.")
+
+    numero = str(doc.get("numero_nfse") or "nota").strip() or "nota"
+    filename = f"NFS-e_{numero}.pdf".replace("/", "-")
+    legenda = ((body or {}).get("legenda")
+               or f"Segue a NFS-e nº {numero} — {doc.get('prest_fantasia') or doc.get('prest_razao') or ''}.").strip()
+
+    provider = (cfg.get("whatsapp_provider") or "zapi").lower()
+    try:
+        if provider == "meta":
+            if not cfg.get("meta_phone_number_id") or not cfg.get("meta_access_token"):
+                raise HTTPException(400, "Meta WhatsApp não configurada.")
+            await meta.send_pdf(phone_number_id=cfg["meta_phone_number_id"],
+                                access_token=cfg["meta_access_token"], phone=telefone,
+                                pdf_bytes=pdf, filename=filename, caption=legenda)
+        else:
+            if not cfg.get("zapi_instance_id") or not cfg.get("zapi_token"):
+                raise HTTPException(400, "Z-API não configurada.")
+            await zapi_service.send_document_pdf(
+                instance_id=cfg["zapi_instance_id"], token=cfg["zapi_token"],
+                security_token=cfg.get("zapi_security_token"), phone=telefone,
+                pdf_bytes=pdf, filename=filename, caption=legenda)
+    except HTTPException:
+        raise
+    except Exception as e:  # noqa: BLE001
+        logger.error("danfse_enviar_whatsapp: envio falhou: %s", e, exc_info=True)
+        raise HTTPException(502, f"Falha ao enviar pelo WhatsApp: {e}")
+    return {"ok": True, "enviado": telefone}
+
+
 @router.get("/documentos/{doc_id}/danfse")
 async def danfse_documento(doc_id: str, tema: str | None = Query(None),
                            db=Depends(get_db), _admin: str = Depends(get_admin_user)):

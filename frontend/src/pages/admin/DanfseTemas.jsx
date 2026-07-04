@@ -2,7 +2,7 @@
 // Formulário dos campos da nota (pré-preenchido c/ a NFS-e 59), Discriminação e Outras
 // Informações em RICH TEXT, escolha de tema (Prime I/II/Tradicional) e preview ao vivo.
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { FileText, Download, Loader2, Upload } from 'lucide-react';
+import { FileText, Download, Loader2, Upload, Send } from 'lucide-react';
 import { adminAPI } from '../../lib/api';
 import { useToast } from '../../hooks/use-toast';
 import { Input } from '../../components/ui/input';
@@ -64,6 +64,8 @@ export default function DanfseTemas() {
   const [pdfUrl, setPdfUrl] = useState(null);
   const [loading, setLoading] = useState(false);
   const [importando, setImportando] = useState(false);
+  const [zap, setZap] = useState('');
+  const [enviando, setEnviando] = useState(false);
   const urlRef = useRef(null);
   const debRef = useRef(null);
   const fileRef = useRef(null);
@@ -119,6 +121,21 @@ export default function DanfseTemas() {
     const a = document.createElement('a');
     a.href = pdfUrl; a.download = `danfse-${doc.numero_nfse || 'nota'}-${tema}.pdf`;
     document.body.appendChild(a); a.click(); a.remove();
+  };
+
+  const enviarWhatsapp = async () => {
+    const fone = String(zap || '').replace(/\D/g, '');
+    if (fone.length < 10) {
+      toast({ title: 'WhatsApp inválido', description: 'Informe DDD + número (use 55 no início).', variant: 'destructive' });
+      return;
+    }
+    setEnviando(true);
+    try {
+      await adminAPI.danfseEnviarWhatsapp(doc, tema, fone);
+      toast({ title: 'Enviado ✓', description: `NFS-e ${doc.numero_nfse || ''} enviada para ${fone}.` });
+    } catch (e) {
+      toast({ title: 'Falha ao enviar', description: e.response?.data?.detail || 'Verifique a integração WhatsApp (Z-API/Meta).', variant: 'destructive' });
+    } finally { setEnviando(false); }
   };
 
   // cálculo ao vivo
@@ -207,6 +224,17 @@ export default function DanfseTemas() {
             <button onClick={baixar} disabled={!pdfUrl}
               className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-50" style={{ backgroundColor: VERDE }}>
               <Download className="w-4 h-4" /> Baixar
+            </button>
+          </div>
+
+          {/* Enviar por WhatsApp (Z-API/Meta do usuário) */}
+          <div className="flex items-center gap-2 rounded-lg border border-emerald-100 bg-emerald-50/50 p-2">
+            <Input value={zap} onChange={(e) => setZap(e.target.value)} inputMode="numeric"
+              placeholder="WhatsApp (55 + DDD + número)" className="text-sm flex-1" />
+            <button onClick={enviarWhatsapp} disabled={!pdfUrl || enviando}
+              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold text-white disabled:opacity-50 whitespace-nowrap" style={{ backgroundColor: '#128C4A' }}>
+              {enviando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              {enviando ? 'Enviando…' : 'Enviar por WhatsApp'}
             </button>
           </div>
 

@@ -266,6 +266,8 @@ export const adminAPI = {
   danfsePreview: (doc, tema = 'prime1') => api.post('/nfse/danfse/preview', doc, { params: { tema }, responseType: 'blob' }).then(r => r.data),
   // DANFSe — importar uma NFS-e JÁ emitida (PDF) → extrai os campos p/ re-tematizar
   danfseImportar: (file) => { const fd = new FormData(); fd.append('file', file); return api.post('/nfse/danfse/importar', fd).then(r => r.data); },
+  // DANFSe — envia o PDF tematizado por WhatsApp (Z-API/Meta do usuário)
+  danfseEnviarWhatsapp: (doc, tema, telefone, legenda) => api.post('/nfse/danfse/enviar-whatsapp', { doc, telefone, legenda }, { params: { tema } }).then(r => r.data),
   // Emissão NFS-e — config por município, teste de certificado, preview da DPS (XML)
   nfseConfigList: () => api.get('/nfse/config').then(r => r.data),
   nfseConfigCreate: (body) => api.post('/nfse/config', body).then(r => r.data),

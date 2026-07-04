@@ -5,9 +5,28 @@ import { X, Plus, Trash2, UserPlus, Check } from 'lucide-react';
 import { documentosExternosAPI, clientsAPI } from '../../../lib/api';
 import { useToast } from '../../../hooks/use-toast';
 
-const PAPEIS = ['Vendedor', 'Compradora', 'Comprador', 'Cônjuge anuente do vendedor',
-  'Cônjuge anuente do comprador', 'Representante legal', 'Procurador', 'Testemunha 1',
-  'Testemunha 2', 'Avalista', 'Fiador', 'Anuente'];
+// Papéis sugeridos (o campo é livre — dá p/ digitar qualquer outro). Cobre os tipos de
+// documento mais comuns: compra e venda, contratos em geral, locação, cessão, procuração,
+// doação, comodato, mútuo/garantias.
+const PAPEIS = [
+  // Contratos em geral
+  'Contratante', 'Contratada', 'Contratado',
+  // Compra e venda
+  'Vendedor', 'Vendedora', 'Comprador', 'Compradora',
+  'Promitente vendedor', 'Promitente comprador',
+  'Cônjuge anuente do vendedor', 'Cônjuge anuente do comprador', 'Cônjuge anuente',
+  // Locação
+  'Locador', 'Locadora', 'Locatário', 'Locatária',
+  // Cessão / outorga
+  'Cedente', 'Cessionário', 'Outorgante', 'Outorgado',
+  // Doação / comodato / mútuo
+  'Doador', 'Donatário', 'Comodante', 'Comodatário', 'Mutuante', 'Mutuário',
+  // Garantias e terceiros
+  'Avalista', 'Fiador', 'Anuente', 'Interveniente anuente', 'Devedor', 'Credor',
+  // Representação / partes técnicas
+  'Representante legal', 'Procurador', 'Sócio administrador', 'Responsável Técnico',
+  'Testemunha 1', 'Testemunha 2',
+];
 
 const soDig = (v) => String(v || '').replace(/\D/g, '');
 
