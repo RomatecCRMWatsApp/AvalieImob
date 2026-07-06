@@ -477,14 +477,21 @@ def test_projeto_da_parcela(projeto_multi):
 
 
 def test_shapefile_multipoligono(projeto_multi):
+    """Desmembramento gera UM shapefile POR PARCELA no .zip (dois conjuntos shp/shx/dbf/prj)."""
     import shapefile
     zbytes = GEO.gerar_shapefile_bytes(projeto_multi)
     z = zipfile.ZipFile(io.BytesIO(zbytes))
-    membros = {n.split(".")[-1]: z.read(n) for n in z.namelist()}
-    r = shapefile.Reader(shp=io.BytesIO(membros["shp"]), shx=io.BytesIO(membros["shx"]),
-                         dbf=io.BytesIO(membros["dbf"]))
-    assert len(r.shapes()) == 2          # principal + parte II
-    denoms = {r.record(i).as_dict().get("DENOM") for i in range(2)}
+    # dois shapefiles distintos (dois .shp), cada um com 1 polígono
+    shp_names = sorted(n for n in z.namelist() if n.endswith(".shp"))
+    assert len(shp_names) == 2, f"esperava 2 shapefiles, veio: {z.namelist()}"
+    denoms = set()
+    for shp in shp_names:
+        base = shp[:-4]
+        r = shapefile.Reader(
+            shp=io.BytesIO(z.read(base + ".shp")), shx=io.BytesIO(z.read(base + ".shx")),
+            dbf=io.BytesIO(z.read(base + ".dbf")))
+        assert len(r.shapes()) == 1      # cada arquivo = 1 parcela
+        denoms.add(r.record(0).as_dict().get("DENOM"))
     assert any("PARTE II" in (d or "") for d in denoms)
 
 

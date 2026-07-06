@@ -762,7 +762,8 @@ export default function GeorefWizard() {
           <Card>
             <H title="Arquivos geoespaciais & Dossiê" />
             <div className="flex flex-wrap gap-2">
-              <BtnDown icon={MapIcon} label="Shapefile SIG-RI (.zip)"
+              <BtnDown icon={MapIcon}
+                label={parcelas.length > 0 ? `Shapefile SIG-RI (.zip · ${parcelas.length + 1} parcelas)` : 'Shapefile SIG-RI (.zip)'}
                 onClick={() => baixar(georefAPI.shapefile(proj.id), `SIGRI_${nb}.zip`)} />
               <BtnDown icon={MapPin} label="KML (Google Earth)"
                 onClick={() => baixar(georefAPI.kml(proj.id), `${nb}.kml`)} />
@@ -782,6 +783,11 @@ export default function GeorefWizard() {
             {statusAssin('dossie')?.assinado && (
               <p className="text-xs text-emerald-700 mt-2 font-medium">
                 ✓ Dossiê assinado com ICP-Brasil — inclui as peças já assinadas individualmente.
+              </p>
+            )}
+            {parcelas.length > 0 && (
+              <p className="text-xs text-gray-500 mt-2">
+                📦 Desmembramento: o .zip traz <strong>um shapefile por parcela</strong> (Parte I + {parcelas.length} resultante{parcelas.length > 1 ? 's' : ''}) — cada área vira uma matrícula própria no RI.
               </p>
             )}
             <p className="text-xs text-gray-400 mt-3">

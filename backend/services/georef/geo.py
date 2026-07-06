@@ -183,12 +183,39 @@ _FIELDS = [
 ]
 
 
-def gerar_shapefile_bytes(projeto: dict) -> bytes:
-    """Gera o Shapefile (.shp/.shx/.dbf/.prj) zipado, SIRGAS 2000/EPSG:4674.
+def _slug_parcela(parc: dict, idx: int) -> str:
+    rot = parc.get("rotulo") or ("ParteI" if parc.get("principal") else f"Parte{idx + 1}")
+    slug = "".join(ch for ch in str(rot) if ch.isalnum())
+    return slug or f"P{idx + 1}"
 
-    Multi-parcela (desmembramento/remembramento): 1 polígono por parcela.
-    """
+
+def _escrever_shapefile(base: str, im: dict, parc: dict, ring) -> None:
+    """Escreve um conjunto shp/shx/dbf/prj (1 polígono) em `base` (sem extensão)."""
     import shapefile  # pyshp
+    w = shapefile.Writer(base, shapeType=shapefile.POLYGON)
+    for f, t, sz, dec in _FIELDS:
+        w.field(f, t, sz, dec)
+    w.poly([[list(p) for p in ring]])
+    w.record(
+        str(im.get("matricula") or ""), (parc.get("denominacao") or "")[:100],
+        (im.get("proprietario_nome") or "")[:100], str(im.get("proprietario_cpf_cnpj") or ""),
+        str(im.get("cod_incra") or ""), str(im.get("cartorio_cns") or ""),
+        float(parc.get("area_ha") or 0), float(parc.get("perimetro_m") or 0),
+        "SIRGAS2000", str(parc.get("certificacao_sigef") or ""),
+        (im.get("municipio") or "")[:60], str(im.get("uf") or "")[:2],
+    )
+    w.close()
+    with open(base + ".prj", "w", encoding="utf-8") as fh:
+        fh.write(SIRGAS2000_PRJ)
+
+
+def gerar_shapefile_bytes(projeto: dict) -> bytes:
+    """Gera o(s) Shapefile(s) SIG-RI (.shp/.shx/.dbf/.prj) zipados, SIRGAS 2000/EPSG:4674.
+
+    DESMEMBRAMENTO (2+ parcelas resultantes): UM shapefile POR PARCELA no .zip
+    (cada parcela vira uma matrícula própria no RI). Imóvel único/remembramento
+    (unificação): um único shapefile.
+    """
     from services.georef.parcelas import parcelas_do_projeto
 
     im = projeto.get("imovel") or {}
@@ -199,31 +226,21 @@ def gerar_shapefile_bytes(projeto: dict) -> bytes:
         raise ValueError("Poligonal insuficiente para gerar shapefile (mínimo 3 vértices).")
 
     tmp = tempfile.mkdtemp(prefix="sigri_")
-    base = os.path.join(tmp, f"SIGRI_{(im.get('matricula') or 'sn')}".replace("/", "_"))
-
-    w = shapefile.Writer(base, shapeType=shapefile.POLYGON)
-    for f, t, sz, dec in _FIELDS:
-        w.field(f, t, sz, dec)
-    for parc, ring in aneis:
-        w.poly([[list(p) for p in ring]])
-        w.record(
-            str(im.get("matricula") or ""), (parc.get("denominacao") or "")[:100],
-            (im.get("proprietario_nome") or "")[:100], str(im.get("proprietario_cpf_cnpj") or ""),
-            str(im.get("cod_incra") or ""), str(im.get("cartorio_cns") or ""),
-            float(parc.get("area_ha") or 0), float(parc.get("perimetro_m") or 0),
-            "SIRGAS2000", str(parc.get("certificacao_sigef") or ""),
-            (im.get("municipio") or "")[:60], str(im.get("uf") or "")[:2],
-        )
-    w.close()
-
-    with open(base + ".prj", "w", encoding="utf-8") as fh:
-        fh.write(SIRGAS2000_PRJ)
+    matbase = f"SIGRI_{(im.get('matricula') or 'sn')}".replace("/", "_")
+    multi = len(aneis) > 1                     # desmembramento → 1 shapefile por parcela
+    bases = []
+    for idx, (parc, ring) in enumerate(aneis):
+        nome = f"{matbase}_{_slug_parcela(parc, idx)}" if multi else matbase
+        base = os.path.join(tmp, nome)
+        _escrever_shapefile(base, im, parc, ring)
+        bases.append(base)
 
     import io as _io
     buf = _io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
-        for ext in ("shp", "shx", "dbf", "prj"):
-            caminho = base + f".{ext}"
-            if os.path.exists(caminho):
-                z.write(caminho, arcname=os.path.basename(base) + f".{ext}")
+        for base in bases:
+            for ext in ("shp", "shx", "dbf", "prj"):
+                caminho = base + f".{ext}"
+                if os.path.exists(caminho):
+                    z.write(caminho, arcname=os.path.basename(base) + f".{ext}")
     return buf.getvalue()
