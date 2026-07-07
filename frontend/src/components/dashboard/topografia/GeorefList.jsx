@@ -219,6 +219,9 @@ export default function GeorefList() {
             const tipo = TIPOS_SERVICO.find((t) => t.value === p.tipo_servico);
             const gerado = ['documentos_gerados', 'concluido'].includes(p.status);
             const nb = p.imovel?.matricula || p.numero || 'projeto';
+            const im = p.imovel || {};
+            const local = [im.municipio, im.uf].filter(Boolean).join('/');
+            const cartorio = im.cartorio_nome || im.cartorio_municipio || '';
             return (
               <div key={p.id} className="rounded-xl border border-gray-200 bg-white p-5 flex flex-col">
                 <div className="flex items-start justify-between gap-2 mb-2">
@@ -227,24 +230,45 @@ export default function GeorefList() {
                     <Trash2 className="w-4 h-4 text-gray-300 hover:text-red-500 shrink-0" />
                   </button>
                 </div>
-                <button
-                  onClick={() => nav(`/dashboard/topografia/georef/${p.id}`)}
-                  className="text-left group"
-                >
-                  <div className="font-semibold text-gray-800 group-hover:text-emerald-800 line-clamp-2">
-                    {p.nome_projeto || 'Sem nome'}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <button
+                      onClick={() => nav(`/dashboard/topografia/georef/${p.id}`)}
+                      className="text-left group block w-full"
+                    >
+                      <div className="font-semibold text-gray-800 group-hover:text-emerald-800 line-clamp-2">
+                        {p.nome_projeto || 'Sem nome'}
+                      </div>
+                    </button>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {p.numero ? `${p.numero} · ` : ''}{tipo?.label || p.tipo_servico}
+                    </div>
+                    {p.imovel?.matricula && (
+                      <div className="text-xs text-gray-400 mt-0.5">
+                        <FileText className="w-3 h-3 inline mr-1" />
+                        Matrícula {p.imovel.matricula}
+                        {p.imovel.area_ha ? ` · ${p.imovel.area_ha} ha` : ''}
+                      </div>
+                    )}
                   </div>
-                </button>
-                <div className="text-xs text-gray-500 mt-1">
-                  {p.numero ? `${p.numero} · ` : ''}{tipo?.label || p.tipo_servico}
+                  {(local || cartorio) && (
+                    <div className="text-right shrink-0 max-w-[48%]">
+                      {local && (
+                        <div className="inline-flex items-center gap-1 text-xs font-semibold" style={{ color: GREEN }}>
+                          <MapPin className="w-3 h-3" /> {local}
+                        </div>
+                      )}
+                      {cartorio && (
+                        <>
+                          <div className="text-[9px] uppercase tracking-wide text-gray-400 mt-1.5">Protocolo no cartório</div>
+                          <div className="text-[10px] text-gray-600 leading-snug line-clamp-3" title={cartorio}>
+                            {cartorio}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
-                {p.imovel?.matricula && (
-                  <div className="text-xs text-gray-400 mt-0.5">
-                    <FileText className="w-3 h-3 inline mr-1" />
-                    Matrícula {p.imovel.matricula}
-                    {p.imovel.area_ha ? ` · ${p.imovel.area_ha} ha` : ''}
-                  </div>
-                )}
                 <div className="mt-3">
                   <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                     <div className="h-full rounded-full" style={{ width: `${p.completude || 0}%`, background: GOLD }} />
