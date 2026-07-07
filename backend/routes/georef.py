@@ -63,10 +63,24 @@ async def _numero(db) -> str:
     return f"GEO-{ano}-{res['seq']:04d}"
 
 
+def _reclassificar_confrontantes(doc: dict) -> None:
+    """Self-heal (in-memory): re-classifica os confrontantes já extraídos e recupera o
+    INCRA/SNCR da descrição — corrige projetos ANTIGOS em que uma Fazenda titulada
+    (sem matrícula) foi marcada como via pública/dispensada (Prov. CNJ 195/2025)."""
+    confs = doc.get("confrontantes") or []
+    if not confs:
+        return
+    mat_im = (doc.get("imovel") or {}).get("matricula")
+    for c in confs:
+        if isinstance(c, dict):
+            c["tipo"] = EX.classificar_confrontante(c, mat_im)
+
+
 async def _get_projeto(db, pid: str, uid: str) -> dict:
     doc = await db.georef_projetos.find_one({"id": pid, "user_id": uid})
     if not doc:
         raise HTTPException(status_code=404, detail="Projeto não encontrado")
+    _reclassificar_confrontantes(doc)
     return doc
 
 

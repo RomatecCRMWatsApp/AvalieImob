@@ -380,7 +380,8 @@ def parse_confrontacao(c: str) -> dict:
             mc = re.search(r"CPF:\s*([\d.\-*/]+)", p)
             if mc:
                 out["cpf_cnpj"] = mc.group(1).strip()
-            mi = re.search(r"INCRA\s*([\d]+)", p)
+            # INCRA/SNCR: aceita "INCRA: 1100...", "INCRA/SNCR 1100...", "INCRA 1100..."
+            mi = re.search(r"INCRA(?:/SNCR)?[^\d]{0,4}(\d{6,})", p)
             if mi:
                 out["incra"] = mi.group(1)
     desc = out["descricao"] or ""
@@ -395,6 +396,35 @@ def _eh_limpo(s: str) -> bool:
     """Nome/descrição utilizável (não mascarado pelo SIGEF com X.../***/...)."""
     s = (s or "").strip()
     return bool(s) and "XXX" not in s.upper() and "*" not in s and "..." not in s
+
+
+def classificar_confrontante(g: dict, matricula_imovel: str = None) -> str:
+    """Classifica o confrontante em proprio/via_publica/particular e RECUPERA o
+    código INCRA/SNCR da descrição quando faltar (self-heal de dados já extraídos).
+
+    BEM PÚBLICO (dispensa anuência) SÓ quando a divisa é realmente pública
+    (estrada/rio/servidão/via) OU não há QUALQUER identificação do confrontante.
+    Um imóvel rural TITULADO/CERTIFICADO (Fazenda com INCRA/SNCR, CNS ou nome),
+    mesmo SEM matrícula, é PARTICULAR e EXIGE anuência (Prov. CNJ 195/2025 +
+    Lei 10.267/2001 + Decreto 4.449/2002, art. 9º).
+    """
+    desc = g.get("descricao") or g.get("imovel") or ""
+    if not g.get("incra"):
+        mi = re.search(r"INCRA(?:/SNCR)?[^\d]{0,4}(\d{6,})", desc)
+        if mi:
+            g["incra"] = mi.group(1)
+    mat = (g.get("matricula") or "").strip()
+    incra = (g.get("incra") or "").strip()
+    cpf = (g.get("cpf_cnpj") or "").strip()
+    cns = (g.get("cns") or "").strip()
+    eh_publica = bool(_VIA_PUBLICA_RE.search(desc))
+    sem_id = not (desc.strip() or _eh_limpo(g.get("nome"))
+                  or (mat and mat != "0") or incra or cpf or cns)
+    if matricula_imovel and mat and mat == str(matricula_imovel).strip():
+        return "proprio"
+    if eh_publica or sem_id:
+        return "via_publica"
+    return "particular"
 
 
 def agrupar_confrontantes(vertices: List[dict], matricula_imovel: str = None) -> List[dict]:
@@ -420,14 +450,7 @@ def agrupar_confrontantes(vertices: List[dict], matricula_imovel: str = None) ->
 
     saida = []
     for g in grupos.values():
-        desc = g.get("descricao") or ""
-        mat = (g.get("matricula") or "").strip()
-        if matricula_imovel and mat and mat == str(matricula_imovel).strip():
-            g["tipo"] = "proprio"
-        elif mat in ("", "0", None) or _VIA_PUBLICA_RE.search(desc):
-            g["tipo"] = "via_publica"
-        else:
-            g["tipo"] = "particular"
+        g["tipo"] = classificar_confrontante(g, matricula_imovel)
         # nome mascarado (XXX/***) → usa a descrição limpa, senão zera (cai p/ matrícula)
         nome = g.get("nome")
         if nome and not _eh_limpo(nome):

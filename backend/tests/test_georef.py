@@ -171,6 +171,42 @@ def test_agrupar_confrontantes(projeto):
     assert joao["segmentos"] == ["FQNS-M-A016"]
 
 
+def test_confrontante_fazenda_com_incra_e_particular():
+    """Confrontante rural TITULADO (Fazenda com INCRA/SNCR) SEM matrícula NÃO é bem
+    público — é PARTICULAR e EXIGE anuência (Prov. CNJ 195/2025 + Decreto 4.449/2002)."""
+    raw = "FAZENDA TRÊS IRMÃOS - INCRA: 1100350355993|CNS: 14.951-8|Mat.0"
+    conf = EX.agrupar_confrontantes([{"codigo": "V1", "confrontacao_raw": raw}],
+                                    matricula_imovel="141")
+    assert len(conf) == 1
+    c = conf[0]
+    assert c["tipo"] == "particular", c          # antes: via_publica (BUG)
+    assert c["incra"] == "1100350355993"         # INCRA com ':' agora é extraído
+
+
+def test_confrontante_estrada_continua_via_publica():
+    """Bem público REAL (estrada/rio) segue dispensando anuência."""
+    conf = EX.agrupar_confrontantes(
+        [{"codigo": "V1", "confrontacao_raw": "ESTRADA VICINAL|Mat.0"}], matricula_imovel="141")
+    assert conf[0]["tipo"] == "via_publica"
+
+
+def test_drl_particular_gera_anuencia_do_confrontante():
+    """DRL de confrontante particular traz o bloco de ANUÊNCIA (confrontante assina)."""
+    raw = "FAZENDA TRÊS IRMÃOS - INCRA: 1100350355993|Mat.0"
+    conf = EX.agrupar_confrontantes([{"codigo": "V1", "confrontacao_raw": raw}],
+                                    matricula_imovel="141")[0]
+    projeto = {"imovel": {"denominacao": "FAZENDA SANTA MARIA", "matricula": "141",
+                          "municipio": "Senador La Rocque", "uf": "MA",
+                          "proprietario_nome": "MARIA", "proprietario_cpf_cnpj": "343.406.103-72"},
+               "responsavel_tecnico": {"nome": "JOSE ROMARIO", "conselho": "CFT/MA"},
+               "vertices": [{"codigo": "V1"}], "confrontantes": [conf]}
+    d = TX.render_drl(projeto, conf)
+    assert d["via_publica"] is False
+    # há uma linha de assinatura do CONFRONTANTE (anuência)
+    assert any("Confrontante" in papel for _, papel in d["assinaturas"])
+    assert "RECONHECE" in d["corpo"] and "Decreto" in d["corpo"]
+
+
 def test_confrontantes_para_drl_exclui_proprio(projeto):
     # nenhuma matrícula igual a 1234 -> todas geram DRL
     assert len(TX.confrontantes_para_drl(projeto)) == 4

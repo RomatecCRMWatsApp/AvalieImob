@@ -255,6 +255,12 @@ def render_requerimento(projeto) -> dict:
 # ──────────────────────────────────────────────────────────────────────────────
 # DRL — Declaração de Reconhecimento de Limites (1 por confrontante)
 # ──────────────────────────────────────────────────────────────────────────────
+def _mat_conf(conf) -> str:
+    """Matrícula do confrontante para exibição — imóvel rural sem matrícula sai 'não matriculado'."""
+    m = str(conf.get("matricula") or "").strip()
+    return m if (m and m != "0") else "não matriculado"
+
+
 def render_drl(projeto, conf) -> dict:
     im, rt = _im(projeto), _rt(projeto)
     vidx = {v.get("codigo"): v for v in (projeto.get("vertices") or [])}
@@ -285,18 +291,18 @@ def render_drl(projeto, conf) -> dict:
         f"{rt.get('conselho') or '—'} — Cód. Cred. INCRA {rt.get('credenciamento_incra') or '—'} "
         f"— ART/TRT {_art_trt(im, rt)}",
         f"CONFRONTANTE: {conf.get('nome') or conf.get('descricao') or '—'}",
-        f"Imóvel confrontante: {conf.get('imovel') or conf.get('descricao') or '—'} — "
-        f"Matrícula {conf.get('matricula') or '—'} — CNS {conf.get('cns') or '—'} — "
-        f"INCRA {conf.get('incra') or '—'}",
+        f"Imóvel confrontante: {conf.get('imovel') or conf.get('descricao') or '—'}",
+        f"Matrícula: {_mat_conf(conf)} — Código INCRA/SNCR: {conf.get('incra') or '—'} — "
+        f"CNS: {conf.get('cns') or '—'}",
     ]
 
     if via_publica:
         corpo = (
             "Declara o Responsável Técnico, sob as penas da lei, que a linha divisória comum "
-            "abaixo descrita confronta com BEM PÚBLICO / via pública, dispensada a anuência de "
-            "confrontante particular, em conformidade com o art. 176 da Lei nº 6.015/1973, a Lei "
-            "nº 10.267/2001 e o Provimento CNJ nº 195/2025, inexistindo litígio ou sobreposição "
-            "quanto à referida divisa."
+            "abaixo descrita confronta com BEM PÚBLICO / via pública (estrada, curso d'água ou "
+            "terras públicas), sendo DISPENSADA a anuência de confrontante, nos termos do art. 176 "
+            "da Lei nº 6.015/1973, da Lei nº 10.267/2001, do Decreto nº 4.449/2002 (art. 9º) e do "
+            "Provimento CNJ nº 195/2025, inexistindo litígio ou sobreposição quanto à referida divisa."
         )
         assinaturas = [
             (_v(im, "proprietario_nome"), f"Proprietário — CPF/CNPJ {_v(im, 'proprietario_cpf_cnpj')}"),
@@ -304,19 +310,23 @@ def render_drl(projeto, conf) -> dict:
         ]
     else:
         corpo = (
-            "O(A) confrontante acima identificado(a) DECLARA, para os devidos fins de direito e em "
-            "atendimento ao art. 176 da Lei nº 6.015/1973, à Lei nº 10.267/2001 e ao Provimento CNJ "
-            "nº 195/2025, que RECONHECE como corretos e verdadeiros os limites e confrontações da "
-            "linha divisória comum com o imóvel objeto, definida pelos vértices e segmentos "
-            "georreferenciados (SIRGAS 2000) abaixo, anuindo expressamente com a descrição "
-            "apresentada e declarando inexistir litígio, dúvida ou sobreposição quanto à referida "
-            "divisa."
+            "O(A) confrontante acima identificado(a), na qualidade de titular/possuidor(a) do imóvel "
+            "rural limítrofe, DECLARA e ANUI, para os devidos fins de direito e em atendimento ao "
+            "art. 176, §§ 3º a 5º, da Lei nº 6.015/1973, à Lei nº 10.267/2001, ao Decreto nº 4.449/2002 "
+            "(art. 9º) e ao Provimento CNJ nº 195/2025, que RECONHECE como corretos e verdadeiros os "
+            "limites, medidas e confrontações da linha divisória comum com o imóvel objeto, definida "
+            "pelos vértices e segmentos georreferenciados ao Sistema Geodésico Brasileiro (SIRGAS 2000) "
+            "abaixo relacionados, ANUINDO EXPRESSAMENTE com a descrição apresentada e declarando "
+            "inexistir litígio, dúvida, retificação pendente ou sobreposição quanto à referida divisa, "
+            "autorizando o respectivo registro/averbação no Cartório de Registro de Imóveis competente."
         )
         assinaturas = [
-            (conf.get("nome") or "Confrontante",
-             f"Confrontante — CPF/CNPJ {conf.get('cpf_cnpj') or '____'}"),
-            (_v(im, "proprietario_nome"), f"Proprietário — CPF/CNPJ {_v(im, 'proprietario_cpf_cnpj')}"),
-            (rt.get("nome") or "—", f"Responsável Técnico — {rt.get('conselho') or '—'}"),
+            (conf.get("nome") or "Confrontante(a)",
+             f"Confrontante anuente — CPF/CNPJ {conf.get('cpf_cnpj') or '____________'} · "
+             f"RG/Órgão ____________"),
+            (_v(im, "proprietario_nome"), f"Proprietário(a) — CPF/CNPJ {_v(im, 'proprietario_cpf_cnpj')}"),
+            (rt.get("nome") or "—", f"Responsável Técnico — {rt.get('conselho') or '—'} · "
+             f"Cód. INCRA {rt.get('credenciamento_incra') or '—'}"),
         ]
 
     return {
