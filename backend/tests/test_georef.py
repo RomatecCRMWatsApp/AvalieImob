@@ -322,6 +322,18 @@ def test_shapefile_valido(projeto):
     assert b"4674" in membros["prj"]
 
 
+def test_descricao_poligono_para_rgi(projeto_multi):
+    """Cada parcela tem uma 'Descrição do polígono' pronta p/ colar no ONR/RGI."""
+    atrs = GEO.atributos_sigri(projeto_multi)
+    for a in atrs:
+        d = a["descricao"]
+        assert isinstance(d, str) and d.endswith(".")
+        assert "matrícula" in d.lower() and "perímetro" in d.lower() and "ha" in d
+        assert "desmembramento" in d.lower()          # tipo do ato refletido
+    # a Parte I e a Parte II têm descrições DISTINTAS (área/denominação próprias)
+    assert atrs[0]["descricao"] != atrs[1]["descricao"]
+
+
 def test_atributos_sigri_completo(projeto_multi):
     """A conferência SIG-RI traz UM registro completo por parcela (Parte I + Parte II)."""
     atrs = GEO.atributos_sigri(projeto_multi)

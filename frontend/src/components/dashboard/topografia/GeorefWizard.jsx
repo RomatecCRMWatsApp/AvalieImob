@@ -6,7 +6,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, ArrowRight, UploadCloud, FileCheck2, Wand2, FileDown, Eye,
   CheckCircle2, AlertTriangle, MapPin, Loader2, Map as MapIcon, Plus, Trash2, Search, PenLine,
-  ListChecks, X,
+  ListChecks, X, Copy,
 } from 'lucide-react';
 import { georefAPI, assinaturaPosAPI, brandingAPI } from '../../../lib/api';
 import { useToast } from '../../../hooks/use-toast';
@@ -262,6 +262,15 @@ export default function GeorefWizard() {
       setAtrsSigri(d);
     } catch (e) {
       toast({ title: 'Erro ao carregar atributos', description: e?.response?.data?.detail || '', variant: 'destructive' });
+    }
+  };
+
+  const copiar = async (texto) => {
+    try {
+      await navigator.clipboard.writeText(texto || '');
+      toast({ title: 'Descrição copiada ✓', description: 'Cole no campo “Descrição do polígono” do ONR.' });
+    } catch {
+      toast({ title: 'Não foi possível copiar', variant: 'destructive' });
     }
   };
 
@@ -841,6 +850,20 @@ export default function GeorefWizard() {
                     <span>{p.rotulo}{p.principal ? ' (principal)' : ''}</span>
                     <span className="text-xs opacity-80">arquivo {i + 1} de {atrsSigri.parcelas.length}</span>
                   </div>
+                  {p.descricao && (
+                    <div className="px-3 py-2 bg-amber-50 border-b border-amber-100">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] uppercase tracking-wide text-amber-700 font-semibold">
+                          Descrição do polígono — colar no ONR/RGI
+                        </span>
+                        <button onClick={() => copiar(p.descricao)}
+                          className="text-[11px] inline-flex items-center gap-1 px-2 py-0.5 rounded border text-emerald-800 border-emerald-200 bg-white hover:bg-emerald-50">
+                          <Copy className="w-3 h-3" /> Copiar
+                        </button>
+                      </div>
+                      <p className="text-xs text-gray-700 leading-snug">{p.descricao}</p>
+                    </div>
+                  )}
                   <table className="w-full text-xs">
                     <tbody>
                       {(atrsSigri.campos || []).map((c) => {

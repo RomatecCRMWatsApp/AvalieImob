@@ -276,15 +276,73 @@ def _registro_parcela(im: dict, rt: dict, tipo: str, p: dict) -> dict:
     return {n: _coerce(n, t, sz, bruto.get(n)) for (n, t, sz, _dec) in _FIELDS}
 
 
+def _fmt_ha(v) -> str:
+    return f"{_to_num(v):.4f}".replace(".", ",")
+
+
+def _fmt_m2(v) -> str:
+    s = f"{_to_num(v) * 10000:,.2f}"          # US: vírgula=milhar, ponto=decimal
+    return s.replace(",", "X").replace(".", ",").replace("X", ".")   # → BR
+
+
+def _fmt_m(v) -> str:
+    return f"{_to_num(v):.2f}".replace(".", ",")
+
+
+def descricao_poligono(projeto: dict, p: dict) -> str:
+    """Texto descritivo do polígono da parcela — para COLAR no campo 'Descrição do
+    polígono' do ONR/RGI (mapa.onr.org.br). Auto-montado do acervo do imóvel/parcela."""
+    im = projeto.get("imovel") or {}
+    tipo = (projeto.get("tipo_servico") or "").strip().lower()
+    rot = p.get("rotulo") or "Parcela"
+    denom = p.get("denominacao") or im.get("denominacao") or "imóvel rural"
+    mat = im.get("matricula") or "—"
+    nv = len([v for v in (p.get("vertices") or []) if v])
+    muni = im.get("municipio") or "—"
+    uf = im.get("uf") or "—"
+    comarca = im.get("cartorio_municipio")
+    cod_incra = im.get("cod_incra")
+    cert = p.get("certificacao_sigef") or im.get("certificacao_sigef")
+    prop = im.get("proprietario_nome") or "—"
+    doc = im.get("proprietario_cpf_cnpj") or "—"
+    src = im.get("sistema_geodesico") or "SIRGAS 2000"
+    natureza = im.get("natureza_area")
+    acao = {
+        "desmembramento": "imóvel rural resultante do desmembramento da matrícula",
+        "remembramento": "imóvel rural resultante do remembramento/unificação da matrícula",
+    }.get(tipo, "imóvel rural objeto de georreferenciamento, matrícula")
+    partes = [
+        f"{rot} — {denom}",
+        f"{acao} nº {mat}",
+        f"de propriedade de {prop} (CPF/CNPJ {doc})",
+        f"situado no município de {muni}/{uf}",
+    ]
+    if comarca:
+        partes.append(f"comarca de {comarca}")
+    partes.append(f"com área de {_fmt_ha(p.get('area_ha'))} ha "
+                  f"({_fmt_m2(p.get('area_ha'))} m²) e perímetro de {_fmt_m(p.get('perimetro_m'))} m")
+    if nv:
+        partes.append(f"delimitado por {nv} vértices")
+    partes.append(f"georreferenciado ao Sistema Geodésico {src}")
+    if cert:
+        partes.append(f"certificado no SIGEF/INCRA sob o código {cert}")
+    if cod_incra:
+        partes.append(f"código do imóvel rural (SNCR/INCRA) {cod_incra}")
+    if natureza:
+        partes.append(f"natureza {natureza}")
+    return ", ".join(partes) + "."
+
+
 def atributos_sigri(projeto: dict) -> list:
     """Atributos DBF do SIG-RI (Prov. 195/2025) POR PARCELA — p/ a CONFERÊNCIA e o shapefile.
-    Retorna [{rotulo, principal, id, record{FIELD: valor}}, ...]."""
+    Retorna [{rotulo, principal, id, record{FIELD: valor}, descricao}, ...]."""
     from services.georef.parcelas import parcelas_do_projeto
     im = projeto.get("imovel") or {}
     rt = projeto.get("responsavel_tecnico") or {}
     tipo = (projeto.get("tipo_servico") or "").strip()
     return [{"rotulo": p.get("rotulo") or "Parcela", "principal": bool(p.get("principal")),
-             "id": p.get("id"), "record": _registro_parcela(im, rt, tipo, p)}
+             "id": p.get("id"), "record": _registro_parcela(im, rt, tipo, p),
+             "descricao": descricao_poligono(projeto, p)}
             for p in parcelas_do_projeto(projeto)]
 
 
