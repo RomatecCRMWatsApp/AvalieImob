@@ -88,9 +88,11 @@ async def editar_tabela(tid: str, data: IncraTabelaBase, uid: str = Depends(get_
     upd = data.model_dump()
     upd["faixas"] = _normaliza_faixas(data.faixas)
     upd["updated_at"] = datetime.utcnow()
-    res = await db.incra_tabelas.update_one({"id": tid}, {"$set": upd})
+    # Blindagem multi-inquilino: só o DONO edita a própria tabela (ninguém altera a
+    # de outro assinante nem a semente oficial). A leitura segue compartilhada.
+    res = await db.incra_tabelas.update_one({"id": tid, "user_id": uid}, {"$set": upd})
     if res.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Tabela não encontrada")
+        raise HTTPException(status_code=404, detail="Tabela não encontrada ou sem permissão")
     doc = await db.incra_tabelas.find_one({"id": tid})
     return serialize_doc(doc)
 
@@ -98,9 +100,10 @@ async def editar_tabela(tid: str, data: IncraTabelaBase, uid: str = Depends(get_
 @router.delete("/incra/tabela/{tid}")
 async def remover_tabela(tid: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
     """Exclui definitivamente uma tabela INCRA."""
-    res = await db.incra_tabelas.delete_one({"id": tid})
+    # Só o DONO exclui a própria tabela (não a de outro assinante nem a semente).
+    res = await db.incra_tabelas.delete_one({"id": tid, "user_id": uid})
     if res.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Tabela não encontrada")
+        raise HTTPException(status_code=404, detail="Tabela não encontrada ou sem permissão")
     return {"ok": True, "id": tid}
 
 

@@ -580,6 +580,15 @@ async def startup():
         await ensure_modelo_averbacao(get_db())
     except Exception as e:
         logger.error(f"Erro ao garantir modelo Averbação: {e}")
+    # Índices de USUÁRIOS — blindagem: e-mail e id ÚNICOS (evita conta duplicada e
+    # corrida no cadastro). Idempotente; se já houver e-mail duplicado no banco a
+    # criação falha e é só logada (o app segue; o cadastro já checa duplicidade).
+    try:
+        db = get_db()
+        await db.users.create_index("id", unique=True)
+        await db.users.create_index("email", unique=True)
+    except Exception as e:
+        logger.warning("Índice users (id/email único) não criado — verifique duplicatas: %s", e)
     # Índices do módulo Contrato de Exclusividade (aceite eletrônico) — idempotente.
     try:
         db = get_db()

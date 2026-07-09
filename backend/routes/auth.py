@@ -1,6 +1,7 @@
 # @module routes.auth — Rotas de autenticação: registro, login e perfil do usuário autenticado
 import asyncio
 import logging
+from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -24,6 +25,22 @@ logger = logging.getLogger("romatec")
 limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+# ── Blindagem de privilégio ──────────────────────────────────────────────────
+# `role` é settável pelo cliente (título profissional), mas TAMBÉM decide a
+# autorização admin (get_admin_user checa admin/owner/ceo). Portanto, NUNCA
+# aceitar esses valores vindos do cliente — só o bootstrap/servidor os concede.
+_PRIVILEGED_ROLES = {"admin", "owner", "ceo"}
+
+
+def _sanitize_role(role, fallback: str = "Profissional") -> str:
+    r = (str(role).strip() if role else fallback)
+    return fallback if r.lower() in _PRIVILEGED_ROLES else r
+
+
+# ── Bloqueio de conta (anti força-bruta) ─────────────────────────────────────
+_MAX_FAILED = 6          # tentativas erradas antes de bloquear
+_LOCK_MINUTES = 15       # tempo de bloqueio temporário
+
 
 @router.post("/register", response_model=AuthResponse)
 @limiter.limit("3/minute")
@@ -32,9 +49,10 @@ async def register(request: Request, data: UserRegister, db=Depends(get_db)):
     existing = await db.users.find_one({"email": data.email.lower()})
     if existing:
         raise HTTPException(status_code=400, detail="E-mail já cadastrado")
-    if len(data.password) < 6:
-        raise HTTPException(status_code=400, detail="Senha deve ter pelo menos 6 caracteres")
-    user = User(name=data.name, email=data.email.lower(), role=data.role or "Profissional", crea=data.crea or "")
+    if len(data.password) < 8:
+        raise HTTPException(status_code=400, detail="Senha deve ter pelo menos 8 caracteres")
+    # NUNCA deixar o cliente se auto-conceder papel privilegiado (admin/owner/ceo).
+    user = User(name=data.name, email=data.email.lower(), role=_sanitize_role(data.role), crea=data.crea or "")
     doc = user.model_dump()
     doc["password_hash"] = hash_password(data.password)
     # Persiste UTM no doc do user pra historico/analytics futuros
@@ -69,8 +87,36 @@ async def register(request: Request, data: UserRegister, db=Depends(get_db)):
 @limiter.limit("5/minute")
 async def login(request: Request, data: UserLogin, db=Depends(get_db)):
     u = await db.users.find_one({"email": data.email.lower()})
+    now = datetime.now(timezone.utc)
+
+    # Conta temporariamente bloqueada por tentativas erradas? (anti força-bruta,
+    # POR CONTA — imune a troca de IP e a proxy compartilhado).
+    if u:
+        lock_until = u.get("lock_until")
+        if lock_until is not None and lock_until.tzinfo is None:
+            lock_until = lock_until.replace(tzinfo=timezone.utc)
+        if lock_until and lock_until > now:
+            mins = max(1, int((lock_until - now).total_seconds() // 60) + 1)
+            raise HTTPException(
+                status_code=429,
+                detail=f"Muitas tentativas de senha. Conta bloqueada por segurança. "
+                       f"Tente novamente em {mins} min.")
+
     if not u or not verify_password(data.password, u.get("password_hash", "")):
+        # Conta um erro de senha (só p/ conta existente, p/ não rastrear e-mails aleatórios).
+        if u:
+            falhas = int(u.get("failed_logins") or 0) + 1
+            upd = {"failed_logins": falhas, "last_failed_login": now}
+            if falhas >= _MAX_FAILED:
+                upd["lock_until"] = now + timedelta(minutes=_LOCK_MINUTES)
+                upd["failed_logins"] = 0
+                logger.warning("Login bloqueado por tentativas: user=%s", u.get("id"))
+            await db.users.update_one({"id": u["id"]}, {"$set": upd})
         raise HTTPException(status_code=401, detail="Credenciais inválidas")
+
+    # Sucesso → zera contador/bloqueio.
+    if u.get("failed_logins") or u.get("lock_until"):
+        await db.users.update_one({"id": u["id"]}, {"$set": {"failed_logins": 0, "lock_until": None}})
     token = create_token(u["id"])
     defaults = {"crea": "", "role": "user", "plan": "mensal", "plan_status": "inactive", "plan_expires": None, "company": "", "bio": "", "company_logo": None}
     pub = UserPublic(**{k: u.get(k) if u.get(k) is not None else defaults.get(k, "") for k in UserPublic.model_fields})
@@ -94,6 +140,9 @@ async def update_me(data: UserUpdate, uid: str = Depends(get_current_user_id), d
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
     raw = data.model_dump()
     updates = {k: v for k, v in raw.items() if v is not None or k == "company_logo"}
+    # Blindagem: NUNCA permitir que o usuário eleve o próprio privilégio via /auth/me.
+    if "role" in updates and str(updates.get("role") or "").strip().lower() in _PRIVILEGED_ROLES:
+        updates.pop("role", None)
     if updates:
         await db.users.update_one({"id": uid}, {"$set": updates})
     u = await db.users.find_one({"id": uid})
