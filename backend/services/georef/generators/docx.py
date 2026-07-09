@@ -172,6 +172,21 @@ def docx_drl(projeto, conf) -> bytes:
     return _save(doc)
 
 
+def docx_drl_unificada(projeto) -> bytes:
+    d = TX.render_drl_unificada(projeto)
+    doc = Document()
+    _titulo(doc, d["titulo"])
+    for linha in d["cabecalho"]:
+        _p(doc, linha, size=9, align=WD_ALIGN_PARAGRAPH.LEFT, space_after=2)
+    _p(doc, d["corpo"])
+    if d["parcelas"]:
+        _secao(doc, "PARCELAS RESULTANTES")
+        _tabela(doc, d["parcelas_header"], d["parcelas"])
+    _p(doc, d["data"] + ".", align=WD_ALIGN_PARAGRAPH.CENTER)
+    _assinaturas(doc, d["assinaturas"])
+    return _save(doc)
+
+
 def docx_laudo(projeto) -> bytes:
     d = TX.render_laudo_tecnico(projeto)
     multi = bool(d.get("multiparcela"))
@@ -235,4 +250,6 @@ def gerar_docx(tipo, projeto, conf=None) -> bytes:
         if conf is None:
             raise ValueError("DRL requer o confrontante (conf).")
         return docx_drl(projeto, conf)
+    if tipo == "drl_unificada":
+        return docx_drl_unificada(projeto)
     raise ValueError(f"Tipo de documento desconhecido: {tipo}")

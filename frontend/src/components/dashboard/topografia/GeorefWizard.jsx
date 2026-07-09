@@ -310,6 +310,7 @@ export default function GeorefWizard() {
   if (loading || !proj) return <div className="py-24"><BrandSpinner label="Carregando…" /></div>;
 
   const requerDrl = requerDrlTipo(proj.tipo_servico);
+  const requerDrlUnificada = DRL_DISPENSA.includes(proj.tipo_servico);   // desmembramento/remembramento
   const confrontantesDrl = requerDrl
     ? (proj.confrontantes || []).filter((c) => c.tipo !== 'proprio')
     : [];
@@ -581,6 +582,7 @@ export default function GeorefWizard() {
               ['laudo_tecnico', 'Laudo Técnico de Agrimensura'],
               ['memorial', 'Memorial Descritivo'],
               ...(requerDrl ? [['drl', `DRL — Reconhecimento de Limites (${confrontantesDrl.length})`]] : []),
+              ...(requerDrlUnificada ? [['drl_unificada', 'DRL Unificada (RT + proprietário)']] : []),
               ['shapefile', 'Shapefile SIG-RI (.zip)'],
               ['dossie', 'Dossiê consolidado (PDF)'],
             ].map(([k, lab]) => (
@@ -591,10 +593,12 @@ export default function GeorefWizard() {
               </label>
             ))}
           </div>
-          {!requerDrl && (
+          {requerDrlUnificada && (
             <p className="mt-3 text-xs text-gray-500">
-              ℹ️ DRL dispensada para <strong>{proj.tipo_servico}</strong> (desmembramento e remembramento
-              atuam dentro de limites já reconhecidos).
+              ℹ️ No <strong>{proj.tipo_servico}</strong> não há DRL por confrontante (o perímetro externo
+              não muda). O Prov. CNJ 195/2025 exige a <strong>DRL Unificada</strong> — declaração do
+              proprietário + responsável técnico reconhecendo os limites já georreferenciados,
+              certificados, registrados e averbados. Assine-a na aba Entrega.
             </p>
           )}
           <button onClick={gerar} disabled={gerando}
@@ -616,6 +620,7 @@ export default function GeorefWizard() {
                 ['requerimento', 'Requerimento ao Cartório', 'requerimento', undefined],
                 ...(laudoSeparado ? [] : [['laudo_tecnico', 'Laudo Técnico de Agrimensura', 'laudo', undefined]]),
                 ...(parcelas.length > 0 ? [] : [['memorial', 'Memorial Descritivo', 'memorial', 'principal']]),
+                ...(requerDrlUnificada ? [['drl_unificada', 'DRL Unificada (RT + proprietário)', 'drl_unificada', undefined]] : []),
               ].map(([k, lab, adoc, aparc]) => {
                 const a = statusAssin(adoc, aparc);
                 // O Laudo respeita o modo (unificado/separado) escolhido na Geração.

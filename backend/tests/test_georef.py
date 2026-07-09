@@ -207,6 +207,34 @@ def test_drl_particular_gera_anuencia_do_confrontante():
     assert "RECONHECE" in d["corpo"] and "Decreto" in d["corpo"]
 
 
+def test_drl_unificada_desmembramento(projeto):
+    """Desmembramento/remembramento: DRL UNIFICADA (RT + proprietário) reconhecendo os
+    limites já certificados; sem DRL por confrontante (Prov. CNJ 195/2025)."""
+    p = {**projeto, "tipo_servico": "desmembramento",
+         "parcelas": [{"id": "p2", "rotulo": "Parte II", "denominacao": "STA MARIA II",
+                       "area_ha": 6.14, "perimetro_m": 1372, "certificacao_sigef": "ABC123"}]}
+    assert TX.requer_drl(p["tipo_servico"]) is False           # sem DRL por confrontante
+    assert TX.requer_drl_unificada(p["tipo_servico"]) is True  # tem DRL unificada
+    assert TX.confrontantes_para_drl(p) == []                  # nenhuma DRL por confrontante
+    d = TX.render_drl_unificada(p)
+    assert "UNIFICADA" in d["titulo"]
+    # assina o PROPRIETÁRIO e o RESPONSÁVEL TÉCNICO (não confrontantes)
+    papeis = " ".join(pp for _, pp in d["assinaturas"])
+    assert "Proprietário" in papeis and "Responsável Técnico" in papeis
+    assert "RATIFICAM" in d["corpo"] and "Decreto" in d["corpo"] and "AVERBADO" in d["corpo"]
+    # lista as parcelas resultantes (Parte I + Parte II)
+    assert len(d["parcelas"]) == 2
+    # gera o PDF
+    b = PDF.gerar_pdf("drl_unificada", p, "prime_i")
+    assert b[:5] == b"%PDF-"
+
+
+def test_georref_nao_usa_drl_unificada(projeto):
+    """Georreferenciamento/retificação usam DRL por CONFRONTANTE, não a unificada."""
+    assert TX.requer_drl_unificada("georreferenciamento") is False
+    assert TX.requer_drl_unificada("retificacao") is False
+
+
 def test_confrontantes_para_drl_exclui_proprio(projeto):
     # nenhuma matrícula igual a 1234 -> todas geram DRL
     assert len(TX.confrontantes_para_drl(projeto)) == 4

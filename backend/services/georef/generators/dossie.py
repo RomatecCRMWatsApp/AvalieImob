@@ -25,6 +25,7 @@ _TITULOS_DOSSIE = {
     "laudo_tecnico": "Laudo Técnico de Agrimensura",
     "memorial": "Memorial Descritivo (gerado)",
     "drl": "Declarações de Reconhecimento de Limites (DRL)",
+    "drl_unificada": "Declaração Unificada de Reconhecimento de Limites (DRL)",
     "mapa": "Mapa / Planta (SIGEF)",
     "art_trt": "ART / TRT / RRT",
     "certidao_matricula": "Certidão de Inteiro Teor (Matrícula)",
@@ -56,7 +57,7 @@ def _nome_fazenda_base(denom: str) -> str:
 # TRT → Certidão de inteiro teor → CCIR → CAR → ITR → Memorial SIGEF (original) →
 # documentos pessoais do proprietário.
 ORDEM_DOSSIE = [
-    "requerimento", "laudo_tecnico", "memorial", "drl", "mapa", "art_trt",
+    "requerimento", "laudo_tecnico", "memorial", "drl", "drl_unificada", "mapa", "art_trt",
     "certidao_matricula", "ccir", "car", "cnd_itr", "itr", "memorial_sigef", "doc_cliente",
 ]
 # Peças que entram como ANEXO (PDF/imagem, podendo ser lista de vários arquivos).

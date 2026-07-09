@@ -341,16 +341,91 @@ def render_drl(projeto, conf) -> dict:
     }
 
 
-# A DRL (anuência dos confrontantes) só se aplica a serviços que ESTABELECEM/
-# reconhecem limites com vizinhos. Desmembramento e Remembramento DISPENSAM DRL
-# (atuam dentro de limites já certificados). Georref, Retificação, Certificação e
-# Desdobro EXIGEM. (Confirmado pelo RT — José Romário.)
+# A DRL por CONFRONTANTE (anuência de vizinho) só se aplica a serviços que
+# ESTABELECEM/reconhecem limites com terceiros: Georref, Retificação, Certificação e
+# Desdobro. Desmembramento e Remembramento atuam DENTRO de um perímetro já certificado
+# e NÃO alteram os limites externos → não há nova confrontação a anuir por vizinho.
 DRL_DISPENSA = {"desmembramento", "remembramento"}
+
+# Porém, o Prov. CNJ 195/2025 exige, no desmembramento/remembramento, uma DRL
+# UNIFICADA (declaração geral do PROPRIETÁRIO + RESPONSÁVEL TÉCNICO) reconhecendo/
+# ratificando os limites já georreferenciados, certificados, registrados e averbados.
+DRL_UNIFICADA_TIPOS = {"desmembramento", "remembramento"}
 
 
 def requer_drl(tipo_servico) -> bool:
-    """True se o tipo de serviço exige DRL dos confrontantes."""
+    """True se o tipo de serviço exige DRL POR CONFRONTANTE (anuência de vizinho)."""
     return (tipo_servico or "") not in DRL_DISPENSA
+
+
+def requer_drl_unificada(tipo_servico) -> bool:
+    """True se o tipo usa a DRL UNIFICADA (RT + proprietário) em vez da por confrontante."""
+    return (tipo_servico or "") in DRL_UNIFICADA_TIPOS
+
+
+def render_drl_unificada(projeto) -> dict:
+    """DRL UNIFICADA (desmembramento/remembramento): declaração GERAL do proprietário +
+    RT reconhecendo/ratificando os limites já certificados/registrados/averbados —
+    Prov. CNJ 195/2025 + Lei 10.267/2001 + Decreto 4.449/2002."""
+    from services.georef.parcelas import parcelas_do_projeto
+    im, rt = _im(projeto), _rt(projeto)
+    tipo = (projeto.get("tipo_servico") or "").lower()
+    acao = "REMEMBRAMENTO" if tipo == "remembramento" else "DESMEMBRAMENTO"
+    mat = _v(im, "matricula")
+    denom = _denom_atual(im)
+    cert = im.get("certificacao_sigef") or "—"
+
+    partes = parcelas_do_projeto(projeto)
+    parcelas_tab = [[
+        p.get("rotulo") or "—", p.get("denominacao") or denom,
+        _ha(p.get("area_ha")), _m(p.get("perimetro_m")),
+        p.get("certificacao_sigef") or "—",
+    ] for p in partes]
+
+    cabecalho = [
+        f"Imóvel objeto: {denom} — Matrícula {mat} — INCRA/SNCR {_v(im, 'cod_incra')}",
+        f"Proprietário: {_v(im, 'proprietario_nome')}, CPF/CNPJ {_v(im, 'proprietario_cpf_cnpj')}",
+        f"Município/UF: {_v(im, 'municipio')}/{_v(im, 'uf')} — Sistema Geodésico: "
+        f"{im.get('sistema_geodesico') or 'SIRGAS 2000'}",
+        f"Certificação SIGEF/INCRA da origem: {cert}",
+        f"Responsável Técnico: {rt.get('nome') or '—'} — {rt.get('conselho') or '—'} — "
+        f"Cód. Cred. INCRA {rt.get('credenciamento_incra') or '—'} — ART/TRT {_art_trt(im, rt)}",
+    ]
+
+    corpo = (
+        f"O PROPRIETÁRIO e o RESPONSÁVEL TÉCNICO abaixo assinados DECLARAM, de forma UNIFICADA "
+        f"e sob as penas da lei, para os fins do {acao.lower()} e em atendimento ao art. 176 da "
+        f"Lei nº 6.015/1973, à Lei nº 10.267/2001, ao Decreto nº 4.449/2002 e ao Provimento CNJ "
+        f"nº 195/2025, que o presente {acao} do imóvel de matrícula nº {mat}, GEORREFERENCIADO e "
+        f"CERTIFICADO junto ao SIGEF/INCRA e já REGISTRADO e AVERBADO, é realizado INTEGRALMENTE "
+        f"DENTRO do perímetro anteriormente definido, certificado e registrado, RESPEITANDO os "
+        f"limites, medidas, vértices e confrontações já georreferenciados, SEM QUALQUER ALTERAÇÃO "
+        f"dos limites externos ou das confrontações com terceiros. As parcelas resultantes abaixo "
+        f"relacionadas mantêm e RECONHECEM os limites já estabelecidos, inexistindo nova "
+        f"confrontação a anuir, litígio, dúvida, retificação pendente ou sobreposição, pelo que "
+        f"RECONHECEM e RATIFICAM expressamente os referidos limites, requerendo o competente "
+        f"registro/averbação no Cartório de Registro de Imóveis e a juntada da presente ao acervo "
+        f"do procedimento."
+    )
+
+    assinaturas = [
+        (_v(im, "proprietario_nome"),
+         f"Proprietário(a) — CPF/CNPJ {_v(im, 'proprietario_cpf_cnpj')}"),
+        (rt.get("nome") or "—",
+         f"Responsável Técnico — {rt.get('conselho') or '—'} · Cód. INCRA "
+         f"{rt.get('credenciamento_incra') or '—'} · ART/TRT {_art_trt(im, rt)}"),
+    ]
+
+    return {
+        "titulo": "DECLARAÇÃO UNIFICADA DE RECONHECIMENTO DE LIMITES (DRL)",
+        "cabecalho": cabecalho,
+        "corpo": corpo,
+        "parcelas_header": ["Parcela", "Denominação", "Área (ha)", "Perímetro (m)",
+                            "Certificação SIGEF"],
+        "parcelas": parcelas_tab,
+        "assinaturas": assinaturas,
+        "data": data_extenso(im.get("municipio"), im.get("uf")),
+    }
 
 
 def confrontantes_para_drl(projeto):

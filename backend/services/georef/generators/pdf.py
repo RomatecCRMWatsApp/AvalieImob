@@ -400,6 +400,27 @@ def pdf_drl(projeto, conf, tema="prime_i") -> bytes:
     return _build(e, cfg, d["titulo"], projeto.get("_brand_logo_bytes"))
 
 
+def pdf_drl_unificada(projeto, tema="prime_i") -> bytes:
+    """DRL UNIFICADA (desmembramento/remembramento): declaração RT + proprietário."""
+    cfg = _cfg(tema)
+    st, lar = _styles(cfg), _largura()
+    d = TX.render_drl_unificada(projeto)
+    e = []
+    e += _titulo(d["titulo"], cfg, st, lar)
+    for linha in d["cabecalho"]:
+        e.append(Paragraph(_esc(linha), st["kv"]))
+        e.append(Spacer(1, 2))
+    e.append(Spacer(1, 8))
+    e += _paras(d["corpo"], st["corpo"])
+    if d["parcelas"]:
+        e += _secao("PARCELAS RESULTANTES", cfg, st, lar)
+        e.append(_data_table(d["parcelas_header"], d["parcelas"], cfg, st, lar))
+    e.append(Spacer(1, 14))
+    e.append(Paragraph(_esc(d["data"]) + ".", st["corpo_c"]))
+    e += _bloco_assinaturas(d["assinaturas"], st, lar)
+    return _build(e, cfg, d["titulo"], projeto.get("_brand_logo_bytes"))
+
+
 def _subsec_parcela(p):
     """Cabeçalho de subseção de uma parcela: 'PARTE I — DENOM · X ha · Y m · SIGEF ...'."""
     return (f"{p['rotulo']} — {p.get('denominacao') or '—'} · {p.get('area_ha')} ha · "
@@ -551,4 +572,6 @@ def gerar_pdf(tipo, projeto, tema="prime_i", conf=None) -> bytes:
         if conf is None:
             raise ValueError("DRL requer o confrontante (conf).")
         return pdf_drl(projeto, conf, tema)
+    if tipo == "drl_unificada":
+        return pdf_drl_unificada(projeto, tema)
     raise ValueError(f"Tipo de documento desconhecido: {tipo}")

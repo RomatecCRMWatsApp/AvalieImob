@@ -715,6 +715,17 @@ async def baixar_documento(pid: str, tipo: str, fmt: str = Query("pdf"),
         data = await asyncio.to_thread(_montar_dossie, doc, tema, assinados, laudo_modo, laudo_seals)
         return _resp(data, "pdf", f"Dossie_{nb}.pdf", inline=(fmt != "download"))
 
+    # DRL UNIFICADA (desmembramento/remembramento): declaração RT + proprietário.
+    if tipo == "drl_unificada":
+        if not TX.requer_drl_unificada(doc.get("tipo_servico")):
+            raise HTTPException(status_code=422,
+                                detail="DRL unificada aplica-se a desmembramento/remembramento.")
+        if fmt == "docx":
+            data = await asyncio.to_thread(DOCX.gerar_docx, "drl_unificada", doc)
+            return _resp(data, "docx", f"DRL_unificada_{nb}.docx")
+        data = await asyncio.to_thread(PDF.gerar_pdf, "drl_unificada", doc, tema)
+        return _resp(data, "pdf", f"DRL_unificada_{nb}.pdf", inline=True)
+
     if tipo not in ("requerimento", "memorial", "laudo_tecnico"):
         raise HTTPException(status_code=404, detail="Documento desconhecido")
 
@@ -942,6 +953,12 @@ def _montar_dossie(doc: dict, tema: str, assinados: dict = None,
         "memorial": _memoriais_combinados(doc, tema, assinados),   # Memorial do SISTEMA (gerado)
         "drl": [PDF.gerar_pdf("drl", doc, tema, c) for c in TX.confrontantes_para_drl(doc)],
     }
+    # DRL UNIFICADA (desmembramento/remembramento): declaração RT + proprietário —
+    # versão ASSINADA se houver, senão a gerada.
+    if TX.requer_drl_unificada(doc.get("tipo_servico")):
+        du = assinados.get(("drl_unificada", None)) or PDF.gerar_pdf("drl_unificada", doc, tema)
+        if du:
+            partes["drl_unificada"] = du
     doc.pop("_seal_code", None)
     doc.pop("_verify_url", None)
     uploads = doc.get("uploads") or {}
@@ -1035,6 +1052,7 @@ _DOC_NOMES = {
     "memorial": "Memorial Descritivo",
     "laudo": "Laudo Técnico de Agrimensura",
     "requerimento": "Requerimento ao Cartório",
+    "drl_unificada": "DRL Unificada (Reconhecimento de Limites)",
     "dossie": "Dossiê Consolidado",
     "art_trt": "ART/TRT",
     "mapa": "Mapa / Planta (SIGEF)",
@@ -1073,6 +1091,8 @@ def _pdf_para_assinatura(doc: dict, tipo_doc: str, parcela: str, tema: str,
         return PDF.gerar_pdf("laudo_tecnico", doc, tema)
     if tipo_doc == "requerimento":
         return PDF.gerar_pdf("requerimento", doc, tema)
+    if tipo_doc == "drl_unificada":
+        return PDF.gerar_pdf("drl_unificada", doc, tema)
     if tipo_doc == "dossie":
         return _montar_dossie(doc, tema, assinados)
     raise ValueError(f"Documento desconhecido para assinatura: {tipo_doc}")
