@@ -594,6 +594,7 @@ async def startup():
         db = get_db()
         await db.users.create_index("id", unique=True)
         await db.users.create_index("email", unique=True)
+        await db.users.create_index("reset_token_hash", sparse=True)
     except Exception as e:
         logger.warning("Índice users (id/email único) não criado — verifique duplicatas: %s", e)
     # Índices do módulo Contrato de Exclusividade (aceite eletrônico) — idempotente.

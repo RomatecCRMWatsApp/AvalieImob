@@ -16,6 +16,8 @@ import LandingPage from './pages/LandingPage';
 // bundle único — agora só baixa ao entrar no /dashboard. A landing carrega leve.
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
+const EsqueciSenha = lazy(() => import('./pages/EsqueciSenha'));
+const RedefinirSenha = lazy(() => import('./pages/RedefinirSenha'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const PortalCliente = lazy(() => import('./pages/PortalCliente'));
 const ContratoPublico = lazy(() => import('./pages/ContratoPublico'));
@@ -208,6 +210,8 @@ function App() {
                 <Route path="/blog/precificar-georreferenciamento-demarcacao-averbacao-proposta" element={<BlogPostPropostasConsultoria />} />
                 <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
                 <Route path="/cadastro" element={<PublicRoute><Register /></PublicRoute>} />
+                <Route path="/esqueci-senha" element={<EsqueciSenha />} />
+                <Route path="/redefinir-senha/:token" element={<RedefinirSenha />} />
                 <Route path="/laudo/:token" element={<PortalCliente />} />
                 <Route path="/v/laudo/v/:hash" element={<VerificarLaudo />} />
                 <Route path="/contrato/public/:token" element={<ContratoPublico />} />

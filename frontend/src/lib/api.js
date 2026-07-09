@@ -11,7 +11,7 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-const PUBLIC_AUTH_ROUTES = ['/auth/login', '/auth/register'];
+const PUBLIC_AUTH_ROUTES = ['/auth/login', '/auth/register', '/auth/forgot-password', '/auth/reset-password'];
 const SKIP_401_CLEAR = ['/auth/me'];
 
 api.interceptors.response.use(
@@ -51,6 +51,8 @@ export const authAPI = {
   login: (data) => api.post('/auth/login', data).then(r => r.data),
   me: () => api.get('/auth/me').then(r => r.data),
   updateMe: (data) => api.put('/auth/me', data).then(r => r.data),
+  forgotPassword: (email) => api.post('/auth/forgot-password', { email }).then(r => r.data),
+  resetPassword: (token, password) => api.post('/auth/reset-password', { token, password }).then(r => r.data),
 };
 
 // ---- Branding (white-label por usuário: logo, cores, rodapé)

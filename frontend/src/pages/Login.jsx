@@ -91,7 +91,7 @@ const Login = () => {
             <div>
               <div className="flex justify-between items-center mb-1.5">
                 <label className="block text-sm font-medium text-gray-700">Senha</label>
-                <a href="#" className="text-xs text-emerald-700 hover:underline">Esqueci minha senha</a>
+                <Link to="/esqueci-senha" className="text-xs text-emerald-700 hover:underline">Esqueci minha senha</Link>
               </div>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />

@@ -2,7 +2,7 @@
 from models.common import _id, _now
 from models.user import (
     UserRegister, UserLogin, User, UserPublic, AuthResponse, UserUpdate,
-    CreateTestUserRequest, AdminUserOut,
+    CreateTestUserRequest, AdminUserOut, ForgotPasswordRequest, ResetPasswordRequest,
 )
 from models.ptam import (
     PtamSample, PtamImpactArea, PtamMarketSample, PtamBase, Ptam,
@@ -45,7 +45,7 @@ from models.recibo import (
 __all__ = [
     "_id", "_now",
     "UserRegister", "UserLogin", "User", "UserPublic", "AuthResponse", "UserUpdate",
-    "CreateTestUserRequest", "AdminUserOut",
+    "CreateTestUserRequest", "AdminUserOut", "ForgotPasswordRequest", "ResetPasswordRequest",
     "PtamSample", "PtamImpactArea", "PtamMarketSample", "PtamBase", "Ptam",
     "PtamVersion", "PtamVersionDiff",
     "AIMessage", "AIMessageResponse", "AIHistoryItem",

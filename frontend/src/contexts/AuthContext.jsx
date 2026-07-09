@@ -60,6 +60,16 @@ export const AuthProvider = ({ children }) => {
     return res.user;
   }, []);
 
+  // Aplica uma sessão já obtida (ex.: após redefinir a senha, o backend devolve
+  // token+user e o usuário entra direto).
+  const setSession = useCallback((res) => {
+    if (!res?.token || !res?.user) return;
+    localStorage.setItem(TOKEN_KEY, res.token);
+    localStorage.setItem(USER_KEY, JSON.stringify(res.user));
+    setUser(res.user);
+    return res.user;
+  }, []);
+
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
@@ -79,8 +89,8 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const value = useMemo(
-    () => ({ user, login, register, logout, loading, refreshUser }),
-    [user, login, register, logout, loading, refreshUser]
+    () => ({ user, login, register, logout, loading, refreshUser, setSession }),
+    [user, login, register, logout, loading, refreshUser, setSession]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

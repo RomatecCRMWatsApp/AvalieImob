@@ -1,6 +1,9 @@
 # @module routes.auth — Rotas de autenticação: registro, login e perfil do usuário autenticado
 import asyncio
+import hashlib
 import logging
+import os
+import secrets
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request
 from slowapi import Limiter
@@ -8,7 +11,8 @@ from slowapi.util import get_remote_address
 
 from db import get_db
 from services.auth_service import hash_password, verify_password, create_token, get_current_user_id
-from models import UserRegister, UserLogin, UserPublic, AuthResponse, UserUpdate
+from models import (UserRegister, UserLogin, UserPublic, AuthResponse, UserUpdate,
+                    ForgotPasswordRequest, ResetPasswordRequest)
 
 try:
     from email_service import send_welcome_email
@@ -40,6 +44,15 @@ def _sanitize_role(role, fallback: str = "Profissional") -> str:
 # ── Bloqueio de conta (anti força-bruta) ─────────────────────────────────────
 _MAX_FAILED = 6          # tentativas erradas antes de bloquear
 _LOCK_MINUTES = 15       # tempo de bloqueio temporário
+
+# ── Redefinição de senha ─────────────────────────────────────────────────────
+_RESET_TTL_MIN = 30      # validade do link de redefinição
+
+
+def _app_url() -> str:
+    """Base pública canônica (força www — o apex não resolve em conexões novas)."""
+    raw = (os.environ.get("APP_URL") or "https://www.romatecavalieimob.com.br").rstrip("/")
+    return raw.replace("://romatecavalieimob.com.br", "://www.romatecavalieimob.com.br")
 
 
 @router.post("/register", response_model=AuthResponse)
@@ -117,6 +130,53 @@ async def login(request: Request, data: UserLogin, db=Depends(get_db)):
     # Sucesso → zera contador/bloqueio.
     if u.get("failed_logins") or u.get("lock_until"):
         await db.users.update_one({"id": u["id"]}, {"$set": {"failed_logins": 0, "lock_until": None}})
+    token = create_token(u["id"])
+    defaults = {"crea": "", "role": "user", "plan": "mensal", "plan_status": "inactive", "plan_expires": None, "company": "", "bio": "", "company_logo": None}
+    pub = UserPublic(**{k: u.get(k) if u.get(k) is not None else defaults.get(k, "") for k in UserPublic.model_fields})
+    return AuthResponse(user=pub, token=token)
+
+
+@router.post("/forgot-password")
+@limiter.limit("4/minute")
+async def forgot_password(request: Request, data: ForgotPasswordRequest, db=Depends(get_db)):
+    """Solicita link de redefinição por e-mail. Resposta SEMPRE genérica (anti-enumeração
+    — não revela se o e-mail existe)."""
+    email = data.email.lower().strip()
+    u = await db.users.find_one({"email": email})
+    if u:
+        token = secrets.token_urlsafe(32)
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        expires = datetime.now(timezone.utc) + timedelta(minutes=_RESET_TTL_MIN)
+        await db.users.update_one({"id": u["id"]}, {"$set": {
+            "reset_token_hash": token_hash, "reset_token_expires": expires}})
+        reset_url = f"{_app_url()}/redefinir-senha/{token}"
+        try:
+            from email_service import send_password_reset_email
+            asyncio.create_task(send_password_reset_email(u.get("email"), u.get("name") or "", reset_url))
+        except Exception as e:  # noqa: BLE001
+            logger.error("Falha ao enfileirar e-mail de redefinição: %s", e)
+    return {"ok": True, "message": "Se o e-mail estiver cadastrado, enviamos um link de redefinição."}
+
+
+@router.post("/reset-password", response_model=AuthResponse)
+@limiter.limit("6/minute")
+async def reset_password(request: Request, data: ResetPasswordRequest, db=Depends(get_db)):
+    """Redefine a senha usando o token do e-mail (válido 30 min). Loga automaticamente."""
+    if len(data.password) < 8:
+        raise HTTPException(status_code=400, detail="Senha deve ter pelo menos 8 caracteres")
+    token_hash = hashlib.sha256((data.token or "").encode()).hexdigest()
+    now = datetime.now(timezone.utc)
+    u = await db.users.find_one({"reset_token_hash": token_hash})
+    exp = u.get("reset_token_expires") if u else None
+    if exp is not None and exp.tzinfo is None:
+        exp = exp.replace(tzinfo=timezone.utc)
+    if not u or not exp or exp < now:
+        raise HTTPException(status_code=400, detail="Link inválido ou expirado. Solicite um novo.")
+    await db.users.update_one({"id": u["id"]}, {
+        "$set": {"password_hash": hash_password(data.password), "failed_logins": 0, "lock_until": None},
+        "$unset": {"reset_token_hash": "", "reset_token_expires": ""},
+    })
+    logger.info("Senha redefinida via e-mail: user=%s", u.get("id"))
     token = create_token(u["id"])
     defaults = {"crea": "", "role": "user", "plan": "mensal", "plan_status": "inactive", "plan_expires": None, "company": "", "bio": "", "company_logo": None}
     pub = UserPublic(**{k: u.get(k) if u.get(k) is not None else defaults.get(k, "") for k in UserPublic.model_fields})

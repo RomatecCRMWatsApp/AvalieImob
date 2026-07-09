@@ -132,6 +132,27 @@ def build_welcome_email(name: str) -> tuple[str, str]:
     return subject, _base_template(subject, body)
 
 
+def build_password_reset_email(name: str, reset_url: str) -> tuple[str, str]:
+    """Return (subject, html) for the password-reset email."""
+    subject = "Redefinição de senha — AvalieImob"
+    body = f"""
+      <h2 style="color:{COLOR_GREEN};margin:0 0 16px;font-size:20px;">
+        Olá, {name or 'usuário'}!
+      </h2>
+      <p style="color:#333333;font-size:15px;line-height:1.7;margin:0 0 20px;">
+        Recebemos um pedido para <strong>redefinir a senha</strong> da sua conta no
+        AvalieImob. Clique no botão abaixo para criar uma nova senha. O link é válido
+        por <strong>30 minutos</strong>.
+      </p>
+      {_button('Redefinir minha senha', reset_url)}
+      <p style="color:#888888;font-size:12px;line-height:1.6;margin:18px 0 0;">
+        Se você não solicitou isso, ignore este e-mail — sua senha continua a mesma.
+        Nunca compartilhe este link com ninguém.
+      </p>
+    """
+    return subject, _base_template(subject, body)
+
+
 def build_payment_email(name: str, plan: str, amount: float, date: str | None = None) -> tuple[str, str]:
     """Return (subject, html) for a confirmed-payment email."""
     subject = f"Pagamento confirmado - Plano {plan}"
@@ -265,6 +286,11 @@ async def _send_in_background(to_email: str, subject: str, html: str) -> None:
 
 async def send_welcome_email(to_email: str, name: str) -> None:
     subject, html = build_welcome_email(name)
+    await _send_in_background(to_email, subject, html)
+
+
+async def send_password_reset_email(to_email: str, name: str, reset_url: str) -> None:
+    subject, html = build_password_reset_email(name, reset_url)
     await _send_in_background(to_email, subject, html)
 
 
