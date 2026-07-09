@@ -6,6 +6,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, ArrowRight, UploadCloud, FileCheck2, Wand2, FileDown, Eye,
   CheckCircle2, AlertTriangle, MapPin, Loader2, Map as MapIcon, Plus, Trash2, Search, PenLine,
+  ListChecks, X,
 } from 'lucide-react';
 import { georefAPI, assinaturaPosAPI, brandingAPI } from '../../../lib/api';
 import { useToast } from '../../../hooks/use-toast';
@@ -217,6 +218,7 @@ export default function GeorefWizard() {
   const [assinId, setAssinId] = useState(null);
   const [preparandoAssin, setPreparandoAssin] = useState(null);
   const [assinaturas, setAssinaturas] = useState({});   // { `${doc}:${parcela||''}`: {assinado,id} }
+  const [atrsSigri, setAtrsSigri] = useState(null);     // conferência dos atributos do shapefile
   const recarregarAssinaturas = useCallback(async () => {
     if (!proj?.id) return;
     try {
@@ -251,6 +253,15 @@ export default function GeorefWizard() {
       toast({ title: 'Erro ao preparar assinatura', description: e?.response?.data?.detail || '', variant: 'destructive' });
     } finally {
       setPreparandoAssin(null);
+    }
+  };
+
+  const verAtributos = async () => {
+    try {
+      const d = await georefAPI.shapefileAtributos(proj.id);
+      setAtrsSigri(d);
+    } catch (e) {
+      toast({ title: 'Erro ao carregar atributos', description: e?.response?.data?.detail || '', variant: 'destructive' });
     }
   };
 
@@ -770,6 +781,8 @@ export default function GeorefWizard() {
               <BtnDown icon={MapIcon}
                 label={parcelas.length > 0 ? `Shapefile SIG-RI (.zip · ${parcelas.length + 1} parcelas)` : 'Shapefile SIG-RI (.zip)'}
                 onClick={() => baixar(georefAPI.shapefile(proj.id), `SIGRI_${nb}.zip`)} />
+              <BtnDown icon={ListChecks} label="Conferir atributos SIG-RI"
+                onClick={verAtributos} />
               <BtnDown icon={MapPin} label="KML (Google Earth)"
                 onClick={() => baixar(georefAPI.kml(proj.id), `${nb}.kml`)} />
               <BtnDown icon={Eye} label="Ver Dossiê (PDF)"
@@ -799,6 +812,64 @@ export default function GeorefWizard() {
               Envio ao <strong>mapa.onr.org.br</strong> é manual (login ICP-Brasil do profissional), vinculado à prenotação.
             </p>
           </Card>
+        </div>
+      )}
+
+      {/* Conferência dos atributos SIG-RI (Prov. 195/2025) que vão no DBF de cada shapefile */}
+      {atrsSigri && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+          onClick={() => setAtrsSigri(null)}>
+          <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[85vh] overflow-auto p-5"
+            onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between mb-1">
+              <div>
+                <h3 className="font-semibold" style={{ color: GREEN }}>
+                  Atributos do Shapefile SIG-RI (Prov. CNJ 195/2025)
+                </h3>
+                <p className="text-xs text-gray-500">
+                  Estes atributos são gravados no <strong>.dbf</strong> de cada shapefile — é o que o
+                  ONR/EGI recebe. Confira antes de enviar.
+                </p>
+              </div>
+              <button onClick={() => setAtrsSigri(null)}><X className="w-5 h-5 text-gray-400" /></button>
+            </div>
+            <div className="space-y-5 mt-3">
+              {(atrsSigri.parcelas || []).map((p, i) => (
+                <div key={p.id || i} className="border rounded-xl overflow-hidden">
+                  <div className="px-3 py-2 text-sm font-semibold text-white flex items-center justify-between"
+                    style={{ background: GREEN }}>
+                    <span>{p.rotulo}{p.principal ? ' (principal)' : ''}</span>
+                    <span className="text-xs opacity-80">arquivo {i + 1} de {atrsSigri.parcelas.length}</span>
+                  </div>
+                  <table className="w-full text-xs">
+                    <tbody>
+                      {(atrsSigri.campos || []).map((c) => {
+                        const v = p.record?.[c.campo];
+                        const val = (v === null || v === undefined || v === '') ? '—' : String(v);
+                        return (
+                          <tr key={c.campo} className="border-t align-top">
+                            <td className="px-3 py-1.5 text-gray-500 w-1/2">
+                              {c.label} <span className="text-gray-300">({c.campo})</span>
+                            </td>
+                            <td className={`px-3 py-1.5 font-medium break-words ${val === '—' ? 'text-gray-300' : 'text-gray-800'}`}>
+                              {val}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button onClick={() => baixar(georefAPI.shapefile(proj.id), `SIGRI_${nb}.zip`)}
+                className="px-4 py-2 rounded-lg text-sm font-semibold text-white" style={{ background: GREEN }}>
+                Baixar shapefile(s)
+              </button>
+              <button onClick={() => setAtrsSigri(null)} className="px-4 py-2 rounded-lg text-sm border">Fechar</button>
+            </div>
+          </div>
         </div>
       )}
 

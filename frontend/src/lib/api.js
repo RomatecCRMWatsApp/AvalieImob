@@ -766,6 +766,8 @@ export const georefAPI = {
       { params: { fmt, ...(tema ? { tema } : {}) }, responseType: 'blob' }).then((r) => r.data),
   shapefile: (id) =>
     api.get(`${GEOREF}/projetos/${id}/shapefile`, { responseType: 'blob' }).then((r) => r.data),
+  shapefileAtributos: (id) =>
+    api.get(`${GEOREF}/projetos/${id}/shapefile/atributos`).then((r) => r.data),
   kml: (id) =>
     api.get(`${GEOREF}/projetos/${id}/kml`, { responseType: 'blob' }).then((r) => r.data),
 };

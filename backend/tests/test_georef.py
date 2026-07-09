@@ -313,9 +313,26 @@ def test_shapefile_valido(projeto):
     assert geom.is_valid
     rec = r.record(0).as_dict()
     assert rec["MATRICULA"] == "1234"
-    assert rec["SGEODESIC"] == "SIRGAS2000"
+    assert "SIRGAS" in rec["SGEODESIC"]
+    # atributos SIG-RI completos (Prov. 195/2025): m² derivado do ha + campos do acervo
+    assert rec["AREA_M2"] == pytest.approx(rec["AREA_HA"] * 10000, rel=1e-3)
+    for campo in ("PARCELA", "TIPO_ATO", "COD_INCRA", "PROPRIET", "RT_NOME", "PERIM_M"):
+        assert campo in rec
     # PRJ é SIRGAS 2000 / EPSG 4674
     assert b"4674" in membros["prj"]
+
+
+def test_atributos_sigri_completo(projeto_multi):
+    """A conferência SIG-RI traz UM registro completo por parcela (Parte I + Parte II)."""
+    atrs = GEO.atributos_sigri(projeto_multi)
+    assert len(atrs) == 2
+    campos = {c[0] for c in GEO.campos_sigri()}
+    for a in atrs:
+        assert set(a["record"].keys()) == campos          # todos os atributos presentes
+        assert a["record"]["TIPO_ATO"] == "desmembramento"
+    # a Parte II tem denominação/área próprias (parcela-aware)
+    p2 = next(a for a in atrs if not a["principal"])
+    assert "PARTE II" in (p2["record"]["DENOM"] or "").upper() or p2["record"]["PARCELA"]
 
 
 # ──────────────────────────────────────────────────────────────────────────────

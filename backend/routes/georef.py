@@ -862,6 +862,17 @@ async def baixar_shapefile(pid: str, uid: str = Depends(get_active_subscriber), 
     return _resp(data, "zip", f"SIGRI_{_nome_base(doc)}.zip")
 
 
+@router.get("/projetos/{pid}/shapefile/atributos")
+async def atributos_shapefile(pid: str, uid: str = Depends(get_active_subscriber),
+                              db=Depends(get_db)):
+    """Tela de CONFERÊNCIA dos atributos SIG-RI (Prov. 195/2025) que vão no DBF de CADA
+    shapefile — o mesmo que o ONR-EGI recebe. Um bloco por parcela (Parte I, Parte II)."""
+    doc = await _get_projeto(db, pid, uid)
+    campos = [{"campo": c, "label": lab, "tipo": t} for (c, lab, t) in GEO.campos_sigri()]
+    atributos = GEO.atributos_sigri(doc)
+    return {"campos": campos, "parcelas": atributos, "total": len(atributos)}
+
+
 @router.get("/projetos/{pid}/kml")
 async def baixar_kml(pid: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
     doc = await _get_projeto(db, pid, uid)

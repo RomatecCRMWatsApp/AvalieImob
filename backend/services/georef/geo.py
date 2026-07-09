@@ -5,6 +5,7 @@
 # GeoJSON (preview no front) e KML (Google Earth) a partir do mesmo anel.
 import math
 import os
+import re
 import tempfile
 import zipfile
 from typing import List, Tuple
@@ -175,12 +176,121 @@ def gerar_kml(projeto: dict) -> str:
 # ──────────────────────────────────────────────────────────────────────────────
 # Shapefile SIG-RI / ONR (Provimento 195/2025) — .zip SIRGAS 2000
 # ──────────────────────────────────────────────────────────────────────────────
+# Esquema de atributos DBF do SIG-RI (Prov. CNJ 195/2025 / ONR-EGI). Nomes ≤10 chars
+# (limite do formato DBF). Preenchidos com o ACERVO COMPLETO do imóvel/parcela.
 _FIELDS = [
-    ("MATRICULA", "C", 20, 0), ("DENOM", "C", 100, 0), ("PROPRIET", "C", 100, 0),
-    ("CPF_CNPJ", "C", 20, 0), ("COD_INCRA", "C", 20, 0), ("CNS", "C", 20, 0),
-    ("AREA_HA", "N", 18, 4), ("PERIM_M", "N", 18, 2), ("SGEODESIC", "C", 20, 0),
-    ("CERT_SIGEF", "C", 50, 0), ("MUNICIPIO", "C", 60, 0), ("UF", "C", 2, 0),
+    ("MATRICULA", "C", 20, 0),   # matrícula do imóvel de origem
+    ("PARCELA", "C", 30, 0),     # rótulo da parcela resultante (Parte I / Parte II)
+    ("TIPO_ATO", "C", 24, 0),    # desmembramento / remembramento / georreferenciamento
+    ("DENOM", "C", 120, 0),      # denominação da parcela/imóvel
+    ("COD_INCRA", "C", 20, 0),   # código INCRA/SNCR
+    ("CCIR", "C", 30, 0),        # nº do CCIR
+    ("NIRF", "C", 20, 0),        # NIRF / ITR
+    ("CAR", "C", 80, 0),         # registro no CAR
+    ("PROPRIET", "C", 120, 0),   # proprietário
+    ("CPF_CNPJ", "C", 20, 0),
+    ("CNS", "C", 20, 0),         # CNS da serventia
+    ("CARTORIO", "C", 120, 0),   # serventia / cartório
+    ("COMARCA", "C", 60, 0),     # comarca/município do cartório
+    ("AREA_HA", "N", 18, 4),     # área em hectares
+    ("AREA_M2", "N", 18, 2),     # área em m²
+    ("PERIM_M", "N", 18, 2),     # perímetro em metros
+    ("SGEODESIC", "C", 24, 0),   # sistema geodésico de referência (SRC)
+    ("CERT_SIGEF", "C", 50, 0),  # código de certificação SIGEF/INCRA
+    ("DT_CERT", "C", 12, 0),     # data da certificação
+    ("NATUREZA", "C", 60, 0),    # natureza da área
+    ("MUNICIPIO", "C", 60, 0),   # município do imóvel
+    ("UF", "C", 2, 0),
+    ("RT_NOME", "C", 120, 0),    # responsável técnico
+    ("RT_INCRA", "C", 20, 0),    # cód. credenciamento INCRA do RT
+    ("ART_TRT", "C", 40, 0),     # ART/TRT/RRT
 ]
+
+# Rótulos legíveis p/ a tela de CONFERÊNCIA dos atributos.
+_FIELD_LABELS = {
+    "MATRICULA": "Matrícula (origem)", "PARCELA": "Parcela resultante",
+    "TIPO_ATO": "Tipo de ato", "DENOM": "Denominação", "COD_INCRA": "Código INCRA/SNCR",
+    "CCIR": "CCIR", "NIRF": "NIRF / ITR", "CAR": "CAR (ambiental)",
+    "PROPRIET": "Proprietário", "CPF_CNPJ": "CPF/CNPJ", "CNS": "CNS da serventia",
+    "CARTORIO": "Cartório (serventia)", "COMARCA": "Comarca do cartório",
+    "AREA_HA": "Área (ha)", "AREA_M2": "Área (m²)", "PERIM_M": "Perímetro (m)",
+    "SGEODESIC": "Sistema geodésico (SRC)", "CERT_SIGEF": "Certificação SIGEF",
+    "DT_CERT": "Data da certificação", "NATUREZA": "Natureza da área",
+    "MUNICIPIO": "Município do imóvel", "UF": "UF", "RT_NOME": "Responsável Técnico",
+    "RT_INCRA": "Cód. INCRA do RT", "ART_TRT": "ART / TRT",
+}
+
+
+def _to_num(v) -> float:
+    if v is None:
+        return 0.0
+    if isinstance(v, (int, float)):
+        return float(v)
+    s = re.sub(r"[^0-9,.\-]", "", str(v))
+    if not s:
+        return 0.0
+    if "," in s:
+        s = s.replace(".", "").replace(",", ".")
+    try:
+        return float(s)
+    except ValueError:
+        return 0.0
+
+
+def _coerce(name: str, ftype: str, size: int, value) -> object:
+    if ftype == "N":
+        return round(_to_num(value), 4 if name == "AREA_HA" else 2)
+    return str(value if value is not None else "")[:size]
+
+
+def _registro_parcela(im: dict, rt: dict, tipo: str, p: dict) -> dict:
+    """Monta o registro DBF (atributos SIG-RI) de UMA parcela — fonte ÚNICA."""
+    area_ha = _to_num(p.get("area_ha"))
+    bruto = {
+        "MATRICULA": im.get("matricula"),
+        "PARCELA": p.get("rotulo") or ("Parte I" if p.get("principal") else ""),
+        "TIPO_ATO": tipo,
+        "DENOM": p.get("denominacao") or im.get("denominacao"),
+        "COD_INCRA": im.get("cod_incra"),
+        "CCIR": im.get("ccir_codigo"),
+        "NIRF": im.get("nirf"),
+        "CAR": im.get("car"),
+        "PROPRIET": im.get("proprietario_nome"),
+        "CPF_CNPJ": im.get("proprietario_cpf_cnpj"),
+        "CNS": im.get("cartorio_cns"),
+        "CARTORIO": im.get("cartorio_nome"),
+        "COMARCA": im.get("cartorio_municipio"),
+        "AREA_HA": area_ha,
+        "AREA_M2": area_ha * 10000.0,
+        "PERIM_M": _to_num(p.get("perimetro_m")),
+        "SGEODESIC": im.get("sistema_geodesico") or "SIRGAS 2000",
+        "CERT_SIGEF": p.get("certificacao_sigef") or im.get("certificacao_sigef"),
+        "DT_CERT": im.get("data_certificacao"),
+        "NATUREZA": im.get("natureza_area"),
+        "MUNICIPIO": im.get("municipio"),
+        "UF": im.get("uf"),
+        "RT_NOME": rt.get("nome"),
+        "RT_INCRA": rt.get("credenciamento_incra"),
+        "ART_TRT": rt.get("art_trt") or im.get("certificacao_sigef"),
+    }
+    return {n: _coerce(n, t, sz, bruto.get(n)) for (n, t, sz, _dec) in _FIELDS}
+
+
+def atributos_sigri(projeto: dict) -> list:
+    """Atributos DBF do SIG-RI (Prov. 195/2025) POR PARCELA — p/ a CONFERÊNCIA e o shapefile.
+    Retorna [{rotulo, principal, id, record{FIELD: valor}}, ...]."""
+    from services.georef.parcelas import parcelas_do_projeto
+    im = projeto.get("imovel") or {}
+    rt = projeto.get("responsavel_tecnico") or {}
+    tipo = (projeto.get("tipo_servico") or "").strip()
+    return [{"rotulo": p.get("rotulo") or "Parcela", "principal": bool(p.get("principal")),
+             "id": p.get("id"), "record": _registro_parcela(im, rt, tipo, p)}
+            for p in parcelas_do_projeto(projeto)]
+
+
+def campos_sigri() -> list:
+    """[(campo, label, tipo)] na ordem do DBF — p/ a tela de conferência."""
+    return [(n, _FIELD_LABELS.get(n, n), t) for (n, t, _sz, _dec) in _FIELDS]
 
 
 def _slug_parcela(parc: dict, idx: int) -> str:
@@ -189,28 +299,22 @@ def _slug_parcela(parc: dict, idx: int) -> str:
     return slug or f"P{idx + 1}"
 
 
-def _escrever_shapefile(base: str, im: dict, parc: dict, ring) -> None:
-    """Escreve um conjunto shp/shx/dbf/prj (1 polígono) em `base` (sem extensão)."""
+def _escrever_shapefile(base: str, record: dict, ring) -> None:
+    """Escreve um conjunto shp/shx/dbf/prj (1 polígono + atributos) em `base` (sem extensão)."""
     import shapefile  # pyshp
     w = shapefile.Writer(base, shapeType=shapefile.POLYGON)
     for f, t, sz, dec in _FIELDS:
         w.field(f, t, sz, dec)
     w.poly([[list(p) for p in ring]])
-    w.record(
-        str(im.get("matricula") or ""), (parc.get("denominacao") or "")[:100],
-        (im.get("proprietario_nome") or "")[:100], str(im.get("proprietario_cpf_cnpj") or ""),
-        str(im.get("cod_incra") or ""), str(im.get("cartorio_cns") or ""),
-        float(parc.get("area_ha") or 0), float(parc.get("perimetro_m") or 0),
-        "SIRGAS2000", str(parc.get("certificacao_sigef") or ""),
-        (im.get("municipio") or "")[:60], str(im.get("uf") or "")[:2],
-    )
+    w.record(*[record[n] for (n, *_rest) in _FIELDS])
     w.close()
     with open(base + ".prj", "w", encoding="utf-8") as fh:
         fh.write(SIRGAS2000_PRJ)
 
 
 def gerar_shapefile_bytes(projeto: dict) -> bytes:
-    """Gera o(s) Shapefile(s) SIG-RI (.shp/.shx/.dbf/.prj) zipados, SIRGAS 2000/EPSG:4674.
+    """Gera o(s) Shapefile(s) SIG-RI (.shp/.shx/.dbf/.prj) zipados, SIRGAS 2000/EPSG:4674,
+    com o ACERVO COMPLETO de atributos (Prov. 195/2025) preenchido no DBF.
 
     DESMEMBRAMENTO (2+ parcelas resultantes): UM shapefile POR PARCELA no .zip
     (cada parcela vira uma matrícula própria no RI). Imóvel único/remembramento
@@ -219,6 +323,8 @@ def gerar_shapefile_bytes(projeto: dict) -> bytes:
     from services.georef.parcelas import parcelas_do_projeto
 
     im = projeto.get("imovel") or {}
+    rt = projeto.get("responsavel_tecnico") or {}
+    tipo = (projeto.get("tipo_servico") or "").strip()
     parcelas = parcelas_do_projeto(projeto)
     aneis = [(p, _orientar_horario(build_ring(p.get("vertices") or []))) for p in parcelas]
     aneis = [(p, r) for (p, r) in aneis if len(r) >= 4]
@@ -232,7 +338,7 @@ def gerar_shapefile_bytes(projeto: dict) -> bytes:
     for idx, (parc, ring) in enumerate(aneis):
         nome = f"{matbase}_{_slug_parcela(parc, idx)}" if multi else matbase
         base = os.path.join(tmp, nome)
-        _escrever_shapefile(base, im, parc, ring)
+        _escrever_shapefile(base, _registro_parcela(im, rt, tipo, parc), ring)
         bases.append(base)
 
     import io as _io
