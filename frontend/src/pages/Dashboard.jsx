@@ -32,6 +32,7 @@ import LeadsAdmin from './admin/LeadsAdmin';
 import DanfseTemas from './admin/DanfseTemas';
 import NfseEmissao from './admin/NfseEmissao';
 import DivulgacaoPage from './admin/DivulgacaoPage';
+import EmailDiagnostico from './admin/EmailDiagnostico';
 import PropostasList from '../components/dashboard/propostas/PropostasList';
 import PropostaForm from '../components/dashboard/propostas/PropostaForm';
 import PtamList from '../components/dashboard/ptam/PtamList';
@@ -489,6 +490,7 @@ const Dashboard = () => {
             <Route path="admin/danfse" element={<DanfseTemas />} />
             <Route path="admin/nfse-emissao" element={<NfseEmissao />} />
             <Route path="admin/divulgacao" element={<DivulgacaoPage />} />
+            <Route path="admin/email" element={<EmailDiagnostico />} />
             <Route path="topografia/georef"      element={<GeorefList />} />
             <Route path="topografia/georef/novo" element={<GeorefWizard />} />
             <Route path="topografia/georef/:id"  element={<GeorefWizard />} />

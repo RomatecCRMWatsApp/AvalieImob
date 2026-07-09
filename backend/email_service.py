@@ -248,7 +248,7 @@ def _send_via_sendgrid(to_email: str, subject: str, html: str) -> None:
     from sendgrid.helpers.mail import Mail  # type: ignore
 
     api_key = os.environ["SENDGRID_API_KEY"]
-    from_addr = os.environ.get("FROM_EMAIL") or os.environ.get("SMTP_FROM", "contato@consultoriaromatec.com.br")
+    from_addr = os.environ.get("FROM_EMAIL") or os.environ.get("SMTP_FROM", "contato@romatecavalieimob.com.br")
 
     message = Mail(
         from_email=from_addr,
@@ -272,6 +272,46 @@ def _send_email_sync(to_email: str, subject: str, html: str) -> None:
         _send_via_smtp(to_email, subject, html)
     else:
         logger.info("[EMAIL LOG ONLY] Would send '%s' to %s (no SMTP/SendGrid configured)", subject, to_email)
+
+
+# ── Diagnóstico / teste (painel admin) ────────────────────────────────
+def email_config_status() -> dict:
+    """Estado da configuração de e-mail (sem expor segredos) — p/ o diagnóstico."""
+    if _is_sendgrid_configured():
+        provider = "SendGrid"
+    elif _is_smtp_configured():
+        provider = "SMTP"
+    else:
+        provider = None
+    from_addr = (os.environ.get("FROM_EMAIL") or os.environ.get("SMTP_FROM")
+                 or os.environ.get("SMTP_USER") or "")
+    return {
+        "provider": provider,
+        "configured": provider is not None,
+        "from_email": from_addr,
+        "smtp_host": os.environ.get("SMTP_HOST", ""),
+        "smtp_port": os.environ.get("SMTP_PORT", "587"),
+        "smtp_user_set": bool(os.environ.get("SMTP_USER")),
+        "smtp_pass_set": bool(os.environ.get("SMTP_PASS")),
+        "sendgrid_key_set": bool(os.environ.get("SENDGRID_API_KEY")),
+    }
+
+
+def send_test_email(to_email: str) -> dict:
+    """Envia um e-mail de teste SÍNCRONO e devolve o resultado; levanta com o erro real
+    do provedor (p/ o painel mostrar exatamente o que falhou)."""
+    st = email_config_status()
+    if not st["configured"]:
+        return {"ok": False, "provider": None,
+                "error": "Nenhum provedor configurado. Defina SMTP_HOST/SMTP_USER/SMTP_PASS "
+                         "ou SENDGRID_API_KEY (+ FROM_EMAIL) no Railway."}
+    subject = "Teste de e-mail — AvalieImob"
+    body = _base_template(subject,
+        "<p style='color:#333;font-size:15px;line-height:1.7;'>Este é um e-mail de teste do "
+        "<strong>AvalieImob</strong>. Se você recebeu esta mensagem, o envio de e-mails "
+        "(inclusive o link de <em>redefinição de senha</em>) está funcionando. ✓</p>")
+    _send_email_sync(to_email, subject, body)   # levanta em falha real
+    return {"ok": True, "provider": st["provider"], "from_email": st["from_email"], "to": to_email}
 
 
 # ── Async public API ──────────────────────────────────────────────────

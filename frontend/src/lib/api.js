@@ -253,6 +253,8 @@ export const assinaturaClienteAPI = {
 export const adminAPI = {
   listUsers: () => api.get('/admin/users').then(r => r.data),
   createTestUser: (data) => api.post('/admin/create-test-user', data).then(r => r.data),
+  emailStatus: () => api.get('/admin/email/status').then(r => r.data),
+  emailTest: (to) => api.post('/admin/email/test', { to }).then(r => r.data),
   excluirUsuario: (id) => api.delete(`/admin/users/${id}`).then(r => r.data),
   excluirInativos: () => api.post('/admin/users/excluir-inativos').then(r => r.data),
   // Leads da Calculadora pública

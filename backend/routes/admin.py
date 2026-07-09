@@ -13,6 +13,30 @@ router = APIRouter(tags=["admin"])
 logger = logging.getLogger("romatec")
 
 
+@router.get("/admin/email/status")
+async def admin_email_status(uid: str = Depends(get_admin_user)):
+    """Estado da configuração de e-mail (provedor, remetente) — sem expor segredos."""
+    from email_service import email_config_status
+    return email_config_status()
+
+
+@router.post("/admin/email/test")
+async def admin_email_test(body: dict, uid: str = Depends(get_admin_user), db=Depends(get_db)):
+    """Envia um e-mail de TESTE para o endereço informado e devolve o resultado real."""
+    import re
+    to = str((body or {}).get("to") or "").strip()
+    if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", to):
+        raise HTTPException(status_code=422, detail="Informe um e-mail válido para o teste.")
+    from email_service import send_test_email
+    import asyncio
+    try:
+        res = await asyncio.to_thread(send_test_email, to)
+    except Exception as e:  # noqa: BLE001 — devolve o erro real do provedor p/ diagnóstico
+        logger.error("Teste de e-mail falhou: %s", e, exc_info=True)
+        return {"ok": False, "error": f"{type(e).__name__}: {e}"}
+    return res
+
+
 @router.post("/admin/create-test-user")
 async def admin_create_test_user(data: CreateTestUserRequest, uid: str = Depends(get_admin_user), db=Depends(get_db)):
     existing = await db.users.find_one({"email": data.email.lower()})
