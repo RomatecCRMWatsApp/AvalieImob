@@ -44,9 +44,16 @@ def _base_template(title: str, body_html: str) -> str:
           <!-- Header -->
           <tr>
             <td style="background-color:{COLOR_GREEN};padding:28px 32px;text-align:center;">
-              <img src="{LOGO_URL}" alt="RomaTec AvalieImob"
-                   width="72" height="72"
-                   style="display:block;margin:0 auto 12px;border-radius:8px;" />
+              <!-- Monograma "A" desenhado em HTML (autossuficiente — sem imagem remota,
+                   que os clientes de e-mail bloqueiam por padrão). -->
+              <table cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 12px;">
+                <tr>
+                  <td width="64" height="64" align="center" valign="middle"
+                      style="width:64px;height:64px;background-color:{COLOR_GOLD};border-radius:14px;
+                             font-family:Georgia,'Times New Roman',serif;font-size:38px;font-weight:bold;
+                             color:{COLOR_GREEN};line-height:64px;text-align:center;">A</td>
+                </tr>
+              </table>
               <p style="margin:0;color:#ffffff;font-size:13px;letter-spacing:1px;
                          text-transform:uppercase;opacity:0.85;">
                 RomaTec Consultoria Total
