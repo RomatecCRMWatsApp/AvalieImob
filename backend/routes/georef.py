@@ -29,6 +29,7 @@ from services.georef import geo as GEO
 from services.georef.parcelas import parcelas_do_projeto, projeto_da_parcela, tem_multiparcela
 from services.georef.cadeia_dominial import parse_cadeia_dominial
 from services.georef import cancelamento as CANC
+from services.georef import ods as ODS
 from services.georef.generators import textos as TX
 from services.georef.generators import pdf as PDF
 from services.georef.generators import docx as DOCX
@@ -48,6 +49,8 @@ _MIME = {
     "zip": "application/zip",
     "geojson": "application/geo+json",
     "kml": "application/vnd.google-earth.kml+xml",
+    "ods": "application/vnd.oasis.opendocument.spreadsheet",
+    "png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "webp": "image/webp",
 }
 
 
@@ -183,6 +186,180 @@ async def cancelamento_checklist(pid: str, uid: str = Depends(get_active_subscri
     """Checklist dinâmico do cancelamento (documentos da justificativa + condições i–viii)."""
     doc = await _get_projeto(db, pid, uid)
     return CANC.checklist(doc)
+
+
+def _anexos_canc(doc: dict) -> dict:
+    return dict((doc.get("cancelamento") or {}).get("docs_anexos") or {})
+
+
+@router.post("/projetos/{pid}/cancelamento/upload")
+async def cancelamento_upload(pid: str, chave: str = Form(...), file: UploadFile = File(...),
+                              uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    """Anexa um documento do checklist (por `chave`) — vai ao dossiê. ODS é validada e
+    convertida em PDF; a área calculada auto-preenche as condições do requerimento."""
+    doc = await _get_projeto(db, pid, uid)
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=422, detail="Arquivo vazio")
+    if len(data) > _MAX_UPLOAD:
+        raise HTTPException(status_code=413, detail="Arquivo muito grande (máx. 30 MB)")
+    fn = (file.filename or "").lower()
+    is_ods = fn.endswith(".ods") or "opendocument.spreadsheet" in (file.content_type or "")
+    ext = "ods" if is_ods else _ext_arquivo(file.filename, file.content_type)
+    item_id = str(uuid.uuid4())
+    key = f"topografia/{uid}/{pid}/cancelamento/{chave}_{item_id}.{ext}"
+    ct = file.content_type or _MIME.get(ext, "application/octet-stream")
+    try:
+        await asyncio.to_thread(r2_storage.upload_bytes, data, key, ct)
+    except Exception as e:  # noqa: BLE001
+        logger.error("Cancelamento: falha no upload R2 (%s)", e)
+        raise HTTPException(status_code=502, detail="Falha ao armazenar o arquivo")
+
+    canc = dict(doc.get("cancelamento") or {})
+    anexos = dict(canc.get("docs_anexos") or {})
+    anexos[chave] = {"id": item_id, "key": key, "filename": file.filename, "ext": ext,
+                     "content_type": ct, "is_ods": is_ods, "uploaded_at": _agora().isoformat()}
+    canc["docs_anexos"] = anexos
+    status = dict(canc.get("docs_status") or {})
+    status[chave] = "ok"
+    canc["docs_status"] = status
+
+    validacao = None
+    if is_ods:
+        validacao = await asyncio.to_thread(ODS.validar, data, canc.get("area_parcela_ha"))
+        r = validacao.get("resumo") or {}
+        if r.get("area_ha") is not None and not canc.get("area_ods_ha"):
+            canc["area_ods_ha"] = round(r["area_ha"], 4)
+        if r.get("abas_perimetro") is not None:
+            canc["ods_uma_aba"] = len(r["abas_perimetro"]) == 1
+    await db.georef_projetos.update_one(
+        {"id": pid, "user_id": uid},
+        {"$set": {"cancelamento": canc, "updated_at": _agora().isoformat()}})
+    novo = {**doc, "cancelamento": canc}
+    return {"ok": True, "chave": chave, "anexo": anexos[chave], "validacao": validacao,
+            "checklist": CANC.checklist(novo)}
+
+
+@router.delete("/projetos/{pid}/cancelamento/anexo/{chave}")
+async def cancelamento_remover_anexo(pid: str, chave: str,
+                                     uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    doc = await _get_projeto(db, pid, uid)
+    canc = dict(doc.get("cancelamento") or {})
+    anexos = dict(canc.get("docs_anexos") or {})
+    removeu = anexos.pop(chave, None) is not None
+    canc["docs_anexos"] = anexos
+    status = dict(canc.get("docs_status") or {})
+    if status.get(chave) == "ok":
+        status[chave] = "pendente"
+    canc["docs_status"] = status
+    await db.georef_projetos.update_one(
+        {"id": pid, "user_id": uid},
+        {"$set": {"cancelamento": canc, "updated_at": _agora().isoformat()}})
+    return {"ok": True, "removido": removeu, "checklist": CANC.checklist({**doc, "cancelamento": canc})}
+
+
+@router.get("/projetos/{pid}/cancelamento/anexo/{chave}")
+async def cancelamento_ver_anexo(pid: str, chave: str, fmt: str = Query("orig"),
+                                 tema: str = Query(None),
+                                 uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    """Serve o anexo. Se for ODS e `fmt=pdf`, converte a planilha em PDF legível."""
+    doc = await _get_projeto(db, pid, uid)
+    a = _anexos_canc(doc).get(chave)
+    if not a:
+        raise HTTPException(status_code=404, detail="Anexo não encontrado")
+    raw = await asyncio.to_thread(r2_storage.download_bytes, a["key"])
+    if a.get("is_ods") and fmt == "pdf":
+        await _injetar_logo(db, uid, doc)
+        pdf = await asyncio.to_thread(ODS.para_pdf, raw, tema or doc.get("tema_pdf") or "prime_i",
+                                      doc.get("_brand_logo_bytes"))
+        return _resp(pdf, "pdf", f"Planilha_ODS_{_nome_base(doc)}.pdf", inline=True)
+    return _resp(raw, a.get("ext", "bin"), a.get("filename") or "anexo", inline=True)
+
+
+def _ods_anexo(doc: dict):
+    return next((v for v in _anexos_canc(doc).values() if v.get("is_ods")), None)
+
+
+@router.post("/projetos/{pid}/cancelamento/ods/validar")
+async def cancelamento_validar_ods(pid: str, uid: str = Depends(get_active_subscriber),
+                                   db=Depends(get_db)):
+    """Motor de conferência da Planilha ODS (padrões SIGEF + Ofício 814/2026)."""
+    doc = await _get_projeto(db, pid, uid)
+    a = _ods_anexo(doc)
+    if not a:
+        raise HTTPException(status_code=404, detail="Nenhuma Planilha ODS anexada.")
+    raw = await asyncio.to_thread(r2_storage.download_bytes, a["key"])
+    return await asyncio.to_thread(ODS.validar, raw, (doc.get("cancelamento") or {}).get("area_parcela_ha"))
+
+
+@router.post("/projetos/{pid}/cancelamento/ods/corrigir")
+async def cancelamento_corrigir_ods(pid: str, uid: str = Depends(get_active_subscriber),
+                                    db=Depends(get_db)):
+    """Correção assistida: harmoniza o requerimento com a ODS (área, aba de perímetro,
+    natureza, identificação do imóvel quando vazia) e lista o que precisa ser corrigido NA ODS."""
+    doc = await _get_projeto(db, pid, uid)
+    a = _ods_anexo(doc)
+    if not a:
+        raise HTTPException(status_code=404, detail="Nenhuma Planilha ODS anexada.")
+    canc = dict(doc.get("cancelamento") or {})
+    raw = await asyncio.to_thread(r2_storage.download_bytes, a["key"])
+    val = await asyncio.to_thread(ODS.validar, raw, canc.get("area_parcela_ha"))
+    r = val.get("resumo") or {}
+    aplicados = []
+    if r.get("area_ha") is not None:
+        canc["area_ods_ha"] = round(r["area_ha"], 4)
+        aplicados.append(f"Área da ODS = {canc['area_ods_ha']} ha")
+    if r.get("abas_perimetro") is not None:
+        canc["ods_uma_aba"] = len(r["abas_perimetro"]) == 1
+        aplicados.append("Uma aba de perímetro" if canc["ods_uma_aba"] else "Múltiplas abas de perímetro (revisar)")
+    ident = r.get("identificacao") or {}
+    if (ident.get("natureza") or "").lower().startswith("particular"):
+        canc["natureza"] = "particular"
+        aplicados.append("Natureza da parcela = particular")
+    im = dict(doc.get("imovel") or {})
+    imovel_upd = False
+    for campo_ods, campo_im, rot in [("cod_incra", "cod_incra", "Código INCRA/SNCR"),
+                                     ("matricula", "matricula", "Matrícula"),
+                                     ("cns", "cartorio_cns", "CNS do cartório")]:
+        if ident.get(campo_ods) and not im.get(campo_im):
+            im[campo_im] = ident[campo_ods]
+            imovel_upd = True
+            aplicados.append(f"{rot} do imóvel (da ODS)")
+    if not canc.get("codigo_parcela_sigef") and im.get("certificacao_sigef"):
+        canc["codigo_parcela_sigef"] = im["certificacao_sigef"]
+    sets = {"cancelamento": canc, "updated_at": _agora().isoformat()}
+    if imovel_upd:
+        sets["imovel"] = im
+    await db.georef_projetos.update_one({"id": pid, "user_id": uid}, {"$set": sets})
+    corrigir_ods = [e["msg"] for e in val.get("erros", [])] + [x["msg"] for x in val.get("alertas", [])]
+    novo = {**doc, "cancelamento": canc, "imovel": im}
+    return {"ok": True, "aplicados": aplicados, "corrigir_na_ods": corrigir_ods,
+            "validacao": val, "checklist": CANC.checklist(novo)}
+
+
+@router.get("/projetos/{pid}/documentos/dossie_cancelamento")
+async def baixar_dossie_cancelamento(pid: str, fmt: str = Query("pdf"), tema: str = Query(None),
+                                     uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    """Dossiê do cancelamento: Requerimento + todos os anexos (ODS→PDF, imagens→página)."""
+    doc = await _get_projeto(db, pid, uid)
+    await _injetar_logo(db, uid, doc)
+    await _aplicar_selo(db, uid, doc, "requerimento")
+    tema = tema or doc.get("tema_pdf") or "prime_i"
+    partes = [await asyncio.to_thread(PDF.gerar_pdf, "requerimento_cancelamento", doc, tema)]
+    for a in _anexos_canc(doc).values():
+        try:
+            raw = await asyncio.to_thread(r2_storage.download_bytes, a["key"])
+            if a.get("is_ods"):
+                partes.append(await asyncio.to_thread(ODS.para_pdf, raw, tema, doc.get("_brand_logo_bytes")))
+            elif raw[:5] == b"%PDF-":
+                partes.append(raw)
+            else:  # imagem → página A4 (best-effort; anexo não-convertível é ignorado)
+                partes.append(await asyncio.to_thread(DOSSIE._img_para_pdf, raw))
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Dossiê cancelamento: anexo ignorado (%s): %s", a.get("filename"), e)
+            continue
+    data = await asyncio.to_thread(DOSSIE._concat_pdfs, partes)
+    return _resp(data, "pdf", f"Dossie_cancelamento_{_nome_base(doc)}.pdf", inline=(fmt != "download"))
 
 
 # ──────────────────────────────────────────────────────────────────────────────

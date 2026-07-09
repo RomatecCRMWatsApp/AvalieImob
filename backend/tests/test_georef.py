@@ -817,3 +817,108 @@ def test_cancelamento_pdf_gera_com_justificativa_e_referencia():
     # detentor + RT assinam
     papeis = [p[1] for p in d["assinaturas"]]
     assert any("Detentor" in x for x in papeis) and any("Responsável Técnico" in x for x in papeis)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Motor de conferência da Planilha ODS (SIGEF) — services/georef/ods.py
+# ──────────────────────────────────────────────────────────────────────────────
+def _ods_cell(txt):
+    return f"<table:table-cell><text:p>{txt}</text:p></table:table-cell>"
+
+
+def _ods_row(*cells):
+    return "<table:table-row>" + "".join(_ods_cell(c) for c in cells) + "</table:table-row>"
+
+
+def _build_ods(vertices, sistema="Sistema de referência SIRGAS2000", n_perim=1):
+    perim_rows = [
+        _ods_row(sistema),
+        _ods_row("Vértice", "E/Long", "Sigma long", "N/Lat", "Sigma lat", "h", "Sigma h",
+                 "Método Posicionamento", "Tipo Limite", "CNS", "Matrícula", "Descritivo"),
+    ]
+    for cod, lon, lat in vertices:
+        perim_rows.append(_ods_row(cod, lon, "0,00", lat, "0,00", "100", "0,01",
+                                   "PG1", "LA1", "03.018-9", "123", "Confrontante X"))
+    perim = "".join(
+        f'<table:table table:name="perimetro_{i}">' + "".join(perim_rows) + "</table:table>"
+        for i in range(1, n_perim + 1))
+    ident = ('<table:table table:name="identificacao">'
+             + _ods_row("Denominação:", "FAZENDA TESTE")
+             + _ods_row("Matrícula:", "489")
+             + _ods_row("Código do Imóvel(SNCR/INCRA):", "1100350355993")
+             + _ods_row("Natureza da área:", "Particular")
+             + _ods_row("Código do cartório (CNS):", "03.018-9")
+             + "</table:table>")
+    content = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<office:document-content '
+        'xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" '
+        'xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0" '
+        'xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0">'
+        "<office:body><office:spreadsheet>" + ident + perim
+        + "</office:spreadsheet></office:body></office:document-content>")
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("content.xml", content)
+    return buf.getvalue()
+
+
+_VERTS_OK = [
+    ("FQNS-M-1", "47 28 34,000 W", "04 58 20,000 S"),
+    ("FQNS-M-2", "47 28 20,000 W", "04 58 20,000 S"),
+    ("FQNS-M-3", "47 28 20,000 W", "04 58 34,000 S"),
+    ("FQNS-M-4", "47 28 34,000 W", "04 58 34,000 S"),
+]
+
+
+def test_ods_analisa_e_valida_sirgas():
+    from services.georef import ods as ODS
+    data = _build_ods(_VERTS_OK)
+    a = ODS.analisar(data)
+    assert a["abas_perimetro"] == ["perimetro_1"]
+    assert "SIRGAS2000" in a["sistema_referencia"].upper().replace(" ", "")
+    assert a["n_vertices"] == 4 and a["area_ha"] and a["area_ha"] > 0
+    assert a["identificacao"]["matricula"] == "489"
+    v = ODS.validar(data, area_parcela_ha=a["area_ha"])
+    assert v["ok"] is True and not v["erros"]
+    cods = [i["codigo"] for i in v["info"]]
+    assert "PERIMETRO_UNICO" in cods and "SRC_OK" in cods and "AREA_OK" in cods
+
+
+def test_ods_sistema_invalido_gera_erro():
+    from services.georef import ods as ODS
+    data = _build_ods(_VERTS_OK, sistema="Sistema de referência SAD69")
+    v = ODS.validar(data)
+    assert v["ok"] is False
+    assert any(e["codigo"] == "SRC_INVALIDO" for e in v["erros"])
+
+
+def test_ods_multi_perimetro_gera_alerta():
+    from services.georef import ods as ODS
+    data = _build_ods(_VERTS_OK, n_perim=2)
+    a = ODS.analisar(data)
+    assert len(a["abas_perimetro"]) == 2
+    v = ODS.validar(data)
+    assert any(x["codigo"] == "MULTI_PERIMETRO" for x in v["alertas"])
+
+
+def test_ods_poucos_vertices_gera_erro():
+    from services.georef import ods as ODS
+    data = _build_ods(_VERTS_OK[:2])
+    v = ODS.validar(data)
+    assert any(e["codigo"] == "POUCOS_VERTICES" for e in v["erros"])
+
+
+def test_ods_area_divergente_alerta():
+    from services.georef import ods as ODS
+    data = _build_ods(_VERTS_OK)
+    v = ODS.validar(data, area_parcela_ha=999.0)  # muito maior que a real
+    cods = [x["codigo"] for x in v["alertas"]]
+    assert "AREA_DIFF_10" in cods and "AREA_DIFF_25" in cods
+
+
+def test_ods_para_pdf():
+    from services.georef import ods as ODS
+    data = _build_ods(_VERTS_OK)
+    pdf = ODS.para_pdf(data, "prime_i")
+    assert pdf[:5] == b"%PDF-" and len(pdf) > 2000

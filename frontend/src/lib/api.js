@@ -781,6 +781,24 @@ export const georefAPI = {
     api.get(`${GEOREF}/cancelamento/justificativas`).then((r) => r.data),
   cancelamentoChecklist: (id) =>
     api.get(`${GEOREF}/projetos/${id}/cancelamento/checklist`).then((r) => r.data),
+  cancelamentoUpload: (id, chave, file) => {
+    const fd = new FormData();
+    fd.append('chave', chave);
+    fd.append('file', file);
+    return api.post(`${GEOREF}/projetos/${id}/cancelamento/upload`, fd).then((r) => r.data);
+  },
+  cancelamentoRemoverAnexo: (id, chave) =>
+    api.delete(`${GEOREF}/projetos/${id}/cancelamento/anexo/${encodeURIComponent(chave)}`).then((r) => r.data),
+  cancelamentoAnexoBlob: (id, chave, fmt) =>
+    api.get(`${GEOREF}/projetos/${id}/cancelamento/anexo/${encodeURIComponent(chave)}`,
+      { params: fmt ? { fmt } : {}, responseType: 'blob' }).then((r) => r.data),
+  cancelamentoValidarOds: (id) =>
+    api.post(`${GEOREF}/projetos/${id}/cancelamento/ods/validar`).then((r) => r.data),
+  cancelamentoCorrigirOds: (id) =>
+    api.post(`${GEOREF}/projetos/${id}/cancelamento/ods/corrigir`).then((r) => r.data),
+  cancelamentoDossie: (id, fmt) =>
+    api.get(`${GEOREF}/projetos/${id}/documentos/dossie_cancelamento`,
+      { params: fmt ? { fmt } : {}, responseType: 'blob' }).then((r) => r.data),
 };
 
 // Topografia & Geo — Geo Urbano (Remembramento e demais serviços urbanos)
