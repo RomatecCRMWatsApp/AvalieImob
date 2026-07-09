@@ -90,6 +90,7 @@ app.include_router(api)
 # ── Verificação pública de Recibo (/v/{hash}) — sem autenticação ─────
 from fastapi import Depends, HTTPException
 from fastapi.responses import Response as _Response
+from dependencies import get_admin_user
 
 
 def _rec_fmt_brl(v):
@@ -374,11 +375,10 @@ async def indexnow_key_file():
     return _Response(content=INDEXNOW_KEY, media_type="text/plain")
 
 @app.post("/api/seo/indexnow-ping")
-async def indexnow_ping(payload: dict):
+async def indexnow_ping(payload: dict, _uid: str = Depends(get_admin_user)):
     """Notifica Bing/Yandex via IndexNow sobre URLs novas ou atualizadas.
     Body: { "urls": ["https://www.romatecavalieimob.com.br/blog/xyz", ...] }
-    Util pra disparar manualmente quando publicar artigo novo no blog.
-    """
+    Ação de administrador (dispara ao publicar artigo novo no blog)."""
     import httpx
     urls = payload.get("urls") or []
     if not urls:
@@ -568,6 +568,13 @@ app.add_middleware(
 async def startup():
     init_db()
     logger.info("MongoDB conectado")
+    # Blindagem: avisa (loud) se tokens de webhook não estão configurados. O webhook
+    # do MP reconsulta o pagamento (não é forjável), mas o token é a 1ª barreira e
+    # deve estar setado em produção. Só um aviso — não quebra o boot.
+    for _var in ("MERCADOPAGO_WEBHOOK_TOKEN", "D4SIGN_WEBHOOK_TOKEN"):
+        if not os.environ.get(_var, "").strip():
+            logger.warning("SEGURANÇA: %s não configurado — webhook sem token. "
+                           "Defina no Railway para blindar.", _var)
     # Carga padrão das tabelas INCRA/RAMT-MA 2022 (idempotente — só insere se faltar).
     try:
         from routes.incra import seed_incra_default

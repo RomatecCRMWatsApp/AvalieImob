@@ -9,11 +9,12 @@ import logging
 from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from db import get_db
 from dependencies import get_admin_user
 from models.cupom import Cupom, gerar_codigo
+from services.ratelimit import pub_limiter
 
 logger = logging.getLogger("romatec")
 router = APIRouter(prefix="/cupons", tags=["Cupons Promocionais"])
@@ -312,7 +313,8 @@ async def enviar_whatsapp_cupom(
 
 # ─── PÚBLICO (sem auth — usado na página de cadastro) ─────────────────────────
 @router.get("/publico/validar/{slug_ou_codigo}")
-async def validar_cupom_publico(slug_ou_codigo: str, db=Depends(get_db)):
+@pub_limiter.limit("30/minute")
+async def validar_cupom_publico(request: Request, slug_ou_codigo: str, db=Depends(get_db)):
     try:
         cupom = await verificar_cupom_valido(db, slug_ou_codigo)
         return {
@@ -330,7 +332,8 @@ async def validar_cupom_publico(slug_ou_codigo: str, db=Depends(get_db)):
 
 
 @router.post("/publico/resgatar/{slug_ou_codigo}")
-async def resgatar_cupom(slug_ou_codigo: str, payload: dict = None, db=Depends(get_db)):
+@pub_limiter.limit("12/minute")
+async def resgatar_cupom(request: Request, slug_ou_codigo: str, payload: dict = None, db=Depends(get_db)):
     payload = payload or {}
     cupom = await verificar_cupom_valido(db, slug_ou_codigo)
     novos_usos = cupom.get("usos_realizados", 0) + 1

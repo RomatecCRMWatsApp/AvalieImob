@@ -11,7 +11,7 @@ RUN yarn install --network-timeout 300000
 # Copy source and build (no REACT_APP_BACKEND_URL so it defaults to '' = same origin)
 # CACHEBUST: mudar este valor invalida o cache de camada do Docker daqui pra baixo,
 # forcando rebuild LIMPO do frontend (resolve bundle stale: menu/telas nao atualizavam).
-ARG CACHEBUST=2026-06-30-137
+ARG CACHEBUST=2026-06-30-138
 RUN echo "frontend rebuild ${CACHEBUST}"
 COPY frontend/ ./
 RUN yarn build
@@ -42,7 +42,7 @@ RUN pip install --no-cache-dir -r backend/requirements.txt
 # CACHEBUST_BACKEND: o stage do backend NÃO era invalidado pelo CACHEBUST do frontend,
 # então o Railway servia o código Python em CACHE (backend antigo com badge novo). Bumpar
 # este valor força a RE-CÓPIA do backend a cada release que muda código Python.
-ARG CACHEBUST_BACKEND=2026-06-30-129
+ARG CACHEBUST_BACKEND=2026-06-30-130
 RUN echo "backend rebuild ${CACHEBUST_BACKEND}"
 COPY backend/ ./backend/
 

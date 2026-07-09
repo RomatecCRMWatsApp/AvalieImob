@@ -16,7 +16,7 @@ import logging
 from typing import Optional
 
 import httpx
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.responses import Response
 from pydantic import BaseModel
 
@@ -24,6 +24,7 @@ from db import get_db
 from dependencies import get_active_subscriber
 from services.pdf_consulta import gerar_pdf_cnpj, gerar_pdf_cpf
 from services.integracoes_util import carregar_integracoes
+from services.ratelimit import pub_limiter
 
 router = APIRouter(prefix="/consulta", tags=["Consulta"])
 logger = logging.getLogger("romatec")
@@ -217,7 +218,8 @@ async def consultar_cnpj_receitaws(cnpj: str) -> dict | None:
 # Endpoints
 # ------------------------------------------------------------------
 @router.get("/cnpj/{cnpj}")
-async def get_cnpj(cnpj: str):
+@pub_limiter.limit("20/minute")
+async def get_cnpj(request: Request, cnpj: str):
     c = limpar_digitos(cnpj)
     if not validar_cnpj(c):
         raise HTTPException(status_code=400, detail="CNPJ inválido")
@@ -306,7 +308,9 @@ async def cnpj_pdf(
 
 
 @router.post("/cnpj/whatsapp")
+@pub_limiter.limit("10/minute")
 async def cnpj_whatsapp(
+    request: Request,
     body: CnpjWhatsAppRequest,
     uid: str = Depends(get_active_subscriber),
     db=Depends(get_db),
@@ -358,7 +362,9 @@ async def cnpj_whatsapp(
 
 
 @router.post("/cnpj/telegram")
+@pub_limiter.limit("10/minute")
 async def cnpj_telegram(
+    request: Request,
     body: CnpjTelegramRequest,
     uid: str = Depends(get_active_subscriber),
     db=Depends(get_db),
@@ -498,7 +504,9 @@ async def cpf_pdf(
 
 
 @router.post("/cpf/whatsapp")
+@pub_limiter.limit("10/minute")
 async def cpf_whatsapp(
+    request: Request,
     body: CpfWhatsAppRequest,
     uid: str = Depends(get_active_subscriber),
     db=Depends(get_db),
@@ -510,7 +518,9 @@ async def cpf_whatsapp(
 
 
 @router.post("/cpf/telegram")
+@pub_limiter.limit("10/minute")
 async def cpf_telegram(
+    request: Request,
     body: CpfTelegramRequest,
     uid: str = Depends(get_active_subscriber),
     db=Depends(get_db),
