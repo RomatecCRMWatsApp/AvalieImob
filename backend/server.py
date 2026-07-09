@@ -542,6 +542,13 @@ if _frontend_build.exists():
             if full_path in _NO_CACHE_FILES or full_path.endswith(".html"):
                 return FileResponse(str(file_path), headers=dict(_NO_CACHE))
             return FileResponse(str(file_path))
+        # Índice de diretório estático: /folder/ -> build/folder/index.html
+        # (só um diretório DENTRO do build que tenha index.html; a raiz `/` — full_path
+        # vazio — segue no SPA render abaixo).
+        if full_path and _dentro and file_path.is_dir():
+            _idx = file_path / "index.html"
+            if _idx.is_file():
+                return FileResponse(str(_idx), headers=dict(_NO_CACHE))
         # SPA fallback (index.html) — sempre revalidar
         return HTMLResponse(content=_render_index_html(), headers=dict(_NO_CACHE))
 
