@@ -1,9 +1,13 @@
 // Requerimento de Cancelamento de parcela SIGEF (Ofício Circular 814/2026/INCRA).
 // Seletor de Justificativa Pré-estabelecida + condições de deferimento automático (i–viii)
 // + checklist de documentos + aferição ao vivo + download do requerimento.
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2, Download, Eye, CheckCircle2, AlertTriangle, Circle, MinusCircle, Info } from 'lucide-react';
-import { georefAPI } from '../../../lib/api';
+import { georefAPI, aiAPI } from '../../../lib/api';
+import RichTextEditor from '../../ui/RichTextEditor';
+import { paraEditorHtml } from '../../ui/RichField';
+import { AiButton } from '../ptam/shared/primitives';
+import { useToast } from '../../../hooks/use-toast';
 
 const GREEN = '#0C3320';
 const GOLD = '#C9A84C';
@@ -23,8 +27,12 @@ const STATUS_META = {
 };
 
 export default function CancelamentoBloco({ proj, onChange, busy }) {
+  const { toast } = useToast();
   const [justs, setJusts] = useState([]);
   const [downloading, setDownloading] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const codeFilled = useRef(false);
+  const lastAutoJust = useRef(null);
   const canc = useMemo(() => proj.cancelamento || {}, [proj.cancelamento]);
 
   useEffect(() => {
@@ -34,6 +42,59 @@ export default function CancelamentoBloco({ proj, onChange, busy }) {
   }, []);
 
   const sel = useMemo(() => justs.find((j) => j.id === canc.justificativa), [justs, canc.justificativa]);
+
+  // Auto-preenche o CÓDIGO da parcela com a certificação SIGEF do imóvel (1x, se vazio).
+  useEffect(() => {
+    if (codeFilled.current) return;
+    const sigef = proj.imovel?.certificacao_sigef;
+    if (sigef && !canc.codigo_parcela_sigef) {
+      onChange({ codigo_parcela_sigef: sigef });
+      codeFilled.current = true;
+    }
+  }, [proj.imovel?.certificacao_sigef]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-preenche o DETALHAMENTO com o texto padrão do INCRA da justificativa escolhida.
+  // Só sobrescreve quando o campo está vazio ou ainda contém um auto-preenchimento anterior.
+  useEffect(() => {
+    if (!sel || !justs.length) return;
+    if (lastAutoJust.current === sel.id) return;
+    const strip = (h) => (h || '').replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+    const cur = strip(canc.justificativa_texto);
+    const ehAuto = !cur || justs.some((j) => (j.descricao || '').trim() === cur);
+    if (ehAuto && cur !== (sel.descricao || '').trim()) {
+      onChange({ justificativa_texto: `<p>${sel.descricao || ''}</p>` });
+    }
+    lastAutoJust.current = sel.id;
+  }, [sel, justs]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleAiDetalhe = async () => {
+    if (!sel) { toast({ title: 'Selecione a justificativa primeiro', variant: 'destructive' }); return; }
+    const im = proj.imovel || {};
+    const atual = (canc.justificativa_texto || '').replace(/<[^>]*>/g, ' ').trim();
+    const prompt =
+      'Você redige um REQUERIMENTO DE CANCELAMENTO de parcela georreferenciada junto ao INCRA/SIGEF ' +
+      '(Ofício Circular nº 814/2026). Redija o DETALHAMENTO da justificativa técnica de forma formal, ' +
+      'objetiva e em português-BR (3 a 6 frases), coerente com a justificativa e o imóvel. Retorne APENAS ' +
+      'o texto, sem títulos nem rótulos.\n\n' +
+      `Justificativa pré-estabelecida: ${sel.num}. ${sel.titulo} — ${sel.descricao}\n` +
+      `Imóvel: ${im.denominacao || im.denominacao_matricula || '—'}, matrícula ${im.matricula || '—'}, ` +
+      `INCRA/SNCR ${im.cod_incra || '—'}, ${im.municipio || '—'}/${im.uf || '—'}.\n` +
+      `Código da parcela SIGEF: ${canc.codigo_parcela_sigef || im.certificacao_sigef || '—'}.\n` +
+      `Texto atual:\n${atual || '(vazio — gere um detalhamento inicial adequado)'}`;
+    setAiLoading(true);
+    try {
+      const res = await aiAPI.chat(`georef_cancel_${proj.id}_${Date.now()}`, prompt);
+      const texto = (res?.reply || '').trim();
+      if (texto) {
+        const html = texto.split(/\n{2,}/).map((p) => `<p>${p.replace(/\n/g, '<br/>')}</p>`).join('');
+        onChange({ justificativa_texto: html });
+        lastAutoJust.current = sel.id; // passa a ser texto do usuário/IA — não sobrescrever
+        toast({ title: 'Detalhamento aperfeiçoado com IA' });
+      }
+    } catch (err) {
+      toast({ title: 'Erro na IA', description: err?.response?.data?.detail || 'Tente novamente', variant: 'destructive' });
+    } finally { setAiLoading(false); }
+  };
 
   // Aferição das 8 condições de deferimento automático (mesma lógica do backend).
   const { cond, deferAuto } = useMemo(() => {
@@ -126,13 +187,21 @@ export default function CancelamentoBloco({ proj, onChange, busy }) {
         </p>
       )}
 
-      {/* Texto complementar da justificativa */}
-      <label className="block">
-        <span className="text-xs font-semibold text-gray-600">Detalhamento da justificativa (opcional)</span>
-        <textarea className={inputCls} rows={2} value={canc.justificativa_texto || ''}
-          placeholder="Complemente a justificativa técnica, se necessário (senão, usa-se o texto padrão do INCRA)."
-          onChange={(e) => set({ justificativa_texto: e.target.value })} />
-      </label>
+      {/* Detalhamento da justificativa — rich text auto-preenchido + IA */}
+      <div className="block">
+        <span className="text-xs font-semibold text-gray-600">Detalhamento da justificativa (editável)</span>
+        <RichTextEditor
+          value={paraEditorHtml(canc.justificativa_texto || '')}
+          onChange={(html) => set({ justificativa_texto: html })}
+          onBlurHtml={(html) => set({ justificativa_texto: html })}
+          placeholder="Preenchido automaticamente com o texto do INCRA — edite ou aperfeiçoe com IA."
+          minHeight={96}
+          showAiButton={false}
+        />
+        <div className="flex justify-end mt-1">
+          <AiButton onClick={handleAiDetalhe} loading={aiLoading} />
+        </div>
+      </div>
 
       {/* Condições de deferimento automático */}
       <div className="rounded-xl border border-gray-200 p-4">

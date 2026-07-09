@@ -6,8 +6,22 @@
 # Base normativa citada: Lei 6.015/1973 (art. 176 §§3º–5º), Lei 10.267/2001,
 # Decreto 4.449/2002, IN INCRA 82/2015, Lei 4.947/1966 (art. 22), NBR 13133,
 # Provimento CNJ 195/2025 (SIG-RI/IERI-e) e Decreto 12.689/2025 (prazo até 2029).
+import html as _htmllib
 import re
 from datetime import datetime, timezone, timedelta
+
+
+def _strip_html(s) -> str:
+    """Converte HTML do rich text em texto plano preservando quebras (p/ o PDF)."""
+    if not s:
+        return ""
+    s = str(s)
+    s = re.sub(r"(?i)<br\s*/?>", "\n", s)
+    s = re.sub(r"(?i)</(p|div|li|ul|ol|h[1-6])>", "\n", s)
+    s = re.sub(r"(?i)<li[^>]*>", "• ", s)
+    s = re.sub(r"<[^>]+>", "", s)
+    s = _htmllib.unescape(s)
+    return re.sub(r"\n{3,}", "\n\n", s).strip()
 
 
 def _flt(v):
@@ -286,7 +300,7 @@ def render_requerimento_cancelamento(projeto) -> dict:
     )
 
     just_titulo = f"{j['num']}. {j['titulo']}" if j else "— (selecione a justificativa pré-estabelecida)"
-    just_desc = (canc.get("justificativa_texto") or "").strip() or (j["descricao"] if j else "")
+    just_desc = _strip_html((canc.get("justificativa_texto") or "").strip()) or (j["descricao"] if j else "")
 
     documentos = []
     if j:
