@@ -1,0 +1,260 @@
+<!doctype html><html lang="pt-BR"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AvalieImob — Avaliação Imobiliária (PTAM) para Corretores</title>
+<meta name="description" content="Laudo de avaliação (PTAM) pela NBR 14.653, com IA, fotos GPS, ART/TRT e assinatura ICP-Brasil. Cadastre-se e faça seu primeiro laudo hoje.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="AvalieImob — Romatec Consultoria Total">
+<meta property="og:title" content="AvalieImob — Avaliação Imobiliária (PTAM) para Corretores">
+<meta property="og:description" content="Laudo de avaliação (PTAM) pela NBR 14.653, com IA, fotos GPS, ART/TRT e assinatura ICP-Brasil. Cadastre-se e faça seu primeiro laudo hoje.">
+<meta property="og:image" content="https://www.romatecavalieimob.com.br/icon-512.png">
+<meta property="og:url" content="https://www.romatecavalieimob.com.br/folder/avaliacao.html">
+<meta name="theme-color" content="#0C3320">
+<link rel="icon" href="/favicon-32.png">
+</head><body style="margin:0">
+<style>
+  :root{
+    --green:#0C3320; --green-deep:#071E14; --green-2:#123f2a;
+    --gold:#C9A84C; --gold-soft:#E4CE86;
+    --paper:#F6F3EA; --paper-2:#FCFAF3;
+    --ink:#12241B; --sage:#5E6E63;
+    --line:rgba(201,168,76,.34);
+    --serif:ui-serif,"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color-scheme:light;
+  }
+  *{box-sizing:border-box}
+  .wrap{background:var(--paper);color:var(--ink);font-family:var(--sans);
+    line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  .wrap :where(h1,h2,h3){font-family:var(--serif);text-wrap:balance;letter-spacing:-.01em;margin:0}
+  .shell{max-width:560px;margin:0 auto}
+  .eyebrow{font-size:.66rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase}
+  a{color:inherit}
+
+  /* ── Masthead ── */
+  .mast{background:var(--green);color:#eef2ec;padding:16px 22px;display:flex;align-items:center;gap:12px}
+  .mono{width:38px;height:38px;flex:0 0 auto;border-radius:9px;display:block}
+  .mast .name{font-family:var(--serif);font-weight:700;font-size:1.06rem;letter-spacing:.01em;line-height:1}
+  .mast .sub{font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;color:var(--gold-soft);margin-top:3px}
+
+  /* ── Hero ── */
+  .hero{background:
+      radial-gradient(120% 90% at 88% -10%, rgba(201,168,76,.16), transparent 60%),
+      linear-gradient(180deg,var(--green) 0%, var(--green-deep) 100%);
+    color:#f3f1e6;padding:40px 22px 46px;position:relative}
+  .hero .tag{color:var(--gold);border:1px solid var(--line);border-radius:100px;
+    display:inline-block;padding:5px 13px;margin-bottom:20px}
+  .hero h1{font-size:2.15rem;line-height:1.06;font-weight:800}
+  .hero h1 em{font-style:normal;color:var(--gold)}
+  .hero p{color:#d6ddd2;margin:16px 0 0;font-size:1.02rem;max-width:44ch}
+  .rule{height:1px;background:linear-gradient(90deg,var(--gold),transparent);border:0;margin:26px 0}
+
+  /* meter motif */
+  .meter{margin-top:26px}
+  .meter .lab{display:flex;justify-content:space-between;font-size:.66rem;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--gold-soft);margin-bottom:7px}
+  .meter .track{height:8px;border-radius:100px;background:rgba(255,255,255,.1);overflow:hidden}
+  .meter .fill{height:100%;width:0;border-radius:100px;background:linear-gradient(90deg,var(--gold),var(--gold-soft));
+    transition:width 1.1s cubic-bezier(.2,.7,.2,1)}
+  .meter .cap{font-size:.72rem;color:#c3ccbf;margin-top:8px}
+
+  /* ── CTA buttons ── */
+  .cta{display:flex;flex-direction:column;gap:11px;margin-top:28px}
+  .btn{display:flex;align-items:center;justify-content:center;gap:9px;text-decoration:none;
+    padding:15px 18px;border-radius:12px;font-weight:700;font-size:1rem;transition:transform .15s,box-shadow .15s}
+  .btn svg{width:18px;height:18px}
+  .btn-gold{background:linear-gradient(180deg,var(--gold-soft),var(--gold));color:#3a2e08;
+    box-shadow:0 8px 22px rgba(201,168,76,.32)}
+  .btn-gold:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(201,168,76,.42)}
+  .btn-ghost{border:1.5px solid rgba(255,255,255,.28);color:#eef2ec}
+  .btn-ghost:hover{border-color:var(--gold);color:var(--gold-soft)}
+  .hero .fine{font-size:.72rem;color:#a9b4a8;margin-top:14px;text-align:center}
+
+  /* ── Sections ── */
+  section{padding:42px 22px}
+  .kicker{color:#9a7d23;margin-bottom:10px}
+  h2.sec{font-size:1.62rem;font-weight:800;line-height:1.12}
+  .lead{color:var(--sage);margin-top:10px;font-size:1rem}
+
+  .grid{display:grid;gap:14px;margin-top:26px}
+  .card{background:var(--paper-2);border:1px solid #e7e0cf;border-radius:15px;padding:18px 18px 20px;
+    position:relative;transition:transform .18s,box-shadow .18s,border-color .18s}
+  .card:hover{transform:translateY(-3px);box-shadow:0 14px 30px rgba(12,51,32,.09);border-color:var(--gold)}
+  .ic{width:40px;height:40px;border-radius:10px;background:var(--green);color:var(--gold);
+    display:flex;align-items:center;justify-content:center;margin-bottom:13px}
+  .ic svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.7}
+  .card h3{font-size:1.08rem;font-weight:700}
+  .card p{margin:7px 0 0;font-size:.9rem;color:var(--sage);line-height:1.5}
+
+  /* ── Steps (real sequence) ── */
+  .steps{background:var(--green);color:#eaf0e8}
+  .steps h2.sec{color:#fff}
+  .steps .lead{color:#b9c4b8}
+  .flow{margin-top:26px;display:flex;flex-direction:column;gap:2px}
+  .step{display:grid;grid-template-columns:auto 1fr;gap:16px;padding:16px 4px;
+    border-top:1px solid rgba(201,168,76,.2)}
+  .step:first-child{border-top:0}
+  .step .n{font-family:var(--serif);font-size:1.5rem;color:var(--gold);width:34px;
+    font-variant-numeric:tabular-nums;line-height:1}
+  .step h4{margin:0 0 3px;font-size:1.02rem;font-weight:700;color:#fff}
+  .step p{margin:0;font-size:.88rem;color:#b9c4b8}
+
+  /* ── Trust strip ── */
+  .trust{background:var(--paper-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .badges{display:flex;flex-wrap:wrap;gap:9px;margin-top:16px}
+  .badge{font-size:.72rem;font-weight:600;color:var(--green);background:#eef1e6;
+    border:1px solid #dfe3d4;border-radius:100px;padding:6px 13px}
+
+  /* ── Closing ── */
+  .close{background:linear-gradient(180deg,var(--green-deep),var(--green));color:#f3f1e6;text-align:center}
+  .close h2{font-size:1.85rem;font-weight:800}
+  .close p{color:#c9d1c6;margin:12px auto 0;max-width:40ch}
+  .close .cta{max-width:340px;margin:26px auto 0}
+  .foot{background:var(--green-deep);color:#95a297;text-align:center;padding:22px;font-size:.76rem;line-height:1.7}
+  .foot a{color:var(--gold-soft);text-decoration:none}
+
+  .reveal{opacity:0;transform:translateY(16px)}
+  .reveal.in{opacity:1;transform:none;transition:opacity .7s ease,transform .7s cubic-bezier(.2,.7,.2,1)}
+  @media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none}.meter .fill{transition:none}}
+  @media (min-width:520px){ .grid{grid-template-columns:1fr 1fr} .hero h1{font-size:2.5rem} }
+</style>
+
+<div class="wrap">
+  <div class="shell">
+
+    <header class="mast">
+      <svg class="mono" viewBox="0 0 100 100" aria-hidden="true">
+        <rect x="2" y="2" width="96" height="96" rx="20" fill="#C9A84C"/>
+        <path d="M50 20 L80 80 L64 80 L58 66 L42 66 L36 80 L20 80 Z M50 40 L44 55 L56 55 Z"
+              fill="#0C3320" fill-rule="evenodd"/>
+      </svg>
+      <div>
+        <div class="name">AvalieImob</div>
+        <div class="sub">Romatec · Consultoria Total</div>
+      </div>
+    </header>
+
+    <section class="hero">
+      <span class="tag eyebrow">Para corretores de imóveis</span>
+      <h1>Seu laudo de avaliação <em>pronto e assinado</em> em minutos.</h1>
+      <p>Avalie qualquer imóvel pela NBR 14.653, gere o PTAM em PDF profissional com ART/TRT e envie ao cliente pelo WhatsApp. Sem planilha, sem retrabalho.</p>
+
+      <div class="meter" aria-hidden="true">
+        <div class="lab"><span>Grau de fundamentação</span><span>NBR 14.653-2</span></div>
+        <div class="track"><div class="fill" data-fill="92%"></div></div>
+        <div class="cap">O sistema calcula o grau e monta o parecer — você revisa e assina.</div>
+      </div>
+
+      <div class="cta">
+        <a class="btn btn-gold" href="https://www.romatecavalieimob.com.br/cadastro" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          Cadastre-se grátis e comece hoje
+        </a>
+        <a class="btn btn-ghost" href="https://wa.me/5599991811246?text=Ol%C3%A1!%20Quero%20saber%20mais%20sobre%20as%20avalia%C3%A7%C3%B5es%20(PTAM)%20no%20AvalieImob." target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 3.9A10 10 0 0 0 3.5 15.8L2 22l6.3-1.6A10 10 0 1 0 20 3.9ZM12 20a8 8 0 0 1-4-1.1l-.3-.2-3.7 1 1-3.6-.2-.3A8 8 0 1 1 12 20Zm4.4-6c-.2-.1-1.4-.7-1.6-.8s-.4-.1-.5.1-.6.8-.8 1-.3.2-.5.1a6.5 6.5 0 0 1-1.9-1.2 7.2 7.2 0 0 1-1.3-1.7c-.2-.2 0-.4.1-.5l.4-.4.2-.4a.5.5 0 0 0 0-.5L9.9 7c-.2-.4-.3-.4-.5-.4h-.5a.9.9 0 0 0-.6.3A2.6 2.6 0 0 0 7.4 9a4.6 4.6 0 0 0 1 2.4 10.4 10.4 0 0 0 4 3.5c1.9.7 1.9.5 2.2.5a2.3 2.3 0 0 0 1.6-1.1 1.9 1.9 0 0 0 .1-1.1c0-.1-.2-.1-.5-.3Z"/></svg>
+          Falar no WhatsApp
+        </a>
+      </div>
+      <p class="fine">Teste sem compromisso · a partir de R$ 89,90/mês</p>
+    </section>
+
+    <section>
+      <div class="eyebrow kicker">O que você entrega ao cliente</div>
+      <h2 class="sec">Um laudo técnico que passa credibilidade</h2>
+      <p class="lead">Tudo que a norma exige, montado pra você — e com a cara do profissional.</p>
+
+      <div class="grid">
+        <div class="card reveal">
+          <div class="ic"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l3-4 3 2 4-6"/></svg></div>
+          <h3>Método comparativo científico</h3>
+          <p>Amostras, homogeneização e tratamento estatístico com grau de fundamentação e precisão pela NBR 14.653-2.</p>
+        </div>
+        <div class="card reveal">
+          <div class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="14" rx="2"/><circle cx="12" cy="13" r="3.2"/><path d="M8 6l1.5-2h5L16 6"/></svg></div>
+          <h3>Fotos com GPS e tarja</h3>
+          <p>Relatório fotográfico georreferenciado, com coordenadas e data queimadas na imagem — sem editar nada à mão.</p>
+        </div>
+        <div class="card reveal">
+          <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l1.8 4.5L18 9l-4.2 1.5L12 15l-1.8-4.5L6 9l4.2-1.5z"/><path d="M18 15l.9 2.2L21 18l-2.1.8L18 21l-.9-2.2L15 18l2.1-.8z"/></svg></div>
+          <h3>IA que escreve o laudo</h3>
+          <p>Parecer, fundamentação e conclusão em linguagem técnica. Você só revisa e ajusta o que quiser.</p>
+        </div>
+        <div class="card reveal">
+          <div class="ic"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/><path d="M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg></div>
+          <h3>Banco de amostras</h3>
+          <p>Guarde e reaproveite comparativos de mercado. Cada novo laudo fica mais rápido que o anterior.</p>
+        </div>
+        <div class="card reveal">
+          <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.4-3 7.5-7 9-4-1.5-7-4.6-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg></div>
+          <h3>Assinatura ICP-Brasil</h3>
+          <p>Assine o laudo com certificado digital, posicionando o carimbo na página — validade jurídica plena.</p>
+        </div>
+        <div class="card reveal">
+          <div class="ic"><svg viewBox="0 0 24 24"><path d="M21 5L3 12l7 2 2 7 3-6"/></svg></div>
+          <h3>Entrega pelo WhatsApp</h3>
+          <p>O cliente recebe o PDF na hora, direto do sistema. Rápido, rastreável e profissional.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="steps">
+      <div class="eyebrow kicker" style="color:var(--gold-soft)">Do imóvel ao PDF</div>
+      <h2 class="sec">Como funciona, em 4 passos</h2>
+      <p class="lead">Um fluxo guiado — sem começar do zero em cada avaliação.</p>
+      <div class="flow">
+        <div class="step reveal"><div class="n">1</div><div><h4>Cadastre o imóvel</h4><p>Endereço, características, área e finalidade. O mapa e os dados entram no laudo.</p></div></div>
+        <div class="step reveal"><div class="n">2</div><div><h4>Escolha as amostras</h4><p>Puxe do seu banco ou lance novos comparativos. O sistema homogeneíza.</p></div></div>
+        <div class="step reveal"><div class="n">3</div><div><h4>Gere com IA e revise</h4><p>Parecer, fundamentação e conclusão prontos. Ajuste o que quiser.</p></div></div>
+        <div class="step reveal"><div class="n">4</div><div><h4>Assine e envie</h4><p>Assinatura ICP-Brasil e envio ao cliente pelo WhatsApp, num clique.</p></div></div>
+      </div>
+    </section>
+
+    <section class="trust">
+      <div class="eyebrow kicker">Conformidade</div>
+      <h2 class="sec" style="font-size:1.3rem">Feito dentro das normas</h2>
+      <div class="badges">
+        <span class="badge">NBR 14.653 (ABNT)</span>
+        <span class="badge">Grau de fundamentação</span>
+        <span class="badge">ART / TRT · CFT</span>
+        <span class="badge">Assinatura ICP-Brasil</span>
+        <span class="badge">MP 2.200-2 · Lei 14.063/2020</span>
+      </div>
+    </section>
+
+    <section class="close">
+      <h2>Comece a avaliar como um perito.</h2>
+      <p>Cadastre-se agora e faça seu primeiro laudo hoje mesmo. Suporte por WhatsApp em cada passo.</p>
+      <div class="cta">
+        <a class="btn btn-gold" href="https://www.romatecavalieimob.com.br/cadastro" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          Criar minha conta
+        </a>
+        <a class="btn btn-ghost" href="https://wa.me/5599991811246?text=Ol%C3%A1!%20Quero%20come%C3%A7ar%20a%20fazer%20avalia%C3%A7%C3%B5es%20(PTAM)%20no%20AvalieImob." target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 3.9A10 10 0 0 0 3.5 15.8L2 22l6.3-1.6A10 10 0 1 0 20 3.9ZM12 20a8 8 0 0 1-4-1.1l-.3-.2-3.7 1 1-3.6-.2-.3A8 8 0 1 1 12 20Z"/></svg>
+          Tirar dúvidas no WhatsApp
+        </a>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <strong style="color:#e9edea">AvalieImob</strong> — Romatec Consultoria Total<br>
+      Avaliação imobiliária · PTAM · Laudos NBR 14.653<br>
+      <a href="https://www.romatecavalieimob.com.br" target="_blank" rel="noopener">www.romatecavalieimob.com.br</a>
+    </footer>
+
+  </div>
+</div>
+
+<script>
+  (function(){
+    var io=new IntersectionObserver(function(es){
+      es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target);} });
+    },{threshold:.14});
+    document.querySelectorAll('.reveal').forEach(function(el){io.observe(el);});
+    var m=document.querySelector('.meter .fill');
+    if(m){ var mo=new IntersectionObserver(function(es){es.forEach(function(e){
+      if(e.isIntersecting){ m.style.width=m.getAttribute('data-fill'); mo.disconnect(); } });});
+      mo.observe(m); }
+  })();
+</script>
+</body></html>
