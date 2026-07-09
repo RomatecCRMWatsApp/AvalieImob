@@ -35,6 +35,13 @@ const FOLDERS = [
   },
 ];
 
+const PAGAMENTO = {
+  file: 'pagamento', titulo: 'Dados para Pagamento (PIX / Banco)',
+  desc: 'Página com a chave Pix e os dados bancários da Romatec. Funciona em qualquer aparelho — envie ao cliente ou mostre o QR para ele pagar na hora.',
+  url: `${BASE}/pagamento/`,
+  msg: 'Dados para pagamento (PIX e banco) — Romatec Consultoria Total:',
+};
+
 function FolderCard({ f, toast }) {
   const ref = useRef(null);
 
@@ -126,6 +133,11 @@ export default function DivulgacaoPage() {
       <div className="space-y-4">
         {FOLDERS.map((f) => <FolderCard key={f.file} f={f} toast={toast} />)}
       </div>
+
+      <h2 className="text-sm font-bold uppercase tracking-wide mt-9 mb-3" style={{ color: GREEN }}>
+        Cobrança / Pagamento
+      </h2>
+      <FolderCard f={PAGAMENTO} toast={toast} />
     </div>
   );
 }
