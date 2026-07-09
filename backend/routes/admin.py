@@ -37,6 +37,38 @@ async def admin_email_test(body: dict, uid: str = Depends(get_admin_user), db=De
     return res
 
 
+@router.post("/admin/email/welcome")
+async def admin_send_welcome(body: dict, uid: str = Depends(get_admin_user), db=Depends(get_db)):
+    """Envia o e-mail de BOAS-VINDAS (com todas as opções da plataforma) — a um e-mail
+    específico OU a todos os usuários já cadastrados (no e-mail de cadastro de cada um)."""
+    import re
+    import asyncio
+    from email_service import send_welcome_email
+
+    to = str((body or {}).get("to") or "").strip().lower()
+    todos = bool((body or {}).get("all"))
+
+    if todos:
+        users = await db.users.find({}, {"email": 1, "name": 1}).to_list(5000)
+    elif to:
+        if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", to):
+            raise HTTPException(status_code=422, detail="Informe um e-mail válido.")
+        u = await db.users.find_one({"email": to}, {"email": 1, "name": 1})
+        # aceita e-mail avulso (ainda não cadastrado) — nome vazio
+        users = [u] if u else [{"email": to, "name": ""}]
+    else:
+        raise HTTPException(status_code=422, detail="Informe um e-mail ou marque 'todos'.")
+
+    destinatarios = [u for u in users if u and str(u.get("email") or "").strip()]
+    # send_welcome_email é fire-and-forget (loga erros internamente); roda em paralelo.
+    await asyncio.gather(
+        *[send_welcome_email(u["email"], u.get("name") or "") for u in destinatarios],
+        return_exceptions=True,
+    )
+    logger.info("Admin %s reenviou boas-vindas para %s destinatario(s)", uid, len(destinatarios))
+    return {"ok": True, "enviados": len(destinatarios), "todos": todos}
+
+
 @router.post("/admin/create-test-user")
 async def admin_create_test_user(data: CreateTestUserRequest, uid: str = Depends(get_admin_user), db=Depends(get_db)):
     existing = await db.users.find_one({"email": data.email.lower()})

@@ -50,6 +50,7 @@ ACAO_REQUERIMENTO = {
     "desdobro": "o DESDOBRO da área",
     "retificacao": "a RETIFICAÇÃO administrativa da área (art. 213 da Lei nº 6.015/1973)",
     "certificacao": "a averbação da certificação georreferenciada",
+    "cancelamento": "o CANCELAMENTO da parcela georreferenciada junto ao INCRA/SIGEF",
 }
 
 # Finalidade no TÍTULO do requerimento (dinâmica por tipo de serviço).
@@ -60,6 +61,7 @@ FINALIDADE_TITULO = {
     "desdobro": "para fim de desdobro",
     "retificacao": "para fim de retificação de área",
     "certificacao": "para fim de certificação",
+    "cancelamento": "para fim de cancelamento de parcela SIGEF",
 }
 
 
@@ -249,6 +251,91 @@ def render_requerimento(projeto) -> dict:
             _v(im, "proprietario_nome"),
             f"CPF/CNPJ {_v(im, 'proprietario_cpf_cnpj')}",
         ],
+    }
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Requerimento de CANCELAMENTO de parcela SIGEF (Ofício Circular 814/2026/INCRA)
+# ──────────────────────────────────────────────────────────────────────────────
+def render_requerimento_cancelamento(projeto) -> dict:
+    from services.georef import cancelamento as CANC
+    im, rt = _im(projeto), _rt(projeto)
+    canc = dict(projeto.get("cancelamento") or {})
+    j = CANC.justificativa(canc.get("justificativa"))
+    codigo_parcela = canc.get("codigo_parcela_sigef") or im.get("certificacao_sigef") or "___"
+    nac = (im.get("proprietario_nacionalidade") or "brasileira").lower()
+
+    destinatario = (
+        "AO INSTITUTO NACIONAL DE COLONIZAÇÃO E REFORMA AGRÁRIA — INCRA\n"
+        "Superintendência Regional — Divisão de Governança Fundiária\n"
+        "Comitê Regional de Certificação de Imóveis Rurais"
+    )
+
+    corpo = (
+        f"{_v(im, 'proprietario_nome')}, {nac}, "
+        f"{im.get('proprietario_estado_civil') or '[estado civil]'}, "
+        f"{im.get('proprietario_profissao') or '[profissão]'}, inscrito(a) no CPF/CNPJ sob o nº "
+        f"{_v(im, 'proprietario_cpf_cnpj')}, na qualidade de detentor(a) do imóvel rural denominado "
+        f"\"{_denom_atual(im) or '—'}\", matrícula nº {_v(im, 'matricula')}, Código INCRA/SNCR nº "
+        f"{_v(im, 'cod_incra')}, situado no Município de {_v(im, 'municipio')}/{_v(im, 'uf')}, "
+        f"vem, respeitosamente, REQUERER o CANCELAMENTO da parcela georreferenciada de código SIGEF "
+        f"nº {codigo_parcela}, com área de {_ha(_area_atual(im))} ha e perímetro de "
+        f"{_m(_perim_atual(im))} m, na forma das evoluções do Ofício Circular nº "
+        f"814/2026/DF/SEDE/INCRA (Processo SEI nº 54000.080781/2026-84), pela justificativa "
+        f"pré-estabelecida a seguir indicada:"
+    )
+
+    just_titulo = f"{j['num']}. {j['titulo']}" if j else "— (selecione a justificativa pré-estabelecida)"
+    just_desc = (canc.get("justificativa_texto") or "").strip() or (j["descricao"] if j else "")
+
+    documentos = []
+    if j:
+        documentos = [f"{chr(97 + i)}) {t};" for i, t in enumerate(j["documentos"])]
+        if CANC.exige_ods(projeto):
+            documentos.append(
+                f"{chr(97 + len(j['documentos']))}) Planilha ODS associada no campo "
+                f"\"nova certificação\";")
+
+    # Condições de deferimento automático atendidas (declaração do credenciado).
+    cond = CANC.condicoes_automaticas(projeto)
+    cond_linhas = [f"{'☑' if c['ok'] is True else ('☐' if c['ok'] is False else '◻')} {c['texto']}"
+                   for c in cond]
+    defer_auto = CANC.deferimento_automatico(projeto) if j else False
+
+    fecho = (
+        "Declara o requerente que os documentos instrutórios acima acompanham o presente "
+        "requerimento e que as informações prestadas são verdadeiras, requerendo o processamento "
+        "do cancelamento no Sistema de Gestão Fundiária — SIGEF."
+    )
+    if defer_auto:
+        fecho += (" Atendidas todas as condicionantes do item 1 do referido Ofício Circular, "
+                  "requer-se o deferimento automático do cancelamento.")
+
+    rt_linha = (
+        f"Responsável Técnico: {rt.get('nome') or '—'} — {rt.get('formacao') or '—'} — "
+        f"{rt.get('conselho') or '—'} — Cód. Cred. INCRA {rt.get('credenciamento_incra') or '—'} "
+        f"— ART/TRT {_art_trt(im, rt)}."
+    )
+
+    assinaturas = [(_v(im, "proprietario_nome"), f"Detentor — CPF/CNPJ {_v(im, 'proprietario_cpf_cnpj')}")]
+    if rt.get("nome"):
+        assinaturas.append((rt.get("nome"), f"Responsável Técnico — {rt.get('conselho') or '—'}"))
+
+    return {
+        "titulo": "REQUERIMENTO DE CANCELAMENTO DE PARCELA — SIGEF/INCRA",
+        "destinatario": destinatario,
+        "corpo": corpo,
+        "corpo_negrito": [_denom_atual(im) or "—", "CANCELAMENTO", f"código SIGEF nº {codigo_parcela}"],
+        "justificativa_titulo": just_titulo,
+        "justificativa_desc": just_desc,
+        "documentos": documentos,
+        "condicoes_titulo": "CONDIÇÕES DE DEFERIMENTO AUTOMÁTICO (item 1 do Ofício Circular 814/2026)",
+        "condicoes": cond_linhas,
+        "deferimento_automatico": defer_auto,
+        "fecho": fecho,
+        "rt_linha": rt_linha,
+        "data": data_extenso(im.get("municipio"), im.get("uf")),
+        "assinaturas": assinaturas,
     }
 
 

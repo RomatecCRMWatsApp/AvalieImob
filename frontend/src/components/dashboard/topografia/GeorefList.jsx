@@ -54,6 +54,7 @@ export const TIPOS_SERVICO = [
   { value: 'desdobro', label: 'Desdobro de área' },
   { value: 'retificacao', label: 'Retificação de área (art. 213)' },
   { value: 'certificacao', label: 'Certificação SIGEF/INCRA' },
+  { value: 'cancelamento', label: 'Cancelamento de parcela SIGEF (glebas rurais)' },
 ];
 
 const STATUS = {

@@ -741,3 +741,79 @@ def test_dossie_laudo_unificado_uma_secao(projeto_multi):
     out = DOSSIE.gerar_dossie(projeto_multi, {"laudo_tecnico": laudo}, "prime_i")
     sumario = PdfReader(io.BytesIO(out)).pages[1].extract_text() or ""
     assert sumario.count("Laudo Técnico") == 1
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Requerimento de Cancelamento de parcela SIGEF (Ofício Circular 814/2026/INCRA)
+# ──────────────────────────────────────────────────────────────────────────────
+def _projeto_cancelamento(**canc):
+    base = {
+        "tipo_servico": "cancelamento", "tema_pdf": "prime_i",
+        "imovel": {"proprietario_nome": "ANTONIO DA SILVA",
+                   "proprietario_cpf_cnpj": "123.456.789-00", "denominacao": "Fazenda Santa Maria",
+                   "matricula": "489", "cod_incra": "1100350355993", "municipio": "Açailândia",
+                   "uf": "MA", "area_ha": 102.964, "perimetro_m": 5080.40,
+                   "certificacao_sigef": "ABC12345"},
+        "responsavel_tecnico": {"nome": "JOSE ROMARIO", "conselho": "CFT/MA",
+                                "credenciamento_incra": "FQNS"},
+        "cancelamento": {"justificativa": "alteracao_rt", "codigo_parcela_sigef": "PARC-001",
+                         "natureza": "particular", "registro_confirmado": False,
+                         "ods_uma_aba": True, "area_parcela_ha": 102.964, "area_ods_ha": 102.5,
+                         "requerente_e_rt": True},
+    }
+    base["cancelamento"].update(canc)
+    return base
+
+
+def test_cancelamento_catalogo_dez_justificativas():
+    from services.georef import cancelamento as C
+    assert len(C.JUSTIFICATIVAS) == 10
+    nums = [j["num"] for j in C.JUSTIFICATIVAS]
+    assert nums == ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"]
+    # distrato e impedimento de registro dispensam a Planilha ODS (item 2.2)
+    assert C.justificativa("distrato")["exige_ods"] is False
+    assert C.justificativa("impedimento_registro")["exige_ods"] is False
+    assert C.justificativa("alteracao_rt")["exige_ods"] is True
+
+
+def test_cancelamento_deferimento_automatico_todas_condicoes():
+    from services.georef import cancelamento as C
+    proj = _projeto_cancelamento()
+    ck = C.checklist(proj)
+    assert ck["justificativa"]["id"] == "alteracao_rt"
+    assert ck["deferimento_automatico"] is True
+    assert all(c["ok"] is True for c in ck["condicoes_auto"])
+    # ODS entra no checklist de documentos qdo exigida
+    assert any("Planilha ODS" in d["label"] for d in ck["documentos"])
+
+
+def test_cancelamento_area_ods_divergente_barra_deferimento():
+    from services.georef import cancelamento as C
+    # diferença de 40 ha (> 25 ha e > 10%) → condições v e vi falham
+    proj = _projeto_cancelamento(area_parcela_ha=100.0, area_ods_ha=60.0)
+    ck = C.checklist(proj)
+    assert ck["deferimento_automatico"] is False
+    assert not C.exige_ods(proj) or True  # ODS segue exigida p/ alteracao_rt
+    assert C.exige_ods(proj) is True
+
+
+def test_cancelamento_distrato_dispensa_ods():
+    from services.georef import cancelamento as C
+    proj = _projeto_cancelamento(justificativa="distrato")
+    assert C.exige_ods(proj) is False
+    labels = [d["label"] for d in C.documentos_checklist(proj)]
+    assert not any("Planilha ODS" in x for x in labels)
+
+
+def test_cancelamento_pdf_gera_com_justificativa_e_referencia():
+    proj = _projeto_cancelamento()
+    pdf = PDF.gerar_pdf("requerimento_cancelamento", proj, "prime_i")
+    assert pdf[:5] == b"%PDF-" and len(pdf) > 2000
+    d = TX.render_requerimento_cancelamento(proj)
+    assert "CANCELAMENTO" in d["titulo"]
+    assert "Alteração de Responsável Técnico" in d["justificativa_titulo"]
+    assert "814/2026" in d["corpo"]
+    assert d["deferimento_automatico"] is True
+    # detentor + RT assinam
+    papeis = [p[1] for p in d["assinaturas"]]
+    assert any("Detentor" in x for x in papeis) and any("Responsável Técnico" in x for x in papeis)

@@ -1,6 +1,6 @@
 // @page admin/E-mail — diagnóstico da configuração + teste de envio (validação ponta-a-ponta).
 import React, { useEffect, useState, useCallback } from 'react';
-import { Mail, CheckCircle2, XCircle, Send, RefreshCw, Server } from 'lucide-react';
+import { Mail, CheckCircle2, XCircle, Send, RefreshCw, Server, Sparkles, Users } from 'lucide-react';
 import { adminAPI } from '../../lib/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../hooks/use-toast';
@@ -24,6 +24,8 @@ export default function EmailDiagnostico() {
   const [to, setTo] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [resultado, setResultado] = useState(null);
+  const [welcomeTo, setWelcomeTo] = useState('');
+  const [welcomeBusy, setWelcomeBusy] = useState(false);
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -48,6 +50,25 @@ export default function EmailDiagnostico() {
       setResultado({ ok: false, error: err });
       toast({ title: 'Falha no envio', description: err, variant: 'destructive' });
     } finally { setEnviando(false); }
+  };
+
+  const enviarBoasVindas = async ({ all }) => {
+    if (all && !window.confirm('Enviar o e-mail de boas-vindas para TODOS os usuários cadastrados?')) return;
+    setWelcomeBusy(true);
+    try {
+      const body = all ? { all: true } : { to: welcomeTo.trim() };
+      const r = await adminAPI.emailWelcome(body);
+      toast({
+        title: 'Boas-vindas enviadas ✓',
+        description: `${r.enviados} destinatário(s)${all ? ' (todos os cadastrados)' : ''}.`,
+      });
+    } catch (e) {
+      toast({
+        title: 'Falha ao enviar',
+        description: e?.response?.data?.detail || e?.message || 'Erro.',
+        variant: 'destructive',
+      });
+    } finally { setWelcomeBusy(false); }
   };
 
   const configurado = status?.configured;
@@ -123,6 +144,31 @@ export default function EmailDiagnostico() {
               : <>✗ <strong>Falhou:</strong> <span className="font-mono break-all">{resultado.error}</span></>}
           </div>
         )}
+      </div>
+
+      {/* Boas-vindas */}
+      <div className="rounded-2xl border border-gray-200 bg-white p-5 mb-5">
+        <h2 className="font-semibold mb-1 flex items-center gap-2" style={{ color: GREEN }}>
+          <Sparkles className="w-4 h-4" style={{ color: GOLD }} /> E-mail de boas-vindas
+        </h2>
+        <p className="text-xs text-gray-500 mb-3">
+          Mensagem completa apresentando <strong>todos os módulos</strong> da plataforma. Reenvie para
+          um cliente específico ou dispare para <strong>todos os já cadastrados</strong> (no e-mail de cadastro de cada um).
+        </p>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <input type="email" value={welcomeTo} onChange={(e) => setWelcomeTo(e.target.value)}
+            placeholder="email-do-cliente@exemplo.com" className="flex-1 border rounded-lg px-3 py-2 text-sm" />
+          <button onClick={() => enviarBoasVindas({ all: false })} disabled={welcomeBusy || !welcomeTo.trim()}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50"
+            style={{ background: GREEN }}>
+            <Send className="w-4 h-4" /> {welcomeBusy ? 'Enviando…' : 'Enviar a este e-mail'}
+          </button>
+        </div>
+        <button onClick={() => enviarBoasVindas({ all: true })} disabled={welcomeBusy}
+          className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50"
+          style={{ background: GOLD }}>
+          <Users className="w-4 h-4" /> {welcomeBusy ? 'Enviando…' : 'Enviar para todos os cadastrados'}
+        </button>
       </div>
 
       {/* Guia */}

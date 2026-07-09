@@ -362,6 +362,49 @@ def pdf_requerimento(projeto, tema="prime_i") -> bytes:
     return _build(e, cfg, d["titulo"], projeto.get("_brand_logo_bytes"))
 
 
+def pdf_requerimento_cancelamento(projeto, tema="prime_i") -> bytes:
+    """Requerimento de Cancelamento de parcela SIGEF (Ofício Circular 814/2026/INCRA)."""
+    cfg, lar = _cfg(tema), _largura()
+    st = _styles(cfg)
+    d = TX.render_requerimento_cancelamento(projeto)
+    e = []
+    e += _titulo(d["titulo"], cfg, st, lar)
+    e += _paras(d["destinatario"], st["corpo"])
+    e.append(Spacer(1, 8))
+    e += _paras_bold(d["corpo"], d.get("corpo_negrito"), st["corpo"])
+    # JUSTIFICATIVA PRÉ-ESTABELECIDA
+    e += _secao("JUSTIFICATIVA PRÉ-ESTABELECIDA", cfg, st, lar)
+    e.append(Paragraph(_esc(d["justificativa_titulo"]), st["subsec"]))
+    if d.get("justificativa_desc"):
+        e += _paras(d["justificativa_desc"], st["corpo"])
+    # DOCUMENTOS INSTRUTÓRIOS
+    if d.get("documentos"):
+        e += _secao("DOCUMENTOS INSTRUTÓRIOS", cfg, st, lar)
+        for it in d["documentos"]:
+            e.append(Paragraph(_esc(it), st["corpo"]))
+            e.append(Spacer(1, 2))
+    # CONDIÇÕES DE DEFERIMENTO AUTOMÁTICO (i–viii)
+    if d.get("condicoes"):
+        e += _secao(d["condicoes_titulo"], cfg, st, lar)
+        for ln in d["condicoes"]:
+            e.append(Paragraph(_esc(ln), st["small"]))
+            e.append(Spacer(1, 1))
+    # Encerramento INDIVISÍVEL: fecho + RT + data + assinaturas
+    fim = []
+    fim += _paras(d["fecho"], st["corpo"])
+    fim.append(Spacer(1, 6))
+    fim.append(Paragraph(_esc(d["rt_linha"]), st["small"]))
+    fim.append(Spacer(1, 10))
+    fim.append(Paragraph("Nestes termos, pede deferimento.", st["corpo"]))
+    fim.append(Spacer(1, 10))
+    fim.append(Paragraph(_esc(d["data"]) + ".", st["corpo_c"]))
+    fim += _bloco_assinaturas(d["assinaturas"], st, lar)
+    e.append(KeepTogether(fim))
+    if projeto.get("_seal_code"):
+        e += _seal_flowables(cfg, st, projeto["_seal_code"], projeto.get("_verify_url"))
+    return _build(e, cfg, d["titulo"], projeto.get("_brand_logo_bytes"))
+
+
 def pdf_memorial(projeto, tema="prime_i") -> bytes:
     cfg = _cfg(tema)
     st, lar = _styles(cfg), _largura()
@@ -564,6 +607,8 @@ def gerar_pdf(tipo, projeto, tema="prime_i", conf=None) -> bytes:
     tema = tema or "prime_i"
     if tipo == "requerimento":
         return pdf_requerimento(projeto, tema)
+    if tipo == "requerimento_cancelamento":
+        return pdf_requerimento_cancelamento(projeto, tema)
     if tipo == "memorial":
         return pdf_memorial(projeto, tema)
     if tipo == "laudo_tecnico":

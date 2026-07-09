@@ -16,9 +16,12 @@ logger = logging.getLogger("romatec.email")
 
 # ── Branding constants ────────────────────────────────────────────────
 LOGO_URL = "https://customer-assets.emergentagent.com/job_review-simples/artifacts/0n08eo2p_02_icone_512.png"
-COLOR_GREEN = "#1B4D1B"
-COLOR_GOLD = "#D4A830"
-PLATFORM_URL = os.environ.get("PLATFORM_URL", "https://avalieimob.consultoriaromatec.com.br")
+COLOR_GREEN = "#0C3320"   # verde da marca AvalieImob
+COLOR_GOLD = "#C9A84C"    # dourado da marca
+# URL canônica da plataforma (força www — o apex não resolve em conexões novas).
+PLATFORM_URL = (os.environ.get("PLATFORM_URL") or os.environ.get("APP_URL")
+                or "https://www.romatecavalieimob.com.br").rstrip("/").replace(
+                    "://romatecavalieimob.com.br", "://www.romatecavalieimob.com.br")
 
 
 # ── HTML template helpers ─────────────────────────────────────────────
@@ -115,25 +118,55 @@ def _info_row(label: str, value: str) -> str:
 
 
 # ── Template builders ─────────────────────────────────────────────────
+def _feature(emoji: str, title: str, desc: str) -> str:
+    """Uma linha de recurso (ícone + título + descrição) para o e-mail de boas-vindas."""
+    return (
+        f'<tr>'
+        f'<td valign="top" style="padding:9px 10px 9px 0;font-size:20px;width:26px;">{emoji}</td>'
+        f'<td valign="top" style="padding:9px 0;border-bottom:1px solid #f0f0f0;">'
+        f'<div style="color:{COLOR_GREEN};font-size:14px;font-weight:700;">{title}</div>'
+        f'<div style="color:#666666;font-size:13px;line-height:1.5;margin-top:2px;">{desc}</div>'
+        f'</td></tr>'
+    )
+
+
 def build_welcome_email(name: str) -> tuple[str, str]:
     """Return (subject, html) for the welcome / registration email."""
-    subject = "Bem-vindo ao AvalieImob!"
+    subject = "Bem-vindo(a) ao AvalieImob — veja tudo o que você já pode fazer 🎉"
+    features = "".join([
+        _feature('📐', 'Avaliação Imobiliária (PTAM)',
+                 'Laudos pela NBR 14.653 com a IA escrevendo os textos, fotos com GPS, ART/TRT e o grau de fundamentação calculado.'),
+        _feature('✍️', 'Contratos & Procuração',
+                 'Compra e venda, exclusividade e mais — com o cliente assinando por link no WhatsApp.'),
+        _feature('🧾', 'Recibos de Honorários',
+                 'Emita, assine digitalmente e envie ao cliente pelo WhatsApp em segundos.'),
+        _feature('🔏', 'Assinatura ICP-Brasil',
+                 'Assine PTAMs, contratos e PDFs posicionando o carimbo — com validade jurídica plena.'),
+        _feature('🗺️', 'Topografia & Geo (Georreferenciamento)',
+                 'INCRA/SIGEF: Requerimento, Memorial, DRL, Laudo, Shapefile SIG-RI e Dossiê — do memorial ao cartório.'),
+        _feature('🏙️', 'Geo Urbano',
+                 'Remembramento, desdobro, retificação de área e usucapião extrajudicial.'),
+        _feature('💼', 'Propostas de Consultoria',
+                 'Precifique georreferenciamento, averbação e desmembramento e envie a proposta pronta.'),
+        _feature('🤖', 'IA integrada',
+                 'Escreve pareceres e textos técnicos por você — você só revisa e assina.'),
+        _feature('🔎', 'Consulta CNPJ / CPF',
+                 'Consulta rápida com PDF pronto e envio por WhatsApp.'),
+    ])
     body = f"""
-      <h2 style="color:{COLOR_GREEN};margin:0 0 16px;font-size:20px;">
-        Olá, {name}!
+      <h2 style="color:{COLOR_GREEN};margin:0 0 14px;font-size:21px;">
+        Olá, {name or 'seja muito bem-vindo(a)'}! 🎉
       </h2>
-      <p style="color:#333333;font-size:15px;line-height:1.7;margin:0 0 20px;">
-        Sua conta foi criada com sucesso na plataforma <strong>AvalieImob</strong>.<br>
-        Agora você tem acesso completo às ferramentas de avaliação imobiliária,
-        geração de PTAM, gestão de clientes e imóveis — tudo em um único lugar.
+      <p style="color:#333333;font-size:15px;line-height:1.7;margin:0 0 6px;">
+        Sua conta na plataforma <strong>AvalieImob</strong> (RomaTec Consultoria Total) está
+        <strong>ativa</strong>. Aqui você tem, num só lugar, tudo o que precisa para o seu trabalho técnico:
       </p>
-      <p style="color:#555555;font-size:14px;line-height:1.6;margin:0 0 24px;">
-        Acesse a plataforma, configure seu perfil e comece a emitir seus laudos
-        com a qualidade e agilidade que só a RomaTec oferece.
-      </p>
-      {_button('Acessar plataforma', PLATFORM_URL)}
-      <p style="color:#888888;font-size:12px;text-align:center;margin-top:16px;">
-        Em caso de dúvidas, entre em contato com o nosso suporte.
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:14px 0 6px;">
+        {features}
+      </table>
+      {_button('Acessar a plataforma', PLATFORM_URL)}
+      <p style="color:#777777;font-size:13px;line-height:1.6;text-align:center;margin:16px 0 0;">
+        Dica: comece pelo módulo que você mais usa hoje. Qualquer dúvida, é só falar com a gente. 💬
       </p>
     """
     return subject, _base_template(subject, body)

@@ -255,6 +255,7 @@ export const adminAPI = {
   createTestUser: (data) => api.post('/admin/create-test-user', data).then(r => r.data),
   emailStatus: () => api.get('/admin/email/status').then(r => r.data),
   emailTest: (to) => api.post('/admin/email/test', { to }).then(r => r.data),
+  emailWelcome: (body) => api.post('/admin/email/welcome', body).then(r => r.data),
   excluirUsuario: (id) => api.delete(`/admin/users/${id}`).then(r => r.data),
   excluirInativos: () => api.post('/admin/users/excluir-inativos').then(r => r.data),
   // Leads da Calculadora pública
@@ -774,6 +775,12 @@ export const georefAPI = {
     api.get(`${GEOREF}/projetos/${id}/shapefile/atributos`).then((r) => r.data),
   kml: (id) =>
     api.get(`${GEOREF}/projetos/${id}/kml`, { responseType: 'blob' }).then((r) => r.data),
+
+  // Cancelamento de parcela SIGEF (Ofício Circular 814/2026/INCRA)
+  cancelamentoJustificativas: () =>
+    api.get(`${GEOREF}/cancelamento/justificativas`).then((r) => r.data),
+  cancelamentoChecklist: (id) =>
+    api.get(`${GEOREF}/projetos/${id}/cancelamento/checklist`).then((r) => r.data),
 };
 
 // Topografia & Geo — Geo Urbano (Remembramento e demais serviços urbanos)

@@ -14,6 +14,7 @@ import { BrandSpinner } from '../../brand/BrandSpinner';
 import PoligonalPreview from './PoligonalPreview';
 import { TIPOS_SERVICO } from './GeorefList';
 import AssinaturaPosicionadaModal from '../assinatura/AssinaturaPosicionadaModal';
+import CancelamentoBloco from './CancelamentoBloco';
 
 const GREEN = '#0C3320';
 const GOLD = '#C9A84C';
@@ -154,6 +155,9 @@ export default function GeorefWizard() {
   const updImovel = (k, v) => { setProj((p) => ({ ...p, imovel: { ...p.imovel, [k]: v } })); mark(); };
   const updRT = (k, v) => {
     setProj((p) => ({ ...p, responsavel_tecnico: { ...p.responsavel_tecnico, [k]: v } })); mark();
+  };
+  const updCanc = (patch) => {
+    setProj((p) => ({ ...p, cancelamento: { ...(p.cancelamento || {}), ...patch } })); mark();
   };
 
   const irPara = async (s) => { await salvar(true); setStep(s); };
@@ -566,8 +570,26 @@ export default function GeorefWizard() {
         </div>
       )}
 
+      {/* ── Etapa 4: Geração — Cancelamento SIGEF ── */}
+      {step === 3 && proj.tipo_servico === 'cancelamento' && (
+        <Card>
+          <H title="Requerimento de Cancelamento (SIGEF)"
+             sub="Selecione a justificativa, confira as condições e o checklist, e baixe o requerimento." />
+          <L label="Tema do PDF">
+            <Select value={proj.tema_pdf} onChange={(e) => upd({ tema_pdf: e.target.value })}>
+              <option value="prime_i">Prime I — Elegante (claro, dourado)</option>
+              <option value="prime_ii">Prime II — Editorial (verde, faixas)</option>
+              <option value="tradicional">Tradicional — Sóbrio (branco)</option>
+            </Select>
+          </L>
+          <div className="mt-4">
+            <CancelamentoBloco proj={proj} onChange={updCanc} busy={gerando} />
+          </div>
+        </Card>
+      )}
+
       {/* ── Etapa 4: Geração ── */}
-      {step === 3 && (
+      {step === 3 && proj.tipo_servico !== 'cancelamento' && (
         <Card>
           <H title="Gerar documentos" sub="Escolha o tema e os documentos. A geração roda no servidor." />
           {validacao && <div className="mb-4"><Validacao v={validacao} /></div>}
@@ -630,8 +652,30 @@ export default function GeorefWizard() {
         </Card>
       )}
 
+      {/* ── Etapa 5: Entrega — Cancelamento SIGEF ── */}
+      {step === 4 && proj.tipo_servico === 'cancelamento' && (
+        <div className="space-y-4">
+          <Card>
+            <H title="Requerimento de Cancelamento — pronto"
+               sub="Baixe o requerimento ou assine com ICP-Brasil. O checklist fica na etapa Geração." />
+            <div className="space-y-3">
+              {(() => {
+                const a = statusAssin('requerimento_cancelamento');
+                return (
+                  <DocRow label="Requerimento de Cancelamento SIGEF"
+                    assinado={a?.assinado} onVerAssinado={a?.assinado ? () => verAssinado(a.id) : null}
+                    onVer={() => verBlob(georefAPI.documento(proj.id, 'requerimento_cancelamento', 'pdf', proj.tema_pdf))}
+                    onPdf={() => baixar(georefAPI.documento(proj.id, 'requerimento_cancelamento', 'pdf', proj.tema_pdf, 'download'), `Requerimento_cancelamento_${nb}.pdf`)}
+                    onAssinar={() => abrirAssinatura('requerimento_cancelamento')} />
+                );
+              })()}
+            </div>
+          </Card>
+        </div>
+      )}
+
       {/* ── Etapa 5: Entrega ── */}
-      {step === 4 && (
+      {step === 4 && proj.tipo_servico !== 'cancelamento' && (
         <div className="space-y-4">
           <Card>
             <H title="Documentos prontos" sub="Baixe em PDF/DOCX ou assine com ICP-Brasil (em quantas páginas quiser)." />

@@ -142,7 +142,7 @@ class ResponsavelTecnico(BaseModel):
 # ──────────────────────────────────────────────────────────────────────────────
 TipoServico = Literal[
     "georreferenciamento", "desmembramento", "remembramento",
-    "desdobro", "retificacao", "certificacao",
+    "desdobro", "retificacao", "certificacao", "cancelamento",
 ]
 StatusProjeto = Literal["rascunho", "extraido", "documentos_gerados", "concluido"]
 TemaPdf = Literal["tradicional", "prime_i", "prime_ii"]
@@ -182,6 +182,10 @@ class GeorefProjeto(BaseModel):
     vertices: List[Vertice] = Field(default_factory=list)
     confrontantes: List[Confrontante] = Field(default_factory=list)
     parcelas: List[Parcela] = Field(default_factory=list)  # parcelas ADICIONAIS (Parte II+)
+    # Requerimento de Cancelamento SIGEF (tipo_servico="cancelamento"): justificativa
+    # pré-estabelecida, código da parcela, condições de deferimento automático e status do
+    # checklist — ver services/georef/cancelamento.py (Ofício Circular 814/2026/INCRA).
+    cancelamento: dict = Field(default_factory=dict)
     uploads: dict = Field(default_factory=dict)            # {memorial: key, mapa: key, ...}
     documentos_gerados: dict = Field(default_factory=dict)  # {memorial, requerimento, ...}
     campos_editados: dict = Field(default_factory=dict)     # flags p/ preservar edição manual
@@ -219,6 +223,7 @@ class AtualizarProjetoBody(BaseModel):
     vertices: Optional[List[dict]] = None
     confrontantes: Optional[List[dict]] = None
     parcelas: Optional[List[dict]] = None
+    cancelamento: Optional[dict] = None
 
 
 class AdicionarParcelaBody(BaseModel):

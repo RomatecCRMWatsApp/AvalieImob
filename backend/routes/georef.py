@@ -28,6 +28,7 @@ from services.georef import extractor as EX
 from services.georef import geo as GEO
 from services.georef.parcelas import parcelas_do_projeto, projeto_da_parcela, tem_multiparcela
 from services.georef.cadeia_dominial import parse_cadeia_dominial
+from services.georef import cancelamento as CANC
 from services.georef.generators import textos as TX
 from services.georef.generators import pdf as PDF
 from services.georef.generators import docx as DOCX
@@ -138,7 +139,7 @@ async def atualizar_projeto(pid: str, body: AtualizarProjetoBody,
         if campo in dados:
             sets[campo] = dados[campo]
 
-    for grupo in ("imovel", "responsavel_tecnico"):
+    for grupo in ("imovel", "responsavel_tecnico", "cancelamento"):
         if grupo in dados and isinstance(dados[grupo], dict):
             atual = dict(doc.get(grupo) or {})
             for k, v in dados[grupo].items():
@@ -165,6 +166,23 @@ async def excluir_projeto(pid: str, uid: str = Depends(get_active_subscriber), d
     if not res.deleted_count:
         raise HTTPException(status_code=404, detail="Projeto não encontrado")
     return {"ok": True}
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Cancelamento de parcela SIGEF (Ofício Circular 814/2026/INCRA)
+# ──────────────────────────────────────────────────────────────────────────────
+@router.get("/cancelamento/justificativas")
+async def cancelamento_justificativas(uid: str = Depends(get_active_subscriber)):
+    """Catálogo das 10 Justificativas Pré-estabelecidas do requerimento de cancelamento."""
+    return {"referencia": CANC.REFERENCIA_NORMATIVA, "justificativas": CANC.JUSTIFICATIVAS}
+
+
+@router.get("/projetos/{pid}/cancelamento/checklist")
+async def cancelamento_checklist(pid: str, uid: str = Depends(get_active_subscriber),
+                                 db=Depends(get_db)):
+    """Checklist dinâmico do cancelamento (documentos da justificativa + condições i–viii)."""
+    doc = await _get_projeto(db, pid, uid)
+    return CANC.checklist(doc)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -698,7 +716,7 @@ async def baixar_documento(pid: str, tipo: str, fmt: str = Query("pdf"),
     nb = _nome_base(doc)
 
     # Selo de autenticidade (QR + código SHA-256) no requerimento/laudo.
-    if tipo == "requerimento":
+    if tipo in ("requerimento", "requerimento_cancelamento"):
         await _aplicar_selo(db, uid, doc, "requerimento")
     elif tipo == "laudo_tecnico" and not laudo_separado and not parcela:
         await _aplicar_selo(db, uid, doc, "laudo")
@@ -725,6 +743,11 @@ async def baixar_documento(pid: str, tipo: str, fmt: str = Query("pdf"),
             return _resp(data, "docx", f"DRL_unificada_{nb}.docx")
         data = await asyncio.to_thread(PDF.gerar_pdf, "drl_unificada", doc, tema)
         return _resp(data, "pdf", f"DRL_unificada_{nb}.pdf", inline=True)
+
+    # Requerimento de Cancelamento SIGEF (Ofício Circular 814/2026) — só PDF.
+    if tipo == "requerimento_cancelamento":
+        data = await asyncio.to_thread(PDF.gerar_pdf, "requerimento_cancelamento", doc, tema)
+        return _resp(data, "pdf", f"Requerimento_cancelamento_{nb}.pdf", inline=(fmt != "download"))
 
     if tipo not in ("requerimento", "memorial", "laudo_tecnico"):
         raise HTTPException(status_code=404, detail="Documento desconhecido")
@@ -1063,6 +1086,7 @@ _DOC_NOMES = {
     "memorial": "Memorial Descritivo",
     "laudo": "Laudo Técnico de Agrimensura",
     "requerimento": "Requerimento ao Cartório",
+    "requerimento_cancelamento": "Requerimento de Cancelamento SIGEF",
     "drl_unificada": "DRL Unificada (Reconhecimento de Limites)",
     "dossie": "Dossiê Consolidado",
     "art_trt": "ART/TRT",
@@ -1102,6 +1126,8 @@ def _pdf_para_assinatura(doc: dict, tipo_doc: str, parcela: str, tema: str,
         return PDF.gerar_pdf("laudo_tecnico", doc, tema)
     if tipo_doc == "requerimento":
         return PDF.gerar_pdf("requerimento", doc, tema)
+    if tipo_doc == "requerimento_cancelamento":
+        return PDF.gerar_pdf("requerimento_cancelamento", doc, tema)
     if tipo_doc == "drl_unificada":
         return PDF.gerar_pdf("drl_unificada", doc, tema)
     if tipo_doc == "dossie":
