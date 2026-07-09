@@ -3,6 +3,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>AvalieImob — Avaliação Imobiliária (PTAM) para Corretores</title>
 <meta name="description" content="Laudo de avaliação (PTAM) pela NBR 14.653, com IA, fotos GPS, ART/TRT e assinatura ICP-Brasil. Cadastre-se e faça seu primeiro laudo hoje.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="AvalieImob — Romatec Consultoria Total">
 <meta property="og:title" content="AvalieImob — Avaliação Imobiliária (PTAM) para Corretores">
@@ -19,8 +22,8 @@
     --paper:#F6F3EA; --paper-2:#FCFAF3;
     --ink:#12241B; --sage:#5E6E63;
     --line:rgba(201,168,76,.34);
-    --serif:ui-serif,"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif;
-    --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --serif:"Playfair Display",ui-serif,Georgia,"Times New Roman",serif;
+    --sans:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     color-scheme:light;
   }
   *{box-sizing:border-box}
@@ -32,10 +35,10 @@
   a{color:inherit}
 
   /* ── Masthead ── */
-  .mast{background:var(--green);color:#eef2ec;padding:16px 22px;display:flex;align-items:center;gap:12px}
-  .mono{width:38px;height:38px;flex:0 0 auto;border-radius:9px;display:block}
-  .mast .name{font-family:var(--serif);font-weight:700;font-size:1.06rem;letter-spacing:.01em;line-height:1}
-  .mast .sub{font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;color:var(--gold-soft);margin-top:3px}
+  .mast{background:#fff;color:#0C3320;padding:15px 22px;display:flex;align-items:center;gap:13px;border-bottom:1px solid #ece6d6}
+  .mono{width:40px;height:40px;flex:0 0 auto;display:block}
+  .mast .name{font-family:var(--serif);font-weight:700;font-size:1.24rem;letter-spacing:-.02em;line-height:1;color:#0C3320}
+  .mast .sub{font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:#8a9285;margin-top:4px;font-weight:600}
 
   /* ── Hero ── */
   .hero{background:
@@ -123,14 +126,17 @@
   <div class="shell">
 
     <header class="mast">
-      <svg class="mono" viewBox="0 0 100 100" aria-hidden="true">
-        <rect x="2" y="2" width="96" height="96" rx="20" fill="#C9A84C"/>
-        <path d="M50 20 L80 80 L64 80 L58 66 L42 66 L36 80 L20 80 Z M50 40 L44 55 L56 55 Z"
+      <svg class="mono" viewBox="0 0 1024 1024" aria-hidden="true">
+        <defs><linearGradient id="ag" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#E0C264"/><stop offset=".55" stop-color="#C9A84C"/><stop offset="1" stop-color="#B8860B"/>
+        </linearGradient></defs>
+        <rect width="1024" height="1024" rx="228" fill="url(#ag)"/>
+        <path d="M512 222 L805 802 L654 802 L512 498 L370 802 L219 802 Z M512 372 L575 478 L449 478 Z"
               fill="#0C3320" fill-rule="evenodd"/>
       </svg>
       <div>
         <div class="name">AvalieImob</div>
-        <div class="sub">Romatec · Consultoria Total</div>
+        <div class="sub">ROMATEC · PTAM · LAUDOS</div>
       </div>
     </header>
 
