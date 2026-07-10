@@ -2,7 +2,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Radar, Send, RefreshCw, Download, Upload, Trash2, Eye, Loader2, StopCircle,
-  Mail, AlertTriangle, X, CalendarClock, Server,
+  Mail, AlertTriangle, X, CalendarClock, Server, MessageCircle,
 } from 'lucide-react';
 import { prospeccaoAPI, adminAPI } from '../../lib/api';
 import { useToast } from '../../hooks/use-toast';
@@ -16,6 +16,14 @@ const STATUS_STYLE = [
 ];
 
 const onlyDigits = (s) => (s || '').replace(/\D/g, '');
+
+// Mensagem pronta para pedir o e-mail da imobiliária pelo WhatsApp (captação do e-mail).
+const MSG_PEDIR_EMAIL = (nome) =>
+  `Olá, ${nome || 'tudo bem'}! Aqui é a equipe da Romatec / AvalieImob. 😊\n\n` +
+  'Temos uma plataforma para corretores e imobiliárias: avaliação de imóveis (PTAM / laudos NBR 14.653), ' +
+  'contratos com assinatura digital pelo WhatsApp e georreferenciamento.\n\n' +
+  'Gostaríamos de enviar uma proposta de parceria (é gratuito para testar). ' +
+  'Qual o melhor e-mail de vocês para o envio? Obrigado!';
 
 export default function ProspeccaoPage() {
   const { toast } = useToast();
@@ -91,6 +99,19 @@ export default function ProspeccaoPage() {
   };
   const setObs = async (id, val) => {
     try { await prospeccaoAPI.atualizar(id, { obs: val }); } catch { /* */ }
+  };
+  const salvarEmail = async (id, val) => {
+    setProspects((ps) => ps.map((p) => (p.id === id ? { ...p, email: val } : p)));
+    try {
+      await prospeccaoAPI.atualizar(id, { email: val });
+      prospeccaoAPI.stats().then(setStats);
+      prospeccaoAPI.campanhaStatus().then(setCamp);
+      if (val) toast({ title: 'E-mail salvo ✓', description: 'Agora esta imobiliária entra na campanha.' });
+    } catch { toast({ title: 'Falha ao salvar e-mail', variant: 'destructive' }); }
+  };
+  const pedirEmailWa = (p) => {
+    if (!p.telefone) return;
+    window.open(`https://wa.me/${onlyDigits(p.telefone)}?text=${encodeURIComponent(MSG_PEDIR_EMAIL(p.nome))}`, '_blank');
   };
   const excluir = async (id) => {
     if (!window.confirm('Excluir este contato?')) return;
@@ -336,14 +357,23 @@ export default function ProspeccaoPage() {
                     {p.opt_out && <span className="ml-1.5 text-[10px] font-semibold text-gray-400">descadastrado</span>}
                   </td>
                   <td className="px-3 py-2.5">
-                    {p.telefone
-                      ? <a href={`https://wa.me/${onlyDigits(p.telefone)}`} target="_blank" rel="noreferrer" className="font-semibold" style={{ color: GREEN }}>{p.telefone}</a>
-                      : <span className="text-gray-400 text-xs italic">—</span>}
+                    {p.telefone ? (
+                      <div className="space-y-1">
+                        <a href={`https://wa.me/${onlyDigits(p.telefone)}`} target="_blank" rel="noreferrer" className="font-semibold block" style={{ color: GREEN }}>{p.telefone}</a>
+                        {!p.email && (
+                          <button onClick={() => pedirEmailWa(p)} title="Abrir o WhatsApp com a mensagem pronta pedindo o e-mail"
+                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:underline">
+                            <MessageCircle className="w-3 h-3" /> pedir e-mail
+                          </button>
+                        )}
+                      </div>
+                    ) : <span className="text-gray-400 text-xs italic">—</span>}
                   </td>
                   <td className="px-3 py-2.5">
-                    {p.email
-                      ? <a href={`mailto:${p.email}`} className="text-xs" style={{ color: GREEN }}>{p.email}</a>
-                      : <span className="text-gray-400 text-xs italic">só WhatsApp</span>}
+                    <input type="email" defaultValue={p.email || ''} placeholder="colar e-mail…"
+                      onBlur={(e) => { const v = e.target.value.trim(); if (v !== (p.email || '')) salvarEmail(p.id, v); }}
+                      className="w-full text-xs border rounded px-2 py-1"
+                      style={{ borderColor: p.email ? '#d1d5db' : GOLD, background: p.email ? '#fff' : '#fffdf5' }} />
                   </td>
                   <td className="px-3 py-2.5">
                     <select value={p.status} onChange={(e) => setStatusProspect(p.id, Number(e.target.value))}
@@ -366,8 +396,9 @@ export default function ProspeccaoPage() {
       </div>
 
       <p className="text-[11px] text-gray-400 mt-3">
-        Dados públicos (PJ com e-mail comercial publicado). Todo e-mail inclui link de <strong>descadastro</strong> (LGPD).
-        A descoberta automática por API (Google Places) fica disponível ao configurar a chave no servidor.
+        Sem e-mail? Clique em <strong>"pedir e-mail"</strong> (abre o WhatsApp com a mensagem pronta); quando responderem,
+        <strong> cole o e-mail</strong> na coluna E-mail — a imobiliária entra na campanha na hora. Dados públicos (PJ);
+        todo e-mail inclui link de <strong>descadastro</strong> (LGPD). Descoberta automática por API (Google Places) fica disponível ao configurar a chave no servidor.
       </p>
 
       {/* Modal importar */}
