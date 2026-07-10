@@ -284,6 +284,22 @@ export const adminAPI = {
   nfseAbrasfConsultarRps: (body) => api.post('/nfse/abrasf/consultar-rps', body).then(r => r.data),
 };
 
+// ---- Prospecção B2B (imobiliárias) + campanhas de e-mail
+export const prospeccaoAPI = {
+  listar: (params = {}) => api.get('/prospeccao', { params }).then(r => r.data),
+  stats: () => api.get('/prospeccao/stats').then(r => r.data),
+  seed: () => api.post('/prospeccao/seed').then(r => r.data),
+  importar: (prospects) => api.post('/prospeccao/importar', { prospects }).then(r => r.data),
+  criar: (body) => api.post('/prospeccao', body).then(r => r.data),
+  atualizar: (id, body) => api.patch(`/prospeccao/${id}`, body).then(r => r.data),
+  excluir: (id) => api.delete(`/prospeccao/${id}`).then(r => r.data),
+  enviarCampanha: (body) => api.post('/prospeccao/campanha/enviar', body).then(r => r.data),
+  campanhaStatus: () => api.get('/prospeccao/campanha/status').then(r => r.data),
+  pararCampanha: () => api.post('/prospeccao/campanha/parar').then(r => r.data),
+  resetErros: () => api.post('/prospeccao/campanha/reset-erros').then(r => r.data),
+  propostaPreview: () => api.get('/prospeccao/proposta/preview').then(r => r.data),
+};
+
 // ---- Evaluations
 export const evaluationsAPI = {
   list: () => api.get('/evaluations').then(r => r.data),

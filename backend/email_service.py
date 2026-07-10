@@ -253,6 +253,53 @@ def build_ptam_issued_email(
 
 
 # ── Low-level send helpers ────────────────────────────────────────────
+def build_prospeccao_email(nome: str, cta_url: str, unsub_url: str = "") -> tuple[str, str]:
+    """E-mail de PROSPECÇÃO B2B (proposta de parceria) para imobiliárias/corretores."""
+    subject = "Sua imobiliária com laudos, contratos e assinatura digital — AvalieImob (Romatec)"
+    saud = f"Olá, {nome}!" if nome else "Olá!"
+    features = "".join([
+        _feature('📐', 'Avaliação / PTAM (NBR 14.653)',
+                 'Laudos com IA, fotos com GPS e ART/TRT — prontos para banco, cartório e financiamento.'),
+        _feature('✍️', 'Contratos de exclusividade + assinatura no WhatsApp',
+                 'O cliente lê e assina por um link no celular. Você fecha a captação na hora.'),
+        _feature('🔏', 'Assinatura ICP-Brasil',
+                 'Validade jurídica plena em contratos, laudos, procurações e recibos.'),
+        _feature('🗺️', 'Topografia & Georreferenciamento',
+                 'Rural (INCRA/SIGEF) e urbano (remembramento, desdobro, retificação, usucapião).'),
+    ])
+    unsub = (
+        f'<p style="color:#999999;font-size:11px;line-height:1.6;text-align:center;margin:14px 0 0;">'
+        f'Você recebeu este e-mail porque é um contato comercial (PJ) do setor imobiliário na nossa região. '
+        f'Se não desejar mais receber, <a href="{unsub_url}" style="color:#999999;">clique aqui para descadastrar</a>.'
+        f'</p>' if unsub_url else "")
+    body = f"""
+      <h2 style="color:{COLOR_GREEN};margin:0 0 12px;font-size:21px;">{saud}</h2>
+      <p style="color:#333333;font-size:15px;line-height:1.7;margin:0 0 6px;">
+        Somos a <strong>Romatec Consultoria Total</strong> e criamos a plataforma <strong>AvalieImob</strong> —
+        feita para <strong>corretores e imobiliárias</strong> emitirem avaliações, contratos e assinaturas
+        com validade jurídica, em minutos e do próprio celular. Veja o que você passa a ter:
+      </p>
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:14px 0 6px;">
+        {features}
+      </table>
+      <p style="color:#333333;font-size:15px;line-height:1.7;margin:8px 0 0;">
+        O cadastro é <strong>gratuito</strong> e você já testa com os seus imóveis hoje mesmo.
+      </p>
+      {_button('Cadastre-se grátis', cta_url)}
+      <p style="color:#777777;font-size:13px;line-height:1.6;text-align:center;margin:14px 0 0;">
+        Prefere falar antes? Chame no WhatsApp <strong>(99) 99181-1246</strong>. 💬
+      </p>
+      {unsub}
+    """
+    return subject, _base_template(subject, body)
+
+
+def send_prospeccao_email_sync(to_email: str, nome: str, cta_url: str, unsub_url: str = "") -> None:
+    """Envio SÍNCRONO da proposta (levanta o erro real do provedor — usado na fila throttled)."""
+    subject, html = build_prospeccao_email(nome, cta_url, unsub_url)
+    _send_email_sync(to_email, subject, html)
+
+
 def _is_smtp_configured() -> bool:
     return bool(os.environ.get("SMTP_HOST") and os.environ.get("SMTP_USER"))
 

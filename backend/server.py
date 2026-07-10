@@ -614,6 +614,15 @@ async def startup():
         await db.leads_avaliacao.create_index([("status", 1), ("criado_em", -1)])
     except Exception as e:
         logger.error(f"Erro ao criar índices de leads_avaliacao: {e}")
+    # Índices do módulo Prospecção (campanhas B2B) — idempotente.
+    try:
+        db = get_db()
+        await db.prospeccao.create_index("id", unique=True)
+        await db.prospeccao.create_index([("user_id", 1), ("cidade", 1), ("nome", 1)])
+        await db.prospeccao.create_index([("user_id", 1), ("email_enviado", 1)])
+        await db.prospeccao.create_index("opt_out_token", sparse=True)
+    except Exception as e:
+        logger.error(f"Erro ao criar índices de prospeccao: {e}")
     # Índices do módulo Topografia & Geo (georreferenciamento) — idempotente.
     try:
         db = get_db()
