@@ -305,6 +305,9 @@ export const prospeccaoAPI = {
   waConfigGet: () => api.get('/prospeccao/whatsapp/config').then(r => r.data),
   waConfigSet: (body) => api.post('/prospeccao/whatsapp/config', body).then(r => r.data),
   waEnviar: (body) => api.post('/prospeccao/whatsapp/enviar', body).then(r => r.data),
+  waWebhookInfo: () => api.get('/prospeccao/whatsapp/webhook').then(r => r.data),
+  waWebhookAtivar: () => api.post('/prospeccao/whatsapp/webhook/ativar').then(r => r.data),
+  waWebhookDesativar: () => api.post('/prospeccao/whatsapp/webhook/desativar').then(r => r.data),
 };
 
 // ---- Evaluations

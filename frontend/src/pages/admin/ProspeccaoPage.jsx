@@ -47,6 +47,7 @@ export default function ProspeccaoPage() {
   const [waSt, setWaSt] = useState(null);
   const [waCfg, setWaCfg] = useState(null);
   const [waTeste, setWaTeste] = useState('');
+  const [waWh, setWaWh] = useState(null);
   const pollRef = useRef(null);
 
   const carregar = useCallback(async () => {
@@ -71,7 +72,26 @@ export default function ProspeccaoPage() {
     adminAPI.emailStatus().then(setProvedor).catch(() => {});
     prospeccaoAPI.waStatus().then(setWaSt).catch(() => {});
     prospeccaoAPI.waConfigGet().then(setWaCfg).catch(() => {});
+    prospeccaoAPI.waWebhookInfo().then(setWaWh).catch(() => {});
   }, []);
+
+  const copiar = async (t) => { try { await navigator.clipboard.writeText(t); toast({ title: 'Copiado ✓' }); } catch { /* */ } };
+  const ativarWebhook = async () => {
+    setBusy('webhook');
+    try {
+      const r = await prospeccaoAPI.waWebhookAtivar();
+      setWaWh({ ativo: true, url: r.url });
+      if (r.auto_ok) toast({ title: 'Resposta automática ativada ✓', description: 'Webhook configurado no Z-API.' });
+      else toast({ title: 'Ativada — falta configurar no Z-API', description: r.auto_erro || 'Cole a URL no painel do Z-API (webhook "ao receber").', variant: 'destructive' });
+    } catch { toast({ title: 'Falha ao ativar', variant: 'destructive' }); }
+    finally { setBusy(''); }
+  };
+  const desativarWebhook = async () => {
+    setBusy('webhook');
+    try { await prospeccaoAPI.waWebhookDesativar(); setWaWh({ ...(waWh || {}), ativo: false }); toast({ title: 'Resposta automática desativada' }); }
+    catch { toast({ title: 'Falha', variant: 'destructive' }); }
+    finally { setBusy(''); }
+  };
 
   const salvarWaCfg = async (patch) => {
     const novo = { ...(waCfg || { ativo: false, hora: 10, limite_dia: 1, max_tentativas: 4, mensagem: '' }), ...patch };
@@ -416,6 +436,35 @@ export default function ProspeccaoPage() {
                 <strong>Fila circular:</strong> envia em ordem, sem repetir; ao terminar a lista, volta ao 1º e recontata quem ainda não respondeu (até <strong>{waCfg.max_tentativas || 4}</strong> vezes por contato). Quando a imobiliária responder, mude o <strong>status para "Em conversa"</strong> (ou acima) que o sistema para de reenviar pra ela.
                 {waCfg.ativo ? ` Automático: todo dia às ${waCfg.hora}h envia ${waCfg.limite_dia}.` : ' Ative o automático para o sistema fazer isso sozinho, 1–2 por dia.'}
               </p>
+            </div>
+
+            {/* Resposta automática (webhook Z-API) */}
+            <div className="pt-3 mt-3 border-t border-gray-100">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <p className="text-sm font-semibold flex items-center gap-2" style={{ color: GREEN }}>
+                  <MessageCircle className="w-4 h-4" style={{ color: GOLD }} /> Resposta automática
+                </p>
+                {waWh?.ativo
+                  ? <button onClick={desativarWebhook} disabled={busy === 'webhook'} className="text-[11px] font-semibold text-red-600 hover:underline">desativar</button>
+                  : <button onClick={ativarWebhook} disabled={busy === 'webhook' || !waSt?.zapi_ok}
+                      className="text-xs font-semibold px-3 py-1.5 rounded-lg text-white disabled:opacity-50" style={{ background: GREEN }}>
+                      {busy === 'webhook' ? 'Ativando…' : 'Ativar resposta automática'}
+                    </button>}
+              </div>
+              {waWh?.ativo ? (
+                <div className="mt-2">
+                  <p className="text-[11px] text-emerald-700 font-semibold">✓ Ativa — quando a imobiliária responder no WhatsApp, o sistema muda o status para "Em conversa" e ela sai da fila de recontato, sozinho.</p>
+                  {waWh.url && (
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <input readOnly value={waWh.url} onFocus={(e) => e.target.select()} className="flex-1 text-[11px] border rounded px-2 py-1 font-mono bg-gray-50" />
+                      <button onClick={() => copiar(waWh.url)} className="text-[11px] font-semibold px-2 py-1 rounded border" style={{ color: GREEN }}>copiar</button>
+                    </div>
+                  )}
+                  <p className="text-[10px] text-gray-400 mt-1">Se o automático não pegar, cole essa URL no painel do Z-API em <strong>"Ao receber" (webhook de mensagem recebida)</strong>.</p>
+                </div>
+              ) : (
+                <p className="text-[11px] text-gray-400 mt-1">Liga um webhook do Z-API: quando responderem, o sistema tira a imobiliária da fila automaticamente (você não precisa marcar o status na mão).</p>
+              )}
             </div>
           </>
         )}

@@ -621,6 +621,7 @@ async def startup():
         await db.prospeccao.create_index([("user_id", 1), ("cidade", 1), ("nome", 1)])
         await db.prospeccao.create_index([("user_id", 1), ("email_enviado", 1)])
         await db.prospeccao.create_index("opt_out_token", sparse=True)
+        await db.prospeccao_campanha.create_index("wa_webhook_token", sparse=True)
     except Exception as e:
         logger.error(f"Erro ao criar índices de prospeccao: {e}")
     # Agendador diário das campanhas de prospecção (lease em Mongo → 1 worker ativo).

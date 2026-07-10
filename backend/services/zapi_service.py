@@ -150,6 +150,25 @@ async def send_document(
         return _validar_resposta_zapi(r.json())
 
 
+async def set_webhook_received(
+    *,
+    instance_id: str,
+    token: str,
+    security_token: Optional[str],
+    url: str,
+) -> dict:
+    """Configura o webhook 'ao receber' (mensagens recebidas) da instância Z-API."""
+    endpoint = f"{ZAPI_BASE}/instances/{instance_id}/token/{token}/update-webhook-received"
+    async with httpx.AsyncClient(timeout=20) as client:
+        r = await client.put(endpoint, json={"value": url}, headers=_headers(security_token))
+        if r.status_code >= 400:
+            raise RuntimeError(f"Z-API erro {r.status_code}: {r.text[:300]}")
+        try:
+            return r.json()
+        except Exception:  # noqa: BLE001
+            return {"ok": True}
+
+
 async def send_text(
     *,
     instance_id: str,

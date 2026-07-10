@@ -12,7 +12,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
 from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
@@ -402,6 +402,12 @@ def _wa_query(uid: str, max_tent: int) -> dict:
     }
 
 
+def _fone_match_key(tel) -> str:
+    """Últimos 8 dígitos do telefone — casa o número mesmo com variações de DDI/9º dígito."""
+    d = "".join(c for c in (tel or "") if c.isdigit())
+    return d[-8:] if len(d) >= 8 else d
+
+
 def _wa_interpolar(tpl: str, p: dict) -> str:
     nome = (p.get("nome") or "").strip()
     primeiro = nome.split()[0] if nome else "tudo bem"
@@ -544,6 +550,96 @@ async def wa_enviar(body: WaEnviarBody, uid: str = Depends(get_admin_user), db=D
     limite = max(1, min(int(body.limite or 1), 2))
     asyncio.create_task(_rodar_whatsapp(db, uid, limite))
     return {"ok": True, "iniciada": True, "elegiveis": n, "limite": limite}
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Resposta automática — webhook do Z-API (marca 'Em conversa' quando a imobiliária responde)
+# ──────────────────────────────────────────────────────────────────────────────
+def _webhook_url(token: str) -> str:
+    return _app_url() + "/api/prospeccao/webhook/whatsapp/" + token
+
+
+@router.get("/prospeccao/whatsapp/webhook")
+async def wa_webhook_info(uid: str = Depends(get_admin_user), db=Depends(get_db)):
+    camp = await db.prospeccao_campanha.find_one({"_id": uid}) or {}
+    tok = camp.get("wa_webhook_token")
+    return {"ativo": bool(camp.get("wa_resposta_auto") and tok),
+            "url": (_webhook_url(tok) if tok else ""), "tem_token": bool(tok)}
+
+
+@router.post("/prospeccao/whatsapp/webhook/ativar")
+async def wa_webhook_ativar(uid: str = Depends(get_admin_user), db=Depends(get_db)):
+    """Liga a resposta automática: gera o token, tenta configurar o webhook no Z-API
+    automaticamente e devolve a URL (p/ configuração manual, se o auto falhar)."""
+    from services.integracoes_util import carregar_integracoes
+    from services import zapi_service
+    camp = await db.prospeccao_campanha.find_one({"_id": uid}) or {}
+    tok = camp.get("wa_webhook_token") or secrets.token_urlsafe(20)
+    url = _webhook_url(tok)
+    await db.prospeccao_campanha.update_one(
+        {"_id": uid}, {"$set": {"wa_webhook_token": tok, "wa_resposta_auto": True}}, upsert=True)
+    auto_ok, auto_erro = False, None
+    cfg = await carregar_integracoes(db, uid)
+    if cfg.get("zapi_instance_id") and cfg.get("zapi_token"):
+        try:
+            await zapi_service.set_webhook_received(
+                instance_id=cfg["zapi_instance_id"], token=cfg["zapi_token"],
+                security_token=cfg.get("zapi_security_token"), url=url)
+            auto_ok = True
+        except Exception as e:  # noqa: BLE001
+            auto_erro = f"{type(e).__name__}: {e}"
+    else:
+        auto_erro = "Z-API não configurada"
+    return {"ok": True, "url": url, "auto_ok": auto_ok, "auto_erro": auto_erro}
+
+
+@router.post("/prospeccao/whatsapp/webhook/desativar")
+async def wa_webhook_desativar(uid: str = Depends(get_admin_user), db=Depends(get_db)):
+    from services.integracoes_util import carregar_integracoes
+    from services import zapi_service
+    await db.prospeccao_campanha.update_one({"_id": uid}, {"$set": {"wa_resposta_auto": False}}, upsert=True)
+    cfg = await carregar_integracoes(db, uid)
+    if cfg.get("zapi_instance_id") and cfg.get("zapi_token"):
+        try:
+            await zapi_service.set_webhook_received(
+                instance_id=cfg["zapi_instance_id"], token=cfg["zapi_token"],
+                security_token=cfg.get("zapi_security_token"), url="")
+        except Exception:  # noqa: BLE001
+            pass
+    return {"ok": True}
+
+
+@router.post("/prospeccao/webhook/whatsapp/{token}")
+async def wa_webhook_receber(token: str, request: Request, db=Depends(get_db)):
+    """PÚBLICO — o Z-API chama ao receber mensagem. Marca o prospect que respondeu como
+    'Em conversa' (status 2), tirando-o da fila de recontato. Protegido pelo `token` secreto."""
+    camp = await db.prospeccao_campanha.find_one({"wa_webhook_token": token})
+    if not camp:
+        return {"ok": False}   # token inválido → ignora
+    uid = camp["_id"]
+    try:
+        payload = await request.json()
+    except Exception:  # noqa: BLE001
+        return {"ok": False}
+    if not isinstance(payload, dict) or payload.get("fromMe") or payload.get("isGroup"):
+        return {"ok": True, "ignorado": True}
+    key = _fone_match_key(payload.get("phone") or payload.get("participantPhone") or "")
+    if not key:
+        return {"ok": True, "ignorado": True}
+    t = payload.get("text")
+    texto = (t.get("message") if isinstance(t, dict) else "") or payload.get("message") or payload.get("body") or ""
+    candidatos = await db.prospeccao.find(
+        {"user_id": uid, "telefone": {"$nin": [None, ""]}, "status": {"$lt": 2}}).to_list(20000)
+    alvo = next((p for p in candidatos if _fone_match_key(p.get("telefone")) == key), None)
+    if not alvo:
+        return {"ok": True, "sem_match": True}
+    obs = (alvo.get("obs") or "").strip()
+    nova_obs = (obs + ("\n" if obs else "") + f"[respondeu no WhatsApp] {texto[:200]}").strip()[:1000]
+    await db.prospeccao.update_one({"id": alvo["id"], "user_id": uid}, {"$set": {
+        "status": 2, "wa_respondeu_em": _iso(), "wa_ultima_resposta": texto[:500],
+        "obs": nova_obs, "updated_at": _iso()}})
+    logger.info("Prospecção WA: %s respondeu → status 'Em conversa'", alvo.get("nome"))
+    return {"ok": True, "atualizado": alvo.get("nome")}
 
 
 async def _scheduler_tick(db, worker: str) -> None:
