@@ -9,11 +9,13 @@ import logging
 import os
 import re
 import secrets
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
+from pymongo import ReturnDocument
+from pymongo.errors import DuplicateKeyError
 
 from db import get_db
 from dependencies import get_admin_user, serialize_doc
@@ -97,6 +99,13 @@ class CampanhaBody(BaseModel):
     limite: int = 40           # máx. e-mails nesta rodada
     intervalo: int = 20        # segundos entre e-mails
     teste_email: Optional[str] = None   # se setado, envia só 1 e-mail de teste
+
+
+class AutoBody(BaseModel):
+    ativo: bool = False
+    hora: int = 9              # hora local (America/Fortaleza, UTC-3) do disparo diário
+    limite_dia: int = 40       # máx. e-mails por dia
+    intervalo: int = 30        # segundos entre e-mails
 
 
 _ELEGIVEL = {
@@ -313,6 +322,92 @@ async def reset_erros(uid: str = Depends(get_admin_user), db=Depends(get_db)):
         {"user_id": uid, "email_erro": {"$nin": [None, ""]}},
         {"$set": {"email_enviado": False, "email_erro": None, "email_enviado_em": None, "updated_at": _iso()}})
     return {"ok": True, "reabilitados": res.modified_count}
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Agendamento diário automático (scheduler in-app com lease — roda em 1 worker só)
+# ──────────────────────────────────────────────────────────────────────────────
+@router.get("/prospeccao/campanha/auto")
+async def obter_auto(uid: str = Depends(get_admin_user), db=Depends(get_db)):
+    camp = await db.prospeccao_campanha.find_one({"_id": uid}) or {}
+    return {
+        "ativo": bool(camp.get("auto_ativo")),
+        "hora": int(camp.get("auto_hora", 9)),
+        "limite_dia": int(camp.get("auto_limite_dia", 40)),
+        "intervalo": int(camp.get("auto_intervalo", 30)),
+        "ultimo_dia": camp.get("auto_ultimo_dia"),
+    }
+
+
+@router.post("/prospeccao/campanha/auto")
+async def salvar_auto(body: AutoBody, uid: str = Depends(get_admin_user), db=Depends(get_db)):
+    await db.prospeccao_campanha.update_one(
+        {"_id": uid},
+        {"$set": {
+            "auto_ativo": bool(body.ativo),
+            "auto_hora": max(0, min(int(body.hora), 23)),
+            "auto_limite_dia": max(1, min(int(body.limite_dia), 500)),
+            "auto_intervalo": max(1, min(int(body.intervalo), 300)),
+        }},
+        upsert=True)
+    return {"ok": True}
+
+
+_FORTALEZA_OFFSET = timedelta(hours=3)   # America/Fortaleza = UTC-3 (sem horário de verão)
+
+
+async def _scheduler_tick(db, worker: str) -> None:
+    now = _agora()
+    # Lease em Mongo — só o worker detentor processa (evita disparo múltiplo entre workers).
+    try:
+        lease = await db.sys_leases.find_one_and_update(
+            {"_id": "prospeccao_scheduler",
+             "$or": [{"expires": {"$lt": now.isoformat()}}, {"holder": worker}]},
+            {"$set": {"holder": worker, "expires": (now + timedelta(minutes=5)).isoformat()}},
+            upsert=True, return_document=ReturnDocument.AFTER)
+    except DuplicateKeyError:
+        return   # outro worker detém a lease
+    if not lease or lease.get("holder") != worker:
+        return
+
+    local = now - _FORTALEZA_OFFSET
+    hoje = local.strftime("%Y-%m-%d")
+    async for camp in db.prospeccao_campanha.find({"auto_ativo": True}):
+        uid = camp.get("_id")
+        if not uid or camp.get("enviando"):
+            continue
+        if local.hour < int(camp.get("auto_hora", 9)):
+            continue
+        if camp.get("auto_ultimo_dia") == hoje:
+            continue
+        # marca o dia ANTES de disparar (idempotente entre ticks)
+        await db.prospeccao_campanha.update_one({"_id": uid}, {"$set": {"auto_ultimo_dia": hoje}})
+        n = await db.prospeccao.count_documents({"user_id": uid, **_ELEGIVEL})
+        if not n:
+            continue
+        limite = int(camp.get("auto_limite_dia", 40))
+        intervalo = int(camp.get("auto_intervalo", 30))
+        logger.info("Prospecção: disparo AUTOMÁTICO diário p/ %s (até %s e-mails)", uid, limite)
+        asyncio.create_task(_rodar_campanha(db, uid, limite, intervalo))
+
+
+async def _scheduler_loop(db):
+    worker = secrets.token_hex(4)
+    logger.info("Prospecção: scheduler iniciado (worker %s)", worker)
+    while True:
+        try:
+            await asyncio.sleep(120)
+            await _scheduler_tick(db, worker)
+        except asyncio.CancelledError:
+            break
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Prospecção scheduler: %s", e)
+            await asyncio.sleep(30)
+
+
+def start_scheduler(db) -> None:
+    """Chamado no startup do server.py — 1 task por worker; a lease garante 1 ativo."""
+    asyncio.create_task(_scheduler_loop(db))
 
 
 # ──────────────────────────────────────────────────────────────────────────────

@@ -298,6 +298,8 @@ export const prospeccaoAPI = {
   pararCampanha: () => api.post('/prospeccao/campanha/parar').then(r => r.data),
   resetErros: () => api.post('/prospeccao/campanha/reset-erros').then(r => r.data),
   propostaPreview: () => api.get('/prospeccao/proposta/preview').then(r => r.data),
+  getAuto: () => api.get('/prospeccao/campanha/auto').then(r => r.data),
+  setAuto: (body) => api.post('/prospeccao/campanha/auto', body).then(r => r.data),
 };
 
 // ---- Evaluations

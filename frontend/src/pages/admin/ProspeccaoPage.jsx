@@ -2,9 +2,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Radar, Send, RefreshCw, Download, Upload, Trash2, Eye, Loader2, StopCircle,
-  Mail, AlertTriangle, X,
+  Mail, AlertTriangle, X, CalendarClock, Server,
 } from 'lucide-react';
-import { prospeccaoAPI } from '../../lib/api';
+import { prospeccaoAPI, adminAPI } from '../../lib/api';
 import { useToast } from '../../hooks/use-toast';
 
 const GREEN = '#0C3320';
@@ -34,6 +34,8 @@ export default function ProspeccaoPage() {
   const [showImport, setShowImport] = useState(false);
   const [colado, setColado] = useState('');
   const [proposta, setProposta] = useState(null);
+  const [auto, setAuto] = useState(null);
+  const [provedor, setProvedor] = useState(null);
   const pollRef = useRef(null);
 
   const carregar = useCallback(async () => {
@@ -53,6 +55,20 @@ export default function ProspeccaoPage() {
   }, [fCidade, fStatus, busca, toast]);
 
   useEffect(() => { carregar(); }, [carregar]);
+  useEffect(() => {
+    prospeccaoAPI.getAuto().then(setAuto).catch(() => {});
+    adminAPI.emailStatus().then(setProvedor).catch(() => {});
+  }, []);
+
+  const salvarAuto = async (patch) => {
+    const novo = { ...(auto || { ativo: false, hora: 9, limite_dia: 40, intervalo: 30 }), ...patch };
+    setAuto(novo);
+    try {
+      await prospeccaoAPI.setAuto({
+        ativo: !!novo.ativo, hora: Number(novo.hora), limite_dia: Number(novo.limite_dia), intervalo: Number(novo.intervalo),
+      });
+    } catch { toast({ title: 'Falha ao salvar agendamento', variant: 'destructive' }); }
+  };
 
   // Poll do status da campanha enquanto estiver enviando.
   useEffect(() => {
@@ -181,6 +197,20 @@ export default function ProspeccaoPage() {
           </button>
         </div>
 
+        {provedor && (
+          <div className="mb-3 text-xs flex items-center gap-1.5 rounded-lg px-3 py-1.5"
+            style={provedor.provider === 'SendGrid'
+              ? { background: '#ecfdf5', color: '#065f46' }
+              : { background: '#f5f2e8', color: '#7a5c00' }}>
+            <Server className="w-3.5 h-3.5 shrink-0" />
+            {provedor.provider === 'SendGrid'
+              ? <span>Enviando via <strong>SendGrid</strong> — provedor dedicado, ideal para volume (nacional).</span>
+              : provedor.provider === 'SMTP'
+              ? <span>Enviando via <strong>SMTP</strong> ({provedor.smtp_host || 'cPanel'}) — bom para a região. Para o <strong>nacional</strong>, configure <strong>SendGrid</strong> em Painel ▸ E-mail (melhor entregabilidade + descadastro automático).</span>
+              : <span><strong>Nenhum provedor configurado</strong> — configure em Painel ▸ E-mail antes de disparar.</span>}
+          </div>
+        )}
+
         {camp?.enviando ? (
           <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 mb-3 text-sm text-amber-800 flex items-center gap-2">
             <Loader2 className="w-4 h-4 animate-spin" /> Enviando… {camp.enviados} enviados de {camp.com_email} com e-mail.
@@ -225,6 +255,29 @@ export default function ProspeccaoPage() {
               <AlertTriangle className="w-4 h-4" /> Reabilitar {camp.com_erro} com erro
             </button>
           )}
+        </div>
+
+        {/* Envio automático diário */}
+        <div className="mt-4 pt-4 border-t border-gray-100">
+          <label className="flex items-center gap-2 text-sm font-semibold cursor-pointer" style={{ color: GREEN }}>
+            <input type="checkbox" checked={!!auto?.ativo} onChange={(e) => salvarAuto({ ativo: e.target.checked })} />
+            <CalendarClock className="w-4 h-4" style={{ color: GOLD }} /> Envio automático diário
+          </label>
+          {auto?.ativo && (
+            <div className="grid sm:grid-cols-3 gap-3 mt-3">
+              <label className="block"><span className="text-xs font-semibold text-gray-600">Horário (0–23h · Brasília)</span>
+                <input type="number" min="0" max="23" value={auto.hora} onChange={(e) => salvarAuto({ hora: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" /></label>
+              <label className="block"><span className="text-xs font-semibold text-gray-600">E-mails por dia</span>
+                <input type="number" min="1" max="500" value={auto.limite_dia} onChange={(e) => salvarAuto({ limite_dia: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" /></label>
+              <label className="block"><span className="text-xs font-semibold text-gray-600">Intervalo (s)</span>
+                <input type="number" min="1" max="300" value={auto.intervalo} onChange={(e) => salvarAuto({ intervalo: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" /></label>
+            </div>
+          )}
+          <p className="text-[11px] text-gray-400 mt-2">
+            {auto?.ativo
+              ? `Todo dia às ${auto.hora}h (horário de Brasília) o sistema dispara sozinho até ${auto.limite_dia} e-mails, respeitando o intervalo, até esgotar a lista de elegíveis.`
+              : 'Ative para o sistema disparar sozinho todo dia, no horário definido, sem você precisar clicar.'}
+          </p>
         </div>
       </div>
 

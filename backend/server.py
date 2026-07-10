@@ -623,6 +623,12 @@ async def startup():
         await db.prospeccao.create_index("opt_out_token", sparse=True)
     except Exception as e:
         logger.error(f"Erro ao criar índices de prospeccao: {e}")
+    # Agendador diário das campanhas de prospecção (lease em Mongo → 1 worker ativo).
+    try:
+        from routes.prospeccao import start_scheduler
+        start_scheduler(get_db())
+    except Exception as e:
+        logger.error(f"Erro ao iniciar o scheduler de prospeccao: {e}")
     # Índices do módulo Topografia & Geo (georreferenciamento) — idempotente.
     try:
         db = get_db()
