@@ -74,12 +74,13 @@ export default function ProspeccaoPage() {
   }, []);
 
   const salvarWaCfg = async (patch) => {
-    const novo = { ...(waCfg || { ativo: false, hora: 10, limite_dia: 1, mensagem: '' }), ...patch };
+    const novo = { ...(waCfg || { ativo: false, hora: 10, limite_dia: 1, max_tentativas: 4, mensagem: '' }), ...patch };
     setWaCfg(novo);
     try {
       await prospeccaoAPI.waConfigSet({
         ativo: !!novo.ativo, hora: Number(novo.hora) || 10,
-        limite_dia: Number(novo.limite_dia) || 1, mensagem: novo.mensagem,
+        limite_dia: Number(novo.limite_dia) || 1,
+        max_tentativas: Number(novo.max_tentativas) || 4, mensagem: novo.mensagem,
       });
     } catch { toast({ title: 'Falha ao salvar (WhatsApp)', variant: 'destructive' }); }
   };
@@ -387,8 +388,8 @@ export default function ProspeccaoPage() {
               </button>
               {waSt && (
                 <span className="text-xs text-gray-500">
-                  Enviados <strong>{waSt.enviados}</strong> de {waSt.com_telefone} com telefone · hoje <strong>{waSt.enviados_hoje}/{waSt.limite_dia}</strong> · elegíveis <strong>{waSt.elegiveis}</strong>
-                  {waSt.com_erro ? <> · <span className="text-red-500">{waSt.com_erro} com erro</span></> : null}
+                  Hoje <strong>{waSt.enviados_hoje}/{waSt.limite_dia}</strong> · em acompanhamento <strong>{waSt.elegiveis}</strong> · responderam <strong>{waSt.responderam ?? 0}</strong>
+                  {waSt.com_erro ? <> · <span className="text-red-500">{waSt.com_erro} erro</span></> : null}
                 </span>
               )}
             </div>
@@ -399,7 +400,7 @@ export default function ProspeccaoPage() {
                 <CalendarClock className="w-4 h-4" style={{ color: GOLD }} /> Disparo automático diário (WhatsApp)
               </label>
               {waCfg.ativo && (
-                <div className="grid sm:grid-cols-2 gap-3 mt-3 max-w-md">
+                <div className="grid sm:grid-cols-3 gap-3 mt-3 max-w-2xl">
                   <label className="block"><span className="text-xs font-semibold text-gray-600">Horário (0–23h · Brasília)</span>
                     <input type="number" min="0" max="23" value={waCfg.hora} onChange={(e) => salvarWaCfg({ hora: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" /></label>
                   <label className="block"><span className="text-xs font-semibold text-gray-600">Mensagens por dia</span>
@@ -407,12 +408,13 @@ export default function ProspeccaoPage() {
                       <option value={1}>1 por dia (mais seguro)</option>
                       <option value={2}>2 por dia</option>
                     </select></label>
+                  <label className="block"><span className="text-xs font-semibold text-gray-600">Máx. recontatos por contato</span>
+                    <input type="number" min="1" max="20" value={waCfg.max_tentativas} onChange={(e) => salvarWaCfg({ max_tentativas: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" /></label>
                 </div>
               )}
               <p className="text-[11px] text-gray-400 mt-2">
-                {waCfg.ativo
-                  ? `Todo dia às ${waCfg.hora}h (Brasília) o sistema envia ${waCfg.limite_dia} mensagem(ns) no WhatsApp, uma a uma, até falar com todas.`
-                  : 'Ative para o sistema enviar 1–2 por dia sozinho (bem devagar), até falar com todas as imobiliárias.'}
+                <strong>Fila circular:</strong> envia em ordem, sem repetir; ao terminar a lista, volta ao 1º e recontata quem ainda não respondeu (até <strong>{waCfg.max_tentativas || 4}</strong> vezes por contato). Quando a imobiliária responder, mude o <strong>status para "Em conversa"</strong> (ou acima) que o sistema para de reenviar pra ela.
+                {waCfg.ativo ? ` Automático: todo dia às ${waCfg.hora}h envia ${waCfg.limite_dia}.` : ' Ative o automático para o sistema fazer isso sozinho, 1–2 por dia.'}
               </p>
             </div>
           </>

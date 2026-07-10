@@ -112,6 +112,7 @@ class WaConfigBody(BaseModel):
     ativo: bool = False
     hora: int = 10             # hora local do disparo diário de WhatsApp
     limite_dia: int = 1        # WhatsApp: 1 por dia (máx. 2) — proteção anti-bloqueio
+    max_tentativas: int = 4    # nº máx. de recontatos por imobiliária (fila circular)
     mensagem: Optional[str] = None
 
 
@@ -384,12 +385,21 @@ _WA_MSG_DEFAULT = (
     "Se fizer sentido pra vocês, é só se cadastrar por aí. Qualquer dúvida me chama, tô à disposição! 🤝"
 )
 
-_ELEGIVEL_WA = {
-    "telefone": {"$nin": [None, ""]},
-    "whatsapp_enviado": {"$ne": True},
-    "opt_out": {"$ne": True},
-    "status": {"$ne": 4},
-}
+_WA_MAX_TENT_DEFAULT = 4   # nº máx. de tentativas por contato (não perseguir quem nunca responde)
+
+
+def _wa_query(uid: str, max_tent: int) -> dict:
+    """Contatos ainda EM ACOMPANHAMENTO no WhatsApp: com telefone, não descadastrados, que
+    ainda NÃO responderam (status < 2 = Não contatado/Aguardando retorno) e abaixo do teto de
+    tentativas. Ordenar por `whatsapp_enviado_em` ASC dá o efeito de FILA CIRCULAR: envia em
+    ordem sem duplicar; ao terminar, volta pro 1º; quem responde (status ≥ 2) ou descadastra sai."""
+    return {
+        "user_id": uid,
+        "telefone": {"$nin": [None, ""]},
+        "opt_out": {"$ne": True},
+        "status": {"$lt": 2},
+        "$or": [{"wa_tentativas": {"$lt": int(max_tent)}}, {"wa_tentativas": {"$exists": False}}],
+    }
 
 
 def _wa_interpolar(tpl: str, p: dict) -> str:
@@ -415,6 +425,7 @@ async def _rodar_whatsapp(db, uid: str, limite_pedido: int) -> int:
     camp = await db.prospeccao_campanha.find_one({"_id": uid}) or {}
     template = camp.get("wa_mensagem") or _WA_MSG_DEFAULT
     limite_dia = max(1, min(int(camp.get("wa_limite_dia", 1)), 2))
+    max_tent = int(camp.get("wa_max_tentativas", _WA_MAX_TENT_DEFAULT))
     hoje = (_agora() - _FORTALEZA_OFFSET).strftime("%Y-%m-%d")
     if camp.get("wa_dia") != hoje:
         await db.prospeccao_campanha.update_one(
@@ -425,21 +436,25 @@ async def _rodar_whatsapp(db, uid: str, limite_pedido: int) -> int:
     n_enviar = max(0, min(int(limite_pedido), limite_dia - enviados_hoje))
     enviados = 0
     for _ in range(n_enviar):
-        p = await db.prospeccao.find_one({"user_id": uid, **_ELEGIVEL_WA})
+        # FILA CIRCULAR: o de envio mais ANTIGO (ou nunca enviado) primeiro → sem duplicar,
+        # e ao terminar a volta recontata o 1º. Quem respondeu (status ≥ 2) já saiu da fila.
+        p = await db.prospeccao.find_one(_wa_query(uid, max_tent), sort=[("whatsapp_enviado_em", 1)])
         if not p:
             break
         msg = _wa_interpolar(template, p)
+        base = {"whatsapp_enviado": True, "whatsapp_enviado_em": _iso(),
+                "status": max(int(p.get("status") or 0), 1), "updated_at": _iso()}
         try:
             await zapi_service.send_text(
                 instance_id=cfg["zapi_instance_id"], token=cfg["zapi_token"],
                 security_token=cfg.get("zapi_security_token"),
                 phone=p["telefone"], message=msg)
-            await db.prospeccao.update_one({"id": p["id"], "user_id": uid}, {"$set": {
-                "whatsapp_enviado": True, "whatsapp_enviado_em": _iso(), "whatsapp_erro": None,
-                "status": max(int(p.get("status") or 0), 1), "updated_at": _iso()}})
-        except Exception as e:  # noqa: BLE001 — marca enviado c/ erro p/ não repetir
-            await db.prospeccao.update_one({"id": p["id"], "user_id": uid}, {"$set": {
-                "whatsapp_enviado": True, "whatsapp_erro": f"{type(e).__name__}: {e}", "updated_at": _iso()}})
+            await db.prospeccao.update_one({"id": p["id"], "user_id": uid},
+                                           {"$set": {**base, "whatsapp_erro": None}, "$inc": {"wa_tentativas": 1}})
+        except Exception as e:  # noqa: BLE001 — conta a tentativa e roda p/ o fim da fila
+            await db.prospeccao.update_one({"id": p["id"], "user_id": uid},
+                                           {"$set": {**base, "whatsapp_erro": f"{type(e).__name__}: {e}"},
+                                            "$inc": {"wa_tentativas": 1}})
             logger.warning("Prospecção WA: falha p/ %s: %s", p.get("telefone"), e)
         enviados += 1
         await db.prospeccao_campanha.update_one(
@@ -457,6 +472,7 @@ async def wa_config_get(uid: str = Depends(get_admin_user), db=Depends(get_db)):
         "ativo": bool(camp.get("wa_auto_ativo")),
         "hora": int(camp.get("wa_hora", 10)),
         "limite_dia": int(camp.get("wa_limite_dia", 1)),
+        "max_tentativas": int(camp.get("wa_max_tentativas", _WA_MAX_TENT_DEFAULT)),
         "mensagem": camp.get("wa_mensagem") or _WA_MSG_DEFAULT,
         "mensagem_padrao": _WA_MSG_DEFAULT,
     }
@@ -468,6 +484,7 @@ async def wa_config_set(body: WaConfigBody, uid: str = Depends(get_admin_user), 
         "wa_auto_ativo": bool(body.ativo),
         "wa_hora": max(0, min(int(body.hora), 23)),
         "wa_limite_dia": max(1, min(int(body.limite_dia), 2)),
+        "wa_max_tentativas": max(1, min(int(body.max_tentativas), 20)),
     }
     if body.mensagem is not None:
         sets["wa_mensagem"] = body.mensagem.strip() or _WA_MSG_DEFAULT
@@ -481,14 +498,18 @@ async def wa_status(uid: str = Depends(get_admin_user), db=Depends(get_db)):
     camp = await db.prospeccao_campanha.find_one({"_id": uid}) or {}
     cfg = await carregar_integracoes(db, uid)
     hoje = (_agora() - _FORTALEZA_OFFSET).strftime("%Y-%m-%d")
+    max_tent = int(camp.get("wa_max_tentativas", _WA_MAX_TENT_DEFAULT))
     return {
         "zapi_ok": bool(cfg.get("zapi_instance_id") and cfg.get("zapi_token")),
         "com_telefone": await db.prospeccao.count_documents({"user_id": uid, "telefone": {"$nin": [None, ""]}}),
-        "elegiveis": await db.prospeccao.count_documents({"user_id": uid, **_ELEGIVEL_WA}),
+        "elegiveis": await db.prospeccao.count_documents(_wa_query(uid, max_tent)),
         "enviados": await db.prospeccao.count_documents({"user_id": uid, "whatsapp_enviado": True}),
+        "responderam": await db.prospeccao.count_documents(
+            {"user_id": uid, "telefone": {"$nin": [None, ""]}, "status": {"$gte": 2}}),
         "com_erro": await db.prospeccao.count_documents({"user_id": uid, "whatsapp_erro": {"$nin": [None, ""]}}),
         "enviados_hoje": (int(camp.get("wa_enviados_hoje", 0)) if camp.get("wa_dia") == hoje else 0),
         "limite_dia": int(camp.get("wa_limite_dia", 1)),
+        "max_tentativas": max_tent,
         "ultimo_em": camp.get("wa_ultimo_em"),
     }
 
@@ -514,10 +535,12 @@ async def wa_enviar(body: WaEnviarBody, uid: str = Depends(get_admin_user), db=D
             raise HTTPException(status_code=502, detail=f"Falha no teste: {type(e).__name__}: {e}")
         return {"ok": True, "teste": True}
 
-    n = await db.prospeccao.count_documents({"user_id": uid, **_ELEGIVEL_WA})
+    camp = await db.prospeccao_campanha.find_one({"_id": uid}) or {}
+    max_tent = int(camp.get("wa_max_tentativas", _WA_MAX_TENT_DEFAULT))
+    n = await db.prospeccao.count_documents(_wa_query(uid, max_tent))
     if not n:
         raise HTTPException(status_code=422,
-                            detail="Nenhum contato elegível no WhatsApp (com telefone e ainda não enviado).")
+                            detail="Nenhum contato em acompanhamento (todos responderam, descadastraram ou atingiram o teto de tentativas).")
     limite = max(1, min(int(body.limite or 1), 2))
     asyncio.create_task(_rodar_whatsapp(db, uid, limite))
     return {"ok": True, "iniciada": True, "elegiveis": n, "limite": limite}
