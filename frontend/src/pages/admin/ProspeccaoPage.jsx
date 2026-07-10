@@ -44,6 +44,9 @@ export default function ProspeccaoPage() {
   const [proposta, setProposta] = useState(null);
   const [auto, setAuto] = useState(null);
   const [provedor, setProvedor] = useState(null);
+  const [waSt, setWaSt] = useState(null);
+  const [waCfg, setWaCfg] = useState(null);
+  const [waTeste, setWaTeste] = useState('');
   const pollRef = useRef(null);
 
   const carregar = useCallback(async () => {
@@ -66,7 +69,40 @@ export default function ProspeccaoPage() {
   useEffect(() => {
     prospeccaoAPI.getAuto().then(setAuto).catch(() => {});
     adminAPI.emailStatus().then(setProvedor).catch(() => {});
+    prospeccaoAPI.waStatus().then(setWaSt).catch(() => {});
+    prospeccaoAPI.waConfigGet().then(setWaCfg).catch(() => {});
   }, []);
+
+  const salvarWaCfg = async (patch) => {
+    const novo = { ...(waCfg || { ativo: false, hora: 10, limite_dia: 1, mensagem: '' }), ...patch };
+    setWaCfg(novo);
+    try {
+      await prospeccaoAPI.waConfigSet({
+        ativo: !!novo.ativo, hora: Number(novo.hora) || 10,
+        limite_dia: Number(novo.limite_dia) || 1, mensagem: novo.mensagem,
+      });
+    } catch { toast({ title: 'Falha ao salvar (WhatsApp)', variant: 'destructive' }); }
+  };
+  const refreshWa = () => prospeccaoAPI.waStatus().then(setWaSt).catch(() => {});
+  const enviarWaTeste = async () => {
+    if (!waTeste.trim()) return;
+    setBusy('wateste');
+    try {
+      await prospeccaoAPI.waEnviar({ teste_telefone: waTeste.trim(), teste_texto: waCfg?.mensagem });
+      toast({ title: 'WhatsApp de teste enviado ✓', description: waTeste.trim() });
+    } catch (e) { toast({ title: 'Falha no teste', description: e?.response?.data?.detail || '', variant: 'destructive' }); }
+    finally { setBusy(''); }
+  };
+  const enviarWaAgora = async () => {
+    if (!window.confirm('Enviar 1 mensagem de WhatsApp agora para a próxima imobiliária da fila?')) return;
+    setBusy('waenviar');
+    try {
+      const r = await prospeccaoAPI.waEnviar({ limite: 1 });
+      toast({ title: 'Enviando 1 no WhatsApp…', description: `${r.elegiveis} elegíveis na fila.` });
+      setTimeout(refreshWa, 4000);
+    } catch (e) { toast({ title: 'Não enviou', description: e?.response?.data?.detail || '', variant: 'destructive' }); }
+    finally { setBusy(''); }
+  };
 
   const salvarAuto = async (patch) => {
     const novo = { ...(auto || { ativo: false, hora: 9, limite_dia: 40, intervalo: 30 }), ...patch };
@@ -300,6 +336,87 @@ export default function ProspeccaoPage() {
               : 'Ative para o sistema disparar sozinho todo dia, no horário definido, sem você precisar clicar.'}
           </p>
         </div>
+      </div>
+
+      {/* Campanha por WhatsApp (Z-API) */}
+      <div className="rounded-2xl border border-gray-200 bg-white p-5 mb-5">
+        <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+          <h2 className="font-semibold flex items-center gap-2" style={{ color: GREEN }}>
+            <MessageCircle className="w-4 h-4" style={{ color: GOLD }} /> Campanha por WhatsApp (Z-API)
+          </h2>
+          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
+            style={waSt?.zapi_ok ? { background: '#ecfdf5', color: '#065f46' } : { background: '#fef2f2', color: '#b91c1c' }}>
+            {waSt?.zapi_ok ? 'Z-API conectada ✓' : 'Z-API não configurada'}
+          </span>
+        </div>
+        <div className="rounded-lg bg-amber-50 border border-amber-200 p-2.5 text-[11px] text-amber-800 mb-3">
+          ⚠️ Mensagem a frio no WhatsApp tem risco de bloqueio da conta. Por isso o limite é <strong>1–2 por dia</strong>, com texto pessoal e link para o cadastro. Comece com <strong>1/dia</strong>.
+        </div>
+        {waCfg && (
+          <>
+            <label className="block mb-2">
+              <span className="text-xs font-semibold text-gray-600">Mensagem (bem pessoal — personalize à vontade)</span>
+              <textarea value={waCfg.mensagem || ''} onChange={(e) => setWaCfg({ ...waCfg, mensagem: e.target.value })} rows={8}
+                className="w-full border rounded-lg px-3 py-2 text-sm" />
+              <div className="flex items-center justify-between mt-1 flex-wrap gap-2">
+                <span className="text-[10px] text-gray-400">
+                  Use <code>{'{primeiro}'}</code> <code>{'{nome}'}</code> <code>{'{cidade}'}</code> <code>{'{link}'}</code> — o sistema troca por cada contato.
+                </span>
+                <div className="flex gap-2">
+                  <button onClick={() => setWaCfg({ ...waCfg, mensagem: waCfg.mensagem_padrao })} className="text-[11px] text-gray-500 underline">restaurar padrão</button>
+                  <button onClick={() => salvarWaCfg({})} className="text-[11px] font-semibold px-2.5 py-1 rounded-lg text-white" style={{ background: GREEN }}>Salvar mensagem</button>
+                </div>
+              </div>
+            </label>
+
+            <label className="block mb-3 max-w-md">
+              <span className="text-xs font-semibold text-gray-600">Testar (envia 1 msg para um número)</span>
+              <div className="flex gap-2">
+                <input value={waTeste} onChange={(e) => setWaTeste(e.target.value)} placeholder="5599999999999" className="flex-1 border rounded-lg px-3 py-2 text-sm" />
+                <button onClick={enviarWaTeste} disabled={busy === 'wateste' || !waSt?.zapi_ok || !waTeste.trim()}
+                  className="px-3 py-2 rounded-lg text-sm font-semibold border disabled:opacity-50" style={{ color: GREEN }}>
+                  {busy === 'wateste' ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Testar'}
+                </button>
+              </div>
+            </label>
+
+            <div className="flex flex-wrap items-center gap-3 mb-3">
+              <button onClick={enviarWaAgora} disabled={busy === 'waenviar' || !waSt?.zapi_ok}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50" style={{ background: GREEN }}>
+                {busy === 'waenviar' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Enviar 1 agora
+              </button>
+              {waSt && (
+                <span className="text-xs text-gray-500">
+                  Enviados <strong>{waSt.enviados}</strong> de {waSt.com_telefone} com telefone · hoje <strong>{waSt.enviados_hoje}/{waSt.limite_dia}</strong> · elegíveis <strong>{waSt.elegiveis}</strong>
+                  {waSt.com_erro ? <> · <span className="text-red-500">{waSt.com_erro} com erro</span></> : null}
+                </span>
+              )}
+            </div>
+
+            <div className="pt-3 border-t border-gray-100">
+              <label className="flex items-center gap-2 text-sm font-semibold cursor-pointer" style={{ color: GREEN }}>
+                <input type="checkbox" checked={!!waCfg.ativo} onChange={(e) => salvarWaCfg({ ativo: e.target.checked })} />
+                <CalendarClock className="w-4 h-4" style={{ color: GOLD }} /> Disparo automático diário (WhatsApp)
+              </label>
+              {waCfg.ativo && (
+                <div className="grid sm:grid-cols-2 gap-3 mt-3 max-w-md">
+                  <label className="block"><span className="text-xs font-semibold text-gray-600">Horário (0–23h · Brasília)</span>
+                    <input type="number" min="0" max="23" value={waCfg.hora} onChange={(e) => salvarWaCfg({ hora: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" /></label>
+                  <label className="block"><span className="text-xs font-semibold text-gray-600">Mensagens por dia</span>
+                    <select value={waCfg.limite_dia} onChange={(e) => salvarWaCfg({ limite_dia: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm">
+                      <option value={1}>1 por dia (mais seguro)</option>
+                      <option value={2}>2 por dia</option>
+                    </select></label>
+                </div>
+              )}
+              <p className="text-[11px] text-gray-400 mt-2">
+                {waCfg.ativo
+                  ? `Todo dia às ${waCfg.hora}h (Brasília) o sistema envia ${waCfg.limite_dia} mensagem(ns) no WhatsApp, uma a uma, até falar com todas.`
+                  : 'Ative para o sistema enviar 1–2 por dia sozinho (bem devagar), até falar com todas as imobiliárias.'}
+              </p>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Toolbar */}

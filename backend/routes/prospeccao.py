@@ -108,6 +108,19 @@ class AutoBody(BaseModel):
     intervalo: int = 30        # segundos entre e-mails
 
 
+class WaConfigBody(BaseModel):
+    ativo: bool = False
+    hora: int = 10             # hora local do disparo diário de WhatsApp
+    limite_dia: int = 1        # WhatsApp: 1 por dia (máx. 2) — proteção anti-bloqueio
+    mensagem: Optional[str] = None
+
+
+class WaEnviarBody(BaseModel):
+    limite: int = 1                       # quantos enviar agora (cap 2/dia)
+    teste_telefone: Optional[str] = None  # se setado, envia 1 mensagem de teste
+    teste_texto: Optional[str] = None
+
+
 _ELEGIVEL = {
     "email": {"$nin": [None, ""]},
     "email_enviado": {"$ne": True},
@@ -128,6 +141,7 @@ def _novo_prospect(uid: str, p: dict) -> dict:
         "telefone": (p.get("telefone") or "").strip(), "endereco": (p.get("endereco") or "").strip(),
         "email": (p.get("email") or "").strip(), "uf": (p.get("uf") or "MA").strip().upper()[:2] or "MA",
         "status": 0, "obs": "", "email_enviado": False, "email_enviado_em": None, "email_erro": None,
+        "whatsapp_enviado": False, "whatsapp_enviado_em": None, "whatsapp_erro": None,
         "opt_out": False, "opt_out_token": secrets.token_urlsafe(16), "origem": p.get("origem") or "manual",
         "created_at": _iso(), "updated_at": _iso(),
     }
@@ -356,6 +370,159 @@ async def salvar_auto(body: AutoBody, uid: str = Depends(get_admin_user), db=Dep
 _FORTALEZA_OFFSET = timedelta(hours=3)   # America/Fortaleza = UTC-3 (sem horário de verão)
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Campanha por WHATSAPP (Z-API) — 1 a 2 por dia (anti-bloqueio), texto humano
+# ──────────────────────────────────────────────────────────────────────────────
+_WA_MSG_DEFAULT = (
+    "Oi, {primeiro}! Tudo bem? 😊\n\n"
+    "Aqui é o José, da Romatec, aqui de Açailândia. Vi que vocês trabalham com imóveis aí "
+    "em {cidade} e queria te mostrar uma coisa que criei pra facilitar o dia a dia do corretor.\n\n"
+    "É uma plataforma onde dá pra emitir avaliação de imóvel (PTAM/laudo NBR), fazer contrato "
+    "de exclusividade com o cliente assinando pelo próprio WhatsApp, e até georreferenciamento — "
+    "tudo do celular, rapidinho e com validade jurídica.\n\n"
+    "É grátis pra testar, dá uma olhada quando puder: {link}\n\n"
+    "Se fizer sentido pra vocês, é só se cadastrar por aí. Qualquer dúvida me chama, tô à disposição! 🤝"
+)
+
+_ELEGIVEL_WA = {
+    "telefone": {"$nin": [None, ""]},
+    "whatsapp_enviado": {"$ne": True},
+    "opt_out": {"$ne": True},
+    "status": {"$ne": 4},
+}
+
+
+def _wa_interpolar(tpl: str, p: dict) -> str:
+    nome = (p.get("nome") or "").strip()
+    primeiro = nome.split()[0] if nome else "tudo bem"
+    return (str(tpl or _WA_MSG_DEFAULT)
+            .replace("{primeiro}", primeiro)
+            .replace("{nome}", nome or "tudo bem")
+            .replace("{cidade}", (p.get("cidade") or "na sua região"))
+            .replace("{link}", _app_url() + "/cadastro"))
+
+
+async def _rodar_whatsapp(db, uid: str, limite_pedido: int) -> int:
+    """Envia até `limite_pedido` mensagens de WhatsApp (Z-API), respeitando o teto DIÁRIO
+    (wa_limite_dia, máx. 2). Estado do dia em prospeccao_campanha (wa_dia/wa_enviados_hoje)."""
+    from services.integracoes_util import carregar_integracoes
+    from services import zapi_service
+
+    cfg = await carregar_integracoes(db, uid)
+    if not (cfg.get("zapi_instance_id") and cfg.get("zapi_token")):
+        logger.warning("Prospecção WA: Z-API não configurada p/ %s", uid)
+        return 0
+    camp = await db.prospeccao_campanha.find_one({"_id": uid}) or {}
+    template = camp.get("wa_mensagem") or _WA_MSG_DEFAULT
+    limite_dia = max(1, min(int(camp.get("wa_limite_dia", 1)), 2))
+    hoje = (_agora() - _FORTALEZA_OFFSET).strftime("%Y-%m-%d")
+    if camp.get("wa_dia") != hoje:
+        await db.prospeccao_campanha.update_one(
+            {"_id": uid}, {"$set": {"wa_dia": hoje, "wa_enviados_hoje": 0}}, upsert=True)
+        enviados_hoje = 0
+    else:
+        enviados_hoje = int(camp.get("wa_enviados_hoje", 0))
+    n_enviar = max(0, min(int(limite_pedido), limite_dia - enviados_hoje))
+    enviados = 0
+    for _ in range(n_enviar):
+        p = await db.prospeccao.find_one({"user_id": uid, **_ELEGIVEL_WA})
+        if not p:
+            break
+        msg = _wa_interpolar(template, p)
+        try:
+            await zapi_service.send_text(
+                instance_id=cfg["zapi_instance_id"], token=cfg["zapi_token"],
+                security_token=cfg.get("zapi_security_token"),
+                phone=p["telefone"], message=msg)
+            await db.prospeccao.update_one({"id": p["id"], "user_id": uid}, {"$set": {
+                "whatsapp_enviado": True, "whatsapp_enviado_em": _iso(), "whatsapp_erro": None,
+                "status": max(int(p.get("status") or 0), 1), "updated_at": _iso()}})
+        except Exception as e:  # noqa: BLE001 — marca enviado c/ erro p/ não repetir
+            await db.prospeccao.update_one({"id": p["id"], "user_id": uid}, {"$set": {
+                "whatsapp_enviado": True, "whatsapp_erro": f"{type(e).__name__}: {e}", "updated_at": _iso()}})
+            logger.warning("Prospecção WA: falha p/ %s: %s", p.get("telefone"), e)
+        enviados += 1
+        await db.prospeccao_campanha.update_one(
+            {"_id": uid}, {"$inc": {"wa_enviados_hoje": 1, "wa_enviados_total": 1},
+                           "$set": {"wa_ultimo_em": _iso()}})
+        if enviados < n_enviar:
+            await asyncio.sleep(25)   # pausa natural entre as (no máx. 2) mensagens do dia
+    return enviados
+
+
+@router.get("/prospeccao/whatsapp/config")
+async def wa_config_get(uid: str = Depends(get_admin_user), db=Depends(get_db)):
+    camp = await db.prospeccao_campanha.find_one({"_id": uid}) or {}
+    return {
+        "ativo": bool(camp.get("wa_auto_ativo")),
+        "hora": int(camp.get("wa_hora", 10)),
+        "limite_dia": int(camp.get("wa_limite_dia", 1)),
+        "mensagem": camp.get("wa_mensagem") or _WA_MSG_DEFAULT,
+        "mensagem_padrao": _WA_MSG_DEFAULT,
+    }
+
+
+@router.post("/prospeccao/whatsapp/config")
+async def wa_config_set(body: WaConfigBody, uid: str = Depends(get_admin_user), db=Depends(get_db)):
+    sets = {
+        "wa_auto_ativo": bool(body.ativo),
+        "wa_hora": max(0, min(int(body.hora), 23)),
+        "wa_limite_dia": max(1, min(int(body.limite_dia), 2)),
+    }
+    if body.mensagem is not None:
+        sets["wa_mensagem"] = body.mensagem.strip() or _WA_MSG_DEFAULT
+    await db.prospeccao_campanha.update_one({"_id": uid}, {"$set": sets}, upsert=True)
+    return {"ok": True}
+
+
+@router.get("/prospeccao/whatsapp/status")
+async def wa_status(uid: str = Depends(get_admin_user), db=Depends(get_db)):
+    from services.integracoes_util import carregar_integracoes
+    camp = await db.prospeccao_campanha.find_one({"_id": uid}) or {}
+    cfg = await carregar_integracoes(db, uid)
+    hoje = (_agora() - _FORTALEZA_OFFSET).strftime("%Y-%m-%d")
+    return {
+        "zapi_ok": bool(cfg.get("zapi_instance_id") and cfg.get("zapi_token")),
+        "com_telefone": await db.prospeccao.count_documents({"user_id": uid, "telefone": {"$nin": [None, ""]}}),
+        "elegiveis": await db.prospeccao.count_documents({"user_id": uid, **_ELEGIVEL_WA}),
+        "enviados": await db.prospeccao.count_documents({"user_id": uid, "whatsapp_enviado": True}),
+        "com_erro": await db.prospeccao.count_documents({"user_id": uid, "whatsapp_erro": {"$nin": [None, ""]}}),
+        "enviados_hoje": (int(camp.get("wa_enviados_hoje", 0)) if camp.get("wa_dia") == hoje else 0),
+        "limite_dia": int(camp.get("wa_limite_dia", 1)),
+        "ultimo_em": camp.get("wa_ultimo_em"),
+    }
+
+
+@router.post("/prospeccao/whatsapp/enviar")
+async def wa_enviar(body: WaEnviarBody, uid: str = Depends(get_admin_user), db=Depends(get_db)):
+    from services.integracoes_util import carregar_integracoes
+    from services import zapi_service
+    cfg = await carregar_integracoes(db, uid)
+    if not (cfg.get("zapi_instance_id") and cfg.get("zapi_token")):
+        raise HTTPException(status_code=400, detail="Z-API não configurada (Configurações ▸ Integrações).")
+
+    if body.teste_telefone:
+        camp = await db.prospeccao_campanha.find_one({"_id": uid}) or {}
+        tpl = body.teste_texto or camp.get("wa_mensagem") or _WA_MSG_DEFAULT
+        msg = _wa_interpolar(tpl, {"nome": "Amigo(a)", "cidade": "sua cidade"})
+        try:
+            await zapi_service.send_text(
+                instance_id=cfg["zapi_instance_id"], token=cfg["zapi_token"],
+                security_token=cfg.get("zapi_security_token"),
+                phone=body.teste_telefone.strip(), message=msg)
+        except Exception as e:  # noqa: BLE001
+            raise HTTPException(status_code=502, detail=f"Falha no teste: {type(e).__name__}: {e}")
+        return {"ok": True, "teste": True}
+
+    n = await db.prospeccao.count_documents({"user_id": uid, **_ELEGIVEL_WA})
+    if not n:
+        raise HTTPException(status_code=422,
+                            detail="Nenhum contato elegível no WhatsApp (com telefone e ainda não enviado).")
+    limite = max(1, min(int(body.limite or 1), 2))
+    asyncio.create_task(_rodar_whatsapp(db, uid, limite))
+    return {"ok": True, "iniciada": True, "elegiveis": n, "limite": limite}
+
+
 async def _scheduler_tick(db, worker: str) -> None:
     now = _agora()
     # Lease em Mongo — só o worker detentor processa (evita disparo múltiplo entre workers).
@@ -389,6 +556,19 @@ async def _scheduler_tick(db, worker: str) -> None:
         intervalo = int(camp.get("auto_intervalo", 30))
         logger.info("Prospecção: disparo AUTOMÁTICO diário p/ %s (até %s e-mails)", uid, limite)
         asyncio.create_task(_rodar_campanha(db, uid, limite, intervalo))
+
+    # WhatsApp diário (1–2/dia) — o teto do dia é reforçado dentro de _rodar_whatsapp.
+    async for camp in db.prospeccao_campanha.find({"wa_auto_ativo": True}):
+        uid = camp.get("_id")
+        if not uid:
+            continue
+        if local.hour < int(camp.get("wa_hora", 10)):
+            continue
+        limite_dia = max(1, min(int(camp.get("wa_limite_dia", 1)), 2))
+        if camp.get("wa_dia") == hoje and int(camp.get("wa_enviados_hoje", 0)) >= limite_dia:
+            continue
+        logger.info("Prospecção WA: disparo AUTOMÁTICO diário p/ %s (até %s msgs)", uid, limite_dia)
+        asyncio.create_task(_rodar_whatsapp(db, uid, limite_dia))
 
 
 async def _scheduler_loop(db):

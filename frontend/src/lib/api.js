@@ -300,6 +300,11 @@ export const prospeccaoAPI = {
   propostaPreview: () => api.get('/prospeccao/proposta/preview').then(r => r.data),
   getAuto: () => api.get('/prospeccao/campanha/auto').then(r => r.data),
   setAuto: (body) => api.post('/prospeccao/campanha/auto', body).then(r => r.data),
+  // Campanha por WhatsApp (Z-API) — 1 a 2/dia
+  waStatus: () => api.get('/prospeccao/whatsapp/status').then(r => r.data),
+  waConfigGet: () => api.get('/prospeccao/whatsapp/config').then(r => r.data),
+  waConfigSet: (body) => api.post('/prospeccao/whatsapp/config', body).then(r => r.data),
+  waEnviar: (body) => api.post('/prospeccao/whatsapp/enviar', body).then(r => r.data),
 };
 
 // ---- Evaluations
