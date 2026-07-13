@@ -329,6 +329,19 @@ export const aiAPI = {
   history: (session_id) => api.get(`/ai/history/${session_id}`).then(r => r.data),
 };
 
+// ---- Instagram Studio
+export const instagramAPI = {
+  gerar: (pilar, assunto, formato) =>
+    api.post('/instagram/gerar', { pilar, assunto, formato }).then(r => r.data),
+  listar: (params = {}) =>
+    api.get('/instagram/posts', { params }).then(r => r.data),
+  obter: (id) => api.get(`/instagram/posts/${id}`).then(r => r.data),
+  criar: (data) => api.post('/instagram/posts', data).then(r => r.data),
+  atualizar: (id, data) => api.put(`/instagram/posts/${id}`, data).then(r => r.data),
+  status: (id, status) => api.post(`/instagram/posts/${id}/status`, { status }).then(r => r.data),
+  excluir: (id) => api.delete(`/instagram/posts/${id}`).then(r => r.data),
+};
+
 // ---- PTAM
 export const ptamAPI = {
   list: () => api.get('/ptam').then(r => r.data),

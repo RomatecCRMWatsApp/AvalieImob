@@ -34,6 +34,7 @@ import NfseEmissao from './admin/NfseEmissao';
 import DivulgacaoPage from './admin/DivulgacaoPage';
 import EmailDiagnostico from './admin/EmailDiagnostico';
 import ProspeccaoPage from './admin/ProspeccaoPage';
+import InstagramStudio from '../components/dashboard/instagram/InstagramStudio';
 import PropostasList from '../components/dashboard/propostas/PropostasList';
 import PropostaForm from '../components/dashboard/propostas/PropostaForm';
 import PtamList from '../components/dashboard/ptam/PtamList';
@@ -493,6 +494,7 @@ const Dashboard = () => {
             <Route path="admin/divulgacao" element={<DivulgacaoPage />} />
             <Route path="admin/email" element={<EmailDiagnostico />} />
             <Route path="admin/prospeccao" element={<ProspeccaoPage />} />
+            <Route path="admin/instagram" element={<InstagramStudio />} />
             <Route path="topografia/georef"      element={<GeorefList />} />
             <Route path="topografia/georef/novo" element={<GeorefWizard />} />
             <Route path="topografia/georef/:id"  element={<GeorefWizard />} />

@@ -9,7 +9,7 @@ import {
   LayoutDashboard, Users, Building2, BarChart3, FileCheck2, Shield, Beef, Home,
   ClipboardCheck, FileText, FileSignature, Receipt, Sparkles, FileSearch, Award,
   CreditCard, Settings, LogOut, Globe, Search, Palette, Tag, BadgeCheck, Stamp, Inbox, Calculator,
-  Compass, MapPin, Send, Megaphone, Mail, Radar,
+  Compass, MapPin, Send, Megaphone, Mail, Radar, Instagram,
 } from 'lucide-react';
 import { ptamAPI } from '../lib/api';
 import { BrandMark } from './brand/BrandMark';
@@ -168,6 +168,7 @@ export default function Sidebar({
           { id: 'usuarios', label: 'Usuários', icon: Users, route: '/dashboard/admin/usuarios' },
           { id: 'leads', label: 'Leads', icon: Inbox, route: '/dashboard/admin/leads' },
           { id: 'prospeccao', label: 'Prospecção', icon: Radar, route: '/dashboard/admin/prospeccao' },
+          { id: 'instagram', label: 'Instagram', icon: Instagram, route: '/dashboard/admin/instagram' },
           { id: 'divulgacao', label: 'Divulgação', icon: Megaphone, route: '/dashboard/admin/divulgacao' },
           { id: 'email-config', label: 'E-mail', icon: Mail, route: '/dashboard/admin/email' },
           { id: 'danfse', label: 'DANFSe (temas)', icon: FileText, route: '/dashboard/admin/danfse' },
