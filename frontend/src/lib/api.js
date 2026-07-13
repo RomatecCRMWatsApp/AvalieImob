@@ -340,6 +340,7 @@ export const instagramAPI = {
   atualizar: (id, data) => api.put(`/instagram/posts/${id}`, data).then(r => r.data),
   status: (id, status) => api.post(`/instagram/posts/${id}/status`, { status }).then(r => r.data),
   excluir: (id) => api.delete(`/instagram/posts/${id}`).then(r => r.data),
+  enviarWhatsapp: (id, data) => api.post(`/instagram/posts/${id}/enviar-whatsapp`, data).then(r => r.data),
 };
 
 // ---- PTAM

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { instagramAPI } from '../../../lib/api';
-import InstagramArt from './InstagramArt';
+import InstagramArt, { gerarPngsDoPost } from './InstagramArt';
 
 const PILARES = [
   { v: 'recursos', label: 'Recursos do sistema' },
@@ -29,6 +29,11 @@ export default function InstagramStudio() {
   const [erro, setErro] = useState('');
   const [posts, setPosts] = useState([]);
   const [filtroStatus, setFiltroStatus] = useState('');
+  const [telefone, setTelefone] = useState(() => {
+    try { return localStorage.getItem('ig_wpp') || ''; } catch (e) { return ''; }
+  });
+  const [enviando, setEnviando] = useState(false);
+  const [msgOk, setMsgOk] = useState('');
 
   const carregar = useCallback(async () => {
     const params = {};
@@ -68,11 +73,41 @@ export default function InstagramStudio() {
 
   const upd = (campo, val) => setPost(p => ({ ...p, [campo]: val }));
 
+  const enviarWhatsapp = async (alvo, imagensPre) => {
+    if (!alvo) return;
+    if (!alvo.id) { setErro('Salve o post antes de enviar pro WhatsApp.'); return; }
+    const tel = (telefone || '').trim();
+    if (!tel) { setErro('Preencha "Meu WhatsApp" no topo para o envio.'); return; }
+    setErro(''); setEnviando(true);
+    try {
+      const imagens = imagensPre || await gerarPngsDoPost(alvo);
+      const r = await instagramAPI.enviarWhatsapp(alvo.id, { phone: tel, imagens });
+      setMsgOk(`Enviado pro seu WhatsApp ✓ (${(r && r.enviadas) || imagens.length} imagem/ns)`);
+      setTimeout(() => setMsgOk(''), 6000);
+    } catch (e) {
+      setErro(e?.response?.data?.detail || 'Falha ao enviar pelo WhatsApp.');
+    } finally { setEnviando(false); }
+  };
+
+  const aprovarEEnviar = async (p) => {
+    await instagramAPI.status(p.id, 'aprovado');
+    await carregar();
+    if ((telefone || '').trim()) await enviarWhatsapp(p);
+  };
+
   return (
     <div className="p-4 md:p-8 space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-[#0C3320]">Instagram Studio</h1>
         <p className="text-gray-500 mt-1">Gere posts para @avalieimob e organize o calendário.</p>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <label className="text-sm text-gray-600">Meu WhatsApp (envio automático ao aprovar):</label>
+          <input className="border rounded p-1 text-sm w-48"
+                 value={telefone}
+                 onChange={e => { setTelefone(e.target.value); try { localStorage.setItem('ig_wpp', e.target.value); } catch (err) { /* ignore */ } }}
+                 placeholder="5599999999999" />
+        </div>
+        {msgOk && <p className="text-green-600 text-sm mt-1">{msgOk}</p>}
       </div>
 
       {/* GERADOR */}
@@ -132,7 +167,7 @@ export default function InstagramStudio() {
                   className="bg-[#C9A84C] text-[#0C3320] font-semibold rounded px-4 py-2 disabled:opacity-50">
             {salvando ? 'Salvando…' : 'Salvar no calendário'}
           </button>
-          <InstagramArt post={post} />
+          <InstagramArt post={post} onEnviarWhatsapp={(imgs) => enviarWhatsapp(post, imgs)} enviando={enviando} />
         </div>
       )}
 
@@ -164,7 +199,7 @@ export default function InstagramStudio() {
             <div className="flex flex-col gap-1 shrink-0">
               <button onClick={() => setPost(p)} className="text-xs text-[#0C3320] font-medium">Abrir</button>
               {p.status === 'ideia' &&
-                <button onClick={() => mudarStatus(p.id, 'aprovado')} className="text-xs text-blue-600">Aprovar</button>}
+                <button onClick={() => aprovarEEnviar(p)} className="text-xs text-blue-600">Aprovar + enviar</button>}
               {p.status === 'aprovado' &&
                 <button onClick={() => mudarStatus(p.id, 'publicado')} className="text-xs text-green-600">Marcar publicado</button>}
               <button onClick={() => excluir(p.id)} className="text-xs text-red-500">Excluir</button>
