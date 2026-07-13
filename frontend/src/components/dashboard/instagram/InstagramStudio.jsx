@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { instagramAPI } from '../../../lib/api';
+import { instagramAPI, uploadAPI } from '../../../lib/api';
 import InstagramArt, { gerarPngsDoPost } from './InstagramArt';
 
 const PILARES = [
@@ -34,6 +34,7 @@ export default function InstagramStudio() {
   });
   const [enviando, setEnviando] = useState(false);
   const [msgOk, setMsgOk] = useState('');
+  const [subindoImg, setSubindoImg] = useState(false);
 
   const carregar = useCallback(async () => {
     const params = {};
@@ -93,6 +94,18 @@ export default function InstagramStudio() {
     await instagramAPI.status(p.id, 'aprovado');
     await carregar();
     if ((telefone || '').trim()) await enviarWhatsapp(p);
+  };
+
+  const anexarScreenshot = async (file) => {
+    if (!file) return;
+    setErro(''); setSubindoImg(true);
+    try {
+      const r = await uploadAPI.uploadImage(file);
+      const id = r.id || (r.url ? r.url.split('/').pop() : null);
+      if (id) upd('screenshot_id', id);
+    } catch (e) {
+      setErro('Falha ao anexar a tela. Tente uma imagem PNG/JPG menor.');
+    } finally { setSubindoImg(false); }
   };
 
   return (
@@ -163,6 +176,24 @@ export default function InstagramStudio() {
           <input className="w-full border rounded p-2 text-sm" value={(post.hashtags || []).join(' ')}
                  onChange={e => upd('hashtags', e.target.value.split(/\s+/).filter(Boolean))}
                  placeholder="#hashtags separadas por espaço" />
+          {post.formato === 'post_unico' && (
+            <div className="border rounded p-2 bg-gray-50">
+              <label className="text-sm font-medium text-[#0C3320]">Tela do sistema (opcional)</label>
+              <p className="text-xs text-gray-500 mb-1">Anexe um print pra mostrar o produto — a arte vira "showcase" (tela + faixa).</p>
+              {post.screenshot_id ? (
+                <div className="flex items-center gap-2">
+                  <img src={uploadAPI.getImageUrl(post.screenshot_id)} alt="tela" style={{ height: 56, borderRadius: 4 }} />
+                  <button onClick={() => upd('screenshot_id', null)} className="text-xs text-red-500">Remover</button>
+                </div>
+              ) : (
+                <label className="inline-block text-sm cursor-pointer bg-white border rounded px-3 py-1">
+                  {subindoImg ? 'Enviando…' : 'Anexar tela do sistema'}
+                  <input type="file" accept="image/png,image/jpeg,image/jpg,image/webp" className="hidden"
+                         onChange={e => anexarScreenshot(e.target.files && e.target.files[0])} />
+                </label>
+              )}
+            </div>
+          )}
           <button onClick={salvar} disabled={salvando}
                   className="bg-[#C9A84C] text-[#0C3320] font-semibold rounded px-4 py-2 disabled:opacity-50">
             {salvando ? 'Salvando…' : 'Salvar no calendário'}

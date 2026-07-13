@@ -30,6 +30,7 @@ class InstagramPostBase(BaseModel):
     cta: str = ""
     link: str = ""
     template_arte: str = "impacto"
+    screenshot_id: Optional[str] = None   # id de db.images (tela do sistema no post)
     status: Literal["ideia", "aprovado", "publicado"] = "ideia"
     data_agendada: Optional[str] = None
     data_publicado: Optional[str] = None
@@ -50,6 +51,7 @@ class InstagramPostUpdate(BaseModel):
     cta: Optional[str] = None
     link: Optional[str] = None
     template_arte: Optional[str] = None
+    screenshot_id: Optional[str] = None
     status: Optional[str] = None
     data_agendada: Optional[str] = None
     data_publicado: Optional[str] = None

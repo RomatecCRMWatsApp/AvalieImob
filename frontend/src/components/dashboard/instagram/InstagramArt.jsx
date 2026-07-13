@@ -1,4 +1,5 @@
-import React, { useRef, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { uploadAPI } from '../../../lib/api';
 
 const VERDE = '#0C3320';
 const VERDE_ALT = '#0f3a25';
@@ -22,44 +23,8 @@ function wrapText(ctx, text, maxWidth) {
   return lines;
 }
 
-function drawCard(canvas, { titulo, texto, alt, w, h }) {
-  const ctx = canvas.getContext('2d');
-  canvas.width = w;
-  canvas.height = h;
-
-  ctx.fillStyle = alt ? VERDE_ALT : VERDE;
-  ctx.fillRect(0, 0, w, h);
-
-  ctx.strokeStyle = DOURADO;
-  ctx.lineWidth = 6;
-  ctx.strokeRect(40, 40, w - 80, h - 80);
-
-  const pad = 90;
-
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'top';
-  ctx.fillStyle = CREME;
-  const tSize = Math.round(w * 0.075);
-  ctx.font = `700 ${tSize}px "Playfair Display", Georgia, serif`;
-  const linhasT = wrapText(ctx, titulo, w - pad * 2);
-  let y = pad + 40;
-  for (const l of linhasT) {
-    ctx.fillText(l, pad, y);
-    y += tSize * 1.18;
-  }
-
-  if (texto) {
-    y += 24;
-    const cSize = Math.round(w * 0.042);
-    ctx.font = `400 ${cSize}px Inter, Arial, sans-serif`;
-    ctx.fillStyle = DOURADO;
-    const linhasC = wrapText(ctx, texto, w - pad * 2);
-    for (const l of linhasC) {
-      ctx.fillText(l, pad, y);
-      y += cSize * 1.3;
-    }
-  }
-
+// Rodapé da marca ("A" + @avalieimob) — reusado por todos os templates.
+function drawRodape(ctx, w, h, pad) {
   const fSize = Math.round(w * 0.036);
   const boxS = Math.round(fSize * 1.4);
   const bx = pad;
@@ -78,15 +43,119 @@ function drawCard(canvas, { titulo, texto, alt, w, h }) {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText('A', bx + boxS / 2, by + boxS / 2 + 2);
-
   ctx.textAlign = 'left';
-  ctx.textBaseline = 'middle';
   ctx.fillStyle = DOURADO;
   ctx.font = `600 ${fSize}px Inter, Arial, sans-serif`;
   ctx.fillText('@avalieimob', bx + boxS + 20, by + boxS / 2);
+  ctx.textBaseline = 'top';
+}
 
+// Template padrão (só texto): título grande + texto/CTA + rodapé.
+function drawCard(canvas, { titulo, texto, alt, w, h }) {
+  const ctx = canvas.getContext('2d');
+  canvas.width = w;
+  canvas.height = h;
+
+  ctx.fillStyle = alt ? VERDE_ALT : VERDE;
+  ctx.fillRect(0, 0, w, h);
+
+  ctx.strokeStyle = DOURADO;
+  ctx.lineWidth = 6;
+  ctx.strokeRect(40, 40, w - 80, h - 80);
+
+  const pad = 90;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
+  ctx.fillStyle = CREME;
+  const tSize = Math.round(w * 0.075);
+  ctx.font = `700 ${tSize}px "Playfair Display", Georgia, serif`;
+  let y = pad + 40;
+  for (const l of wrapText(ctx, titulo, w - pad * 2)) {
+    ctx.fillText(l, pad, y);
+    y += tSize * 1.18;
+  }
+
+  if (texto) {
+    y += 24;
+    const cSize = Math.round(w * 0.042);
+    ctx.font = `400 ${cSize}px Inter, Arial, sans-serif`;
+    ctx.fillStyle = DOURADO;
+    for (const l of wrapText(ctx, texto, w - pad * 2)) {
+      ctx.fillText(l, pad, y);
+      y += cSize * 1.3;
+    }
+  }
+
+  drawRodape(ctx, w, h, pad);
+}
+
+// Template "showcase": print grande da tela do sistema + faixa de texto embaixo.
+function drawShowcase(canvas, { img, titulo, texto, w, h }) {
+  const ctx = canvas.getContext('2d');
+  canvas.width = w;
+  canvas.height = h;
+
+  ctx.fillStyle = VERDE;
+  ctx.fillRect(0, 0, w, h);
+
+  const m = 60;
+  const printTop = m + 10;
+  const printBottom = Math.round(h * 0.60);
+  const boxW = w - m * 2;
+  const boxH = printBottom - printTop;
+
+  // fundo branco + moldura dourada da "tela"
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(m, printTop, boxW, boxH);
+  ctx.strokeStyle = DOURADO;
+  ctx.lineWidth = 6;
+  ctx.strokeRect(m - 3, printTop - 3, boxW + 6, boxH + 6);
+
+  // desenha o print "contain" (mantém proporção, centralizado)
+  if (img && img.width) {
+    const ar = img.width / img.height;
+    const boxAr = boxW / boxH;
+    let dw, dh;
+    if (ar > boxAr) { dw = boxW; dh = boxW / ar; }
+    else { dh = boxH; dw = boxH * ar; }
+    const dx = m + (boxW - dw) / 2;
+    const dy = printTop + (boxH - dh) / 2;
+    ctx.drawImage(img, dx, dy, dw, dh);
+  }
+
+  // faixa de texto (título + CTA)
+  const pad = 80;
+  let y = printBottom + 46;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  ctx.fillStyle = CREME;
+  const tSize = Math.round(w * 0.06);
+  ctx.font = `700 ${tSize}px "Playfair Display", Georgia, serif`;
+  for (const l of wrapText(ctx, titulo, w - pad * 2)) {
+    ctx.fillText(l, pad, y);
+    y += tSize * 1.15;
+  }
+  if (texto) {
+    y += 14;
+    const cSize = Math.round(w * 0.038);
+    ctx.font = `400 ${cSize}px Inter, Arial, sans-serif`;
+    ctx.fillStyle = DOURADO;
+    for (const l of wrapText(ctx, texto, w - pad * 2)) {
+      ctx.fillText(l, pad, y);
+      y += cSize * 1.3;
+    }
+  }
+
+  drawRodape(ctx, w, h, pad);
+}
+
+function carregarImagem(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();          // same-origin: sem crossOrigin (evita exigir CORS)
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = url;
+  });
 }
 
 export function paginasDoPost(post) {
@@ -99,12 +168,23 @@ export function dimsDoPost(post) {
   return post.formato === 'carrossel' ? { w: 1080, h: 1350 } : { w: 1080, h: 1080 };
 }
 
-// Gera os PNGs (dataURL) de um post SEM precisar do componente montado (canvas offscreen).
-// Usado pela automação pós-aprovação (aprovar no calendário → enviar sem abrir a arte).
+function usaShowcase(post) {
+  return post.formato === 'post_unico' && !!post.screenshot_id;
+}
+
+// Gera os PNGs (dataURL) de um post. Único ponto de desenho — o preview usa estes mesmos PNGs.
+// showcase (print + faixa) quando post único com tela anexada; senão o template de texto.
 export async function gerarPngsDoPost(post) {
-  if (document.fonts && document.fonts.ready) {
-    try { await document.fonts.ready; } catch (e) { /* ignore */ }
+  try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch (e) { /* ignore */ }
+
+  if (usaShowcase(post)) {
+    let img = null;
+    try { img = await carregarImagem(uploadAPI.getImageUrl(post.screenshot_id)); } catch (e) { /* segue sem print */ }
+    const c = document.createElement('canvas');
+    drawShowcase(c, { img, titulo: post.titulo, texto: post.cta, w: 1080, h: 1350 });
+    return [c.toDataURL('image/png')];
   }
+
   const dims = dimsDoPost(post);
   return paginasDoPost(post).map((pg, i) => {
     const c = document.createElement('canvas');
@@ -114,31 +194,21 @@ export async function gerarPngsDoPost(post) {
 }
 
 export default function InstagramArt({ post, onEnviarWhatsapp, enviando }) {
-  const refs = useRef([]);
+  const [pngs, setPngs] = useState([]);
 
-  const paginas = paginasDoPost(post);
-  const dims = dimsDoPost(post);
-
-  const desenhar = useCallback(async () => {
-    if (document.fonts && document.fonts.ready) {
-      try { await document.fonts.ready; } catch (e) { /* ignore */ }
-    }
-    paginas.forEach((pg, i) => {
-      const c = refs.current[i];
-      if (c) drawCard(c, { ...pg, alt: i > 0, w: dims.w, h: dims.h });
-    });
+  const render = useCallback(async () => {
+    const urls = await gerarPngsDoPost(post);
+    setPngs(urls);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [post]);
 
-  useEffect(() => { desenhar(); }, [desenhar]);
+  useEffect(() => { render(); }, [render]);
 
   const baixar = () => {
-    paginas.forEach((_, i) => {
-      const c = refs.current[i];
-      if (!c) return;
+    pngs.forEach((url, i) => {
       const a = document.createElement('a');
       a.download = `avalieimob-${post.id || 'post'}-${i + 1}.png`;
-      a.href = c.toDataURL('image/png');
+      a.href = url;
       a.click();
     });
   };
@@ -148,20 +218,14 @@ export default function InstagramArt({ post, onEnviarWhatsapp, enviando }) {
     await navigator.clipboard.writeText(`${post.legenda || ''}\n\n${tags}`.trim());
   };
 
-  const enviarWhatsapp = () => {
-    if (!onEnviarWhatsapp) return;
-    const imagens = paginas
-      .map((_, i) => (refs.current[i] ? refs.current[i].toDataURL('image/png') : null))
-      .filter(Boolean);
-    onEnviarWhatsapp(imagens);
-  };
+  const enviarWhatsapp = () => { if (onEnviarWhatsapp) onEnviarWhatsapp(pngs); };
 
   return (
     <div className="space-y-3">
       <div className="flex gap-3 overflow-x-auto py-2">
-        {paginas.map((pg, i) => (
-          <canvas key={i} ref={el => (refs.current[i] = el)}
-                  style={{ width: 220, height: 'auto', borderRadius: 8, flexShrink: 0 }} />
+        {pngs.map((url, i) => (
+          <img key={i} src={url} alt={`arte ${i + 1}`}
+               style={{ width: 220, height: 'auto', borderRadius: 8, flexShrink: 0 }} />
         ))}
       </div>
       <div className="flex gap-2 flex-wrap">
