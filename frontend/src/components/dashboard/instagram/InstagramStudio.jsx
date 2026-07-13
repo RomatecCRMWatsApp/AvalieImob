@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { instagramAPI } from '../../../lib/api';
+import InstagramArt from './InstagramArt';
 
 const PILARES = [
   { v: 'recursos', label: 'Recursos do sistema' },
@@ -131,6 +132,7 @@ export default function InstagramStudio() {
                   className="bg-[#C9A84C] text-[#0C3320] font-semibold rounded px-4 py-2 disabled:opacity-50">
             {salvando ? 'Salvando…' : 'Salvar no calendário'}
           </button>
+          <InstagramArt post={post} />
         </div>
       )}
 
