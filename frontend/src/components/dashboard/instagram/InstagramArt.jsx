@@ -158,39 +158,41 @@ function carregarImagem(url) {
   });
 }
 
+// Cada página carrega seu próprio screenshot_id: a CAPA usa o do post; cada slide, o seu.
 export function paginasDoPost(post) {
   return post.formato === 'carrossel' && (post.slides || []).length
-    ? [{ titulo: post.titulo, texto: post.cta }, ...post.slides.map(s => ({ titulo: s.titulo, texto: s.texto }))]
-    : [{ titulo: post.titulo, texto: post.cta }];
+    ? [{ titulo: post.titulo, texto: post.cta, screenshot_id: post.screenshot_id },
+       ...post.slides.map(s => ({ titulo: s.titulo, texto: s.texto, screenshot_id: s.screenshot_id }))]
+    : [{ titulo: post.titulo, texto: post.cta, screenshot_id: post.screenshot_id }];
 }
 
 export function dimsDoPost(post) {
-  return post.formato === 'carrossel' ? { w: 1080, h: 1350 } : { w: 1080, h: 1080 };
-}
-
-function usaShowcase(post) {
-  return post.formato === 'post_unico' && !!post.screenshot_id;
+  if (post.formato === 'carrossel') return { w: 1080, h: 1350 };
+  if (post.formato === 'post_unico' && post.screenshot_id) return { w: 1080, h: 1350 };
+  return { w: 1080, h: 1080 };
 }
 
 // Gera os PNGs (dataURL) de um post. Único ponto de desenho — o preview usa estes mesmos PNGs.
-// showcase (print + faixa) quando post único com tela anexada; senão o template de texto.
+// Cada página: showcase (print + faixa) se tiver tela anexada; senão o template de texto.
 export async function gerarPngsDoPost(post) {
   try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch (e) { /* ignore */ }
 
-  if (usaShowcase(post)) {
-    let img = null;
-    try { img = await carregarImagem(uploadAPI.getImageUrl(post.screenshot_id)); } catch (e) { /* segue sem print */ }
-    const c = document.createElement('canvas');
-    drawShowcase(c, { img, titulo: post.titulo, texto: post.cta, w: 1080, h: 1350 });
-    return [c.toDataURL('image/png')];
-  }
-
   const dims = dimsDoPost(post);
-  return paginasDoPost(post).map((pg, i) => {
+  const paginas = paginasDoPost(post);
+  const out = [];
+  for (let i = 0; i < paginas.length; i++) {
+    const pg = paginas[i];
     const c = document.createElement('canvas');
-    drawCard(c, { ...pg, alt: i > 0, w: dims.w, h: dims.h });
-    return c.toDataURL('image/png');
-  });
+    if (pg.screenshot_id) {
+      let img = null;
+      try { img = await carregarImagem(uploadAPI.getImageUrl(pg.screenshot_id)); } catch (e) { /* segue sem print */ }
+      drawShowcase(c, { img, titulo: pg.titulo, texto: pg.texto, w: dims.w, h: dims.h });
+    } else {
+      drawCard(c, { titulo: pg.titulo, texto: pg.texto, alt: i > 0, w: dims.w, h: dims.h });
+    }
+    out.push(c.toDataURL('image/png'));
+  }
+  return out;
 }
 
 export default function InstagramArt({ post, onEnviarWhatsapp, enviando }) {

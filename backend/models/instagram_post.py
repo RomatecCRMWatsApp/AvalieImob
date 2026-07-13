@@ -17,6 +17,7 @@ def _iso() -> str:
 class Slide(BaseModel):
     titulo: str = ""
     texto: str = ""
+    screenshot_id: Optional[str] = None   # tela do sistema neste slide (db.images)
 
 
 class InstagramPostBase(BaseModel):

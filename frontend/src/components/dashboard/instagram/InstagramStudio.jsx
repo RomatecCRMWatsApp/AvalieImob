@@ -35,6 +35,7 @@ export default function InstagramStudio() {
   const [enviando, setEnviando] = useState(false);
   const [msgOk, setMsgOk] = useState('');
   const [subindoImg, setSubindoImg] = useState(false);
+  const [subindoSlide, setSubindoSlide] = useState(null);
 
   const carregar = useCallback(async () => {
     const params = {};
@@ -108,6 +109,21 @@ export default function InstagramStudio() {
     } finally { setSubindoImg(false); }
   };
 
+  const updSlideTela = (i, id) =>
+    upd('slides', post.slides.map((x, j) => j === i ? { ...x, screenshot_id: id } : x));
+
+  const anexarTelaSlide = async (i, file) => {
+    if (!file) return;
+    setErro(''); setSubindoSlide(i);
+    try {
+      const r = await uploadAPI.uploadImage(file);
+      const id = r.id || (r.url ? r.url.split('/').pop() : null);
+      if (id) updSlideTela(i, id);
+    } catch (e) {
+      setErro('Falha ao anexar a tela do slide.');
+    } finally { setSubindoSlide(null); }
+  };
+
   return (
     <div className="p-4 md:p-8 space-y-6">
       <div>
@@ -169,6 +185,18 @@ export default function InstagramStudio() {
                   <textarea className="w-full border rounded p-1 text-sm"
                             value={s.texto || ''} placeholder="Texto do slide"
                             onChange={e => upd('slides', post.slides.map((x, j) => j === i ? { ...x, texto: e.target.value } : x))} />
+                  {s.screenshot_id ? (
+                    <div className="flex items-center gap-2 mt-1">
+                      <img src={uploadAPI.getImageUrl(s.screenshot_id)} alt="tela" style={{ height: 40, borderRadius: 4 }} />
+                      <button onClick={() => updSlideTela(i, null)} className="text-xs text-red-500">Remover tela</button>
+                    </div>
+                  ) : (
+                    <label className="inline-block text-xs cursor-pointer text-[#0C3320] mt-1">
+                      {subindoSlide === i ? 'Enviando…' : '+ Anexar tela neste slide'}
+                      <input type="file" accept="image/png,image/jpeg,image/jpg,image/webp" className="hidden"
+                             onChange={e => anexarTelaSlide(i, e.target.files && e.target.files[0])} />
+                    </label>
+                  )}
                 </div>
               ))}
             </div>
