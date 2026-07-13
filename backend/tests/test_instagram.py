@@ -58,3 +58,9 @@ def test_router_registra_rotas():
     assert "/instagram/posts" in paths
     assert "/instagram/posts/{pid}" in paths
     assert "/instagram/posts/{pid}/status" in paths
+
+
+def test_router_tem_enviar_whatsapp():
+    from routes.instagram import router
+    paths = {r.path for r in router.routes}
+    assert "/instagram/posts/{pid}/enviar-whatsapp" in paths

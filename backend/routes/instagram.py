@@ -1,6 +1,8 @@
 # @module routes.instagram — Instagram Studio (admin): gera conteúdo com IA + CRUD do calendário.
+import base64
 import logging
-from typing import Optional
+import re
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -94,3 +96,104 @@ async def excluir_post(pid: str, uid: str = Depends(get_admin_user), db=Depends(
     if r.deleted_count == 0:
         raise HTTPException(404, "Post não encontrado")
     return {"ok": True}
+
+
+class EnviarWhatsAppBody(BaseModel):
+    phone: Optional[str] = None          # destino; se vazio usa o telefone do usuário
+    imagens: List[str] = []              # PNGs da arte (dataURL ou base64 puro)
+    legenda: Optional[str] = None        # se None, monta de legenda + hashtags do post
+
+
+def _b64_para_bytes(s: str) -> bytes:
+    s = s or ""
+    m = re.match(r"^data:[^;]+;base64,(.*)$", s, re.S)
+    if m:
+        s = m.group(1)
+    return base64.b64decode(s)
+
+
+@router.post("/instagram/posts/{pid}/enviar-whatsapp")
+async def enviar_whatsapp(pid: str, body: EnviarWhatsAppBody,
+                          uid: str = Depends(get_admin_user), db=Depends(get_db)):
+    """Envia a arte (PNG) + legenda do post para o WhatsApp do dono (Z-API ou Meta).
+
+    Usado na automação pós-aprovação: aprovou → cai pronto no seu WhatsApp para postar.
+    """
+    from services import zapi_service
+    from services import meta_whatsapp_service as meta
+    from services.integracoes_util import carregar_integracoes
+
+    doc = await db.instagram_posts.find_one({"id": pid, "user_id": uid})
+    if not doc:
+        raise HTTPException(404, "Post não encontrado")
+
+    cfg = await carregar_integracoes(db, uid)
+    if not cfg:
+        raise HTTPException(400, "Nenhum provedor WhatsApp configurado em Configurações → Integrações.")
+
+    user = await db.users.find_one({"id": uid}) or {}
+    phone = (body.phone or user.get("whatsapp") or user.get("telefone")
+             or user.get("phone") or "").strip()
+    if not phone:
+        raise HTTPException(400, "Informe o número de WhatsApp de destino.")
+
+    legenda = body.legenda
+    if legenda is None:
+        tags = " ".join(doc.get("hashtags") or [])
+        legenda = f"{doc.get('legenda', '')}\n\n{tags}".strip()
+
+    imgs: List[bytes] = []
+    for s in (body.imagens or []):
+        try:
+            b = _b64_para_bytes(s)
+            if b:
+                imgs.append(b)
+        except Exception:  # noqa: BLE001
+            logger.warning("Imagem base64 inválida ignorada no envio do post %s", pid)
+
+    provider = (cfg.get("whatsapp_provider") or "zapi").lower()
+    enviadas = 0
+    try:
+        if provider == "meta":
+            if not cfg.get("meta_phone_number_id") or not cfg.get("meta_access_token"):
+                raise HTTPException(400, "Meta WhatsApp não configurada")
+            for i, b in enumerate(imgs):
+                media_id = await meta.upload_media(
+                    phone_number_id=cfg["meta_phone_number_id"],
+                    access_token=cfg["meta_access_token"],
+                    file_bytes=b, filename=f"avalieimob-{pid}-{i + 1}.png",
+                    mime_type="image/png",
+                )
+                await meta.send_document(
+                    phone_number_id=cfg["meta_phone_number_id"],
+                    access_token=cfg["meta_access_token"],
+                    phone=phone, media_id=media_id,
+                    filename=f"avalieimob-{pid}-{i + 1}.png",
+                    caption=(legenda if i == 0 else ""),
+                )
+                enviadas += 1
+        else:
+            if not cfg.get("zapi_instance_id") or not cfg.get("zapi_token"):
+                raise HTTPException(400, "Z-API não configurada")
+            iz = dict(instance_id=cfg["zapi_instance_id"], token=cfg["zapi_token"],
+                      security_token=cfg.get("zapi_security_token"))
+            for i, b in enumerate(imgs):
+                await zapi_service.send_document(
+                    **iz, phone=phone, file_bytes=b,
+                    filename=f"avalieimob-{pid}-{i + 1}.png", content_type="image/png",
+                    caption=(legenda if i == 0 else ""),
+                )
+                enviadas += 1
+            # Manda a legenda como texto separado — fica fácil de copiar e colar no Instagram.
+            if legenda:
+                await zapi_service.send_text(**iz, phone=phone, message=legenda)
+    except HTTPException:
+        raise
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, f"Falha ao enviar pelo WhatsApp: {e}")
+
+    await db.instagram_posts.update_one(
+        {"id": pid, "user_id": uid},
+        {"$set": {"wpp_enviado_em": _iso(), "atualizado_em": _iso()}},
+    )
+    return {"ok": True, "enviadas": enviadas}
