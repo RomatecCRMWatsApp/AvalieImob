@@ -63,6 +63,7 @@ from routes.testemunha_assinatura import (
     router_publico as testemunha_assinatura_publico_router,
 )
 from routes.prospeccao import router as prospeccao_router
+from routes.instagram import router as instagram_router
 
 all_routers = [
     auth_router, users_router, ptam_router, locacao_router,
@@ -91,4 +92,5 @@ all_routers = [
     testemunha_assinatura_router,
     testemunha_assinatura_publico_router,
     prospeccao_router,
+    instagram_router,
 ]

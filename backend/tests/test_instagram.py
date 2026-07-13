@@ -49,3 +49,12 @@ def test_gerar_conteudo_json_ruim_erro(monkeypatch):
     monkeypatch.setattr(IA, "_roma_ia_cascata", fake_cascata)
     with pytest.raises(Exception):
         asyncio.run(IA.gerar_conteudo("recursos", "a", "post_unico"))
+
+
+def test_router_registra_rotas():
+    from routes.instagram import router
+    paths = {r.path for r in router.routes}
+    assert "/instagram/gerar" in paths
+    assert "/instagram/posts" in paths
+    assert "/instagram/posts/{pid}" in paths
+    assert "/instagram/posts/{pid}/status" in paths

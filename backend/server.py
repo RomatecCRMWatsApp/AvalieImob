@@ -624,6 +624,14 @@ async def startup():
         await db.prospeccao_campanha.create_index("wa_webhook_token", sparse=True)
     except Exception as e:
         logger.error(f"Erro ao criar índices de prospeccao: {e}")
+    # Índices do módulo Instagram Studio (calendário de posts) — idempotente.
+    try:
+        db = get_db()
+        await db.instagram_posts.create_index("id", unique=True)
+        await db.instagram_posts.create_index([("user_id", 1), ("status", 1)])
+        await db.instagram_posts.create_index([("user_id", 1), ("data_agendada", 1)])
+    except Exception as e:
+        logger.error(f"Erro ao criar índices de instagram_posts: {e}")
     # Agendador diário das campanhas de prospecção (lease em Mongo → 1 worker ativo).
     try:
         from routes.prospeccao import start_scheduler
