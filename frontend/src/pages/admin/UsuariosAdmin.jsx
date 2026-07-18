@@ -13,9 +13,24 @@ import { useToast } from '../../hooks/use-toast';
 import { useAuth } from '../../contexts/AuthContext';
 import { adminAPI } from '../../lib/api';
 
-const fmtData = (v) => (v ? new Date(v).toLocaleDateString('pt-BR') : '—');
-const fmtDataHora = (v) =>
-  v ? new Date(v).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—';
+// O backend grava datetime NAIVE em UTC (datetime.utcnow(), padrão do repo) e
+// serializa sem sufixo de fuso. `new Date("...T16:10:00")` sem fuso é lido pelo
+// JS como horário LOCAL — o que exibiria 16:10 em vez de 13:10 aqui (UTC-3).
+// Este helper marca a string como UTC antes de converter.
+const comoUTC = (v) => {
+  if (!v) return null;
+  if (typeof v === 'string' && !/([Zz]|[+-]\d{2}:?\d{2})$/.test(v)) return new Date(`${v}Z`);
+  return new Date(v);
+};
+
+const fmtData = (v) => {
+  const d = comoUTC(v);
+  return d ? d.toLocaleDateString('pt-BR') : '—';
+};
+const fmtDataHora = (v) => {
+  const d = comoUTC(v);
+  return d ? d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—';
+};
 
 const PLAN_STATUS = {
   active:   { label: 'Ativa',    cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', Icon: CheckCircle2 },
