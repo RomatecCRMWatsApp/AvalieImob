@@ -15,6 +15,8 @@ from services.mercadopago_service import (
     resolve_init_point, compute_plan_expiry,
 )
 from models import CreatePreferenceRequest, Transaction
+from models.auditoria_acesso import derivar_status_funil
+from services import payment_events
 
 try:
     from email_service import send_payment_email
@@ -81,7 +83,19 @@ async def payment_webhook(request: Request, db=Depends(get_db)):
     external_ref = payment.get("external_reference", "")
     amount = float(payment.get("transaction_amount", 0))
     logger.info("MP payment id=%s status=%s ref=%s", mp_payment_id, payment_status, external_ref)
-    existing = await db.transactions.find_one({"mp_payment_id": mp_payment_id})
+    # Auditoria append-only: registra TODO evento — inclusive os que o fluxo
+    # abaixo descarta (external_reference inválido, duplicata, status não
+    # aprovado). Sem isto, esses casos somem sem rastro (`return {"ok": True}`).
+    _parts_audit = external_ref.split("|", 1)
+    _uid_audit = _parts_audit[0] if len(_parts_audit) == 2 else None
+    _plan_audit = _parts_audit[1] if len(_parts_audit) == 2 else None
+    await payment_events.registrar(db, _uid_audit, payment, _plan_audit)
+    # Dedupe por (id, status): o MESMO evento é duplicata, mas uma TRANSIÇÃO de
+    # status (pending -> approved, típica de boleto/PIX) precisa seguir adiante,
+    # senão o cliente paga e nunca é ativado.
+    existing = await db.transactions.find_one(
+        {"mp_payment_id": mp_payment_id, "status": payment_status}
+    )
     if existing:
         return {"ok": True}
     parts = external_ref.split("|", 1)
@@ -127,6 +141,18 @@ async def payment_webhook(request: Request, db=Depends(get_db)):
                 assinatura_valor=float(amount or 0),
                 payload_raw={"mp_payment_id": mp_payment_id, "plan_label": plan_label},
             ))
+    # Campo DIAGNÓSTICO. Não gateia nada — quem decide acesso é plan_status.
+    try:
+        if _uid_audit:
+            u_atual = await db.users.find_one({"id": _uid_audit})
+            if u_atual:
+                ultimo = await payment_events.ultimo_por_usuario(db, _uid_audit)
+                await db.users.update_one(
+                    {"id": _uid_audit},
+                    {"$set": {"subscription_status": derivar_status_funil(u_atual, ultimo)}},
+                )
+    except Exception as e:
+        logger.warning("subscription_status nao atualizado para %s: %s", _uid_audit, e)
     return {"ok": True}
 
 

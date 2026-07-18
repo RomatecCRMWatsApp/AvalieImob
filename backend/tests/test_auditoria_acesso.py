@@ -204,3 +204,107 @@ def test_falha_ao_registrar_nao_propaga():
     db = _FakeDBPag()
     db.payment_events = _Explode()
     assert asyncio.run(payment_events.registrar(db, "u1", {"id": 1, "status": "approved"}, "mensal")) is False
+
+
+# ── Regressão: PIX/boleto (pending -> approved) precisa ativar o plano ──────
+# Exercita o HANDLER REAL `routes.payments.payment_webhook`. O único ponto
+# falsificado é o SDK do Mercado Pago — todo o resto é o código de produção.
+import routes.payments as pay
+
+
+async def _anoop(*a, **kw):
+    """Stub assíncrono: o webhook usa asyncio.create_task, que exige corrotina."""
+    return None
+
+
+class _FakeQueryParams:
+    def get(self, k, default=None):
+        return default          # sem token na query
+
+
+class _FakeRequest:
+    def __init__(self, body):
+        self._body = body
+        self.query_params = _FakeQueryParams()
+
+    async def json(self):
+        return self._body
+
+
+class _CollTxn:
+    def __init__(self):
+        self.docs = []
+    async def find_one(self, flt, **kw):
+        for d in self.docs:
+            if all(d.get(k) == v for k, v in flt.items()):
+                return d
+        return None
+    async def insert_one(self, doc):
+        self.docs.append(doc)
+
+
+class _CollUsers:
+    def __init__(self, doc):
+        self.doc = doc
+    async def find_one(self, flt, **kw):
+        return self.doc if self.doc.get("id") == flt.get("id") else None
+    async def update_one(self, flt, upd, **kw):
+        self.doc.update(upd.get("$set", {}))
+
+
+class _DBWebhook:
+    def __init__(self, user_doc):
+        self.transactions = _CollTxn()
+        self.users = _CollUsers(user_doc)
+        self.payment_events = _FakeEventos()
+
+
+def _sdk_com_status(status):
+    """SDK falso que devolve o pagamento 55 no status pedido."""
+    class _SDK:
+        def payment(self):
+            return self
+        def get(self, rid):
+            return {"response": {
+                "id": 55, "status": status, "status_detail": "ok",
+                "external_reference": "u1|mensal", "transaction_amount": 89.9,
+            }}
+    return _SDK()
+
+
+def test_pix_pago_ativa_o_plano_no_segundo_webhook(monkeypatch):
+    monkeypatch.setenv("MERCADOPAGO_WEBHOOK_TOKEN", "")
+    monkeypatch.setattr(pay, "send_payment_email", _anoop)
+    monkeypatch.setattr("services.zayra_webhook.notify_lead", _anoop)
+
+    user = {"id": "u1", "name": "Fulano", "email": "f@x.com", "plan_status": "inactive"}
+    db = _DBWebhook(user)
+    body = {"type": "payment", "data": {"id": 55}}
+
+    # Webhook 1 — PIX gerado, ainda não pago.
+    monkeypatch.setattr(pay, "get_mp_sdk", lambda: _sdk_com_status("pending"))
+    asyncio.run(pay.payment_webhook(_FakeRequest(body), db))
+    assert user["plan_status"] == "inactive", "pendente nao pode ativar"
+
+    # Webhook 2 — cliente pagou o PIX.
+    monkeypatch.setattr(pay, "get_mp_sdk", lambda: _sdk_com_status("approved"))
+    asyncio.run(pay.payment_webhook(_FakeRequest(body), db))
+    assert user["plan_status"] == "active", (
+        "REGRESSAO: pagamento aprovado apos pending nao ativou o plano"
+    )
+    assert user.get("plan_expires") is not None
+
+
+def test_webhook_identico_repetido_nao_duplica(monkeypatch):
+    monkeypatch.setenv("MERCADOPAGO_WEBHOOK_TOKEN", "")
+    monkeypatch.setattr(pay, "send_payment_email", _anoop)
+    monkeypatch.setattr("services.zayra_webhook.notify_lead", _anoop)
+
+    user = {"id": "u1", "name": "F", "email": "f@x.com", "plan_status": "inactive"}
+    db = _DBWebhook(user)
+    body = {"type": "payment", "data": {"id": 55}}
+    monkeypatch.setattr(pay, "get_mp_sdk", lambda: _sdk_com_status("approved"))
+
+    asyncio.run(pay.payment_webhook(_FakeRequest(body), db))
+    asyncio.run(pay.payment_webhook(_FakeRequest(body), db))
+    assert len(db.transactions.docs) == 1, "mesmo evento nao pode duplicar"
