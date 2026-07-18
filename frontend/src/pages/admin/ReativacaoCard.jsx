@@ -9,6 +9,21 @@ import { useToast } from '../../hooks/use-toast';
 const GREEN = '#0C3320';
 const GOLD = '#C9A84C';
 
+const fmtDataHora = (v) => {
+  if (!v) return '—';
+  // Backend grava datetime naive em UTC — sem o 'Z' o JS lê como hora local.
+  const d = typeof v === 'string' && !/([Zz]|[+-]\d{2}:?\d{2})$/.test(v)
+    ? new Date(`${v}Z`) : new Date(v);
+  return d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+};
+
+const SITUACAO = {
+  na_fila:        { label: 'Na fila',      style: { background: '#fef3c7', color: '#92400e', borderColor: '#fde68a' } },
+  aguardando:     { label: 'Aguardando',   style: { background: '#f3f4f6', color: '#6b7280', borderColor: '#e5e7eb' } },
+  concluida:      { label: 'Sequência ok', style: { background: '#ecfdf5', color: '#065f46', borderColor: '#a7f3d0' } },
+  descadastrado:  { label: 'Descadastrou', style: { background: '#fef2f2', color: '#b91c1c', borderColor: '#fecaca' } },
+};
+
 const ReativacaoCard = () => {
   const { toast } = useToast();
   const [st, setSt] = useState(null);
@@ -102,6 +117,54 @@ const ReativacaoCard = () => {
               </div>
             ))}
           </div>
+
+          {/* Situação de cada pessoa — histórico de envios */}
+          {(st?.pessoas || []).length > 0 && (
+            <div className="mb-4 rounded-lg border border-gray-200 overflow-hidden">
+              <div className="px-3 py-2 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
+                  Situação de cada cadastro
+                </span>
+                <span className="text-[11px] text-gray-400">
+                  {st.total_enviados ?? 0} e-mail(s) enviados no total
+                </span>
+              </div>
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-gray-400 border-b border-gray-100">
+                    <th className="text-left px-3 py-1.5">Pessoa</th>
+                    <th className="text-center px-2 py-1.5">Enviados</th>
+                    <th className="text-left px-2 py-1.5">Etapas</th>
+                    <th className="text-left px-2 py-1.5">Último envio</th>
+                    <th className="text-left px-3 py-1.5">Situação</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {st.pessoas.map((p) => (
+                    <tr key={p.email} className="border-b border-gray-50 last:border-0">
+                      <td className="px-3 py-1.5">
+                        <div className="text-gray-800">{p.nome || '—'}</div>
+                        <div className="text-[10px] text-gray-400">{p.email}</div>
+                      </td>
+                      <td className="text-center px-2 py-1.5 font-semibold text-gray-700">
+                        {p.enviados}/{p.total_etapas}
+                      </td>
+                      <td className="px-2 py-1.5 text-gray-500">
+                        {p.etapas?.length ? p.etapas.join(', ') : '—'}
+                      </td>
+                      <td className="px-2 py-1.5 text-gray-500">{fmtDataHora(p.ultimo_envio)}</td>
+                      <td className="px-3 py-1.5">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border"
+                          style={SITUACAO[p.situacao]?.style}>
+                          {SITUACAO[p.situacao]?.label || p.situacao}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
 
           {/* Quem receberia agora */}
           {(st?.destinatarios || []).length > 0 && (

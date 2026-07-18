@@ -40,6 +40,33 @@ async def status(uid: str = Depends(get_admin_user), db=Depends(get_db)):
 
     inativos = await db.users.count_documents({"plan_status": {"$ne": "active"}})
     optouts = await db.users.count_documents({"reativacao_opt_out": True})
+
+    # Situação de CADA pessoa: quantos e-mails já recebeu e por que está (ou não)
+    # na fila. Sem isto o painel só mostra quem vai receber e esconde o histórico.
+    na_fila_ids = {i["user"].get("id") for i in fila}
+    pessoas = []
+    total_enviados = 0
+    async for u in db.users.find({"plan_status": {"$ne": "active"}}).sort("created_at", -1):
+        enviadas = list(u.get("reativacao_enviadas") or [])
+        total_enviados += len(enviadas)
+        if u.get("reativacao_opt_out"):
+            situacao = "descadastrado"
+        elif len(enviadas) >= len(R.ETAPAS_DIAS):
+            situacao = "concluida"
+        elif u.get("id") in na_fila_ids:
+            situacao = "na_fila"
+        else:
+            situacao = "aguardando"
+        pessoas.append({
+            "nome": u.get("name") or "",
+            "email": u.get("email") or "",
+            "enviados": len(enviadas),
+            "etapas": sorted(e + 1 for e in enviadas),
+            "ultimo_envio": u.get("reativacao_ultimo_envio"),
+            "situacao": situacao,
+            "total_etapas": len(R.ETAPAS_DIAS),
+        })
+
     return {
         "config": cfg,
         "etapas_dias": R.ETAPAS_DIAS,
@@ -47,6 +74,8 @@ async def status(uid: str = Depends(get_admin_user), db=Depends(get_db)):
         "por_etapa": por_etapa,
         "total_inativos": inativos,
         "descadastrados": optouts,
+        "total_enviados": total_enviados,
+        "pessoas": pessoas,
         "destinatarios": [
             {"nome": i["user"].get("name"), "email": i["user"].get("email"),
              "etapa": i["etapa"] + 1}
