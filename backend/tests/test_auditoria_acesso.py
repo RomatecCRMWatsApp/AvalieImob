@@ -223,12 +223,27 @@ class _FakeQueryParams:
 
 
 class _FakeRequest:
-    def __init__(self, body):
+    def __init__(self, body, headers=None):
         self._body = body
         self.query_params = _FakeQueryParams()
+        self.headers = headers or {}   # x-signature / x-request-id
 
     async def json(self):
         return self._body
+
+
+def _casa(doc, flt):
+    """Match mínimo de filtro Mongo: igualdade + $ne + $gt (usados pelo webhook)."""
+    for k, v in flt.items():
+        atual = doc.get(k)
+        if isinstance(v, dict):
+            if "$ne" in v and atual == v["$ne"]:
+                return False
+            if "$gt" in v and not (atual is not None and atual > v["$gt"]):
+                return False
+        elif atual != v:
+            return False
+    return True
 
 
 class _CollTxn:
@@ -236,7 +251,7 @@ class _CollTxn:
         self.docs = []
     async def find_one(self, flt, **kw):
         for d in self.docs:
-            if all(d.get(k) == v for k, v in flt.items()):
+            if _casa(d, flt):
                 return d
         return None
     async def insert_one(self, doc):
@@ -259,14 +274,14 @@ class _DBWebhook:
         self.payment_events = _FakeEventos()
 
 
-def _sdk_com_status(status):
-    """SDK falso que devolve o pagamento 55 no status pedido."""
+def _sdk_com_status(status, pid=55):
+    """SDK falso que devolve o pagamento `pid` no status pedido."""
     class _SDK:
         def payment(self):
             return self
         def get(self, rid):
             return {"response": {
-                "id": 55, "status": status, "status_detail": "ok",
+                "id": pid, "status": status, "status_detail": "ok",
                 "external_reference": "u1|mensal", "transaction_amount": 89.9,
             }}
     return _SDK()
@@ -308,3 +323,66 @@ def test_webhook_identico_repetido_nao_duplica(monkeypatch):
     asyncio.run(pay.payment_webhook(_FakeRequest(body), db))
     asyncio.run(pay.payment_webhook(_FakeRequest(body), db))
     assert len(db.transactions.docs) == 1, "mesmo evento nao pode duplicar"
+
+
+# ── Estorno / chargeback: revoga acesso, mas respeita renovação ─────────────
+def _prep(monkeypatch):
+    monkeypatch.setenv("MERCADOPAGO_WEBHOOK_TOKEN", "")
+    monkeypatch.setenv("MERCADOPAGO_WEBHOOK_SECRET", "")
+    monkeypatch.setattr(pay, "send_payment_email", _anoop)
+    monkeypatch.setattr("services.zayra_webhook.notify_lead", _anoop)
+
+
+def test_estorno_revoga_o_acesso(monkeypatch):
+    _prep(monkeypatch)
+    user = {"id": "u1", "name": "F", "email": "f@x.com", "plan_status": "inactive"}
+    db = _DBWebhook(user)
+
+    monkeypatch.setattr(pay, "get_mp_sdk", lambda: _sdk_com_status("approved"))
+    asyncio.run(pay.payment_webhook(_FakeRequest({"type": "payment", "data": {"id": 55}}), db))
+    assert user["plan_status"] == "active"
+
+    monkeypatch.setattr(pay, "get_mp_sdk", lambda: _sdk_com_status("refunded"))
+    asyncio.run(pay.payment_webhook(_FakeRequest({"type": "payment", "data": {"id": 55}}), db))
+    assert user["plan_status"] == "expired", "estorno precisa derrubar o plano"
+
+
+def test_estorno_de_pagamento_antigo_nao_derruba_renovacao(monkeypatch):
+    """Cliente renovou; o estorno da cobranca ANTIGA nao pode cortar o acesso."""
+    _prep(monkeypatch)
+    user = {"id": "u1", "name": "F", "email": "f@x.com", "plan_status": "inactive"}
+    db = _DBWebhook(user)
+
+    # Cobrança antiga (55), aprovada há 60 dias.
+    monkeypatch.setattr(pay, "get_mp_sdk", lambda: _sdk_com_status("approved", 55))
+    asyncio.run(pay.payment_webhook(_FakeRequest({"type": "payment", "data": {"id": 55}}), db))
+    db.transactions.docs[0]["created_at"] = datetime.utcnow() - timedelta(days=60)
+
+    # Renovação (66), aprovada agora.
+    monkeypatch.setattr(pay, "get_mp_sdk", lambda: _sdk_com_status("approved", 66))
+    asyncio.run(pay.payment_webhook(_FakeRequest({"type": "payment", "data": {"id": 66}}), db))
+    assert user["plan_status"] == "active"
+
+    # Estorno da cobrança ANTIGA.
+    monkeypatch.setattr(pay, "get_mp_sdk", lambda: _sdk_com_status("refunded", 55))
+    asyncio.run(pay.payment_webhook(_FakeRequest({"type": "payment", "data": {"id": 55}}), db))
+    assert user["plan_status"] == "active", (
+        "REGRESSAO: estorno antigo derrubou plano sustentado por renovacao"
+    )
+
+
+def test_webhook_com_segredo_configurado_exige_assinatura(monkeypatch):
+    """Com MERCADOPAGO_WEBHOOK_SECRET setado, webhook sem x-signature e 403."""
+    from fastapi import HTTPException
+    _prep(monkeypatch)
+    monkeypatch.setenv("MERCADOPAGO_WEBHOOK_SECRET", "segredo")
+    monkeypatch.setattr(pay, "get_mp_sdk", lambda: _sdk_com_status("approved"))
+
+    user = {"id": "u1", "name": "F", "email": "f@x.com", "plan_status": "inactive"}
+    db = _DBWebhook(user)
+    try:
+        asyncio.run(pay.payment_webhook(_FakeRequest({"type": "payment", "data": {"id": 55}}), db))
+        assert False, "deveria ter recusado sem assinatura"
+    except HTTPException as e:
+        assert e.status_code == 403
+    assert user["plan_status"] == "inactive", "nao pode ativar sem assinatura valida"

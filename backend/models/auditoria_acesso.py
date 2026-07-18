@@ -65,6 +65,20 @@ def derivar_status_funil(
     return "never_started"
 
 
+def deve_revogar_acesso(status_evento: str, houve_aprovacao_posterior: bool) -> bool:
+    """True quando um evento do MP deve DERRUBAR o plano vigente.
+
+    Só estorno/chargeback/cancelamento revogam — recusa de pagamento NÃO
+    (cartão negado num upgrade não pode cortar quem já pagou).
+
+    `houve_aprovacao_posterior` protege a renovação: se o cliente pagou de novo
+    depois do pagamento estornado, o plano se sustenta pela cobrança mais nova.
+    """
+    if (status_evento or "").lower() not in ("refunded", "charged_back", "cancelled"):
+        return False
+    return not houve_aprovacao_posterior
+
+
 class EventoPagamentoResumo(BaseModel):
     status: Optional[str] = None
     status_detail: Optional[str] = None

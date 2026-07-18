@@ -15,8 +15,9 @@ from services.mercadopago_service import (
     resolve_init_point, compute_plan_expiry,
 )
 from models import CreatePreferenceRequest, Transaction
-from models.auditoria_acesso import derivar_status_funil
+from models.auditoria_acesso import derivar_status_funil, deve_revogar_acesso
 from services import payment_events
+from services.mp_webhook_seguranca import validar_assinatura
 
 try:
     from email_service import send_payment_email
@@ -71,6 +72,18 @@ async def payment_webhook(request: Request, db=Depends(get_db)):
         return {"ok": True}
     if topic != "payment":
         return {"ok": True}
+    # Assinatura HMAC do MP (x-signature). Só é EXIGIDA se
+    # MERCADOPAGO_WEBHOOK_SECRET estiver configurado; sem o segredo a checagem
+    # é pulada e vale o token em query param (não quebra produção).
+    segredo_hmac = os.environ.get("MERCADOPAGO_WEBHOOK_SECRET", "").strip()
+    if not validar_assinatura(
+        request.headers.get("x-signature"),
+        request.headers.get("x-request-id"),
+        str(resource_id),
+        segredo_hmac,
+    ):
+        logger.warning("MP webhook rejected: assinatura HMAC invalida (id=%s)", resource_id)
+        raise HTTPException(status_code=403, detail="Assinatura do webhook inválida")
     try:
         sdk = get_mp_sdk()
         payment_result = sdk.payment().get(resource_id)
@@ -141,6 +154,35 @@ async def payment_webhook(request: Request, db=Depends(get_db)):
                 assinatura_valor=float(amount or 0),
                 payload_raw={"mp_payment_id": mp_payment_id, "plan_label": plan_label},
             ))
+    # Estorno / chargeback / cancelamento → derruba o plano, MAS só se não houver
+    # um pagamento aprovado POSTERIOR sustentando a assinatura (renovação).
+    if user_id and deve_revogar_acesso(payment_status, False):
+        aprov_deste = await db.transactions.find_one(
+            {"mp_payment_id": mp_payment_id, "status": "approved"}
+        )
+        ref = aprov_deste.get("created_at") if aprov_deste else None
+        posterior = None
+        if ref:
+            posterior = await db.transactions.find_one({
+                "user_id": user_id,
+                "status": "approved",
+                "mp_payment_id": {"$ne": mp_payment_id},
+                "created_at": {"$gt": ref},
+            })
+        if deve_revogar_acesso(payment_status, bool(posterior)):
+            await db.users.update_one(
+                {"id": user_id},
+                {"$set": {"plan_status": "expired", "plan_expires": datetime.utcnow()}},
+            )
+            logger.warning(
+                "MP webhook: acesso REVOGADO por %s (user=%s, mp=%s)",
+                payment_status, user_id, mp_payment_id,
+            )
+        else:
+            logger.info(
+                "MP webhook: %s de %s ignorado — ha pagamento aprovado posterior (user=%s)",
+                payment_status, mp_payment_id, user_id,
+            )
     # Campo DIAGNÓSTICO. Não gateia nada — quem decide acesso é plan_status.
     try:
         if _uid_audit:
@@ -198,8 +240,28 @@ async def subscription(uid: str = Depends(get_current_user_id), db=Depends(get_d
 
 @router.post("/subscription/change")
 async def change_subscription(payload: dict, uid: str = Depends(get_admin_user), db=Depends(get_db)):
+    """Altera o plano de um usuário (admin).
+
+    BUG CORRIGIDO: antes gravava sempre em `uid` — o próprio admin — ignorando
+    o usuário-alvo. `user_id` no payload define quem recebe a alteração; sem ele,
+    mantém o comportamento antigo (o próprio admin) por compatibilidade.
+
+    `ativar: true` também libera o acesso (usado para regularizar manualmente
+    quem pagou mas não foi ativado pelo webhook).
+    """
     plan_id = payload.get("plan_id", "mensal")
     if plan_id not in PLAN_CONFIG:
         raise HTTPException(status_code=400, detail="Plano inválido")
-    await db.users.update_one({"id": uid}, {"$set": {"plan": plan_id}})
-    return {"ok": True, "plan": plan_id}
+    alvo = str(payload.get("user_id") or "").strip() or uid
+    campos = {"plan": plan_id}
+    if payload.get("ativar"):
+        campos["plan_status"] = "active"
+        campos["plan_expires"] = compute_plan_expiry(plan_id)
+    r = await db.users.update_one({"id": alvo}, {"$set": campos})
+    if r.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    logger.info(
+        "Plano alterado por admin=%s: alvo=%s plano=%s ativar=%s",
+        uid, alvo, plan_id, bool(payload.get("ativar")),
+    )
+    return {"ok": True, "plan": plan_id, "user_id": alvo, "ativado": bool(payload.get("ativar"))}
