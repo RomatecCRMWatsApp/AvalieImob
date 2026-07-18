@@ -76,6 +76,16 @@ async def payment_webhook(request: Request, db=Depends(get_db)):
     # MERCADOPAGO_WEBHOOK_SECRET estiver configurado; sem o segredo a checagem
     # é pulada e vale o token em query param (não quebra produção).
     segredo_hmac = os.environ.get("MERCADOPAGO_WEBHOOK_SECRET", "").strip()
+    # OBSERVAÇÃO (sempre, mesmo sem segredo): registra se o MP mandou x-signature.
+    # Serve para decidir com FATO se dá para exigir HMAC — nosso notification_url
+    # é por preference, e não é garantido que essa via venha assinada. Ligar a
+    # exigência sem confirmar isto faria todo pagamento aprovado virar 403.
+    logger.info(
+        "MP webhook: x-signature %s | x-request-id %s | segredo_configurado=%s",
+        "PRESENTE" if request.headers.get("x-signature") else "AUSENTE",
+        "presente" if request.headers.get("x-request-id") else "ausente",
+        bool(segredo_hmac),
+    )
     if not validar_assinatura(
         request.headers.get("x-signature"),
         request.headers.get("x-request-id"),
