@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { prospeccaoAPI, adminAPI } from '../../lib/api';
 import { useToast } from '../../hooks/use-toast';
+import ReativacaoCard from './ReativacaoCard';
 
 const GREEN = '#0C3320';
 const GOLD = '#C9A84C';
@@ -358,6 +359,9 @@ export default function ProspeccaoPage() {
           </p>
         </div>
       </div>
+
+      {/* Reativação — cadastrados que não ativaram a assinatura */}
+      <ReativacaoCard />
 
       {/* Campanha por WhatsApp (Z-API) */}
       <div className="rounded-2xl border border-gray-200 bg-white p-5 mb-5">

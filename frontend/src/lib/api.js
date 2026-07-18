@@ -287,6 +287,13 @@ export const adminAPI = {
 };
 
 // ---- Prospecção B2B (imobiliárias) + campanhas de e-mail
+export const reativacaoAPI = {
+  status: () => api.get('/reativacao/status').then(r => r.data),
+  salvarConfig: (body) => api.post('/reativacao/config', body).then(r => r.data),
+  enviarTeste: (body) => api.post('/reativacao/enviar-teste', body).then(r => r.data),
+  rodarAgora: (body) => api.post('/reativacao/rodar-agora', body || {}).then(r => r.data),
+};
+
 export const prospeccaoAPI = {
   listar: (params = {}) => api.get('/prospeccao', { params }).then(r => r.data),
   stats: () => api.get('/prospeccao/stats').then(r => r.data),
