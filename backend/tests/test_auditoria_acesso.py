@@ -131,3 +131,76 @@ def test_falha_no_banco_nao_propaga():
     db.user_access_log = _Explode()
     acesso_log.limpar_cache_throttle()
     asyncio.run(acesso_log.registrar_login(db, "u9"))  # nao deve levantar
+
+
+# ── Serviço de eventos de pagamento ─────────────────────────────────────────
+from services import payment_events
+
+
+class _FakeEventos:
+    def __init__(self):
+        self.docs = []
+    async def find_one(self, flt, **kw):
+        for d in reversed(self.docs):
+            if all(d.get(k) == v for k, v in flt.items()):
+                return d
+        return None
+    async def insert_one(self, doc):
+        self.docs.append(doc)
+        return type("R", (), {"inserted_id": len(self.docs)})()
+
+
+class _FakeDBPag:
+    def __init__(self):
+        self.payment_events = _FakeEventos()
+
+
+def test_registra_evento_com_payload_bruto():
+    db = _FakeDBPag()
+    pago = {"id": 123, "status": "approved", "status_detail": "accredited",
+            "transaction_amount": 89.9}
+    novo = asyncio.run(payment_events.registrar(db, "u1", pago, "mensal"))
+
+    assert novo is True
+    ev = db.payment_events.docs[0]
+    assert ev["user_id"] == "u1"
+    assert ev["mp_payment_id"] == "123"
+    assert ev["status"] == "approved"
+    assert ev["status_detail"] == "accredited"
+    assert ev["transaction_amount"] == 89.9
+    assert ev["raw_payload"] == pago, "payload bruto e a fonte de auditoria"
+
+
+def test_evento_repetido_com_mesmo_status_e_ignorado():
+    db = _FakeDBPag()
+    pago = {"id": 1, "status": "approved"}
+    assert asyncio.run(payment_events.registrar(db, "u1", pago, "mensal")) is True
+    assert asyncio.run(payment_events.registrar(db, "u1", pago, "mensal")) is False
+    assert len(db.payment_events.docs) == 1
+
+
+def test_transicao_de_status_do_mesmo_pagamento_e_registrada():
+    """append-only: pending -> approved sao DOIS eventos do mesmo mp_payment_id."""
+    db = _FakeDBPag()
+    asyncio.run(payment_events.registrar(db, "u1", {"id": 7, "status": "pending"}, "mensal"))
+    asyncio.run(payment_events.registrar(db, "u1", {"id": 7, "status": "approved"}, "mensal"))
+    assert len(db.payment_events.docs) == 2
+
+
+def test_evento_sem_usuario_ainda_e_gravado_para_auditoria():
+    """external_reference invalido nao pode sumir sem rastro."""
+    db = _FakeDBPag()
+    asyncio.run(payment_events.registrar(db, None, {"id": 9, "status": "approved"}, None))
+    assert db.payment_events.docs[0]["user_id"] is None
+
+
+def test_falha_ao_registrar_nao_propaga():
+    class _Explode:
+        async def find_one(self, *a, **kw):
+            raise RuntimeError("mongo caiu")
+        async def insert_one(self, *a, **kw):
+            raise RuntimeError("mongo caiu")
+
+    db = _FakeDBPag()
+    db.payment_events = _Explode()
+    assert asyncio.run(payment_events.registrar(db, "u1", {"id": 1, "status": "approved"}, "mensal")) is False
