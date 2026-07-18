@@ -23,6 +23,7 @@ import Evaluations from '../components/dashboard/Evaluations';
 import Samples from '../components/dashboard/Samples';
 import AIAssistant from '../components/dashboard/AIAssistant';
 import SubscriptionPage from '../components/dashboard/SubscriptionPage';
+import ConfiguracaoInicial from './ConfiguracaoInicial';
 import SettingsPage from '../components/dashboard/SettingsPage';
 import PerfilAvaliador from '../components/dashboard/PerfilAvaliador';
 import AdminIncra from '../components/dashboard/incra/AdminIncra';
@@ -482,6 +483,7 @@ const Dashboard = () => {
             <Route path="ia"          element={<AIAssistant />} />
             <Route path="curriculo"   element={<PerfilAvaliador />} />
             <Route path="assinatura"  element={<SubscriptionPage />} />
+            <Route path="configuracao-inicial" element={<ConfiguracaoInicial />} />
             <Route path="config"      element={<SettingsPage />} />
             <Route path="marca"       element={<BrandingWizard />} />
             <Route path="conformidade" element={<PainelConformidade />} />

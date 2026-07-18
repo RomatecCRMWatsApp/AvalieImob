@@ -419,6 +419,7 @@ export const paymentsAPI = {
 // ---- Perfil Avaliador
 export const perfilAPI = {
   get: () => api.get('/perfil-avaliador').then(r => r.data),
+  completude: () => api.get('/perfil-avaliador/completude').then(r => r.data),
   update: (data) => api.put('/perfil-avaliador', data).then(r => r.data),
   // Cartão de Regularidade (CRECI) — salva só esses campos sem mexer no resto do perfil
   setCartaoRegularidade: (data) =>

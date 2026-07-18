@@ -12,7 +12,9 @@
 # início nisso faz ele abandonar a configuração.
 from typing import Any, Dict, List
 
-CONFIG = "/dashboard/configuracoes"
+CONFIG = "/dashboard/config"
+CURRICULO = "/dashboard/curriculo"
+MARCA = "/dashboard/marca"
 
 # chave: (grupo, título, essencial, impacto, rota)
 _ITENS = [
@@ -35,7 +37,7 @@ _ITENS = [
      "Sai no rodapé do laudo e nas propostas", CONFIG),
 
     ("curriculo", "Currículo", "Currículo (formação e experiência)", False,
-     "O Anexo IV do laudo — seu currículo — sai vazio", CONFIG),
+     "O Anexo IV do laudo — seu currículo — sai vazio", CURRICULO),
     ("cartao_regularidade", "Documentos", "Cartão de regularidade do CRECI", False,
      "O Anexo V do laudo não é anexado", CONFIG),
     ("certidao_regularidade", "Documentos", "Certidão de regularidade", False,
@@ -44,14 +46,14 @@ _ITENS = [
      "Não aparece no seu currículo dentro do laudo", CONFIG),
 
     ("logo", "Marca", "Logo da empresa", False,
-     "Seus documentos saem com a marca padrão em vez da sua", CONFIG),
+     "Seus documentos saem com a marca padrão em vez da sua", MARCA),
 
     ("certificado_icp", "Assinatura digital", "Certificado ICP-Brasil (A1)", False,
-     "Você não consegue assinar digitalmente com validade jurídica", "/dashboard/certificados"),
+     "Você não consegue assinar digitalmente com validade jurídica", CONFIG),
     ("zapi", "Integrações", "WhatsApp (Z-API)", False,
-     "Não dá para enviar laudo, contrato ou recibo por WhatsApp", "/dashboard/integracoes"),
+     "Não dá para enviar laudo, contrato ou recibo por WhatsApp", CONFIG),
     ("telegram", "Integrações", "Telegram", False,
-     "Não dá para receber notificações por Telegram", "/dashboard/integracoes"),
+     "Não dá para receber notificações por Telegram", CONFIG),
 ]
 
 ESSENCIAIS = [c for c, _g, _t, ess, _i, _r in _ITENS if ess]

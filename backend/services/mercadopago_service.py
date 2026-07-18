@@ -41,7 +41,10 @@ def build_preference_data(uid: str, plan_id: str) -> dict:
             "currency_id": "BRL",
         }],
         "back_urls": {
-            "success": f"{APP_URL}/dashboard?payment=success",
+            # Aprovado → cai direto no assistente de configuração. Sem isso o
+            # cliente pousa no dashboard sem saber que precisa cadastrar CRECI,
+            # assinatura etc., e descobre só quando o 1º laudo sai incompleto.
+            "success": f"{APP_URL}/dashboard/configuracao-inicial?payment=success",
             "failure": f"{APP_URL}/dashboard?payment=failure",
             "pending": f"{APP_URL}/dashboard?payment=pending",
         },
