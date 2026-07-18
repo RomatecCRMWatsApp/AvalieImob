@@ -28,7 +28,7 @@ logger = logging.getLogger("romatec")
 
 @router.post("/payments/create-preference")
 @limiter.limit("10/minute")
-async def create_preference(request: Request, data: CreatePreferenceRequest, uid: str = Depends(get_current_user_id)):
+async def create_preference(request: Request, data: CreatePreferenceRequest, uid: str = Depends(get_current_user_id), db=Depends(get_db)):
     sdk = get_mp_sdk()
     preference_data = build_preference_data(uid, data.plan_id)
     result = sdk.preference().create(preference_data)
@@ -38,6 +38,19 @@ async def create_preference(request: Request, data: CreatePreferenceRequest, uid
         raise HTTPException(status_code=502, detail="Erro ao criar preferência de pagamento")
     init_point = resolve_init_point(response)
     logger.info("MP preference created: %s for user=%s plan=%s", response.get("id"), uid, data.plan_id)
+    # Topo do funil: marca a INTENÇÃO de pagar. Diagnóstico apenas — não concede
+    # nem promete acesso (quem decide isso é plan_status).
+    try:
+        await db.users.update_one(
+            {"id": uid},
+            {"$set": {
+                "checkout_started_at": datetime.utcnow(),
+                "checkout_preference_id": str(response.get("id") or ""),
+                "checkout_plan_id": data.plan_id,
+            }},
+        )
+    except Exception as e:
+        logger.warning("checkout_started nao gravado para %s: %s", uid, e)
     return {"init_point": init_point, "preference_id": response.get("id")}
 
 
