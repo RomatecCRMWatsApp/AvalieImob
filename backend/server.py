@@ -597,6 +597,33 @@ async def startup():
         await db.users.create_index("reset_token_hash", sparse=True)
     except Exception as e:
         logger.warning("Índice users (id/email único) não criado — verifique duplicatas: %s", e)
+    # Índices da AUDITORIA de acesso e pagamento — idempotente.
+    try:
+        db = get_db()
+        # TTL: expira só docs COM `expira_em` (heartbeats). Login/logout, que não
+        # têm o campo, ficam permanentes.
+        await db.user_access_log.create_index("expira_em", expireAfterSeconds=0)
+        await db.user_access_log.create_index([("user_id", 1), ("created_at", -1)])
+    except Exception as e:
+        logger.warning("Índices user_access_log: %s", e)
+    try:
+        db = get_db()
+        await db.payment_events.create_index([("user_id", 1), ("received_at", -1)])
+        # Composto: uma linha por transição de status; bloqueia duplicata real.
+        await db.payment_events.create_index([("mp_payment_id", 1), ("status", 1)], unique=True)
+    except Exception as e:
+        logger.warning("Índices payment_events: %s", e)
+    try:
+        db = get_db()
+        # COMPOSTO, não simples: o webhook grava uma linha por transição de status
+        # (pending -> approved). Um unique só em mp_payment_id QUEBRARIA a
+        # ativação de boleto/PIX.
+        await db.transactions.create_index([("mp_payment_id", 1), ("status", 1)], unique=True)
+    except Exception as e:
+        logger.warning(
+            "Índice unique transactions.(mp_payment_id,status) não criado "
+            "(provável duplicata pré-existente): %s", e
+        )
     # Índices do módulo Contrato de Exclusividade (aceite eletrônico) — idempotente.
     try:
         db = get_db()
