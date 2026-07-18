@@ -8,6 +8,9 @@ from db import get_db
 from dependencies import get_admin_user, serialize_doc
 from services.auth_service import hash_password
 from models import CreateTestUserRequest, AdminUserOut, User
+from models.auditoria_acesso import (
+    AuditoriaUsuarioOut, TimelineOut, derivar_status_funil,
+)
 
 router = APIRouter(tags=["admin"])
 logger = logging.getLogger("romatec")
@@ -100,6 +103,63 @@ async def admin_list_users(uid: str = Depends(get_admin_user), db=Depends(get_db
             plan_expires=d.get("plan_expires"), created_at=d.get("created_at"),
         ))
     return result
+
+
+@router.get("/admin/users/audit", response_model=List[AuditoriaUsuarioOut])
+async def admin_users_audit(uid: str = Depends(get_admin_user), db=Depends(get_db)):
+    """Funil de acesso e pagamento de todos os usuários. Somente leitura.
+
+    `status_funil` é DIAGNÓSTICO — não reflete permissão de acesso, que continua
+    sendo decidida por `plan_status` em dependencies.get_active_subscriber.
+    """
+    users = await db.users.find({}).sort("created_at", -1).to_list(5000)
+    ids = [u["id"] for u in users if u.get("id")]
+
+    # Último evento de pagamento por usuário, em UMA passada (evita N+1).
+    ultimo_por_uid = {}
+    cursor = db.payment_events.find({"user_id": {"$in": ids}}).sort("received_at", 1)
+    async for ev in cursor:
+        ultimo_por_uid[ev.get("user_id")] = ev  # ascendente ⇒ sobra o mais recente
+
+    saida = []
+    for u in users:
+        ev = ultimo_por_uid.get(u.get("id"))
+        saida.append(AuditoriaUsuarioOut(
+            id=u.get("id", ""),
+            name=u.get("name") or "",
+            email=u.get("email") or "",
+            role=u.get("role") or "",
+            cadastrado_em=u.get("created_at"),
+            ultimo_acesso=u.get("last_login_at"),
+            total_acessos=int(u.get("login_count") or 0),
+            nunca_acessou=not u.get("last_login_at"),
+            plan=u.get("plan") or "",
+            plan_status=u.get("plan_status") or "",
+            plan_expires=u.get("plan_expires"),
+            status_funil=derivar_status_funil(u, ev),
+            checkout_iniciado_em=u.get("checkout_started_at"),
+            ultimo_evento_pagamento=({
+                "status": ev.get("status"),
+                "status_detail": ev.get("status_detail"),
+                "em": ev.get("received_at"),
+            } if ev else None),
+        ))
+    return saida
+
+
+@router.get("/admin/users/{user_id}/timeline", response_model=TimelineOut)
+async def admin_user_timeline(
+    user_id: str, uid: str = Depends(get_admin_user), db=Depends(get_db)
+):
+    """Linha do tempo de acessos e pagamentos de um usuário."""
+    acessos = await db.user_access_log.find({"user_id": user_id}) \
+        .sort("created_at", -1).to_list(50)
+    pagamentos = await db.payment_events.find({"user_id": user_id}) \
+        .sort("received_at", -1).to_list(200)
+    return TimelineOut(
+        acessos=[serialize_doc(a) for a in acessos],
+        pagamentos=[serialize_doc(p) for p in pagamentos],
+    )
 
 
 @router.delete("/admin/users/{user_id}")
