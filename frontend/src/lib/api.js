@@ -292,6 +292,7 @@ export const reativacaoAPI = {
   salvarConfig: (body) => api.post('/reativacao/config', body).then(r => r.data),
   enviarTeste: (body) => api.post('/reativacao/enviar-teste', body).then(r => r.data),
   rodarAgora: (body) => api.post('/reativacao/rodar-agora', body || {}).then(r => r.data),
+  reenviar: (body) => api.post('/reativacao/reenviar', body).then(r => r.data),
 };
 
 export const prospeccaoAPI = {

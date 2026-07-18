@@ -136,6 +136,47 @@ async def rodar_agora(payload: dict = None, uid: str = Depends(get_admin_user), 
     return {"ok": True, "enviados": enviados}
 
 
+@router.post("/reativacao/reenviar")
+async def reenviar(payload: dict, uid: str = Depends(get_admin_user), db=Depends(get_db)):
+    """Reenvio MANUAL para pessoas escolhidas na tela.
+
+    Ignora de propósito a trava de 2 dias e o vencimento da etapa: aqui quem
+    decide é o admin, que está olhando a lista. As travas automáticas continuam
+    valendo para o disparo diário.
+
+    `etapa` nulo = próxima etapa não enviada (ou a última, se a sequência acabou).
+    """
+    emails = [str(e).strip().lower() for e in (payload.get("emails") or []) if str(e).strip()]
+    if not emails:
+        raise HTTPException(status_code=400, detail="Selecione ao menos uma pessoa")
+    etapa_fixa = payload.get("etapa")
+
+    enviados, falhas = 0, []
+    for email in emails:
+        u = await db.users.find_one({"email": email})
+        if not u:
+            falhas.append(f"{email}: não encontrado")
+            continue
+        if u.get("reativacao_opt_out"):
+            falhas.append(f"{email}: descadastrou (não reenviado)")
+            continue
+
+        if etapa_fixa is None:
+            enviadas = set(u.get("reativacao_enviadas") or [])
+            proxima = next((i for i in range(len(R.ETAPAS_DIAS)) if i not in enviadas), None)
+            etapa = proxima if proxima is not None else len(R.ETAPAS_DIAS) - 1
+        else:
+            etapa = max(0, min(int(etapa_fixa), len(R.ETAPAS_DIAS) - 1))
+
+        if await R.enviar_etapa(db, u, etapa):
+            enviados += 1
+        else:
+            falhas.append(f"{email}: falha no envio")
+
+    logger.info("Reativação: reenvio manual por %s — %s enviado(s)", uid, enviados)
+    return {"ok": True, "enviados": enviados, "falhas": falhas}
+
+
 @router_publico.get("/reativacao/descadastrar/{token}", response_class=HTMLResponse)
 async def descadastrar(token: str, db=Depends(get_db)):
     """Opt-out (LGPD). Público, sem autenticação."""

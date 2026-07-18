@@ -30,6 +30,9 @@ const ReativacaoCard = () => {
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [rodando, setRodando] = useState(false);
+  const [sel, setSel] = useState([]);            // e-mails marcados para reenvio
+  const [etapaReenvio, setEtapaReenvio] = useState('');  // '' = próxima etapa devida
+  const [reenviando, setReenviando] = useState(false);
   const [teste, setTeste] = useState('');
   const [testeEtapa, setTesteEtapa] = useState(0);
   const [testePerfil, setTestePerfil] = useState('nunca');
@@ -68,6 +71,34 @@ const ReativacaoCard = () => {
     } catch (e) {
       toast({ title: 'Falha no envio', description: e.response?.data?.detail, variant: 'destructive' });
     }
+  };
+
+  const alternar = (email) =>
+    setSel((s) => (s.includes(email) ? s.filter((e) => e !== email) : [...s, email]));
+
+  const alternarTodos = () => {
+    const todos = (st?.pessoas || []).filter((p) => p.situacao !== 'descadastrado').map((p) => p.email);
+    setSel((s) => (s.length === todos.length ? [] : todos));
+  };
+
+  const reenviar = async () => {
+    const rotulo = etapaReenvio === '' ? 'a próxima etapa' : `a etapa ${Number(etapaReenvio) + 1}`;
+    if (!window.confirm(`Reenviar ${rotulo} para ${sel.length} pessoa(s)?`)) return;
+    setReenviando(true);
+    try {
+      const r = await reativacaoAPI.reenviar({
+        emails: sel,
+        etapa: etapaReenvio === '' ? null : Number(etapaReenvio),
+      });
+      toast({
+        title: `${r.enviados} e-mail(s) reenviados`,
+        description: r.falhas?.length ? r.falhas.join(' · ') : undefined,
+      });
+      setSel([]);
+      carregar();
+    } catch (e) {
+      toast({ title: 'Erro no reenvio', description: e.response?.data?.detail, variant: 'destructive' });
+    } finally { setReenviando(false); }
   };
 
   const rodarAgora = async () => {
@@ -132,6 +163,14 @@ const ReativacaoCard = () => {
               <table className="w-full text-xs">
                 <thead>
                   <tr className="text-gray-400 border-b border-gray-100">
+                    <th className="px-2 py-1.5 w-8">
+                      <input
+                        type="checkbox"
+                        checked={sel.length > 0 && sel.length === st.pessoas.filter((p) => p.situacao !== 'descadastrado').length}
+                        onChange={alternarTodos}
+                        title="Selecionar todos"
+                      />
+                    </th>
                     <th className="text-left px-3 py-1.5">Pessoa</th>
                     <th className="text-center px-2 py-1.5">Enviados</th>
                     <th className="text-left px-2 py-1.5">Etapas</th>
@@ -142,6 +181,15 @@ const ReativacaoCard = () => {
                 <tbody>
                   {st.pessoas.map((p) => (
                     <tr key={p.email} className="border-b border-gray-50 last:border-0">
+                      <td className="px-2 py-1.5">
+                        <input
+                          type="checkbox"
+                          checked={sel.includes(p.email)}
+                          disabled={p.situacao === 'descadastrado'}
+                          onChange={() => alternar(p.email)}
+                          title={p.situacao === 'descadastrado' ? 'Descadastrou — não pode receber' : 'Selecionar'}
+                        />
+                      </td>
                       <td className="px-3 py-1.5">
                         <div className="text-gray-800">{p.nome || '—'}</div>
                         <div className="text-[10px] text-gray-400">{p.email}</div>
@@ -163,6 +211,40 @@ const ReativacaoCard = () => {
                   ))}
                 </tbody>
               </table>
+
+              {/* Barra de reenvio — só aparece com alguém selecionado */}
+              {sel.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 px-3 py-2 bg-emerald-50 border-t border-emerald-200">
+                  <span className="text-xs font-semibold text-emerald-900">
+                    {sel.length} selecionada(s)
+                  </span>
+                  <select
+                    className="border border-gray-300 rounded px-2 py-1 text-xs"
+                    value={etapaReenvio}
+                    onChange={(e) => setEtapaReenvio(e.target.value)}
+                  >
+                    <option value="">Próxima etapa devida</option>
+                    {(st?.etapas_dias || []).map((d, i) => (
+                      <option key={i} value={i}>Reenviar etapa {i + 1} (dia {d})</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={reenviar}
+                    disabled={reenviando}
+                    className="text-xs px-3 py-1.5 rounded-lg text-white flex items-center gap-1 disabled:opacity-50"
+                    style={{ background: GREEN }}
+                  >
+                    {reenviando ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                    Reenviar
+                  </button>
+                  <button onClick={() => setSel([])} className="text-xs text-gray-500 underline">
+                    limpar
+                  </button>
+                  <span className="text-[10px] text-gray-500 ml-auto">
+                    Reenvio manual ignora o intervalo de 2 dias
+                  </span>
+                </div>
+              )}
             </div>
           )}
 
