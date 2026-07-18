@@ -1,8 +1,22 @@
 # @module dependencies — Dependências FastAPI compartilhadas entre rotas
+import asyncio
 from datetime import datetime, timezone
 from fastapi import Depends, HTTPException
 from db import get_db
 from services.auth_service import get_current_user_id
+
+
+def _heartbeat(db, uid: str) -> None:
+    """Dispara o heartbeat de auditoria sem bloquear a resposta (fire-and-forget).
+
+    Import interno para evitar import circular com o pacote services.
+    Só é chamado em caminhos de acesso CONCEDIDO — request negada não é acesso.
+    """
+    try:
+        from services import acesso_log
+        asyncio.create_task(acesso_log.registrar_heartbeat(db, uid))
+    except Exception:  # noqa: BLE001
+        pass
 
 
 async def get_active_subscriber(uid: str = Depends(get_current_user_id), db=Depends(get_db)) -> str:
@@ -12,6 +26,7 @@ async def get_active_subscriber(uid: str = Depends(get_current_user_id), db=Depe
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
     role = str(u.get("role") or "user").lower()
     if role in ("admin", "owner", "ceo"):
+        _heartbeat(db, uid)
         return uid
     plan_status = u.get("plan_status", "inactive")
     plan_expires = u.get("plan_expires")
@@ -28,6 +43,7 @@ async def get_active_subscriber(uid: str = Depends(get_current_user_id), db=Depe
             status_code=403,
             detail="Assinatura inativa. Acesse a página de assinatura para ativar seu plano."
         )
+    _heartbeat(db, uid)
     return uid
 
 
@@ -38,6 +54,7 @@ async def get_authenticated_user(uid: str = Depends(get_current_user_id), db=Dep
     u = await db.users.find_one({"id": uid})
     if not u:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    _heartbeat(db, uid)
     return uid
 
 
@@ -47,6 +64,7 @@ async def get_admin_user(uid: str = Depends(get_current_user_id), db=Depends(get
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
     if str(u.get("role") or "").lower() not in ("admin", "owner", "ceo"):
         raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
+    _heartbeat(db, uid)
     return uid
 
 
