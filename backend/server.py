@@ -603,6 +603,12 @@ async def startup():
         await db.users.create_index("reset_token_hash", sparse=True)
     except Exception as e:
         logger.warning("Índice users (id/email único) não criado — verifique duplicatas: %s", e)
+    # Reativação: token de descadastro (LGPD) — único e esparso.
+    try:
+        db = get_db()
+        await db.users.create_index("reativacao_opt_out_token", unique=True, sparse=True)
+    except Exception as e:
+        logger.warning("Índice reativacao_opt_out_token: %s", e)
     # Índices da AUDITORIA de acesso e pagamento — idempotente.
     try:
         db = get_db()

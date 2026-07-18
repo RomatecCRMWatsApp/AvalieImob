@@ -1,0 +1,133 @@
+# @module routes.reativacao — campanha de reativação de cadastros que não ativaram.
+# Admin controla; o descadastro é público (LGPD).
+import logging
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import HTMLResponse
+
+from db import get_db
+from dependencies import get_admin_user
+from services import reativacao as R
+
+logger = logging.getLogger("romatec")
+
+router = APIRouter(tags=["reativacao"])
+router_publico = APIRouter(tags=["reativacao-publico"])
+
+_CFG_ID = "reativacao"
+
+
+async def carregar_config(db) -> dict:
+    doc = await db.sys_config.find_one({"_id": _CFG_ID}) or {}
+    return {
+        "ativo": bool(doc.get("ativo", False)),
+        "hora": int(doc.get("hora", 9)),          # hora local (Brasília) do disparo
+        "limite_dia": int(doc.get("limite_dia", 50)),
+        "ultimo_dia": doc.get("ultimo_dia"),
+    }
+
+
+@router.get("/reativacao/status")
+async def status(uid: str = Depends(get_admin_user), db=Depends(get_db)):
+    """Config + quem está na fila agora, por etapa."""
+    cfg = await carregar_config(db)
+    fila = await R.candidatos(db)
+    por_etapa = {}
+    for item in fila:
+        n = item["etapa"] + 1
+        por_etapa[f"etapa_{n}"] = por_etapa.get(f"etapa_{n}", 0) + 1
+
+    inativos = await db.users.count_documents({"plan_status": {"$ne": "active"}})
+    optouts = await db.users.count_documents({"reativacao_opt_out": True})
+    return {
+        "config": cfg,
+        "etapas_dias": R.ETAPAS_DIAS,
+        "na_fila_agora": len(fila),
+        "por_etapa": por_etapa,
+        "total_inativos": inativos,
+        "descadastrados": optouts,
+        "destinatarios": [
+            {"nome": i["user"].get("name"), "email": i["user"].get("email"),
+             "etapa": i["etapa"] + 1}
+            for i in fila[:50]
+        ],
+    }
+
+
+@router.post("/reativacao/config")
+async def salvar_config(payload: dict, uid: str = Depends(get_admin_user), db=Depends(get_db)):
+    campos = {}
+    if "ativo" in payload:
+        campos["ativo"] = bool(payload["ativo"])
+    if "hora" in payload:
+        campos["hora"] = max(0, min(int(payload["hora"]), 23))
+    if "limite_dia" in payload:
+        campos["limite_dia"] = max(1, min(int(payload["limite_dia"]), 200))
+    if not campos:
+        raise HTTPException(status_code=400, detail="Nada a salvar")
+    await db.sys_config.update_one({"_id": _CFG_ID}, {"$set": campos}, upsert=True)
+    logger.info("Reativação: config alterada por %s: %s", uid, campos)
+    return {"ok": True, **(await carregar_config(db))}
+
+
+@router.post("/reativacao/enviar-teste")
+async def enviar_teste(payload: dict, uid: str = Depends(get_admin_user), db=Depends(get_db)):
+    """Envia uma etapa para um e-mail de teste, sem marcar ninguém."""
+    email = str(payload.get("email") or "").strip()
+    etapa = max(0, min(int(payload.get("etapa", 0)), len(R.ETAPAS_DIAS) - 1))
+    perfil = str(payload.get("perfil") or "nunca")   # nunca | checkout
+    if "@" not in email:
+        raise HTTPException(status_code=400, detail="E-mail inválido")
+
+    from email_service import _send_email_sync
+    import asyncio
+
+    fake = {
+        "id": "teste", "name": payload.get("nome") or "Fulano de Tal", "email": email,
+        "status_funil": "checkout_started" if perfil == "checkout" else "never_started",
+        "checkout_started_at": datetime.utcnow() if perfil == "checkout" else None,
+    }
+    assunto, html = R.assunto_e_corpo(
+        etapa, fake, f"{R.APP_URL}/dashboard", f"{R.APP_URL}/api/reativacao/descadastrar/teste"
+    )
+    try:
+        await asyncio.to_thread(_send_email_sync, email, assunto, html)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"Falha ao enviar: {e}")
+    return {"ok": True, "assunto": assunto, "etapa": etapa + 1}
+
+
+@router.post("/reativacao/rodar-agora")
+async def rodar_agora(payload: dict = None, uid: str = Depends(get_admin_user), db=Depends(get_db)):
+    """Dispara as etapas vencidas imediatamente (não espera o horário)."""
+    cfg = await carregar_config(db)
+    limite = int((payload or {}).get("limite") or cfg["limite_dia"])
+    enviados = await R.rodar(db, limite=limite, intervalo=int((payload or {}).get("intervalo", 20)))
+    return {"ok": True, "enviados": enviados}
+
+
+@router_publico.get("/reativacao/descadastrar/{token}", response_class=HTMLResponse)
+async def descadastrar(token: str, db=Depends(get_db)):
+    """Opt-out (LGPD). Público, sem autenticação."""
+    r = await db.users.update_one(
+        {"reativacao_opt_out_token": token},
+        {"$set": {"reativacao_opt_out": True, "reativacao_opt_out_em": datetime.utcnow()}},
+    )
+    ok = r.matched_count > 0
+    msg = ("Pronto — você não receberá mais estes e-mails."
+           if ok else "Link inválido ou já utilizado.")
+    return HTMLResponse(f"""<!doctype html><html lang="pt-BR"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Descadastro — AvalieImob</title></head>
+<body style="margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+background:#0C3320;color:#f3f1e6;display:flex;align-items:center;justify-content:center;
+min-height:100vh;padding:24px">
+  <div style="max-width:460px;text-align:center">
+    <div style="font-size:34px;color:#C9A84C;margin-bottom:8px">AvalieImob</div>
+    <p style="font-size:17px;line-height:1.5">{msg}</p>
+    <p style="font-size:13px;color:rgba(243,241,230,.6);margin-top:20px">
+      Sua conta continua ativa — apenas os e-mails de acompanhamento foram interrompidos.
+    </p>
+  </div>
+</body></html>""")

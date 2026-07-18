@@ -689,6 +689,21 @@ async def _scheduler_tick(db, worker: str) -> None:
         logger.info("Prospecção WA: disparo AUTOMÁTICO diário p/ %s (até %s msgs)", uid, limite_dia)
         asyncio.create_task(_rodar_whatsapp(db, uid, limite_dia))
 
+    # Reativação: sequência de 4 e-mails p/ quem se cadastrou e NÃO ativou.
+    # Roda uma vez por dia, sob a MESMA lease (não duplica entre workers).
+    try:
+        from routes.reativacao import carregar_config as _reat_cfg
+        from services import reativacao as _reat
+        cfg = await _reat_cfg(db)
+        if cfg["ativo"] and local.hour >= cfg["hora"] and cfg.get("ultimo_dia") != hoje:
+            # marca o dia ANTES de disparar (idempotente entre ticks)
+            await db.sys_config.update_one(
+                {"_id": "reativacao"}, {"$set": {"ultimo_dia": hoje}}, upsert=True)
+            logger.info("Reativação: disparo AUTOMÁTICO diário (até %s e-mails)", cfg["limite_dia"])
+            asyncio.create_task(_reat.rodar(db, limite=cfg["limite_dia"]))
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Reativação: tick falhou: %s", e)
+
 
 async def _scheduler_loop(db):
     worker = secrets.token_hex(4)
