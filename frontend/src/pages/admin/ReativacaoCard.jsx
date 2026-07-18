@@ -22,7 +22,12 @@ const ReativacaoCard = () => {
   const carregar = useCallback(async () => {
     setCarregando(true);
     try { setSt(await reativacaoAPI.status()); }
-    catch (e) { toast({ title: 'Erro ao carregar reativação', description: e.response?.data?.detail, variant: 'destructive' }); }
+    catch (e) {
+      // Sem `detail` o toast não dizia nada — mostra status HTTP ou erro de rede.
+      const det = e.response?.data?.detail
+        || (e.response ? `HTTP ${e.response.status}` : e.message || 'sem resposta do servidor');
+      toast({ title: 'Erro ao carregar reativação', description: det, variant: 'destructive' });
+    }
     finally { setCarregando(false); }
   }, [toast]);
   useEffect(() => { carregar(); }, [carregar]);

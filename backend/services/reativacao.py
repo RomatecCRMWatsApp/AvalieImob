@@ -56,10 +56,11 @@ def etapa_devida(user: Dict[str, Any], agora: datetime) -> Optional[int]:
     if not (user.get("email") or "").strip():
         return None
 
+    # Cadastro sem data (ou com data ilegível) entra na sequência DESDE O INÍCIO.
+    # Antes retornava None e a pessoa sumia da fila em silêncio — sem erro, sem
+    # aviso, sem nunca receber nada. Registros antigos costumam não ter o campo.
     criado = _dt(user.get("created_at"))
-    if not criado:
-        return None
-    dias = (agora - criado).days
+    dias = (agora - criado).days if criado else max(ETAPAS_DIAS)
 
     enviadas = set(user.get("reativacao_enviadas") or [])
     if len(enviadas) >= len(ETAPAS_DIAS):

@@ -100,3 +100,22 @@ def test_todo_email_traz_link_de_descadastro():
     for i in range(len(ETAPAS_DIAS)):
         _, html = assunto_e_corpo(i, _user(), "https://app/x", "https://unsub/abc")
         assert "https://unsub/abc" in html, "LGPD: opt-out obrigatorio"
+
+
+def test_cadastro_sem_data_entra_na_sequencia():
+    """REGRESSAO: user sem created_at sumia da fila em silencio (nunca recebia)."""
+    u = _user()
+    del u["created_at"]
+    assert etapa_devida(u, AGORA) == 0
+
+
+def test_cadastro_com_data_invalida_tambem_entra():
+    assert etapa_devida(_user(created_at="data-quebrada"), AGORA) == 0
+
+
+def test_sem_data_ainda_respeita_opt_out_e_plano_ativo():
+    """A tolerancia com a data nao pode furar as travas que importam."""
+    u = _user(plan_status="active"); del u["created_at"]
+    assert etapa_devida(u, AGORA) is None
+    u2 = _user(reativacao_opt_out=True); del u2["created_at"]
+    assert etapa_devida(u2, AGORA) is None
