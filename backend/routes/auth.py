@@ -24,6 +24,7 @@ except ImportError:
 # Plano SEO/leads v1.0: dispatch fire-and-forget pra ZAYRA quando alguem
 # cadastra. Fail-safe — se ZAYRA estiver offline, cadastro nao quebra.
 from services.zayra_webhook import notify_lead
+from services import acesso_log
 
 logger = logging.getLogger("romatec")
 limiter = Limiter(key_func=get_remote_address)
@@ -131,6 +132,12 @@ async def login(request: Request, data: UserLogin, db=Depends(get_db)):
     if u.get("failed_logins") or u.get("lock_until"):
         await db.users.update_one({"id": u["id"]}, {"$set": {"failed_logins": 0, "lock_until": None}})
     token = create_token(u["id"])
+    # Auditoria de acesso (best-effort — nunca bloqueia o login).
+    await acesso_log.registrar_login(
+        db, u["id"],
+        ip=(request.client.host if request and request.client else None),
+        user_agent=(request.headers.get("user-agent") if request else None),
+    )
     defaults = {"crea": "", "role": "user", "plan": "mensal", "plan_status": "inactive", "plan_expires": None, "company": "", "bio": "", "company_logo": None}
     pub = UserPublic(**{k: u.get(k) if u.get(k) is not None else defaults.get(k, "") for k in UserPublic.model_fields})
     return AuthResponse(user=pub, token=token)
