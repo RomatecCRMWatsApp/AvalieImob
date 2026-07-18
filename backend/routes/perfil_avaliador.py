@@ -193,3 +193,35 @@ async def set_certificado_cnai(body: CertificadoCnaiBody,
     )
     doc = await db.perfil_avaliador.find_one({"user_id": uid})
     return serialize_doc(doc)
+
+
+@router.get("/perfil-avaliador/completude")
+async def completude(uid: str = Depends(get_current_user_id), db=Depends(get_db)):
+    """O que ainda falta configurar. Alimenta o assistente pós-pagamento E o
+    aviso ao gerar PTAM — fonte única, para as duas listas nunca divergirem."""
+    from services.completude_perfil import calcular
+
+    perfil = await db.perfil_avaliador.find_one({"user_id": uid}) or {}
+
+    # Logo e certificado ICP vivem fora do perfil.
+    tem_logo = False
+    try:
+        b = await db.tenant_branding.find_one({"user_id": uid}, {"logo_url": 1})
+        tem_logo = bool(b and b.get("logo_url"))
+    except Exception:
+        pass
+
+    tem_cert = False
+    try:
+        tem_cert = await db.certificados.count_documents({"user_id": uid}) > 0
+    except Exception:
+        pass
+
+    integ = {}
+    try:
+        integ = await db.integracoes.find_one({"user_id": uid}) or {}
+    except Exception:
+        pass
+
+    return calcular(perfil, tem_logo=tem_logo, tem_certificado_icp=tem_cert,
+                    integracoes=integ)
