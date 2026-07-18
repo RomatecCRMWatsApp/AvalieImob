@@ -252,6 +252,8 @@ export const assinaturaClienteAPI = {
 // ---- Admin (usuários cadastrados / assinaturas) — somente admin/owner/ceo
 export const adminAPI = {
   listUsers: () => api.get('/admin/users').then(r => r.data),
+  usersAudit: () => api.get('/admin/users/audit').then(r => r.data),
+  userTimeline: (id) => api.get(`/admin/users/${id}/timeline`).then(r => r.data),
   createTestUser: (data) => api.post('/admin/create-test-user', data).then(r => r.data),
   emailStatus: () => api.get('/admin/email/status').then(r => r.data),
   emailTest: (to) => api.post('/admin/email/test', { to }).then(r => r.data),
