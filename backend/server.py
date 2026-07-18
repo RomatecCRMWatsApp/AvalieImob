@@ -19,7 +19,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
-from db import init_db, close_db, get_db
+from db import init_db, close_db, get_db, setup_indexes
 from routes import all_routers
 
 logging.basicConfig(
@@ -568,6 +568,12 @@ app.add_middleware(
 async def startup():
     init_db()
     logger.info("MongoDB conectado")
+    # Índices de PTAM/CUB/contratos/amostras/cupons/conformidade. Esta função
+    # existia mas NUNCA era chamada — nenhum destes índices existia em produção.
+    try:
+        await setup_indexes()
+    except Exception as e:
+        logger.warning("setup_indexes falhou: %s", e)
     # Blindagem: avisa (loud) se tokens de webhook não estão configurados. O webhook
     # do MP reconsulta o pagamento (não é forjável), mas o token é a 1ª barreira e
     # deve estar setado em produção. Só um aviso — não quebra o boot.
