@@ -8,6 +8,7 @@ import { useToast } from '../../../hooks/use-toast';
 import { ptamAPI, aiAPI, perfilAPI } from '../../../lib/api';
 import { useSyncAmostras } from '../../../hooks/useSyncAmostras';
 import { EMPTY_PTAM, PTAM_STEPS, computeImpactTotals, sumIndemnity } from './ptamHelpers';
+import AvisoConfiguracao, { faltandoEssenciais } from './AvisoConfiguracao';
 import { StepSolicitante } from './steps/StepSolicitante';
 import { StepObjetivo } from './steps/StepObjetivo';
 import { StepImovelId } from './steps/StepImovelId';
@@ -63,6 +64,8 @@ const PtamWizard = () => {
   const [shareLoading, setShareLoading] = useState(false);
   const [showAssinatura, setShowAssinatura] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  // Itens essenciais faltando no perfil — avisa antes de gerar, sem impedir.
+  const [avisoConfig, setAvisoConfig] = useState(null);
   const debounceRef = useRef(null);
   // Espelho do form sempre atualizado — garante que o save use o estado mais novo
   // (ex.: salvar imediatamente ao confirmar uma etapa).
@@ -264,8 +267,16 @@ const PtamWizard = () => {
     }
   };
 
+  // Avisa (sem impedir) que o laudo sairá com campos vazios por falta de config.
   const handleDownloadPdf = async () => {
     if (!ptamId) { toast({ title: 'Salve o PTAM primeiro', variant: 'destructive' }); return; }
+    const faltando = await faltandoEssenciais(perfilAPI);
+    if (faltando.length) { setAvisoConfig(faltando); return; }
+    await baixarPdfAgora();
+  };
+
+  const baixarPdfAgora = async () => {
+    setAvisoConfig(null);
     try {
       const blob = await ptamAPI.downloadPdf(ptamId);
       const url = window.URL.createObjectURL(blob);
@@ -501,6 +512,14 @@ const PtamWizard = () => {
         onClose={() => setShowHistorico(false)}
         versaoAtual={versaoAtual}
       />
+
+      {avisoConfig && (
+        <AvisoConfiguracao
+          itens={avisoConfig}
+          onProsseguir={baixarPdfAgora}
+          onFechar={() => setAvisoConfig(null)}
+        />
+      )}
 
       {showAssinatura && ptamId && (
         <AssinaturaDigital
