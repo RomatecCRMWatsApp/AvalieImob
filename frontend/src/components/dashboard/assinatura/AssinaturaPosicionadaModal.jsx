@@ -3,14 +3,26 @@ import { X, Loader2, PenLine, Copy, CheckCircle2 } from 'lucide-react';
 import { useToast } from '../../../hooks/use-toast';
 import { assinaturaPosAPI, perfilAPI } from '../../../lib/api';
 
-// Qualidades em que José Romário pode assinar — o carimbo do ICP mostra a escolhida.
-// "" = padrão do perfil (registros cadastrados). Editáveis no Perfil (carimbo_qualidades).
+// Qualidades em que o USUÁRIO LOGADO assina — o carimbo do ICP mostra a escolhida.
+// "" = padrão do perfil (registros cadastrados).
+//
+// ATENÇÃO: NUNCA fixar aqui número de CRECI/CNAI/CFT de ninguém. Este modal é
+// usado por todos os assinantes e o valor escolhido é ESTAMPADO num PDF com
+// valor jurídico — presets fixos faziam um usuário assinar com o registro
+// profissional de outra pessoa. As opções vêm do perfil de quem está logado.
 const PRESETS_CARIMBO_DEFAULT = [
   { label: 'Padrão do perfil (registros cadastrados)', value: '' },
-  { label: 'Técnico em Transações Imobiliárias (CRECI/CNAI)', value: 'Técnico em Transações Imobiliárias — CRECI 4705 (20ª Região) · CNAI 031161' },
-  { label: 'Técnico em Agrimensura (CFT/INCRA)', value: 'Técnico em Agrimensura — CFT/MA 0120918536-9 · Credenciamento INCRA Cód: FQNS' },
-  { label: 'Técnico em Edificações (CFT)', value: 'Técnico em Edificações — CFT/MA 0120918536-9' },
 ];
+
+/** Sugestão montada a partir dos registros do próprio usuário. */
+const presetsDosRegistros = (perfil) => {
+  const regs = Array.isArray(perfil?.registros) ? perfil.registros : [];
+  const linha = regs
+    .filter((r) => r && r.numero)
+    .map((r) => `${r.tipo || ''}${r.uf ? `/${r.uf}` : ''} ${r.numero}`.trim())
+    .join(' · ');
+  return linha ? [{ label: 'Meus registros profissionais', value: linha }] : [];
+};
 
 /**
  * Assinatura ICP-Brasil posicionada — MULTI-PÁGINA. O usuário desenha o retângulo
@@ -55,8 +67,10 @@ export default function AssinaturaPosicionadaModal({ tipo, documentId, onAssinad
           perfilAPI.get().catch(() => null),
         ]);
         if (!alive) return;
+        // Opções = padrão + qualidades que o PRÓPRIO usuário cadastrou + sugestão
+        // montada dos registros dele. Nunca dados de outra pessoa.
         const qs = (perfil?.carimbo_qualidades || []).filter((q) => q && q.label);
-        if (qs.length) setPresets([{ label: 'Padrão do perfil (registros cadastrados)', value: '' }, ...qs]);
+        setPresets([...PRESETS_CARIMBO_DEFAULT, ...presetsDosRegistros(perfil), ...qs]);
         setPaginas(prep.paginas || []);
         const lista = (Array.isArray(cs) ? cs : (cs?.certificados || [])).filter((c) => c.ativo !== false);
         setCerts(lista);

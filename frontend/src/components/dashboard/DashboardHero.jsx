@@ -5,9 +5,28 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FilePlus2, UserPlus, BarChart2, Users, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { adminAPI } from '../../lib/api';
+import { adminAPI, perfilAPI } from '../../lib/api';
 
-const CREDENCIAIS = 'CNAI 031161 · CRECI/MA 4.705 · CFT/MA 01209185369';
+// NUNCA voltar a fixar credenciais aqui. Este hero é visto por TODOS os
+// assinantes — texto fixo mostrava o CRECI/CNAI/CFT do dono da plataforma a
+// qualquer usuário novo (vazamento de registro profissional alheio).
+// Tudo abaixo vem do perfil do usuário LOGADO.
+
+/** Ex.: "CNAI 000000 · CRECI/UF 0.000" — montado dos registros do próprio usuário. */
+const credenciaisDoPerfil = (perfil) => {
+  const regs = Array.isArray(perfil?.registros) ? perfil.registros : [];
+  return regs
+    .filter((r) => r && r.numero)
+    .map((r) => `${r.tipo || ''}${r.uf ? `/${r.uf}` : ''} ${r.numero}`.trim())
+    .join(' · ');
+};
+
+/** "Empresa · Cidade / UF" do próprio usuário (partes ausentes são omitidas). */
+const cabecalhoDoPerfil = (perfil, user) => {
+  const empresa = perfil?.empresa_nome || user?.company || '';
+  const local = [perfil?.cidade, perfil?.uf].filter(Boolean).join(' / ');
+  return [empresa, local].filter(Boolean).join(' · ');
+};
 
 const isAdminRole = (role) => ['admin', 'owner', 'ceo'].includes(String(role || '').toLowerCase());
 
@@ -69,6 +88,19 @@ const HeroStat = ({ value, label, gold }) => (
 
 const DashboardHero = ({ greeting, firstName, today, rascunhos, kpis }) => {
   const nav = useNavigate();
+  const { user } = useAuth();
+  const [perfil, setPerfil] = useState(null);
+
+  useEffect(() => {
+    let vivo = true;
+    perfilAPI.get()
+      .then((p) => { if (vivo) setPerfil(p || {}); })
+      .catch(() => { if (vivo) setPerfil({}); });
+    return () => { vivo = false; };
+  }, []);
+
+  const credenciais = credenciaisDoPerfil(perfil);
+  const cabecalho = cabecalhoDoPerfil(perfil, user);
 
   return (
     <section
@@ -101,9 +133,11 @@ const DashboardHero = ({ greeting, firstName, today, rascunhos, kpis }) => {
       <div className="relative flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
         {/* ── Texto ── */}
         <div className="min-w-0">
-          <div className="dash-eyebrow" style={{ fontSize: 11, color: 'var(--dash-gold)' }}>
-            Romatec Consultoria Total · Açailândia / MA
-          </div>
+          {cabecalho && (
+            <div className="dash-eyebrow" style={{ fontSize: 11, color: 'var(--dash-gold)' }}>
+              {cabecalho}
+            </div>
+          )}
 
           <h1 className="dash-display mt-2" style={{ fontSize: 26, color: '#fff', fontWeight: 500 }}>
             {greeting}, <span style={{ fontStyle: 'italic', color: 'var(--dash-gold)' }}>{firstName}.</span>
@@ -116,9 +150,20 @@ const DashboardHero = ({ greeting, firstName, today, rascunhos, kpis }) => {
             )}
           </p>
 
-          <p className="mt-3" style={{ color: 'var(--dash-green-soft)', fontSize: 12, letterSpacing: '0.02em' }}>
-            {CREDENCIAIS}
-          </p>
+          {credenciais ? (
+            <p className="mt-3" style={{ color: 'var(--dash-green-soft)', fontSize: 12, letterSpacing: '0.02em' }}>
+              {credenciais}
+            </p>
+          ) : perfil && (
+            // Sem registros cadastrados: convida a configurar em vez de deixar vazio.
+            <button
+              onClick={() => nav('/dashboard/configuracoes')}
+              className="mt-3 underline underline-offset-2"
+              style={{ color: 'var(--dash-gold)', fontSize: 12, letterSpacing: '0.02em' }}
+            >
+              Cadastre seus registros profissionais (CRECI, CNAI, CFT) →
+            </button>
+          )}
         </div>
 
         {/* ── Stats à direita ── */}

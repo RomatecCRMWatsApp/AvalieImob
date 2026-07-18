@@ -316,11 +316,10 @@ const SettingsPage = () => {
   };
 
   // ── Qualidades do carimbo do ICP (papéis em que assina) ──
-  const QUAL_DEFAULT = [
-    { label: 'Técnico em Transações Imobiliárias', value: 'Técnico em Transações Imobiliárias — CRECI 4705 (20ª Região) · CNAI 031161' },
-    { label: 'Técnico em Agrimensura', value: 'Técnico em Agrimensura — CFT/MA 0120918536-9 · Credenciamento INCRA Cód: FQNS' },
-    { label: 'Técnico em Edificações', value: 'Técnico em Edificações — CFT/MA 0120918536-9' },
-  ];
+  // NUNCA fixar CRECI/CNAI/CFT de ninguém aqui — esta tela é de todos os
+  // assinantes, e o valor vai estampado no carimbo do ICP em documento com
+  // valor jurídico. Cada usuário cadastra as próprias qualidades.
+  const QUAL_DEFAULT = [];
   const [quals, setQuals] = useState(QUAL_DEFAULT);
   const [savingQuals, setSavingQuals] = useState(false);
   useEffect(() => {
