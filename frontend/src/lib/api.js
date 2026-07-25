@@ -884,6 +884,10 @@ export const geoUrbanoAPI = {
   // SIG-RI (Prov. CNJ 195/2025) — malha fundiária do RI
   shapefile: (id) => api.get(`${GEOURB}/projetos/${id}/shapefile`, { responseType: 'blob' }).then((r) => r.data),
   kml: (id) => api.get(`${GEOURB}/projetos/${id}/kml`, { responseType: 'blob' }).then((r) => r.data),
+  // Painel de validação SIG-RI/ONR (§7) — E-*/W-* + pode_gerar
+  validarOnr: (id) => api.post(`${GEOURB}/projetos/${id}/onr/validar`).then((r) => r.data),
+  justificarOnr: (id, codigo, texto) =>
+    api.post(`${GEOURB}/projetos/${id}/onr/justificar`, { codigo, texto }).then((r) => r.data),
   retificacaoAnalise: (id) => api.get(`${GEOURB}/projetos/${id}/retificacao/analise`).then((r) => r.data),
   retificacaoConfirmar: (id) => api.post(`${GEOURB}/projetos/${id}/retificacao/confirmar`).then((r) => r.data),
   // Orientação dos lados do lote (frente/laterais/fundo); frenteIdx opcional força a testada

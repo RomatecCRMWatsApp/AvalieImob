@@ -192,6 +192,9 @@ export default function GeoUrbanoWizard() {
   const [propBusy, setPropBusy] = useState(false);
 
   const [usuValid, setUsuValid] = useState(null);   // aferição ao vivo (usucapião)
+  const [onrValid, setOnrValid] = useState(null);   // painel de validação SIG-RI/ONR
+  const [onrBusy, setOnrBusy] = useState(false);
+  const [justTexto, setJustTexto] = useState({});   // {codigo: texto}
 
   const projRef = useRef(proj);
   const dirtyRef = useRef(false);
@@ -205,6 +208,20 @@ export default function GeoUrbanoWizard() {
     if (proj?.tipo_servico !== 'usucapiao') return;
     geoUrbanoAPI.usucapiaoValidacao(id).then(setUsuValid).catch(() => {});
   }, [id, proj?.tipo_servico, proj?.modalidade_usucapiao, proj?.area_declarada_m2, usuSomaKey, usuPosseKey]);
+
+  // Painel de validação SIG-RI/ONR (§7 — E-*/W-*, gateia a geração do shapefile)
+  const runValidarOnr = useCallback(async () => {
+    setOnrBusy(true);
+    try { setOnrValid(await geoUrbanoAPI.validarOnr(id)); }
+    catch (e) { toast({ title: 'Falha ao validar', variant: 'destructive' }); }
+    finally { setOnrBusy(false); }
+  }, [id, toast]);
+  const justificarOnrWarn = async (codigo) => {
+    const texto = (justTexto[codigo] || '').trim();
+    if (!texto) { toast({ title: 'Escreva a justificativa do RT', variant: 'destructive' }); return; }
+    try { setOnrValid(await geoUrbanoAPI.justificarOnr(id, codigo, texto)); toast({ title: 'Justificativa registrada' }); }
+    catch (e) { toast({ title: 'Falha ao registrar', variant: 'destructive' }); }
+  };
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -656,6 +673,34 @@ export default function GeoUrbanoWizard() {
               <Field label="Cadastro antigo" value={proj.cadastro_antigo} onChange={(v) => upd({ cadastro_antigo: v })} />
               <Field label="Área declarada (m²)" type="number" value={proj.area_declarada_m2} onChange={(v) => upd({ area_declarada_m2: v })} />
               <Field label="Perímetro (m)" type="number" value={proj.perimetro_m} onChange={(v) => upd({ perimetro_m: v })} />
+            </div>
+          </section>
+          <section className="rounded-xl border border-emerald-200 bg-emerald-50/30 p-5">
+            <h2 className="font-semibold mb-1" style={{ color: GREEN }}>SIG-RI / ONR — imóvel urbano (Prov. CNJ 195/2025 · NBR 17047)</h2>
+            <p className="text-[11px] text-gray-500 mb-3">Dados do arquivo enviado ao Mapa do Registro de Imóveis. Imóvel urbano <b>não</b> usa SIGEF/SNCI/CCIR/CAR.</p>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <Field label="Código IBGE do município (7 díg.)" value={proj.codigo_ibge} placeholder="2100055"
+                onChange={(v) => upd({ codigo_ibge: (v || '').replace(/\D/g, '').slice(0, 7) })} />
+              <Field label="CIB (Cadastro Imobiliário Brasileiro)" value={proj.cib} onChange={(v) => upd({ cib: v })} />
+              <Field label="Inscrição municipal (IPTU)" value={proj.inscricao_municipal} onChange={(v) => upd({ inscricao_municipal: v })} />
+              <Field label="Zoneamento" value={proj.zoneamento} onChange={(v) => upd({ zoneamento: v })} />
+              <Field label="Número" value={proj.numero} onChange={(v) => upd({ numero: v })} />
+              <Field label="CEP" value={proj.cep} onChange={(v) => upd({ cep: v })} />
+              <Field label="Unidade (apto/sala/box)" value={proj.unidade} onChange={(v) => upd({ unidade: v })} />
+              <Field label="Precisão posicional (m)" type="number" value={proj.precisao_posicional_m}
+                placeholder="0,10" onChange={(v) => upd({ precisao_posicional_m: v === '' ? null : Number(v) })} />
+              <Field label="Data do levantamento" type="date" value={proj.data_levantamento || ''}
+                onChange={(v) => upd({ data_levantamento: v })} />
+              {proj.tipo_servico === 'reurb' && (
+                <div>
+                  <label className={lbl}>Modalidade da Reurb</label>
+                  <select className={inp} value={proj.reurb_modalidade || ''} onChange={(e) => upd({ reurb_modalidade: e.target.value || null })}>
+                    <option value="">—</option>
+                    <option value="reurb_s">Reurb-S (interesse social)</option>
+                    <option value="reurb_e">Reurb-E (interesse específico)</option>
+                  </select>
+                </div>
+              )}
             </div>
           </section>
           {isUsucapiao && (
@@ -1501,10 +1546,49 @@ export default function GeoUrbanoWizard() {
           ))}
           <div className="rounded-xl border bg-white p-4">
             <div className="text-sm font-semibold mb-1" style={{ color: GREEN }}>Arquivos geoespaciais — SIG-RI (Prov. CNJ 195/2025)</div>
-            <p className="text-[11px] text-gray-500 mb-2">Obrigatório para alimentar a malha fundiária do Registro de Imóveis (SIRGAS 2000 / EPSG:4674). Exige Latitude/Longitude dos vértices.</p>
+            <p className="text-[11px] text-gray-500 mb-2">Obrigatório para alimentar a malha fundiária do Registro de Imóveis (SIRGAS 2000 / EPSG:4674). Aceita Latitude/Longitude ou UTM (Este/Norte) dos vértices.</p>
+            {/* Painel de validação SIG-RI/ONR (§7) */}
+            <div className="mb-3">
+              <button onClick={runValidarOnr} disabled={onrBusy}
+                className="text-xs inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border font-semibold hover:bg-gray-50">
+                <RefreshCw className={`w-3.5 h-3.5 ${onrBusy ? 'animate-spin' : ''}`} /> {onrBusy ? 'Validando…' : 'Validar SIG-RI/ONR'}
+              </button>
+              {onrValid && (
+                <div className="mt-2 space-y-2">
+                  <div className={`text-xs font-semibold ${onrValid.pode_gerar ? 'text-emerald-700' : 'text-red-600'}`}>
+                    {onrValid.pode_gerar
+                      ? `✓ Pronto para gerar${onrValid.area_calculada_m2 ? ` · área ${Number(onrValid.area_calculada_m2).toLocaleString('pt-BR')} m² · fuso ${onrValid.fuso ?? '—'}${onrValid.hemisferio || ''}` : ''}`
+                      : `✗ ${onrValid.erros.length} erro(s) e ${onrValid.bloqueios_pendentes.length} pendência(s) — corrija para gerar`}
+                  </div>
+                  {onrValid.erros.map((e) => (
+                    <div key={e.codigo} className="text-[11px] rounded-md border border-red-200 bg-red-50 px-2 py-1 text-red-700">
+                      <b>{e.codigo}</b> — {e.mensagem}
+                    </div>
+                  ))}
+                  {onrValid.warnings.map((w) => {
+                    const pend = onrValid.bloqueios_pendentes.includes(w.codigo);
+                    return (
+                      <div key={w.codigo} className={`text-[11px] rounded-md border px-2 py-1 ${w.bloqueante ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-gray-200 bg-gray-50 text-gray-600'}`}>
+                        <div><b>{w.codigo}</b>{w.bloqueante ? ' (bloqueante)' : ''} — {w.mensagem}</div>
+                        {w.bloqueante && pend && (
+                          <div className="flex gap-1 mt-1">
+                            <input className="flex-1 border rounded px-2 py-1 text-[11px]" placeholder="Justificativa do RT…"
+                              value={justTexto[w.codigo] || ''} onChange={(ev) => setJustTexto((s) => ({ ...s, [w.codigo]: ev.target.value }))} />
+                            <button onClick={() => justificarOnrWarn(w.codigo)}
+                              className="text-[11px] px-2 py-1 rounded text-white whitespace-nowrap" style={{ background: GREEN }}>Justificar</button>
+                          </div>
+                        )}
+                        {w.bloqueante && !pend && <div className="text-emerald-700 mt-0.5">✓ justificado pelo RT</div>}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
             <div className="flex gap-2 flex-wrap">
-              <button onClick={() => geoUrbanoAPI.shapefile(id).then((b) => salvarBlob(b, `SIGRI_${nb}.zip`)).catch(() => toast({ title: 'Erro ao gerar o Shapefile', description: 'Confira se os vértices têm Latitude/Longitude.', variant: 'destructive' }))}
-                className="text-xs inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-white" style={{ background: GREEN }}>
+              <button disabled={!!(onrValid && !onrValid.pode_gerar)}
+                onClick={() => geoUrbanoAPI.shapefile(id).then((b) => salvarBlob(b, `SIGRI_${nb}.zip`)).catch(() => toast({ title: 'Erro ao gerar o Shapefile', description: 'Confira se os vértices têm Latitude/Longitude ou UTM.', variant: 'destructive' }))}
+                className={`text-xs inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-white ${onrValid && !onrValid.pode_gerar ? 'opacity-50 cursor-not-allowed' : ''}`} style={{ background: GREEN }}>
                 <Download className="w-3.5 h-3.5" /> Shapefile SIG-RI (.zip)
               </button>
               <button onClick={() => geoUrbanoAPI.kml(id).then((b) => salvarBlob(b, `${nb}.kml`)).catch(() => toast({ title: 'Erro ao gerar o KML', variant: 'destructive' }))}
@@ -1512,6 +1596,7 @@ export default function GeoUrbanoWizard() {
                 <Download className="w-3.5 h-3.5" /> KML (Google Earth)
               </button>
             </div>
+            {onrValid && !onrValid.pode_gerar && <p className="text-[11px] text-red-500 mt-1">Resolva os erros/pendências acima para liberar o download do pacote.</p>}
           </div>
           {isDesdobro && lotes.length > 0 && (
             <div className="rounded-xl border bg-white p-4">
