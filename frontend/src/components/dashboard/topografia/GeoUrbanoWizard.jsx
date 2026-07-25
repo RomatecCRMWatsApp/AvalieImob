@@ -14,7 +14,44 @@ import AssinaturaPosicionadaModal from '../assinatura/AssinaturaPosicionadaModal
 import AssinaturaProprietarioModal from './AssinaturaProprietarioModal';
 import EtapaConcluidaBox from '../ptam/EtapaConcluidaBox';
 import JuridicoBloco from './JuridicoBloco';
+import PoligonalLeaflet from '../../maps/PoligonalLeaflet';
 import { fmtDataHora } from '../../../utils/datasServidor';
+
+// Converte um token numérico BR ("9.453.766,07") ou US ("223012.5") em Number.
+function _toNum(p) {
+  if (p == null) return NaN;
+  const s = String(p).trim();
+  return s.includes(',') ? Number(s.replace(/\./g, '').replace(',', '.')) : Number(s);
+}
+
+// Parser "colar do Excel/AutoCAD": cada linha → vértice UTM (N/E auto-detectados:
+// no Brasil o Norte ~10^7 > Este ~10^5-6). Rótulo textual vira "De"; 3º número = dist.
+function parseColados(txt) {
+  const linhas = String(txt || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const out = [];
+  linhas.forEach((ln, idx) => {
+    let cols = ln.split(/[\t;,]+|\s{2,}/).map((c) => c.trim()).filter(Boolean);
+    if (cols.length < 2) cols = ln.split(/\s+/);
+    const nums = [];
+    const labels = [];
+    cols.forEach((c) => {
+      const n = _toNum(c);
+      if (/[\d]/.test(c) && /^-?[\d.,]+$/.test(c) && !isNaN(n)) nums.push(n);
+      else labels.push(c);
+    });
+    if (nums.length < 2) return; // provável cabeçalho / linha inválida
+    const [a, b] = nums;
+    out.push({
+      id: `v${idx}_${Math.random().toString(36).slice(2, 7)}`,
+      ordem: idx,
+      de: labels[0] || `P-${String(idx + 1).padStart(2, '0')}`,
+      coord_n: Math.max(a, b),
+      coord_e: Math.min(a, b),
+      distancia_m: nums[2] != null ? nums[2] : null,
+    });
+  });
+  return out;
+}
 
 const GREEN = '#0C3320';
 const GOLD = '#C9A84C';
@@ -201,6 +238,11 @@ export default function GeoUrbanoWizard() {
   const [onrValid, setOnrValid] = useState(null);   // painel de validação SIG-RI/ONR
   const [onrBusy, setOnrBusy] = useState(false);
   const [justTexto, setJustTexto] = useState({});   // {codigo: texto}
+  const [geojsonData, setGeojsonData] = useState(null);  // preview Leaflet (satélite)
+  const [geoBusy, setGeoBusy] = useState(false);
+  const [coordMode, setCoordMode] = useState('utm');     // 'utm' | 'geo'
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [pasteText, setPasteText] = useState('');
 
   const projRef = useRef(proj);
   const dirtyRef = useRef(false);
@@ -227,6 +269,22 @@ export default function GeoUrbanoWizard() {
     if (!texto) { toast({ title: 'Escreva a justificativa do RT', variant: 'destructive' }); return; }
     try { setOnrValid(await geoUrbanoAPI.justificarOnr(id, codigo, texto)); toast({ title: 'Justificativa registrada' }); }
     catch (e) { toast({ title: 'Falha ao registrar', variant: 'destructive' }); }
+  };
+
+  // Preview da poligonal sobre satélite (usa /geojson → EPSG:4674, converte UTM→geo no servidor)
+  const carregarGeojson = useCallback(async () => {
+    setGeoBusy(true);
+    try { setGeojsonData(await geoUrbanoAPI.geojson(id)); }
+    catch (e) { toast({ title: 'Não foi possível carregar o satélite', variant: 'destructive' }); }
+    finally { setGeoBusy(false); }
+  }, [id, toast]);
+  // Importa vértices colados do Excel/AutoCAD (substitui a poligonal)
+  const importarColados = () => {
+    const novos = parseColados(pasteText);
+    if (!novos.length) { toast({ title: 'Nada reconhecido — cole linhas com N e E (UTM)', variant: 'destructive' }); return; }
+    upd({ vertices: novos });
+    setPasteOpen(false); setPasteText('');
+    toast({ title: `${novos.length} vértice(s) importado(s)` });
   };
 
   const carregar = useCallback(async () => {
@@ -1088,12 +1146,29 @@ export default function GeoUrbanoWizard() {
             <p className="text-xs text-gray-500 mt-2">
               Área declarada {proj.area_declarada_m2 ? Number(proj.area_declarada_m2).toLocaleString('pt-BR') : '—'} m² · Perímetro {proj.perimetro_m || '—'} m
             </p>
+            <div className="flex items-center justify-between mt-3 mb-1">
+              <h3 className="text-xs font-semibold" style={{ color: GREEN }}>Sobre o satélite (SIRGAS 2000)</h3>
+              <button onClick={carregarGeojson} disabled={geoBusy}
+                className="text-xs inline-flex items-center gap-1 text-emerald-700 hover:underline disabled:opacity-50">
+                <RefreshCw className={`w-3.5 h-3.5 ${geoBusy ? 'animate-spin' : ''}`} /> {geoBusy ? 'Carregando…' : 'Atualizar satélite'}
+              </button>
+            </div>
+            <PoligonalLeaflet geojson={geojsonData} height={300} />
+            <p className="text-[10px] text-gray-400 mt-1">Salve os vértices e clique em "Atualizar satélite". Aceita Latitude/Longitude ou UTM (convertido no servidor).</p>
           </div>
           <div className="rounded-xl border bg-white p-4">
             <div className="flex items-center justify-between mb-2">
               <h2 className="font-semibold" style={{ color: GREEN }}>Quadro de vértices <span className="text-[11px] font-normal text-gray-400">(editável)</span></h2>
-              <div className="flex items-center gap-3">
-                <span className="text-[10px] text-gray-400">arraste ↔</span>
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="inline-flex rounded-md border overflow-hidden" title="Alterna as colunas de coordenadas exibidas">
+                  {[['utm', 'UTM'], ['geo', 'Geodésica']].map(([m, lab]) => (
+                    <button key={m} onClick={() => setCoordMode(m)}
+                      className={`text-[11px] px-2 py-0.5 ${coordMode === m ? 'text-white' : 'bg-white text-gray-600'}`}
+                      style={coordMode === m ? { background: GREEN } : {}}>{lab}</button>
+                  ))}
+                </div>
+                <button onClick={() => setPasteOpen((o) => !o)} className="text-xs inline-flex items-center gap-1 text-emerald-700 hover:underline">
+                  <FileText className="w-3.5 h-3.5" /> Colar do Excel</button>
                 <button onClick={() => orientarLados()} disabled={orientBusy}
                   className="text-xs inline-flex items-center gap-1 text-emerald-700 hover:underline disabled:opacity-50"
                   title="Classifica os lados (rua = FRENTE; direita/esquerda de quem está no lote olhando a rua)">
@@ -1101,6 +1176,20 @@ export default function GeoUrbanoWizard() {
                 <button onClick={addVert} className="text-xs inline-flex items-center gap-1 text-emerald-700 hover:underline"><Plus className="w-3.5 h-3.5" /> Vértice</button>
               </div>
             </div>
+            {pasteOpen && (
+              <div className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50/50 p-2">
+                <textarea className="w-full text-xs font-mono border rounded p-2 h-24"
+                  placeholder={'Cole do Excel/AutoCAD — 1 vértice por linha (Tab/;/vírgula). Ex.:\nP-01\t9453766,07\t223012,50\t50,00\tRua Suriname'}
+                  value={pasteText} onChange={(e) => setPasteText(e.target.value)} />
+                <div className="flex items-center justify-between mt-1 gap-2">
+                  <span className="text-[10px] text-gray-500">N e E (UTM) detectados automaticamente; <b>substitui</b> a poligonal atual.</span>
+                  <div className="flex gap-2 shrink-0">
+                    <button onClick={() => { setPasteOpen(false); setPasteText(''); }} className="text-xs px-2 py-1 rounded border">Cancelar</button>
+                    <button onClick={importarColados} className="text-xs px-2 py-1 rounded text-white" style={{ background: GREEN }}>Importar</button>
+                  </div>
+                </div>
+              </div>
+            )}
             <p className="text-[11px] text-amber-600 mb-2">{isUsucapiao
               ? <>Vértices, confrontantes e coordenadas extraídos do <b>Memorial</b> — confira/ajuste se necessário. Os <b>Lados</b> (FRENTE/LATERAIS/FUNDO) são calculados automaticamente; ajuste no seletor se precisar.</>
               : <>O <b>Confrontante</b> não vem da planilha do mapa — preencha/corrija por aqui (1 por segmento). Os <b>Lados</b> saem automáticos (rua = frente); se nenhum confrontante for rua, marque a <b>Frente</b> na testada e clique em <b>Orientar lados</b>.</>}</p>
@@ -1108,7 +1197,8 @@ export default function GeoUrbanoWizard() {
               <table className="text-xs border-collapse" style={{ minWidth: 820 }}>
                 <thead>
                   <tr className="text-left" style={{ color: GREEN }}>
-                    {['De', 'Para', 'Coord. N (Y)', 'Coord. E (X)', 'Azimute', 'Dist. (m)',
+                    {['De', 'Para', ...(coordMode === 'geo' ? ['Latitude', 'Longitude'] : ['Coord. N (Y)', 'Coord. E (X)']),
+                      'Azimute', 'Dist. (m)',
                       ...(isUsucapiao ? [] : ['Fator K']), 'Lado', 'Confrontante', ''].map((h) => (
                       <th key={h} className="px-1.5 py-1.5 whitespace-nowrap border-b font-semibold bg-gray-50">{h}</th>
                     ))}
@@ -1123,8 +1213,17 @@ export default function GeoUrbanoWizard() {
                       <tr key={v.id || i} className="border-b">
                         <td className="border-r"><input className={vci + ' font-medium'} style={{ minWidth: 92 }} value={v.de || ''} onChange={(e) => set('de', e.target.value)} /></td>
                         <td className="border-r"><input className={vci} style={{ minWidth: 92 }} value={v.para || ''} onChange={(e) => set('para', e.target.value)} /></td>
-                        <td className="border-r"><input className={vci + ' font-mono'} style={{ minWidth: 104 }} type="number" value={v.coord_n ?? ''} onChange={(e) => setN('coord_n', e.target.value)} /></td>
-                        <td className="border-r"><input className={vci + ' font-mono'} style={{ minWidth: 104 }} type="number" value={v.coord_e ?? ''} onChange={(e) => setN('coord_e', e.target.value)} /></td>
+                        {coordMode === 'geo' ? (
+                          <>
+                            <td className="border-r"><input className={vci + ' font-mono'} style={{ minWidth: 120 }} placeholder={"04°56'15,4\"S"} value={v.latitude || ''} onChange={(e) => set('latitude', e.target.value)} /></td>
+                            <td className="border-r"><input className={vci + ' font-mono'} style={{ minWidth: 120 }} placeholder={"47°27'59,4\"W"} value={v.longitude || ''} onChange={(e) => set('longitude', e.target.value)} /></td>
+                          </>
+                        ) : (
+                          <>
+                            <td className="border-r"><input className={vci + ' font-mono'} style={{ minWidth: 104 }} type="number" value={v.coord_n ?? ''} onChange={(e) => setN('coord_n', e.target.value)} /></td>
+                            <td className="border-r"><input className={vci + ' font-mono'} style={{ minWidth: 104 }} type="number" value={v.coord_e ?? ''} onChange={(e) => setN('coord_e', e.target.value)} /></td>
+                          </>
+                        )}
                         <td className="border-r"><input className={vci} style={{ minWidth: 84 }} value={v.azimute || ''} onChange={(e) => set('azimute', e.target.value)} /></td>
                         <td className="border-r"><input className={vci + ' text-right'} style={{ minWidth: 60 }} type="number" value={v.distancia_m ?? ''} onChange={(e) => setN('distancia_m', e.target.value)} /></td>
                         {!isUsucapiao && (

@@ -884,6 +884,7 @@ export const geoUrbanoAPI = {
   // SIG-RI (Prov. CNJ 195/2025) — malha fundiária do RI
   shapefile: (id) => api.get(`${GEOURB}/projetos/${id}/shapefile`, { responseType: 'blob' }).then((r) => r.data),
   kml: (id) => api.get(`${GEOURB}/projetos/${id}/kml`, { responseType: 'blob' }).then((r) => r.data),
+  geojson: (id) => api.get(`${GEOURB}/projetos/${id}/geojson`).then((r) => r.data),
   // Painel de validação SIG-RI/ONR (§7) — E-*/W-* + pode_gerar
   validarOnr: (id) => api.post(`${GEOURB}/projetos/${id}/onr/validar`).then((r) => r.data),
   justificarOnr: (id, codigo, texto) =>
