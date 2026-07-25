@@ -236,6 +236,10 @@ async def atualizar_projeto(pid: str, body: AtualizarProjetoBody,
     sets = {}
     escalares = ("denominacao_imovel", "tipo_servico", "tema", "status", "municipio", "uf",
                  "bairro", "loteamento", "quadra", "lote_resultante", "endereco",
+                 "numero", "cep", "unidade",
+                 # SIG-RI / ONR (imóvel urbano)
+                 "codigo_ibge", "cib", "inscricao_municipal", "zoneamento",
+                 "precisao_posicional_m", "data_levantamento", "reurb_modalidade", "obs_onr",
                  "cmi_resultante", "cmi_controle", "cadastro_novo", "cadastro_antigo",
                  "area_declarada_m2", "perimetro_m", "trt_numero", "frente_idx",
                  # desdobro

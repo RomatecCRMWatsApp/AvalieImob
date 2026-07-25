@@ -398,6 +398,18 @@ class GeoUrbanoProjeto(BaseModel):
     quadra: Optional[str] = None
     lote_resultante: Optional[str] = None
     endereco: Optional[str] = None
+    numero: Optional[str] = None
+    cep: Optional[str] = None
+    unidade: Optional[str] = None            # apto/sala/box (condomínio)
+    # SIG-RI / ONR (Prov. CNJ 195/2025 · NBR 17047:2022 — imóvel URBANO)
+    codigo_ibge: Optional[str] = None        # IBGE 7 díg (Açailândia/MA = 2100055)
+    cib: Optional[str] = None                # Cadastro Imobiliário Brasileiro (IN RFB 2.030/2021)
+    inscricao_municipal: Optional[str] = None  # IPTU
+    zoneamento: Optional[str] = None
+    precisao_posicional_m: Optional[float] = None
+    data_levantamento: Optional[str] = None
+    reurb_modalidade: Optional[Literal["reurb_s", "reurb_e"]] = None
+    obs_onr: Optional[str] = None
     cmi_resultante: Optional[str] = None
     cmi_controle: Optional[str] = None     # controle de 3 dígitos do CIM (base-NNN)
     cadastro_novo: Optional[str] = None
@@ -484,6 +496,17 @@ class AtualizarProjetoBody(BaseModel):
     quadra: Optional[str] = None
     lote_resultante: Optional[str] = None
     endereco: Optional[str] = None
+    numero: Optional[str] = None
+    cep: Optional[str] = None
+    unidade: Optional[str] = None
+    codigo_ibge: Optional[str] = None
+    cib: Optional[str] = None
+    inscricao_municipal: Optional[str] = None
+    zoneamento: Optional[str] = None
+    precisao_posicional_m: Optional[float] = None
+    data_levantamento: Optional[str] = None
+    reurb_modalidade: Optional[Literal["reurb_s", "reurb_e"]] = None
+    obs_onr: Optional[str] = None
     cmi_resultante: Optional[str] = None
     cmi_controle: Optional[str] = None     # controle de 3 dígitos do CIM (base-NNN)
     cadastro_novo: Optional[str] = None

@@ -490,13 +490,16 @@ def test_alinhar_coords_aos_vertices(proj):
 
 
 def test_sigri_shapefile_e_kml(proj):
-    # Prov. CNJ 195/2025: shapefile SIG-RI (SHP/SHX/DBF/PRJ) + KML a partir do lat/long
-    assert round(GX._dms_to_dec("04°56'15,475979\"S"), 4) == -4.9376
-    assert round(GX._dms_to_dec("47°27'59,462032\"W"), 4) == -47.4665
+    # Prov. CNJ 195/2025: pacote SIG-RI (SHP/SHX/DBF/PRJ/CPG + LEIAME) + KML do lat/long
+    from services.geo_urbano import geodesia as GEOD
+    assert round(GEOD.dms_to_dec("04°56'15,475979\"S"), 4) == -4.9376
+    assert round(GEOD.dms_to_dec("47°27'59,462032\"W"), 4) == -47.4665
     import zipfile
     z = GX.gerar_shapefile_bytes(proj)
-    exts = sorted(n.rsplit(".", 1)[-1] for n in zipfile.ZipFile(io.BytesIO(z)).namelist())
-    assert exts == ["dbf", "prj", "shp", "shx"]
+    nomes = zipfile.ZipFile(io.BytesIO(z)).namelist()
+    exts = {n.rsplit(".", 1)[-1] for n in nomes if "." in n}
+    assert {"dbf", "prj", "shp", "shx", "cpg"} <= exts
+    assert "LEIAME.txt" in nomes
     kml = GX.gerar_kml(proj)
     assert kml.startswith("<?xml") and "<coordinates>" in kml
 
