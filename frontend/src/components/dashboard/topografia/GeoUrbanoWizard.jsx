@@ -87,6 +87,12 @@ const DOCS_GERAVEIS_USUCAPIAO = [
   ['edital_usucapiao', 'Edital'],
   ['dossie', 'Dossiê consolidado (capa + sumário + tudo)'],
 ];
+// Peças da Reurb (Lei 13.465/2017 · Decreto 9.310/2018)
+const DOCS_GERAVEIS_REURB = [
+  ['requerimento_reurb', 'Requerimento de Reurb (Município)'],
+  ['memorial_descritivo', 'Memorial Descritivo'],
+  ['dossie', 'Dossiê consolidado (capa + sumário + tudo)'],
+];
 
 // Controle do CIM = último dígito da Quadra + Lote + Unidade (regra de formação)
 function controleCimAuto(base) {
@@ -228,7 +234,8 @@ export default function GeoUrbanoWizard() {
     try {
       const d = await geoUrbanoAPI.obter(id);
       setProj(d);
-      const docs = d.tipo_servico === 'usucapiao' ? DOCS_GERAVEIS_USUCAPIAO : DOCS_GERAVEIS;
+      const docs = d.tipo_servico === 'usucapiao' ? DOCS_GERAVEIS_USUCAPIAO
+        : d.tipo_servico === 'reurb' ? DOCS_GERAVEIS_REURB : DOCS_GERAVEIS;
       setDocsSel(docs.map((x) => x[0]));
       // prévia/aferição inicia na peça CERTA do serviço (usucapião → Requerimento de
       // Usucapião, não o requerimento genérico de cartório).
@@ -605,12 +612,13 @@ export default function GeoUrbanoWizard() {
   const isDesdobro = proj.tipo_servico === 'desdobro';
   const isRetificacao = proj.tipo_servico === 'retificacao';
   const isUsucapiao = proj.tipo_servico === 'usucapiao';
+  const isReurb = proj.tipo_servico === 'reurb';
   const lotes = proj.lotes_resultantes || [];
   // Usucapião reusa as abas técnicas do Remembramento, em outra ordem, + bloco Jurídico ao fim.
   const PASSOS = isUsucapiao ? PASSOS_USUCAPIAO : PASSOS_REMEMBRAMENTO;
   const passoAtual = PASSOS[step] || PASSOS[0];
-  const docsGeraveis = isUsucapiao ? DOCS_GERAVEIS_USUCAPIAO : DOCS_GERAVEIS;
-  const servicoLabel = isUsucapiao ? 'Usucapião Extrajudicial'
+  const docsGeraveis = isUsucapiao ? DOCS_GERAVEIS_USUCAPIAO : isReurb ? DOCS_GERAVEIS_REURB : DOCS_GERAVEIS;
+  const servicoLabel = isUsucapiao ? 'Usucapião Extrajudicial' : isReurb ? 'Reurb (Regularização Fundiária)'
     : isDesdobro ? 'Desdobro' : isRetificacao ? 'Retificação' : 'Remembramento';
 
   return (
@@ -776,6 +784,21 @@ export default function GeoUrbanoWizard() {
                 <option value="mista">Mista (ambos os eixos)</option>
               </select>
               <p className="text-[11px] text-gray-500 mt-2">A análise compara registro × cadastro e/ou a geometria antes × depois (art. 213, Lei 6.015/73). O quadro "de → para" é conferido na etapa Matrículas &amp; BCI.</p>
+            </section>
+          )}
+          {isReurb && (
+            <section className="rounded-xl border border-teal-200 bg-teal-50/40 p-5">
+              <h2 className="font-semibold mb-3" style={{ color: GREEN }}>REURB — núcleo urbano (Lei 13.465/2017 · Decreto 9.310/2018)</h2>
+              <div className="grid sm:grid-cols-2 gap-3">
+                <Field label="Nome do núcleo urbano informal" value={proj.nucleo_informal_nome} onChange={(v) => upd({ nucleo_informal_nome: v })} />
+                <Field label="Data de ocupação do núcleo" type="date" value={proj.data_ocupacao_nucleo || ''} onChange={(v) => upd({ data_ocupacao_nucleo: v })} />
+                <Field label="Processo administrativo municipal nº" value={proj.processo_municipal_num} onChange={(v) => upd({ processo_municipal_num: v })} />
+                <label className="flex items-center gap-2 text-sm text-gray-700 sm:mt-6">
+                  <input type="checkbox" checked={!!proj.legitimacao_fundiaria} onChange={(e) => upd({ legitimacao_fundiaria: e.target.checked })} />
+                  Requer legitimação fundiária (art. 23)
+                </label>
+              </div>
+              <p className="text-[11px] text-gray-500 mt-2">A modalidade <b>Reurb-S/E</b> é definida na seção SIG-RI/ONR acima. O <b>Requerimento de Reurb</b> e o Dossiê saem no passo Geração.</p>
             </section>
           )}
           <section className="rounded-xl border bg-white p-5">

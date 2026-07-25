@@ -82,7 +82,9 @@ _DOCS_GERAVEIS = {"requerimento_cartorio", "requerimento_superintendencia",
                   "memorial_descritivo", "cadeia_dominical", "oficio_aprovacao",
                   "quadro_retificacao",
                   # usucapião
-                  "requerimento_usucapiao", "ata_notarial", "edital_usucapiao"}
+                  "requerimento_usucapiao", "ata_notarial", "edital_usucapiao",
+                  # reurb
+                  "requerimento_reurb"}
 
 
 def _agora():
@@ -242,6 +244,9 @@ async def atualizar_projeto(pid: str, body: AtualizarProjetoBody,
                  # SIG-RI / ONR (imóvel urbano)
                  "codigo_ibge", "cib", "inscricao_municipal", "zoneamento",
                  "precisao_posicional_m", "data_levantamento", "reurb_modalidade", "obs_onr",
+                 # REURB (Lei 13.465/2017)
+                 "nucleo_informal_nome", "data_ocupacao_nucleo", "legitimacao_fundiaria",
+                 "processo_municipal_num",
                  "cmi_resultante", "cmi_controle", "cadastro_novo", "cadastro_antigo",
                  "area_declarada_m2", "perimetro_m", "trt_numero", "frente_idx",
                  # desdobro
@@ -721,6 +726,7 @@ _PECA_LABEL = {
     # usucapião
     "requerimento_usucapiao": "Requerimento de Usucapião", "ata_notarial": "Minuta da Ata Notarial",
     "edital_usucapiao": "Edital de Usucapião", "art_trt": "ART / TRT",
+    "requerimento_reurb": "Requerimento de Reurb (Município)",
 }
 
 
@@ -1002,6 +1008,30 @@ async def _montar_dossie(db, doc, tema):
             ("Documentos do Proprietário",
              (await _ub(doc, "contrato_social")) + (await _ub(doc, "doc_socio"))
              + (await _ub(doc, "doc_proprietario")) + (await _ub(doc, "cnh")) + (await _ub(doc, "certidao_casamento"))),
+        ]
+        return await asyncio.to_thread(DOSSIE.gerar_dossie_ordenado, doc, secoes, capa_pdf)
+
+    # ── REURB (Lei 13.465/2017 · Decreto 9.310/2018): protocolo no Município
+    if tipo == "reurb":
+        req = assinadas.get("requerimento_reurb") \
+            or await asyncio.to_thread(PDF.gerar_pdf, "requerimento_reurb", doc, tema, logo)
+        if uploads.get("memorial_aprovado"):
+            memorial = await _ub(doc, "memorial_aprovado")
+        else:
+            memorial = [await asyncio.to_thread(PDF.gerar_pdf, "memorial_descritivo", doc, tema, logo)]
+        mapa = (await _ub(doc, "mapa_aprovado")) or (await _ub(doc, "mapa_remembramento")) or (await _ub(doc, "mapa_atual"))
+        art = ([assinadas["art_trt"]] if assinadas.get("art_trt") else await _ub(doc, "art_trt"))
+        secoes = [
+            ("Requerimento de Reurb (Município)", [req]),
+            ("Memorial Descritivo", memorial),
+            ("Planta / Mapa (art. 35, Lei 13.465/2017)", mapa),
+            ("ART / TRT", art),
+            ("Certidões de Inteiro Teor", await _ub(doc, "certidao_inteiro_teor")),
+            ("Regularidade de IPTU (CND / guias / boletos)",
+             (await _ub(doc, "cnd_iptu")) + (await _ub(doc, "guia_iptu")) + (await _ub(doc, "comprovante_pagamento_iptu"))),
+            ("Boletins de Cadastro Imobiliário (BCI)", await _ub(doc, "bci")),
+            ("Documentos do Requerente",
+             (await _ub(doc, "doc_proprietario")) + (await _ub(doc, "cnh")) + (await _ub(doc, "certidao_casamento"))),
         ]
         return await asyncio.to_thread(DOSSIE.gerar_dossie_ordenado, doc, secoes, capa_pdf)
 

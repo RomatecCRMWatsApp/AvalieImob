@@ -410,6 +410,11 @@ class GeoUrbanoProjeto(BaseModel):
     data_levantamento: Optional[str] = None
     reurb_modalidade: Optional[Literal["reurb_s", "reurb_e"]] = None
     obs_onr: Optional[str] = None
+    # REURB (Lei 13.465/2017 · Decreto 9.310/2018)
+    nucleo_informal_nome: Optional[str] = None
+    data_ocupacao_nucleo: Optional[str] = None
+    legitimacao_fundiaria: bool = False
+    processo_municipal_num: Optional[str] = None
     cmi_resultante: Optional[str] = None
     cmi_controle: Optional[str] = None     # controle de 3 dígitos do CIM (base-NNN)
     cadastro_novo: Optional[str] = None
@@ -510,6 +515,10 @@ class AtualizarProjetoBody(BaseModel):
     data_levantamento: Optional[str] = None
     reurb_modalidade: Optional[Literal["reurb_s", "reurb_e"]] = None
     obs_onr: Optional[str] = None
+    nucleo_informal_nome: Optional[str] = None
+    data_ocupacao_nucleo: Optional[str] = None
+    legitimacao_fundiaria: Optional[bool] = None
+    processo_municipal_num: Optional[str] = None
     cmi_resultante: Optional[str] = None
     cmi_controle: Optional[str] = None     # controle de 3 dígitos do CIM (base-NNN)
     cadastro_novo: Optional[str] = None

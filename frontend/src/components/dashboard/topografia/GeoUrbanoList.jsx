@@ -34,7 +34,7 @@ export const TIPOS_SERVICO = [
   { value: 'desdobro', label: 'Desdobro (fracionamento)', pronto: true },
   { value: 'retificacao', label: 'Retificação de área/registro', pronto: true },
   { value: 'usucapiao', label: 'Usucapião extrajudicial', pronto: true },
-  { value: 'reurb', label: 'REURB (regularização fundiária urbana)', pronto: false },
+  { value: 'reurb', label: 'REURB (regularização fundiária urbana)', pronto: true },
 ];
 
 const STATUS = {
@@ -374,6 +374,12 @@ export default function GeoUrbanoList() {
               {wa.tipo_servico === 'usucapiao' ? (
                 <>
                   <option value="requerimento_usucapiao">Requerimento de Usucapião (assinado)</option>
+                  <option value="art_trt">ART / TRT</option>
+                  <option value="memorial_descritivo">Memorial Descritivo</option>
+                </>
+              ) : wa.tipo_servico === 'reurb' ? (
+                <>
+                  <option value="requerimento_reurb">Requerimento de Reurb (Município)</option>
                   <option value="art_trt">ART / TRT</option>
                   <option value="memorial_descritivo">Memorial Descritivo</option>
                 </>

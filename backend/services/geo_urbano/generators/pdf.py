@@ -894,9 +894,104 @@ def notificacao(projeto: dict, anuente: dict, tema: str, logo_bytes=None) -> byt
 # ──────────────────────────────────────────────────────────────────────────────
 # Dispatcher
 # ──────────────────────────────────────────────────────────────────────────────
+def _reurb_modalidade_label(projeto: dict) -> str:
+    m = (projeto.get("reurb_modalidade") or "").lower()
+    if m == "reurb_s":
+        return "Reurb-S (Regularização Fundiária de Interesse Social)"
+    if m == "reurb_e":
+        return "Reurb-E (Regularização Fundiária de Interesse Específico)"
+    return "Reurb"
+
+
+def requerimento_reurb(projeto: dict, tema: str, logo_bytes=None) -> bytes:
+    """Requerimento de Regularização Fundiária Urbana (Reurb) ao Município —
+    Lei 13.465/2017 + Decreto 9.310/2018."""
+    cfg = GP._cfg(tema)
+    st = GP._styles(cfg)
+    L = _largura()
+    municipio, uf = (projeto.get("municipio") or ""), (projeto.get("uf") or "")
+    sup = projeto.get("superintendencia") or {}
+    dest_nome = sup.get("nome") or "Superintendência de Habitação e Regularização Fundiária"
+    dest_orgao = sup.get("orgao") or f"Prefeitura Municipal de {municipio}/{uf}"
+
+    story = []
+    for ln in [f"À {dest_nome}", dest_orgao]:
+        if ln:
+            story.append(Paragraph(GP._esc(ln), st["corpo"]))
+    story.append(Spacer(1, 16))
+    story += GP._titulo("REQUERIMENTO DE REGULARIZAÇÃO FUNDIÁRIA URBANA (REURB)", cfg, st, L)
+
+    mod = _reurb_modalidade_label(projeto)
+    intro = (TX.bloco_requerentes(projeto)
+             + "vem REQUERER a instauração e o processamento da REGULARIZAÇÃO FUNDIÁRIA URBANA, na "
+             + f"modalidade {mod}, nos termos da Lei nº 13.465/2017 e do Decreto nº 9.310/2018, do imóvel "
+             + "adiante descrito:")
+    story += GP._paras(intro, st["corpo"])
+
+    # ── DO IMÓVEL / NÚCLEO URBANO
+    story += GP._secao("DO IMÓVEL / NÚCLEO URBANO", cfg, st, L)
+    ident = (f"Imóvel urbano denominado {projeto.get('denominacao_imovel') or '—'}, situado em "
+             f"{projeto.get('endereco') or '—'}, no Município de {municipio}/{uf}")
+    if projeto.get("nucleo_informal_nome"):
+        ident += f", integrante do núcleo urbano informal denominado \"{projeto['nucleo_informal_nome']}\""
+    cim = TX.cim_completo(projeto)
+    if cim:
+        ident += f", Cadastro Imobiliário Municipal (CIM) nº {cim}"
+    story += GP._paras(ident + ".", st["corpo"])
+    story += GP._paras(
+        f"Possui área de {TX.m2_ext(projeto.get('area_declarada_m2'))} e perímetro de "
+        f"{TX.metros_ext(projeto.get('perimetro_m'))}, conforme planta e memorial descritivo "
+        f"georreferenciados anexos (art. 35 da Lei nº 13.465/2017).", st["corpo"])
+    desc = TX.descricao_perimetrica(projeto)
+    if desc:
+        story += GP._paras_bold("Descrição perimétrica (memorial): " + desc,
+                                ["Descrição perimétrica (memorial):"], st["corpo"])
+    story += _tabela_vertices(projeto, cfg, st, L)
+
+    # ── DA OCUPAÇÃO
+    story += GP._secao("DA OCUPAÇÃO", cfg, st, L)
+    ocup = "O núcleo urbano informal encontra-se consolidado"
+    if projeto.get("data_ocupacao_nucleo"):
+        ocup += f", com ocupação existente desde {_fmt_data_br(projeto.get('data_ocupacao_nucleo'))}"
+    ocup += ", nos termos do art. 9º e seguintes da Lei nº 13.465/2017."
+    story += GP._paras(ocup, st["corpo"])
+    if projeto.get("legitimacao_fundiaria"):
+        story += GP._paras(
+            "Requer-se o reconhecimento da LEGITIMAÇÃO FUNDIÁRIA como forma originária de aquisição do "
+            "direito real de propriedade (art. 23 da Lei nº 13.465/2017).", st["corpo"])
+    if projeto.get("processo_municipal_num"):
+        story += GP._paras(f"Processo administrativo municipal nº {projeto.get('processo_municipal_num')}.",
+                           st["corpo"])
+
+    # Certidão de matrícula OU justificativa de ausência (Reurb-S)
+    mats = projeto.get("matriculas") or []
+    if mats:
+        story += GP._paras("Consta do Registro Geral: " + TX.transcricao_matricula(mats[0], municipio, uf),
+                           st["corpo"])
+    elif (projeto.get("reurb_modalidade") or "") == "reurb_s":
+        story += GP._paras(
+            "Tratando-se de Reurb-S, na ausência de registro anterior, requer-se a abertura de matrícula na "
+            "forma dos arts. 13 e 42 da Lei nº 13.465/2017, dispensada a certidão de matrícula quando não "
+            "localizado o registro.", st["corpo"])
+
+    # ── DO PEDIDO
+    story += GP._secao("DO PEDIDO", cfg, st, L)
+    story += GP._paras(
+        f"Ante o exposto, REQUER o processamento e a aprovação da Reurb ({mod}), com a expedição da CRF "
+        "(Certidão de Regularização Fundiária) e o consequente registro no Cartório de Registro de Imóveis "
+        "competente, nos termos da Lei nº 13.465/2017 e do Decreto nº 9.310/2018.", st["corpo"])
+    story += GP._paras("Nestes termos, pede deferimento.", st["corpo"])
+    story.append(Spacer(1, 4))
+    story.append(Paragraph(GP._esc(_data_extenso(municipio or "Açailândia", uf or "MA")), st["corpo_c"]))
+    story += _bloco_assinaturas_partes(projeto, st, L)
+    return _build(story, cfg, "Requerimento de Reurb", logo_bytes)
+
+
 def gerar_pdf(tipo: str, projeto: dict, tema: str = "prime_i", logo_bytes=None) -> bytes:
     if tipo == "quadro_retificacao":
         return quadro_retificacao(projeto, tema, logo_bytes)
+    if tipo == "requerimento_reurb":
+        return requerimento_reurb(projeto, tema, logo_bytes)
     if tipo == "requerimento_cartorio":
         return requerimento(projeto, "cartorio", tema, logo_bytes)
     if tipo == "requerimento_superintendencia":
