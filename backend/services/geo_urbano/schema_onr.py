@@ -192,7 +192,7 @@ def _rt(projeto: dict) -> Tuple[str, str, str, str]:
 def montar_registro(projeto: dict, *, rotulo: str = "", area_m2: float = 0.0,
                     perimetro_m: float = 0.0, n_vertices: int = 0,
                     fuso: Optional[int] = None, hemisferio: Optional[str] = None,
-                    id_imovel: str = "") -> dict:
+                    id_imovel: str = "", lote_label: Optional[str] = None) -> dict:
     from services.geo_urbano import geodesia as GEO  # evita import circular no topo
 
     nome_prop, doc_prop, n_prop = _proprietarios(projeto)
@@ -213,7 +213,7 @@ def montar_registro(projeto: dict, *, rotulo: str = "", area_m2: float = 0.0,
         "COD_IBGE": _c(_codigo_ibge(projeto), 7),
         "LOTEAMENT": _c(projeto.get("loteamento"), 100),
         "QUADRA": _c(projeto.get("quadra"), 20),
-        "LOTE": _c(projeto.get("lote_resultante") or rotulo, 20),
+        "LOTE": _c(lote_label or projeto.get("lote_resultante") or rotulo, 20),
         "UNIDADE": _c(projeto.get("unidade"), 20),
         "LOGRADOUR": _c(projeto.get("endereco"), 120),
         "NUMERO": _c(projeto.get("numero"), 15),

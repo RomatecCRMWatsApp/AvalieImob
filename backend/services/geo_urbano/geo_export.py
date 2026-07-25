@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import io
 import os
+import re
 import tempfile
 import zipfile
 
@@ -85,34 +86,33 @@ def gerar_kml(projeto: dict) -> str:
 # ──────────────────────────────────────────────────────────────────────────────
 # Pacote shapefile SIG-RI (SHP/SHX/DBF/PRJ + CPG + LEIAME.txt)
 # ──────────────────────────────────────────────────────────────────────────────
-def gerar_shapefile_bytes(projeto: dict) -> bytes:
-    """Pacote SIG-RI zipado — SIRGAS 2000/EPSG:4674, esquema URBANO, área geodésica."""
+def _slug(rotulo: str, idx: int) -> str:
+    t = re.sub(r"[^0-9A-Za-z]+", "", (rotulo or "")) or f"Lote{idx + 1}"
+    return t[:24]
+
+
+def _pacote_shapefile(projeto: dict, feat, idx: int, multi: bool):
+    """(basename, zip_bytes) de UM pacote shapefile (1 polígono):
+    SHP/SHX/DBF/PRJ/CPG + LEIAME.txt, SIRGAS 2000/EPSG:4674, área geodésica."""
     import shapefile  # pyshp
 
-    feats = _feature_aneis(projeto)
-    if not feats:
-        raise ValueError(
-            "Poligonal insuficiente para o SIG-RI: informe os vértices com Latitude/Longitude "
-            "ou coordenadas UTM (Este/Norte).")
-
+    rotulo, ring, n_vert, fuso, hemis = feat
+    area_m2, perim_m = GEO.area_perimetro_geodesico(ring)
+    num = str(projeto.get("numero") or "sn").replace("/", "_")
+    slug = _slug(rotulo, idx)
     tmp = tempfile.mkdtemp(prefix="sigri_urb_")
-    base = os.path.join(tmp, f"SIGRI_URB_{(projeto.get('numero') or 'sn')}".replace("/", "_"))
+    base = os.path.join(tmp, f"SIGRI_URB_{num}_{slug}")
     nome_base = os.path.basename(base)
 
     w = shapefile.Writer(base, shapeType=shapefile.POLYGON)
     for f, t, sz, dec in SCH.ONR_URBANO_FIELDS:
         w.field(f, t, sz, dec)
-
-    leiame_ctx = None
-    for rotulo, ring, n_vert, fuso, hemis in feats:
-        area_m2, perim_m = GEO.area_perimetro_geodesico(ring)
-        rec = SCH.montar_registro(projeto, rotulo=rotulo, area_m2=area_m2, perimetro_m=perim_m,
-                                  n_vertices=n_vert, fuso=fuso, hemisferio=hemis)
-        w.poly([[list(p) for p in ring]])
-        w.record(**rec)
-        if leiame_ctx is None:
-            leiame_ctx = dict(rotulo=rotulo, area_m2=area_m2, perimetro_m=perim_m,
-                              n_vertices=n_vert, fuso=fuso, hemisferio=hemis)
+    rec = SCH.montar_registro(projeto, rotulo=rotulo, area_m2=area_m2, perimetro_m=perim_m,
+                              n_vertices=n_vert, fuso=fuso, hemisferio=hemis,
+                              id_imovel=f"{projeto.get('id') or num}-{slug}",
+                              lote_label=(rotulo if multi else None))
+    w.poly([[list(p) for p in ring]])
+    w.record(**rec)
     w.close()
 
     with open(base + ".prj", "w", encoding="utf-8") as fh:
@@ -120,7 +120,6 @@ def gerar_shapefile_bytes(projeto: dict) -> bytes:
     with open(base + ".cpg", "w", encoding="utf-8") as fh:
         fh.write("UTF-8")
 
-    # SHA-256 dos arquivos-núcleo (shp+shx+dbf+prj), citado no LEIAME
     partes = {}
     for ext in ("shp", "shx", "dbf", "prj", "cpg"):
         caminho = base + f".{ext}"
@@ -128,12 +127,11 @@ def gerar_shapefile_bytes(projeto: dict) -> bytes:
             with open(caminho, "rb") as fh:
                 partes[ext] = fh.read()
     h = hashlib.sha256()
-    for ext in ("shp", "shx", "dbf", "prj"):
+    for ext in ("shp", "shx", "dbf", "prj"):   # SHA-256 dos arquivos-núcleo
         if ext in partes:
             h.update(partes[ext])
-    sha = h.hexdigest()
-
-    leiame = SCH.montar_leiame(projeto, sha256=sha, **(leiame_ctx or {}))
+    leiame = SCH.montar_leiame(projeto, sha256=h.hexdigest(), rotulo=rotulo, area_m2=area_m2,
+                               perimetro_m=perim_m, n_vertices=n_vert, fuso=fuso, hemisferio=hemis)
 
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
@@ -141,4 +139,30 @@ def gerar_shapefile_bytes(projeto: dict) -> bytes:
             if ext in partes:
                 z.writestr(f"{nome_base}.{ext}", partes[ext])
         z.writestr("LEIAME.txt", leiame.encode("utf-8"))
+    return nome_base, buf.getvalue()
+
+
+def gerar_shapefile_bytes(projeto: dict) -> bytes:
+    """Pacote SIG-RI SIRGAS 2000/EPSG:4674 (esquema URBANO, área geodésica).
+
+    §8.1: UM polígono por pacote. Imóvel único/remembramento → um pacote
+    (SHP/SHX/DBF/PRJ/CPG + LEIAME). Desdobro com N lotes → N pacotes (cada lote
+    vira matrícula própria) empacotados num ZIP-mãe.
+    """
+    feats = _feature_aneis(projeto)
+    if not feats:
+        raise ValueError(
+            "Poligonal insuficiente para o SIG-RI: informe os vértices com Latitude/Longitude "
+            "ou coordenadas UTM (Este/Norte).")
+
+    multi = len(feats) > 1
+    pacotes = [_pacote_shapefile(projeto, f, i, multi) for i, f in enumerate(feats)]
+    if len(pacotes) == 1:
+        return pacotes[0][1]
+
+    # ZIP-mãe (loteamento/desdobro): um pacote shapefile por lote
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for nome_base, pkg in pacotes:
+            z.writestr(f"{nome_base}.zip", pkg)
     return buf.getvalue()

@@ -137,3 +137,31 @@ def test_pacote_shapefile_onr_reabre_e_valida():
 def test_shapefile_sem_vertices_falha():
     with pytest.raises(ValueError):
         GX.gerar_shapefile_bytes(_projeto_onr(vertices=[]))
+
+
+def test_desdobro_gera_zip_mae_com_um_pacote_por_lote():
+    import shapefile  # pyshp
+    q1 = _quadra_utm(e0=223000.0, n0=9458000.0)
+    q2 = _quadra_utm(e0=223050.0, n0=9458000.0)
+    projeto = _projeto_onr(tipo_servico="desdobro", lote_resultante="", vertices=[],
+                           lotes_resultantes=[
+                               {"id": "a", "ordem": 1, "denominacao": "Lote 09-A", "vertices": q1},
+                               {"id": "b", "ordem": 2, "denominacao": "Lote 09-B", "vertices": q2}])
+    z = zipfile.ZipFile(io.BytesIO(GX.gerar_shapefile_bytes(projeto)))
+    pacotes = [n for n in z.namelist() if n.endswith(".zip")]
+    assert len(pacotes) == 2                      # ZIP-mãe: um pacote por lote
+    lotes_no_dbf = set()
+    for pn in pacotes:
+        inner = zipfile.ZipFile(io.BytesIO(z.read(pn)))
+        assert "LEIAME.txt" in inner.namelist()
+        rd = lambda ext: io.BytesIO(inner.read(next(n for n in inner.namelist() if n.endswith(ext))))  # noqa: E731
+        r = shapefile.Reader(shp=rd(".shp"), shx=rd(".shx"), dbf=rd(".dbf"))
+        assert r.numRecords == 1                  # 1 polígono por pacote
+        campos = [f[0] for f in r.fields[1:]]
+        lotes_no_dbf.add(dict(zip(campos, r.record(0)))["LOTE"])
+    assert lotes_no_dbf == {"Lote 09-A", "Lote 09-B"}   # LOTE por lote (não repetido)
+
+    # imóvel único (remembramento) segue como pacote ÚNICO, não ZIP-de-ZIP
+    unico = zipfile.ZipFile(io.BytesIO(GX.gerar_shapefile_bytes(_projeto_onr())))
+    assert any(n.endswith(".shp") for n in unico.namelist())
+    assert not any(n.endswith(".zip") for n in unico.namelist())
