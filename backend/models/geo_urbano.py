@@ -459,6 +459,9 @@ class GeoUrbanoProjeto(BaseModel):
     })
     uploads: dict = Field(default_factory=dict)             # {tipo: [{id,key,...}]}
     documentos_gerados: dict = Field(default_factory=dict)  # {tipo: {key, gerado_em}}
+    # SIG-RI/ONR — validação (Prov. CNJ 195/2025 · NBR 17047)
+    onr_justificativas: List[dict] = Field(default_factory=list)  # {codigo, texto, por, em}
+    onr_validacao: dict = Field(default_factory=dict)             # último snapshot de validação
     campos_editados: dict = Field(default_factory=dict)
     # auditoria
     extracao_em: Optional[str] = None       # ISO da última extração dos documentos
@@ -576,6 +579,12 @@ class AprovacaoSuperintendenciaBody(BaseModel):
 class CamposAssinaturaBody(BaseModel):
     """Posições dos campos de assinatura por papel (positioner)."""
     campos: List[dict] = Field(default_factory=list)
+
+
+class JustificarOnrBody(BaseModel):
+    """Justificativa textual do RT p/ liberar um WARNING bloqueante (ex.: W-AREA-DIV)."""
+    codigo: str
+    texto: str
 
 
 # Resolve forward-refs (Pydantic v2)

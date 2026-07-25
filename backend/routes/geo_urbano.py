@@ -18,12 +18,14 @@ from db import get_db
 from dependencies import get_active_subscriber, serialize_doc
 from models.geo_urbano import (
     GeoUrbanoProjeto, CriarProjetoBody, AtualizarProjetoBody, GerarDocumentosBody,
-    AprovacaoSuperintendenciaBody, CamposAssinaturaBody, AssinarPecaBody, calcular_completude,
+    AprovacaoSuperintendenciaBody, CamposAssinaturaBody, AssinarPecaBody, JustificarOnrBody,
+    calcular_completude,
 )
 from services import r2_storage
 from services.geo_urbano import reconcile as RECONCILE
 from services.geo_urbano import geometria as GEOM
 from services.geo_urbano import geo_export as GEXP
+from services.geo_urbano import validacao_onr as VALID
 from services.geo_urbano import aprovacao as APROVACAO
 from services.geo_urbano import extractor as EX
 from services.geo_urbano import assinatura_proprietario as PROP
@@ -801,6 +803,36 @@ async def baixar_kml(pid: str, uid: str = Depends(get_active_subscriber), db=Dep
 async def baixar_geojson(pid: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
     doc = await _get(db, pid, uid)
     return GEXP.gerar_geojson(doc)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Painel de validação SIG-RI/ONR (Prov. CNJ 195/2025 · NBR 17047)
+# ──────────────────────────────────────────────────────────────────────────────
+@router.post("/projetos/{pid}/onr/validar")
+async def validar_onr(pid: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    doc = await _get(db, pid, uid)
+    res = await asyncio.to_thread(VALID.validar, doc)
+    await db.geo_urbano_projetos.update_one(
+        {"id": pid, "user_id": uid},
+        {"$set": {"onr_validacao": {**res, "em": _agora().isoformat()}}})
+    return res
+
+
+@router.post("/projetos/{pid}/onr/justificar")
+async def justificar_onr(pid: str, body: JustificarOnrBody,
+                         uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    doc = await _get(db, pid, uid)
+    if not (body.codigo or "").strip() or not (body.texto or "").strip():
+        raise HTTPException(status_code=422, detail="Informe o código do alerta e a justificativa.")
+    just = [j for j in (doc.get("onr_justificativas") or []) if j.get("codigo") != body.codigo]
+    just.append({"codigo": body.codigo.strip(), "texto": body.texto.strip(),
+                 "por": uid, "em": _agora().isoformat()})
+    doc["onr_justificativas"] = just
+    res = await asyncio.to_thread(VALID.validar, doc)
+    await db.geo_urbano_projetos.update_one(
+        {"id": pid, "user_id": uid},
+        {"$set": {"onr_justificativas": just, "onr_validacao": {**res, "em": _agora().isoformat()}}})
+    return res
 
 
 async def _imagem_imovel_bytes(doc):

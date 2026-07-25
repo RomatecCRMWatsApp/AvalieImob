@@ -121,38 +121,46 @@ def _fechar(ring: List[Tuple[float, float]]) -> List[Tuple[float, float]]:
     return ring
 
 
-def resolver_anel(vertices, fuso: Optional[int] = None, hemisferio: Optional[str] = None
+def pontos_lonlat(vertices, fuso: Optional[int] = None, hemisferio: Optional[str] = None
                   ) -> Tuple[List[Tuple[float, float]], Optional[int], Optional[str]]:
-    """Anel (lon, lat) fechado dos vértices + (fuso, hemisfério).
-
-    Prioriza Latitude/Longitude (DMS) da planta; se ausente, converte as
-    coordenadas UTM (coord_e/coord_n). Para o caminho UTM, usa o `fuso`/
-    `hemisferio` informados (default Açailândia/MA = 23 Sul).
-    """
+    """Pontos (lon, lat) BRUTOS na ordem dos vértices (SEM dedup/fechamento) +
+    (fuso, hemisfério). Prioriza Latitude/Longitude (DMS); se ausente, converte
+    UTM (coord_e/coord_n) — caminho UTM usa fuso/hemisfério (default 23 Sul)."""
     verts = sorted((v for v in (vertices or []) if isinstance(v, dict)),
                    key=lambda v: v.get("ordem", 0))
 
-    # 1) Latitude/Longitude explícitas
-    ring = []
+    latlon = []
     for v in verts:
         lat, lon = dms_to_dec(v.get("latitude")), dms_to_dec(v.get("longitude"))
         if lat is not None and lon is not None:
-            ring.append((lon, lat))
-    if len(ring) >= 3:
-        lon_c = sum(p[0] for p in ring) / len(ring)
-        lat_c = sum(p[1] for p in ring) / len(ring)
-        return _fechar(ring), fuso or fuso_de_longitude(lon_c), hemisferio or ("S" if lat_c < 0 else "N")
+            latlon.append((lon, lat))
+    if len(latlon) >= 3:
+        lon_c = sum(p[0] for p in latlon) / len(latlon)
+        lat_c = sum(p[1] for p in latlon) / len(latlon)
+        return latlon, fuso or fuso_de_longitude(lon_c), hemisferio or ("S" if lat_c < 0 else "N")
 
-    # 2) UTM (coord_e/coord_n)
     utm = [(v.get("coord_e"), v.get("coord_n")) for v in verts
            if v.get("coord_e") not in (None, "") and v.get("coord_n") not in (None, "")]
     if len(utm) >= 3:
         f = int(fuso) if fuso else 23
         h = hemisferio or "S"
-        ring = [utm_para_geo(float(e), float(n), f, h) for (e, n) in utm]
-        return _fechar(ring), f, h
+        return [utm_para_geo(float(e), float(n), f, h) for (e, n) in utm], f, h
 
-    return [], fuso, hemisferio
+    # insuficiente: devolve o que houver (o validador reporta E-VERT-MIN)
+    return latlon, fuso, hemisferio
+
+
+def resolver_anel(vertices, fuso: Optional[int] = None, hemisferio: Optional[str] = None
+                  ) -> Tuple[List[Tuple[float, float]], Optional[int], Optional[str]]:
+    """Anel (lon, lat) FECHADO (dedup de duplicados consecutivos) + (fuso, hemisfério)."""
+    pts, f, h = pontos_lonlat(vertices, fuso, hemisferio)
+    return _fechar(pts), f, h
+
+
+def distancia_m(p1: Tuple[float, float], p2: Tuple[float, float]) -> float:
+    """Distância geodésica (m) entre dois pontos (lon, lat)."""
+    _az1, _az2, dist = _geod().inv(float(p1[0]), float(p1[1]), float(p2[0]), float(p2[1]))
+    return abs(dist)
 
 
 def orientar_horario(ring: List[Tuple[float, float]]) -> List[Tuple[float, float]]:
