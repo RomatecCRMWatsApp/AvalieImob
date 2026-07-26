@@ -4,7 +4,7 @@
 // pacote shapefile SIG-RI para o mapa.onr.org.br.
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
-  Upload, Trash2, FileText, Download, RefreshCw, Plus, ArrowLeft, CheckCircle2, MapPin,
+  Upload, Trash2, FileText, Download, RefreshCw, Plus, ArrowLeft, CheckCircle2, MapPin, Copy,
 } from 'lucide-react';
 import { onrSigriAPI } from '../../../lib/api';
 import { useToast } from '../../../hooks/use-toast';
@@ -37,6 +37,31 @@ function saveBlob(blob, nome) {
   const a = document.createElement('a');
   a.href = url; a.download = nome; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
+const _brNum = (v, d) => Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
+
+// Texto da "Descrição do polígono" para colar no mapa.onr.org.br (Prov. CNJ 195/2025).
+function descricaoPoligono(job) {
+  const mat = (job.matriculas || [])[0] || {};
+  const prop = (job.partes || [])[0] || {};
+  const areaM2 = Number(job.area_declarada_m2 || 0);
+  const nv = (job.vertices || []).length;
+  const uf = job.uf || '';
+  const serventia = job.cartorio?.comarca || job.municipio || '';
+  const mc = job.fuso ? (-183 + 6 * Number(job.fuso)) : null;
+  let t = `Polígono do imóvel urbano${job.denominacao_imovel ? ` denominado ${job.denominacao_imovel}` : ''}`;
+  if (mat.matricula) t += `, matrícula nº ${mat.matricula}${serventia ? ` do Registro de Imóveis de ${serventia}/${uf}` : ''}`;
+  if (prop.nome) t += `, de propriedade de ${prop.nome}${prop.cpf ? ` (CPF/CNPJ ${prop.cpf})` : ''}`;
+  if (job.municipio) t += `, situado no Município de ${job.municipio}/${uf}`;
+  t += '.';
+  if (areaM2) t += ` Área de ${_brNum(areaM2, 2)} m² (${_brNum(areaM2 / 10000, 4)} ha)`;
+  if (job.perimetro_m) t += `${areaM2 ? ',' : '.'} perímetro de ${_brNum(job.perimetro_m, 2)} m`;
+  if (nv) t += `, definido por ${nv} vértices`;
+  t += '. Sistema geodésico de referência: SIRGAS 2000 (EPSG:4674)';
+  if (job.fuso) t += `, UTM fuso ${job.fuso}${job.hemisferio || 'S'}, MC ${mc}°`;
+  t += '. Levantamento conforme ABNT NBR 17047:2022 e Provimento CNJ nº 195/2025.';
+  return t;
 }
 
 export default function OnrSigriPage() {
@@ -167,6 +192,10 @@ function Detalhe({ job: job0, onBack, toast }) {
     try { setGeojson(await onrSigriAPI.geojson(id)); } catch (e) { toast({ title: 'Falha no satélite', variant: 'destructive' }); }
     finally { setBusy(''); }
   };
+  const copiarDescricao = async () => {
+    try { await navigator.clipboard.writeText(descricaoPoligono(job)); toast({ title: 'Descrição copiada' }); }
+    catch (e) { toast({ title: 'Copie manualmente do campo', variant: 'destructive' }); }
+  };
 
   const up = job.uploads || {};
   const prop = (job.partes || [])[0] || {};
@@ -267,9 +296,21 @@ function Detalhe({ job: job0, onBack, toast }) {
         )}
       </section>
 
-      {/* 4. Validação + geração */}
+      {/* 4. Descrição do polígono (para colar no ONR) */}
+      <section className="rounded-xl border border-amber-200 bg-amber-50/40 p-4 mb-4">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="font-semibold text-sm" style={{ color: GREEN }}>4. Descrição do polígono (colar no mapa.onr.org.br)</h2>
+          <button onClick={copiarDescricao} className="text-xs inline-flex items-center gap-1 px-2.5 py-1 rounded text-white" style={{ background: GREEN }}>
+            <Copy className="w-3.5 h-3.5" /> Copiar
+          </button>
+        </div>
+        <textarea readOnly className="w-full text-xs border rounded p-2 h-24 bg-white font-mono" value={descricaoPoligono(job)} />
+        <p className="text-[10px] text-gray-500 mt-1">Gerada automaticamente dos dados extraídos — cole no campo "Descrição do polígono" do ONR. Atualiza ao editar os dados acima.</p>
+      </section>
+
+      {/* 5. Validação + geração */}
       <section className="rounded-xl border bg-white p-4">
-        <h2 className="font-semibold mb-2 text-sm" style={{ color: GREEN }}>4. Validar & gerar</h2>
+        <h2 className="font-semibold mb-2 text-sm" style={{ color: GREEN }}>5. Validar & gerar</h2>
         <button onClick={validar} disabled={busy === 'validar'} className="text-xs inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border font-semibold hover:bg-gray-50">
           <RefreshCw className={`w-3.5 h-3.5 ${busy === 'validar' ? 'animate-spin' : ''}`} /> Validar SIG-RI/ONR
         </button>
