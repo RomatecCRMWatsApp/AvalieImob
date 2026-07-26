@@ -343,6 +343,8 @@ function Detalhe({ job: job0, onBack, toast }) {
       {/* 5. Validação + geração */}
       <section className="rounded-xl border bg-white p-4">
         <h2 className="font-semibold mb-2 text-sm" style={{ color: GREEN }}>5. Validar & gerar</h2>
+        <div className="grid md:grid-cols-2 gap-4 items-start">
+        <div>
         <button onClick={validar} disabled={busy === 'validar'} className="text-xs inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border font-semibold hover:bg-gray-50">
           <RefreshCw className={`w-3.5 h-3.5 ${busy === 'validar' ? 'animate-spin' : ''}`} /> Validar SIG-RI/ONR
         </button>
@@ -387,6 +389,28 @@ function Detalhe({ job: job0, onBack, toast }) {
         </div>
         {valid && !podeGerar && <p className="text-[11px] text-red-500 mt-1">Resolva os erros/pendências para liberar o download.</p>}
         <p className="text-[10px] text-gray-400 mt-2 inline-flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Pacote pronto para upload no mapa.onr.org.br (SIRGAS 2000 / EPSG:4674).</p>
+        </div>
+        <div className="rounded-lg border bg-gray-50 p-3">
+          <div className="text-[11px] font-semibold mb-1" style={{ color: GREEN }}>As peças do pacote (.zip)</div>
+          <table className="text-[11px] w-full">
+            <tbody>
+              {[
+                ['.shp', 'a geometria (o polígono/vértices)'],
+                ['.shx', 'índice que acelera a leitura do .shp'],
+                ['.dbf', 'tabela de atributos (matrícula, proprietário, área…)'],
+                ['.prj', 'sistema de coordenadas (SIRGAS 2000 / EPSG:4674)'],
+                ['.cpg', 'codificação do .dbf (UTF-8) — mantém os acentos corretos'],
+              ].map(([e, ds]) => (
+                <tr key={e} className="border-t first:border-t-0 align-top">
+                  <td className="py-1 pr-2 font-mono font-semibold whitespace-nowrap">{e}</td>
+                  <td className="py-1 text-gray-600">{ds}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="text-[10px] text-gray-400 mt-1">No ONR, suba os 4 arquivos (.shp/.shx/.dbf/.prj) com o <b>mesmo nome</b>, juntos.</p>
+        </div>
+        </div>
       </section>
 
       {/* Conclusão — tag com data/hora */}
