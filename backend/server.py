@@ -702,6 +702,12 @@ async def startup():
         await db.geo_urbano_assinatura_sessoes.create_index([("projeto_id", 1), ("user_id", 1)])
     except Exception as e:
         logger.error(f"Erro ao criar índices de geo_urbano_projetos: {e}")
+    # Arquivo ONR (SIG-RI) standalone — idempotente.
+    try:
+        await db.onr_sigri_jobs.create_index("id", unique=True)
+        await db.onr_sigri_jobs.create_index([("user_id", 1), ("created_at", -1)])
+    except Exception as e:
+        logger.error(f"Erro ao criar índices de onr_sigri_jobs: {e}")
     # Documentos Externos (doc-ext)
     try:
         await db.documentos_externos.create_index("codigo", unique=True)

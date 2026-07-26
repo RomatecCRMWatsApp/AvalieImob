@@ -1,0 +1,317 @@
+// @module topografia/OnrSigriPage — Arquivo ONR (SIG-RI) STANDALONE.
+// Fluxo separado dos procedimentos do Geo Urbano: sobe MAPA + MEMORIAL + ART/TRT
+// + CERTIDÃO já prontos → extrai a poligonal do memorial → valida → gera o
+// pacote shapefile SIG-RI para o mapa.onr.org.br.
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import {
+  Upload, Trash2, FileText, Download, RefreshCw, Plus, ArrowLeft, CheckCircle2, MapPin,
+} from 'lucide-react';
+import { onrSigriAPI } from '../../../lib/api';
+import { useToast } from '../../../hooks/use-toast';
+import { BrandSpinner } from '../../brand/BrandSpinner';
+import PoligonalLeaflet from '../../maps/PoligonalLeaflet';
+
+const GREEN = '#0C3320';
+const lbl = 'block text-[11px] font-medium text-gray-500 mb-1';
+const inp = 'w-full border rounded-lg px-2.5 py-1.5 text-sm';
+
+function Field({ label, value, onChange, type = 'text', placeholder, full }) {
+  return (
+    <div className={full ? 'sm:col-span-2' : ''}>
+      <label className={lbl}>{label}</label>
+      <input className={inp} type={type} value={value ?? ''} placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)} />
+    </div>
+  );
+}
+
+const UPLOADS = [
+  ['mapa', 'Mapa / Planta (já pronto)', '.pdf,image/*'],
+  ['memorial', 'Memorial Descritivo (fonte dos dados)', '.pdf'],
+  ['art_trt', 'ART / TRT', '.pdf,image/*'],
+  ['certidao', 'Certidão de Matrícula', '.pdf,image/*'],
+];
+
+function saveBlob(blob, nome) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = nome; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
+export default function OnrSigriPage() {
+  const { toast } = useToast();
+  const [jobs, setJobs] = useState(null);
+  const [sel, setSel] = useState(null);       // job selecionado
+  const [novoNome, setNovoNome] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const carregarLista = useCallback(async () => {
+    try { setJobs(await onrSigriAPI.listar()); } catch (e) { setJobs([]); }
+  }, []);
+  useEffect(() => { carregarLista(); }, [carregarLista]);
+
+  const criar = async () => {
+    if (!novoNome.trim()) { toast({ title: 'Informe a denominação do imóvel', variant: 'destructive' }); return; }
+    try {
+      const j = await onrSigriAPI.criar({ nome: novoNome.trim() });
+      setNovoNome(''); await carregarLista(); setSel(j);
+    } catch (e) { toast({ title: 'Erro ao criar', variant: 'destructive' }); }
+  };
+
+  if (sel) return <Detalhe job={sel} onBack={() => { setSel(null); carregarLista(); }} toast={toast} />;
+
+  return (
+    <div className="max-w-4xl mx-auto px-4 py-6">
+      <header className="flex items-center gap-3 mb-5">
+        <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: GREEN }}>
+          <MapPin className="w-5 h-5 text-white" />
+        </div>
+        <div>
+          <h1 className="text-xl font-bold" style={{ color: GREEN }}>Arquivo ONR (SIG-RI)</h1>
+          <p className="text-sm text-gray-500">Suba o mapa pronto + memorial + ART + certidão e gere o shapefile p/ o mapa.onr.org.br.</p>
+        </div>
+      </header>
+
+      <div className="rounded-xl border bg-white p-4 mb-5">
+        <label className={lbl}>Nova geração — denominação do imóvel</label>
+        <div className="flex gap-2">
+          <input className={inp} placeholder="Ex.: CHÁCARA BOA VISTA — Açailândia/MA" value={novoNome}
+            onChange={(e) => setNovoNome(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && criar()} />
+          <button onClick={criar} disabled={busy}
+            className="px-4 py-2 rounded-lg text-white text-sm font-semibold inline-flex items-center gap-1 whitespace-nowrap" style={{ background: GREEN }}>
+            <Plus className="w-4 h-4" /> Novo
+          </button>
+        </div>
+      </div>
+
+      {jobs === null ? <BrandSpinner label="Carregando…" />
+        : jobs.length === 0 ? <p className="text-sm text-gray-400">Nenhum arquivo ONR ainda. Crie o primeiro acima.</p>
+          : (
+            <div className="space-y-2">
+              {jobs.map((j) => (
+                <button key={j.id} onClick={() => setSel(j)}
+                  className="w-full text-left rounded-xl border bg-white p-3 hover:border-emerald-400 transition flex items-center justify-between">
+                  <div>
+                    <div className="font-semibold text-sm" style={{ color: GREEN }}>{j.denominacao_imovel || j.nome}</div>
+                    <div className="text-[11px] text-gray-400">{j.numero} · {j.municipio}/{j.uf} · {(j.vertices || []).length} vértice(s)</div>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{j.status}</span>
+                </button>
+              ))}
+            </div>
+          )}
+    </div>
+  );
+}
+
+function Detalhe({ job: job0, onBack, toast }) {
+  const [job, setJob] = useState(job0);
+  const [geojson, setGeojson] = useState(null);
+  const [valid, setValid] = useState(null);
+  const [busy, setBusy] = useState('');
+  const [just, setJust] = useState({});
+  const debounce = useRef(null);
+  const id = job.id;
+
+  const recarregar = useCallback(async () => {
+    try { setJob(await onrSigriAPI.obter(id)); } catch (e) { /* noop */ }
+  }, [id]);
+
+  // edição com autosave (debounce)
+  const upd = (patch) => {
+    setJob((j) => ({ ...j, ...patch }));
+    clearTimeout(debounce.current);
+    const dados = patch;
+    debounce.current = setTimeout(() => { onrSigriAPI.atualizar(id, dados).catch(() => {}); }, 700);
+  };
+  // edição de proprietário/matrícula (arrays)
+  const updProp = (campo, val) => {
+    const p = { ...((job.partes || [])[0] || { papel: 'requerente', tipo_pessoa: 'fisica' }), [campo]: val };
+    upd({ partes: [p] });
+  };
+  const updMat = (campo, val) => {
+    const m = { ...((job.matriculas || [])[0] || {}), [campo]: val };
+    upd({ matriculas: [m] });
+  };
+
+  const enviar = async (tipo, file) => {
+    if (!file) return;
+    setBusy('up' + tipo);
+    try { await onrSigriAPI.upload(id, tipo, file); await recarregar(); }
+    catch (e) { toast({ title: 'Falha no upload', variant: 'destructive' }); }
+    finally { setBusy(''); }
+  };
+  const extrair = async () => {
+    setBusy('extrair');
+    try {
+      const r = await onrSigriAPI.extrair(id);
+      setJob(r.job || (await onrSigriAPI.obter(id)));
+      toast({ title: `Extraído (confiança ${Math.round((r.confianca || 0) * 100)}%)`, description: (r.avisos || []).join(' ') });
+    } catch (e) { toast({ title: 'Falha ao extrair', description: e?.response?.data?.detail, variant: 'destructive' }); }
+    finally { setBusy(''); }
+  };
+  const validar = async () => {
+    setBusy('validar');
+    try { setValid(await onrSigriAPI.validar(id)); } catch (e) { toast({ title: 'Falha ao validar', variant: 'destructive' }); }
+    finally { setBusy(''); }
+  };
+  const justificar = async (codigo) => {
+    const texto = (just[codigo] || '').trim();
+    if (!texto) { toast({ title: 'Escreva a justificativa', variant: 'destructive' }); return; }
+    try { setValid(await onrSigriAPI.justificar(id, codigo, texto)); toast({ title: 'Justificativa registrada' }); }
+    catch (e) { toast({ title: 'Falha', variant: 'destructive' }); }
+  };
+  const carregarSat = async () => {
+    setBusy('sat');
+    try { setGeojson(await onrSigriAPI.geojson(id)); } catch (e) { toast({ title: 'Falha no satélite', variant: 'destructive' }); }
+    finally { setBusy(''); }
+  };
+
+  const up = job.uploads || {};
+  const prop = (job.partes || [])[0] || {};
+  const mat = (job.matriculas || [])[0] || {};
+  const nb = job.numero || id;
+  const podeGerar = !valid || valid.pode_gerar;
+
+  return (
+    <div className="max-w-4xl mx-auto px-4 py-6">
+      <button onClick={onBack} className="text-sm text-gray-500 inline-flex items-center gap-1 mb-3 hover:text-gray-800">
+        <ArrowLeft className="w-4 h-4" /> Voltar
+      </button>
+      <h1 className="text-lg font-bold mb-1" style={{ color: GREEN }}>{job.denominacao_imovel || job.nome}</h1>
+      <p className="text-[11px] text-gray-400 mb-4">{nb} · status: {job.status}</p>
+
+      {/* 1. Uploads */}
+      <section className="rounded-xl border bg-white p-4 mb-4">
+        <h2 className="font-semibold mb-3 text-sm" style={{ color: GREEN }}>1. Documentos (já confeccionados)</h2>
+        <div className="grid sm:grid-cols-2 gap-3">
+          {UPLOADS.map(([tipo, label, accept]) => {
+            const it = (up[tipo] || [])[0];
+            return (
+              <div key={tipo} className="rounded-lg border p-3">
+                <div className="text-xs font-medium text-gray-700 mb-1">{label}</div>
+                {it ? (
+                  <div className="flex items-center justify-between text-[11px] text-emerald-700">
+                    <span className="truncate">✓ {it.nome}</span>
+                    <button onClick={() => onrSigriAPI.removerUpload(id, tipo, it.id).then(recarregar)}>
+                      <Trash2 className="w-3.5 h-3.5 text-gray-400 hover:text-red-500" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="text-xs inline-flex items-center gap-1 text-emerald-700 cursor-pointer hover:underline">
+                    <Upload className="w-3.5 h-3.5" /> {busy === 'up' + tipo ? 'Enviando…' : 'Enviar arquivo'}
+                    <input type="file" className="hidden" accept={accept}
+                      onChange={(e) => enviar(tipo, e.target.files?.[0])} />
+                  </label>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <button onClick={extrair} disabled={busy === 'extrair'}
+          className="mt-3 px-4 py-2 rounded-lg text-white text-sm font-semibold inline-flex items-center gap-1" style={{ background: GREEN }}>
+          <RefreshCw className={`w-4 h-4 ${busy === 'extrair' ? 'animate-spin' : ''}`} /> {busy === 'extrair' ? 'Extraindo…' : 'Extrair do memorial'}
+        </button>
+        {job.extracao_avisos?.length > 0 && (
+          <ul className="mt-2 text-[11px] text-amber-600 list-disc pl-4">{job.extracao_avisos.map((a, i) => <li key={i}>{a}</li>)}</ul>
+        )}
+      </section>
+
+      {/* 2. Dados extraídos (editáveis) */}
+      <section className="rounded-xl border bg-white p-4 mb-4">
+        <h2 className="font-semibold mb-3 text-sm" style={{ color: GREEN }}>2. Dados do imóvel (extraídos — confira/edite)</h2>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <Field label="Denominação" full value={job.denominacao_imovel} onChange={(v) => upd({ denominacao_imovel: v })} />
+          <Field label="Município" value={job.municipio} onChange={(v) => upd({ municipio: v })} />
+          <Field label="UF" value={job.uf} onChange={(v) => upd({ uf: v })} />
+          <Field label="Código IBGE (7 díg.)" value={job.codigo_ibge} onChange={(v) => upd({ codigo_ibge: (v || '').replace(/\D/g, '').slice(0, 7) })} />
+          <Field label="Natureza do ato (NAT_ATO)" value={job.natureza} onChange={(v) => upd({ natureza: v })} />
+          <Field label="Área (m²)" type="number" value={job.area_declarada_m2} onChange={(v) => upd({ area_declarada_m2: v === '' ? null : Number(v) })} />
+          <Field label="Perímetro (m)" type="number" value={job.perimetro_m} onChange={(v) => upd({ perimetro_m: v === '' ? null : Number(v) })} />
+          <Field label="Fuso UTM" type="number" value={job.fuso} onChange={(v) => upd({ fuso: v === '' ? null : Number(v) })} />
+          <Field label="ART / TRT nº" value={job.trt_numero} onChange={(v) => upd({ trt_numero: v })} />
+          <Field label="Precisão posicional (m)" type="number" value={job.precisao_posicional_m} onChange={(v) => upd({ precisao_posicional_m: v === '' ? null : Number(v) })} />
+          <Field label="CIB" value={job.cib} onChange={(v) => upd({ cib: v })} />
+          <Field label="Inscrição municipal (IPTU)" value={job.inscricao_municipal} onChange={(v) => upd({ inscricao_municipal: v })} />
+          <Field label="Proprietário (nome)" value={prop.nome} onChange={(v) => updProp('nome', v)} />
+          <Field label="Proprietário (CPF/CNPJ)" value={prop.cpf} onChange={(v) => updProp('cpf', v)} />
+          <Field label="Matrícula nº" value={mat.matricula} onChange={(v) => updMat('matricula', v)} />
+          <Field label="CNS da serventia" value={job.cartorio?.cns} onChange={(v) => upd({ cartorio: { ...(job.cartorio || {}), cns: v } })} />
+        </div>
+      </section>
+
+      {/* 3. Vértices + satélite */}
+      <section className="rounded-xl border bg-white p-4 mb-4">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="font-semibold text-sm" style={{ color: GREEN }}>3. Poligonal — {(job.vertices || []).length} vértice(s)</h2>
+          <button onClick={carregarSat} disabled={busy === 'sat'} className="text-xs inline-flex items-center gap-1 text-emerald-700 hover:underline">
+            <RefreshCw className={`w-3.5 h-3.5 ${busy === 'sat' ? 'animate-spin' : ''}`} /> Atualizar satélite
+          </button>
+        </div>
+        <PoligonalLeaflet geojson={geojson} height={280} />
+        {(job.vertices || []).length > 0 && (
+          <div className="overflow-x-auto mt-3">
+            <table className="text-[11px] w-full">
+              <thead><tr className="text-left text-gray-500"><th className="py-1">Vértice</th><th>Coord N</th><th>Coord E</th><th>Dist. (m)</th><th>Confrontante</th></tr></thead>
+              <tbody>
+                {job.vertices.map((v, i) => (
+                  <tr key={i} className="border-t"><td className="py-1 font-mono">{v.de}</td><td className="font-mono">{v.coord_n}</td><td className="font-mono">{v.coord_e}</td><td>{v.distancia_m}</td><td>{v.confrontante_lado}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {/* 4. Validação + geração */}
+      <section className="rounded-xl border bg-white p-4">
+        <h2 className="font-semibold mb-2 text-sm" style={{ color: GREEN }}>4. Validar & gerar</h2>
+        <button onClick={validar} disabled={busy === 'validar'} className="text-xs inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border font-semibold hover:bg-gray-50">
+          <RefreshCw className={`w-3.5 h-3.5 ${busy === 'validar' ? 'animate-spin' : ''}`} /> Validar SIG-RI/ONR
+        </button>
+        {valid && (
+          <div className="mt-2 space-y-2">
+            <div className={`text-xs font-semibold ${valid.pode_gerar ? 'text-emerald-700' : 'text-red-600'}`}>
+              {valid.pode_gerar
+                ? `✓ Pronto para gerar · área ${Number(valid.area_calculada_m2 || 0).toLocaleString('pt-BR')} m² · fuso ${valid.fuso ?? '—'}${valid.hemisferio || ''}`
+                : `✗ ${valid.erros.length} erro(s) e ${valid.bloqueios_pendentes.length} pendência(s)`}
+            </div>
+            {valid.erros.map((e) => (
+              <div key={e.codigo} className="text-[11px] rounded-md border border-red-200 bg-red-50 px-2 py-1 text-red-700"><b>{e.codigo}</b> — {e.mensagem}</div>
+            ))}
+            {valid.warnings.map((w) => {
+              const pend = valid.bloqueios_pendentes.includes(w.codigo);
+              return (
+                <div key={w.codigo} className={`text-[11px] rounded-md border px-2 py-1 ${w.bloqueante ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-gray-200 bg-gray-50 text-gray-600'}`}>
+                  <div><b>{w.codigo}</b>{w.bloqueante ? ' (bloqueante)' : ''} — {w.mensagem}</div>
+                  {w.bloqueante && pend && (
+                    <div className="flex gap-1 mt-1">
+                      <input className="flex-1 border rounded px-2 py-1 text-[11px]" placeholder="Justificativa do RT…"
+                        value={just[w.codigo] || ''} onChange={(ev) => setJust((s) => ({ ...s, [w.codigo]: ev.target.value }))} />
+                      <button onClick={() => justificar(w.codigo)} className="text-[11px] px-2 py-1 rounded text-white whitespace-nowrap" style={{ background: GREEN }}>Justificar</button>
+                    </div>
+                  )}
+                  {w.bloqueante && !pend && <div className="text-emerald-700 mt-0.5">✓ justificado</div>}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <div className="flex gap-2 flex-wrap mt-3">
+          <button disabled={!podeGerar}
+            onClick={() => onrSigriAPI.shapefile(id).then((b) => saveBlob(b, `SIGRI_${nb}.zip`)).catch((e) => toast({ title: 'Erro ao gerar', description: e?.response?.data?.detail || 'Confira os vértices/dados.', variant: 'destructive' }))}
+            className={`text-xs inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-white ${!podeGerar ? 'opacity-50 cursor-not-allowed' : ''}`} style={{ background: GREEN }}>
+            <Download className="w-3.5 h-3.5" /> Shapefile SIG-RI (.zip)
+          </button>
+          <button onClick={() => onrSigriAPI.kml(id).then((b) => saveBlob(b, `${nb}.kml`)).catch(() => toast({ title: 'Erro no KML', variant: 'destructive' }))}
+            className="text-xs inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border hover:bg-gray-50">
+            <Download className="w-3.5 h-3.5" /> KML
+          </button>
+        </div>
+        {valid && !podeGerar && <p className="text-[11px] text-red-500 mt-1">Resolva os erros/pendências para liberar o download.</p>}
+        <p className="text-[10px] text-gray-400 mt-2 inline-flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Pacote pronto para upload no mapa.onr.org.br (SIRGAS 2000 / EPSG:4674).</p>
+      </section>
+    </div>
+  );
+}

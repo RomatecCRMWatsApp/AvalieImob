@@ -935,6 +935,31 @@ export const geoUrbanoAPI = {
       { params: { ...(modo ? { modo } : {}), ...(tema ? { tema } : {}) }, responseType: 'blob' }).then((r) => r.data),
 };
 
+// Arquivo ONR (SIG-RI) STANDALONE — sobe mapa+memorial+ART+certidão → extrai → gera shapefile
+const ONRSIG = '/topografia/onr-sigri';
+export const onrSigriAPI = {
+  listar: () => api.get(`${ONRSIG}/jobs`).then((r) => r.data),
+  criar: (data) => api.post(`${ONRSIG}/jobs`, data).then((r) => r.data),
+  obter: (id) => api.get(`${ONRSIG}/jobs/${id}`).then((r) => r.data),
+  atualizar: (id, data) => api.patch(`${ONRSIG}/jobs/${id}`, data).then((r) => r.data),
+  excluir: (id) => api.delete(`${ONRSIG}/jobs/${id}`).then((r) => r.data),
+  upload: (id, tipo, file) => {
+    const fd = new FormData();
+    fd.append('tipo', tipo);
+    fd.append('file', file);
+    return api.post(`${ONRSIG}/jobs/${id}/upload`, fd).then((r) => r.data);
+  },
+  removerUpload: (id, tipo, itemId) =>
+    api.delete(`${ONRSIG}/jobs/${id}/uploads/${tipo}/${itemId}`).then((r) => r.data),
+  extrair: (id) => api.post(`${ONRSIG}/jobs/${id}/extrair`).then((r) => r.data),
+  validar: (id) => api.post(`${ONRSIG}/jobs/${id}/validar`).then((r) => r.data),
+  justificar: (id, codigo, texto) =>
+    api.post(`${ONRSIG}/jobs/${id}/justificar`, { codigo, texto }).then((r) => r.data),
+  geojson: (id) => api.get(`${ONRSIG}/jobs/${id}/geojson`).then((r) => r.data),
+  shapefile: (id) => api.get(`${ONRSIG}/jobs/${id}/shapefile`, { responseType: 'blob' }).then((r) => r.data),
+  kml: (id) => api.get(`${ONRSIG}/jobs/${id}/kml`, { responseType: 'blob' }).then((r) => r.data),
+};
+
 // Geo Urbano — assinatura pública do proprietário (página mobile, sem auth)
 export const geoUrbanoPublicoAPI = {
   obter: (token) => api.get(`/publico/geo-urbano/${token}`).then((r) => r.data),
