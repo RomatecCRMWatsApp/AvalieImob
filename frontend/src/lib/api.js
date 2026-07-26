@@ -956,6 +956,7 @@ export const onrSigriAPI = {
   justificar: (id, codigo, texto) =>
     api.post(`${ONRSIG}/jobs/${id}/justificar`, { codigo, texto }).then((r) => r.data),
   geojson: (id) => api.get(`${ONRSIG}/jobs/${id}/geojson`).then((r) => r.data),
+  preview: (id) => api.post(`${ONRSIG}/jobs/${id}/preview`).then((r) => r.data),
   shapefile: (id) => api.get(`${ONRSIG}/jobs/${id}/shapefile`, { responseType: 'blob' }).then((r) => r.data),
   kml: (id) => api.get(`${ONRSIG}/jobs/${id}/kml`, { responseType: 'blob' }).then((r) => r.data),
 };

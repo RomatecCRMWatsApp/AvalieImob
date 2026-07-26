@@ -131,12 +131,18 @@ export default function OnrSigriPage() {
             <div className="space-y-2">
               {jobs.map((j) => (
                 <button key={j.id} onClick={() => setSel(j)}
-                  className="w-full text-left rounded-xl border bg-white p-3 hover:border-emerald-400 transition flex items-center justify-between">
-                  <div>
-                    <div className="font-semibold text-sm" style={{ color: GREEN }}>{j.denominacao_imovel || j.nome}</div>
+                  className="w-full text-left rounded-xl border bg-white p-3 hover:border-emerald-400 transition flex items-center gap-3">
+                  {j.preview_b64
+                    ? <img src={j.preview_b64} alt="satélite" className="w-24 h-16 object-cover rounded-lg border shrink-0" />
+                    : <div className="w-24 h-16 rounded-lg bg-gray-100 flex items-center justify-center text-gray-300 shrink-0"><MapPin className="w-5 h-5" /></div>}
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-sm truncate" style={{ color: GREEN }}>{j.denominacao_imovel || j.nome}</div>
                     <div className="text-[11px] text-gray-400">{j.numero} · {j.municipio}/{j.uf} · {(j.vertices || []).length} vértice(s)</div>
+                    {j.concluido && j.concluido_em && (
+                      <div className="text-[10px] text-emerald-600 mt-0.5">✓ Concluído em {new Date(j.concluido_em).toLocaleString('pt-BR')}</div>
+                    )}
                   </div>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{j.status}</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 shrink-0">{j.status}</span>
                 </button>
               ))}
             </div>
@@ -204,8 +210,16 @@ function Detalhe({ job: job0, onBack, toast }) {
   };
   const carregarSat = async () => {
     setBusy('sat');
-    try { setGeojson(await onrSigriAPI.geojson(id)); } catch (e) { toast({ title: 'Falha no satélite', variant: 'destructive' }); }
+    try {
+      setGeojson(await onrSigriAPI.geojson(id));
+      onrSigriAPI.preview(id).catch(() => {});   // regenera a miniatura do card (best-effort)
+    } catch (e) { toast({ title: 'Falha no satélite', variant: 'destructive' }); }
     finally { setBusy(''); }
+  };
+  const marcarConcluido = (v) => {
+    const em = v ? new Date().toISOString() : null;
+    setJob((j) => ({ ...j, concluido: v, concluido_em: em }));
+    onrSigriAPI.atualizar(id, { concluido: v, concluido_em: em }).catch(() => {});
   };
   const copiarDescricao = async () => {
     try { await navigator.clipboard.writeText(descricaoPoligono(job)); toast({ title: 'Descrição copiada' }); }
@@ -373,6 +387,19 @@ function Detalhe({ job: job0, onBack, toast }) {
         </div>
         {valid && !podeGerar && <p className="text-[11px] text-red-500 mt-1">Resolva os erros/pendências para liberar o download.</p>}
         <p className="text-[10px] text-gray-400 mt-2 inline-flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Pacote pronto para upload no mapa.onr.org.br (SIRGAS 2000 / EPSG:4674).</p>
+      </section>
+
+      {/* Conclusão — tag com data/hora */}
+      <section className={`rounded-xl border p-4 mt-4 ${job.concluido ? 'border-emerald-300 bg-emerald-50/60' : 'bg-white'}`}>
+        <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+          <input type="checkbox" checked={!!job.concluido} onChange={(e) => marcarConcluido(e.target.checked)} />
+          <span className="font-semibold" style={{ color: GREEN }}>Marcar como concluído</span>
+        </label>
+        {job.concluido && job.concluido_em && (
+          <p className="text-[11px] text-emerald-700 mt-1 inline-flex items-center gap-1">
+            <CheckCircle2 className="w-3.5 h-3.5" /> Concluído em {new Date(job.concluido_em).toLocaleString('pt-BR')}
+          </p>
+        )}
       </section>
     </div>
   );

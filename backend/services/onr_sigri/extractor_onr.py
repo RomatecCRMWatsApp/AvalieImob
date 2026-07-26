@@ -90,6 +90,23 @@ def _rt(t: str) -> dict:
     return out
 
 
+def parse_cnh(pdf_bytes: bytes) -> dict:
+    """CNH/RG (documento do proprietário) — normalmente imagem → OCR → nome + CPF.
+    Best-effort (só funciona com tesseract disponível; senão devolve {})."""
+    t = ""
+    for raw in EX._textos_candidatos(pdf_bytes):
+        if raw and len(raw) > len(t):
+            t = raw
+    t = re.sub(r"\s+", " ", t or "")
+    doc = re.search(_DOC, t)
+    nome = None
+    m = re.search(r"NOME\s*[:\-]?\s*([A-ZÀ-Ý][A-ZÀ-Ý '.]{6,})", t)
+    if m:
+        nome = re.sub(r"\s+", " ", m.group(1)).strip(" .,")
+    out = {"nome": nome, "doc": doc.group(0) if doc else None}
+    return {k: v for k, v in out.items() if v}
+
+
 def parse_memorial_onr(pdf_bytes: bytes) -> dict:
     """Extrai TUDO do memorial p/ alimentar o motor SIG-RI. Devolve um dict pronto
     (chaves compatíveis com geo_export/schema_onr) + `_confianca`/`_avisos`."""

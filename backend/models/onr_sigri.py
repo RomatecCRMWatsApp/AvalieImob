@@ -70,6 +70,10 @@ class OnrJob(BaseModel):
     uploads: dict = Field(default_factory=dict)            # {mapa|memorial|art_trt|certidao: [{...}]}
     onr_justificativas: List[dict] = Field(default_factory=list)
     onr_validacao: dict = Field(default_factory=dict)
+    # Miniatura de satélite (data-URI) p/ o card da lista + conclusão
+    preview_b64: Optional[str] = None
+    concluido: bool = False
+    concluido_em: Optional[str] = None
     # Auditoria
     extracao_em: Optional[str] = None
     extracao_por: Optional[str] = None
@@ -121,6 +125,8 @@ class AtualizarOnrBody(BaseModel):
     confrontantes: Optional[List[dict]] = None
     cartorio: Optional[dict] = None
     responsavel_tecnico: Optional[dict] = None
+    concluido: Optional[bool] = None
+    concluido_em: Optional[str] = None
 
 
 class JustificarOnrBody(BaseModel):

@@ -6,6 +6,7 @@
 # REUTILIZA (sem alterar) geo_urbano.geo_export/validacao_onr/schema_onr e os
 # parsers de extração. NÃO usa `from __future__ import annotations` (bodies).
 import asyncio
+import base64
 import logging
 import re
 import uuid
@@ -22,6 +23,7 @@ from services.geo_urbano import geo_export as GEXP
 from services.geo_urbano import validacao_onr as VALID
 from services.geo_urbano import extractor as EX
 from services.onr_sigri import extractor_onr as OX
+from services.onr_sigri import satelite as SAT
 
 logger = logging.getLogger("romatec")
 router = APIRouter(prefix="/topografia/onr-sigri", tags=["topografia-onr-sigri"])
@@ -116,7 +118,7 @@ _ESCALARES = (
     "loteamento", "quadra", "lote_resultante", "endereco", "numero_imovel", "cep", "unidade",
     "codigo_ibge", "cib", "inscricao_municipal", "zoneamento", "precisao_posicional_m",
     "data_levantamento", "area_declarada_m2", "perimetro_m", "fuso", "hemisferio",
-    "trt_numero", "obs_onr")
+    "trt_numero", "obs_onr", "concluido", "concluido_em")
 _LISTAS = ("vertices", "matriculas", "partes", "confrontantes")
 _DICTS = ("cartorio", "responsavel_tecnico")
 
@@ -266,6 +268,27 @@ async def extrair(jid: str, uid: str = Depends(get_active_subscriber), db=Depend
         if iptu:
             sets["iptu"] = iptu
 
+    # CNH / documento do proprietário (opcional) — completa nome/CPF se faltar
+    cnh_bytes = await _ub(doc, "doc_proprietario")
+    if cnh_bytes and not (sets.get("partes") or doc.get("partes")):
+        try:
+            cnh = await asyncio.to_thread(OX.parse_cnh, cnh_bytes[0])
+        except Exception:  # noqa: BLE001
+            cnh = {}
+        if cnh.get("nome"):
+            sets["partes"] = [{"id": str(uuid.uuid4()), "papel": "requerente", "tipo_pessoa": "fisica",
+                               "nome": cnh.get("nome"), "cpf": cnh.get("doc")}]
+
+    # Miniatura de satélite p/ o card da lista (best-effort — não trava a extração)
+    verts_prev = sets.get("vertices") or doc.get("vertices")
+    if verts_prev:
+        try:
+            png = await asyncio.to_thread(SAT.render_satelite_png, verts_prev)
+            if png:
+                sets["preview_b64"] = "data:image/jpeg;base64," + base64.b64encode(png).decode()
+        except Exception:  # noqa: BLE001
+            pass
+
     sets.update(status="extraido", extracao_em=_agora().isoformat(), extracao_por=uid,
                 extracao_confianca=ext.get("_confianca"), extracao_avisos=ext.get("_avisos") or [],
                 updated_at=_agora().isoformat())
@@ -334,3 +357,14 @@ async def baixar_kml(jid: str, uid: str = Depends(get_active_subscriber), db=Dep
 async def baixar_geojson(jid: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
     doc = await _get(db, jid, uid)
     return GEXP.gerar_geojson(_projeto_view(doc))
+
+
+@router.post("/jobs/{jid}/preview")
+async def gerar_preview(jid: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    """(Re)gera a miniatura de satélite com a poligonal e guarda no job (card da lista)."""
+    doc = await _get(db, jid, uid)
+    png = await asyncio.to_thread(SAT.render_satelite_png, doc.get("vertices") or [])
+    b64 = ("data:image/jpeg;base64," + base64.b64encode(png).decode()) if png else None
+    if b64:
+        await db.onr_sigri_jobs.update_one({"id": jid, "user_id": uid}, {"$set": {"preview_b64": b64}})
+    return {"ok": bool(b64), "preview_b64": b64}
