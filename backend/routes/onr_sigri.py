@@ -63,6 +63,16 @@ def _projeto_view(job: dict) -> dict:
     return {**job, "tipo_servico": (job.get("natureza") or "georreferenciamento")}
 
 
+def _nome_arquivo(job: dict) -> str:
+    """Nome do arquivo com vínculo da matrícula: SIGRI_<numero>_Matricula-<mat>."""
+    base = f"SIGRI_{(job.get('numero') or job.get('id'))}"
+    mats = job.get("matriculas") or []
+    mat = (mats[0] or {}).get("matricula") if mats else None
+    if mat:
+        base += "_Matricula-" + re.sub(r"[^0-9A-Za-z.]", "", str(mat))
+    return base
+
+
 async def _ub(job, tipo):
     """Bytes dos uploads de um tipo (best-effort)."""
     out = []
@@ -280,7 +290,7 @@ async def baixar_shapefile(jid: str, uid: str = Depends(get_active_subscriber), 
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     await db.onr_sigri_jobs.update_one({"id": jid, "user_id": uid}, {"$set": {"status": "gerado"}})
-    nome = f"SIGRI_{(doc.get('numero') or jid)}.zip"
+    nome = f"{_nome_arquivo(doc)}.zip"
     return Response(content=data, media_type="application/zip",
                     headers={"Content-Disposition": f'attachment; filename="{nome}"'})
 
@@ -289,7 +299,7 @@ async def baixar_shapefile(jid: str, uid: str = Depends(get_active_subscriber), 
 async def baixar_kml(jid: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
     doc = await _get(db, jid, uid)
     kml = await asyncio.to_thread(GEXP.gerar_kml, _projeto_view(doc))
-    nome = f"{(doc.get('numero') or jid)}.kml"
+    nome = f"{_nome_arquivo(doc)}.kml"
     return Response(content=kml.encode("utf-8"), media_type="application/vnd.google-earth.kml+xml",
                     headers={"Content-Disposition": f'attachment; filename="{nome}"'})
 

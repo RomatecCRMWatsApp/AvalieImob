@@ -172,6 +172,9 @@ function Detalhe({ job: job0, onBack, toast }) {
   const prop = (job.partes || [])[0] || {};
   const mat = (job.matriculas || [])[0] || {};
   const nb = job.numero || id;
+  // nome do arquivo com vínculo da matrícula (ex.: SIGRI_ONR-2026-0001_Matricula-9809)
+  const matTag = mat.matricula ? `_Matricula-${String(mat.matricula).replace(/[^0-9A-Za-z.]/g, '')}` : '';
+  const nomeArq = `SIGRI_${nb}${matTag}`;
   const podeGerar = !valid || valid.pode_gerar;
 
   return (
@@ -300,11 +303,11 @@ function Detalhe({ job: job0, onBack, toast }) {
         )}
         <div className="flex gap-2 flex-wrap mt-3">
           <button disabled={!podeGerar}
-            onClick={() => onrSigriAPI.shapefile(id).then((b) => saveBlob(b, `SIGRI_${nb}.zip`)).catch((e) => toast({ title: 'Erro ao gerar', description: e?.response?.data?.detail || 'Confira os vértices/dados.', variant: 'destructive' }))}
+            onClick={() => onrSigriAPI.shapefile(id).then((b) => saveBlob(b, `${nomeArq}.zip`)).catch((e) => toast({ title: 'Erro ao gerar', description: e?.response?.data?.detail || 'Confira os vértices/dados.', variant: 'destructive' }))}
             className={`text-xs inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-white ${!podeGerar ? 'opacity-50 cursor-not-allowed' : ''}`} style={{ background: GREEN }}>
             <Download className="w-3.5 h-3.5" /> Shapefile SIG-RI (.zip)
           </button>
-          <button onClick={() => onrSigriAPI.kml(id).then((b) => saveBlob(b, `${nb}.kml`)).catch(() => toast({ title: 'Erro no KML', variant: 'destructive' }))}
+          <button onClick={() => onrSigriAPI.kml(id).then((b) => saveBlob(b, `${nomeArq}.kml`)).catch(() => toast({ title: 'Erro no KML', variant: 'destructive' }))}
             className="text-xs inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border hover:bg-gray-50">
             <Download className="w-3.5 h-3.5" /> KML
           </button>
