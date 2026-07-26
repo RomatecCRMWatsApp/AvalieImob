@@ -28,7 +28,10 @@ router = APIRouter(prefix="/topografia/onr-sigri", tags=["topografia-onr-sigri"]
 
 _PDF = "application/pdf"
 _MAX_UPLOAD = 30 * 1024 * 1024
-_TIPOS_UPLOAD = {"mapa", "memorial", "art_trt", "certidao"}
+# 4 obrigatórios (geram o pacote + informações geodésicas do Prov. 195) + 3
+# opcionais (BCI/CND-IPTU/documento do proprietário) que enriquecem a descrição.
+_TIPOS_UPLOAD = {"mapa", "memorial", "art_trt", "certidao",
+                 "bci", "cnd_iptu", "doc_proprietario"}
 _EXT_OK = {"pdf", "png", "jpg", "jpeg", "webp"}
 
 
@@ -239,6 +242,29 @@ async def extrair(jid: str, uid: str = Depends(get_active_subscriber), db=Depend
             num = await asyncio.to_thread(EX.parse_art_trt, art_bytes[0], (arts[0] or {}).get("nome", ""))
             if num:
                 sets["trt_numero"] = num
+
+    # BCI (opcional) — enriquece cadastro municipal (inscrição/CIB/situação)
+    bci_bytes = await _ub(doc, "bci")
+    if bci_bytes:
+        try:
+            bci = await asyncio.to_thread(EX.parse_bci, bci_bytes[0])
+        except Exception:  # noqa: BLE001
+            bci = {}
+        if bci:
+            sets["bci"] = bci
+            if not doc.get("inscricao_municipal") and bci.get("inscricao_contribuinte"):
+                sets["inscricao_municipal"] = bci["inscricao_contribuinte"]
+    # Certidão Negativa de IPTU (opcional) — regularidade fiscal
+    cnd_bytes = await _ub(doc, "cnd_iptu")
+    if cnd_bytes:
+        try:
+            iptu = await asyncio.to_thread(EX.parse_cnd, cnd_bytes[0])
+            if not iptu.get("cnd_numero"):
+                iptu = await asyncio.to_thread(EX.parse_iptu, cnd_bytes[0])
+        except Exception:  # noqa: BLE001
+            iptu = {}
+        if iptu:
+            sets["iptu"] = iptu
 
     sets.update(status="extraido", extracao_em=_agora().isoformat(), extracao_por=uid,
                 extracao_confianca=ext.get("_confianca"), extracao_avisos=ext.get("_avisos") or [],

@@ -25,11 +25,18 @@ function Field({ label, value, onChange, type = 'text', placeholder, full }) {
   );
 }
 
+// 4 obrigatórios (geram o pacote + informações geodésicas — Prov. 195)
 const UPLOADS = [
   ['mapa', 'Mapa / Planta (já pronto)', '.pdf,image/*'],
   ['memorial', 'Memorial Descritivo (fonte dos dados)', '.pdf'],
   ['art_trt', 'ART / TRT', '.pdf,image/*'],
   ['certidao', 'Certidão de Matrícula', '.pdf,image/*'],
+];
+// opcionais — enriquecem os dados/descrição (não são exigidos p/ gerar)
+const UPLOADS_OPC = [
+  ['bci', 'BCI — Boletim de Cadastro Imobiliário', '.pdf,image/*'],
+  ['cnd_iptu', 'Certidão Negativa de IPTU (CND)', '.pdf,image/*'],
+  ['doc_proprietario', 'Documento do Proprietário', '.pdf,image/*'],
 ];
 
 function saveBlob(blob, nome) {
@@ -60,7 +67,15 @@ function descricaoPoligono(job) {
   if (nv) t += `, definido por ${nv} vértices`;
   t += '. Sistema geodésico de referência: SIRGAS 2000 (EPSG:4674)';
   if (job.fuso) t += `, UTM fuso ${job.fuso}${job.hemisferio || 'S'}, MC ${mc}°`;
-  t += '. Levantamento conforme ABNT NBR 17047:2022 e Provimento CNJ nº 195/2025.';
+  t += '.';
+  // Cadastro municipal (BCI) + regularidade fiscal (CND de IPTU) — completa a memória
+  const bci = job.bci || {};
+  const insc = job.inscricao_municipal || bci.inscricao_contribuinte;
+  if (insc) t += ` Inscrição municipal nº ${insc}${bci.area_edificada_m2 ? `, área edificada de ${_brNum(bci.area_edificada_m2, 2)} m²` : ''}.`;
+  const iptu = job.iptu || {};
+  if (iptu.cnd_numero) t += ` IPTU regular — Certidão Negativa nº ${iptu.cnd_numero}${iptu.cnd_validade ? ` (válida até ${String(iptu.cnd_validade).split('-').reverse().join('/')})` : ''}.`;
+  else if (iptu.situacao) t += ` Situação do IPTU: ${String(iptu.situacao).replace(/_/g, ' ')}.`;
+  t += ' Levantamento conforme ABNT NBR 17047:2022 e Provimento CNJ nº 195/2025.';
   return t;
 }
 
@@ -206,6 +221,29 @@ function Detalhe({ job: job0, onBack, toast }) {
   const nomeArq = `SIGRI_${nb}${matTag}`;
   const podeGerar = !valid || valid.pode_gerar;
 
+  const renderCard = ([tipo, label, accept]) => {
+    const it = (up[tipo] || [])[0];
+    return (
+      <div key={tipo} className="rounded-lg border p-3">
+        <div className="text-xs font-medium text-gray-700 mb-1">{label}</div>
+        {it ? (
+          <div className="flex items-center justify-between text-[11px] text-emerald-700">
+            <span className="truncate">✓ {it.nome}</span>
+            <button onClick={() => onrSigriAPI.removerUpload(id, tipo, it.id).then(recarregar)}>
+              <Trash2 className="w-3.5 h-3.5 text-gray-400 hover:text-red-500" />
+            </button>
+          </div>
+        ) : (
+          <label className="text-xs inline-flex items-center gap-1 text-emerald-700 cursor-pointer hover:underline">
+            <Upload className="w-3.5 h-3.5" /> {busy === 'up' + tipo ? 'Enviando…' : 'Enviar arquivo'}
+            <input type="file" className="hidden" accept={accept}
+              onChange={(e) => enviar(tipo, e.target.files?.[0])} />
+          </label>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">
       <button onClick={onBack} className="text-sm text-gray-500 inline-flex items-center gap-1 mb-3 hover:text-gray-800">
@@ -216,34 +254,14 @@ function Detalhe({ job: job0, onBack, toast }) {
 
       {/* 1. Uploads */}
       <section className="rounded-xl border bg-white p-4 mb-4">
-        <h2 className="font-semibold mb-3 text-sm" style={{ color: GREEN }}>1. Documentos (já confeccionados)</h2>
-        <div className="grid sm:grid-cols-2 gap-3">
-          {UPLOADS.map(([tipo, label, accept]) => {
-            const it = (up[tipo] || [])[0];
-            return (
-              <div key={tipo} className="rounded-lg border p-3">
-                <div className="text-xs font-medium text-gray-700 mb-1">{label}</div>
-                {it ? (
-                  <div className="flex items-center justify-between text-[11px] text-emerald-700">
-                    <span className="truncate">✓ {it.nome}</span>
-                    <button onClick={() => onrSigriAPI.removerUpload(id, tipo, it.id).then(recarregar)}>
-                      <Trash2 className="w-3.5 h-3.5 text-gray-400 hover:text-red-500" />
-                    </button>
-                  </div>
-                ) : (
-                  <label className="text-xs inline-flex items-center gap-1 text-emerald-700 cursor-pointer hover:underline">
-                    <Upload className="w-3.5 h-3.5" /> {busy === 'up' + tipo ? 'Enviando…' : 'Enviar arquivo'}
-                    <input type="file" className="hidden" accept={accept}
-                      onChange={(e) => enviar(tipo, e.target.files?.[0])} />
-                  </label>
-                )}
-              </div>
-            );
-          })}
-        </div>
+        <h2 className="font-semibold mb-1 text-sm" style={{ color: GREEN }}>1. Documentos (já confeccionados)</h2>
+        <p className="text-[11px] text-gray-500 mb-2">Obrigatórios (geram o pacote + as informações geodésicas do Prov. 195):</p>
+        <div className="grid sm:grid-cols-2 gap-3">{UPLOADS.map(renderCard)}</div>
+        <p className="text-[11px] font-semibold text-gray-500 mt-3 mb-2">Opcionais — deixam a extração/descrição mais completa (não exigidos p/ gerar):</p>
+        <div className="grid sm:grid-cols-2 gap-3">{UPLOADS_OPC.map(renderCard)}</div>
         <button onClick={extrair} disabled={busy === 'extrair'}
           className="mt-3 px-4 py-2 rounded-lg text-white text-sm font-semibold inline-flex items-center gap-1" style={{ background: GREEN }}>
-          <RefreshCw className={`w-4 h-4 ${busy === 'extrair' ? 'animate-spin' : ''}`} /> {busy === 'extrair' ? 'Extraindo…' : 'Extrair do memorial'}
+          <RefreshCw className={`w-4 h-4 ${busy === 'extrair' ? 'animate-spin' : ''}`} /> {busy === 'extrair' ? 'Extraindo…' : 'Extrair tudo (memorial + BCI + IPTU)'}
         </button>
         {job.extracao_avisos?.length > 0 && (
           <ul className="mt-2 text-[11px] text-amber-600 list-disc pl-4">{job.extracao_avisos.map((a, i) => <li key={i}>{a}</li>)}</ul>

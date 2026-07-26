@@ -57,6 +57,8 @@ class OnrJob(BaseModel):
     matriculas: List[dict] = Field(default_factory=list)
     partes: List[dict] = Field(default_factory=list)       # proprietários
     confrontantes: List[dict] = Field(default_factory=list)
+    bci: dict = Field(default_factory=dict)                 # Boletim de Cadastro Imobiliário (opcional)
+    iptu: dict = Field(default_factory=dict)                # CND de IPTU / regularidade fiscal (opcional)
     cartorio: dict = Field(default_factory=dict)           # {nome, cns, comarca}
     responsavel_tecnico: dict = Field(default_factory=lambda: {
         "nome": "José Romário Pinto Bezerra",
