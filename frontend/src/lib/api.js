@@ -959,6 +959,19 @@ export const onrSigriAPI = {
   preview: (id) => api.post(`${ONRSIG}/jobs/${id}/preview`).then((r) => r.data),
   shapefile: (id) => api.get(`${ONRSIG}/jobs/${id}/shapefile`, { responseType: 'blob' }).then((r) => r.data),
   kml: (id) => api.get(`${ONRSIG}/jobs/${id}/kml`, { responseType: 'blob' }).then((r) => r.data),
+  // Anexos do processo (classificar/renomear/reordenar/visualizar)
+  tiposAnexo: () => api.get(`${ONRSIG}/tipos-anexo`).then((r) => r.data),
+  anexoUpload: (id, file, tipo, nome) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    if (tipo) fd.append('tipo', tipo);
+    if (nome) fd.append('nome', nome);
+    return api.post(`${ONRSIG}/jobs/${id}/anexo`, fd).then((r) => r.data);
+  },
+  anexoAtualizar: (id, aid, data) => api.patch(`${ONRSIG}/jobs/${id}/anexo/${aid}`, data).then((r) => r.data),
+  anexoOrdem: (id, ordem) => api.post(`${ONRSIG}/jobs/${id}/anexos/ordem`, { ordem }).then((r) => r.data),
+  anexoExcluir: (id, aid) => api.delete(`${ONRSIG}/jobs/${id}/anexo/${aid}`).then((r) => r.data),
+  anexoView: (id, aid) => api.get(`${ONRSIG}/jobs/${id}/anexo/${aid}`, { responseType: 'blob' }).then((r) => r.data),
 };
 
 // Geo Urbano — assinatura pública do proprietário (página mobile, sem auth)

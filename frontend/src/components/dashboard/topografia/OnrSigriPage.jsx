@@ -5,6 +5,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   Upload, Trash2, FileText, Download, RefreshCw, Plus, ArrowLeft, CheckCircle2, MapPin, Copy,
+  Eye, ChevronUp, ChevronDown,
 } from 'lucide-react';
 import { onrSigriAPI } from '../../../lib/api';
 import { useToast } from '../../../hooks/use-toast';
@@ -157,12 +158,38 @@ function Detalhe({ job: job0, onBack, toast }) {
   const [valid, setValid] = useState(null);
   const [busy, setBusy] = useState('');
   const [just, setJust] = useState({});
+  const [tiposAnx, setTiposAnx] = useState([]);
   const debounce = useRef(null);
   const id = job.id;
 
   const recarregar = useCallback(async () => {
     try { setJob(await onrSigriAPI.obter(id)); } catch (e) { /* noop */ }
   }, [id]);
+  useEffect(() => { onrSigriAPI.tiposAnexo().then(setTiposAnx).catch(() => setTiposAnx([])); }, []);
+
+  // Anexos do processo
+  const anexos = (job.anexos || []).slice().sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
+  const addAnexos = async (files) => {
+    for (const f of Array.from(files || [])) {
+      try { const r = await onrSigriAPI.anexoUpload(id, f, 'Outro', f.name); setJob((j) => ({ ...j, anexos: r.anexos })); }
+      catch (e) { toast({ title: 'Falha no anexo', variant: 'destructive' }); }
+    }
+  };
+  const setAnexoLocal = (aid, data) => setJob((j) => ({ ...j, anexos: (j.anexos || []).map((a) => (a.id === aid ? { ...a, ...data } : a)) }));
+  const salvarAnexo = (aid, data) => { setAnexoLocal(aid, data); onrSigriAPI.anexoAtualizar(id, aid, data).catch(() => {}); };
+  const moverAnexo = (aid, dir) => {
+    const ids = anexos.map((a) => a.id);
+    const i = ids.indexOf(aid);
+    const k = i + dir;
+    if (k < 0 || k >= ids.length) return;
+    [ids[i], ids[k]] = [ids[k], ids[i]];
+    onrSigriAPI.anexoOrdem(id, ids).then((r) => setJob((j) => ({ ...j, anexos: r.anexos }))).catch(() => {});
+  };
+  const verAnexo = async (aid) => {
+    const win = window.open('', '_blank');
+    try { const b = await onrSigriAPI.anexoView(id, aid); if (win) win.location = URL.createObjectURL(b); }
+    catch (e) { if (win) win.close(); toast({ title: 'Falha ao abrir o anexo', variant: 'destructive' }); }
+  };
 
   // edição com autosave (debounce)
   const upd = (patch) => {
@@ -326,6 +353,41 @@ function Detalhe({ job: job0, onBack, toast }) {
             </table>
           </div>
         )}
+      </section>
+
+      {/* Anexos do processo — classificar / renomear / reordenar / visualizar */}
+      <section className="rounded-xl border bg-white p-4 mb-4">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="font-semibold text-sm" style={{ color: GREEN }}>Anexos do processo</h2>
+          <label className="text-xs inline-flex items-center gap-1 text-emerald-700 cursor-pointer hover:underline">
+            <Upload className="w-3.5 h-3.5" /> Anexar arquivo(s)
+            <input type="file" multiple className="hidden" accept=".pdf,image/*" onChange={(e) => { addAnexos(e.target.files); e.target.value = ''; }} />
+          </label>
+        </div>
+        {anexos.length === 0 ? (
+          <p className="text-[11px] text-gray-400">Nenhum anexo. Adicione certidão, escritura, documento pessoal, CND, mapa… — classifique, renomeie e reordene a sequência.</p>
+        ) : (
+          <div className="space-y-2">
+            {anexos.map((a, idx) => (
+              <div key={a.id} className="flex items-center gap-2 rounded-lg border p-2">
+                <div className="flex flex-col shrink-0">
+                  <button disabled={idx === 0} onClick={() => moverAnexo(a.id, -1)} className="text-gray-400 disabled:opacity-30 hover:text-gray-700"><ChevronUp className="w-3.5 h-3.5" /></button>
+                  <button disabled={idx === anexos.length - 1} onClick={() => moverAnexo(a.id, 1)} className="text-gray-400 disabled:opacity-30 hover:text-gray-700"><ChevronDown className="w-3.5 h-3.5" /></button>
+                </div>
+                <span className="text-[10px] text-gray-400 w-4 text-center shrink-0">{idx + 1}</span>
+                <select className="text-[11px] border rounded px-1.5 py-1 w-40 shrink-0" value={a.tipo || 'Outro'} onChange={(e) => salvarAnexo(a.id, { tipo: e.target.value })}>
+                  {(tiposAnx.length ? tiposAnx : [a.tipo || 'Outro']).map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+                <input className="flex-1 text-[11px] border rounded px-1.5 py-1 min-w-0" value={a.nome || ''} placeholder="Nome do documento"
+                  onChange={(e) => setAnexoLocal(a.id, { nome: e.target.value })}
+                  onBlur={() => onrSigriAPI.anexoAtualizar(id, a.id, { nome: a.nome }).catch(() => {})} />
+                <button onClick={() => verAnexo(a.id)} className="text-emerald-700 hover:text-emerald-900 shrink-0" title="Visualizar"><Eye className="w-4 h-4" /></button>
+                <button onClick={() => onrSigriAPI.anexoExcluir(id, a.id).then(recarregar)} className="text-gray-300 hover:text-red-500 shrink-0" title="Remover"><Trash2 className="w-4 h-4" /></button>
+              </div>
+            ))}
+          </div>
+        )}
+        <p className="text-[10px] text-gray-400 mt-2">Classifique cada arquivo, renomeie e use ▲▼ para ordenar a sequência. Clique no olho para visualizar pelo site.</p>
       </section>
 
       {/* 4. Descrição do polígono (para colar no ONR) */}

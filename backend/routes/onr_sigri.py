@@ -17,7 +17,9 @@ from pymongo import ReturnDocument
 
 from db import get_db
 from dependencies import get_active_subscriber, serialize_doc
-from models.onr_sigri import OnrJob, CriarOnrBody, AtualizarOnrBody, JustificarOnrBody
+from models.onr_sigri import (
+    OnrJob, CriarOnrBody, AtualizarOnrBody, JustificarOnrBody, AnexoBody, OrdemBody,
+)
 from services import r2_storage
 from services.geo_urbano import geo_export as GEXP
 from services.geo_urbano import validacao_onr as VALID
@@ -192,6 +194,96 @@ async def remover_upload(jid: str, tipo: str, item_id: str,
     await db.onr_sigri_jobs.update_one(
         {"id": jid, "user_id": uid}, {"$set": {"uploads": uploads, "updated_at": _agora().isoformat()}})
     return {"ok": True, "restantes": len(uploads.get(tipo) or [])}
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Anexos do processo — classificáveis / renomeáveis / reordenáveis / visualizáveis
+# ──────────────────────────────────────────────────────────────────────────────
+TIPOS_ANEXO = [
+    "Certidão de Matrícula", "Escritura", "Documento Pessoal (RG/CPF/CNH)",
+    "CND (Certidão Negativa)", "IPTU / BCI", "Mapa / Planta", "Memorial Descritivo",
+    "ART / TRT", "Procuração", "Comprovante", "Outro",
+]
+
+
+@router.get("/tipos-anexo")
+async def tipos_anexo(uid: str = Depends(get_active_subscriber)):
+    return TIPOS_ANEXO
+
+
+@router.post("/jobs/{jid}/anexo")
+async def upload_anexo(jid: str, file: UploadFile = File(...), tipo: str = Form("Outro"),
+                       nome: str = Form(None), uid: str = Depends(get_active_subscriber),
+                       db=Depends(get_db)):
+    doc = await _get(db, jid, uid)
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=422, detail="Arquivo vazio")
+    if len(data) > _MAX_UPLOAD:
+        raise HTTPException(status_code=413, detail="Arquivo muito grande (máx. 30 MB)")
+    ext = _ext(file.filename, file.content_type)
+    aid = str(uuid.uuid4())
+    key = f"onr-sigri/{uid}/{jid}/anexos/{aid}.{ext}"
+    ct = _PDF if ext == "pdf" else f"image/{'jpeg' if ext in ('jpg', 'jpeg') else ext}"
+    await asyncio.to_thread(r2_storage.upload_bytes, data, key, ct)
+    anexos = list(doc.get("anexos") or [])
+    anexos.append({"id": aid, "key": key, "tipo": tipo or "Outro",
+                   "nome": (nome or "").strip() or file.filename, "filename": file.filename,
+                   "mime": ct, "ordem": len(anexos), "enviado_em": _agora().isoformat()})
+    await db.onr_sigri_jobs.update_one(
+        {"id": jid, "user_id": uid}, {"$set": {"anexos": anexos, "updated_at": _agora().isoformat()}})
+    return {"ok": True, "anexos": anexos}
+
+
+@router.patch("/jobs/{jid}/anexo/{aid}")
+async def atualizar_anexo(jid: str, aid: str, body: AnexoBody,
+                          uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    doc = await _get(db, jid, uid)
+    anexos = list(doc.get("anexos") or [])
+    for a in anexos:
+        if a.get("id") == aid:
+            if body.nome is not None:
+                a["nome"] = body.nome.strip() or a.get("filename")
+            if body.tipo is not None:
+                a["tipo"] = body.tipo
+    await db.onr_sigri_jobs.update_one({"id": jid, "user_id": uid}, {"$set": {"anexos": anexos}})
+    return {"ok": True, "anexos": anexos}
+
+
+@router.post("/jobs/{jid}/anexos/ordem")
+async def reordenar_anexos(jid: str, body: OrdemBody,
+                           uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    doc = await _get(db, jid, uid)
+    by_id = {a.get("id"): a for a in (doc.get("anexos") or [])}
+    nova = [by_id[i] for i in body.ordem if i in by_id]
+    nova += [a for a in (doc.get("anexos") or []) if a.get("id") not in set(body.ordem)]  # sobras
+    for i, a in enumerate(nova):
+        a["ordem"] = i
+    await db.onr_sigri_jobs.update_one({"id": jid, "user_id": uid}, {"$set": {"anexos": nova}})
+    return {"ok": True, "anexos": nova}
+
+
+@router.delete("/jobs/{jid}/anexo/{aid}")
+async def excluir_anexo(jid: str, aid: str,
+                        uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    doc = await _get(db, jid, uid)
+    anexos = [a for a in (doc.get("anexos") or []) if a.get("id") != aid]
+    for i, a in enumerate(anexos):
+        a["ordem"] = i
+    await db.onr_sigri_jobs.update_one({"id": jid, "user_id": uid}, {"$set": {"anexos": anexos}})
+    return {"ok": True, "restantes": len(anexos)}
+
+
+@router.get("/jobs/{jid}/anexo/{aid}")
+async def ver_anexo(jid: str, aid: str,
+                    uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    doc = await _get(db, jid, uid)
+    a = next((x for x in (doc.get("anexos") or []) if x.get("id") == aid), None)
+    if not a or not a.get("key"):
+        raise HTTPException(status_code=404, detail="Anexo não encontrado")
+    data = await asyncio.to_thread(r2_storage.download_bytes, a["key"])
+    return Response(content=data, media_type=a.get("mime") or "application/octet-stream",
+                    headers={"Content-Disposition": f'inline; filename="{a.get("filename") or aid}"'})
 
 
 # ──────────────────────────────────────────────────────────────────────────────

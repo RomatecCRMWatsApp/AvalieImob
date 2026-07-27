@@ -68,6 +68,8 @@ class OnrJob(BaseModel):
     })
     # Uploads (R2) + validação
     uploads: dict = Field(default_factory=dict)            # {mapa|memorial|art_trt|certidao: [{...}]}
+    # Anexos do processo — documentos classificáveis/renomeáveis/reordenáveis
+    anexos: List[dict] = Field(default_factory=list)       # [{id,key,nome,tipo,filename,mime,ordem}]
     onr_justificativas: List[dict] = Field(default_factory=list)
     onr_validacao: dict = Field(default_factory=dict)
     # Miniatura de satélite (data-URI) p/ o card da lista + conclusão
@@ -132,3 +134,14 @@ class AtualizarOnrBody(BaseModel):
 class JustificarOnrBody(BaseModel):
     codigo: str
     texto: str
+
+
+class AnexoBody(BaseModel):
+    """Renomear / reclassificar um anexo."""
+    nome: Optional[str] = None
+    tipo: Optional[str] = None
+
+
+class OrdemBody(BaseModel):
+    """Nova ordem dos anexos (lista de ids)."""
+    ordem: List[str] = Field(default_factory=list)
