@@ -24,6 +24,93 @@ logger = logging.getLogger("romatec")
 
 ZAPI_BASE = "https://api.z-api.io"
 
+# O nginx na frente do Z-API rejeita o corpo da requisição acima de ~10 MB com
+# HTTP 413 "Request Entity Too Large". Como o documento vai base64 no corpo
+# (+~33% de overhead + JSON), qualquer PDF acima de ~5 MB de bytes crus arrisca
+# estourar esse limite (foi a causa do 413 ao enviar laudos PTAM com muitas
+# fotos). Acima deste teto, subimos o arquivo no R2 e mandamos ao Z-API só a
+# URL pública — o Z-API baixa o arquivo server-side e o corpo fica minúsculo,
+# eliminando o 413 para qualquer tamanho de documento.
+_ZAPI_INLINE_MAX_BYTES = 5 * 1024 * 1024  # 5 MB crus → ~6,7 MB em base64
+
+
+def _upload_para_url(data: bytes, content_type: str, filename: str) -> Optional[str]:
+    """Sobe `data` no R2 e devolve uma URL pública, ou None se o R2 estiver
+    indisponível. Usado para contornar o limite de tamanho (413) do endpoint
+    base64 do Z-API: documentos grandes vão por URL (o Z-API baixa server-side).
+
+    O objeto vai num prefixo temporário próprio (`zapi-tmp/`) para não colidir
+    com PDFs de assinatura (bucket com lifecycle de limpeza) nem com outros
+    módulos. A URL (pré-assinada por 7 dias ou via CDN) sobrevive de sobra ao
+    fetch imediato do Z-API.
+    """
+    try:
+        import uuid
+
+        from services import r2_storage
+
+        safe = "".join(c for c in (filename or "documento") if c.isalnum() or c in "-_.")
+        safe = safe or "documento"
+        key = f"zapi-tmp/{uuid.uuid4().hex}_{safe}"
+        return r2_storage.upload_bytes(
+            data, key, content_type, cache_control="public, max-age=3600"
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Z-API: upload R2 p/ envio por URL falhou (cai p/ base64): %s", exc)
+        return None
+
+
+async def _postar_documento(
+    *,
+    url: str,
+    security_token: Optional[str],
+    phone_n: str,
+    data: bytes,
+    content_type: str,
+    filename: str,
+    caption: str,
+) -> dict:
+    """Posta um documento no Z-API escolhendo base64 (arquivo pequeno) ou URL do
+    R2 (arquivo grande), com retry automático por URL caso o Z-API responda 413.
+
+    Corrige de vez o "Z-API erro 413: 413 Request Entity Too Large" (payload
+    base64 excedendo o limite do nginx do Z-API) para TODOS os chamadores.
+    """
+    def _payload(doc_field: str) -> dict:
+        return {
+            "phone": phone_n,
+            "document": doc_field,
+            "fileName": filename,
+            "caption": caption,
+        }
+
+    grande = len(data) > _ZAPI_INLINE_MAX_BYTES
+    doc_field: Optional[str] = None
+    usou_base64 = False
+
+    if grande:
+        doc_field = _upload_para_url(data, content_type, filename)
+    if not doc_field:
+        doc_field = f"data:{content_type};base64," + base64.b64encode(data).decode("ascii")
+        usou_base64 = True
+
+    async with httpx.AsyncClient(timeout=120) as client:
+        r = await client.post(url, json=_payload(doc_field), headers=_headers(security_token))
+        # Rede de segurança: se o base64 estourou o limite do Z-API (413),
+        # sobe no R2 e reenvia por URL antes de desistir.
+        if r.status_code == 413 and usou_base64:
+            logger.warning("Z-API 413 no base64 (%d bytes) — reenviando por URL do R2.", len(data))
+            publico = _upload_para_url(data, content_type, filename)
+            if not publico:
+                raise RuntimeError(
+                    "Z-API erro 413: documento grande demais para envio inline e "
+                    "R2 indisponível para envio por URL. Verifique as credenciais do R2."
+                )
+            r = await client.post(url, json=_payload(publico), headers=_headers(security_token))
+        if r.status_code >= 400:
+            raise RuntimeError(f"Z-API erro {r.status_code}: {r.text[:300]}")
+        return _validar_resposta_zapi(r.json())
+
 
 def _normalize_phone(phone: str) -> str:
     """Normaliza o telefone para o formato exigido pelo Z-API: 55 + DDD + número.
@@ -91,20 +178,16 @@ async def send_document_pdf(
 
     url = f"{ZAPI_BASE}/instances/{instance_id}/token/{token}/send-document/pdf"
 
-    # Z-API aceita base64 com prefixo data:
-    b64 = base64.b64encode(pdf_bytes).decode("ascii")
-    payload = {
-        "phone": phone_n,
-        "document": f"data:application/pdf;base64,{b64}",
-        "fileName": filename,
-        "caption": caption,
-    }
-
-    async with httpx.AsyncClient(timeout=60) as client:
-        r = await client.post(url, json=payload, headers=_headers(security_token))
-        if r.status_code >= 400:
-            raise RuntimeError(f"Z-API erro {r.status_code}: {r.text[:300]}")
-        return _validar_resposta_zapi(r.json())
+    # Envia via base64 (pequeno) ou URL do R2 (grande) — evita o 413 do Z-API.
+    return await _postar_documento(
+        url=url,
+        security_token=security_token,
+        phone_n=phone_n,
+        data=pdf_bytes,
+        content_type="application/pdf",
+        filename=filename,
+        caption=caption,
+    )
 
 
 _EXT_BY_CT = {
@@ -136,18 +219,16 @@ async def send_document(
     ext = _EXT_BY_CT.get(ct, "pdf")
     url = f"{ZAPI_BASE}/instances/{instance_id}/token/{token}/send-document/{ext}"
 
-    b64 = base64.b64encode(file_bytes).decode("ascii")
-    payload = {
-        "phone": phone_n,
-        "document": f"data:{ct};base64,{b64}",
-        "fileName": filename,
-        "caption": caption,
-    }
-    async with httpx.AsyncClient(timeout=60) as client:
-        r = await client.post(url, json=payload, headers=_headers(security_token))
-        if r.status_code >= 400:
-            raise RuntimeError(f"Z-API erro {r.status_code}: {r.text[:300]}")
-        return _validar_resposta_zapi(r.json())
+    # Envia via base64 (pequeno) ou URL do R2 (grande) — evita o 413 do Z-API.
+    return await _postar_documento(
+        url=url,
+        security_token=security_token,
+        phone_n=phone_n,
+        data=file_bytes,
+        content_type=ct,
+        filename=filename,
+        caption=caption,
+    )
 
 
 async def set_webhook_received(
