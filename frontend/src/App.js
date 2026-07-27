@@ -85,10 +85,11 @@ class ErrorBoundary extends React.Component {
   }
   componentDidCatch(error, info) {
     this.setState({ info });
-    // Bundle velho: recarrega 1x (busca o bundle novo). Guarda contra loop infinito.
+    // Bundle velho: LIMPA o SW + caches e recarrega 1x (garante o bundle novo, sem
+    // asset stale servido pelo service worker). Guarda contra loop infinito.
     if (isChunkError(error) && !_recentReload()) {
       try { sessionStorage.setItem('avalie_reload_at', String(Date.now())); } catch (e) { /* */ }
-      window.location.reload();
+      limparCacheERecarregar();
       return;
     }
     if (process.env.NODE_ENV === 'development') console.error('ErrorBoundary:', error, info);
