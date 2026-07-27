@@ -10,7 +10,8 @@ import ImageUploader from '../ImageUploader';
 import { BuscaAmostras } from '../BuscaAmostras';
 import BancoAmostrasPicker from '../BancoAmostrasPicker';
 import { Database } from 'lucide-react';
-import RichField from '../../../ui/RichField';
+import RichField, { paraEditorHtml } from '../../../ui/RichField';
+import RichTextEditor from '../../../ui/RichTextEditor';
 import { aiAPI } from '../../../../lib/api';
 import { useToast } from '../../../../hooks/use-toast';
 import {
@@ -436,12 +437,12 @@ const MarketSampleCard = ({ s, onChange, onRemove, idx, isSaneada, tipoImovel })
               </span>
               <AiButton onClick={gerarMemorial} loading={aiBusy} />
             </div>
-            <Textarea
-              value={s.notes || ''}
-              onChange={(e) => set('notes', e.target.value)}
-              rows={4}
+            <RichTextEditor
+              value={paraEditorHtml(s.notes)}
+              onChange={(html) => set('notes', html)}
+              showAiButton={false}
+              minHeight={110}
               placeholder="Descreva a amostra: características construtivas, cômodos (para residências), padrão, conservação, localização e condições de oferta/venda. Use o botão de IA para gerar um memorial a partir dos dados preenchidos."
-              className="text-sm"
             />
           </div>
         </div>
