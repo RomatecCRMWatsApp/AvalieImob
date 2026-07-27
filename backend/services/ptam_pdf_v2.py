@@ -2416,7 +2416,13 @@ def build_story(ptam, page_map):
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
                 ('TOPPADDING', (0, 0), (-1, -1), 4),
             ]))
-            st.append(KeepTogether([gal]))
+            # Descrição / memorial da amostra (quando informado) — logo abaixo das fotos.
+            _bloco = [gal]
+            _desc = html_to_inline(limpar_texto_ia(a.get('notes')))
+            if _desc:
+                _bloco.append(Paragraph(f'<b>Amostra {idx} — descrição:</b> {_desc}', sBody))
+                _bloco.append(Spacer(1, 6))
+            st.append(KeepTogether(_bloco))
     else:
         st.append(Paragraph('Nenhuma amostra cadastrada.', sBody))
 

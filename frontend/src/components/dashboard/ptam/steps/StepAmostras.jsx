@@ -11,6 +11,8 @@ import { BuscaAmostras } from '../BuscaAmostras';
 import BancoAmostrasPicker from '../BancoAmostrasPicker';
 import { Database } from 'lucide-react';
 import RichField from '../../../ui/RichField';
+import { aiAPI } from '../../../../lib/api';
+import { useToast } from '../../../../hooks/use-toast';
 import {
   amostraCategoria,
   isRuralImovel,
@@ -235,6 +237,73 @@ const MarketSampleCard = ({ s, onChange, onRemove, idx, isSaneada, tipoImovel })
   };
   const setNum = (field) => (e) => set(field, Number(e.target.value));
 
+  // Gera um memorial descritivo da amostra a partir dos campos preenchidos.
+  const { toast } = useToast();
+  const [aiBusy, setAiBusy] = useState(false);
+  const gerarMemorial = async () => {
+    const ptbr = (n) => Number(n || 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+    const linhas = [];
+    const push = (lbl, v) => { if (v !== undefined && v !== null && v !== '' && v !== 0) linhas.push(`${lbl}: ${v}`); };
+    push('Tipo de imóvel', tipoImovel);
+    push('Endereço', s.address);
+    push('Bairro', s.neighborhood);
+    push('Município/UF', [s.municipio, s.uf].filter(Boolean).join('/'));
+    push('Área', s.area ? `${ptbr(s.area)} m²` : '');
+    push('Valor', s.value ? `R$ ${ptbr(s.value)}` : '');
+    push('Situação', s.tipo_amostra === 'consolidada' ? 'venda consolidada/comercializada' : 'oferta de mercado');
+    if (categoria === 'terreno_urbano') {
+      push('Testada', s.testada_m ? `${ptbr(s.testada_m)} m` : '');
+      push('Zoneamento', s.zoneamento);
+      push('Uso permitido', s.uso_permitido);
+    } else if (categoria === 'casa_apto') {
+      push('Área construída', s.area_construida_m2 ? `${ptbr(s.area_construida_m2)} m²` : '');
+      push('Área do terreno', s.area_terreno_m2 ? `${ptbr(s.area_terreno_m2)} m²` : '');
+      push('Padrão construtivo', s.padrao);
+      push('Estado de conservação', s.conservacao);
+      push('Idade', s.idade_anos ? `${s.idade_anos} anos` : '');
+      const AMB = [
+        ['sala_estar', 'sala de estar'], ['sala_jantar', 'sala de jantar/copa'], ['cozinha', 'cozinha'],
+        ['quarto_social', 'quarto'], ['suite_simples', 'suíte'], ['suite_master', 'suíte master'],
+        ['banheiro_social', 'banheiro'], ['lavabo', 'lavabo'], ['area_servico', 'área de serviço'],
+        ['varanda', 'varanda/sacada'], ['varanda_gourmet', 'varanda gourmet'], ['escritorio', 'escritório'],
+        ['despensa', 'despensa'], ['piscina', 'piscina'], ['vagas', 'vaga de garagem'],
+      ];
+      const comodos = AMB.filter(([k]) => Number(s[k] || 0) > 0).map(([k, l]) => `${s[k]} ${l}`);
+      if (comodos.length) push('Cômodos', comodos.join(', '));
+    } else if (categoria === 'galpao_comercial') {
+      push('Área construída', s.area_construida_m2 ? `${ptbr(s.area_construida_m2)} m²` : '');
+      push('Pé-direito', s.pe_direito_m ? `${ptbr(s.pe_direito_m)} m` : '');
+      push('Vão livre', s.vao_livre_m ? `${ptbr(s.vao_livre_m)} m` : '');
+      push('Docas', s.docas);
+      push('Padrão', s.padrao);
+      push('Conservação', s.conservacao);
+    } else if (categoria === 'terreno_rural' || categoria === 'fazenda_sitio') {
+      push('Topografia', s.topografia);
+      push('Solo', s.solo);
+      push('Recursos hídricos', s.recursos_hidricos);
+      push('Vegetação', s.vegetacao);
+      push('Atividade principal', s.atividade);
+      push('Benfeitorias', s.benfeitorias);
+    }
+    const prompt =
+      'Redija um MEMORIAL DESCRITIVO conciso e técnico (2 a 4 frases, português-BR formal, ' +
+      'no espírito da ABNT NBR 14653) de uma amostra de mercado imobiliário, a partir dos dados abaixo. ' +
+      'Quando houver cômodos, descreva-os de forma natural. Não invente dados que não constam. ' +
+      'Retorne APENAS o texto, sem títulos, rótulos ou explicações.\n\nDados da amostra:\n' +
+      (linhas.join('\n') || '(poucos dados — gere uma descrição genérica adequada ao tipo do imóvel)');
+    setAiBusy(true);
+    try {
+      const res = await aiAPI.chat(`amostra_memorial_${Date.now()}`, prompt);
+      const texto = (res?.reply || '').trim();
+      if (texto) set('notes', texto);
+      else toast({ title: 'A IA não retornou texto', variant: 'destructive' });
+    } catch (e) {
+      toast({ title: 'Erro na IA', description: e.response?.data?.detail || 'Tente novamente', variant: 'destructive' });
+    } finally {
+      setAiBusy(false);
+    }
+  };
+
   const tipoLabel = s.tipo_amostra === 'consolidada' ? 'Consolidada' : 'Oferta';
   const tipoBadge = s.tipo_amostra === 'consolidada'
     ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
@@ -357,6 +426,23 @@ const MarketSampleCard = ({ s, onChange, onRemove, idx, isSaneada, tipoImovel })
                 <Input value={s.contact_phone || ''} onChange={(e) => set('contact_phone', e.target.value)} placeholder="(00) 00000-0000" className="h-9" />
               </Labeled>
             </div>
+          </div>
+
+          {/* Descrição / memorial da amostra */}
+          <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                Descrição / memorial da amostra
+              </span>
+              <AiButton onClick={gerarMemorial} loading={aiBusy} />
+            </div>
+            <Textarea
+              value={s.notes || ''}
+              onChange={(e) => set('notes', e.target.value)}
+              rows={4}
+              placeholder="Descreva a amostra: características construtivas, cômodos (para residências), padrão, conservação, localização e condições de oferta/venda. Use o botão de IA para gerar um memorial a partir dos dados preenchidos."
+              className="text-sm"
+            />
           </div>
         </div>
 
