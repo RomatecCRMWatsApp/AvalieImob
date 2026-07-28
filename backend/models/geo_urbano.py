@@ -467,6 +467,7 @@ class GeoUrbanoProjeto(BaseModel):
     finalidade_livre: Optional[str] = None          # quando finalidade == "outra"
     instituicao_financeira: Optional[str] = None    # quando financiamento_bancario
     proprietario_natureza: ProprietarioNatureza = "pf"
+    matricula_numero: Optional[str] = None          # matrícula do imóvel (opcional)
     representante_legal: dict = Field(default_factory=dict)  # PJ: {nome, cpf}
     possui_benfeitoria: bool = False                # habilita MD-CON (área construída)
     area_declarada: Optional[float] = None          # m² da matrícula/IPTU (divergência)
@@ -605,6 +606,7 @@ class AtualizarProjetoBody(BaseModel):
     finalidade_livre: Optional[str] = None
     instituicao_financeira: Optional[str] = None
     proprietario_natureza: Optional[ProprietarioNatureza] = None
+    matricula_numero: Optional[str] = None
     representante_legal: Optional[dict] = None
     possui_benfeitoria: Optional[bool] = None
     area_declarada: Optional[float] = None

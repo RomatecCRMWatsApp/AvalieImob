@@ -96,6 +96,17 @@ export default function GeorrefUrbanoWizard() {
     sel.has(cod) ? sel.delete(cod) : sel.add(cod);
     patch({ memoriais_selecionados: [...sel] }).then(recomporPreview);
   };
+  // requerente (proprietário) — vive em partes[]; a extração do ART preenche isto
+  const pj = proj.proprietario_natureza === 'pj';
+  const requerente = (proj.partes || []).find((p) => p.papel === 'requerente') || {};
+  const setRequerente = (campos) => {
+    const partes = [...(proj.partes || [])];
+    const i = partes.findIndex((p) => p.papel === 'requerente');
+    const base = i >= 0 ? partes[i] : { id: `req-${Date.now()}`, papel: 'requerente' };
+    const novo = { ...base, tipo_pessoa: pj ? 'juridica' : 'fisica', ...campos };
+    if (i >= 0) partes[i] = novo; else partes.push(novo);
+    patchLento({ partes });
+  };
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
@@ -146,6 +157,14 @@ export default function GeorrefUrbanoWizard() {
               <option value="pj">Pessoa Jurídica</option>
               <option value="ambos">Ambos</option>
             </select>
+          </Field>
+          <Field label={pj ? 'Razão social (requerente)' : 'Nome do requerente'}>
+            <input className={inp} value={requerente.razao_social || requerente.nome || ''}
+              onChange={(e) => setRequerente(pj ? { razao_social: e.target.value } : { nome: e.target.value })} />
+          </Field>
+          <Field label={pj ? 'CNPJ do requerente' : 'CPF do requerente'}>
+            <input className={inp} value={requerente.cnpj || requerente.cpf || ''}
+              onChange={(e) => setRequerente(pj ? { cnpj: e.target.value } : { cpf: e.target.value })} />
           </Field>
           <Field label="Bairro / Loteamento"><input className={inp} value={proj.loteamento || ''} onChange={(e) => patchLento({ loteamento: e.target.value, bairro: e.target.value })} /></Field>
           <Field label="Logradouro (Rua)"><input className={inp} value={proj.endereco || ''} onChange={(e) => patchLento({ endereco: e.target.value })} /></Field>

@@ -177,8 +177,61 @@ def parse_memorial_situacao(pdf_bytes: bytes) -> dict:
     return dados
 
 
-def extrair_georref(memorial_coord: Optional[bytes], memorial_sit: Optional[bytes]) -> dict:
-    """Orquestra a extração dos dois memoriais → dict com identificação/vértices/quadra."""
+# Rótulos de campo do formulário do CFT (p/ saber onde o nome do contratante termina)
+_ART_LABEL = re.compile(
+    r"^(Logradouro|Complemento|Cidade|Pa[íi]s|Telefone|Contrato|Valor|A[çc][ãa]o|CPF|CNPJ|"
+    r"Tipo|Bairro|UF|CEP|N[ºo°]:|T[íi]tulo|Registro|Data|Finalidade|Coordenadas|\d\.)",
+    re.IGNORECASE)
+
+
+def _art_proprietario(linhas):
+    """Nome + CPF/CNPJ do proprietário/contratante do CFT. O nome pode continuar na
+    linha seguinte (o pdfplumber quebra 'AJM ... EMPREENDIMENTOS' / 'IMOBILIARIOS LTDA')."""
+    for chave in ("Proprietário(a):", "Proprietario(a):", "Contratante:"):
+        for i, ln in enumerate(linhas):
+            if not ln.startswith(chave):
+                continue
+            resto = ln.split(":", 1)[1].strip() if ":" in ln else ln
+            m = re.search(r"(.+?)\s+CPF/CNPJ:\s*([\d./-]+)", resto)
+            if m:
+                nome, doc = m.group(1).strip(), m.group(2).strip()
+            else:
+                nome = resto.strip()
+                m2 = re.search(r"CPF/CNPJ:\s*([\d./-]+)", " ".join(linhas[i:i + 3]))
+                doc = m2.group(1) if m2 else None
+            if i + 1 < len(linhas) and not _ART_LABEL.match(linhas[i + 1]) and len(linhas[i + 1]) < 60:
+                nome = f"{nome} {linhas[i + 1].strip()}".strip()
+            return nome, doc
+    return None, None
+
+
+def parse_art_trt(pdf_bytes: bytes) -> dict:
+    """ART/TRT (CFT) — proprietário/contratante + CPF/CNPJ + nº da TRT + matrícula."""
+    txt = _texto(pdf_bytes)
+    if not txt:
+        return {}
+    dados: dict = {}
+    m = re.search(r"N[ºo°]\s*(CFT\d+)", txt)
+    if m:
+        dados["trt_numero"] = m.group(1).strip()
+    m = re.search(r"MATR[ÍI]CULA\s*N[.ºo°]*\s*([\d.]+)", txt, re.IGNORECASE)
+    if m:
+        dados["matricula"] = m.group(1).strip()
+    linhas = [ln.strip() for ln in txt.splitlines() if ln.strip()]
+    nome, doc = _art_proprietario(linhas)
+    if nome:
+        dados["proprietario_nome"] = nome
+    if doc:
+        dados["proprietario_doc"] = doc
+    m = re.search(r"Telefone:\s*(\(\d{2}\)[\d\s-]+\d)", txt)
+    if m:
+        dados["proprietario_telefone"] = m.group(1).strip()
+    return dados
+
+
+def extrair_georref(memorial_coord: Optional[bytes], memorial_sit: Optional[bytes],
+                    art: Optional[bytes] = None) -> dict:
+    """Orquestra a extração: memorial de coordenadas + situação + ART/TRT."""
     out: dict = {}
     if memorial_coord:
         out.update(parse_memorial_coordenadas(memorial_coord))
@@ -186,4 +239,6 @@ def extrair_georref(memorial_coord: Optional[bytes], memorial_sit: Optional[byte
         sit = parse_memorial_situacao(memorial_sit)
         if sit:
             out["quadra_dados"] = sit
+    if art:
+        out["art"] = parse_art_trt(art)
     return out

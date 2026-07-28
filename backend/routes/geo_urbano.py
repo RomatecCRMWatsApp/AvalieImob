@@ -267,7 +267,7 @@ async def atualizar_projeto(pid: str, body: AtualizarProjetoBody,
                  "situacao_registral", "matricula_usucapienda_id",
                  # georref urbano (Fase 6)
                  "finalidade", "finalidade_livre", "instituicao_financeira",
-                 "proprietario_natureza", "possui_benfeitoria", "area_declarada")
+                 "proprietario_natureza", "matricula_numero", "possui_benfeitoria", "area_declarada")
     for c in escalares:
         if c in dados:
             sets[c] = dados[c]
@@ -1023,13 +1023,14 @@ async def georref_extrair(pid: str, uid: str = Depends(get_active_subscriber), d
     respeita `campos_editados` (não sobrescreve o que o usuário já alterou à mão)."""
     from services.geo_urbano import extractor_georref as EXG
     doc = await _get(db, pid, uid)
-    ub = await _uploads_bytes(doc, ["memorial_coordenadas", "memorial_situacao"])
+    ub = await _uploads_bytes(doc, ["memorial_coordenadas", "memorial_situacao", "art_trt_pdf"])
     coord = (ub.get("memorial_coordenadas") or [None])[0]
     sit = (ub.get("memorial_situacao") or [None])[0]
-    if not coord and not sit:
+    art = (ub.get("art_trt_pdf") or [None])[0]
+    if not coord and not sit and not art:
         raise HTTPException(status_code=422,
-                            detail="Anexe o Memorial de Coordenadas (e/ou o de Situação) para extrair.")
-    extra = await asyncio.to_thread(EXG.extrair_georref, coord, sit)
+                            detail="Anexe o Memorial de Coordenadas, o de Situação e/ou a ART/TRT para extrair.")
+    extra = await asyncio.to_thread(EXG.extrair_georref, coord, sit, art)
     editados = dict(doc.get("campos_editados") or {})
     sets = {}
 
@@ -1074,6 +1075,37 @@ async def georref_extrair(pid: str, uid: str = Depends(get_active_subscriber), d
     lev.setdefault("sistema", "SIRGAS 2000 / UTM")
     if lev != (doc.get("levantamento") or {}):
         sets["levantamento"] = lev
+
+    # ── ART/TRT (CFT) → nº da TRT, matrícula e o REQUERENTE (proprietário/CNPJ) ──
+    art_d = extra.get("art") or {}
+    if art_d.get("trt_numero"):
+        _set("trt_numero", art_d["trt_numero"])
+        at = dict(doc.get("art_trt") or {})
+        if not at.get("numero"):
+            at["numero"] = art_d["trt_numero"]
+            at.setdefault("tipo", "TRT")
+            sets["art_trt"] = at
+    if art_d.get("matricula"):
+        _set("matricula_numero", art_d["matricula"])
+    if art_d.get("proprietario_nome") and not editados.get("partes"):
+        partes = list(doc.get("partes") or [])
+        req = next((p for p in partes if p.get("papel") == "requerente"), None)
+        ja_nomeado = req and (req.get("razao_social") or req.get("nome"))
+        if not ja_nomeado:
+            digs = re.sub(r"\D", "", art_d.get("proprietario_doc") or "")
+            pj = len(digs) == 14
+            nova = {"id": (req or {}).get("id") or str(uuid.uuid4()), "papel": "requerente",
+                    "tipo_pessoa": "juridica" if pj else "fisica"}
+            if pj:
+                nova["razao_social"] = art_d["proprietario_nome"]
+                nova["cnpj"] = art_d.get("proprietario_doc")
+            else:
+                nova["nome"] = art_d["proprietario_nome"]
+                nova["cpf"] = art_d.get("proprietario_doc")
+            if art_d.get("proprietario_telefone"):
+                nova["telefone"] = art_d["proprietario_telefone"]
+            sets["partes"] = [nova if p is req else p for p in partes] if req else [*partes, nova]
+            _set("proprietario_natureza", "pj" if pj else "pf")
 
     if not sets:
         return {"ok": True, "campos": [], "vertices": len(extra.get("vertices") or []),

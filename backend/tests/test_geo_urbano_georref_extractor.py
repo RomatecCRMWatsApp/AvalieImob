@@ -86,9 +86,37 @@ def test_parse_situacao():
     assert d["esquina"]["logradouro"] == "Avenida Contorno" and d["esquina"]["distancia_m"] == 48.0
 
 
+_ART = [
+    "Termo de Responsabilidade Técnica - TRT",
+    "Nº CFT2606068376",
+    "2. Contratante",
+    "Contratante: AJM CONSTRUTORA E INCORPORADORA DE EMPREENDIMENTOS IMOBILIARIOS CPF/CNPJ: 10.742.243/0001-59",
+    "LTDA",
+    "Logradouro:RUA SÃO RAIMNUNDO Nº: 527",
+    "Cidade:AÇAILÂNDIA UF:MA CEP:65930000",
+    "Telefone:(99) 9125-4865 Email:",
+    "3. Dados da Obra/Serviço",
+    "Proprietário(a): AJM CONSTRUTORA E INCORPORADORA DE EMPREENDIMENTOS CPF/CNPJ: 10.742.243/0001-59",
+    "IMOBILIARIOS LTDA",
+    "5. Observações",
+    "TRT de Geo Urbano do imóvel objeto da MATRÍCULA N.º 8.716 (Mat. originaria do loteamento).",
+]
+
+
+def test_parse_art_trt():
+    d = EX.parse_art_trt(_mk_pdf(_ART))
+    assert d["trt_numero"] == "CFT2606068376"
+    assert d["proprietario_nome"] == "AJM CONSTRUTORA E INCORPORADORA DE EMPREENDIMENTOS IMOBILIARIOS LTDA"
+    assert d["proprietario_doc"] == "10.742.243/0001-59"
+    assert d["matricula"] == "8.716"
+    assert d["proprietario_telefone"] == "(99) 9125-4865"
+
+
 def test_extrair_georref_orquestra():
-    out = EX.extrair_georref(_mk_pdf(_COORD), _mk_pdf(_SIT))
+    out = EX.extrair_georref(_mk_pdf(_COORD), _mk_pdf(_SIT), _mk_pdf(_ART))
     assert out["bairro"] == "Residencial Ouro Verde"
     assert len(out["vertices"]) == 4
     assert out["quadra_dados"]["formato"] == "retangular"
     assert len(out["quadra_dados"]["vias"]) == 4
+    assert out["art"]["proprietario_doc"] == "10.742.243/0001-59"
+    assert out["art"]["trt_numero"] == "CFT2606068376"
