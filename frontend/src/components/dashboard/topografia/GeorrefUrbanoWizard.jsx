@@ -7,6 +7,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   ChevronLeft, ChevronRight, Upload, Trash2, FileText, Eye,
   MapPin, CheckCircle2, AlertTriangle, Plus, Image as ImageIcon, Link2, Sparkles,
+  Download, Globe,
 } from 'lucide-react';
 import { geoUrbanoAPI, perfilAPI, assinaturaPosAPI } from '../../../lib/api';
 import { useToast } from '../../../hooks/use-toast';
@@ -28,6 +29,20 @@ const abrirBlob = async (apiPromise, toast, tipoMime = 'application/pdf') => {
     if (win) win.close();
     const d = e?.response?.data;
     toast({ title: 'Não foi possível gerar', description: (d?.detail?.msg || d?.detail || '').toString().slice(0, 140), variant: 'destructive' });
+  }
+};
+
+// Baixa um blob (KML/Shapefile) como arquivo.
+const baixarBlob = async (apiPromise, filename, toast, tipoMime = 'application/octet-stream') => {
+  try {
+    const blob = await apiPromise;
+    const b = blob instanceof Blob ? blob : new Blob([blob], { type: tipoMime });
+    const url = URL.createObjectURL(b);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch {
+    toast({ title: 'Erro ao baixar o arquivo', variant: 'destructive' });
   }
 };
 
@@ -552,6 +567,34 @@ function GeracaoStep({ proj, id, patch, comp, valid, setValid, capaUrl, setCapaU
         </button>
       </div>
       {capaUrl && <img src={capaUrl} alt="Prévia da capa" className="max-w-xs rounded-lg border shadow-sm" />}
+
+      {/* Arquivos geoespaciais — KML (Google Earth) + Shapefile SIG-RI + GeoJSON */}
+      <div className="rounded-lg border p-3">
+        <div className="text-sm font-semibold mb-1" style={{ color: GREEN }}>Arquivos geoespaciais</div>
+        {(proj.vertices || []).length >= 3 ? (
+          <>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={() => baixarBlob(geoUrbanoAPI.kml(id), `${proj.numero || id}.kml`, toast, 'application/vnd.google-earth.kml+xml')}
+                className="px-3 py-2 rounded-lg text-sm border inline-flex items-center gap-1.5" style={{ borderColor: GOLD, color: GREEN }}>
+                <Globe className="w-4 h-4" /> Baixar KML (Google Earth)
+              </button>
+              <button onClick={() => baixarBlob(geoUrbanoAPI.shapefile(id), `SIGRI_${proj.numero || id}.zip`, toast, 'application/zip')}
+                className="px-3 py-2 rounded-lg text-sm border inline-flex items-center gap-1.5">
+                <Download className="w-4 h-4" /> Shapefile SIG-RI (.zip)
+              </button>
+              <button onClick={() => geoUrbanoAPI.geojson(id).then((j) => baixarBlob(Promise.resolve(new Blob([JSON.stringify(j, null, 2)], { type: 'application/geo+json' })), `${proj.numero || id}.geojson`, toast)).catch(() => toast({ title: 'Erro no GeoJSON', variant: 'destructive' }))}
+                className="px-3 py-2 rounded-lg text-sm border inline-flex items-center gap-1.5">
+                <MapPin className="w-4 h-4" /> GeoJSON
+              </button>
+            </div>
+            <p className="text-[11px] text-gray-500 mt-1.5">
+              Poligonal em SIRGAS 2000 (EPSG:4674) convertida de UTM. Abra o KML no Google Earth ou suba o Shapefile no mapa.onr.org.br.
+            </p>
+          </>
+        ) : (
+          <p className="text-[11px] text-gray-400">Importe as coordenadas (≥ 3 vértices) na etapa Coordenadas para habilitar os arquivos geoespaciais.</p>
+        )}
+      </div>
 
       {/* Assinatura das peças (ICP) — só depois de tudo assinado o link é liberado */}
       <div className="rounded-lg border p-3">
