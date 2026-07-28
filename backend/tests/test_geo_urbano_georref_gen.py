@@ -159,3 +159,21 @@ def test_timbre_renderiza_no_cabecalho_quando_ativo():
     assert "ROMATEC CONSULTORIA TOTAL" in txt
     assert "consultoriaromatec" in txt.lower()
     assert "Rua São Paulo, 161" in txt
+
+
+def test_qualificacao_requerente_completa():
+    proj = _proj()
+    proj["proprietario_natureza"] = "pj"
+    proj["partes"] = [{"papel": "requerente", "tipo_pessoa": "juridica",
+                       "razao_social": "AJM CONSTRUTORA LTDA", "cnpj": "10.742.243/0001-59",
+                       "endereco": "RUA SÃO RAIMUNDO, nº 527, CENTRO, AÇAILÂNDIA - MA, CEP 65930000",
+                       "telefone": "(99) 9125-4865"}]
+    q = GEN.qualificacao_requerente(proj)
+    assert "AJM CONSTRUTORA LTDA" in q
+    assert "CNPJ sob o nº 10.742.243/0001-59" in q
+    assert "com sede na RUA SÃO RAIMUNDO" in q
+    assert "telefone (99) 9125-4865" in q
+    # a apresentação usa a qualificação (pypdf quebra a linha → normaliza e checa tokens)
+    import re as _re
+    apr = _re.sub(r"\s+", " ", _text(GEN.apresentacao(proj, "prime_i")))
+    assert "RAIMUNDO" in apr and "CNPJ" in apr

@@ -205,8 +205,34 @@ def _art_proprietario(linhas):
     return None, None
 
 
+def _secao_art(linhas, ini, fim):
+    """Linhas entre a que começa com `ini` e a próxima que começa com `fim`."""
+    a = next((i for i, ln in enumerate(linhas) if ln.startswith(ini)), None)
+    if a is None:
+        return linhas
+    b = next((i for i in range(a + 1, len(linhas)) if linhas[i].startswith(fim)), len(linhas))
+    return linhas[a:b]
+
+
+def _art_endereco(linhas) -> Optional[str]:
+    """Compõe o endereço do contratante da seção 2 do CFT."""
+    t = " ".join(linhas)
+    partes = []
+    m = re.search(r"Logradouro:\s*(.+?)\s+N[ºo°]:\s*(\S+)", t)
+    if m:
+        partes.append(f"{m.group(1).strip()}, nº {m.group(2).strip()}")
+    m = re.search(r"Bairro:\s*(.+?)(?:\s+Cidade:|\s*$)", t)
+    if m and m.group(1).strip():
+        partes.append(m.group(1).strip())
+    m = re.search(r"Cidade:\s*(.+?)\s+UF:\s*(\w{2})\s+CEP:\s*(\d+)", t)
+    if m:
+        partes.append(f"{m.group(1).strip()} - {m.group(2)}, CEP {m.group(3)}")
+    return ", ".join(partes) if partes else None
+
+
 def parse_art_trt(pdf_bytes: bytes) -> dict:
-    """ART/TRT (CFT) — proprietário/contratante + CPF/CNPJ + nº da TRT + matrícula."""
+    """ART/TRT (CFT) — proprietário/contratante (nome+CPF/CNPJ+endereço+telefone+e-mail)
+    + nº da TRT + matrícula, para a qualificação completa do requerente."""
     txt = _texto(pdf_bytes)
     if not txt:
         return {}
@@ -223,9 +249,17 @@ def parse_art_trt(pdf_bytes: bytes) -> dict:
         dados["proprietario_nome"] = nome
     if doc:
         dados["proprietario_doc"] = doc
-    m = re.search(r"Telefone:\s*(\(\d{2}\)[\d\s-]+\d)", txt)
+    # endereço + contato: da SEÇÃO 2 (Contratante), não da seção 3 (Obra)
+    sec2 = _secao_art(linhas, "2. Contratante", "3.")
+    end = _art_endereco(sec2)
+    if end:
+        dados["proprietario_endereco"] = end
+    m = re.search(r"Telefone:\s*(\(\d{2}\)[\d\s-]+\d)", " ".join(sec2))
     if m:
         dados["proprietario_telefone"] = m.group(1).strip()
+    m = re.search(r"Email:\s*([^\s]+@[^\s]+)", " ".join(sec2))
+    if m:
+        dados["proprietario_email"] = m.group(1).strip()
     return dados
 
 

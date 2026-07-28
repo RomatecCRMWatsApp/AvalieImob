@@ -98,7 +98,7 @@ export default function GeorrefUrbanoWizard() {
   };
   // requerente (proprietário) — vive em partes[]; a extração do ART preenche isto
   const pj = proj.proprietario_natureza === 'pj';
-  const requerente = (proj.partes || []).find((p) => p.papel === 'requerente') || {};
+  const requerente = (proj.partes || []).find((p) => p && p.papel === 'requerente') || {};
   const setRequerente = (campos) => {
     const partes = [...(proj.partes || [])];
     const i = partes.findIndex((p) => p.papel === 'requerente');
@@ -166,6 +166,18 @@ export default function GeorrefUrbanoWizard() {
             <input className={inp} value={requerente.cnpj || requerente.cpf || ''}
               onChange={(e) => setRequerente(pj ? { cnpj: e.target.value } : { cpf: e.target.value })} />
           </Field>
+          <Field label="Endereço do requerente" span>
+            <input className={inp} value={requerente.endereco || ''} placeholder="Rua, nº, bairro, cidade - UF, CEP"
+              onChange={(e) => setRequerente({ endereco: e.target.value })} />
+          </Field>
+          <Field label="Telefone / WhatsApp do requerente">
+            <input className={inp} value={requerente.telefone || ''}
+              onChange={(e) => setRequerente({ telefone: e.target.value })} />
+          </Field>
+          <Field label="E-mail do requerente">
+            <input className={inp} value={requerente.email || ''}
+              onChange={(e) => setRequerente({ email: e.target.value })} />
+          </Field>
           <Field label="Bairro / Loteamento"><input className={inp} value={proj.loteamento || ''} onChange={(e) => patchLento({ loteamento: e.target.value, bairro: e.target.value })} /></Field>
           <Field label="Logradouro (Rua)"><input className={inp} value={proj.endereco || ''} onChange={(e) => patchLento({ endereco: e.target.value })} /></Field>
           <Field label="Quadra"><input className={inp} value={proj.quadra || ''} onChange={(e) => patchLento({ quadra: e.target.value })} /></Field>
@@ -223,7 +235,7 @@ export default function GeorrefUrbanoWizard() {
           <div>
             <div className="text-xs font-semibold mb-2" style={{ color: GREEN }}>Peças do dossiê ({comp.paginas_estimadas} págs. estimadas)</div>
             <div className="grid sm:grid-cols-2 gap-1.5">
-              {comp.pecas.map((p) => (
+              {(comp.pecas || []).map((p) => (
                 <label key={p.chave} title={p.motivo || ''}
                   className={`flex items-center gap-2 p-1.5 rounded-lg border text-sm ${!p.habilitada ? 'opacity-45' : ''} ${p.no_pdf ? 'border-emerald-200 bg-emerald-50/50' : ''}`}>
                   <input type="checkbox" checked={p.ligada} disabled={!p.habilitada} onChange={(e) => togglePeca(p.chave, e.target.checked)} />
@@ -239,7 +251,7 @@ export default function GeorrefUrbanoWizard() {
 
       {passo === 'Coordenadas' && <CoordsStep proj={proj} id={id} patch={patch} onImported={carregar} toast={toast} recomporPreview={recomporPreview} />}
 
-      {passo === 'Situação & Quadra' && <QuadraStep proj={proj} id={id} recomporPreview={recomporPreview} />}
+      {passo === 'Situação & Quadra' && <QuadraStep key={JSON.stringify(proj.quadra_dados || {})} proj={proj} id={id} recomporPreview={recomporPreview} />}
 
       {passo === 'ART & Geração' && (
         <GeracaoStep proj={proj} id={id} patch={patchLento} comp={comp} valid={valid} setValid={setValid} capaUrl={capaUrl} setCapaUrl={setCapaUrl} toast={toast} />

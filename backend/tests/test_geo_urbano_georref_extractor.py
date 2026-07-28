@@ -93,6 +93,7 @@ _ART = [
     "Contratante: AJM CONSTRUTORA E INCORPORADORA DE EMPREENDIMENTOS IMOBILIARIOS CPF/CNPJ: 10.742.243/0001-59",
     "LTDA",
     "Logradouro:RUA SÃO RAIMNUNDO Nº: 527",
+    "Complemento: Bairro: CENTRO",
     "Cidade:AÇAILÂNDIA UF:MA CEP:65930000",
     "Telefone:(99) 9125-4865 Email:",
     "3. Dados da Obra/Serviço",
@@ -110,6 +111,7 @@ def test_parse_art_trt():
     assert d["proprietario_doc"] == "10.742.243/0001-59"
     assert d["matricula"] == "8.716"
     assert d["proprietario_telefone"] == "(99) 9125-4865"
+    assert d["proprietario_endereco"] == "RUA SÃO RAIMNUNDO, nº 527, CENTRO, AÇAILÂNDIA - MA, CEP 65930000"
 
 
 def test_extrair_georref_orquestra():

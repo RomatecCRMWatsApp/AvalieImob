@@ -1104,6 +1104,10 @@ async def georref_extrair(pid: str, uid: str = Depends(get_active_subscriber), d
                 nova["cpf"] = art_d.get("proprietario_doc")
             if art_d.get("proprietario_telefone"):
                 nova["telefone"] = art_d["proprietario_telefone"]
+            if art_d.get("proprietario_endereco"):
+                nova["endereco"] = art_d["proprietario_endereco"]
+            if art_d.get("proprietario_email"):
+                nova["email"] = art_d["proprietario_email"]
             sets["partes"] = [nova if p is req else p for p in partes] if req else [*partes, nova]
             _set("proprietario_natureza", "pj" if pj else "pf")
 

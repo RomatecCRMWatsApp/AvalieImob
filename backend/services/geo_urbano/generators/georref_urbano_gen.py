@@ -80,6 +80,30 @@ def _proprietario_nome(projeto: dict) -> str:
     return ""
 
 
+def qualificacao_requerente(projeto: dict) -> str:
+    """Qualificação COMPLETA do requerente p/ a apresentação (nome/razão + doc +
+    endereço + contato). Cai p/ o nome simples quando não há mais dados."""
+    req = next((p for p in (projeto.get("partes") or []) if p.get("papel") == "requerente"), None)
+    if not req:
+        return _proprietario_nome(projeto)
+    nome = req.get("razao_social") or req.get("nome") or ""
+    if not nome:
+        return _proprietario_nome(projeto)
+    pj = bool(req.get("tipo_pessoa") == "juridica" or req.get("cnpj") or req.get("razao_social"))
+    partes = [nome]
+    if pj and req.get("cnpj"):
+        partes.append(f"pessoa jurídica de direito privado, inscrita no CNPJ sob o nº {req['cnpj']}")
+    elif not pj and req.get("cpf"):
+        partes.append(f"inscrito(a) no CPF sob o nº {req['cpf']}")
+    if req.get("endereco"):
+        partes.append(("com sede na " if pj else "residente e domiciliado(a) na ") + req["endereco"])
+    if req.get("telefone"):
+        partes.append(f"telefone {req['telefone']}")
+    if req.get("email"):
+        partes.append(f"e-mail {req['email']}")
+    return ", ".join(partes)
+
+
 def _lados(projeto: dict):
     """Vértices ordenados com o lado calculado (frente/laterais/fundo)."""
     verts = sorted(projeto.get("vertices") or [], key=lambda v: v.get("ordem", 0))
@@ -468,7 +492,7 @@ def apresentacao(projeto: dict, tema: str, logo_bytes=None) -> bytes:
     if over:
         story += GP._paras(over, st["corpo"])
     else:
-        prop = _proprietario_nome(projeto)
+        prop = qualificacao_requerente(projeto)
         lev = projeto.get("levantamento") or {}
         met = " · ".join([x for x in [
             lev.get("equipamento"), (lev.get("metodo") or "").upper() or None,

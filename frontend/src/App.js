@@ -9,6 +9,7 @@ import InstallPrompt from './components/common/InstallPrompt';
 import RomaIAWidget from './components/common/RomaIAWidget';
 import DarkModeToggle from './components/DarkModeToggle';
 import ConsultaWidget from './components/consulta/ConsultaWidget';
+import { BUILD_NUMBER } from './version';
 
 import LandingPage from './pages/LandingPage';
 // Code-splitting: cada página vira um chunk próprio, carregado sob demanda (React.lazy).
@@ -61,6 +62,18 @@ function _recentReload() {
   try { return Date.now() - (+sessionStorage.getItem('avalie_reload_at') || 0) < 10000; } catch (e) { return false; }
 }
 
+// Um deploy aconteceu DESDE que esta aba carregou? (bundle em memória desatualizado —
+// a causa nº 1 de crash pós-deploy: código velho renderiza dado de feature nova).
+// Compara o build publicado (/version.json) com o build embutido nesta aba (BUILD_NUMBER).
+async function _buildDesatualizado() {
+  try {
+    const r = await fetch(`/version.json?_=${Date.now()}`, { cache: 'no-store' });
+    if (!r.ok) return false;
+    const j = await r.json();
+    return Number(j.build || 0) > Number(BUILD_NUMBER || 0);
+  } catch (e) { return false; }
+}
+
 async function limparCacheERecarregar() {
   try {
     if ('serviceWorker' in navigator) {
@@ -91,6 +104,18 @@ class ErrorBoundary extends React.Component {
       try { sessionStorage.setItem('avalie_reload_at', String(Date.now())); } catch (e) { /* */ }
       limparCacheERecarregar();
       return;
+    }
+    // Crash NÃO-chunk: se houve DEPLOY desde que a aba carregou, é quase certo que o
+    // código em memória está velho (renderizando dado de feature nova) → auto-recupera
+    // 1x. Se o build for o mesmo (sem deploy), é bug REAL → mostra o detalhe técnico.
+    if (!_recentReload()) {
+      _buildDesatualizado().then((velho) => {
+        if (velho && !_recentReload()) {
+          try { sessionStorage.setItem('avalie_reload_at', String(Date.now())); } catch (e) { /* */ }
+          this.setState({ chunkReloading: true });
+          limparCacheERecarregar();
+        }
+      }).catch(() => {});
     }
     if (process.env.NODE_ENV === 'development') console.error('ErrorBoundary:', error, info);
   }
