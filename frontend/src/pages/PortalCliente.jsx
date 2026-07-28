@@ -28,6 +28,7 @@ import {
   X
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
+import { BrandMark } from '../components/brand/BrandMark';
 import { fromM2, fmtBR } from '../utils/areaConversao';
 
 // Tipos rurais → área em hectares; demais → m².
@@ -346,12 +347,13 @@ const PortalCliente = () => {
       <header className="text-white py-5 px-4" style={{ backgroundColor: COLORS.primary }}>
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img 
-              src="/brand/logo_principal.png" 
-              alt="AvalieImob" 
-              className="h-12 object-contain"
-              onError={(e) => { e.target.style.display = 'none'; }}
-            />
+            <BrandMark variant="badge" size={40} title="AvalieImob" />
+            <div className="leading-tight">
+              <div className="text-lg font-bold tracking-tight">AvalieImob</div>
+              <div className="text-[10px] uppercase tracking-[0.18em]" style={{ color: COLORS.gold }}>
+                Romatec · PTAM · Laudos
+              </div>
+            </div>
           </div>
           
           <h1 className="hidden md:block text-sm font-bold tracking-wide text-center flex-1 px-4">
