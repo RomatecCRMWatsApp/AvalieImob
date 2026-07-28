@@ -31,7 +31,22 @@ def _agora() -> datetime:
 # ──────────────────────────────────────────────────────────────────────────────
 TipoServico = Literal[
     "remembramento", "desdobro", "retificacao", "reurb", "usucapiao",
+    # Fase 6 — Georreferenciamento de lote urbano (localização e situação).
+    # Serviço de campo puro: o lote já existe/é regular; não há ato registral de
+    # alteração de perímetro. Peça central = Mapa + Memorial + ART/TRT; requerimento
+    # e reconciliação BCI/IPTU ficam DESLIGADOS por padrão. Composição do dossiê é
+    # montada pelo usuário (matriz de peças + presets).
+    "georref_urbano",
 ]
+# Finalidade do georref. urbano (§2) — alimenta subtítulo da capa e cabeçalho.
+FinalidadeGeorrefUrbano = Literal[
+    "financiamento_bancario", "averbacao_construcao", "regularizacao_municipal",
+    "processo_judicial", "licenciamento_obra", "uso_particular", "outra",
+]
+# Natureza do proprietário — controla quais uploads de documento aparecem.
+ProprietarioNatureza = Literal["pf", "pj", "ambos"]
+# Tipos de memorial (multi-seleção §6). MD-CON só quando possui_benfeitoria.
+TipoMemorial = Literal["MD-PER", "MD-SIT", "MD-SUC", "MD-CON"]
 StatusProjeto = Literal["rascunho", "extracao", "conferencia", "assinatura", "concluido"]
 TemaPdf = Literal["tradicional", "prime_i", "prime_ii"]
 # Regularidade fiscal de CADA matrícula: CND negativa vigente OU guia paga (DAM
@@ -447,6 +462,24 @@ class GeoUrbanoProjeto(BaseModel):
     provas_posse: List[ProvaPosse] = Field(default_factory=list)
     anuentes: List[AnuenteUsucapiao] = Field(default_factory=list)
     checklist: List[DocChecklistItem] = Field(default_factory=list)
+    # Georref. de lote urbano (Fase 6 — localização e situação)
+    finalidade: Optional[FinalidadeGeorrefUrbano] = None
+    finalidade_livre: Optional[str] = None          # quando finalidade == "outra"
+    instituicao_financeira: Optional[str] = None    # quando financiamento_bancario
+    proprietario_natureza: ProprietarioNatureza = "pf"
+    representante_legal: dict = Field(default_factory=dict)  # PJ: {nome, cpf}
+    possui_benfeitoria: bool = False                # habilita MD-CON (área construída)
+    area_declarada: Optional[float] = None          # m² da matrícula/IPTU (divergência)
+    # {equipamento, metodo(RTK|RTN|estatico|poligonal), sistema, data_levantamento, base_marco}
+    levantamento: dict = Field(default_factory=dict)
+    memoriais_selecionados: List[str] = Field(default_factory=list)  # TipoMemorial[]
+    # {preset, pecas:{chave:bool}, ordem:[chave], definicao_capa}
+    composicao: dict = Field(default_factory=dict)
+    # planta/situação da quadra (o campo `quadra` acima é o NÚMERO da quadra).
+    # {modo_planta(gerada|anexada|nenhuma), lotes:[...], vias:[...], esquina:{...}}
+    quadra_dados: dict = Field(default_factory=dict)
+    # {tipo(TRT|ART), numero, data, valor, atividade, observacao}
+    art_trt: dict = Field(default_factory=dict)
     # coleções aninhadas
     matriculas: List[Matricula] = Field(default_factory=list)
     bci: List[BCI] = Field(default_factory=list)
@@ -558,6 +591,19 @@ class AtualizarProjetoBody(BaseModel):
     provas_posse: Optional[List[dict]] = None
     anuentes: Optional[List[dict]] = None
     checklist: Optional[List[dict]] = None
+    # Georref. de lote urbano (Fase 6)
+    finalidade: Optional[FinalidadeGeorrefUrbano] = None
+    finalidade_livre: Optional[str] = None
+    instituicao_financeira: Optional[str] = None
+    proprietario_natureza: Optional[ProprietarioNatureza] = None
+    representante_legal: Optional[dict] = None
+    possui_benfeitoria: Optional[bool] = None
+    area_declarada: Optional[float] = None
+    levantamento: Optional[dict] = None
+    memoriais_selecionados: Optional[List[str]] = None
+    composicao: Optional[dict] = None
+    quadra_dados: Optional[dict] = None
+    art_trt: Optional[dict] = None
     # auditoria por etapa
     etapas_concluidas: Optional[dict] = None
     etapas_concluidas_em: Optional[dict] = None
@@ -594,6 +640,43 @@ class JustificarOnrBody(BaseModel):
     """Justificativa textual do RT p/ liberar um WARNING bloqueante (ex.: W-AREA-DIV)."""
     codigo: str
     texto: str
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Modelo de composição do dossiê salvo pelo usuário (§4.2 "Meus modelos").
+# CROSS-MÓDULO: o mesmo store serve os 3 módulos de Topografia (o picker de
+# composição no topo do "Novo projeto" lê uma API só) — daí o campo `modulo`.
+# Collection: geo_urbano_presets. Isolado por user_id.
+# ──────────────────────────────────────────────────────────────────────────────
+ModuloComposicao = Literal["georref", "geo_urbano", "onr"]
+
+
+class ComposicaoPreset(BaseModel):
+    id: str = Field(default_factory=_uid)
+    user_id: str = ""
+    modulo: ModuloComposicao = "geo_urbano"
+    nome: str = ""
+    pecas: dict = Field(default_factory=dict)     # {chave: bool}
+    ordem: List[str] = Field(default_factory=list)
+    definicao_capa: Optional[str] = None
+    created_at: datetime = Field(default_factory=_agora)
+    updated_at: datetime = Field(default_factory=_agora)
+
+
+class CriarPresetBody(BaseModel):
+    nome: str
+    modulo: ModuloComposicao = "geo_urbano"
+    pecas: dict = Field(default_factory=dict)
+    ordem: List[str] = Field(default_factory=list)
+    definicao_capa: Optional[str] = None
+
+
+class GerarGeorrefUrbanoBody(BaseModel):
+    """Persiste a composição do dossiê (preset/toggles/ordem/definição da capa)."""
+    preset: Optional[str] = None
+    pecas: Optional[dict] = None
+    ordem: Optional[List[str]] = None
+    definicao_capa: Optional[str] = None
 
 
 # Resolve forward-refs (Pydantic v2)

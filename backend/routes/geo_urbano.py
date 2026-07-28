@@ -19,6 +19,7 @@ from dependencies import get_active_subscriber, serialize_doc
 from models.geo_urbano import (
     GeoUrbanoProjeto, CriarProjetoBody, AtualizarProjetoBody, GerarDocumentosBody,
     AprovacaoSuperintendenciaBody, CamposAssinaturaBody, AssinarPecaBody, JustificarOnrBody,
+    ComposicaoPreset, CriarPresetBody, GerarGeorrefUrbanoBody,
     calcular_completude,
 )
 from services import r2_storage
@@ -30,6 +31,7 @@ from services.geo_urbano import aprovacao as APROVACAO
 from services.geo_urbano import extractor as EX
 from services.geo_urbano import assinatura_proprietario as PROP
 from services.geo_urbano import retificacao as RET
+from services.geo_urbano import georref_urbano as GU6
 from services.geo_urbano.lotes import projeto_do_lote
 from services.geo_urbano.seed import build_seed
 from services.geo_urbano.generators import pdf as PDF
@@ -58,6 +60,9 @@ _TIPOS_UPLOAD = {
     "certidao_obito", "formal_partilha", "certidao_estado_civil", "procuracao_oab",
     "certidao_distribuidor", "prova_posse", "doc_requerente", "foto_imovel",
     "doc_advogado", "carteira_oab",   # identidade + carteira da OAB do advogado (art. 216-A)
+    # Georref. de lote urbano (Fase 6) — quase tudo opcional; ver georref_urbano.TIPOS_UPLOAD
+    "mapa_coordenadas", "imagem_localizacao", "planta_quadra", "matricula_imovel",
+    "doc_proprietario_pf", "doc_proprietario_pj", "art_trt_pdf", "iptu_bci", "outros",
 }
 _MAX_UPLOAD = 30 * 1024 * 1024
 _PDF = "application/pdf"
@@ -256,7 +261,10 @@ async def atualizar_projeto(pid: str, body: AtualizarProjetoBody,
                  "retificacao_tipo",
                  # usucapião
                  "modalidade_usucapiao", "fundamento_legal", "valor_atribuido",
-                 "situacao_registral", "matricula_usucapienda_id")
+                 "situacao_registral", "matricula_usucapienda_id",
+                 # georref urbano (Fase 6)
+                 "finalidade", "finalidade_livre", "instituicao_financeira",
+                 "proprietario_natureza", "possui_benfeitoria", "area_declarada")
     for c in escalares:
         if c in dados:
             sets[c] = dados[c]
@@ -267,13 +275,15 @@ async def atualizar_projeto(pid: str, body: AtualizarProjetoBody,
     for campo in ("etapas_concluidas", "etapas_concluidas_em"):
         if campo in dados and isinstance(dados[campo], dict):
             sets[campo] = dados[campo]
-    for grupo in ("cartorio", "superintendencia", "responsavel_tecnico", "posse"):
+    for grupo in ("cartorio", "superintendencia", "responsavel_tecnico", "posse",
+                  # georref urbano (Fase 6) — dicts com merge parcial
+                  "representante_legal", "levantamento", "composicao", "quadra_dados", "art_trt"):
         if grupo in dados and isinstance(dados[grupo], dict):
             atual = dict(doc.get(grupo) or {})
             atual.update(dados[grupo])
             sets[grupo] = atual
     for grupo in ("matriculas", "bci", "vertices", "partes", "iptu", "lotes_resultantes",
-                  "vertices_atual", "confrontantes",
+                  "vertices_atual", "confrontantes", "memoriais_selecionados",
                   "soma_posses", "provas_posse", "anuentes", "checklist"):
         if grupo in dados and dados[grupo] is not None:
             sets[grupo] = dados[grupo]
@@ -839,6 +849,116 @@ async def justificar_onr(pid: str, body: JustificarOnrBody,
         {"id": pid, "user_id": uid},
         {"$set": {"onr_justificativas": just, "onr_validacao": {**res, "em": _agora().isoformat()}}})
     return res
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Georref. de lote urbano (Fase 6) — composição do dossiê, import de coordenadas,
+# quadra, validação e presets (modelos de composição cross-módulo).
+# ──────────────────────────────────────────────────────────────────────────────
+@router.get("/georref-urbano/opcoes")
+async def georref_opcoes(uid: str = Depends(get_active_subscriber)):
+    """Catálogo estático p/ o picker de composição (finalidades, peças, presets,
+    memoriais, definições de capa, tipos de upload)."""
+    return GU6.opcoes()
+
+
+@router.post("/projetos/{pid}/georref/composicao")
+async def georref_composicao(pid: str, body: GerarGeorrefUrbanoBody,
+                             uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    doc = await _get(db, pid, uid)
+    comp = dict(doc.get("composicao") or GU6.composicao_default(doc.get("finalidade")))
+    if body.preset is not None:
+        comp["preset"] = body.preset
+        comp["pecas"] = GU6.preset_pecas(body.preset)
+    if body.pecas is not None:
+        comp["pecas"] = body.pecas
+        if body.preset is None:
+            comp["preset"] = "PERSONALIZADO"
+    if body.ordem is not None:
+        comp["ordem"] = body.ordem
+    if body.definicao_capa is not None:
+        comp["definicao_capa"] = body.definicao_capa
+    await db.geo_urbano_projetos.update_one(
+        {"id": pid, "user_id": uid},
+        {"$set": {"composicao": comp, "updated_at": _agora().isoformat()}})
+    return GU6.resolver_composicao({**doc, "composicao": comp})
+
+
+@router.get("/projetos/{pid}/georref/composicao/preview")
+async def georref_composicao_preview(pid: str, uid: str = Depends(get_active_subscriber),
+                                     db=Depends(get_db)):
+    return GU6.resolver_composicao(await _get(db, pid, uid))
+
+
+@router.post("/projetos/{pid}/georref/coordenadas/import")
+async def georref_import_coordenadas(pid: str, file: UploadFile = File(...),
+                                     uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    doc = await _get(db, pid, uid)
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=422, detail="Arquivo vazio")
+    try:
+        res = await asyncio.to_thread(GU6.importar_coordenadas, data, file.filename or "")
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    verts = res.get("vertices") or []
+    sets = {"updated_at": _agora().isoformat()}
+    if verts:
+        # aplica lados calculados p/ o quadro já vir orientado
+        sets["vertices"] = verts
+        sets["area_calculada_m2"] = GEOM.area_m2(verts)
+        sets["perimetro_m"] = GEOM.perimetro_m(verts)
+        await db.geo_urbano_projetos.update_one({"id": pid, "user_id": uid}, {"$set": sets})
+    return {"ok": True, "sistema": res.get("sistema"), "avisos": res.get("avisos") or [],
+            "vertices": verts, "total": len(verts)}
+
+
+@router.post("/projetos/{pid}/georref/quadra")
+async def georref_quadra(pid: str, body: dict,
+                         uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    doc = await _get(db, pid, uid)
+    quadra = dict(doc.get("quadra_dados") or {})
+    quadra.update({k: body[k] for k in ("modo_planta", "lotes", "vias", "esquina") if k in body})
+    await db.geo_urbano_projetos.update_one(
+        {"id": pid, "user_id": uid},
+        {"$set": {"quadra_dados": quadra, "updated_at": _agora().isoformat()}})
+    return {"ok": True, "quadra_dados": quadra}
+
+
+@router.post("/projetos/{pid}/georref/validar")
+async def georref_validar(pid: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    return GU6.validar(await _get(db, pid, uid))
+
+
+# Presets de composição (modelos do usuário — cross-módulo: georref/geo_urbano/onr)
+@router.post("/presets", status_code=201)
+async def criar_preset(body: CriarPresetBody,
+                       uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    if not (body.nome or "").strip():
+        raise HTTPException(status_code=422, detail="Informe o nome do modelo.")
+    pr = ComposicaoPreset(user_id=uid, modulo=body.modulo, nome=body.nome.strip(),
+                          pecas=body.pecas, ordem=body.ordem, definicao_capa=body.definicao_capa)
+    doc = pr.model_dump(mode="json")
+    await db.geo_urbano_presets.insert_one(doc)
+    return serialize_doc(doc)
+
+
+@router.get("/presets")
+async def listar_presets(modulo: str = Query(None), uid: str = Depends(get_active_subscriber),
+                         db=Depends(get_db)):
+    q = {"user_id": uid}
+    if modulo:
+        q["modulo"] = modulo
+    cur = db.geo_urbano_presets.find(q).sort("created_at", -1)
+    return [serialize_doc(d) async for d in cur]
+
+
+@router.delete("/presets/{prid}")
+async def excluir_preset(prid: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    res = await db.geo_urbano_presets.delete_one({"id": prid, "user_id": uid})
+    if not res.deleted_count:
+        raise HTTPException(status_code=404, detail="Modelo não encontrado")
+    return {"ok": True}
 
 
 async def _imagem_imovel_bytes(doc):
