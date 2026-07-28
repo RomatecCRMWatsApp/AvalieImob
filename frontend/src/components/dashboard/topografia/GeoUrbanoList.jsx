@@ -1,7 +1,7 @@
 // @module topografia/GeoUrbanoList — Lista de projetos de Geo Urbano + criação.
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Plus, Trash2, MapPin, Sparkles, CheckCircle2, Clock, Send, Eye, RefreshCw, FolderOpen, ShieldCheck } from 'lucide-react';
+import { Building2, Plus, Trash2, MapPin, Sparkles, CheckCircle2, Clock, Send, Eye, RefreshCw, FolderOpen, ShieldCheck, Link2 } from 'lucide-react';
 import { geoUrbanoAPI } from '../../../lib/api';
 import { useToast } from '../../../hooks/use-toast';
 import { BrandSpinner } from '../../brand/BrandSpinner';
@@ -159,6 +159,20 @@ export default function GeoUrbanoList() {
     } catch (err) {
       toast({ title: 'Erro ao enviar', description: err?.response?.data?.detail || '', variant: 'destructive' });
     } finally { setWaEnviando(false); }
+  };
+
+  const [linkBusy, setLinkBusy] = useState(null);
+  const gerarLink = async (p, e) => {
+    e.stopPropagation();
+    setLinkBusy(p.id);
+    try {
+      const r = await geoUrbanoAPI.gerarLink(p.id);
+      try { await navigator.clipboard.writeText(r.url); } catch { /* clipboard bloqueado */ }
+      setProjetos((ps) => ps.map((x) => (x.id === p.id ? { ...x, link_publico_ativo: true, link_publico_token: r.token } : x)));
+      toast({ title: 'Link do dossiê copiado ✓', description: r.url });
+    } catch (err) {
+      toast({ title: 'Erro ao gerar link', variant: 'destructive' });
+    } finally { setLinkBusy(null); }
   };
 
   const [reenviando, setReenviando] = useState(null);
@@ -427,9 +441,15 @@ export default function GeoUrbanoList() {
                       ? geoUrbanoAPI.georrefDossie(p.id, p.tema)
                       : geoUrbanoAPI.documento(p.id, 'dossie', p.tema), toast)}
                     cls="border-gray-200 text-gray-700 hover:bg-gray-50" />
-                  {p.tipo_servico !== 'georref_urbano' && (
                   <Btn icon={Send} label="Enviar por WhatsApp" onClick={(e) => abrirWa(p, e)}
                     cls="border-emerald-300 bg-emerald-600 text-white hover:bg-emerald-700 col-span-2" />
+                  <Btn icon={Link2} label={linkBusy === p.id ? 'Gerando…' : (p.link_publico_ativo ? 'Copiar link do dossiê' : 'Gerar link do dossiê')}
+                    onClick={(e) => gerarLink(p, e)}
+                    cls="border-sky-300 text-sky-700 hover:bg-sky-50 col-span-2" />
+                  {p.link_publico_ativo && (
+                    <div className="col-span-2 text-[10px] text-gray-400 inline-flex items-center gap-1 -mt-0.5">
+                      <Eye className="w-3 h-3" /> {p.link_views || 0} visualização(ões) · link público ativo
+                    </div>
                   )}
                   {temSig && !todosSig && (
                     <Btn icon={RefreshCw} label={reenviando === p.id ? 'Reenviando…' : 'Reenviar assinatura'} onClick={(e) => reenviarAssin(p.id, e)}
@@ -452,7 +472,14 @@ export default function GeoUrbanoList() {
             <label className="block text-xs font-medium text-gray-600 mb-1">Peça</label>
             <select className="w-full border rounded-lg px-2.5 py-2 text-sm mb-3" value={waPeca} onChange={(e) => setWaPeca(e.target.value)}>
               <option value="dossie">Dossiê consolidado (com as assinaturas)</option>
-              {wa.tipo_servico === 'usucapiao' ? (
+              {wa.tipo_servico === 'georref_urbano' ? (
+                <>
+                  <option value="memorial_perimetrico">Memorial Perimétrico</option>
+                  <option value="memorial_situacao">Memorial de Localização e Situação</option>
+                  <option value="memorial_sucinto">Descrição Sucinta</option>
+                  <option value="art_trt">ART / TRT</option>
+                </>
+              ) : wa.tipo_servico === 'usucapiao' ? (
                 <>
                   <option value="requerimento_usucapiao">Requerimento de Usucapião (assinado)</option>
                   <option value="art_trt">ART / TRT</option>

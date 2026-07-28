@@ -508,6 +508,15 @@ class GeoUrbanoProjeto(BaseModel):
     etapas_concluidas_em: dict = Field(default_factory=dict)  # {step_index: ISO}
     coords_alinhadas: bool = False   # self-heal do offset de coordenadas (1x)
     frente_idx: Optional[int] = None  # índice do segmento da FRENTE (rua) — marcado no desenho
+    # Link público do dossiê + contador de visualizações (paridade com o card do PTAM)
+    link_publico_token: Optional[str] = None
+    link_publico_ativo: bool = False
+    link_publico_criado_em: Optional[str] = None
+    link_views: int = 0
+    link_views_first: Optional[str] = None
+    link_views_last: Optional[str] = None
+    link_sends: int = 0
+    link_last_sent: Optional[str] = None
     completude: int = 0
     created_at: datetime = Field(default_factory=_agora)
     updated_at: datetime = Field(default_factory=_agora)

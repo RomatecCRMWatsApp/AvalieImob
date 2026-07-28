@@ -11,7 +11,7 @@ import re
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, Response, UploadFile
 from pymongo import ReturnDocument
 
 from db import get_db
@@ -23,6 +23,7 @@ from models.geo_urbano import (
     calcular_completude,
 )
 from services import r2_storage
+from services.ratelimit import pub_limiter
 from services.geo_urbano import reconcile as RECONCILE
 from services.geo_urbano import geometria as GEOM
 from services.geo_urbano import geo_export as GEXP
@@ -741,10 +742,26 @@ _PECA_LABEL = {
 }
 
 
+async def _dossie_bytes(db, doc, tema):
+    """Dossiê do projeto — georref urbano usa o montador por composição (Inc 2);
+    os demais serviços usam _montar_dossie (com as peças assinadas)."""
+    if doc.get("tipo_servico") == "georref_urbano":
+        await _injetar_logo(db, doc.get("user_id"), doc)
+        await _injetar_timbre(db, doc.get("user_id"), doc)
+        ub = await _uploads_bytes(doc, _UPLOAD_TIPOS_DOSSIE)
+        return await asyncio.to_thread(GU6GEN.gerar_dossie, doc, ub, tema, doc.get("_brand_logo_bytes"))
+    return await _montar_dossie(db, doc, tema)
+
+
 async def _peca_pdf_bytes(db, doc, tipo, tema):
     """Bytes do PDF de uma peça — versão ASSINADA quando houver (Dossiê via merge)."""
     if tipo == "dossie":
-        return await _montar_dossie(db, doc, tema)
+        return await _dossie_bytes(db, doc, tema)
+    if doc.get("tipo_servico") == "georref_urbano":
+        try:
+            return await asyncio.to_thread(GU6GEN.gerar_peca, tipo, doc, tema, doc.get("_brand_logo_bytes"))
+        except ValueError:
+            raise HTTPException(status_code=422, detail=f"Peça inválida: {tipo}")
     assinadas = await _pecas_assinadas(db, doc)
     if assinadas.get(tipo):
         return assinadas[tipo]
@@ -789,7 +806,75 @@ async def enviar_whatsapp(pid: str, body: dict, uid: str = Depends(get_active_su
     except Exception as e:  # noqa: BLE001
         logger.error("Geo Urbano: envio WhatsApp falhou: %s", e, exc_info=True)
         raise HTTPException(status_code=502, detail=f"Falha ao enviar pelo WhatsApp: {e}")
+    await db.geo_urbano_projetos.update_one(
+        {"id": pid, "user_id": uid},
+        {"$inc": {"link_sends": 1}, "$set": {"link_last_sent": _agora().isoformat()}})
     return {"ok": True, "enviado": telefone, "peca": peca}
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Link público do dossiê (paridade com o card do PTAM) — token + contador de views
+# ──────────────────────────────────────────────────────────────────────────────
+def _platform_url() -> str:
+    try:
+        from routes.assinatura_cliente import APP_URL
+        base = (APP_URL or "").rstrip("/")
+        if base:
+            return base
+    except Exception:  # noqa: BLE001
+        pass
+    return "https://www.romatecavalieimob.com.br"
+
+
+@router.post("/projetos/{pid}/link")
+async def gerar_link(pid: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    """Gera (ou reativa) o link público do dossiê e devolve a URL compartilhável."""
+    doc = await _get(db, pid, uid)
+    token = doc.get("link_publico_token") or uuid.uuid4().hex
+    await db.geo_urbano_projetos.update_one(
+        {"id": pid, "user_id": uid},
+        {"$set": {"link_publico_token": token, "link_publico_ativo": True,
+                  "link_publico_criado_em": doc.get("link_publico_criado_em") or _agora().isoformat(),
+                  "updated_at": _agora().isoformat()}})
+    return {"ok": True, "token": token,
+            "url": f"{_platform_url()}/api/topografia/geo-urbano/publico/dossie/{token}"}
+
+
+@router.delete("/projetos/{pid}/link")
+async def desativar_link(pid: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    await db.geo_urbano_projetos.update_one(
+        {"id": pid, "user_id": uid},
+        {"$set": {"link_publico_ativo": False, "updated_at": _agora().isoformat()}})
+    return {"ok": True}
+
+
+_BOTS_UA = ("whatsapp", "facebookexternalhit", "telegrambot", "bot", "preview", "slackbot", "twitterbot")
+
+
+@router.get("/publico/dossie/{token}")
+@pub_limiter.limit("30/minute")
+async def dossie_publico(token: str, request: Request, db=Depends(get_db)):
+    """PDF do dossiê por token público (SEM autenticação) + contador de visualizações.
+    Regenera o dossiê na hora (georref via composição; demais via montador)."""
+    doc = await db.geo_urbano_projetos.find_one({"link_publico_token": token, "link_publico_ativo": True})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Dossiê não encontrado ou link inativo.")
+    ua = (request.headers.get("user-agent") or "").lower()
+    if not any(b in ua for b in _BOTS_UA):
+        agora = _agora().isoformat()
+        sets = {"link_views_last": agora}
+        if not doc.get("link_views_first"):
+            sets["link_views_first"] = agora
+        await db.geo_urbano_projetos.update_one(
+            {"id": doc["id"]}, {"$inc": {"link_views": 1}, "$set": sets})
+    tema = doc.get("tema") or "prime_i"
+    data = await _dossie_bytes(db, doc, tema)
+    if not data or data[:5] != b"%PDF-":
+        raise HTTPException(status_code=500, detail="Falha ao gerar o dossiê.")
+    nome = f"dossie_{(doc.get('numero') or doc['id'])}.pdf".replace("/", "-")
+    return Response(content=data, media_type=_PDF,
+                    headers={"Content-Disposition": f'inline; filename="{nome}"',
+                             "Cache-Control": "no-store"})
 
 
 # ──────────────────────────────────────────────────────────────────────────────

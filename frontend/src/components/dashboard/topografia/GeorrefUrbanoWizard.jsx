@@ -6,7 +6,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ChevronLeft, ChevronRight, Upload, Trash2, FileText, Eye,
-  MapPin, CheckCircle2, AlertTriangle, Plus, Image as ImageIcon,
+  MapPin, CheckCircle2, AlertTriangle, Plus, Image as ImageIcon, Link2,
 } from 'lucide-react';
 import { geoUrbanoAPI, perfilAPI } from '../../../lib/api';
 import { useToast } from '../../../hooks/use-toast';
@@ -441,6 +441,15 @@ function GeracaoStep({ proj, id, patch, comp, valid, setValid, capaUrl, setCapaU
         <button onClick={verCapa} className="px-3 py-2 rounded-lg text-sm border inline-flex items-center gap-1.5"><ImageIcon className="w-4 h-4" /> Prévia da capa</button>
         <button onClick={() => abrirBlob(geoUrbanoAPI.georrefDossie(id, proj.tema), toast)} className="px-4 py-2 rounded-lg text-sm font-semibold text-white inline-flex items-center gap-1.5" style={{ background: GREEN }}>
           <FileText className="w-4 h-4" /> Ver Dossiê
+        </button>
+        <button onClick={async () => {
+          try {
+            const r = await geoUrbanoAPI.gerarLink(id);
+            try { await navigator.clipboard.writeText(r.url); } catch { /* */ }
+            toast({ title: 'Link do dossiê copiado ✓', description: r.url });
+          } catch { toast({ title: 'Erro ao gerar link', variant: 'destructive' }); }
+        }} className="px-3 py-2 rounded-lg text-sm border inline-flex items-center gap-1.5 text-sky-700 border-sky-300">
+          <Link2 className="w-4 h-4" /> Gerar link do dossiê
         </button>
       </div>
       {capaUrl && <img src={capaUrl} alt="Prévia da capa" className="max-w-xs rounded-lg border shadow-sm" />}

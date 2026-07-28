@@ -960,6 +960,9 @@ export const geoUrbanoAPI = {
     api.get(`${GEOURB}/presets`, { params: modulo ? { modulo } : {} }).then((r) => r.data),
   criarPreset: (body) => api.post(`${GEOURB}/presets`, body).then((r) => r.data),
   excluirPreset: (prid) => api.delete(`${GEOURB}/presets/${prid}`).then((r) => r.data),
+  // Link público do dossiê (paridade com o card do PTAM)
+  gerarLink: (id) => api.post(`${GEOURB}/projetos/${id}/link`).then((r) => r.data),
+  desativarLink: (id) => api.delete(`${GEOURB}/projetos/${id}/link`).then((r) => r.data),
 };
 
 // Arquivo ONR (SIG-RI) STANDALONE — sobe mapa+memorial+ART+certidão → extrai → gera shapefile
