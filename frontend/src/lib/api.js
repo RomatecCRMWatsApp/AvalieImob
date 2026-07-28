@@ -933,6 +933,33 @@ export const geoUrbanoAPI = {
   usucapiaoAnuenciaPdf: (id, aid, modo, tema) =>
     api.get(`${GEOURB}/projetos/${id}/usucapiao/anuencia/${aid}`,
       { params: { ...(modo ? { modo } : {}), ...(tema ? { tema } : {}) }, responseType: 'blob' }).then((r) => r.data),
+  // ── Fase 6 — Georreferenciamento de lote urbano (localização e situação) ──
+  georrefOpcoes: () => api.get(`${GEOURB}/georref-urbano/opcoes`).then((r) => r.data),
+  georrefComposicao: (id, body) =>
+    api.post(`${GEOURB}/projetos/${id}/georref/composicao`, body).then((r) => r.data),
+  georrefComposicaoPreview: (id) =>
+    api.get(`${GEOURB}/projetos/${id}/georref/composicao/preview`).then((r) => r.data),
+  georrefImportCoordenadas: (id, file) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return api.post(`${GEOURB}/projetos/${id}/georref/coordenadas/import`, fd).then((r) => r.data);
+  },
+  georrefQuadra: (id, body) => api.post(`${GEOURB}/projetos/${id}/georref/quadra`, body).then((r) => r.data),
+  georrefValidar: (id) => api.post(`${GEOURB}/projetos/${id}/georref/validar`).then((r) => r.data),
+  georrefDocumento: (id, tipo, tema) =>
+    api.get(`${GEOURB}/projetos/${id}/georref/documento/${tipo}`,
+      { params: { ...(tema ? { tema } : {}) }, responseType: 'blob' }).then((r) => r.data),
+  georrefDossie: (id, tema) =>
+    api.get(`${GEOURB}/projetos/${id}/georref/dossie`,
+      { params: { ...(tema ? { tema } : {}) }, responseType: 'blob' }).then((r) => r.data),
+  georrefCapaPreview: (id, tema) =>
+    api.get(`${GEOURB}/projetos/${id}/georref/capa/preview`,
+      { params: { ...(tema ? { tema } : {}) }, responseType: 'blob' }).then((r) => r.data),
+  // Presets de composição (cross-módulo: georref/geo_urbano/onr)
+  listarPresets: (modulo) =>
+    api.get(`${GEOURB}/presets`, { params: modulo ? { modulo } : {} }).then((r) => r.data),
+  criarPreset: (body) => api.post(`${GEOURB}/presets`, body).then((r) => r.data),
+  excluirPreset: (prid) => api.delete(`${GEOURB}/presets/${prid}`).then((r) => r.data),
 };
 
 // Arquivo ONR (SIG-RI) STANDALONE — sobe mapa+memorial+ART+certidão → extrai → gera shapefile

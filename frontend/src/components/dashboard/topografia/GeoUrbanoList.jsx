@@ -30,6 +30,7 @@ const Btn = ({ icon: Icon, label, onClick, cls }) => (
 );
 
 export const TIPOS_SERVICO = [
+  { value: 'georref_urbano', label: 'Georreferenciamento de lote urbano (localização e situação)', pronto: true },
   { value: 'remembramento', label: 'Remembramento (unificação de lotes)', pronto: true },
   { value: 'desdobro', label: 'Desdobro (fracionamento)', pronto: true },
   { value: 'retificacao', label: 'Retificação de área/registro', pronto: true },
@@ -51,8 +52,19 @@ export default function GeoUrbanoList() {
   const [projetos, setProjetos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [novo, setNovo] = useState(false);
-  const [form, setForm] = useState({ denominacao_imovel: '', tipo_servico: 'remembramento', tema: 'prime_i' });
+  const [form, setForm] = useState({
+    denominacao_imovel: '', tipo_servico: 'georref_urbano', tema: 'prime_i',
+    finalidade: 'financiamento_bancario', instituicao_financeira: '', preset: 'BANCO',
+  });
   const [criando, setCriando] = useState(false);
+  const [opcoes, setOpcoes] = useState(null);   // catálogo georref (finalidades/presets)
+
+  useEffect(() => {
+    if (novo && !opcoes) {
+      geoUrbanoAPI.georrefOpcoes().then(setOpcoes).catch(() => {});
+    }
+  }, [novo, opcoes]);
+  const isGeorref = form.tipo_servico === 'georref_urbano';
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -75,7 +87,16 @@ export default function GeoUrbanoList() {
     }
     setCriando(true);
     try {
-      const p = await geoUrbanoAPI.criar(form);
+      const p = await geoUrbanoAPI.criar({
+        denominacao_imovel: form.denominacao_imovel, tipo_servico: form.tipo_servico, tema: form.tema,
+      });
+      if (form.tipo_servico === 'georref_urbano') {
+        await geoUrbanoAPI.atualizar(p.id, {
+          finalidade: form.finalidade,
+          ...(form.instituicao_financeira ? { instituicao_financeira: form.instituicao_financeira } : {}),
+        });
+        await geoUrbanoAPI.georrefComposicao(p.id, { preset: form.preset });
+      }
       nav(`/dashboard/topografia/geo-urbano/${p.id}`);
     } catch (e) {
       toast({ title: 'Erro ao criar projeto', variant: 'destructive' });
@@ -232,6 +253,61 @@ export default function GeoUrbanoList() {
                 <option value="tradicional">Tradicional — Sóbrio (branco)</option>
               </select>
             </div>
+
+            {/* Composição do dossiê — só no georref urbano, no TOPO ao criar */}
+            {isGeorref && (
+              <div className="sm:col-span-2 rounded-lg border border-amber-200 bg-amber-50/50 p-3">
+                <div className="text-xs font-semibold mb-2" style={{ color: GREEN }}>
+                  Composição do dossiê — escolha aqui ao criar
+                </div>
+                <div className="grid sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Finalidade</label>
+                    <select
+                      className="w-full border rounded-lg px-2.5 py-1.5 text-sm bg-white"
+                      value={form.finalidade}
+                      onChange={(e) => {
+                        const fin = e.target.value;
+                        setForm((f) => ({ ...f, finalidade: fin, preset: fin === 'financiamento_bancario' ? 'BANCO' : 'COMPLETO' }));
+                      }}
+                    >
+                      {(opcoes?.finalidades || [{ codigo: 'financiamento_bancario', label: 'Financiamento bancário' }])
+                        .map((o) => <option key={o.codigo} value={o.codigo}>{o.label}</option>)}
+                    </select>
+                  </div>
+                  {form.finalidade === 'financiamento_bancario' && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Instituição</label>
+                      <input list="georref-bancos"
+                        className="w-full border rounded-lg px-2.5 py-1.5 text-sm bg-white"
+                        placeholder="CAIXA ECONÔMICA FEDERAL"
+                        value={form.instituicao_financeira}
+                        onChange={(e) => setForm({ ...form, instituicao_financeira: e.target.value })} />
+                      <datalist id="georref-bancos">
+                        {(opcoes?.instituicoes || []).map((b) => <option key={b} value={b} />)}
+                      </datalist>
+                    </div>
+                  )}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Modelo (preset)</label>
+                    <select
+                      className="w-full border rounded-lg px-2.5 py-1.5 text-sm bg-white"
+                      value={form.preset}
+                      onChange={(e) => setForm({ ...form, preset: e.target.value })}
+                    >
+                      {(opcoes?.presets || ['COMPLETO', 'BANCO', 'SIMPLIFICADO']).map((p) => (
+                        <option key={p} value={p}>{p === 'BANCO' ? 'Banco (localização + situação)'
+                          : p === 'SIMPLIFICADO' ? 'Simplificado (mapa + memorial + ART)'
+                          : p === 'COMPLETO' ? 'Completo' : p}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <p className="text-[11px] text-gray-500 mt-2">
+                  As peças exatas do dossiê você ajusta depois, no passo <strong>Composição</strong> do projeto.
+                </p>
+              </div>
+            )}
           </div>
           <div className="flex gap-2 mt-4">
             <button onClick={criar} disabled={criando}
@@ -346,10 +422,15 @@ export default function GeoUrbanoList() {
                 <div className="grid grid-cols-2 gap-1.5 mt-auto">
                   <Btn icon={FolderOpen} label="Abrir" onClick={() => nav(`/dashboard/topografia/geo-urbano/${p.id}`)}
                     cls="border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100" />
-                  <Btn icon={Eye} label="Ver Dossiê" onClick={() => abrirBlob(geoUrbanoAPI.documento(p.id, 'dossie', p.tema), toast)}
+                  <Btn icon={Eye} label="Ver Dossiê"
+                    onClick={() => abrirBlob(p.tipo_servico === 'georref_urbano'
+                      ? geoUrbanoAPI.georrefDossie(p.id, p.tema)
+                      : geoUrbanoAPI.documento(p.id, 'dossie', p.tema), toast)}
                     cls="border-gray-200 text-gray-700 hover:bg-gray-50" />
+                  {p.tipo_servico !== 'georref_urbano' && (
                   <Btn icon={Send} label="Enviar por WhatsApp" onClick={(e) => abrirWa(p, e)}
                     cls="border-emerald-300 bg-emerald-600 text-white hover:bg-emerald-700 col-span-2" />
+                  )}
                   {temSig && !todosSig && (
                     <Btn icon={RefreshCw} label={reenviando === p.id ? 'Reenviando…' : 'Reenviar assinatura'} onClick={(e) => reenviarAssin(p.id, e)}
                       cls="border-emerald-200 text-emerald-700 hover:bg-emerald-50 col-span-2" />

@@ -12,6 +12,7 @@ import { useToast } from '../../../hooks/use-toast';
 import { BrandSpinner } from '../../brand/BrandSpinner';
 import AssinaturaPosicionadaModal from '../assinatura/AssinaturaPosicionadaModal';
 import AssinaturaProprietarioModal from './AssinaturaProprietarioModal';
+import GeorrefUrbanoWizard from './GeorrefUrbanoWizard';
 import EtapaConcluidaBox from '../ptam/EtapaConcluidaBox';
 import JuridicoBloco from './JuridicoBloco';
 import PoligonalLeaflet from '../../maps/PoligonalLeaflet';
@@ -664,6 +665,9 @@ export default function GeoUrbanoWizard() {
   };
 
   if (loading || !proj) return <div className="py-24"><BrandSpinner label="Carregando…" /></div>;
+
+  // Fase 6 — georref. de lote urbano usa um wizard PRÓPRIO de 6 etapas.
+  if (proj.tipo_servico === 'georref_urbano') return <GeorrefUrbanoWizard />;
 
   const nb = proj.numero || 'geo-urbano';
   const uploads = proj.uploads || {};
