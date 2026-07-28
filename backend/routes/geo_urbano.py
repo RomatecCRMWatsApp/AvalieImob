@@ -752,7 +752,8 @@ async def _georref_pecas_assinadas(db, doc):
     for r in recs:
         if r.get("icp_status") == "assinado" and r.get("doc") in GU6GEN._GERADORES:
             try:
-                b = await _load_assinatura_bytes(db, "geo_urbano", r["id"])
+                # _load_assinatura_bytes retorna (pdf_bytes, doc) — precisa desempacotar!
+                b, _a = await _load_assinatura_bytes(db, "geo_urbano", r["id"])
                 if b and b[:5] == b"%PDF-":
                     out[r["doc"]] = b
             except Exception:  # noqa: BLE001
@@ -903,9 +904,12 @@ def _pagina_dossie_html(doc, pdf_url, og_img) -> str:
     """Página HTML pública do dossiê — com og:image (preview no WhatsApp = brasão
     Romatec) + botão p/ abrir o PDF. É o link COMPARTILHÁVEL (o /pdf serve o arquivo)."""
     import html as _h
+    from services.geo_urbano.generators import textos as _TXT
     denom = _h.escape(doc.get("denominacao_imovel") or "Dossiê — Georreferenciamento")
     end = _h.escape(" · ".join(x for x in [doc.get("endereco"), f"{doc.get('municipio') or ''}/{doc.get('uf') or ''}".strip("/")] if x))
-    area = _h.escape(f"{doc.get('area_calculada_m2') or doc.get('area_declarada') or ''}")
+    # área DECLARADA (oficial/redonda) formatada em 2 casas — "300,00 m²"
+    area_val = doc.get("area_declarada") or doc.get("area_declarada_m2") or doc.get("area_calculada_m2")
+    area = _h.escape(_TXT.m2(area_val)) if area_val else ""
     rt = _h.escape((doc.get("responsavel_tecnico") or {}).get("nome") or "")
     num = _h.escape(doc.get("numero") or "")
     desc = f"Georreferenciamento de lote urbano — {denom}. {end}"
@@ -935,7 +939,7 @@ font-weight:700;padding:14px 28px;border-radius:12px;box-shadow:0 4px 16px rgba(
 <div class="eyebrow" style="margin-top:16px">Georreferenciamento de lote urbano</div>
 <h1>{denom}</h1>
 <div class="meta">{end}</div>
-{f'<div class="meta">Área {area} m²</div>' if area else ''}
+{f'<div class="meta">Área {area}</div>' if area else ''}
 {f'<div class="meta">Nº {num}</div>' if num else ''}
 <a class="btn" href="{pdf_url}">📄 Abrir o Dossiê (PDF)</a>
 <div class="foot">{f'Responsável Técnico: {rt} · ' if rt else ''}Romatec · AvalieImob</div>

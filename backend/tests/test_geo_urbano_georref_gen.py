@@ -186,6 +186,20 @@ def test_dossie_usa_planta_quadra_anexada_nao_o_croqui():
     assert assinada5 > anexo3         # a peça ASSINADA (5) tem prioridade sobre o anexo (3)
 
 
+def test_area_declarada_prevalece_e_arredonda():
+    # a área DECLARADA (memorial, redonda) prevalece sobre a calculada (shoelace, dízima)
+    proj = _proj()
+    proj["area_declarada"] = 300.0
+    proj["area_calculada_m2"] = 300.0142822265625
+    assert GEN._area(proj) == 300.0
+    from services.geo_urbano.generators import textos as TX
+    assert TX.m2(GEN._area(proj)) == "300,00 m²"
+    # a página pública do dossiê mostra 300,00 m² (não a dízima)
+    from routes.geo_urbano import _pagina_dossie_html
+    html = _pagina_dossie_html(proj, "https://x/pdf", "https://x/logo.png")
+    assert "300,00 m²" in html and "300.0142" not in html
+
+
 def test_qualificacao_requerente_completa():
     proj = _proj()
     proj["proprietario_natureza"] = "pj"

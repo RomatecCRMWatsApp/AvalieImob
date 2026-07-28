@@ -37,8 +37,10 @@ _LADO_LABEL = {
 # Helpers comuns
 # ──────────────────────────────────────────────────────────────────────────────
 def _area(projeto: dict):
-    """Área a exibir: a LEVANTADA (poligonal) prevalece; cai p/ a declarada."""
-    return projeto.get("area_calculada_m2") or projeto.get("area_declarada") or projeto.get("area_declarada_m2")
+    """Área a EXIBIR: a DECLARADA (memorial/matrícula — valor oficial e "redondo",
+    ex.: 300,00 m²) prevalece; a calculada (shoelace dos vértices, ex.: 300,0142…) só
+    entra quando não há declarada (é aferição, não o valor a publicar)."""
+    return projeto.get("area_declarada") or projeto.get("area_declarada_m2") or projeto.get("area_calculada_m2")
 
 
 def _papel_rt(projeto: dict) -> str:
