@@ -900,7 +900,7 @@ async def desativar_link(pid: str, uid: str = Depends(get_active_subscriber), db
 _BOTS_UA = ("whatsapp", "facebookexternalhit", "telegrambot", "bot", "preview", "slackbot", "twitterbot")
 
 
-def _pagina_dossie_html(doc, pdf_url, og_img) -> str:
+def _pagina_dossie_html(doc, pdf_url, og_img, kml_url=None) -> str:
     """Página HTML pública do dossiê — com og:image (preview no WhatsApp = brasão
     Romatec) + botão p/ abrir o PDF. É o link COMPARTILHÁVEL (o /pdf serve o arquivo)."""
     import html as _h
@@ -933,6 +933,8 @@ h1{{font-size:1.35rem;margin:18px 0 4px}}.eyebrow{{color:#C9A84C;font-weight:700
 text-transform:uppercase;font-size:.72rem}}.meta{{color:#cbd5c8;font-size:.9rem;margin:6px 0}}
 a.btn{{display:inline-block;margin-top:22px;background:#C9A84C;color:#0C3320;text-decoration:none;
 font-weight:700;padding:14px 28px;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,.3)}}
+a.btn2{{display:inline-block;margin-top:12px;background:transparent;color:#F5F1E6;text-decoration:none;
+font-weight:600;padding:11px 24px;border-radius:12px;border:1px solid #C9A84C}}
 .foot{{margin-top:26px;color:#8fae9e;font-size:.72rem}}</style></head>
 <body><div class="card">
 <img class="logo" src="{og_img}" alt="Romatec">
@@ -942,6 +944,7 @@ font-weight:700;padding:14px 28px;border-radius:12px;box-shadow:0 4px 16px rgba(
 {f'<div class="meta">Área {area}</div>' if area else ''}
 {f'<div class="meta">Nº {num}</div>' if num else ''}
 <a class="btn" href="{pdf_url}">📄 Abrir o Dossiê (PDF)</a>
+{f'<br><a class="btn2" href="{kml_url}">🌍 Ver o Mapa (KML · Google Earth)</a>' if kml_url else ''}
 <div class="foot">{f'Responsável Técnico: {rt} · ' if rt else ''}Romatec · AvalieImob</div>
 </div></body></html>"""
 
@@ -963,6 +966,22 @@ async def dossie_publico_pdf(token: str, request: Request, db=Depends(get_db)):
                              "Cache-Control": "no-store"})
 
 
+@router.get("/publico/dossie/{token}/kml")
+@pub_limiter.limit("30/minute")
+async def dossie_publico_kml(token: str, request: Request, db=Depends(get_db)):
+    """KML público da poligonal (Google Earth) por token — SEM autenticação."""
+    doc = await db.geo_urbano_projetos.find_one({"link_publico_token": token, "link_publico_ativo": True})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Mapa não encontrado ou link inativo.")
+    try:
+        kml = await asyncio.to_thread(GEXP.gerar_kml, doc)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=422, detail=f"Falha ao gerar o KML: {e}")
+    nome = f"mapa_{(doc.get('numero') or doc['id'])}.kml".replace("/", "-")
+    return Response(content=kml, media_type="application/vnd.google-earth.kml+xml",
+                    headers={"Content-Disposition": f'attachment; filename="{nome}"'})
+
+
 @router.get("/publico/dossie/{token}")
 @pub_limiter.limit("60/minute")
 async def dossie_publico(token: str, request: Request, db=Depends(get_db)):
@@ -982,9 +1001,10 @@ async def dossie_publico(token: str, request: Request, db=Depends(get_db)):
         await db.geo_urbano_projetos.update_one(
             {"id": doc["id"]}, {"$inc": {"link_views": 1}, "$set": sets})
     plat = _platform_url()
-    pdf_url = f"{plat}/api/topografia/geo-urbano/publico/dossie/{token}/pdf"
+    base = f"{plat}/api/topografia/geo-urbano/publico/dossie/{token}"
     og_img = f"{plat}/pagamento/logo-romatec.png"
-    return HTMLResponse(_pagina_dossie_html(doc, pdf_url, og_img))
+    kml_url = f"{base}/kml" if (doc.get("vertices") or []) else None
+    return HTMLResponse(_pagina_dossie_html(doc, f"{base}/pdf", og_img, kml_url))
 
 
 # ──────────────────────────────────────────────────────────────────────────────

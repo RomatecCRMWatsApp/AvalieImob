@@ -200,6 +200,13 @@ def test_area_declarada_prevalece_e_arredonda():
     assert "300,00 m²" in html and "300.0142" not in html
 
 
+def test_pagina_dossie_botao_kml():
+    from routes.geo_urbano import _pagina_dossie_html
+    p = _proj()
+    assert "Ver o Mapa (KML" in _pagina_dossie_html(p, "a", "b", "https://x/kml")
+    assert "Ver o Mapa" not in _pagina_dossie_html(p, "a", "b")   # sem kml_url → sem botão
+
+
 def test_qualificacao_requerente_completa():
     proj = _proj()
     proj["proprietario_natureza"] = "pj"
