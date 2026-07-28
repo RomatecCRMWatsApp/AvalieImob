@@ -572,6 +572,9 @@ class PerfilAvaliadorBase(BaseModel):
     empresa_nome: str = ""
     empresa_cnpj: str = ""
     empresa_razao_social: str = ""
+    # Timbre (letterhead) nas peças de Topografia & Geo — quando ativo, o cabeçalho
+    # das peças traz contato/endereço/empresa/RT já cadastrados no perfil.
+    timbre_ativo: bool = False
     areas_atuacao: List[str] = []
     membro_associacoes: List[str] = []
     numero_laudos_emitidos: int = 0

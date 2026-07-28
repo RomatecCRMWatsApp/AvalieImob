@@ -937,6 +937,33 @@ _UPLOAD_TIPOS_DOSSIE = ["imagem_localizacao", "foto_imovel", "mapa_coordenadas",
                         "doc_proprietario_pj", "art_trt_pdf", "art_trt_boleto", "outros"]
 
 
+async def _injetar_timbre(db, uid: str, doc: dict):
+    """Carrega o timbre (letterhead) do perfil em doc['_timbre'] quando o avaliador
+    ativou `timbre_ativo` — usa os dados JÁ cadastrados (contato/endereço/empresa/RT)."""
+    try:
+        perfil = await db.perfil_avaliador.find_one({"user_id": uid}) or {}
+        if not perfil.get("timbre_ativo"):
+            return
+        rt = doc.get("responsavel_tecnico") or {}
+        endereco = " ".join([x for x in [
+            perfil.get("endereco_escritorio"), perfil.get("cidade"),
+            (f"- {perfil['uf']}" if perfil.get("uf") else None),
+            (f"CEP {perfil['cep']}" if perfil.get("cep") else None)] if x])
+        doc["_timbre"] = {
+            "empresa": perfil.get("empresa_nome") or perfil.get("empresa_razao_social") or "",
+            "telefone": perfil.get("telefone") or "",
+            "email": perfil.get("email_profissional") or "",
+            "site": perfil.get("site") or "",
+            "endereco": endereco,
+            "rt_nome": rt.get("nome") or perfil.get("nome_completo") or "",
+            "rt_titulo": rt.get("formacao") or "",
+            "rt_conselho": rt.get("conselho") or "",
+            "rt_incra": rt.get("credenciamento_incra") or "",
+        }
+    except Exception:  # noqa: BLE001
+        pass
+
+
 async def _uploads_bytes(doc, tipos):
     """{tipo: [bytes,...]} baixado do R2 p/ os tipos pedidos (best-effort)."""
     ub, uploads = {}, (doc.get("uploads") or {})
@@ -959,6 +986,7 @@ async def georref_documento(pid: str, tipo: str, tema: str = Query(None),
     doc = await _get(db, pid, uid)
     await _injetar_logo(db, uid, doc)
     await _injetar_assinatura_tecnico(db, uid, doc)
+    await _injetar_timbre(db, uid, doc)
     tema = tema or doc.get("tema") or "prime_i"
     try:
         data = await asyncio.to_thread(GU6GEN.gerar_peca, tipo, doc, tema, doc.get("_brand_logo_bytes"))
@@ -992,6 +1020,7 @@ async def georref_dossie(pid: str, tema: str = Query(None),
                                     "bloqueios": val["bloqueios"]})
     await _injetar_logo(db, uid, doc)
     await _injetar_assinatura_tecnico(db, uid, doc)
+    await _injetar_timbre(db, uid, doc)
     tema = tema or doc.get("tema") or "prime_i"
     ub = await _uploads_bytes(doc, _UPLOAD_TIPOS_DOSSIE)
     data = await asyncio.to_thread(GU6GEN.gerar_dossie, doc, ub, tema, doc.get("_brand_logo_bytes"))

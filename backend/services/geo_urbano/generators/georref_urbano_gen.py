@@ -235,13 +235,40 @@ def _marca_urbano(st):
                       st.get("small") or st["corpo"])]
 
 
+def _timbre_head(projeto: dict, st, L):
+    """Letterhead (timbre) configurável no Perfil — renderizado no topo da peça
+    quando o avaliador ativa `timbre_ativo`. Injetado em `projeto['_timbre']` pela
+    rota a partir dos dados JÁ existentes do perfil (contato/endereço/empresa/RT)."""
+    t = projeto.get("_timbre") or {}
+    if not t:
+        return []
+    linhas = []
+    if t.get("empresa"):
+        linhas.append(f"<b>{GP._esc(t['empresa'])}</b>")
+    contato = " · ".join([x for x in [t.get("telefone"), t.get("email"), t.get("site")] if x])
+    if contato:
+        linhas.append(GP._esc(contato))
+    if t.get("endereco"):
+        linhas.append(GP._esc(t["endereco"]))
+    rt = " · ".join([x for x in [
+        t.get("rt_nome"), t.get("rt_titulo"), t.get("rt_conselho"),
+        (f"INCRA {t['rt_incra']}" if t.get("rt_incra") else None)] if x])
+    if rt:
+        linhas.append(GP._esc(rt))
+    if not linhas:
+        return []
+    sm = st.get("small") or st["corpo"]
+    return [Paragraph(ln, sm) for ln in linhas] + [Spacer(1, 8)]
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Memoriais (§6)
 # ──────────────────────────────────────────────────────────────────────────────
 def memorial_perimetrico(projeto: dict, tema: str, logo_bytes=None) -> bytes:
     """MD-PER — descrição do perímetro vértice a vértice (formato do modelo real)."""
     cfg = GP._cfg(tema); st = GP._styles(cfg); L = PDF._largura()
-    story = GP._titulo("MEMORIAL DESCRITIVO PERIMÉTRICO", cfg, st, L)
+    story = _timbre_head(projeto, st, L)
+    story += GP._titulo("MEMORIAL DESCRITIVO PERIMÉTRICO", cfg, st, L)
     story.append(_ficha_georref(projeto, cfg, st, L))
     story += GP._secao("DESCRIÇÃO DO PERÍMETRO", cfg, st, L)
     story += GP._paras(descricao_perimetro(projeto), st["corpo"])
@@ -261,7 +288,8 @@ def memorial_situacao(projeto: dict, tema: str, logo_bytes=None) -> bytes:
     real). Nas finalidades municipais leva a linha da Superintendência de Habitação
     e Regularização Fundiária (aprovação); no financiamento bancário, só o RT."""
     cfg = GP._cfg(tema); st = GP._styles(cfg); L = PDF._largura()
-    story = GP._titulo("MEMORIAL DESCRITIVO", cfg, st, L)
+    story = _timbre_head(projeto, st, L)
+    story += GP._titulo("MEMORIAL DESCRITIVO", cfg, st, L)
     story.append(_ficha_georref(projeto, cfg, st, L))
     story += GP._secao("DESCRIÇÃO DO IMÓVEL", cfg, st, L)
     story += GP._paras(descricao_situacao(projeto), st["corpo"])
@@ -281,7 +309,8 @@ def memorial_situacao(projeto: dict, tema: str, logo_bytes=None) -> bytes:
 def memorial_sucinto(projeto: dict, tema: str, logo_bytes=None) -> bytes:
     """MD-SUC — descrição sucinta (1 página, formato p/ correspondente bancário)."""
     cfg = GP._cfg(tema); st = GP._styles(cfg); L = PDF._largura()
-    story = GP._titulo("DESCRIÇÃO SUCINTA (RESUMO TÉCNICO)", cfg, st, L)
+    story = _timbre_head(projeto, st, L)
+    story += GP._titulo("DESCRIÇÃO SUCINTA (RESUMO TÉCNICO)", cfg, st, L)
     verts = sorted(projeto.get("vertices") or [], key=lambda v: v.get("ordem", 0))
     amarr = verts[0] if verts else {}
     coord = "—"
@@ -312,7 +341,8 @@ def memorial_sucinto(projeto: dict, tema: str, logo_bytes=None) -> bytes:
 def memorial_area_construida(projeto: dict, tema: str, logo_bytes=None) -> bytes:
     """MD-CON — quadro de áreas edificadas (só com benfeitoria)."""
     cfg = GP._cfg(tema); st = GP._styles(cfg); L = PDF._largura()
-    story = GP._titulo("MEMORIAL DE ÁREA CONSTRUÍDA", cfg, st, L)
+    story = _timbre_head(projeto, st, L)
+    story += GP._titulo("MEMORIAL DE ÁREA CONSTRUÍDA", cfg, st, L)
     story.append(_ficha_identificacao(projeto, cfg, st, L))
     story += GP._secao("QUADRO DE ÁREAS EDIFICADAS", cfg, st, L)
     itens = projeto.get("areas_construidas") or []
@@ -350,7 +380,8 @@ def memorial_area_construida(projeto: dict, tema: str, logo_bytes=None) -> bytes
 # ──────────────────────────────────────────────────────────────────────────────
 def quadro_vertices(projeto: dict, tema: str, logo_bytes=None) -> bytes:
     cfg = GP._cfg(tema); st = GP._styles(cfg); L = PDF._largura()
-    story = GP._titulo("QUADRO DE VÉRTICES", cfg, st, L)
+    story = _timbre_head(projeto, st, L)
+    story += GP._titulo("QUADRO DE VÉRTICES", cfg, st, L)
     tab = PDF._tabela_vertices(projeto, cfg, st, L)
     story += tab or GP._paras("Nenhum vértice informado.", st["small"])
     story += _rodape_norma(st)
@@ -360,7 +391,8 @@ def quadro_vertices(projeto: dict, tema: str, logo_bytes=None) -> bytes:
 def mapa_lote_gerado(projeto: dict, tema: str, logo_bytes=None) -> bytes:
     """Planta do lote gerada (croqui vetorial + quadro), quando não há mapa anexado."""
     cfg = GP._cfg(tema); st = GP._styles(cfg); L = PDF._largura()
-    story = GP._titulo("MAPA DO LOTE (COORDENADAS)", cfg, st, L)
+    story = _timbre_head(projeto, st, L)
+    story += GP._titulo("MAPA DO LOTE (COORDENADAS)", cfg, st, L)
     story += PDF._secao_croqui(projeto, cfg, st, L)
     story += PDF._tabela_vertices(projeto, cfg, st, L)
     story += _rodape_norma(st)
@@ -371,7 +403,8 @@ def planta_quadra_gerada(projeto: dict, tema: str, logo_bytes=None) -> bytes:
     """Planta de quadra (§8, modo 'gerada'): croqui do lote objeto + quadro de
     lotes/vias da quadra + cota até a esquina."""
     cfg = GP._cfg(tema); st = GP._styles(cfg); L = PDF._largura()
-    story = GP._titulo("PLANTA DE QUADRA", cfg, st, L)
+    story = _timbre_head(projeto, st, L)
+    story += GP._titulo("PLANTA DE QUADRA", cfg, st, L)
     story += PDF._secao_croqui(projeto, cfg, st, L)
     qd = projeto.get("quadra_dados") or {}
     lotes = qd.get("lotes") or []
@@ -397,9 +430,10 @@ def planta_quadra_gerada(projeto: dict, tema: str, logo_bytes=None) -> bytes:
 # ──────────────────────────────────────────────────────────────────────────────
 def art_trt_peca(projeto: dict, tema: str, logo_bytes=None) -> bytes:
     cfg = GP._cfg(tema); st = GP._styles(cfg); L = PDF._largura()
+    story = _timbre_head(projeto, st, L)
     art = projeto.get("art_trt") or {}
     tipo = (art.get("tipo") or "TRT").upper()
-    story = GP._titulo(f"{tipo} — RESPONSABILIDADE TÉCNICA", cfg, st, L)
+    story += GP._titulo(f"{tipo} — RESPONSABILIDADE TÉCNICA", cfg, st, L)
     rt = projeto.get("responsavel_tecnico") or {}
     atividade = (art.get("atividade") or
                  "Levantamento topográfico planialtimétrico cadastral / georreferenciamento "
@@ -428,7 +462,8 @@ def apresentacao(projeto: dict, tema: str, logo_bytes=None) -> bytes:
     """Página de apresentação (§7.3). Texto default; sobrescrito por
     projeto['apresentacao_texto'] (rich text editado no front)."""
     cfg = GP._cfg(tema); st = GP._styles(cfg); L = PDF._largura()
-    story = GP._titulo("APRESENTAÇÃO", cfg, st, L)
+    story = _timbre_head(projeto, st, L)
+    story += GP._titulo("APRESENTAÇÃO", cfg, st, L)
     over = (projeto.get("apresentacao_texto") or "").strip()
     if over:
         story += GP._paras(over, st["corpo"])

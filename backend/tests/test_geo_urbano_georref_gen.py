@@ -142,3 +142,20 @@ def test_dossie_simplificado_sem_capa_menos_paginas():
     banco = GEN.gerar_dossie(_proj(), {}, "prime_i")
     # SIMPLIFICADO não tem capa+sumário → menos páginas que o BANCO
     assert _pages(simplificado) < _pages(banco)
+
+
+def test_timbre_renderiza_no_cabecalho_quando_ativo():
+    proj = _proj()
+    # sem timbre injetado → cabeçalho não traz o contato
+    assert "consultoriaromatec" not in _text(GEN.memorial_perimetrico(proj, "prime_i")).lower()
+    proj["_timbre"] = {
+        "empresa": "ROMATEC CONSULTORIA TOTAL", "telefone": "(99) 9 9181-1246",
+        "email": "romatec.cad@hotmail.com", "site": "www.consultoriaromatec.com.br",
+        "endereco": "Rua São Paulo, 161 - Centro Açailândia - MA CEP 65930-000",
+        "rt_nome": "José Romário Pinto Bezerra", "rt_titulo": "Técnico em Agrimensura",
+        "rt_conselho": "CFT/MA 01209185369", "rt_incra": "FQNS",
+    }
+    txt = _text(GEN.memorial_perimetrico(proj, "prime_i"))
+    assert "ROMATEC CONSULTORIA TOTAL" in txt
+    assert "consultoriaromatec" in txt.lower()
+    assert "Rua São Paulo, 161" in txt
