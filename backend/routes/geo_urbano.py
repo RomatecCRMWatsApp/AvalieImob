@@ -37,6 +37,7 @@ from services.geo_urbano.seed import build_seed
 from services.geo_urbano.generators import pdf as PDF
 from services.geo_urbano.generators import dossie as DOSSIE
 from services.geo_urbano.generators import capa as CAPA
+from services.geo_urbano.generators import georref_urbano_gen as GU6GEN
 
 logger = logging.getLogger("romatec")
 router = APIRouter(prefix="/topografia/geo-urbano", tags=["topografia-geo-urbano"])
@@ -928,6 +929,75 @@ async def georref_quadra(pid: str, body: dict,
 @router.post("/projetos/{pid}/georref/validar")
 async def georref_validar(pid: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
     return GU6.validar(await _get(db, pid, uid))
+
+
+# Tipos de upload que compõem o dossiê georref urbano (baixados do R2).
+_UPLOAD_TIPOS_DOSSIE = ["imagem_localizacao", "foto_imovel", "mapa_coordenadas",
+                        "planta_quadra", "matricula_imovel", "doc_proprietario_pf",
+                        "doc_proprietario_pj", "art_trt_pdf", "art_trt_boleto", "outros"]
+
+
+async def _uploads_bytes(doc, tipos):
+    """{tipo: [bytes,...]} baixado do R2 p/ os tipos pedidos (best-effort)."""
+    ub, uploads = {}, (doc.get("uploads") or {})
+    for tp in tipos:
+        blobs = []
+        for it in uploads.get(tp) or []:
+            if it.get("key"):
+                try:
+                    blobs.append(await asyncio.to_thread(r2_storage.download_bytes, it["key"]))
+                except Exception:  # noqa: BLE001
+                    pass
+        if blobs:
+            ub[tp] = blobs
+    return ub
+
+
+@router.get("/projetos/{pid}/georref/documento/{tipo}")
+async def georref_documento(pid: str, tipo: str, tema: str = Query(None),
+                            uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    doc = await _get(db, pid, uid)
+    await _injetar_logo(db, uid, doc)
+    await _injetar_assinatura_tecnico(db, uid, doc)
+    tema = tema or doc.get("tema") or "prime_i"
+    try:
+        data = await asyncio.to_thread(GU6GEN.gerar_peca, tipo, doc, tema, doc.get("_brand_logo_bytes"))
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    nome = f"{tipo}_{doc.get('numero') or pid}.pdf"
+    return Response(content=data, media_type=_PDF,
+                    headers={"Content-Disposition": f'inline; filename="{nome}"'})
+
+
+@router.get("/projetos/{pid}/georref/capa/preview")
+async def georref_capa_preview(pid: str, tema: str = Query(None),
+                               uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    doc = await _get(db, pid, uid)
+    tema = tema or doc.get("tema") or "prime_i"
+    ub = await _uploads_bytes(doc, ["foto_imovel", "imagem_localizacao"])
+    foto = (ub.get("foto_imovel") or [None])[0]
+    imgloc = (ub.get("imagem_localizacao") or [None])[0]
+    png = await asyncio.to_thread(GU6GEN.capa_georref_png, doc, foto, imgloc, tema)
+    return Response(content=png, media_type="image/png")
+
+
+@router.get("/projetos/{pid}/georref/dossie")
+async def georref_dossie(pid: str, tema: str = Query(None),
+                         uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    doc = await _get(db, pid, uid)
+    val = GU6.validar(doc)
+    if not val["ok"]:
+        raise HTTPException(status_code=422,
+                            detail={"msg": "Corrija os bloqueios antes de gerar o dossiê.",
+                                    "bloqueios": val["bloqueios"]})
+    await _injetar_logo(db, uid, doc)
+    await _injetar_assinatura_tecnico(db, uid, doc)
+    tema = tema or doc.get("tema") or "prime_i"
+    ub = await _uploads_bytes(doc, _UPLOAD_TIPOS_DOSSIE)
+    data = await asyncio.to_thread(GU6GEN.gerar_dossie, doc, ub, tema, doc.get("_brand_logo_bytes"))
+    nome = f"dossie_georref_{doc.get('numero') or pid}.pdf"
+    return Response(content=data, media_type=_PDF,
+                    headers={"Content-Disposition": f'inline; filename="{nome}"'})
 
 
 # Presets de composição (modelos do usuário — cross-módulo: georref/geo_urbano/onr)
