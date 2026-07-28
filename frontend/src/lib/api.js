@@ -946,6 +946,7 @@ export const geoUrbanoAPI = {
   },
   georrefQuadra: (id, body) => api.post(`${GEOURB}/projetos/${id}/georref/quadra`, body).then((r) => r.data),
   georrefValidar: (id) => api.post(`${GEOURB}/projetos/${id}/georref/validar`).then((r) => r.data),
+  georrefExtrair: (id) => api.post(`${GEOURB}/projetos/${id}/georref/extrair`).then((r) => r.data),
   georrefDocumento: (id, tipo, tema) =>
     api.get(`${GEOURB}/projetos/${id}/georref/documento/${tipo}`,
       { params: { ...(tema ? { tema } : {}) }, responseType: 'blob' }).then((r) => r.data),

@@ -128,6 +128,8 @@ _DEFINICAO_POR_FINALIDADE = {
 # p/ gerar). {chave: (rótulo, obrigatorio, multiplo)}.
 TIPOS_UPLOAD = [
     ("mapa_coordenadas", "Mapa/planta do lote com coordenadas", True),
+    ("memorial_coordenadas", "Memorial Descritivo de Coordenadas (extrair vértices)", False),
+    ("memorial_situacao", "Memorial de Localização e Situação (extrair quadra)", False),
     ("imagem_localizacao", "Imagem de localização (satélite/aérea)", False),
     ("foto_imovel", "Foto do imóvel/fachada", False),
     ("planta_quadra", "Planta de quadra", False),
@@ -142,7 +144,8 @@ TIPOS_UPLOAD = [
 # tipos de upload NOVOS deste serviço (os que ainda não existem em _TIPOS_UPLOAD
 # do routes; foto_imovel/art_trt_boleto já existem no módulo).
 UPLOADS_NOVOS = {
-    "mapa_coordenadas", "imagem_localizacao", "planta_quadra", "matricula_imovel",
+    "mapa_coordenadas", "memorial_coordenadas", "memorial_situacao",
+    "imagem_localizacao", "planta_quadra", "matricula_imovel",
     "doc_proprietario_pf", "doc_proprietario_pj", "art_trt_pdf", "iptu_bci", "outros",
 }
 

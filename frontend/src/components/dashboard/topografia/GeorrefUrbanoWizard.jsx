@@ -6,7 +6,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ChevronLeft, ChevronRight, Upload, Trash2, FileText, Eye,
-  MapPin, CheckCircle2, AlertTriangle, Plus, Image as ImageIcon, Link2,
+  MapPin, CheckCircle2, AlertTriangle, Plus, Image as ImageIcon, Link2, Sparkles,
 } from 'lucide-react';
 import { geoUrbanoAPI, perfilAPI } from '../../../lib/api';
 import { useToast } from '../../../hooks/use-toast';
@@ -248,7 +248,9 @@ export default function GeorrefUrbanoWizard() {
 function UploadsStep({ proj, id, opcoes, onChange, recomporPreview }) {
   const { toast } = useToast();
   const [busy, setBusy] = useState(null);
+  const [extraindo, setExtraindo] = useState(false);
   const uploads = proj.uploads || {};
+  const temMemorial = (uploads.memorial_coordenadas || []).length || (uploads.memorial_situacao || []).length;
   const enviar = async (tipo, file) => {
     if (!file) return;
     setBusy(tipo);
@@ -259,7 +261,29 @@ function UploadsStep({ proj, id, opcoes, onChange, recomporPreview }) {
   const remover = async (tipo, itemId) => {
     try { await geoUrbanoAPI.removerUpload(id, tipo, itemId); await onChange(); recomporPreview(); } catch { /* */ }
   };
+  const extrair = async () => {
+    setExtraindo(true);
+    try {
+      const r = await geoUrbanoAPI.georrefExtrair(id);
+      await onChange();
+      recomporPreview();
+      toast({ title: `Dados extraídos ✓ (${r.vertices || 0} vértices)`, description: 'Confira e edite nas etapas seguintes — nada trava.' });
+    } catch (e) {
+      toast({ title: 'Erro ao extrair', description: (e?.response?.data?.detail || '').toString().slice(0, 140), variant: 'destructive' });
+    } finally { setExtraindo(false); }
+  };
   return (
+    <>
+    <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3 mb-3 flex items-center justify-between gap-3">
+      <div className="text-sm text-gray-700">
+        Anexe o <strong>Memorial de Coordenadas</strong> (e o de Situação) e clique em <strong>Extrair</strong> —
+        o sistema preenche identificação, vértices e a quadra automaticamente. Tudo fica <strong>editável</strong> depois.
+      </div>
+      <button onClick={extrair} disabled={extraindo || !temMemorial}
+        className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-40" style={{ background: GREEN }}>
+        <Sparkles className="w-4 h-4" /> {extraindo ? 'Extraindo…' : 'Extrair dos documentos'}
+      </button>
+    </div>
     <div className="grid sm:grid-cols-2 gap-3">
       {(opcoes?.uploads || []).map((u) => {
         const itens = uploads[u.chave] || [];
@@ -283,6 +307,7 @@ function UploadsStep({ proj, id, opcoes, onChange, recomporPreview }) {
         );
       })}
     </div>
+    </>
   );
 }
 

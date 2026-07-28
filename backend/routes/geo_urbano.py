@@ -63,7 +63,8 @@ _TIPOS_UPLOAD = {
     "certidao_distribuidor", "prova_posse", "doc_requerente", "foto_imovel",
     "doc_advogado", "carteira_oab",   # identidade + carteira da OAB do advogado (art. 216-A)
     # Georref. de lote urbano (Fase 6) — quase tudo opcional; ver georref_urbano.TIPOS_UPLOAD
-    "mapa_coordenadas", "imagem_localizacao", "planta_quadra", "matricula_imovel",
+    "mapa_coordenadas", "memorial_coordenadas", "memorial_situacao",
+    "imagem_localizacao", "planta_quadra", "matricula_imovel",
     "doc_proprietario_pf", "doc_proprietario_pj", "art_trt_pdf", "iptu_bci", "outros",
 }
 _MAX_UPLOAD = 30 * 1024 * 1024
@@ -1014,6 +1015,77 @@ async def georref_quadra(pid: str, body: dict,
 @router.post("/projetos/{pid}/georref/validar")
 async def georref_validar(pid: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
     return GU6.validar(await _get(db, pid, uid))
+
+
+@router.post("/projetos/{pid}/georref/extrair")
+async def georref_extrair(pid: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    """Lê os Memoriais anexados (Coordenadas + Situação) e AUTO-PREENCHE o projeto —
+    respeita `campos_editados` (não sobrescreve o que o usuário já alterou à mão)."""
+    from services.geo_urbano import extractor_georref as EXG
+    doc = await _get(db, pid, uid)
+    ub = await _uploads_bytes(doc, ["memorial_coordenadas", "memorial_situacao"])
+    coord = (ub.get("memorial_coordenadas") or [None])[0]
+    sit = (ub.get("memorial_situacao") or [None])[0]
+    if not coord and not sit:
+        raise HTTPException(status_code=422,
+                            detail="Anexe o Memorial de Coordenadas (e/ou o de Situação) para extrair.")
+    extra = await asyncio.to_thread(EXG.extrair_georref, coord, sit)
+    editados = dict(doc.get("campos_editados") or {})
+    sets = {}
+
+    def _set(campo, val):
+        if val in (None, "", []) or editados.get(campo):
+            return
+        sets[campo] = val
+
+    if extra.get("bairro"):
+        _set("loteamento", extra["bairro"])
+        _set("bairro", extra["bairro"])
+    _set("endereco", extra.get("rua"))
+    _set("quadra", extra.get("quadra"))
+    _set("lote_resultante", extra.get("lote"))
+    _set("municipio", extra.get("municipio"))
+    _set("uf", extra.get("uf"))
+    _set("cmi_resultante", extra.get("cim_base"))
+    _set("cmi_controle", extra.get("cim_controle"))
+    _set("area_declarada", extra.get("area"))
+    # denominação (só se vazia)
+    if not (doc.get("denominacao_imovel") or "").strip() and extra.get("lote") and extra.get("quadra"):
+        denom = f"Lote nº {extra['lote']} da Quadra nº {extra['quadra']}"
+        if extra.get("bairro"):
+            denom += f" — {extra['bairro']}"
+        sets["denominacao_imovel"] = denom
+    # vértices (recalcula área/perímetro)
+    if extra.get("vertices") and not editados.get("vertices"):
+        sets["vertices"] = extra["vertices"]
+        sets["area_calculada_m2"] = GEOM.area_m2(extra["vertices"])
+        sets["perimetro_m"] = GEOM.perimetro_m(extra["vertices"])
+    # quadra_dados (formato/vias/esquina) — merge
+    if extra.get("quadra_dados"):
+        qd = dict(doc.get("quadra_dados") or {})
+        qd.update(extra["quadra_dados"])
+        sets["quadra_dados"] = qd
+    # levantamento (meridiano/fuso)
+    lev = dict(doc.get("levantamento") or {})
+    if extra.get("meridiano_central"):
+        lev["meridiano_central"] = extra["meridiano_central"]
+    if extra.get("fuso"):
+        lev["fuso"] = extra["fuso"]
+    lev.setdefault("sistema", "SIRGAS 2000 / UTM")
+    if lev != (doc.get("levantamento") or {}):
+        sets["levantamento"] = lev
+
+    if not sets:
+        return {"ok": True, "campos": [], "vertices": len(extra.get("vertices") or []),
+                "aviso": "Nada novo a preencher (campos já editados ou memorial sem dados legíveis)."}
+    sets["extracao_em"] = _agora().isoformat()
+    sets["extracao_por"] = uid
+    sets["updated_at"] = _agora().isoformat()
+    base = {**doc, **sets}
+    sets["completude"] = calcular_completude(base)
+    await db.geo_urbano_projetos.update_one({"id": pid, "user_id": uid}, {"$set": sets})
+    return {"ok": True, "campos": [k for k in sets if not k.startswith(("extracao", "updated", "completude"))],
+            "vertices": len(extra.get("vertices") or [])}
 
 
 # Tipos de upload que compõem o dossiê georref urbano (baixados do R2).
