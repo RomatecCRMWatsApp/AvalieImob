@@ -1011,6 +1011,11 @@ export const onrSigriAPI = {
   anexoOrdem: (id, ordem) => api.post(`${ONRSIG}/jobs/${id}/anexos/ordem`, { ordem }).then((r) => r.data),
   anexoExcluir: (id, aid) => api.delete(`${ONRSIG}/jobs/${id}/anexo/${aid}`).then((r) => r.data),
   anexoView: (id, aid) => api.get(`${ONRSIG}/jobs/${id}/anexo/${aid}`, { responseType: 'blob' }).then((r) => r.data),
+  // Composição do Dossiê de protocolo (capa/descrição + anexos ON/OFF)
+  composicaoOpcoes: () => api.get(`${ONRSIG}/composicao/opcoes`).then((r) => r.data),
+  composicaoPreview: (id) => api.get(`${ONRSIG}/jobs/${id}/composicao/preview`).then((r) => r.data),
+  salvarComposicao: (id, body) => api.post(`${ONRSIG}/jobs/${id}/composicao`, body).then((r) => r.data),
+  dossie: (id) => api.get(`${ONRSIG}/jobs/${id}/dossie`, { responseType: 'blob' }).then((r) => r.data),
 };
 
 // Geo Urbano — assinatura pública do proprietário (página mobile, sem auth)

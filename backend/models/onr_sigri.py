@@ -70,6 +70,9 @@ class OnrJob(BaseModel):
     uploads: dict = Field(default_factory=dict)            # {mapa|memorial|art_trt|certidao: [{...}]}
     # Anexos do processo — documentos classificáveis/renomeáveis/reordenáveis
     anexos: List[dict] = Field(default_factory=list)       # [{id,key,nome,tipo,filename,mime,ordem}]
+    # Composição do Dossiê de protocolo (capa/descrição + quais anexos entram).
+    # Vazio = tudo entra (retrocompatível). Ver services/onr_sigri/composicao.py.
+    composicao: dict = Field(default_factory=dict)
     onr_justificativas: List[dict] = Field(default_factory=list)
     onr_validacao: dict = Field(default_factory=dict)
     # Miniatura de satélite (data-URI) p/ o card da lista + conclusão
@@ -145,3 +148,12 @@ class AnexoBody(BaseModel):
 class OrdemBody(BaseModel):
     """Nova ordem dos anexos (lista de ids)."""
     ordem: List[str] = Field(default_factory=list)
+
+
+class ComposicaoOnrBody(BaseModel):
+    """Atualiza a composição do Dossiê de protocolo. Preset OU toggles."""
+    preset: Optional[str] = None
+    capa: Optional[bool] = None
+    descricao_poligono: Optional[bool] = None
+    anexo_id: Optional[str] = None         # toggle de UM anexo
+    ligada: Optional[bool] = None          # estado do anexo_id

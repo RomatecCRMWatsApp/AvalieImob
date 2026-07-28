@@ -19,6 +19,7 @@ from db import get_db
 from dependencies import get_active_subscriber, serialize_doc
 from models.onr_sigri import (
     OnrJob, CriarOnrBody, AtualizarOnrBody, JustificarOnrBody, AnexoBody, OrdemBody,
+    ComposicaoOnrBody,
 )
 from services import r2_storage
 from services.geo_urbano import geo_export as GEXP
@@ -26,6 +27,8 @@ from services.geo_urbano import validacao_onr as VALID
 from services.geo_urbano import extractor as EX
 from services.onr_sigri import extractor_onr as OX
 from services.onr_sigri import satelite as SAT
+from services.onr_sigri import composicao as COMP
+from services.onr_sigri import dossie as DOSSIE
 
 logger = logging.getLogger("romatec")
 router = APIRouter(prefix="/topografia/onr-sigri", tags=["topografia-onr-sigri"])
@@ -460,3 +463,66 @@ async def gerar_preview(jid: str, uid: str = Depends(get_active_subscriber), db=
     if b64:
         await db.onr_sigri_jobs.update_one({"id": jid, "user_id": uid}, {"$set": {"preview_b64": b64}})
     return {"ok": bool(b64), "preview_b64": b64}
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Composição do Dossiê de protocolo (capa/descrição + anexos ON/OFF) + Dossiê PDF
+# ──────────────────────────────────────────────────────────────────────────────
+@router.get("/composicao/opcoes")
+async def composicao_opcoes(uid: str = Depends(get_active_subscriber)):
+    return COMP.opcoes()
+
+
+@router.get("/jobs/{jid}/composicao/preview")
+async def composicao_preview(jid: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    return COMP.resolver_composicao(await _get(db, jid, uid))
+
+
+@router.post("/jobs/{jid}/composicao")
+async def salvar_composicao(jid: str, body: ComposicaoOnrBody,
+                            uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    doc = await _get(db, jid, uid)
+    comp = dict(doc.get("composicao") or COMP.composicao_default())
+    comp.setdefault("anexos_off", list(comp.get("anexos_off") or []))
+    if body.preset is not None:
+        comp["preset"] = body.preset
+        comp["anexos_off"] = COMP.anexos_off_do_preset(doc, body.preset)
+    if body.capa is not None:
+        comp["capa"] = body.capa
+    if body.descricao_poligono is not None:
+        comp["descricao_poligono"] = body.descricao_poligono
+    if body.anexo_id is not None:                       # toggle de um anexo → PERSONALIZADO
+        off = set(comp.get("anexos_off") or [])
+        if body.ligada:
+            off.discard(body.anexo_id)
+        else:
+            off.add(body.anexo_id)
+        comp["anexos_off"] = list(off)
+        comp["preset"] = "PERSONALIZADO"
+    await db.onr_sigri_jobs.update_one(
+        {"id": jid, "user_id": uid}, {"$set": {"composicao": comp, "updated_at": _agora().isoformat()}})
+    return COMP.resolver_composicao({**doc, "composicao": comp})
+
+
+@router.get("/jobs/{jid}/dossie")
+async def baixar_dossie(jid: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    """Dossiê de protocolo (PDF): capa + descrição + anexos selecionados na composição."""
+    doc = await _get(db, jid, uid)
+    comp = doc.get("composicao") or COMP.composicao_default()
+    anexos_meta = COMP.anexos_ligados(doc)
+    anexos = []
+    for a in anexos_meta:
+        if not a.get("key"):
+            continue
+        try:
+            raw = await asyncio.to_thread(r2_storage.download_bytes, a["key"])
+        except Exception:  # noqa: BLE001
+            raw = None
+        if raw:
+            anexos.append({"nome": a.get("nome"), "mime": a.get("mime"), "bytes": raw})
+    data = await asyncio.to_thread(
+        DOSSIE.gerar_dossie, doc, bool(comp.get("capa", True)),
+        bool(comp.get("descricao_poligono", True)), anexos)
+    nome = f"{_nome_arquivo(doc)}_Dossie.pdf"
+    return Response(content=data, media_type=_PDF,
+                    headers={"Content-Disposition": f'inline; filename="{nome}"'})

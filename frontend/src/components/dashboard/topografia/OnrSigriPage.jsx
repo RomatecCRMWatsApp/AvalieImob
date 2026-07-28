@@ -80,6 +80,77 @@ function descricaoPoligono(job) {
   return t;
 }
 
+const GOLD = '#C9A84C';
+
+// Composição do Dossiê de protocolo (capa/descrição + anexos ON/OFF) + download do PDF.
+function ComposicaoDossie({ id, anexosCount, toast }) {
+  const [comp, setComp] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const carregar = useCallback(async () => {
+    try { setComp(await onrSigriAPI.composicaoPreview(id)); } catch { /* noop */ }
+  }, [id]);
+  useEffect(() => { carregar(); }, [carregar, anexosCount]);
+  const aplicar = async (body) => {
+    setBusy(true);
+    try { setComp(await onrSigriAPI.salvarComposicao(id, body)); }
+    catch { toast({ title: 'Erro ao salvar a composição', variant: 'destructive' }); }
+    finally { setBusy(false); }
+  };
+  const baixar = async () => {
+    const win = window.open('', '_blank');
+    try { const b = await onrSigriAPI.dossie(id); if (win) win.location = URL.createObjectURL(b); }
+    catch { if (win) win.close(); toast({ title: 'Erro ao gerar o dossiê', variant: 'destructive' }); }
+  };
+  if (!comp) return null;
+  const presets = [['COMPLETO', 'Completo'], ['PROTOCOLO', 'Protocolo'], ['SIMPLIFICADO', 'Simplificado']];
+  return (
+    <section className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-4 mb-4">
+      <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+        <div>
+          <h2 className="font-semibold text-sm" style={{ color: GREEN }}>Dossiê de protocolo (PDF)</h2>
+          <p className="text-[11px] text-gray-500">{comp.total_no_dossie} peça(s) · escolha um modelo ou marque item a item.</p>
+        </div>
+        <div className="flex gap-1.5 flex-wrap">
+          {presets.map(([pr, lb]) => (
+            <button key={pr} disabled={busy} onClick={() => aplicar({ preset: pr })}
+              className={`text-xs px-3 py-1.5 rounded-lg border font-medium ${comp.preset === pr ? 'text-white' : 'bg-white text-gray-700'}`}
+              style={comp.preset === pr ? { background: GREEN, borderColor: GREEN } : {}}>{lb}</button>
+          ))}
+          {comp.preset === 'PERSONALIZADO' && (
+            <span className="text-xs px-3 py-1.5 rounded-lg text-white font-medium" style={{ background: GOLD }}>Personalizado</span>
+          )}
+        </div>
+      </div>
+      <div className="grid sm:grid-cols-2 gap-1.5">
+        <label className="flex items-center gap-2 text-sm border rounded-lg px-3 py-2 bg-white cursor-pointer">
+          <input type="checkbox" disabled={busy} checked={comp.capa} onChange={(e) => aplicar({ capa: e.target.checked })} />
+          <span className="flex-1">Capa (identificação do imóvel)</span>
+        </label>
+        <label className={`flex items-center gap-2 text-sm border rounded-lg px-3 py-2 ${comp.descricao_habilitada ? 'bg-white cursor-pointer' : 'opacity-55 bg-gray-50 cursor-not-allowed'}`}>
+          <input type="checkbox" disabled={busy || !comp.descricao_habilitada} checked={comp.descricao_poligono}
+            onChange={(e) => aplicar({ descricao_poligono: e.target.checked })} />
+          <span className="flex-1">Descrição do polígono</span>
+          {!comp.descricao_habilitada && <span className="text-[10px] text-amber-600">sem poligonal</span>}
+        </label>
+        {comp.anexos.map((a) => (
+          <label key={a.id} className="flex items-center gap-2 text-sm border rounded-lg px-3 py-2 bg-white cursor-pointer">
+            <input type="checkbox" disabled={busy} checked={a.ligada}
+              onChange={(e) => aplicar({ anexo_id: a.id, ligada: e.target.checked })} />
+            <span className="flex-1 min-w-0 truncate" title={a.nome}>{a.nome}</span>
+            <span className="text-[10px] text-gray-400 whitespace-nowrap">{a.tipo}</span>
+          </label>
+        ))}
+      </div>
+      <div className="flex items-center gap-2 mt-3 flex-wrap">
+        <button onClick={baixar} className="text-xs inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-white" style={{ background: GREEN }}>
+          <FileText className="w-3.5 h-3.5" /> Baixar Dossiê de protocolo (PDF)
+        </button>
+        <span className="text-[10px] text-gray-500">Consolida capa + descrição + os anexos selecionados num único PDF.</span>
+      </div>
+    </section>
+  );
+}
+
 export default function OnrSigriPage() {
   const { toast } = useToast();
   const [jobs, setJobs] = useState(null);
@@ -389,6 +460,8 @@ function Detalhe({ job: job0, onBack, toast }) {
         )}
         <p className="text-[10px] text-gray-400 mt-2">Classifique cada arquivo, renomeie e use ▲▼ para ordenar a sequência. Clique no olho para visualizar pelo site.</p>
       </section>
+
+      <ComposicaoDossie id={id} anexosCount={anexos.length} toast={toast} />
 
       {/* 4. Descrição do polígono (para colar no ONR) */}
       <section className="rounded-xl border border-amber-200 bg-amber-50/40 p-4 mb-4">
