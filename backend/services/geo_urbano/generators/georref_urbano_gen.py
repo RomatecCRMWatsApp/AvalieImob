@@ -695,11 +695,21 @@ def gerar_dossie(projeto: dict, uploads_bytes: dict, tema: str = "prime_i", logo
         if k == "imagem_localizacao":
             secoes.append((lbl, _anexo_secao(lbl, ub.get("imagem_localizacao"))))
         elif k == "mapa_lote":
-            up = ub.get("mapa_coordenadas")
-            secoes.append((lbl, _anexo_secao(lbl, up) if up else _gerado("mapa_lote")))
+            # assinado > upload (mapa/planta pronto) > croqui gerado
+            if assin.get("mapa_lote"):
+                secoes.append((lbl, assin["mapa_lote"]))
+            elif ub.get("mapa_coordenadas"):
+                secoes.append((lbl, _anexo_secao(lbl, ub.get("mapa_coordenadas"))))
+            else:
+                secoes.append((lbl, gerar_peca("mapa_lote", projeto, tema, logo_bytes)))
         elif k == "planta_quadra":
-            up = ub.get("planta_quadra")
-            secoes.append((lbl, _anexo_secao(lbl, up) if up else _gerado("planta_quadra")))
+            # assinado > upload (planta de quadra anexada) > croqui gerado
+            if assin.get("planta_quadra"):
+                secoes.append((lbl, assin["planta_quadra"]))
+            elif ub.get("planta_quadra"):
+                secoes.append((lbl, _anexo_secao(lbl, ub.get("planta_quadra"))))
+            else:
+                secoes.append((lbl, gerar_peca("planta_quadra", projeto, tema, logo_bytes)))
         elif k == "relatorio_fotografico":
             secoes.append((lbl, _anexo_secao(lbl, ub.get("foto_imovel"))))
         elif k == "art_trt":

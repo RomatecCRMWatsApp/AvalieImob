@@ -161,6 +161,31 @@ def test_timbre_renderiza_no_cabecalho_quando_ativo():
     assert "Rua São Paulo, 161" in txt
 
 
+def _pdf_paginas(n):
+    import io as _io
+    from reportlab.lib.pagesizes import A4
+    from reportlab.pdfgen import canvas as _c
+    buf = _io.BytesIO(); c = _c.Canvas(buf, pagesize=A4)
+    for i in range(n):
+        c.drawString(60, 700, f"pagina {i + 1}"); c.showPage()
+    c.save()
+    return buf.getvalue()
+
+
+def test_dossie_usa_planta_quadra_anexada_nao_o_croqui():
+    # Planta de Quadra ANEXADA (upload) deve entrar no dossiê — não o croqui gerado.
+    # (pagina_documento rasteriza o PDF → conta por nº de páginas, não por texto.)
+    proj = _proj()  # quadra_dados.modo_planta='gerada' → planta_quadra habilitada mesmo sem upload
+    proj["composicao"] = {"preset": "COMPLETO", "pecas": GU6.preset_pecas("COMPLETO"), "ordem": list(GU6.PECAS)}
+    croqui = _pages(GEN.gerar_dossie(proj, {}, "prime_i"))            # planta = croqui (1 pág)
+    projU = {**proj, "uploads": {"planta_quadra": [{"id": "1", "key": "k"}]}}
+    anexo3 = _pages(GEN.gerar_dossie(projU, {"planta_quadra": [_pdf_paginas(3)]}, "prime_i"))  # anexo (3 págs)
+    assert anexo3 == croqui + 2       # o anexo de 3 págs substituiu o croqui de 1 pág
+    assinada5 = _pages(GEN.gerar_dossie(projU, {"planta_quadra": [_pdf_paginas(3)]}, "prime_i",
+                                        None, {"planta_quadra": _pdf_paginas(5)}))
+    assert assinada5 > anexo3         # a peça ASSINADA (5) tem prioridade sobre o anexo (3)
+
+
 def test_qualificacao_requerente_completa():
     proj = _proj()
     proj["proprietario_natureza"] = "pj"

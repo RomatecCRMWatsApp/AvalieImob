@@ -779,7 +779,7 @@ async def _peca_pdf_bytes(db, doc, tipo, tema):
         return await _dossie_bytes(db, doc, tema)
     if doc.get("tipo_servico") == "georref_urbano":
         try:
-            return await asyncio.to_thread(GU6GEN.gerar_peca, tipo, doc, tema, doc.get("_brand_logo_bytes"))
+            return await _georref_peca_pdf(db, doc.get("user_id"), doc, tipo, tema)
         except ValueError:
             raise HTTPException(status_code=422, detail=f"Peça inválida: {tipo}")
     assinadas = await _pecas_assinadas(db, doc)
@@ -1278,6 +1278,26 @@ async def _uploads_bytes(doc, tipos):
     return ub
 
 
+# Peças georref que, quando o usuário ANEXA o arquivo, usam o UPLOAD em vez de gerar
+# (a Planta de Quadra e o Mapa do Lote são plantas prontas do agrimensor).
+_GEORREF_PECA_UPLOAD = {"mapa_lote": "mapa_coordenadas", "planta_quadra": "planta_quadra"}
+
+
+async def _georref_peca_pdf(db, uid, doc, peca, tema):
+    """PDF de UMA peça georref. Para planta_quadra/mapa_lote, se houver arquivo
+    ANEXADO, usa o upload (PDF, ou imagem→PDF); senão gera via GU6GEN.gerar_peca."""
+    up_tipo = _GEORREF_PECA_UPLOAD.get(peca)
+    if up_tipo:
+        ups = await _uploads_bytes(doc, [up_tipo])
+        raw = (ups.get(up_tipo) or [None])[0]
+        if raw:
+            if raw[:5] == b"%PDF-":
+                return raw
+            from services.georef.generators.dossie import _img_para_pdf
+            return await asyncio.to_thread(_img_para_pdf, raw)
+    return await asyncio.to_thread(GU6GEN.gerar_peca, peca, doc, tema, doc.get("_brand_logo_bytes"))
+
+
 @router.get("/projetos/{pid}/georref/documento/{tipo}")
 async def georref_documento(pid: str, tipo: str, tema: str = Query(None),
                             uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
@@ -1287,7 +1307,7 @@ async def georref_documento(pid: str, tipo: str, tema: str = Query(None),
     await _injetar_timbre(db, uid, doc)
     tema = tema or doc.get("tema") or "prime_i"
     try:
-        data = await asyncio.to_thread(GU6GEN.gerar_peca, tipo, doc, tema, doc.get("_brand_logo_bytes"))
+        data = await _georref_peca_pdf(db, uid, doc, tipo, tema)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     nome = f"{tipo}_{doc.get('numero') or pid}.pdf"
@@ -1693,7 +1713,7 @@ async def preparar_assinatura(pid: str, body: AssinarPecaBody,
     servico = doc.get("tipo_servico") or "remembramento"
     if servico == "georref_urbano" and peca in GU6GEN._GERADORES:
         await _injetar_timbre(db, uid, doc)
-        pdf_bytes = await asyncio.to_thread(GU6GEN.gerar_peca, peca, doc, tema, doc.get("_brand_logo_bytes"))
+        pdf_bytes = await _georref_peca_pdf(db, uid, doc, peca, tema)
     elif peca == "mapa":
         # cada serviço tem sua peça de mapa — tenta os uploads na ordem de prioridade
         tipos = _MAPA_UPLOADS_POR_SERVICO.get(servico, ["mapa_remembramento", "mapa_atual"])
