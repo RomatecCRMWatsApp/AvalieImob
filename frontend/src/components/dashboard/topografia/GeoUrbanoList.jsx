@@ -171,7 +171,8 @@ export default function GeoUrbanoList() {
       setProjetos((ps) => ps.map((x) => (x.id === p.id ? { ...x, link_publico_ativo: true, link_publico_token: r.token } : x)));
       toast({ title: 'Link do dossiê copiado ✓', description: r.url });
     } catch (err) {
-      toast({ title: 'Erro ao gerar link', variant: 'destructive' });
+      const d = err?.response?.data?.detail;
+      toast({ title: 'Não foi possível gerar o link', description: (d?.msg || d || '').toString().slice(0, 140), variant: 'destructive' });
     } finally { setLinkBusy(null); }
   };
 

@@ -743,14 +743,33 @@ _PECA_LABEL = {
 }
 
 
+async def _georref_pecas_assinadas(db, doc):
+    """{peca_key: pdf_bytes} das peças georref que o RT assinou (ICP) — usadas no dossiê."""
+    from routes.assinatura import _load_assinatura_bytes
+    recs = await db.geo_urbano_assinaturas.find(
+        {"user_id": doc.get("user_id"), "projeto_id": doc.get("id")}).to_list(50)
+    out = {}
+    for r in recs:
+        if r.get("icp_status") == "assinado" and r.get("doc") in GU6GEN._GERADORES:
+            try:
+                b = await _load_assinatura_bytes(db, "geo_urbano", r["id"])
+                if b and b[:5] == b"%PDF-":
+                    out[r["doc"]] = b
+            except Exception:  # noqa: BLE001
+                pass
+    return out
+
+
 async def _dossie_bytes(db, doc, tema):
-    """Dossiê do projeto — georref urbano usa o montador por composição (Inc 2);
-    os demais serviços usam _montar_dossie (com as peças assinadas)."""
+    """Dossiê do projeto — georref urbano usa o montador por composição (Inc 2), com as
+    peças ASSINADAS pelo RT quando houver; os demais serviços usam _montar_dossie."""
     if doc.get("tipo_servico") == "georref_urbano":
         await _injetar_logo(db, doc.get("user_id"), doc)
         await _injetar_timbre(db, doc.get("user_id"), doc)
         ub = await _uploads_bytes(doc, _UPLOAD_TIPOS_DOSSIE)
-        return await asyncio.to_thread(GU6GEN.gerar_dossie, doc, ub, tema, doc.get("_brand_logo_bytes"))
+        assinadas = await _georref_pecas_assinadas(db, doc)
+        return await asyncio.to_thread(GU6GEN.gerar_dossie, doc, ub, tema,
+                                       doc.get("_brand_logo_bytes"), assinadas)
     return await _montar_dossie(db, doc, tema)
 
 
@@ -827,10 +846,38 @@ def _platform_url() -> str:
     return "https://www.romatecavalieimob.com.br"
 
 
+async def _georref_pecas_pendentes(db, doc):
+    """Peças geradas do dossiê georref que o RT ainda NÃO assinou (ICP). O link
+    público só é liberado quando esta lista está vazia."""
+    req = [p["chave"] for p in GU6.resolver_composicao(doc)["pecas"]
+           if p["no_pdf"] and p["chave"] in GU6GEN._GERADORES]
+    if not req:
+        return []
+    recs = await db.geo_urbano_assinaturas.find(
+        {"user_id": doc.get("user_id"), "projeto_id": doc.get("id")}).to_list(50)
+    assinadas = {r.get("doc") for r in recs if r.get("icp_status") == "assinado"}
+    return [GU6.PECA_LABEL.get(c, c) for c in req if c not in assinadas]
+
+
+@router.get("/projetos/{pid}/georref/assinatura-status")
+async def georref_assinatura_status(pid: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    """Status de assinatura das peças geradas + se o link pode ser liberado."""
+    doc = await _get(db, pid, uid)
+    pend = await _georref_pecas_pendentes(db, doc)
+    return {"pendentes": pend, "pode_liberar_link": not pend}
+
+
 @router.post("/projetos/{pid}/link")
 async def gerar_link(pid: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
-    """Gera (ou reativa) o link público do dossiê e devolve a URL compartilhável."""
+    """Gera (ou reativa) o link público do dossiê e devolve a URL compartilhável.
+    No georref urbano só libera DEPOIS de o RT assinar todas as peças geradas."""
     doc = await _get(db, pid, uid)
+    if doc.get("tipo_servico") == "georref_urbano":
+        pend = await _georref_pecas_pendentes(db, doc)
+        if pend:
+            raise HTTPException(status_code=422, detail={
+                "msg": "Assine todas as peças (ICP) antes de liberar o link de envio.",
+                "pendentes": pend})
     token = doc.get("link_publico_token") or uuid.uuid4().hex
     await db.geo_urbano_projetos.update_one(
         {"id": pid, "user_id": uid},
@@ -852,22 +899,56 @@ async def desativar_link(pid: str, uid: str = Depends(get_active_subscriber), db
 _BOTS_UA = ("whatsapp", "facebookexternalhit", "telegrambot", "bot", "preview", "slackbot", "twitterbot")
 
 
-@router.get("/publico/dossie/{token}")
+def _pagina_dossie_html(doc, pdf_url, og_img) -> str:
+    """Página HTML pública do dossiê — com og:image (preview no WhatsApp = brasão
+    Romatec) + botão p/ abrir o PDF. É o link COMPARTILHÁVEL (o /pdf serve o arquivo)."""
+    import html as _h
+    denom = _h.escape(doc.get("denominacao_imovel") or "Dossiê — Georreferenciamento")
+    end = _h.escape(" · ".join(x for x in [doc.get("endereco"), f"{doc.get('municipio') or ''}/{doc.get('uf') or ''}".strip("/")] if x))
+    area = _h.escape(f"{doc.get('area_calculada_m2') or doc.get('area_declarada') or ''}")
+    rt = _h.escape((doc.get("responsavel_tecnico") or {}).get("nome") or "")
+    num = _h.escape(doc.get("numero") or "")
+    desc = f"Georreferenciamento de lote urbano — {denom}. {end}"
+    return f"""<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{denom} — AvalieImob</title>
+<meta name="description" content="{_h.escape(desc)}">
+<meta property="og:type" content="website">
+<meta property="og:title" content="{denom}">
+<meta property="og:description" content="{_h.escape(desc)}">
+<meta property="og:image" content="{og_img}">
+<meta property="og:image:width" content="512"><meta property="og:image:height" content="512">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{denom}"><meta name="twitter:image" content="{og_img}">
+<link rel="icon" href="{og_img}">
+<style>*{{box-sizing:border-box}}body{{margin:0;font-family:system-ui,Segoe UI,Arial,sans-serif;
+background:#0C3320;color:#F5F1E6;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:20px}}
+.card{{max-width:460px;width:100%;text-align:center}}img.logo{{width:96px;height:96px;object-fit:contain;
+background:#fff;border-radius:16px;padding:8px;box-shadow:0 6px 24px rgba(0,0,0,.35)}}
+h1{{font-size:1.35rem;margin:18px 0 4px}}.eyebrow{{color:#C9A84C;font-weight:700;letter-spacing:.12em;
+text-transform:uppercase;font-size:.72rem}}.meta{{color:#cbd5c8;font-size:.9rem;margin:6px 0}}
+a.btn{{display:inline-block;margin-top:22px;background:#C9A84C;color:#0C3320;text-decoration:none;
+font-weight:700;padding:14px 28px;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,.3)}}
+.foot{{margin-top:26px;color:#8fae9e;font-size:.72rem}}</style></head>
+<body><div class="card">
+<img class="logo" src="{og_img}" alt="Romatec">
+<div class="eyebrow" style="margin-top:16px">Georreferenciamento de lote urbano</div>
+<h1>{denom}</h1>
+<div class="meta">{end}</div>
+{f'<div class="meta">Área {area} m²</div>' if area else ''}
+{f'<div class="meta">Nº {num}</div>' if num else ''}
+<a class="btn" href="{pdf_url}">📄 Abrir o Dossiê (PDF)</a>
+<div class="foot">{f'Responsável Técnico: {rt} · ' if rt else ''}Romatec · AvalieImob</div>
+</div></body></html>"""
+
+
+@router.get("/publico/dossie/{token}/pdf")
 @pub_limiter.limit("30/minute")
-async def dossie_publico(token: str, request: Request, db=Depends(get_db)):
-    """PDF do dossiê por token público (SEM autenticação) + contador de visualizações.
-    Regenera o dossiê na hora (georref via composição; demais via montador)."""
+async def dossie_publico_pdf(token: str, request: Request, db=Depends(get_db)):
+    """PDF do dossiê por token público (SEM auth). Regenera na hora c/ as peças assinadas."""
     doc = await db.geo_urbano_projetos.find_one({"link_publico_token": token, "link_publico_ativo": True})
     if not doc:
         raise HTTPException(status_code=404, detail="Dossiê não encontrado ou link inativo.")
-    ua = (request.headers.get("user-agent") or "").lower()
-    if not any(b in ua for b in _BOTS_UA):
-        agora = _agora().isoformat()
-        sets = {"link_views_last": agora}
-        if not doc.get("link_views_first"):
-            sets["link_views_first"] = agora
-        await db.geo_urbano_projetos.update_one(
-            {"id": doc["id"]}, {"$inc": {"link_views": 1}, "$set": sets})
     tema = doc.get("tema") or "prime_i"
     data = await _dossie_bytes(db, doc, tema)
     if not data or data[:5] != b"%PDF-":
@@ -876,6 +957,30 @@ async def dossie_publico(token: str, request: Request, db=Depends(get_db)):
     return Response(content=data, media_type=_PDF,
                     headers={"Content-Disposition": f'inline; filename="{nome}"',
                              "Cache-Control": "no-store"})
+
+
+@router.get("/publico/dossie/{token}")
+@pub_limiter.limit("60/minute")
+async def dossie_publico(token: str, request: Request, db=Depends(get_db)):
+    """Página HTML compartilhável do dossiê (com og:image p/ preview no WhatsApp) +
+    contador de visualizações. O PDF é servido em /publico/dossie/{token}/pdf."""
+    from fastapi.responses import HTMLResponse
+    doc = await db.geo_urbano_projetos.find_one({"link_publico_token": token, "link_publico_ativo": True})
+    if not doc:
+        return HTMLResponse("<h1 style='font-family:sans-serif'>Dossiê não encontrado ou link inativo.</h1>",
+                            status_code=404)
+    ua = (request.headers.get("user-agent") or "").lower()
+    if not any(b in ua for b in _BOTS_UA):
+        agora = _agora().isoformat()
+        sets = {"link_views_last": agora}
+        if not doc.get("link_views_first"):
+            sets["link_views_first"] = agora
+        await db.geo_urbano_projetos.update_one(
+            {"id": doc["id"]}, {"$inc": {"link_views": 1}, "$set": sets})
+    plat = _platform_url()
+    pdf_url = f"{plat}/api/topografia/geo-urbano/publico/dossie/{token}/pdf"
+    og_img = f"{plat}/pagamento/logo-romatec.png"
+    return HTMLResponse(_pagina_dossie_html(doc, pdf_url, og_img))
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -1535,6 +1640,15 @@ _PECAS_ASSINAVEIS = {
     "requerimento_superintendencia": "Requerimento — Via Superintendência",
     "requerimento_usucapiao": "Requerimento de Usucapião",
     "art_trt": "ART / TRT",
+    # georref urbano (Fase 6) — peças geradas, assinadas pelo RT antes de liberar o link
+    "apresentacao": "Apresentação",
+    "memorial_perimetrico": "Memorial Descritivo Perimétrico",
+    "memorial_situacao": "Memorial de Localização e Situação",
+    "memorial_sucinto": "Descrição Sucinta",
+    "memorial_area_construida": "Memorial de Área Construída",
+    "quadro_vertices": "Quadro de Vértices",
+    "mapa_lote": "Mapa do Lote",
+    "planta_quadra": "Planta de Quadra",
 }
 # Peça "mapa" — o UPLOAD e o RÓTULO variam por serviço (cada módulo tem sua peça):
 # usucapião = Planta georreferenciada; remembramento/desdobro/retificação = seu mapa.
@@ -1577,7 +1691,10 @@ async def preparar_assinatura(pid: str, body: AssinarPecaBody,
         raise HTTPException(status_code=422, detail="Peça inválida para assinatura.")
     tema = body.tema or doc.get("tema") or "prime_i"
     servico = doc.get("tipo_servico") or "remembramento"
-    if peca == "mapa":
+    if servico == "georref_urbano" and peca in GU6GEN._GERADORES:
+        await _injetar_timbre(db, uid, doc)
+        pdf_bytes = await asyncio.to_thread(GU6GEN.gerar_peca, peca, doc, tema, doc.get("_brand_logo_bytes"))
+    elif peca == "mapa":
         # cada serviço tem sua peça de mapa — tenta os uploads na ordem de prioridade
         tipos = _MAPA_UPLOADS_POR_SERVICO.get(servico, ["mapa_remembramento", "mapa_atual"])
         raw = None

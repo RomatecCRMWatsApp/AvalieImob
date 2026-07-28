@@ -8,9 +8,10 @@ import {
   ChevronLeft, ChevronRight, Upload, Trash2, FileText, Eye,
   MapPin, CheckCircle2, AlertTriangle, Plus, Image as ImageIcon, Link2, Sparkles,
 } from 'lucide-react';
-import { geoUrbanoAPI, perfilAPI } from '../../../lib/api';
+import { geoUrbanoAPI, perfilAPI, assinaturaPosAPI } from '../../../lib/api';
 import { useToast } from '../../../hooks/use-toast';
 import { BrandSpinner } from '../../brand/BrandSpinner';
+import AssinaturaPosicionadaModal from '../assinatura/AssinaturaPosicionadaModal';
 
 const GREEN = '#0C3320';
 const GOLD = '#C9A84C';
@@ -49,19 +50,44 @@ export default function GeorrefUrbanoWizard() {
   const [comp, setComp] = useState(null);        // resolver_composicao
   const [valid, setValid] = useState(null);      // validar
   const [capaUrl, setCapaUrl] = useState(null);
+  const [assinaturas, setAssinaturas] = useState([]);   // status ICP das peças
+  const [assinId, setAssinId] = useState(null);          // abre o AssinaturaPosicionadaModal
   const projRef = useRef(null);
   const saveT = useRef(null);
+
+  const recarregarAssinaturas = useCallback(() => {
+    geoUrbanoAPI.listarAssinaturas(id).then((a) => setAssinaturas(Array.isArray(a) ? a : [])).catch(() => {});
+  }, [id]);
 
   const carregar = useCallback(async () => {
     try {
       const [p, o] = await Promise.all([geoUrbanoAPI.obter(id), geoUrbanoAPI.georrefOpcoes()]);
       setProj(p); projRef.current = p; setOpcoes(o);
       geoUrbanoAPI.georrefComposicaoPreview(id).then(setComp).catch(() => {});
+      recarregarAssinaturas();
     } catch (e) {
       toast({ title: 'Erro ao carregar projeto', variant: 'destructive' });
     } finally { setLoading(false); }
-  }, [id, toast]);
+  }, [id, toast, recarregarAssinaturas]);
   useEffect(() => { carregar(); }, [carregar]);
+
+  const abrirAssinatura = async (peca) => {
+    try {
+      const r = await geoUrbanoAPI.prepararAssinatura(id, { doc: peca, tema: projRef.current?.tema });
+      setAssinId(r.id);
+    } catch (e) {
+      toast({ title: 'Erro ao preparar assinatura', description: (e?.response?.data?.detail || '').toString().slice(0, 120), variant: 'destructive' });
+    }
+  };
+  const verAssinado = async (assId) => {
+    const win = window.open('', '_blank');
+    try {
+      const b = await assinaturaPosAPI.downloadIcp('geo_urbano', assId);
+      const url = URL.createObjectURL(b instanceof Blob ? b : new Blob([b], { type: 'application/pdf' }));
+      if (win) win.location.href = url; else window.location.href = url;
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch { if (win) win.close(); toast({ title: 'Não foi possível abrir o assinado', variant: 'destructive' }); }
+  };
 
   // patch imediato (selects/toggles) — atualiza estado local + servidor
   const patch = useCallback(async (campos) => {
@@ -254,7 +280,9 @@ export default function GeorrefUrbanoWizard() {
       {passo === 'Situação & Quadra' && <QuadraStep key={JSON.stringify(proj.quadra_dados || {})} proj={proj} id={id} recomporPreview={recomporPreview} />}
 
       {passo === 'ART & Geração' && (
-        <GeracaoStep proj={proj} id={id} patch={patchLento} comp={comp} valid={valid} setValid={setValid} capaUrl={capaUrl} setCapaUrl={setCapaUrl} toast={toast} />
+        <GeracaoStep proj={proj} id={id} patch={patchLento} comp={comp} valid={valid} setValid={setValid}
+          capaUrl={capaUrl} setCapaUrl={setCapaUrl} toast={toast}
+          assinaturas={assinaturas} abrirAssinatura={abrirAssinatura} verAssinado={verAssinado} />
       )}
 
       {/* navegação */}
@@ -271,6 +299,15 @@ export default function GeorrefUrbanoWizard() {
           <button onClick={() => nav('/dashboard/topografia/geo-urbano')} className="px-4 py-2 rounded-lg text-sm font-semibold text-white" style={{ background: GREEN }}>Concluir</button>
         )}
       </div>
+
+      {assinId && (
+        <AssinaturaPosicionadaModal
+          tipo="geo_urbano"
+          documentId={assinId}
+          onAssinado={() => { const a = assinId; setAssinId(null); toast({ title: 'Assinado com ICP-Brasil ✓' }); recarregarAssinaturas(); verAssinado(a); }}
+          onFechar={() => { setAssinId(null); recarregarAssinaturas(); }}
+        />
+      )}
     </div>
   );
 }
@@ -458,14 +495,29 @@ function QuadraStep({ proj, id, recomporPreview }) {
 }
 
 // ── ART/TRT & Geração ──
-function GeracaoStep({ proj, id, patch, comp, valid, setValid, capaUrl, setCapaUrl, toast }) {
+function GeracaoStep({ proj, id, patch, comp, valid, setValid, capaUrl, setCapaUrl, toast, assinaturas, abrirAssinatura, verAssinado }) {
   const art = proj.art_trt || {};
   const [validando, setValidando] = useState(false);
+  const [gerandoLink, setGerandoLink] = useState(false);
   const validar = async () => { setValidando(true); try { setValid(await geoUrbanoAPI.georrefValidar(id)); } finally { setValidando(false); } };
   const verCapa = async () => {
     try { const b = await geoUrbanoAPI.georrefCapaPreview(id, proj.tema); setCapaUrl(URL.createObjectURL(b)); } catch { toast({ title: 'Erro na prévia da capa', variant: 'destructive' }); }
   };
   const pecasGeraveis = (comp?.pecas || []).filter((p) => p.no_pdf && !['capa', 'sumario', 'imagem_localizacao', 'relatorio_fotografico', 'matricula_anexa', 'docs_proprietario', 'anexos_diversos'].includes(p.chave));
+  const assinPorDoc = {}; (assinaturas || []).forEach((a) => { assinPorDoc[a.doc] = a; });
+  const pendentes = pecasGeraveis.filter((p) => !assinPorDoc[p.chave]?.assinado);
+  const podeLink = pecasGeraveis.length > 0 && pendentes.length === 0;
+  const gerarLink = async () => {
+    setGerandoLink(true);
+    try {
+      const r = await geoUrbanoAPI.gerarLink(id);
+      try { await navigator.clipboard.writeText(r.url); } catch { /* */ }
+      toast({ title: 'Link do dossiê liberado e copiado ✓', description: r.url });
+    } catch (e) {
+      const d = e?.response?.data?.detail;
+      toast({ title: 'Assine as peças primeiro', description: (d?.msg || d || 'Erro ao gerar link').toString().slice(0, 140), variant: 'destructive' });
+    } finally { setGerandoLink(false); }
+  };
   return (
     <div className="space-y-5">
       <TimbreToggle toast={toast} />
@@ -498,30 +550,47 @@ function GeracaoStep({ proj, id, patch, comp, valid, setValid, capaUrl, setCapaU
         <button onClick={() => abrirBlob(geoUrbanoAPI.georrefDossie(id, proj.tema), toast)} className="px-4 py-2 rounded-lg text-sm font-semibold text-white inline-flex items-center gap-1.5" style={{ background: GREEN }}>
           <FileText className="w-4 h-4" /> Ver Dossiê
         </button>
-        <button onClick={async () => {
-          try {
-            const r = await geoUrbanoAPI.gerarLink(id);
-            try { await navigator.clipboard.writeText(r.url); } catch { /* */ }
-            toast({ title: 'Link do dossiê copiado ✓', description: r.url });
-          } catch { toast({ title: 'Erro ao gerar link', variant: 'destructive' }); }
-        }} className="px-3 py-2 rounded-lg text-sm border inline-flex items-center gap-1.5 text-sky-700 border-sky-300">
-          <Link2 className="w-4 h-4" /> Gerar link do dossiê
-        </button>
       </div>
       {capaUrl && <img src={capaUrl} alt="Prévia da capa" className="max-w-xs rounded-lg border shadow-sm" />}
 
-      <div>
-        <div className="text-sm font-semibold mb-2" style={{ color: GREEN }}>Baixar peças individuais</div>
+      {/* Assinatura das peças (ICP) — só depois de tudo assinado o link é liberado */}
+      <div className="rounded-lg border p-3">
+        <div className="text-sm font-semibold mb-1" style={{ color: GREEN }}>Assinatura das peças (ICP-Brasil)</div>
+        <p className="text-[11px] text-gray-500 mb-2">Assine cada peça (desenho + ICP). O <strong>link de envio</strong> só é liberado depois que todas estiverem assinadas.</p>
         <div className="grid sm:grid-cols-2 gap-1.5">
-          {pecasGeraveis.map((p) => (
-            <div key={p.chave} className="flex items-center justify-between text-sm border rounded-lg px-2.5 py-1.5">
-              <span>{p.label}</span>
-              <div className="flex gap-2">
-                <button onClick={() => abrirBlob(geoUrbanoAPI.georrefDocumento(id, p.chave, proj.tema), toast)} className="text-emerald-700 inline-flex items-center gap-1"><Eye className="w-3.5 h-3.5" /> Ver</button>
+          {pecasGeraveis.map((p) => {
+            const st = assinPorDoc[p.chave];
+            const ok = st?.assinado;
+            return (
+              <div key={p.chave} className={`flex items-center justify-between text-sm border rounded-lg px-2.5 py-1.5 ${ok ? 'border-emerald-200 bg-emerald-50/50' : ''}`}>
+                <span className="truncate">{ok && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 inline mr-1" />}{p.label}</span>
+                <div className="flex gap-2 shrink-0">
+                  <button onClick={() => abrirBlob(geoUrbanoAPI.georrefDocumento(id, p.chave, proj.tema), toast)} className="text-gray-500 inline-flex items-center gap-1" title="Ver a peça"><Eye className="w-3.5 h-3.5" /></button>
+                  {ok ? (
+                    <button onClick={() => verAssinado(st.id)} className="text-emerald-700 inline-flex items-center gap-1 text-xs">Ver assinado</button>
+                  ) : (
+                    <button onClick={() => abrirAssinatura(p.chave)} className="text-white inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded" style={{ background: GREEN }}>Assinar</button>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
+      </div>
+
+      {/* Link de envio — gateado pela assinatura */}
+      <div className="rounded-lg border p-3">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <div className="text-sm font-semibold" style={{ color: GREEN }}>Link de envio (dossiê público)</div>
+            <p className="text-[11px] text-gray-500">{podeLink ? 'Todas as peças assinadas — pode liberar o link.' : `Faltam assinar: ${pendentes.length} peça(s).`}</p>
+          </div>
+          <button onClick={gerarLink} disabled={!podeLink || gerandoLink}
+            className="shrink-0 px-4 py-2 rounded-lg text-sm font-semibold text-white inline-flex items-center gap-1.5 disabled:opacity-40" style={{ background: podeLink ? GREEN : '#9ca3af' }}>
+            <Link2 className="w-4 h-4" /> {gerandoLink ? 'Liberando…' : (proj.link_publico_ativo ? 'Copiar link' : 'Liberar link')}
+          </button>
+        </div>
+        {proj.link_publico_ativo && <div className="text-[10px] text-gray-400 mt-1 inline-flex items-center gap-1"><Eye className="w-3 h-3" /> {proj.link_views || 0} visualização(ões) · link ativo</div>}
       </div>
     </div>
   );

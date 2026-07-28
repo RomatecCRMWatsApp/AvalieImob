@@ -670,16 +670,21 @@ def _concat(pdfs) -> bytes:
     return out.getvalue()
 
 
-def gerar_dossie(projeto: dict, uploads_bytes: dict, tema: str = "prime_i", logo_bytes=None) -> bytes:
+def gerar_dossie(projeto: dict, uploads_bytes: dict, tema: str = "prime_i", logo_bytes=None,
+                 assinadas: dict = None) -> bytes:
     """Monta o dossiê na ORDEM da composição (peças ligadas + habilitadas).
     `uploads_bytes` = {tipo_upload: [bytes,...]} já baixado do R2 pela rota.
-    SIMPLIFICADO (sem capa/sumário) → merge simples; senão capa+sumário+bookmarks."""
+    `assinadas` = {peca_key: pdf_bytes} — quando o RT já assinou a peça (ICP), usa a
+    versão ASSINADA no lugar da gerada. SIMPLIFICADO → merge; senão capa+sumário."""
     ub = uploads_bytes or {}
+    assin = assinadas or {}
     ordem = GU6.pecas_no_dossie(projeto)
     com_capa = "capa" in ordem
     com_sumario = "sumario" in ordem
 
     def _gerado(tp):
+        if assin.get(tp):
+            return assin[tp]
         return gerar_peca(tp, projeto, tema, logo_bytes)
 
     secoes = []  # (titulo, bytes|[bytes])
