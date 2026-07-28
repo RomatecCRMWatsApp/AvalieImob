@@ -801,6 +801,14 @@ export const georefAPI = {
       .then((r) => r.data),
 
   extrair: (id) => api.post(`${GEOREF}/projetos/${id}/extrair`).then((r) => r.data),
+
+  // Composição do dossiê (picker de peças + presets)
+  composicaoOpcoes: () => api.get(`${GEOREF}/composicao/opcoes`).then((r) => r.data),
+  composicaoPreview: (id) =>
+    api.get(`${GEOREF}/projetos/${id}/composicao/preview`).then((r) => r.data),
+  salvarComposicao: (id, body) =>
+    api.post(`${GEOREF}/projetos/${id}/composicao`, body).then((r) => r.data),
+
   // Cartório pelo CNS (tabela oficial de serventias)
   buscarServentia: (cns) =>
     api.get(`${GEOREF}/serventias`, { params: { cns } }).then((r) => r.data),

@@ -21,7 +21,7 @@ from db import get_db
 from dependencies import get_active_subscriber, serialize_doc
 from models.georef import (
     GeorefProjeto, Parcela, CriarProjetoBody, AtualizarProjetoBody, GerarDocumentosBody,
-    AdicionarParcelaBody, AssinarPecaBody, calcular_completude,
+    AdicionarParcelaBody, AssinarPecaBody, ComposicaoBody, calcular_completude,
 )
 from services import r2_storage
 from services.georef import extractor as EX
@@ -29,6 +29,7 @@ from services.georef import geo as GEO
 from services.georef.parcelas import parcelas_do_projeto, projeto_da_parcela, tem_multiparcela
 from services.georef.cadeia_dominial import parse_cadeia_dominial
 from services.georef import cancelamento as CANC
+from services.georef import composicao as COMP
 from services.georef import ods as ODS
 from services.georef.generators import textos as TX
 from services.georef.generators import pdf as PDF
@@ -155,6 +156,9 @@ async def atualizar_projeto(pid: str, body: AtualizarProjetoBody,
             sets[grupo] = dados[grupo]
             editados[grupo] = True
 
+    if "composicao" in dados and isinstance(dados["composicao"], dict):
+        sets["composicao"] = dados["composicao"]
+
     base = {**doc, **sets}
     sets["campos_editados"] = editados
     sets["completude"] = calcular_completude(base)
@@ -169,6 +173,40 @@ async def excluir_projeto(pid: str, uid: str = Depends(get_active_subscriber), d
     if not res.deleted_count:
         raise HTTPException(status_code=404, detail="Projeto não encontrado")
     return {"ok": True}
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Composição do dossiê (picker de peças + presets) — ver services/georef/composicao.py
+# ──────────────────────────────────────────────────────────────────────────────
+@router.get("/composicao/opcoes")
+async def composicao_opcoes(uid: str = Depends(get_active_subscriber)):
+    """Catálogo estático p/ o picker de composição (peças + presets)."""
+    return COMP.opcoes()
+
+
+@router.post("/projetos/{pid}/composicao")
+async def salvar_composicao(pid: str, body: ComposicaoBody,
+                            uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    doc = await _get_projeto(db, pid, uid)
+    comp = dict(doc.get("composicao") or COMP.composicao_default())
+    if body.preset is not None:
+        comp["preset"] = body.preset
+        comp["pecas"] = COMP.preset_pecas(body.preset)
+    if body.pecas is not None:
+        comp["pecas"] = {p: bool(body.pecas.get(p, True)) for p in COMP.PECAS}
+        if body.preset is None:
+            comp["preset"] = "PERSONALIZADO"
+    comp["ordem"] = list(COMP.PECAS)
+    await db.georef_projetos.update_one(
+        {"id": pid, "user_id": uid},
+        {"$set": {"composicao": comp, "updated_at": _agora().isoformat()}})
+    return COMP.resolver_composicao({**doc, "composicao": comp})
+
+
+@router.get("/projetos/{pid}/composicao/preview")
+async def composicao_preview(pid: str, uid: str = Depends(get_active_subscriber),
+                             db=Depends(get_db)):
+    return COMP.resolver_composicao(await _get_projeto(db, pid, uid))
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -1226,6 +1264,10 @@ def _montar_dossie(doc: dict, tema: str, assinados: dict = None,
                 pass
     if itr_bytes:
         partes["itr"] = itr_bytes
+
+    # Composição: mantém só as peças LIGADAS no picker (sem composição = tudo).
+    ligadas = COMP.pecas_ligadas(doc)
+    partes = {k: v for k, v in partes.items() if ligadas.get(k, True)}
     return DOSSIE.gerar_dossie(doc, partes, tema)
 
 

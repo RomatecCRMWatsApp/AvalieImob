@@ -618,6 +618,7 @@ export default function GeorefWizard() {
             </>
           )}
           <LogoBranding toast={toast} />
+          <ComposicaoPanel projId={proj.id} refreshKey={proj.uploads} toast={toast} />
           <div className="grid sm:grid-cols-2 gap-2 mt-4">
             {[
               ['requerimento', 'Requerimento ao Cartório'],
@@ -1004,6 +1005,75 @@ const Input = ({ className = '', faltando, ...p }) => (
 const Select = ({ children, className = '', ...p }) => (
   <select {...p} className={`w-full border rounded-lg px-3 py-2 text-sm bg-white ${className}`}>{children}</select>
 );
+
+// Picker de composição do dossiê: preset + toggle por peça (peça sem insumo fica
+// desabilitada com o motivo). Salva no servidor (POST /composicao).
+const PRESET_LABEL = {
+  COMPLETO: 'Completo', PROTOCOLO: 'Protocolo', SIMPLIFICADO: 'Simplificado', PERSONALIZADO: 'Personalizado',
+};
+function ComposicaoPanel({ projId, refreshKey, toast }) {
+  const [res, setRes] = useState(null);
+  const [salvando, setSalvando] = useState(false);
+  const carregar = useCallback(async () => {
+    try { setRes(await georefAPI.composicaoPreview(projId)); } catch { /* ignore */ }
+  }, [projId]);
+  useEffect(() => { carregar(); }, [carregar, refreshKey]);
+  const aplicar = async (body) => {
+    setSalvando(true);
+    try { setRes(await georefAPI.salvarComposicao(projId, body)); }
+    catch { toast({ title: 'Erro ao salvar a composição', variant: 'destructive' }); }
+    finally { setSalvando(false); }
+  };
+  if (!res) return null;
+  const noPdf = res.pecas.filter((p) => p.no_pdf).length;
+  const togglePeca = (chave, ligada) => {
+    const pecas = {};
+    res.pecas.forEach((p) => { pecas[p.chave] = p.chave === chave ? ligada : p.ligada; });
+    aplicar({ pecas });
+  };
+  return (
+    <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/40 p-4">
+      <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+        <div>
+          <h3 className="font-semibold text-sm" style={{ color: GREEN }}>Composição do dossiê</h3>
+          <p className="text-[11px] text-gray-500">
+            {noPdf} peça(s) no PDF · escolha um modelo ou marque peça a peça.
+          </p>
+        </div>
+        <div className="flex gap-1.5 flex-wrap">
+          {['COMPLETO', 'PROTOCOLO', 'SIMPLIFICADO'].map((pr) => (
+            <button key={pr} disabled={salvando} onClick={() => aplicar({ preset: pr })}
+              className={`text-xs px-3 py-1.5 rounded-lg border font-medium ${res.preset === pr ? 'text-white' : 'bg-white text-gray-700'}`}
+              style={res.preset === pr ? { background: GREEN, borderColor: GREEN } : {}}>
+              {PRESET_LABEL[pr]}
+            </button>
+          ))}
+          {res.preset === 'PERSONALIZADO' && (
+            <span className="text-xs px-3 py-1.5 rounded-lg text-white font-medium" style={{ background: GOLD }}>
+              Personalizado
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="grid sm:grid-cols-2 gap-1.5">
+        {res.pecas.map((p) => (
+          <label key={p.chave}
+            title={p.habilitada ? '' : p.motivo || ''}
+            className={`flex items-center gap-2 text-sm border rounded-lg px-3 py-2 ${p.habilitada ? 'cursor-pointer bg-white' : 'opacity-55 bg-gray-50 cursor-not-allowed'}`}>
+            <input type="checkbox" disabled={!p.habilitada || salvando} checked={p.ligada}
+              onChange={(e) => togglePeca(p.chave, e.target.checked)} />
+            <span className="flex-1">{p.label}</span>
+            {!p.habilitada && <span className="text-[10px] text-amber-600 whitespace-nowrap">sem insumo</span>}
+          </label>
+        ))}
+      </div>
+      <p className="text-[11px] text-gray-500 mt-2">
+        Peças “sem insumo” só entram quando você anexar o documento correspondente. Capa e sumário
+        são sempre incluídos.
+      </p>
+    </div>
+  );
+}
 
 function UploadBox({ u, info, onPick }) {
   const ref = useRef(null);

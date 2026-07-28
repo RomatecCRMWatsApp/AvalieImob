@@ -70,7 +70,10 @@ export default function GeorefList() {
   const [projetos, setProjetos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [novo, setNovo] = useState(false);
-  const [form, setForm] = useState({ nome_projeto: '', tipo_servico: 'georreferenciamento', tema_pdf: 'prime_i' });
+  const [form, setForm] = useState({
+    nome_projeto: '', tipo_servico: 'georreferenciamento', tema_pdf: 'prime_i',
+    composicao_preset: 'COMPLETO',
+  });
   const [criando, setCriando] = useState(false);
 
   // Envio por WhatsApp
@@ -101,6 +104,9 @@ export default function GeorefList() {
     setCriando(true);
     try {
       const p = await georefAPI.criar(form);
+      if (form.composicao_preset && form.composicao_preset !== 'COMPLETO') {
+        try { await georefAPI.salvarComposicao(p.id, { preset: form.composicao_preset }); } catch { /* segue */ }
+      }
       nav(`/dashboard/topografia/georef/${p.id}`);
     } catch (e) {
       toast({ title: 'Erro ao criar projeto', variant: 'destructive' });
@@ -196,6 +202,21 @@ export default function GeorefList() {
                 <option value="prime_ii">Prime II</option>
                 <option value="tradicional">Tradicional</option>
               </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Composição do dossiê</label>
+              <select
+                className="w-full border rounded-lg px-3 py-2 text-sm bg-white"
+                value={form.composicao_preset}
+                onChange={(e) => setForm({ ...form, composicao_preset: e.target.value })}
+              >
+                <option value="COMPLETO">Completo — todas as peças</option>
+                <option value="PROTOCOLO">Protocolo no cartório — peças essenciais</option>
+                <option value="SIMPLIFICADO">Simplificado — mínimo</option>
+              </select>
+              <p className="text-[11px] text-gray-500 mt-1">
+                Define quais peças entram no dossiê. Ajustável depois no projeto.
+              </p>
             </div>
           </div>
           <div className="flex gap-2 mt-4">

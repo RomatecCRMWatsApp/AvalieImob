@@ -186,6 +186,9 @@ class GeorefProjeto(BaseModel):
     # pré-estabelecida, código da parcela, condições de deferimento automático e status do
     # checklist — ver services/georef/cancelamento.py (Ofício Circular 814/2026/INCRA).
     cancelamento: dict = Field(default_factory=dict)
+    # Composição do dossiê (peças ON/OFF + preset) — ver services/georef/composicao.py.
+    # Vazio = tudo entra (retrocompatível).
+    composicao: dict = Field(default_factory=dict)
     uploads: dict = Field(default_factory=dict)            # {memorial: key, mapa: key, ...}
     documentos_gerados: dict = Field(default_factory=dict)  # {memorial, requerimento, ...}
     campos_editados: dict = Field(default_factory=dict)     # flags p/ preservar edição manual
@@ -224,6 +227,13 @@ class AtualizarProjetoBody(BaseModel):
     confrontantes: Optional[List[dict]] = None
     parcelas: Optional[List[dict]] = None
     cancelamento: Optional[dict] = None
+    composicao: Optional[dict] = None
+
+
+class ComposicaoBody(BaseModel):
+    """Atualiza a composição do dossiê (picker). Preset OU peças manuais."""
+    preset: Optional[str] = None
+    pecas: Optional[dict] = None           # {chave: bool}
 
 
 class AdicionarParcelaBody(BaseModel):
