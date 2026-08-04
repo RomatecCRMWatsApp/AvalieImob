@@ -23,6 +23,7 @@ from reportlab.lib.units import cm
 
 from db import get_db
 from dependencies import get_active_subscriber, get_authenticated_user, serialize_doc
+from services import image_store
 from models.contrato import (
     ContratoBase, Contrato, ContratoVersion, ContratoVersionDiff,
     TIPOS_CONTRATO,
@@ -1069,7 +1070,7 @@ async def _preload_anexos_imovel(db, doc: dict) -> None:
             if not iid or not isinstance(iid, str):
                 continue
             try:
-                img = await db.images.find_one({"id": iid}, {"data_b64": 1})
+                img = await image_store.find_one(db, {"id": iid})
                 if img and img.get("data_b64"):
                     out.append(base64.b64decode(img["data_b64"]))
                 else:

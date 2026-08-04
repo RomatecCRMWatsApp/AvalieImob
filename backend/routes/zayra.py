@@ -11,7 +11,6 @@ Pipeline (alinhado ao AvalieImob real):
   preenchidos (meta_gps/meta_data_hora). Assim a foto RENDERIZA no PDF com GPS,
   idêntica às fotos tiradas pelo próprio AvalieImob.
 """
-import base64
 import logging
 import uuid
 from datetime import datetime
@@ -21,6 +20,7 @@ from fastapi.responses import Response
 
 from db import get_db
 from dependencies import get_active_subscriber, get_authenticated_user
+from services import image_store
 from services.zayra_galeria import baixar_foto_bytes, buscar_fotos_zayra
 
 router = APIRouter(prefix="/zayra", tags=["zayra"])
@@ -130,21 +130,17 @@ async def importar_para_ptam(
         legenda = f.get("legenda") or f.get("endereco") or ""
         numero = f.get("numero") or f.get("id") or image_id
 
-        await db.images.insert_one({
-            "id": image_id,
-            "user_id": uid,
-            "filename": f"zayra_{numero}.jpg",
-            "content_type": ctype,
-            "data_b64": base64.b64encode(content).decode("utf-8"),
-            "size_bytes": len(content),
-            "created_at": datetime.utcnow(),
-            # GPS/data já vêm do ZAYRA → não precisa EXIF/OCR no gerador.
-            "meta_gps": gps,
-            "meta_data_hora": data_hora,
-            "meta_ocr_done": True,
-            "origem": "zayra",
-            "zayra_foto_id": str(f.get("id") or ""),
-        })
+        await image_store.salvar_imagem(
+            db, uid, content, ctype, f"zayra_{numero}.jpg", image_id=image_id,
+            extra={
+                # GPS/data já vêm do ZAYRA → não precisa EXIF/OCR no gerador.
+                "meta_gps": gps,
+                "meta_data_hora": data_hora,
+                "meta_ocr_done": True,
+                "origem": "zayra",
+                "zayra_foto_id": str(f.get("id") or ""),
+            },
+        )
 
         novas.append({
             "image_id": image_id,

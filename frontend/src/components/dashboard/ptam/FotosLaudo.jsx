@@ -89,7 +89,16 @@ export default function FotosLaudo({ value, onChange, maxImages = 50, ptamId = n
           if (pg && pg.id) novos.push({ image_id: pg.id, legenda: '' });
         }
       } catch (e) {
-        toast({ title: 'Erro ao enviar foto', variant: 'destructive' });
+        // Surfaça o motivo REAL vindo do servidor (ex.: "Armazenamento cheio",
+        // "Arquivo muito grande", "Tipo não permitido") em vez do genérico mudo.
+        const detalhe = e?.response?.data?.detail;
+        const status = e?.response?.status;
+        console.error('Falha no upload da foto:', status, detalhe || e?.message, e);
+        toast({
+          title: detalhe || 'Erro ao enviar foto',
+          description: detalhe ? undefined : (status ? `Erro ${status} — tente novamente.` : 'Verifique sua conexão e tente novamente.'),
+          variant: 'destructive',
+        });
       }
     }
     if (novos.length) {

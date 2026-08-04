@@ -1,14 +1,15 @@
-# @module routes.uploads — Upload e recuperação de imagens/documentos em base64 no MongoDB
+# @module routes.uploads — Upload e recuperação de imagens/documentos.
+# Os bytes vão para o Cloudflare R2 (via services.image_store); o MongoDB guarda
+# só a referência (r2_key). Imagens antigas (base64 no Mongo) seguem funcionando.
 import asyncio
-import base64
 import logging
 import uuid
-from datetime import datetime
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import Response
 
 from db import get_db
 from dependencies import get_active_subscriber
+from services import image_store
 from services.upload_security import detect_content_type, normalize_filename
 from services.pdf_converter import (
     PdfConversionError,
@@ -40,7 +41,6 @@ async def upload_image(file: UploadFile = File(...), uid: str = Depends(get_acti
         raise HTTPException(status_code=400, detail="PDF deve ser enviado com content type application/pdf")
 
     nome = normalize_filename(file.filename)
-    agora = datetime.utcnow()
 
     # ── PDF: rasteriza cada página em PNG 300 DPI (1 imagem/id por página) ──────
     # Persiste no MongoDB (db.images), igual às fotos — sobrevive a redeploys do
@@ -58,37 +58,27 @@ async def upload_image(file: UploadFile = File(...), uid: str = Depends(get_acti
 
         # PDF original (auditoria) — não entra na lista de cards.
         original_id = str(uuid.uuid4())
-        await db.images.insert_one({
-            "id": original_id,
-            "user_id": uid,
-            "filename": nome,
-            "content_type": "application/pdf",
-            "data_b64": base64.b64encode(data).decode("utf-8"),
-            "size_bytes": len(data),
-            "created_at": agora,
-            "is_original_pdf": True,
-            "pdf_pages_total": len(page_pngs),
-        })
+        await image_store.salvar_imagem(
+            db, uid, data, "application/pdf", nome, image_id=original_id,
+            extra={"is_original_pdf": True, "pdf_pages_total": len(page_pngs)},
+        )
 
         total = len(page_pngs)
         base_nome = nome[:-4] if nome.lower().endswith(".pdf") else nome
         pages = []
         for idx, png in enumerate(page_pngs, start=1):
             pid = str(uuid.uuid4())
-            await db.images.insert_one({
-                "id": pid,
-                "user_id": uid,
-                "filename": f"{base_nome} (p. {idx}/{total}).png",
-                "content_type": "image/png",
-                "data_b64": base64.b64encode(png).decode("utf-8"),
-                "size_bytes": len(png),
-                "created_at": agora,
-                "convertido_de_pdf": True,
-                "source_pdf_id": original_id,
-                "pdf_page": idx,
-                "pdf_pages_total": total,
-                "dpi": 300,
-            })
+            await image_store.salvar_imagem(
+                db, uid, png, "image/png", f"{base_nome} (p. {idx}/{total}).png",
+                image_id=pid,
+                extra={
+                    "convertido_de_pdf": True,
+                    "source_pdf_id": original_id,
+                    "pdf_page": idx,
+                    "pdf_pages_total": total,
+                    "dpi": 300,
+                },
+            )
             pages.append({
                 "id": pid,
                 "url": f"/api/upload/image/{pid}",
@@ -107,19 +97,10 @@ async def upload_image(file: UploadFile = File(...), uid: str = Depends(get_acti
             "pages": pages,
         }
 
-    # ── Imagem direta (JPG/PNG/WebP): armazena sem transformação ────────────────
-    image_id = str(uuid.uuid4())
-    doc = {
-        "id": image_id,
-        "user_id": uid,
-        "filename": nome,
-        "content_type": detected_content_type,
-        "data_b64": base64.b64encode(data).decode("utf-8"),
-        "size_bytes": len(data),
-        "created_at": agora,
-    }
-    await db.images.insert_one(doc)
-    logger.info("Image uploaded: id=%s user=%s size=%d", image_id, uid, len(data))
+    # ── Imagem direta (JPG/PNG/WebP): armazena no R2 (fallback base64) ───────────
+    doc = await image_store.salvar_imagem(db, uid, data, detected_content_type, nome)
+    image_id = doc["id"]
+    logger.info("Image uploaded: id=%s user=%s size=%d r2=%s", image_id, uid, len(data), bool(doc.get("r2_key")))
     url = f"/api/upload/image/{image_id}"
     return {
         "id": image_id,
@@ -141,10 +122,9 @@ async def get_image(image_id: str, db=Depends(get_db)):
     doc = await db.images.find_one({"id": image_id})
     if not doc:
         raise HTTPException(status_code=404, detail="Imagem não encontrada")
-    try:
-        raw = base64.b64decode(doc["data_b64"])
-    except Exception:
-        raise HTTPException(status_code=422, detail="Imagem corrompida")
+    raw = await image_store.bytes_do_doc(doc)
+    if raw is None:
+        raise HTTPException(status_code=422, detail="Imagem corrompida ou indisponível")
     return Response(
         content=raw,
         media_type=doc.get("content_type", "image/jpeg"),
@@ -162,8 +142,10 @@ async def get_image_tiff(image_id: str, uid: str = Depends(get_active_subscriber
     ct = (doc.get("content_type") or "").lower()
     if ct == "application/pdf":
         raise HTTPException(status_code=422, detail="Use uma página convertida (PNG) para gerar TIFF.")
+    raw = await image_store.bytes_do_doc(doc)
+    if raw is None:
+        raise HTTPException(status_code=422, detail="Imagem indisponível.")
     try:
-        raw = base64.b64decode(doc["data_b64"])
         tiff = image_bytes_to_tiff(raw)
     except Exception:
         raise HTTPException(status_code=422, detail="Falha ao gerar TIFF.")
@@ -184,10 +166,9 @@ async def image_metadata(image_id: str, uid: str = Depends(get_active_subscriber
     doc = await db.images.find_one({"id": image_id, "user_id": uid})
     if not doc:
         raise HTTPException(status_code=404, detail="Imagem não encontrada")
-    try:
-        raw = base64.b64decode(doc["data_b64"])
-    except Exception:
-        raise HTTPException(status_code=422, detail="Imagem corrompida")
+    raw = await image_store.bytes_do_doc(doc)
+    if raw is None:
+        raise HTTPException(status_code=422, detail="Imagem indisponível")
     fonte = ""
     try:
         from services.ptam_pdf_v2 import _exif_gps_data
@@ -241,7 +222,7 @@ async def image_metadata(image_id: str, uid: str = Depends(get_active_subscriber
 
 @router.delete("/upload/image/{image_id}")
 async def delete_image(image_id: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
-    res = await db.images.delete_one({"id": image_id, "user_id": uid})
-    if res.deleted_count == 0:
+    ok = await image_store.remover_imagem(db, image_id, uid=uid)
+    if not ok:
         raise HTTPException(status_code=404, detail="Imagem não encontrada")
     return {"ok": True}

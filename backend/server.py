@@ -11,16 +11,18 @@ import os
 import sys
 
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+from pymongo.errors import OperationFailure, PyMongoError
 
 from db import init_db, close_db, get_db, setup_indexes
 from routes import all_routers
+from services import image_store
 
 logging.basicConfig(
     level=logging.INFO,
@@ -49,6 +51,46 @@ limiter = Limiter(key_func=get_remote_address, default_limits=["100/10minutes"])
 app = FastAPI(title="RomaTec AvalieImob API", version="1.0.0")
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+# ── Tratamento global de falha do MongoDB ───────────────────────────
+# Quando o banco está sem espaço (quota do Atlas estourada → "Writes are
+# blocked", code 8000/AtlasError) ou indisponível, o pymongo lança
+# OperationFailure/PyMongoError que, sem tratamento, virava um 500 mudo e o
+# frontend mostrava "Erro ao enviar foto" sem dizer o motivo. Agora devolve
+# uma mensagem clara e acionável (507/503) para QUALQUER rota que grave —
+# upload de foto, salvar PTAM, recibos, etc.
+def _is_quota_error(exc: Exception) -> bool:
+    if getattr(exc, "code", None) == 8000:
+        return True
+    msg = str(exc).lower()
+    return "space quota" in msg or "writes are blocked" in msg or "over your" in msg
+
+
+@app.exception_handler(OperationFailure)
+async def _mongo_operation_failure_handler(request: Request, exc: OperationFailure):
+    if _is_quota_error(exc):
+        logger.error("MongoDB SEM ESPAÇO (gravação bloqueada) em %s: %s", request.url.path, exc)
+        return JSONResponse(
+            status_code=507,
+            content={"detail": "Armazenamento do sistema cheio — não foi possível salvar. "
+                               "O administrador precisa liberar espaço no banco de dados."},
+        )
+    logger.exception("MongoDB OperationFailure em %s", request.url.path)
+    return JSONResponse(status_code=503, content={"detail": "Falha temporária no banco de dados. Tente novamente em instantes."})
+
+
+@app.exception_handler(PyMongoError)
+async def _mongo_generic_error_handler(request: Request, exc: PyMongoError):
+    if _is_quota_error(exc):
+        logger.error("MongoDB SEM ESPAÇO (gravação bloqueada) em %s: %s", request.url.path, exc)
+        return JSONResponse(
+            status_code=507,
+            content={"detail": "Armazenamento do sistema cheio — não foi possível salvar. "
+                               "O administrador precisa liberar espaço no banco de dados."},
+        )
+    logger.exception("MongoDB erro em %s", request.url.path)
+    return JSONResponse(status_code=503, content={"detail": "Falha temporária no banco de dados. Tente novamente em instantes."})
 
 
 # ── Security headers middleware ──────────────────────────────────────
@@ -185,7 +227,7 @@ async def baixar_recibo_publico(hash_validacao: str, db=Depends(get_db)):
     logo_bytes = None
     logo_id = doc.get("emitente_logo_id") or user.get("company_logo")
     if logo_id:
-        img = await db.images.find_one({"id": logo_id})
+        img = await image_store.find_one(db, {"id": logo_id})
         if img and img.get("data_b64"):
             try:
                 logo_bytes = _b64.b64decode(img["data_b64"])

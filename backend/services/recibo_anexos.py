@@ -10,8 +10,9 @@ redeploys), e a metadata fica no array `anexos` do recibo:
 import base64
 import logging
 import uuid
-from datetime import datetime
 from typing import Optional
+
+from services import image_store
 
 logger = logging.getLogger("romatec")
 
@@ -33,16 +34,10 @@ async def salvar_anexo(db, *, uid: str, filename: str, content_type: str, data: 
         raise ValueError("Arquivo muito grande. Tamanho máximo: 10MB")
 
     anexo_id = str(uuid.uuid4())
-    await db.images.insert_one({
-        "id": anexo_id,
-        "user_id": uid,
-        "filename": filename or f"anexo-{anexo_id}",
-        "content_type": ct,
-        "data_b64": base64.b64encode(data).decode("utf-8"),
-        "size_bytes": len(data),
-        "created_at": datetime.utcnow(),
-        "is_recibo_anexo": True,
-    })
+    await image_store.salvar_imagem(
+        db, uid, data, ct, filename or f"anexo-{anexo_id}", image_id=anexo_id,
+        extra={"is_recibo_anexo": True},
+    )
     return {
         "id": anexo_id,
         "url": f"/api/upload/image/{anexo_id}",
@@ -128,7 +123,7 @@ async def carregar_anexo_bytes(db, anexo: dict) -> Optional[tuple[bytes, str, st
     anexo_id = anexo.get("id")
     if not anexo_id:
         return None
-    img = await db.images.find_one({"id": anexo_id})
+    img = await image_store.find_one(db, {"id": anexo_id})
     if not img or not img.get("data_b64"):
         return None
     try:

@@ -18,6 +18,7 @@ from models.tvi import (
 )
 from pdf.tvi_pdf import generate_tvi_pdf
 from docx_gen.tvi_docx import generate_tvi_docx
+from services import image_store
 from services.tvi_share import enviar_tvi_email, gerar_link_whatsapp
 from services.upload_security import detect_content_type, normalize_filename
 from models.averbacao import catalogos_averbacao, calcular_averbacao
@@ -246,12 +247,10 @@ async def add_photos(
             invalid_files += 1
             continue
         img_id = str(uuid.uuid4())
-        img_doc = {
-            "id": img_id, "user_id": uid, "filename": normalize_filename(f.filename, fallback="foto"),
-            "content_type": detected_content_type, "data_b64": base64.b64encode(data).decode(),
-            "size_bytes": len(data), "created_at": datetime.utcnow(),
-        }
-        await db.images.insert_one(img_doc)
+        await image_store.salvar_imagem(
+            db, uid, data, detected_content_type,
+            normalize_filename(f.filename, fallback="foto"), image_id=img_id,
+        )
         url = f"/api/upload/image/{img_id}"
         photo = VistoriaPhoto(
             vistoria_id=vid, url=url, ambiente=ambiente,
@@ -371,7 +370,7 @@ async def _resolve_photos_bytes(db, photos: list) -> list:
         url = p2.get("url") or ""
         img_id = url.rsplit("/", 1)[-1] if "/upload/image/" in url else None
         if img_id:
-            img = await db.images.find_one({"id": img_id})
+            img = await image_store.find_one(db, {"id": img_id})
             if img and img.get("data_b64"):
                 ct = img.get("content_type", "image/jpeg")
                 p2["url"] = f"data:{ct};base64,{img['data_b64']}"

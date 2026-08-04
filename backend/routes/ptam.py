@@ -21,6 +21,7 @@ from ptam_docx import generate_ptam_docx
 from services.ptam_pdf_v2 import generate_ptam_pdf_v2
 from services.integracoes_util import carregar_integracoes
 from services import link_tracking
+from services import image_store
 
 router = APIRouter(tags=["ptam"])
 logger = logging.getLogger("romatec")
@@ -483,7 +484,7 @@ async def download_ptam_docx(pid: str, uid: str = Depends(get_active_subscriber)
     # Logo da empresa
     company_logo_id = user.get("company_logo")
     if company_logo_id:
-        logo_doc = await db.images.find_one({"id": company_logo_id, "user_id": uid})
+        logo_doc = await image_store.find_one(db, {"id": company_logo_id, "user_id": uid})
         if logo_doc:
             import base64 as _b64
             user["_company_logo_bytes"] = _b64.b64decode(logo_doc["data_b64"])
@@ -501,7 +502,7 @@ async def download_ptam_docx(pid: str, uid: str = Depends(get_active_subscriber)
             parts = str(url).replace('/api/upload/image/', '').split('/')
             image_id = parts[-1] if parts else str(url)
             if len(image_id) > 30 and '-' in image_id:
-                img_doc = await db.images.find_one({"id": image_id})
+                img_doc = await image_store.find_one(db, {"id": image_id})
                 if img_doc and img_doc.get("data_b64"):
                     _raw = base64.b64decode(img_doc["data_b64"])
                     # FIX 1: GPS + Data/Hora (cache > EXIF > OCR) — nunca omite no card.
@@ -535,7 +536,7 @@ async def download_ptam_docx(pid: str, uid: str = Depends(get_active_subscriber)
             parts = str(url).replace('/api/upload/image/', '').split('/')
             doc_id = parts[-1] if parts else str(url)
             if len(doc_id) > 30 and '-' in doc_id:
-                doc_db = await db.images.find_one({"id": doc_id})
+                doc_db = await image_store.find_one(db, {"id": doc_id})
                 if doc_db and doc_db.get("data_b64"):
                     docs_processados.append({
                         "doc_id": doc_id,
@@ -559,7 +560,7 @@ async def download_ptam_docx(pid: str, uid: str = Depends(get_active_subscriber)
             parts = str(foto_url).replace('/api/upload/image/', '').split('/')
             sample_image_id = parts[-1] if parts else str(foto_url)
             if len(sample_image_id) > 30 and '-' in sample_image_id:
-                sample_img_doc = await db.images.find_one({"id": sample_image_id})
+                sample_img_doc = await image_store.find_one(db, {"id": sample_image_id})
                 if sample_img_doc and sample_img_doc.get("data_b64"):
                     market_samples[j] = {
                         **sample,
@@ -604,7 +605,7 @@ async def download_ptam_pdf(pid: str, uid: str = Depends(get_active_subscriber),
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
     company_logo_id = user.get("company_logo")
     if company_logo_id:
-        logo_doc = await db.images.find_one({"id": company_logo_id, "user_id": uid})
+        logo_doc = await image_store.find_one(db, {"id": company_logo_id, "user_id": uid})
         if logo_doc:
             import base64 as _b64
             user["_company_logo_bytes"] = _b64.b64decode(logo_doc["data_b64"])
@@ -621,7 +622,7 @@ async def download_ptam_pdf(pid: str, uid: str = Depends(get_active_subscriber),
             parts = str(url).replace('/api/upload/image/', '').split('/')
             image_id = parts[-1] if parts else str(url)
             if len(image_id) > 30 and '-' in image_id:
-                img_doc = await db.images.find_one({"id": image_id})
+                img_doc = await image_store.find_one(db, {"id": image_id})
                 if img_doc and img_doc.get("data_b64"):
                     _raw = base64.b64decode(img_doc["data_b64"])
                     # FIX 1: GPS + Data/Hora (cache > EXIF > OCR) — nunca omite no card.
@@ -655,7 +656,7 @@ async def download_ptam_pdf(pid: str, uid: str = Depends(get_active_subscriber),
             parts = str(url).replace('/api/upload/image/', '').split('/')
             doc_id = parts[-1] if parts else str(url)
             if len(doc_id) > 30 and '-' in doc_id:
-                doc_db = await db.images.find_one({"id": doc_id})
+                doc_db = await image_store.find_one(db, {"id": doc_id})
                 if doc_db and doc_db.get("data_b64"):
                     docs_processados.append({
                         "doc_id": doc_id,
@@ -679,7 +680,7 @@ async def download_ptam_pdf(pid: str, uid: str = Depends(get_active_subscriber),
             parts = str(foto_url).replace('/api/upload/image/', '').split('/')
             sample_image_id = parts[-1] if parts else str(foto_url)
             if len(sample_image_id) > 30 and '-' in sample_image_id:
-                sample_img_doc = await db.images.find_one({"id": sample_image_id})
+                sample_img_doc = await image_store.find_one(db, {"id": sample_image_id})
                 if sample_img_doc and sample_img_doc.get("data_b64"):
                     market_samples[j] = {
                         **sample,
@@ -881,7 +882,7 @@ async def _resolve_plantas_amostras(db, samples):
             continue
         pid = str(pb).replace('/api/upload/image/', '').split('/')[-1]
         if len(pid) > 30 and '-' in pid:
-            pimg = await db.images.find_one({"id": pid})
+            pimg = await image_store.find_one(db, {"id": pid})
             if pimg and pimg.get("data_b64"):
                 s["_planta_baixa_bytes"] = base64.b64decode(pimg["data_b64"])
 
@@ -1076,7 +1077,7 @@ async def _merge_docs_rurais(db, doc, docs_res):
             rid = str(url).replace("/api/upload/image/", "").strip("/").split("/")[-1]
             if len(rid) <= 30 or "-" not in rid:
                 continue
-            rimg = await db.images.find_one({"id": rid})
+            rimg = await image_store.find_one(db, {"id": rid})
             if rimg and rimg.get("data_b64"):
                 nome = rotulo if total <= 1 else f"{rotulo} ({k}/{total})"
                 docs_res.append({
@@ -1102,7 +1103,7 @@ async def download_ptam_pdf_v2(pid: str, uid: str = Depends(get_active_subscribe
                 url = str(foto)
             image_id = str(url).replace('/api/upload/image/', '').split('/')[-1]
             if len(image_id) > 30 and '-' in image_id:
-                img_doc = await db.images.find_one({"id": image_id})
+                img_doc = await image_store.find_one(db, {"id": image_id})
                 if img_doc and img_doc.get("data_b64"):
                     if isinstance(foto, dict):
                         foto["_image_bytes"] = base64.b64decode(img_doc["data_b64"])
@@ -1117,7 +1118,7 @@ async def download_ptam_pdf_v2(pid: str, uid: str = Depends(get_active_subscribe
                 image_id = str(foto).replace('/api/upload/image/', '').split('/')[-1]
                 entry = {"legenda": f"Foto {i}", "description": f"Foto {i}"}
                 if len(image_id) > 30 and '-' in image_id:
-                    img_doc = await db.images.find_one({"id": image_id})
+                    img_doc = await image_store.find_one(db, {"id": image_id})
                     if img_doc and img_doc.get("data_b64"):
                         raw = base64.b64decode(img_doc["data_b64"])
                         if img_doc.get("filename"):
@@ -1136,7 +1137,7 @@ async def download_ptam_pdf_v2(pid: str, uid: str = Depends(get_active_subscribe
             foto_url = sample.get("foto") or sample.get("foto_url") or ""
             sample_image_id = str(foto_url).replace('/api/upload/image/', '').split('/')[-1]
             if len(sample_image_id) > 30 and '-' in sample_image_id:
-                simg = await db.images.find_one({"id": sample_image_id})
+                simg = await image_store.find_one(db, {"id": sample_image_id})
                 if simg and simg.get("data_b64"):
                     sample["_image_bytes"] = base64.b64decode(simg["data_b64"])
         await _resolve_plantas_amostras(db, doc.get("market_samples"))
@@ -1151,7 +1152,7 @@ async def download_ptam_pdf_v2(pid: str, uid: str = Depends(get_active_subscribe
                 dnome = None
             did = str(durl).replace('/api/upload/image/', '').split('/')[-1]
             if len(did) > 30 and '-' in did:
-                dimg = await db.images.find_one({"id": did})
+                dimg = await image_store.find_one(db, {"id": did})
                 if dimg and dimg.get("data_b64"):
                     docs_resolvidos.append({
                         "name": dnome or dimg.get("filename") or f"Documento {kdoc}",
@@ -1195,7 +1196,7 @@ async def preview_ptam_pdf(body: dict, uid: str = Depends(get_active_subscriber)
                 if not foto.get("_image_bytes"):
                     _fid = str(foto.get("image_id") or foto.get("url") or "").replace('/api/upload/image/', '').split('/')[-1]
                     if len(_fid) > 30 and '-' in _fid:
-                        _fimg = await db.images.find_one({"id": _fid})
+                        _fimg = await image_store.find_one(db, {"id": _fid})
                         if _fimg and _fimg.get("data_b64"):
                             foto["_image_bytes"] = base64.b64decode(_fimg["data_b64"])
                 if not foto.get("legenda"):
@@ -1205,7 +1206,7 @@ async def preview_ptam_pdf(body: dict, uid: str = Depends(get_active_subscriber)
             image_id = str(foto).replace('/api/upload/image/', '').split('/')[-1]
             entry = {"legenda": f"Foto {i}", "description": f"Foto {i}"}
             if len(image_id) > 30 and '-' in image_id:
-                img = await db.images.find_one({"id": image_id})
+                img = await image_store.find_one(db, {"id": image_id})
                 if img and img.get("data_b64"):
                     entry["_image_bytes"] = base64.b64decode(img["data_b64"])
                     if img.get("filename"):
@@ -1217,7 +1218,7 @@ async def preview_ptam_pdf(body: dict, uid: str = Depends(get_active_subscriber)
             fu = s.get("foto") or s.get("foto_url") or ""
             sid = str(fu).replace('/api/upload/image/', '').split('/')[-1]
             if len(sid) > 30 and '-' in sid:
-                simg = await db.images.find_one({"id": sid})
+                simg = await image_store.find_one(db, {"id": sid})
                 if simg and simg.get("data_b64"):
                     s["_image_bytes"] = base64.b64decode(simg["data_b64"])
         await _resolve_plantas_amostras(db, doc.get("market_samples"))
@@ -1228,7 +1229,7 @@ async def preview_ptam_pdf(body: dict, uid: str = Depends(get_active_subscriber)
             dn = (di.get("name") or di.get("tipo")) if isinstance(di, dict) else None
             did = str(du).replace('/api/upload/image/', '').split('/')[-1]
             if len(did) > 30 and '-' in did:
-                dimg = await db.images.find_one({"id": did})
+                dimg = await image_store.find_one(db, {"id": did})
                 if dimg and dimg.get("data_b64"):
                     docs_res.append({
                         "name": dn or dimg.get("filename") or f"Documento {kd}",
@@ -1272,7 +1273,7 @@ async def send_ptam_email(
     # Inclui logo se disponível
     company_logo_id = user.get("company_logo")
     if company_logo_id:
-        logo_doc = await db.images.find_one({"id": company_logo_id, "user_id": uid})
+        logo_doc = await image_store.find_one(db, {"id": company_logo_id, "user_id": uid})
         if logo_doc:
             import base64 as _b64
             user["_company_logo_bytes"] = _b64.b64decode(logo_doc["data_b64"])
@@ -1290,7 +1291,7 @@ async def send_ptam_email(
             parts = str(url).replace('/api/upload/image/', '').split('/')
             image_id = parts[-1] if parts else str(url)
             if len(image_id) > 30 and '-' in image_id:
-                img_doc = await db.images.find_one({"id": image_id})
+                img_doc = await image_store.find_one(db, {"id": image_id})
                 if img_doc and img_doc.get("data_b64"):
                     fotos_imovel_e[i] = {
                         "image_id": image_id,
@@ -1313,7 +1314,7 @@ async def send_ptam_email(
             parts = str(url).replace('/api/upload/image/', '').split('/')
             doc_id = parts[-1] if parts else str(url)
             if len(doc_id) > 30 and '-' in doc_id:
-                doc_db = await db.images.find_one({"id": doc_id})
+                doc_db = await image_store.find_one(db, {"id": doc_id})
                 if doc_db and doc_db.get("data_b64"):
                     docs_proc_e.append({
                         "doc_id": doc_id,
@@ -1337,7 +1338,7 @@ async def send_ptam_email(
             parts = str(foto_url).replace('/api/upload/image/', '').split('/')
             sample_image_id = parts[-1] if parts else str(foto_url)
             if len(sample_image_id) > 30 and '-' in sample_image_id:
-                sample_img_doc = await db.images.find_one({"id": sample_image_id})
+                sample_img_doc = await image_store.find_one(db, {"id": sample_image_id})
                 if sample_img_doc and sample_img_doc.get("data_b64"):
                     market_samples_e[j] = {
                         **sample,
@@ -1608,7 +1609,7 @@ async def download_ptam_publico_pdf(token: str, db=Depends(get_db)):
     # Logo da empresa
     company_logo_id = user.get("company_logo")
     if company_logo_id:
-        logo_doc = await db.images.find_one({"id": company_logo_id, "user_id": ptam.get("user_id")})
+        logo_doc = await image_store.find_one(db, {"id": company_logo_id, "user_id": ptam.get("user_id")})
         if logo_doc:
             import base64 as _b64
             user["_company_logo_bytes"] = _b64.b64decode(logo_doc["data_b64"])
@@ -1626,7 +1627,7 @@ async def download_ptam_publico_pdf(token: str, db=Depends(get_db)):
             parts = str(url).replace('/api/upload/image/', '').split('/')
             image_id = parts[-1] if parts else str(url)
             if len(image_id) > 30 and '-' in image_id:
-                img_doc = await db.images.find_one({"id": image_id})
+                img_doc = await image_store.find_one(db, {"id": image_id})
                 if img_doc and img_doc.get("data_b64"):
                     fotos_imovel[i] = {
                         "image_id": image_id,
@@ -1645,7 +1646,7 @@ async def download_ptam_publico_pdf(token: str, db=Depends(get_db)):
             parts = str(foto_url).replace('/api/upload/image/', '').split('/')
             sample_image_id = parts[-1] if parts else str(foto_url)
             if len(sample_image_id) > 30 and '-' in sample_image_id:
-                sample_img_doc = await db.images.find_one({"id": sample_image_id})
+                sample_img_doc = await image_store.find_one(db, {"id": sample_image_id})
                 if sample_img_doc and sample_img_doc.get("data_b64"):
                     market_samples[j] = {
                         **sample,
@@ -2117,7 +2118,7 @@ async def _melhor_pdf_ptam(db, ptam: dict) -> tuple[bytes, str]:
             image_id = str(foto).replace('/api/upload/image/', '').split('/')[-1]
             entry = {"legenda": f"Foto {i}", "description": f"Foto {i}"}
             if len(image_id) > 30 and '-' in image_id:
-                img = await db.images.find_one({"id": image_id})
+                img = await image_store.find_one(db, {"id": image_id})
                 if img and img.get("data_b64"):
                     entry["_image_bytes"] = base64.b64decode(img["data_b64"])
                     if img.get("filename"):
@@ -2128,7 +2129,7 @@ async def _melhor_pdf_ptam(db, ptam: dict) -> tuple[bytes, str]:
             fu = s.get("foto") or s.get("foto_url") or ""
             sid = str(fu).replace('/api/upload/image/', '').split('/')[-1]
             if len(sid) > 30 and '-' in sid:
-                simg = await db.images.find_one({"id": sid})
+                simg = await image_store.find_one(db, {"id": sid})
                 if simg and simg.get("data_b64"):
                     s["_image_bytes"] = base64.b64decode(simg["data_b64"])
         await _resolve_plantas_amostras(db, ptam.get("market_samples"))
@@ -2138,7 +2139,7 @@ async def _melhor_pdf_ptam(db, ptam: dict) -> tuple[bytes, str]:
             dn = (di.get("name") or di.get("tipo")) if isinstance(di, dict) else None
             did = str(du).replace('/api/upload/image/', '').split('/')[-1]
             if len(did) > 30 and '-' in did:
-                dimg = await db.images.find_one({"id": did})
+                dimg = await image_store.find_one(db, {"id": did})
                 if dimg and dimg.get("data_b64"):
                     docs_res.append({
                         "name": dn or dimg.get("filename") or f"Documento {kd}",

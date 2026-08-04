@@ -11,6 +11,7 @@ from pymongo import ReturnDocument
 
 from db import get_db
 from dependencies import get_active_subscriber, serialize_doc
+from services import image_store
 from models.proposta import Proposta, PropostaBase, PropostaPreviewRequest
 from services.pricing import CATALOGO_CONSULTORIA, calcular_consultoria, SUBTIPO_LABEL
 
@@ -128,7 +129,7 @@ async def _carregar_anexos_bytes(db, doc: dict) -> list:
             iid = iid.get("id") or iid.get("image_id") or iid.get("img_id")
         if not iid:
             continue
-        img = await db.images.find_one({"id": str(iid)})
+        img = await image_store.find_one(db, {"id": str(iid)})
         if img and img.get("data_b64"):
             try:
                 b = img["data_b64"]

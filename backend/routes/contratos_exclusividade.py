@@ -22,6 +22,7 @@ from slowapi.util import get_remote_address
 
 from db import get_db
 from dependencies import get_active_subscriber
+from services import image_store
 from models.contrato_exclusividade import (
     AceiteInput, ContratoExclusividadeCreate, ContratoExclusividadeUpdate,
     StatusContrato, StatusSignatario, exige_conjuge, etapas_iniciais, andamento_pct,
@@ -132,7 +133,7 @@ async def _carregar_fotos_bytes(db, contrato: dict) -> dict:
     im = contrato.get("imovel") or {}
     for f in im.get("fotos", []) or []:
         try:
-            doc = await db["images"].find_one({"id": f.get("image_id")})
+            doc = await image_store.find_one(db, {"id": f.get("image_id")})
             if doc and doc.get("data_b64"):
                 f["_image_bytes"] = base64.b64decode(doc["data_b64"])
         except Exception:

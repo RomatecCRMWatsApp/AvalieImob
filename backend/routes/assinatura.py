@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from db import get_db
 from dependencies import get_active_subscriber, serialize_doc
 from services.auth_service import get_current_user_id
+from services import image_store
 
 logger = logging.getLogger("romatec")
 
@@ -125,7 +126,7 @@ async def _resolve_ptam_assets(db, doc: dict) -> None:
                 # Foto-objeto {image_id, legenda}: resolve os bytes em db.images.
                 _fid = str(foto.get("image_id") or foto.get("url") or "").replace('/api/upload/image/', '').split('/')[-1]
                 if len(_fid) > 30 and '-' in _fid:
-                    _img = await db.images.find_one({"id": _fid})
+                    _img = await image_store.find_one(db, {"id": _fid})
                     if _img and _img.get("data_b64"):
                         foto["_image_bytes"] = downscale_image(base64.b64decode(_img["data_b64"]))
                         if not foto.get("gps") and _img.get("meta_gps"):
@@ -137,7 +138,7 @@ async def _resolve_ptam_assets(db, doc: dict) -> None:
         image_id = str(foto).replace('/api/upload/image/', '').split('/')[-1]
         entry = {"legenda": f"Foto {i}", "description": f"Foto {i}"}
         if len(image_id) > 30 and '-' in image_id:
-            img = await db.images.find_one({"id": image_id})
+            img = await image_store.find_one(db, {"id": image_id})
             if img and img.get("data_b64"):
                 entry["_image_bytes"] = downscale_image(base64.b64decode(img["data_b64"]))
                 if img.get("filename"):
@@ -153,7 +154,7 @@ async def _resolve_ptam_assets(db, doc: dict) -> None:
         fu = s.get("foto") or s.get("foto_url") or ""
         sid = str(fu).replace('/api/upload/image/', '').split('/')[-1]
         if len(sid) > 30 and '-' in sid:
-            simg = await db.images.find_one({"id": sid})
+            simg = await image_store.find_one(db, {"id": sid})
             if simg and simg.get("data_b64"):
                 s["_image_bytes"] = downscale_image(base64.b64decode(simg["data_b64"]))
         # Planta baixa (mapa SIGEF) da amostra — Anexo II mostra foto + planta lado a lado.
@@ -161,7 +162,7 @@ async def _resolve_ptam_assets(db, doc: dict) -> None:
             pb = s.get("planta_baixa") or s.get("planta_baixa_url") or ""
             pid_pb = str(pb).replace('/api/upload/image/', '').split('/')[-1]
             if len(pid_pb) > 30 and '-' in pid_pb:
-                pimg = await db.images.find_one({"id": pid_pb})
+                pimg = await image_store.find_one(db, {"id": pid_pb})
                 if pimg and pimg.get("data_b64"):
                     s["_planta_baixa_bytes"] = downscale_image(base64.b64decode(pimg["data_b64"]))
 
@@ -171,7 +172,7 @@ async def _resolve_ptam_assets(db, doc: dict) -> None:
         dn = (di.get("name") or di.get("tipo")) if isinstance(di, dict) else None
         did = str(du).replace('/api/upload/image/', '').split('/')[-1]
         if len(did) > 30 and '-' in did:
-            dimg = await db.images.find_one({"id": did})
+            dimg = await image_store.find_one(db, {"id": did})
             if dimg and dimg.get("data_b64"):
                 _ct = dimg.get("content_type", "image/jpeg")
                 _raw = base64.b64decode(dimg["data_b64"])
@@ -387,7 +388,7 @@ async def _gerar_pdf(tipo: str, doc: dict, db=None, perfil: dict | None = None) 
             u = await db.users.find_one({"id": doc.get("user_id")}) or {}
             logo_id = doc.get("emitente_logo_id") or u.get("company_logo")
             if logo_id:
-                limg = await db.images.find_one({"id": logo_id})
+                limg = await image_store.find_one(db, {"id": logo_id})
                 if limg and limg.get("data_b64"):
                     import base64 as _b64
                     logo = _b64.b64decode(limg["data_b64"])
@@ -482,7 +483,7 @@ async def _render_ptam_layout(db, doc: dict, uid: str, layout: str) -> bytes:
         # Logo da empresa
         company_logo_id = user.get("company_logo")
         if company_logo_id:
-            logo_doc = await db.images.find_one({"id": company_logo_id, "user_id": uid})
+            logo_doc = await image_store.find_one(db, {"id": company_logo_id, "user_id": uid})
             if logo_doc and logo_doc.get("data_b64"):
                 user["_company_logo_bytes"] = _b64.b64decode(logo_doc["data_b64"])
         # Fotos do imovel
@@ -496,7 +497,7 @@ async def _render_ptam_layout(db, doc: dict, uid: str, layout: str) -> bytes:
                 continue
             image_id = str(url).replace('/api/upload/image/', '').split('/')[-1]
             if len(image_id) > 30 and '-' in image_id:
-                img_doc = await db.images.find_one({"id": image_id})
+                img_doc = await image_store.find_one(db, {"id": image_id})
                 if img_doc and img_doc.get("data_b64"):
                     fotos_imovel[i] = {
                         "image_id": image_id,
@@ -516,7 +517,7 @@ async def _render_ptam_layout(db, doc: dict, uid: str, layout: str) -> bytes:
                 continue
             doc_id = str(url).replace('/api/upload/image/', '').split('/')[-1]
             if len(doc_id) > 30 and '-' in doc_id:
-                doc_db = await db.images.find_one({"id": doc_id})
+                doc_db = await image_store.find_one(db, {"id": doc_id})
                 if doc_db and doc_db.get("data_b64"):
                     docs_processados.append({
                         "doc_id": doc_id,
@@ -536,7 +537,7 @@ async def _render_ptam_layout(db, doc: dict, uid: str, layout: str) -> bytes:
             foto_url = sample.get("foto") or sample.get("foto_url") or ""
             sid = str(foto_url).replace('/api/upload/image/', '').split('/')[-1]
             if len(sid) > 30 and '-' in sid:
-                simg = await db.images.find_one({"id": sid})
+                simg = await image_store.find_one(db, {"id": sid})
                 if simg and simg.get("data_b64"):
                     market_samples[j] = {**sample, "_image_bytes": _b64.b64decode(simg["data_b64"])}
         doc["market_samples"] = market_samples

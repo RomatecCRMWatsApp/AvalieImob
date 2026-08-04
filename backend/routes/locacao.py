@@ -10,6 +10,7 @@ from fastapi.responses import StreamingResponse
 from db import get_db
 from dependencies import serialize_doc
 from services.auth_service import get_current_user_id
+from services import image_store
 from models import LocacaoBase
 from pdf.locacao_pdf import generate_locacao_pdf
 from locacao_docx import generate_locacao_docx
@@ -120,7 +121,7 @@ async def download_locacao_pdf(locacao_id: str, uid: str = Depends(get_current_u
             
             # Validar se parece um UUID
             if len(image_id) > 30 and '-' in image_id:
-                img_doc = await db.images.find_one({"id": image_id})
+                img_doc = await image_store.find_one(db, {"id": image_id})
                 if img_doc and img_doc.get("data_b64"):
                     import base64
                     # Substituir URL por dict com dados da imagem
@@ -130,7 +131,7 @@ async def download_locacao_pdf(locacao_id: str, uid: str = Depends(get_current_u
                         "_image_bytes": base64.b64decode(img_doc["data_b64"]),
                         "caption": f"Foto {i+1}"
                     }
-        
+
         # Atualizar o doc com as fotos processadas (IMPORTANTE!)
         doc["fotos_imovel"] = fotos_imovel
         
@@ -151,7 +152,7 @@ async def download_locacao_pdf(locacao_id: str, uid: str = Depends(get_current_u
             
             # Validar se parece um UUID
             if len(doc_id) > 30 and '-' in doc_id:
-                doc_doc = await db.images.find_one({"id": doc_id})
+                doc_doc = await image_store.find_one(db, {"id": doc_id})
                 if doc_doc and doc_doc.get("data_b64"):
                     import base64
                     # Criar dict com dados do documento
@@ -181,7 +182,7 @@ async def download_locacao_pdf(locacao_id: str, uid: str = Depends(get_current_u
             sample_image_id = parts[-1] if parts else str(foto_url)
             if len(sample_image_id) > 30 and '-' in sample_image_id:
                 import base64 as _b64
-                sample_img_doc = await db.images.find_one({"id": sample_image_id})
+                sample_img_doc = await image_store.find_one(db, {"id": sample_image_id})
                 if sample_img_doc and sample_img_doc.get("data_b64"):
                     market_samples[j] = {
                         **sample,
@@ -237,7 +238,7 @@ async def download_locacao_docx(locacao_id: str, uid: str = Depends(get_current_
             # Validar se parece um UUID
             if len(image_id) > 30 and '-' in image_id:
                 logger.info(f"  Buscando imagem {i}: {image_id}")
-                img_doc = await db.images.find_one({"id": image_id})
+                img_doc = await image_store.find_one(db, {"id": image_id})
                 if img_doc and img_doc.get("data_b64"):
                     import base64
                     # Substituir URL por dict com dados da imagem

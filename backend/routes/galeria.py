@@ -18,6 +18,7 @@ from pymongo import ReturnDocument
 
 from db import get_db
 from dependencies import get_active_subscriber
+from services import image_store
 from services.upload_security import detect_content_type
 
 router = APIRouter(prefix="/galeria", tags=["galeria"])
@@ -101,27 +102,23 @@ async def salvar_foto(
     if lat_f is not None and lon_f is not None:
         gps_str = f"{lat_f:.6f}, {lon_f:.6f}"
 
-    await db.images.insert_one({
-        "id": image_id,
-        "user_id": uid,
-        "galeria": True,
-        "numero": numero,
-        "filename": f"galeria_{numero}.jpg",
-        "content_type": ctype,
-        "data_b64": base64.b64encode(raw).decode("utf-8"),
-        "size_bytes": len(raw),
-        "latitude": lat_f,
-        "longitude": lon_f,
-        "altitude": _f(altitude),
-        "utm": utm.strip() or None,
-        "endereco": endereco.strip() or None,
-        "legenda": legenda.strip() or None,
-        "meta_gps": gps_str,
-        "meta_data_hora": data_hora.strip() or datetime.utcnow().isoformat(),
-        "meta_ocr_done": True,
-        "origem": "galeria_avalieimob",
-        "created_at": datetime.utcnow(),
-    })
+    await image_store.salvar_imagem(
+        db, uid, raw, ctype, f"galeria_{numero}.jpg", image_id=image_id,
+        extra={
+            "galeria": True,
+            "numero": numero,
+            "latitude": lat_f,
+            "longitude": lon_f,
+            "altitude": _f(altitude),
+            "utm": utm.strip() or None,
+            "endereco": endereco.strip() or None,
+            "legenda": legenda.strip() or None,
+            "meta_gps": gps_str,
+            "meta_data_hora": data_hora.strip() or datetime.utcnow().isoformat(),
+            "meta_ocr_done": True,
+            "origem": "galeria_avalieimob",
+        },
+    )
 
     return {
         "id": image_id,
@@ -153,7 +150,7 @@ class EnvioTgBody(BaseModel):
 
 
 async def _carregar_foto(db, image_id: str, uid: str):
-    doc = await db.images.find_one({"id": image_id, "user_id": uid, "galeria": True})
+    doc = await image_store.find_one(db, {"id": image_id, "user_id": uid, "galeria": True})
     if not doc:
         raise HTTPException(404, "Foto não encontrada")
     return doc, base64.b64decode(doc["data_b64"])
