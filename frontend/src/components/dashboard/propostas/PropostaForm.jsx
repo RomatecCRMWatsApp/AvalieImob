@@ -55,12 +55,25 @@ const SCHEMAS = {
     titulo: 'Retificação de Área',
     campos: [
       N('area_atual_matricula', 'Área atual (matrícula)'),
-      N('area_real_levantada', 'Área real (levantada)'),
-      N('valor_venal', 'Valor venal (R$)'),
-      SEL('tipo_retificacao', 'Tipo', [
-        { value: 'administrativa', label: 'Administrativa (Lei 10.931)' }, { value: 'judicial', label: 'Judicial (Lei 6.015)' }], 'administrativa'),
-      BOOL('tem_anuencia_confrontantes', 'Tem anuência dos confrontantes?'),
-      N('honorario_projeto_sm', 'Honorário projeto (em SM)', 1),
+      BOOL('area_real_a_apurar', 'Área real só após o levantamento?', false, ['Não (informar agora)', 'Sim (a apurar)']),
+      { ...N('area_real_levantada', 'Área real (levantada)'), when: (d) => !d.area_real_a_apurar },
+      SEL('tipo_retificacao', 'Tipo de retificação', [
+        { value: 'administrativa', label: 'Administrativa (Lei 10.931) — exige anuência de TODOS' },
+        { value: 'judicial', label: 'Judicial (Lei 6.015 art. 213)' }], 'administrativa'),
+      { ...N('valor_venal', 'Valor venal (R$) — só judicial'), when: (d) => d.tipo_retificacao === 'judicial' },
+      BOOL('tem_anuencia_confrontantes', 'Cliente já tem anuência dos confrontantes?'),
+      SEL('anotacao_tecnica', 'Anotação Técnica do Responsável', [
+        { value: 'art_crea', label: 'ART CREA-MA' }, { value: 'rrt_cau', label: 'RRT CAU/MA' },
+        { value: 'trt_cft', label: 'TRT CFT (Técnico Industrial)' }], 'art_crea'),
+      N('honorario_projeto_sm', 'Honorário Técnico (em SM)', 1),
+      BOOL('dil_secretaria_incluir', 'Diligência: Secretaria de Habitação (município)?'),
+      { ...N('dil_secretaria_valor', 'Valor — Secretaria (R$)', 150), when: (d) => !!d.dil_secretaria_incluir },
+      BOOL('dil_cartorio_incluir', 'Diligência: Cartório de RI (ofício/protocolo)?'),
+      { ...N('dil_cartorio_valor', 'Valor — Cartório (R$)', 150), when: (d) => !!d.dil_cartorio_incluir },
+      BOOL('dil_anuencia_incluir', 'Diligência: recolhimento de anuência dos confrontantes?'),
+      { ...N('dil_anuencia_valor', 'Valor — Anuência (R$)', 300), when: (d) => !!d.dil_anuencia_incluir },
+      { key: 'despesas_administrativas_descritivo', label: 'Descritivo das diligências (opcional — automático se vazio)', type: 'text',
+        when: (d) => d.dil_secretaria_incluir || d.dil_cartorio_incluir || d.dil_anuencia_incluir },
     ],
   },
   avaliacao_ptam: {
@@ -112,8 +125,16 @@ const SCHEMAS = {
       N('area_total_m2', 'Área total da matriz (m²)'),
       N('valor_venal_total', 'Valor venal total (R$)'),
       SEL('tipo_zona', 'Zona', [{ value: 'urbana', label: 'Urbana' }, { value: 'rural', label: 'Rural' }], 'urbana'),
-      SEL('honorario_projeto_sm', 'Pacote (honorário/lote)', [
+      SEL('modo_precificacao', 'Modo de precificação', [
+        { value: 'auto', label: 'A) Automático (SM × pacote × nº lotes)' },
+        { value: 'por_imovel', label: 'B) Por imóvel (valor único × qtd)' },
+        { value: 'personalizado', label: 'C) Personalizado (valor fechado)' }], 'auto'),
+      { ...N('valor_por_imovel', 'Valor por imóvel (R$)'), when: (d) => d.modo_precificacao === 'por_imovel' },
+      { ...N('honorarios_personalizados_valor', 'Honorários — valor fechado (R$)'), when: (d) => d.modo_precificacao === 'personalizado' },
+      { key: 'honorarios_personalizados_descritivo', label: 'Descritivo do pacote', type: 'text', when: (d) => d.modo_precificacao === 'personalizado' },
+      { ...SEL('honorario_projeto_sm', 'Pacote (honorário/lote)', [
         { value: 0.5, label: 'Básico (0,5 SM/lote)' }, { value: 1, label: 'Completo (1 SM/lote)' }], 1),
+        when: (d) => !d.modo_precificacao || d.modo_precificacao === 'auto' },
       BOOL('iptu_em_dia', 'IPTU em dia?', true),
       BOOL('assessoria_tecnica_habilitada', 'Assessoria técnica (acompanhamento)?'),
       { ...N('assessoria_tecnica_valor', 'Valor da assessoria (R$)'), when: (d) => !!d.assessoria_tecnica_habilitada },
@@ -128,8 +149,16 @@ const SCHEMAS = {
       N('area_total_m2', 'Área total (m²)'),
       N('valor_venal_total', 'Valor venal total (R$)'),
       SEL('tipo_zona', 'Zona', [{ value: 'urbana', label: 'Urbana' }, { value: 'rural', label: 'Rural' }], 'urbana'),
-      SEL('honorario_projeto_sm', 'Pacote (honorário/matrícula)', [
+      SEL('modo_precificacao', 'Modo de precificação', [
+        { value: 'auto', label: 'A) Automático (SM × pacote × nº matrículas)' },
+        { value: 'por_imovel', label: 'B) Por imóvel (valor único × qtd)' },
+        { value: 'personalizado', label: 'C) Personalizado (valor fechado)' }], 'auto'),
+      { ...N('valor_por_imovel', 'Valor por imóvel (R$)'), when: (d) => d.modo_precificacao === 'por_imovel' },
+      { ...N('honorarios_personalizados_valor', 'Honorários — valor fechado (R$)'), when: (d) => d.modo_precificacao === 'personalizado' },
+      { key: 'honorarios_personalizados_descritivo', label: 'Descritivo do pacote', type: 'text', when: (d) => d.modo_precificacao === 'personalizado' },
+      { ...SEL('honorario_projeto_sm', 'Pacote (honorário/matrícula)', [
         { value: 0.5, label: 'Básico (0,5 SM)' }, { value: 1, label: 'Completo (1 SM)' }], 1),
+        when: (d) => !d.modo_precificacao || d.modo_precificacao === 'auto' },
       BOOL('iptu_em_dia', 'IPTU em dia?', true),
       BOOL('assessoria_tecnica_habilitada', 'Assessoria técnica (acompanhamento)?'),
       { ...N('assessoria_tecnica_valor', 'Valor da assessoria (R$)'), when: (d) => !!d.assessoria_tecnica_habilitada },

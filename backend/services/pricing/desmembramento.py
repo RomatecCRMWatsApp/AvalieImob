@@ -284,7 +284,19 @@ def calcular_desmembramento(dados: dict) -> dict:
         ordem += 2
 
     # ── modo_precificacao reescreve secao_3 do zero ──────────────────────────
+    # 'auto'/vazio = cálculo paramétrico padrão (não aciona modo). Conveniência UI:
+    # deriva honorarios_personalizados de chaves planas do form genérico.
     modo_prec = dados.get("modo_precificacao")
+    if modo_prec in (None, "", "auto"):
+        modo_prec = None
+    if modo_prec == "personalizado" and dados.get("honorarios_personalizados") is None:
+        _vt = dados.get("honorarios_personalizados_valor")
+        if _vt is None:
+            _vt = dados.get("honorarios_personalizados_valor_total")
+        dados["honorarios_personalizados"] = {
+            "valor_total": _num(_vt, 0),
+            "descritivo": dados.get("honorarios_personalizados_descritivo"),
+        }
     if modo_prec:
         secao_3_honorarios = []
         ordem_hon = 1

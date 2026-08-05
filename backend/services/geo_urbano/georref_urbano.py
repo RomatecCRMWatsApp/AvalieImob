@@ -473,6 +473,35 @@ def _parse_kml(texto: str) -> Tuple[list, str, list]:
     return vertices, "geo", []
 
 
+def _parse_gpx(texto: str) -> Tuple[list, str, list]:
+    """GPX → vértices geográficos. Prioriza <wpt> (marcos), depois <rtept> (rota),
+    depois <trkpt> (trilha). lat/lon nos atributos; <name> opcional. Fecha o anel."""
+    pat = re.compile(r"<(wpt|rtept|trkpt)\b([^>]*?)(?:/>|>(.*?)</\1>)", re.DOTALL | re.IGNORECASE)
+    grupos = {"wpt": [], "rtept": [], "trkpt": []}
+    for m in pat.finditer(texto):
+        tag, attrs, inner = m.group(1).lower(), m.group(2) or "", m.group(3) or ""
+        mlat = re.search(r'\blat\s*=\s*"([^"]+)"', attrs, re.IGNORECASE)
+        mlon = re.search(r'\blon\s*=\s*"([^"]+)"', attrs, re.IGNORECASE)
+        if not mlat or not mlon:
+            continue
+        lat, lon = _num(mlat.group(1)), _num(mlon.group(1))
+        if lat is None or lon is None:
+            continue
+        mnome = re.search(r"<name>\s*(.*?)\s*</name>", inner, re.DOTALL | re.IGNORECASE)
+        nome = (mnome.group(1).strip() if mnome else "") or None
+        grupos[tag].append((lat, lon, nome))
+    pts = grupos["wpt"] or grupos["rtept"] or grupos["trkpt"]
+    if not pts:
+        return [], "desconhecido", ["GPX sem <wpt>/<rtept>/<trkpt>"]
+    vertices = [{"ordem": i, "de": nome or f"P-{i:02d}", "_lat": lat, "_lon": lon}
+                for i, (lat, lon, nome) in enumerate(pts, 1)]
+    # GPX de polígono costuma fechar o anel (último == primeiro) → remove duplicata final
+    if len(vertices) >= 2 and abs(vertices[0]["_lat"] - vertices[-1]["_lat"]) < 1e-9 \
+            and abs(vertices[0]["_lon"] - vertices[-1]["_lon"]) < 1e-9:
+        vertices.pop()
+    return vertices, "geo", []
+
+
 def _geo_para_utm(vertices: list) -> list:
     """Converte vértices geográficos (_lat/_lon) em UTM (coord_e/coord_n) via
     geodesia (fuso auto pelo centroide). Import lazy — pyproj só carrega aqui."""
@@ -494,7 +523,7 @@ def _geo_para_utm(vertices: list) -> list:
 
 
 def importar_coordenadas(conteudo: bytes, filename: str = "") -> dict:
-    """CSV/TXT/KML/KMZ → {vertices:[{ordem,de,coord_e,coord_n}], sistema, avisos}.
+    """CSV/TXT/KML/KMZ/GPX → {vertices:[{ordem,de,coord_e,coord_n}], sistema, avisos}.
     Geográficas são convertidas para UTM (SIRGAS 2000, fuso pelo centroide)."""
     nome = (filename or "").lower()
     avisos = []
@@ -508,7 +537,10 @@ def importar_coordenadas(conteudo: bytes, filename: str = "") -> dict:
         vertices, sistema, av = _parse_kml(texto)
     else:
         texto = conteudo.decode("utf-8", "ignore")
-        if nome.endswith(".kml") or "<coordinates>" in texto.lower():
+        low = texto.lower()
+        if nome.endswith(".gpx") or "<gpx" in low or "<wpt" in low or "<trkpt" in low or "<rtept" in low:
+            vertices, sistema, av = _parse_gpx(texto)
+        elif nome.endswith(".kml") or "<coordinates>" in low:
             vertices, sistema, av = _parse_kml(texto)
         else:
             vertices, sistema, av = _parse_csv_txt(texto)

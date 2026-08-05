@@ -23,32 +23,72 @@ ESCOPO_JUDICIAL = [
 ]
 
 
+def _f(v, d=0.0):
+    try:
+        return float(v) if v is not None and v != "" else float(d)
+    except (TypeError, ValueError):
+        return float(d)
+
+
+# Diligências e Tributos (estimativa) — §7: itens com defaults, à parte (não somam ao total).
+_DIL_DEFAULTS = [
+    ("dil_secretaria", "Secretaria de Habitacao e Reg. Fundiaria (municipio) — alteracao cadastral + taxa de parcelamento do solo", 150.0),
+    ("dil_cartorio", "Cartorio de Registro de Imoveis — oficio e protocolo do processo de retificacao", 150.0),
+    ("dil_anuencia", "Recolhimento de anuencia dos confrontantes — assinaturas da retificacao do imovel", 300.0),
+]
+
+
+def _despesas_retificacao(dados: dict):
+    """Monta despesas administrativas itemizadas (Secretaria/Cartorio/Anuencia)."""
+    da = dados.get("despesas_administrativas")
+    if isinstance(da, dict) and da.get("itens"):
+        itens = [{"rotulo": it.get("rotulo", ""), "valor": _f(it.get("valor"))}
+                 for it in da["itens"] if it.get("incluir", True)]
+        descritivo = da.get("descritivo")
+    else:
+        itens = []
+        for key, rotulo, default in _DIL_DEFAULTS:
+            if dados.get(f"{key}_incluir"):
+                itens.append({"rotulo": rotulo, "valor": _f(dados.get(f"{key}_valor"), default)})
+        descritivo = dados.get("despesas_administrativas_descritivo") or dados.get("diligencias_descritivo")
+    if not itens:
+        return None
+    valor = round(sum(i["valor"] for i in itens), 2)
+    if not str(descritivo or "").strip():
+        rotulos = "; ".join(i["rotulo"].split(" — ")[0] for i in itens)
+        descritivo = f"Diligencias e tributos (estimativa): {rotulos}."
+    return {"valor": valor, "descritivo": descritivo, "itens": itens}
+
+
 def calcular_retificacao(dados: dict) -> dict:
     sm = salario_minimo()
     area_atual = float(dados.get("area_atual_matricula") or 0)
     area_real = float(dados.get("area_real_levantada") or 0)
     valor_venal = float(dados.get("valor_venal") or 0)
     is_judicial = dados.get("tipo_retificacao") == "judicial"
+    a_apurar = bool(dados.get("area_real_a_apurar"))
 
     if area_atual <= 0:
         raise ValueError("area_atual_matricula deve ser > 0")
-    if area_real <= 0:
+    if not a_apurar and area_real <= 0:
         raise ValueError("area_real_levantada deve ser > 0")
 
-    divergencia = abs(area_real - area_atual)
-    pct_div = (divergencia / area_atual) * 100
+    divergencia = 0.0 if a_apurar else abs(area_real - area_atual)
+    pct_div = 0.0 if a_apurar else (divergencia / area_atual) * 100
 
     secao_1 = list(ESCOPO_JUDICIAL if is_judicial else ESCOPO_ADMINISTRATIVA)
 
     secao_2 = []
     fontes = {}
     ordem = 1
-    at = anotacao_tecnica("art_crea")
+    at = anotacao_tecnica(dados.get("anotacao_tecnica") or "art_crea")
     secao_2.append({"ordem": ordem, "descricao": at["rotulo"], "valor": at["valor"], "observacao": at["fonte"]}); ordem += 1
 
-    emol = calcular_emolumentos("averbacao_construcao", valor_venal)
+    # Emolumento FIXO 16.22.2 (§7): retificacao = mera alteracao cadastral, SEM valor
+    # declarado → nao escala com o valor venal.
+    emol = calcular_emolumentos("averbacao_sem_valor")
     secao_2.append({"ordem": ordem,
-                    "descricao": "Emolumentos cartorarios (averbacao da retificacao de area na matricula)",
+                    "descricao": "Emolumentos cartorarios (averbacao da retificacao — mera alteracao cadastral, sem valor)",
                     "valor": emol["valor"], "observacao": emol["base_calculo"]}); ordem += 1
     fontes["tjma"] = {"fonte": emol["fonte"], "consultadoEm": emol["consultadoEm"]}
 
@@ -70,8 +110,9 @@ def calcular_retificacao(dados: dict) -> dict:
     fator_assess_jud = 2.0 if is_judicial else 1.0
     honorario_assessoria_total = honorario_assessoria * fator_assess_jud
 
+    div_txt = "divergencia a apurar apos levantamento" if a_apurar else f"divergencia {pct_div:.2f}%"
     obs_proj = (f"{fator_sm} SM × R$ {sm:.2f} = R$ {honorario_projeto:.2f} "
-                f"(Tipo {'JUDICIAL' if is_judicial else 'ADMINISTRATIVA'} — divergencia {pct_div:.2f}%)")
+                f"(Tipo {'JUDICIAL' if is_judicial else 'ADMINISTRATIVA'} — {div_txt})")
     obs_assess = (f"1 SM × 2.0 (acompanhamento processual estendido — judicial) = R$ {honorario_assessoria_total:.2f}"
                   if is_judicial else f"1 SM × R$ {sm:.2f}")
     secao_3 = [
@@ -119,7 +160,10 @@ def calcular_retificacao(dados: dict) -> dict:
             "PRAZO ESTIMADO: 30 a 90 dias, dependendo do tempo de coleta de anuencias e da analise do registrador.",
             "ATENCAO: caso 1 ou mais confrontantes RECUSEM a assinatura da anuencia, o procedimento administrativo e EXTINTO e a unica via passa a ser a JUDICIAL — caso para o qual sera elaborado novo orcamento.",
         ]
-    if pct_div > 5:
+    if a_apurar:
+        avisos.append("AREA REAL A APURAR: a medicao em campo ainda nao foi feita. A proposta sai SEM a area real "
+                      "e SEM a divergencia — ambas serao apuradas apos o levantamento topografico e a aprovacao.")
+    if not a_apurar and pct_div > 5:
         avisos.append(f"DIVERGENCIA CONSIDERAVEL: {pct_div:.2f}% entre area da matricula e area real. Confrontantes podem questionar — recomenda-se reuniao previa de conciliacao antes de protocolar.")
     if not dados.get("tem_anuencia_confrontantes") and not is_judicial:
         avisos.append("ANUENCIA DOS CONFRONTANTES PENDENTE: voce indicou que ainda nao tem as anuencias. A Romatec presta apoio na elaboracao das notificacoes e visita aos confrontantes, mas a coleta efetiva e responsabilidade do cliente. Sem 100% das anuencias, a via administrativa nao prospera.")
@@ -144,16 +188,25 @@ def calcular_retificacao(dados: dict) -> dict:
 
     base_calculo = [
         {"rotulo": "Area atual (matricula)", "formula": f"{area_atual:.2f} m² ou hectares conforme matricula", "valor_resultado": area_atual},
-        {"rotulo": "Area real (levantada GPS/Estacao)", "formula": f"{area_real:.2f} m² ou hectares medidos", "valor_resultado": area_real},
-        {"rotulo": "Divergencia", "formula": f"{divergencia:.2f} ({pct_div:.2f}%)", "valor_resultado": divergencia},
+        ({"rotulo": "Area real (a apurar)", "formula": "a apurar apos levantamento topografico", "valor_resultado": None}
+         if a_apurar else
+         {"rotulo": "Area real (levantada GPS/Estacao)", "formula": f"{area_real:.2f} m² ou hectares medidos", "valor_resultado": area_real}),
+        ({"rotulo": "Divergencia", "formula": "a apurar apos levantamento", "valor_resultado": None}
+         if a_apurar else
+         {"rotulo": "Divergencia", "formula": f"{divergencia:.2f} ({pct_div:.2f}%)", "valor_resultado": divergencia}),
         {"rotulo": "Honorarios Tecnicos", "formula": f"{fator_sm} SM × R$ {sm:.2f}", "valor_resultado": honorario_projeto},
         {"rotulo": "Honorarios de Assessoria",
          "formula": (f"2 × 1 SM × R$ {sm:.2f} (judicial estendido)" if is_judicial else f"1 SM × R$ {sm:.2f}"),
          "valor_resultado": honorario_assessoria_total},
     ]
 
-    return {"custos": {
+    custos = {
         "secao_1_projetos": secao_1, "secao_2_taxas": secao_2, "secao_3_honorarios": secao_3,
         "condicoes_pagamento": condicoes, "base_calculo": base_calculo, "secao_4_checklist": secao_4,
         "secao_5_total": round(secao_5_total, 2), "avisos": avisos,
-    }, "fontes": fontes}
+    }
+    # Diligências e Tributos (estimativa) — à parte, NÃO somam ao total (§7)
+    despesas = _despesas_retificacao(dados)
+    if despesas:
+        custos["despesas_administrativas"] = despesas
+    return {"custos": custos, "fontes": fontes}
