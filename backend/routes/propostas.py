@@ -14,6 +14,8 @@ from dependencies import get_active_subscriber, serialize_doc
 from services import image_store
 from models.proposta import Proposta, PropostaBase, PropostaPreviewRequest
 from services.pricing import CATALOGO_CONSULTORIA, calcular_consultoria, SUBTIPO_LABEL
+from services.pricing import demarcacao_geo as DEMGEO
+from services.pricing.params import DEMARCACAO_LOTES_2026
 
 logger = logging.getLogger("romatec")
 router = APIRouter(tags=["propostas"], prefix="/propostas")
@@ -48,6 +50,67 @@ async def preview(body: PropostaPreviewRequest, uid: str = Depends(get_active_su
         "valor_total": resultado["custos"]["secao_5_total"],
         "custos": resultado["custos"], "fontes": resultado["fontes"],
     }
+
+
+# ── Demarcação: Pontos & Croqui (stateless — os pontos vivem em dados_imovel) ──
+class _ColetoraBody(BaseModel):
+    model_config = {"extra": "allow"}
+    texto: str = ""
+    formato: Optional[str] = None
+
+
+class _GeometriaBody(BaseModel):
+    model_config = {"extra": "allow"}
+    pontos: list = []
+    alinhamento_lados: Optional[list] = None
+
+
+class _CroquiSvgBody(BaseModel):
+    model_config = {"extra": "allow"}
+    pontos: list = []
+    destacar_lados: Optional[list] = None
+    titulo_destaque: Optional[str] = None
+    confrontantes: Optional[dict] = None
+
+
+@router.post("/coletora/parse")
+async def coletora_parse(body: _ColetoraBody, uid: str = Depends(get_active_subscriber)):
+    """Importa pontos de uma coletora GNSS (CSV/TXT/KML/KMZ) colada como texto."""
+    texto = (body.texto or "").strip()
+    if not texto:
+        raise HTTPException(status_code=400, detail="Texto da coletora vazio.")
+    fmt = (body.formato or "csv").lower().lstrip(".") or "csv"
+    try:
+        from services.geo_urbano.georref_urbano import importar_coordenadas
+        res = importar_coordenadas(texto.encode("utf-8", "ignore"), f"coletora.{fmt}")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Falha ao interpretar a coletora: {e}")
+    pontos = res.get("vertices") or []
+    return {"ok": True, "pontos": pontos, "sistema": res.get("sistema"),
+            "avisos": res.get("avisos") or [], "resumo": DEMGEO.resumo_geometria(pontos)}
+
+
+@router.post("/geometria")
+async def geometria(body: _GeometriaBody, uid: str = Depends(get_active_subscriber)):
+    """Área/perímetro/lados dos pontos + extensão/valor do alinhamento de cerca."""
+    out = {"ok": True, "resumo": DEMGEO.resumo_geometria(body.pontos)}
+    if body.alinhamento_lados:
+        tarifa = DEMARCACAO_LOTES_2026["opcionais"]["alinhamento_cerca"]["valor_unitario"]
+        ext = DEMGEO.extensao_alinhamento(body.pontos, body.alinhamento_lados)
+        out["alinhamento"] = {"lados": list(body.alinhamento_lados), "extensao_m": ext,
+                              "valor_unitario": tarifa, "valor": round(ext * tarifa, 2)}
+    return out
+
+
+@router.post("/croqui-svg")
+async def croqui_svg(body: _CroquiSvgBody, uid: str = Depends(get_active_subscriber)):
+    """SVG da poligonal p/ preview ao vivo (com destaque opcional de alinhamento)."""
+    try:
+        svg = DEMGEO.croqui_svg(body.pontos, destacar_lados=body.destacar_lados,
+                                titulo_destaque=body.titulo_destaque, confrontantes=body.confrontantes)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Falha ao gerar o croqui: {e}")
+    return {"ok": True, "svg": svg}
 
 
 # ── Criar ──────────────────────────────────────────────────────────────────

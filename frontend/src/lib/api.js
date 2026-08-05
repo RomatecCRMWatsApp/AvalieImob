@@ -213,6 +213,13 @@ export const propostasAPI = {
   previewPdf: (subtipo, dados_imovel) =>
     api.post('/propostas/preview/pdf', { subtipo, dados_imovel }, { responseType: 'blob' }).then(r => r.data),
   enviar: (id, data = {}) => api.post(`/propostas/${id}/enviar`, data).then(r => r.data),
+  // Demarcação — Pontos & Croqui (stateless; os pontos vivem em dados_imovel)
+  coletoraParse: (texto, formato = 'csv') =>
+    api.post('/propostas/coletora/parse', { texto, formato }).then(r => r.data),
+  geometria: (pontos, alinhamento_lados = null) =>
+    api.post('/propostas/geometria', { pontos, alinhamento_lados }).then(r => r.data),
+  croquiSvg: (pontos, destacar_lados = null, titulo_destaque = null, confrontantes = null) =>
+    api.post('/propostas/croqui-svg', { pontos, destacar_lados, titulo_destaque, confrontantes }).then(r => r.data),
 };
 
 // ---- Contrato de Exclusividade com aceite eletrônico via WhatsApp ----

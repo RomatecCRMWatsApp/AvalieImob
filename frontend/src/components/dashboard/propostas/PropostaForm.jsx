@@ -1,7 +1,7 @@
 // @module dashboard/propostas/PropostaForm — Form de proposta (schema-driven) com preview ao vivo.
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, Loader2, Calculator, FileText, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Calculator, FileText, ChevronRight, MapPin, Trash2 } from 'lucide-react';
 import { BrandSpinner } from '../../brand/BrandSpinner';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -13,6 +13,12 @@ import { PROJETOS_EXECUTIVO_DEFAULT } from '../../../constants/projetosExecutivo
 import ImageUploader from '../ptam/ImageUploader';
 
 const fmtBRL = (v) => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtNum = (v, d = 2) => Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
+const SUBTIPOS_DEMARCACAO = ['demarcacao_urbana', 'demarcacao_rural'];
+const FORMATOS_COLETORA = [
+  { value: 'csv', label: 'CSV / TXT (ponto;este;norte)' },
+  { value: 'kml', label: 'KML (Google Earth)' },
+];
 
 // ── Schemas por subtipo (campos do dados_imovel) ──────────────────────────
 const N = (key, label, def = 0) => ({ key, label, type: 'number', def });
@@ -247,7 +253,14 @@ const PropostaForm = () => {
   const [pdfUrl, setPdfUrl] = useState(null);
   const [clientes, setClientes] = useState([]);
   const [step, setStep] = useState(0);
+  // Demarcação — Pontos & Croqui
+  const [coletoraTexto, setColetoraTexto] = useState('');
+  const [coletoraFmt, setColetoraFmt] = useState('csv');
+  const [importando, setImportando] = useState(false);
+  const [geo, setGeo] = useState(null);        // {resumo:{area_m2, perimetro_m, lados[]}, alinhamento}
+  const [croqui, setCroqui] = useState('');    // SVG (string) do preview
   const debRef = useRef(null);
+  const geoRef = useRef(null);
   const pdfUrlRef = useRef(null);
 
   useEffect(() => () => { if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current); }, []);
@@ -285,6 +298,7 @@ const PropostaForm = () => {
   }, [editing, id, nav, toast]);
 
   const setDado = (k, v) => setForm((f) => ({ ...f, dados_imovel: { ...f.dados_imovel, [k]: v } }));
+  const setDados = (patch) => setForm((f) => ({ ...f, dados_imovel: { ...f.dados_imovel, ...patch } }));
 
   useEffect(() => {
     if (loading) return;
@@ -306,6 +320,28 @@ const PropostaForm = () => {
     }, 700);
     return () => debRef.current && clearTimeout(debRef.current);
   }, [subtipo, form.dados_imovel, loading]);
+
+  // Geometria + croqui ao vivo (só demarcação, a partir de 3 vértices)
+  const ehDemarcacao = SUBTIPOS_DEMARCACAO.includes(subtipo);
+  const pontos = useMemo(
+    () => (Array.isArray(form.dados_imovel.pontos) ? form.dados_imovel.pontos : []), [form.dados_imovel.pontos]);
+  const alinhaLados = useMemo(
+    () => (Array.isArray(form.dados_imovel.alinhamento_lados) ? form.dados_imovel.alinhamento_lados.map(Number) : []),
+    [form.dados_imovel.alinhamento_lados]);
+
+  useEffect(() => {
+    if (!ehDemarcacao || pontos.length < 3) { setGeo(null); setCroqui(''); return; }
+    if (geoRef.current) clearTimeout(geoRef.current);
+    geoRef.current = setTimeout(async () => {
+      try { setGeo(await propostasAPI.geometria(pontos, alinhaLados)); } catch { setGeo(null); }
+      try {
+        const r = await propostasAPI.croquiSvg(pontos, alinhaLados,
+          alinhaLados.length ? 'Cerca a ser alinhada' : null);
+        setCroqui(r?.svg || '');
+      } catch { setCroqui(''); }
+    }, 500);
+    return () => geoRef.current && clearTimeout(geoRef.current);
+  }, [ehDemarcacao, pontos, alinhaLados]);
 
   const salvar = useCallback(async () => {
     setSaving(true);
@@ -500,6 +536,143 @@ const PropostaForm = () => {
       )}
     </div>
   );
+  // ── Demarcação: Pontos & Croqui ──────────────────────────────────────────
+  const importarColetora = async () => {
+    const txt = (coletoraTexto || '').trim();
+    if (!txt) { toast({ title: 'Cole os pontos da coletora', variant: 'destructive' }); return; }
+    setImportando(true);
+    try {
+      const r = await propostasAPI.coletoraParse(txt, coletoraFmt);
+      const pts = Array.isArray(r.pontos) ? r.pontos : [];
+      if (pts.length < 3) {
+        toast({ title: 'Pontos insuficientes', description: 'São necessários ao menos 3 vértices.', variant: 'destructive' });
+        return;
+      }
+      const res = r.resumo || {};
+      // a geometria importada passa a ser a fonte dos parâmetros cobrados
+      const patch = {
+        pontos: pts, num_vertices: pts.length,
+        alinhamento_lados: [], alinhamento_cerca_contratado: false, alinhamento_cerca_metros: 0,
+      };
+      if (subtipo === 'demarcacao_rural' && res.area_ha) patch.area_hectares = res.area_ha;
+      if (subtipo === 'demarcacao_urbana' && res.area_m2) patch.area_m2 = res.area_m2;
+      setDados(patch);
+      setColetoraTexto('');
+      toast({
+        title: `${pts.length} pontos importados`,
+        description: `Área ${fmtNum(res.area_m2)} m² · perímetro ${fmtNum(res.perimetro_m)} m — nº de vértices e área atualizados.`,
+      });
+      if ((r.avisos || []).length) toast({ title: 'Avisos da importação', description: r.avisos.join(' · ') });
+    } catch (e) {
+      toast({ title: 'Falha ao importar', description: e.response?.data?.detail || 'Verifique o formato do arquivo.', variant: 'destructive' });
+    } finally { setImportando(false); }
+  };
+
+  const lados = geo?.resumo?.lados || [];
+  const toggleLado = (ordem) => {
+    const sel = alinhaLados.includes(ordem) ? alinhaLados.filter((o) => o !== ordem) : [...alinhaLados, ordem];
+    sel.sort((a, b) => a - b);
+    const metros = Math.round(lados.filter((l) => sel.includes(l.ordem))
+      .reduce((s, l) => s + (l.distancia_m || 0), 0) * 100) / 100;
+    setDados({ alinhamento_lados: sel, alinhamento_cerca_contratado: sel.length > 0, alinhamento_cerca_metros: metros });
+  };
+  const limparPontos = () => setDados({
+    pontos: [], alinhamento_lados: [], alinhamento_cerca_contratado: false, alinhamento_cerca_metros: 0,
+  });
+
+  const secPontos = (
+    <div className="space-y-4">
+      <div className={LABEL_CLS}>📍 Pontos & Croqui</div>
+      <p className="text-[11px] text-gray-400">
+        Cole os pontos da coletora GNSS (ou o KML). O sistema calcula área, perímetro e lados, desenha o croqui
+        e o embute no PDF da proposta (item 4.6). Marque os lados de cerca a alinhar para gerar o croqui de
+        alinhamento (item 4.7) e cobrar a metragem.
+      </p>
+
+      <div className="grid grid-cols-1 sm:grid-cols-[1fr_240px] gap-3 items-end">
+        <Field label="Pontos da coletora (colar)">
+          <textarea value={coletoraTexto} onChange={(e) => setColetoraTexto(e.target.value)} rows={5}
+            placeholder={'P1;224062.78;9450853.30\nP2;224087.78;9450853.30\nP3;224087.78;9450841.30'}
+            className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm font-mono focus:outline-none focus:border-emerald-400" />
+        </Field>
+        <div className="space-y-2">
+          <Field label="Formato">
+            <select value={coletoraFmt} onChange={(e) => setColetoraFmt(e.target.value)}
+              className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-emerald-400">
+              {FORMATOS_COLETORA.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </Field>
+          <Button type="button" onClick={importarColetora} disabled={importando}
+            className="w-full bg-emerald-900 hover:bg-emerald-800 text-white gap-1">
+            {importando ? <Loader2 className="w-4 h-4 animate-spin" /> : <MapPin className="w-4 h-4" />} Importar pontos
+          </Button>
+        </div>
+      </div>
+
+      {pontos.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-gray-200 p-4 text-center text-xs text-gray-400">
+          Nenhum ponto importado — o croqui não sai no PDF.
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center justify-between">
+            <div className="text-[11px] font-semibold text-emerald-800">{pontos.length} vértice(s)</div>
+            <Button type="button" variant="outline" className="h-8 text-xs gap-1" onClick={limparPontos}>
+              <Trash2 className="w-3.5 h-3.5" /> Limpar pontos
+            </Button>
+          </div>
+
+          {geo?.resumo && (
+            <div className="grid grid-cols-3 gap-2">
+              {[['Vértices', geo.resumo.num_vertices],
+                ['Área', `${fmtNum(geo.resumo.area_m2)} m² (${fmtNum(geo.resumo.area_ha, 4)} ha)`],
+                ['Perímetro', `${fmtNum(geo.resumo.perimetro_m)} m`]].map(([k, v]) => (
+                  <div key={k} className="rounded-xl bg-emerald-50/60 border border-emerald-100 px-3 py-2">
+                    <div className="text-[10px] uppercase tracking-wide text-emerald-700">{k}</div>
+                    <div className="text-sm font-semibold text-gray-800">{v}</div>
+                  </div>
+                ))}
+            </div>
+          )}
+
+          {croqui && (
+            <div className="rounded-xl border border-gray-200 p-2 bg-white">
+              <img src={`data:image/svg+xml;utf8,${encodeURIComponent(croqui)}`} alt="Croqui da poligonal"
+                className="w-full h-auto" />
+            </div>
+          )}
+
+          {lados.length > 0 && (
+            <div>
+              <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-800 border-b border-emerald-100 pb-1 mb-2">
+                Alinhamento de cerca — marque os lados
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                {lados.map((l) => {
+                  const on = alinhaLados.includes(l.ordem);
+                  return (
+                    <button key={l.ordem} type="button" onClick={() => toggleLado(l.ordem)}
+                      className={`flex items-center justify-between px-3 py-2 rounded-xl border text-xs transition ${on ? 'bg-amber-50 border-amber-300 text-amber-900 font-semibold' : 'bg-white border-gray-200 text-gray-600 hover:border-amber-300'}`}>
+                      <span>{on ? '✓ ' : ''}Lado {l.ordem} · {l.vertice_de} → {l.vertice_para}</span>
+                      <span className="tabular-nums">{fmtNum(l.distancia_m)} m</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {geo?.alinhamento && (
+                <div className="mt-2 rounded-xl bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-900">
+                  Cerca a alinhar: <strong>{fmtNum(geo.alinhamento.extensao_m)} m</strong> ×{' '}
+                  {fmtBRL(geo.alinhamento.valor_unitario)}/m = <strong>{fmtBRL(geo.alinhamento.valor)}</strong>
+                  <span className="text-amber-700"> — item direto, já somado no total.</span>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+
   const secPrazos = (
     <div>
       <div className={`${LABEL_CLS} mb-2`}>📋 Prazos e observações</div>
@@ -534,6 +707,7 @@ const PropostaForm = () => {
   ] : [
     { key: 'cliente', label: 'Cliente', node: secCliente },
     { key: 'servico', label: 'Serviço', node: secServico },
+    ...(ehDemarcacao ? [{ key: 'pontos', label: 'Pontos & Croqui', node: secPontos }] : []),
     { key: 'prazos', label: 'Prazos & Obs.', node: secPrazos },
     { key: 'anexos', label: 'Anexos', node: secAnexos },
   ];

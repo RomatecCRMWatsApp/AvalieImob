@@ -109,6 +109,43 @@ def _anexo_flowables(anexos_bytes, st):
     return out
 
 
+def _croqui_flowables(proposta, st):
+    """Croqui do imóvel (§9 4.6) + croqui de alinhamento de cerca (§9 4.7) quando a
+    proposta de demarcação tem pontos em dados_imovel. [] se <3 vértices válidos."""
+    dados = proposta.get("dados_imovel") or {}
+    pontos = dados.get("pontos") or []
+    try:
+        from services.pricing.demarcacao_geo import (
+            projeto_croqui, normalizar_pontos, extensao_alinhamento)
+        from services.geo_urbano.generators.croqui import croqui_drawing
+    except Exception:
+        return []
+    validos = [p for p in normalizar_pontos(pontos) if p.get("coord_e") is not None]
+    if len(validos) < 3:
+        return []
+    proj = projeto_croqui(pontos, dados.get("confrontantes"))
+    d = croqui_drawing(proj, width=UTIL_W, height=9.5 * cm)
+    if d is None:
+        return []
+    out = [Spacer(1, 6), Paragraph("4.6. Croqui do Imóvel", st["sec"]), d,
+           Paragraph("Poligonal georreferenciada — SIRGAS 2000 / UTM.", st["obs"])]
+    alinhar = dados.get("alinhamento_lados") or []
+    if alinhar:
+        da = croqui_drawing(proj, width=UTIL_W, height=9.5 * cm,
+                            destacar_lados=alinhar, titulo_destaque="Cerca a ser alinhada")
+        if da is not None:
+            out += [Spacer(1, 6), Paragraph("4.7. Croqui de Alinhamento de Cerca", st["sec"]), da]
+            try:
+                ext = extensao_alinhamento(pontos, alinhar)
+            except Exception:
+                ext = 0
+            if ext:
+                metros = ("%.2f" % ext).replace(".", ",")
+                out.append(Paragraph(
+                    f"Extensão total de cerca a alinhar: {metros} m.", st["obs"]))
+    return out
+
+
 def gerar_proposta_pdf(proposta: dict, perfil: dict = None, user: dict = None, anexos_bytes=None) -> bytes:
     st = _styles()
     custos = proposta.get("custos_calculados") or {}
@@ -199,6 +236,9 @@ def gerar_proposta_pdf(proposta: dict, perfil: dict = None, user: dict = None, a
     if t3 is not None:
         el.append(Paragraph("3. Honorários Técnicos (Romatec)", st["sec"]))
         el.append(t3)
+
+    # Croqui do imóvel + alinhamento de cerca (demarcação com pontos) — §9 4.6/4.7
+    el += _croqui_flowables(proposta, st)
 
     # Total
     total = custos.get("secao_5_total", 0)
