@@ -68,3 +68,29 @@ def test_pecas_tecnicas_geram_linhas_por_tipo():
 def test_sem_pecas_default_art():
     c = calcular_desmembramento(_base())["custos"]
     assert c["secao_2_taxas"][0]["valor"] == 93.40  # default ART CREA
+
+
+def test_remembramento_imoveis_deriva_area_e_matriculas():
+    # imoveis[] é a fonte: deriva área total e nº de matrículas (2 origem + 1 unificada = 3)
+    c = calcular_desmembramento({
+        "tipo": "remembramento", "tipo_zona": "urbana", "valor_venal_total": 300000,
+        "honorario_projeto_sm": 1, "iptu_em_dia": True,
+        "imoveis": [
+            {"ordem": 1, "area_m2": 400, "endereco": "Rua A, 1", "matricula": "123"},
+            {"ordem": 2, "area_m2": 600, "endereco": "Rua B, 2", "matricula": "456", "cri_cns": "01.234-5"},
+        ],
+    })["custos"]
+    assert c["secao_5_total"] > 0
+    assert any("3 matricula" in i["descricao"].lower() for i in c["secao_2_taxas"])
+
+
+def test_remembramento_imoveis_cri_cns_invalido_erro():
+    import pytest
+    with pytest.raises(ValueError):
+        calcular_desmembramento({
+            "tipo": "remembramento", "tipo_zona": "urbana", "valor_venal_total": 300000,
+            "imoveis": [
+                {"ordem": 1, "area_m2": 400, "endereco": "Rua A", "matricula": "123", "cri_cns": "ABC"},
+                {"ordem": 2, "area_m2": 600, "endereco": "Rua B", "matricula": "456"},
+            ],
+        })

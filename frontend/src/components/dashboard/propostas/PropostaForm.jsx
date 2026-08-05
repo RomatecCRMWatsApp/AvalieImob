@@ -800,6 +800,19 @@ const PropostaForm = () => {
   const rmFracao = (i) => setDados({ fracoes: fracoesDm.filter((_, idx) => idx !== i).map((f, idx) => ({ ...f, numero: idx + 1 })) });
   const somaFracoes = fracoesDm.reduce((s, f) => s + Number(f.area || 0), 0);
   const excedeMatriz = Number(dm.area_total_m2 || 0) > 0 && somaFracoes > Number(dm.area_total_m2) + 1;
+  // Remembramento — imóveis a unificar (imoveis[] é a fonte: deriva área total + nº de matrículas)
+  const imoveisRe = Array.isArray(dm.imoveis) ? dm.imoveis : [];
+  const syncImoveis = (arr) => {
+    const patch = { imoveis: arr };
+    if (arr.length) {
+      patch.numero_lotes_origem = Math.max(2, arr.length);
+      patch.area_total_m2 = arr.reduce((s, im) => s + Number(im.area_m2 || 0), 0);
+    }
+    setDados(patch);
+  };
+  const addImovel = () => syncImoveis([...imoveisRe, { ordem: imoveisRe.length + 1, matricula: '', area_m2: 0, endereco: '', cri_cns: '' }]);
+  const setImovel = (i, k, v) => syncImoveis(imoveisRe.map((im, idx) => (idx === i ? { ...im, [k]: v } : im)));
+  const rmImovel = (i) => syncImoveis(imoveisRe.filter((_, idx) => idx !== i).map((im, idx) => ({ ...im, ordem: idx + 1 })));
   const pecas = dm.pecas_tecnicas || {};
   const setPeca = (patch) => setDados({ pecas_tecnicas: { ...pecas, ...patch } });
   const MODOS_DESM = [
@@ -812,6 +825,52 @@ const PropostaForm = () => {
 
   const secDesmembramento = (
     <div className="space-y-4">
+      {subtipo === 'remembramento' && (
+        <div className="space-y-2">
+          <div className={LABEL_CLS}>🏘 Imóveis a unificar (matrículas)</div>
+          <p className="text-[11px] text-gray-400">
+            Detalhe cada matrícula a unificar. A área total e o nº de matrículas são calculados desta lista.
+            CRI/CNS é opcional (formato 01.234-5).
+          </p>
+          <div className="overflow-x-auto rounded-xl border border-gray-100">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-emerald-800 bg-emerald-50/50 border-b border-emerald-100">
+                  <th className="text-left py-1.5 px-2 font-semibold">#</th>
+                  <th className="text-left py-1.5 px-2 font-semibold">Matrícula</th>
+                  <th className="text-left py-1.5 px-2 font-semibold">Área (m²)</th>
+                  <th className="text-left py-1.5 px-2 font-semibold">Endereço</th>
+                  <th className="text-left py-1.5 px-2 font-semibold">CRI/CNS</th>
+                  <th className="w-8"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {imoveisRe.map((im, i) => (
+                  <tr key={i} className="border-b border-gray-50 last:border-0">
+                    <td className="py-0.5 px-2 text-gray-500">{im.ordem ?? i + 1}</td>
+                    <td className="py-0.5 px-1.5"><Input value={im.matricula ?? ''} onChange={(e) => setImovel(i, 'matricula', e.target.value)} className="w-28" /></td>
+                    <td className="py-0.5 px-1.5"><Input type="number" value={im.area_m2 ?? ''} onChange={(e) => setImovel(i, 'area_m2', e.target.value === '' ? 0 : parseFloat(e.target.value))} className="w-24" /></td>
+                    <td className="py-0.5 px-1.5"><Input value={im.endereco ?? ''} onChange={(e) => setImovel(i, 'endereco', e.target.value)} /></td>
+                    <td className="py-0.5 px-1.5"><Input value={im.cri_cns ?? ''} placeholder="01.234-5" onChange={(e) => setImovel(i, 'cri_cns', e.target.value)} className="w-24" /></td>
+                    <td className="py-0.5 px-1.5 text-right"><button type="button" onClick={() => rmImovel(i)} className="text-red-400 hover:text-red-600"><Trash2 className="w-3.5 h-3.5" /></button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="px-2 py-1.5 border-t border-gray-50">
+              <button type="button" onClick={addImovel} className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:underline">
+                <Plus className="w-3.5 h-3.5" /> adicionar imóvel
+              </button>
+            </div>
+          </div>
+          {imoveisRe.length > 0 && (
+            <div className="text-[11px] text-gray-500">
+              {imoveisRe.length} matrícula(s) · área total {fmtNum(imoveisRe.reduce((s, im) => s + Number(im.area_m2 || 0), 0))} m²
+              {imoveisRe.length < 2 ? <span className="text-amber-600"> — mínimo 2 para remembrar</span> : ''}
+            </div>
+          )}
+        </div>
+      )}
       <div className={LABEL_CLS}>💰 Precificação dos honorários</div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
         {MODOS_DESM.map(([v, t, d]) => (
