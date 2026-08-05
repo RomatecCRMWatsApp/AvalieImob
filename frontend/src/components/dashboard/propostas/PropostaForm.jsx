@@ -1,7 +1,7 @@
 // @module dashboard/propostas/PropostaForm — Form de proposta (schema-driven) com preview ao vivo.
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, Loader2, Calculator, FileText, ChevronRight, MapPin, Trash2 } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Calculator, FileText, ChevronRight, MapPin, Trash2, Upload, Plus, Ruler } from 'lucide-react';
 import { BrandSpinner } from '../../brand/BrandSpinner';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -549,18 +549,16 @@ const PropostaForm = () => {
         return;
       }
       const res = r.resumo || {};
-      // a geometria importada passa a ser a fonte dos parâmetros cobrados
-      const patch = {
-        pontos: pts, num_vertices: pts.length,
+      // opt-in (§8): a importação traz só os PONTOS; área e nº de vértices só entram
+      // no cálculo quando o RT clicar em "Usar área calculada" (mantém controle manual).
+      setDados({
+        pontos: pts,
         alinhamento_lados: [], alinhamento_cerca_contratado: false, alinhamento_cerca_metros: 0,
-      };
-      if (subtipo === 'demarcacao_rural' && res.area_ha) patch.area_hectares = res.area_ha;
-      if (subtipo === 'demarcacao_urbana' && res.area_m2) patch.area_m2 = res.area_m2;
-      setDados(patch);
+      });
       setColetoraTexto('');
       toast({
         title: `${pts.length} pontos importados`,
-        description: `Área ${fmtNum(res.area_m2)} m² · perímetro ${fmtNum(res.perimetro_m)} m — nº de vértices e área atualizados.`,
+        description: `Área ${fmtNum(res.area_m2)} m² · perímetro ${fmtNum(res.perimetro_m)} m. Clique em “Usar área calculada” para aplicar ao cálculo.`,
       });
       if ((r.avisos || []).length) toast({ title: 'Avisos da importação', description: r.avisos.join(' · ') });
     } catch (e) {
@@ -580,14 +578,63 @@ const PropostaForm = () => {
     pontos: [], alinhamento_lados: [], alinhamento_cerca_contratado: false, alinhamento_cerca_metros: 0,
   });
 
+  // opt-in (§8): aplica a área/perímetro/nº de vértices calculados ao cálculo cobrado
+  const usarAreaCalculada = () => {
+    const r = geo?.resumo;
+    if (!r || !r.num_vertices) {
+      toast({ title: 'Sem geometria', description: 'Importe/edite ao menos 3 vértices válidos.', variant: 'destructive' });
+      return;
+    }
+    const patch = { num_vertices: r.num_vertices };
+    if (subtipo === 'demarcacao_rural' && r.area_ha) patch.area_hectares = r.area_ha;
+    if (subtipo === 'demarcacao_urbana' && r.area_m2) patch.area_m2 = r.area_m2;
+    setDados(patch);
+    toast({
+      title: 'Área calculada aplicada ao cálculo',
+      description: subtipo === 'demarcacao_rural'
+        ? `${fmtNum(r.area_ha, 4)} ha · ${r.num_vertices} vértices`
+        : `${fmtNum(r.area_m2)} m² · ${r.num_vertices} vértices`,
+    });
+  };
+
+  // Tabela de vértices editável (rótulo + UTM E/N) — o croqui/geometria recalculam ao vivo
+  const setPontos = (arr) => setDados({ pontos: arr });
+  const editarPonto = (i, campo, valor) => setPontos(pontos.map((p, idx) => (idx === i ? { ...p, [campo]: valor } : p)));
+  const addPonto = () => setPontos([...pontos, { ordem: pontos.length + 1, de: `P${pontos.length + 1}`, coord_e: '', coord_n: '' }]);
+  const rmPonto = (i) => setDados({
+    pontos: pontos.filter((_, idx) => idx !== i).map((p, idx) => ({ ...p, ordem: idx + 1 })),
+    alinhamento_lados: [], alinhamento_cerca_contratado: false, alinhamento_cerca_metros: 0,
+  });
+
+  // Upload de arquivo da coletora (CSV/TXT/KML) — lido no cliente e jogado no textarea
+  const onArquivoColetora = (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    const ext = (f.name.split('.').pop() || 'csv').toLowerCase();
+    setColetoraFmt(ext === 'kml' || ext === 'kmz' ? 'kml' : 'csv');
+    const reader = new FileReader();
+    reader.onload = () => setColetoraTexto(String(reader.result || ''));
+    reader.onerror = () => toast({ title: 'Falha ao ler o arquivo', variant: 'destructive' });
+    reader.readAsText(f);
+    e.target.value = '';
+  };
+
   const secPontos = (
     <div className="space-y-4">
       <div className={LABEL_CLS}>📍 Pontos & Croqui</div>
       <p className="text-[11px] text-gray-400">
-        Cole os pontos da coletora GNSS (ou o KML). O sistema calcula área, perímetro e lados, desenha o croqui
-        e o embute no PDF da proposta (item 4.6). Marque os lados de cerca a alinhar para gerar o croqui de
-        alinhamento (item 4.7) e cobrar a metragem.
+        Envie um arquivo da coletora GNSS (CSV/TXT/KML) ou cole os pontos. O sistema calcula área, perímetro e
+        lados, desenha o croqui e o embute no PDF (item 4.6). Você pode editar os vértices na tabela abaixo.
+        Marque os lados de cerca a alinhar para gerar o croqui de alinhamento (item 4.7) e cobrar a metragem.
       </p>
+
+      <div className="flex items-center gap-2 text-[11px]">
+        <label className="inline-flex items-center gap-1.5 cursor-pointer rounded-lg border border-gray-200 px-2.5 py-1.5 hover:border-emerald-300 text-gray-600">
+          <Upload className="w-3.5 h-3.5" /> Enviar arquivo (CSV/TXT/KML)
+          <input type="file" accept=".csv,.txt,.kml,.kmz" className="hidden" onChange={onArquivoColetora} />
+        </label>
+        <span className="text-gray-400">ou cole os pontos abaixo</span>
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-[1fr_240px] gap-3 items-end">
         <Field label="Pontos da coletora (colar)">
@@ -622,16 +669,65 @@ const PropostaForm = () => {
             </Button>
           </div>
 
-          {geo?.resumo && (
-            <div className="grid grid-cols-3 gap-2">
-              {[['Vértices', geo.resumo.num_vertices],
-                ['Área', `${fmtNum(geo.resumo.area_m2)} m² (${fmtNum(geo.resumo.area_ha, 4)} ha)`],
-                ['Perímetro', `${fmtNum(geo.resumo.perimetro_m)} m`]].map(([k, v]) => (
-                  <div key={k} className="rounded-xl bg-emerald-50/60 border border-emerald-100 px-3 py-2">
-                    <div className="text-[10px] uppercase tracking-wide text-emerald-700">{k}</div>
-                    <div className="text-sm font-semibold text-gray-800">{v}</div>
-                  </div>
+          {/* Tabela de vértices editável (rótulo + UTM E/N) */}
+          <div className="overflow-x-auto rounded-xl border border-gray-100">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-emerald-800 bg-emerald-50/50 border-b border-emerald-100">
+                  <th className="text-left py-1.5 px-2 font-semibold">Vértice</th>
+                  <th className="text-left py-1.5 px-2 font-semibold">UTM E (Este)</th>
+                  <th className="text-left py-1.5 px-2 font-semibold">UTM N (Norte)</th>
+                  <th className="py-1.5 px-2 w-8"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {pontos.map((p, i) => (
+                  <tr key={i} className="border-b border-gray-50 last:border-0">
+                    <td className="py-0.5 px-1.5">
+                      <input value={p.de ?? p.vertice ?? ''} onChange={(e) => editarPonto(i, 'de', e.target.value)}
+                        className="w-full min-w-[64px] rounded border border-gray-200 px-1.5 py-1 focus:outline-none focus:border-emerald-400" />
+                    </td>
+                    <td className="py-0.5 px-1.5">
+                      <input inputMode="decimal" value={p.coord_e ?? ''} onChange={(e) => editarPonto(i, 'coord_e', e.target.value)}
+                        className="w-full min-w-[96px] rounded border border-gray-200 px-1.5 py-1 font-mono focus:outline-none focus:border-emerald-400" />
+                    </td>
+                    <td className="py-0.5 px-1.5">
+                      <input inputMode="decimal" value={p.coord_n ?? ''} onChange={(e) => editarPonto(i, 'coord_n', e.target.value)}
+                        className="w-full min-w-[96px] rounded border border-gray-200 px-1.5 py-1 font-mono focus:outline-none focus:border-emerald-400" />
+                    </td>
+                    <td className="py-0.5 px-1.5 text-right">
+                      <button type="button" onClick={() => rmPonto(i)} className="text-red-400 hover:text-red-600" title="Remover vértice">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </td>
+                  </tr>
                 ))}
+              </tbody>
+            </table>
+            <div className="px-2 py-1.5 border-t border-gray-50">
+              <button type="button" onClick={addPonto} className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:underline">
+                <Plus className="w-3.5 h-3.5" /> adicionar vértice
+              </button>
+            </div>
+          </div>
+
+          {geo?.resumo && (
+            <div className="space-y-2">
+              <div className="grid grid-cols-3 gap-2">
+                {[['Vértices', geo.resumo.num_vertices],
+                  ['Área', `${fmtNum(geo.resumo.area_m2)} m² (${fmtNum(geo.resumo.area_ha, 4)} ha)`],
+                  ['Perímetro', `${fmtNum(geo.resumo.perimetro_m)} m`]].map(([k, v]) => (
+                    <div key={k} className="rounded-xl bg-emerald-50/60 border border-emerald-100 px-3 py-2">
+                      <div className="text-[10px] uppercase tracking-wide text-emerald-700">{k}</div>
+                      <div className="text-sm font-semibold text-gray-800">{v}</div>
+                    </div>
+                  ))}
+              </div>
+              <div className="flex justify-end">
+                <Button type="button" variant="outline" className="h-8 text-xs gap-1" onClick={usarAreaCalculada}>
+                  <Ruler className="w-3.5 h-3.5" /> Usar área calculada no cálculo
+                </Button>
+              </div>
             </div>
           )}
 
