@@ -34,3 +34,37 @@ def test_modo_personalizado_flat():
     linha = c["secao_3_honorarios"][0]
     assert linha["valor"] == 4800.0
     assert "Pacote fechado combinado" in (linha.get("observacao") or "")
+
+
+def test_modo_por_lote_lista():
+    c = calcular_desmembramento(_base(
+        modo_precificacao="por_lote",
+        valores_por_lote=[{"ordem": 1, "valor": 800, "descricao": "Lote frente"},
+                          {"ordem": 2, "valor": 1200},
+                          {"ordem": 3, "valor": 1500}]))["custos"]
+    valores = [l["valor"] for l in c["secao_3_honorarios"]]
+    assert 800 in valores and 1200 in valores and 1500 in valores
+    assert sum(valores) == 3500
+
+
+def test_fracoes_modo_manual():
+    c = calcular_desmembramento(_base(
+        modo_calculo="manual", modalidade="urbana", unidade_area="m2",
+        fracoes=[{"numero": 1, "area": 400, "valor": 900},
+                 {"numero": 2, "area": 600, "valor": 1100}]))["custos"]
+    valores = [l["valor"] for l in c["secao_3_honorarios"]]
+    assert 900 in valores and 1100 in valores
+
+
+def test_pecas_tecnicas_geram_linhas_por_tipo():
+    c = calcular_desmembramento(_base(pecas_tecnicas={
+        "art": True, "art_valor": 150, "art_quantidade": 4,
+        "trt": True, "trt_valor": 200, "trt_quantidade": 4}))["custos"]
+    valores = [i["valor"] for i in c["secao_2_taxas"]]
+    assert 600.0 in valores   # ART 150 × 4
+    assert 800.0 in valores   # TRT 200 × 4
+
+
+def test_sem_pecas_default_art():
+    c = calcular_desmembramento(_base())["custos"]
+    assert c["secao_2_taxas"][0]["valor"] == 93.40  # default ART CREA

@@ -125,16 +125,6 @@ const SCHEMAS = {
       N('area_total_m2', 'Área total da matriz (m²)'),
       N('valor_venal_total', 'Valor venal total (R$)'),
       SEL('tipo_zona', 'Zona', [{ value: 'urbana', label: 'Urbana' }, { value: 'rural', label: 'Rural' }], 'urbana'),
-      SEL('modo_precificacao', 'Modo de precificação', [
-        { value: 'auto', label: 'A) Automático (SM × pacote × nº lotes)' },
-        { value: 'por_imovel', label: 'B) Por imóvel (valor único × qtd)' },
-        { value: 'personalizado', label: 'C) Personalizado (valor fechado)' }], 'auto'),
-      { ...N('valor_por_imovel', 'Valor por imóvel (R$)'), when: (d) => d.modo_precificacao === 'por_imovel' },
-      { ...N('honorarios_personalizados_valor', 'Honorários — valor fechado (R$)'), when: (d) => d.modo_precificacao === 'personalizado' },
-      { key: 'honorarios_personalizados_descritivo', label: 'Descritivo do pacote', type: 'text', when: (d) => d.modo_precificacao === 'personalizado' },
-      { ...SEL('honorario_projeto_sm', 'Pacote (honorário/lote)', [
-        { value: 0.5, label: 'Básico (0,5 SM/lote)' }, { value: 1, label: 'Completo (1 SM/lote)' }], 1),
-        when: (d) => !d.modo_precificacao || d.modo_precificacao === 'auto' },
       BOOL('iptu_em_dia', 'IPTU em dia?', true),
       BOOL('assessoria_tecnica_habilitada', 'Assessoria técnica (acompanhamento)?'),
       { ...N('assessoria_tecnica_valor', 'Valor da assessoria (R$)'), when: (d) => !!d.assessoria_tecnica_habilitada },
@@ -149,16 +139,6 @@ const SCHEMAS = {
       N('area_total_m2', 'Área total (m²)'),
       N('valor_venal_total', 'Valor venal total (R$)'),
       SEL('tipo_zona', 'Zona', [{ value: 'urbana', label: 'Urbana' }, { value: 'rural', label: 'Rural' }], 'urbana'),
-      SEL('modo_precificacao', 'Modo de precificação', [
-        { value: 'auto', label: 'A) Automático (SM × pacote × nº matrículas)' },
-        { value: 'por_imovel', label: 'B) Por imóvel (valor único × qtd)' },
-        { value: 'personalizado', label: 'C) Personalizado (valor fechado)' }], 'auto'),
-      { ...N('valor_por_imovel', 'Valor por imóvel (R$)'), when: (d) => d.modo_precificacao === 'por_imovel' },
-      { ...N('honorarios_personalizados_valor', 'Honorários — valor fechado (R$)'), when: (d) => d.modo_precificacao === 'personalizado' },
-      { key: 'honorarios_personalizados_descritivo', label: 'Descritivo do pacote', type: 'text', when: (d) => d.modo_precificacao === 'personalizado' },
-      { ...SEL('honorario_projeto_sm', 'Pacote (honorário/matrícula)', [
-        { value: 0.5, label: 'Básico (0,5 SM)' }, { value: 1, label: 'Completo (1 SM)' }], 1),
-        when: (d) => !d.modo_precificacao || d.modo_precificacao === 'auto' },
       BOOL('iptu_em_dia', 'IPTU em dia?', true),
       BOOL('assessoria_tecnica_habilitada', 'Assessoria técnica (acompanhamento)?'),
       { ...N('assessoria_tecnica_valor', 'Valor da assessoria (R$)'), when: (d) => !!d.assessoria_tecnica_habilitada },
@@ -798,6 +778,161 @@ const PropostaForm = () => {
     </div>
   );
 
+  // ── Desmembramento/Remembramento: precificação dinâmica + peças técnicas ──
+  const ehDesmembramento = ['desmembramento', 'remembramento'].includes(subtipo);
+  const dm = form.dados_imovel;
+  const numLotesDm = subtipo === 'desmembramento' ? (dm.numero_lotes_resultantes || 1) : (dm.numero_lotes_origem || 1);
+  const modoDesm = dm.modo_calculo === 'manual' ? 'fracoes'
+    : (['por_imovel', 'por_lote', 'personalizado'].includes(dm.modo_precificacao) ? dm.modo_precificacao : 'auto');
+  const setModoDesm = (modo) => setDados({
+    modo_precificacao: ['por_imovel', 'por_lote', 'personalizado'].includes(modo) ? modo : '',
+    modo_calculo: modo === 'fracoes' ? 'manual' : '',
+    ...(modo === 'por_lote' ? {} : { valores_por_lote: [] }),   // limpa listas de outros modos
+    ...(modo === 'fracoes' ? {} : { fracoes: [] }),             // (o engine valida se houver)
+  });
+  const valoresLote = Array.isArray(dm.valores_por_lote) ? dm.valores_por_lote : [];
+  const addLote = () => setDados({ valores_por_lote: [...valoresLote, { ordem: valoresLote.length + 1, descricao: '', valor: 0 }] });
+  const setLote = (i, k, v) => setDados({ valores_por_lote: valoresLote.map((l, idx) => (idx === i ? { ...l, [k]: v } : l)) });
+  const rmLote = (i) => setDados({ valores_por_lote: valoresLote.filter((_, idx) => idx !== i).map((l, idx) => ({ ...l, ordem: idx + 1 })) });
+  const fracoesDm = Array.isArray(dm.fracoes) ? dm.fracoes : [];
+  const addFracao = () => setDados({ fracoes: [...fracoesDm, { numero: fracoesDm.length + 1, area: 0, valor: 0, descricao: '' }] });
+  const setFracao = (i, k, v) => setDados({ fracoes: fracoesDm.map((f, idx) => (idx === i ? { ...f, [k]: v } : f)) });
+  const rmFracao = (i) => setDados({ fracoes: fracoesDm.filter((_, idx) => idx !== i).map((f, idx) => ({ ...f, numero: idx + 1 })) });
+  const somaFracoes = fracoesDm.reduce((s, f) => s + Number(f.area || 0), 0);
+  const excedeMatriz = Number(dm.area_total_m2 || 0) > 0 && somaFracoes > Number(dm.area_total_m2) + 1;
+  const pecas = dm.pecas_tecnicas || {};
+  const setPeca = (patch) => setDados({ pecas_tecnicas: { ...pecas, ...patch } });
+  const MODOS_DESM = [
+    ['auto', 'Automático', 'SM × pacote × nº lotes'],
+    ['por_imovel', 'Por imóvel', 'valor único × quantidade'],
+    ['por_lote', 'Por lote', 'um valor por lote (lista)'],
+    ['personalizado', 'Personalizado', 'valor total fechado'],
+    ['fracoes', 'Frações (manual)', 'descrever e precificar cada fração'],
+  ];
+
+  const secDesmembramento = (
+    <div className="space-y-4">
+      <div className={LABEL_CLS}>💰 Precificação dos honorários</div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+        {MODOS_DESM.map(([v, t, d]) => (
+          <button key={v} type="button" onClick={() => setModoDesm(v)}
+            className={`text-left px-3 py-2 rounded-xl border text-xs transition ${modoDesm === v ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-gray-700 border-gray-200 hover:border-emerald-300'}`}>
+            <div className="font-semibold">{t}</div>
+            <div className={modoDesm === v ? 'text-emerald-50' : 'text-gray-400'}>{d}</div>
+          </button>
+        ))}
+      </div>
+
+      {modoDesm === 'auto' && (
+        <Field label="Pacote (honorário por lote/matrícula)">
+          <select value={dm.honorario_projeto_sm ?? 1} onChange={(e) => setDado('honorario_projeto_sm', parseFloat(e.target.value))}
+            className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-emerald-400">
+            <option value={0.5}>Básico (0,5 SM)</option>
+            <option value={1}>Completo (1 SM)</option>
+          </select>
+        </Field>
+      )}
+      {modoDesm === 'por_imovel' && (
+        <Field label="Valor por imóvel/lote (R$)">
+          <Input type="number" value={dm.valor_por_imovel ?? ''} onChange={(e) => setDado('valor_por_imovel', e.target.value === '' ? 0 : parseFloat(e.target.value))} />
+        </Field>
+      )}
+      {modoDesm === 'personalizado' && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Field label="Honorários — valor fechado (R$)">
+            <Input type="number" value={dm.honorarios_personalizados_valor ?? ''} onChange={(e) => setDado('honorarios_personalizados_valor', e.target.value === '' ? 0 : parseFloat(e.target.value))} />
+          </Field>
+          <Field label="Descritivo do pacote" className="sm:col-span-2">
+            <Input value={dm.honorarios_personalizados_descritivo ?? ''} onChange={(e) => setDado('honorarios_personalizados_descritivo', e.target.value)} />
+          </Field>
+        </div>
+      )}
+      {modoDesm === 'por_lote' && (
+        <div className="space-y-2">
+          <div className="text-[11px] text-gray-400">Um valor por lote resultante.</div>
+          {valoresLote.map((l, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <Input value={l.descricao ?? ''} placeholder={`Lote ${i + 1} (descrição)`} onChange={(e) => setLote(i, 'descricao', e.target.value)} className="flex-1" />
+              <Input type="number" value={l.valor ?? ''} placeholder="R$" onChange={(e) => setLote(i, 'valor', e.target.value === '' ? 0 : parseFloat(e.target.value))} className="w-32" />
+              <button type="button" onClick={() => rmLote(i)} className="text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+            </div>
+          ))}
+          <button type="button" onClick={addLote} className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:underline">
+            <Plus className="w-3.5 h-3.5" /> adicionar lote
+          </button>
+        </div>
+      )}
+      {modoDesm === 'fracoes' && (
+        <div className="space-y-2">
+          <div className="text-[11px] text-gray-400">Descreva e precifique cada fração/lote resultante (áreas em m²).</div>
+          <div className="overflow-x-auto rounded-xl border border-gray-100">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-emerald-800 bg-emerald-50/50 border-b border-emerald-100">
+                  <th className="text-left py-1.5 px-2 font-semibold">#</th>
+                  <th className="text-left py-1.5 px-2 font-semibold">Descrição</th>
+                  <th className="text-left py-1.5 px-2 font-semibold">Área (m²)</th>
+                  <th className="text-left py-1.5 px-2 font-semibold">Valor (R$)</th>
+                  <th className="w-8"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {fracoesDm.map((f, i) => (
+                  <tr key={i} className="border-b border-gray-50 last:border-0">
+                    <td className="py-0.5 px-2 text-gray-500">{f.numero ?? i + 1}</td>
+                    <td className="py-0.5 px-1.5"><Input value={f.descricao ?? ''} onChange={(e) => setFracao(i, 'descricao', e.target.value)} /></td>
+                    <td className="py-0.5 px-1.5"><Input type="number" value={f.area ?? ''} onChange={(e) => setFracao(i, 'area', e.target.value === '' ? 0 : parseFloat(e.target.value))} className="w-28" /></td>
+                    <td className="py-0.5 px-1.5"><Input type="number" value={f.valor ?? ''} onChange={(e) => setFracao(i, 'valor', e.target.value === '' ? 0 : parseFloat(e.target.value))} className="w-28" /></td>
+                    <td className="py-0.5 px-1.5 text-right"><button type="button" onClick={() => rmFracao(i)} className="text-red-400 hover:text-red-600"><Trash2 className="w-3.5 h-3.5" /></button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="px-2 py-1.5 border-t border-gray-50">
+              <button type="button" onClick={addFracao} className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:underline">
+                <Plus className="w-3.5 h-3.5" /> adicionar fração
+              </button>
+            </div>
+          </div>
+          {Number(dm.area_total_m2 || 0) > 0 && (
+            <div className={`text-[11px] ${excedeMatriz ? 'text-red-600 font-semibold' : 'text-gray-500'}`}>
+              Soma das frações: {fmtNum(somaFracoes)} m² / matriz {fmtNum(Number(dm.area_total_m2))} m²
+              {excedeMatriz ? ' — excede a área da matriz!' : ''}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div>
+        <div className={LABEL_CLS}>📐 Peça Técnica a Entregar (ART/TRT)</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+          {[['art', 'ART (CREA)'], ['trt', 'TRT (CFT)']].map(([tp, lbl]) => (
+            <div key={tp} className="rounded-xl border border-gray-200 p-3 space-y-2">
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-800">
+                <input type="checkbox" checked={!!pecas[tp]} onChange={(e) => setPeca({ [tp]: e.target.checked })} className="w-4 h-4 accent-emerald-600" /> {lbl}
+              </label>
+              {pecas[tp] && (
+                <div className="grid grid-cols-2 gap-2">
+                  <Field label="Valor unit. (R$)">
+                    <Input type="number" value={pecas[`${tp}_valor`] ?? ''} placeholder="93,40"
+                      onChange={(e) => setPeca({ [`${tp}_valor`]: e.target.value === '' ? undefined : parseFloat(e.target.value) })} />
+                  </Field>
+                  <Field label="Qtd.">
+                    <Input type="number" value={pecas[`${tp}_quantidade`] ?? ''} placeholder={String(numLotesDm)}
+                      onChange={(e) => setPeca({ [`${tp}_quantidade`]: e.target.value === '' ? undefined : parseInt(e.target.value, 10) })} />
+                  </Field>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+        <p className="text-[11px] text-gray-400 mt-1">
+          Marque ART e/ou TRT — cada uma vira uma linha de anotação (valor × qtd) na Seção 2. Sem marcar, sai 1 ART padrão.
+        </p>
+      </div>
+    </div>
+  );
+
   const secPrazos = (
     <div>
       <div className={`${LABEL_CLS} mb-2`}>📋 Prazos e observações</div>
@@ -833,6 +968,7 @@ const PropostaForm = () => {
     { key: 'cliente', label: 'Cliente', node: secCliente },
     { key: 'servico', label: 'Serviço', node: secServico },
     ...(ehDemarcacao ? [{ key: 'pontos', label: 'Pontos & Croqui', node: secPontos }] : []),
+    ...(ehDesmembramento ? [{ key: 'precificacao', label: 'Precificação & Peças', node: secDesmembramento }] : []),
     { key: 'prazos', label: 'Prazos & Obs.', node: secPrazos },
     { key: 'anexos', label: 'Anexos', node: secAnexos },
   ];

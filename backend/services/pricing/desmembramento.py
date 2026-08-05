@@ -179,9 +179,26 @@ def calcular_desmembramento(dados: dict) -> dict:
     fontes: dict = {}
     ordem = 1
 
-    at = anotacao_tecnica("art_crea")
-    secao_2_taxas.append({"ordem": ordem, "descricao": at["rotulo"], "valor": at["valor"], "observacao": at["fonte"]})
-    ordem += 1
+    # Anotação técnica: 1 linha por peça marcada (ART/TRT) com valor × qtd (§6.3);
+    # sem pecas_tecnicas → 1 ART CREA padrão (comportamento anterior).
+    pt = dados.get("pecas_tecnicas") or {}
+    _pecas_lines = []
+    for tipo, chave in (("art", "art_crea"), ("trt", "trt_cft")):
+        if pt.get(tipo):
+            at_p = anotacao_tecnica(chave)
+            vunit = _num(pt.get(f"{tipo}_valor"), at_p["valor"]) if pt.get(f"{tipo}_valor") is not None else at_p["valor"]
+            qtd = max(1, int(_num(pt.get(f"{tipo}_quantidade"), 1)))
+            _pecas_lines.append((at_p, round(vunit * qtd, 2), vunit, qtd))
+    if _pecas_lines:
+        for at_p, valor_linha, vunit, qtd in _pecas_lines:
+            secao_2_taxas.append({"ordem": ordem, "descricao": f"{at_p['rotulo']} × {qtd}",
+                                  "valor": valor_linha,
+                                  "observacao": f"R$ {vunit:.2f} × {qtd} | {at_p['fonte']}"})
+            ordem += 1
+    else:
+        at = anotacao_tecnica("art_crea")
+        secao_2_taxas.append({"ordem": ordem, "descricao": at["rotulo"], "valor": at["valor"], "observacao": at["fonte"]})
+        ordem += 1
 
     try:
         valor_por_matricula = max(valor_venal_total / numero_matriculas_afetadas, 30000)
