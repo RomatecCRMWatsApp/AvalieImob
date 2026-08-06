@@ -72,7 +72,7 @@ async def listar_historico(db, user_id) -> list:
     for n in novidades:
         if not _publico_ok(n, created):
             continue
-        d = _slim(n)
+        d = _full(n)          # timeline (/novidades) expande o conteudo_md completo
         v = vis.get(n["id"])
         d["lida"] = bool(v and (v.get("visto_em") or v.get("dispensado_em")))
         d["dispensada"] = bool(v and v.get("dispensado_em"))

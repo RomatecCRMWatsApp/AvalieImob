@@ -82,6 +82,12 @@ export const novidadesAPI = {
   visualizada: (id) => api.post(`/novidades/${id}/visualizada`).then((r) => r.data),
   dispensar: (id) => api.post(`/novidades/${id}/dispensar`).then((r) => r.data),
   cta: (id) => api.post(`/novidades/${id}/cta`).then((r) => r.data),
+  // Admin
+  adminListar: () => api.get('/novidades/admin').then((r) => r.data || []),
+  adminCriar: (body) => api.post('/novidades/admin', body).then((r) => r.data),
+  adminEditar: (id, body) => api.put(`/novidades/admin/${id}`, body).then((r) => r.data),
+  adminPublicar: (id) => api.post(`/novidades/admin/${id}/publicar`).then((r) => r.data),
+  adminMetricas: (id) => api.get(`/novidades/admin/${id}/metricas`).then((r) => r.data),
 };
 
 // ---- Galeria de Fotos própria do AvalieImob (independente; banco do AvalieImob)

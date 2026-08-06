@@ -18,6 +18,8 @@ import { Button } from '../components/ui/button';
 import { useNovidades } from '../hooks/useNovidades';
 import ReleaseModal from '../components/dashboard/novidades/ReleaseModal';
 import SinoNovidades from '../components/dashboard/novidades/SinoNovidades';
+import NovidadesPage from '../components/dashboard/novidades/NovidadesPage';
+import NovidadesAdmin from './admin/NovidadesAdmin';
 
 import DashOverview from '../components/dashboard/DashOverview';
 import Clients from '../components/dashboard/Clients';
@@ -130,6 +132,7 @@ const NAV_GROUPS = [
       { to: '/dashboard/conformidade', icon: ShieldCheck, label: 'Conformidade', badge: 'NOVO' },
       { to: '/dashboard/marca',      icon: Palette,    label: 'Marca (White-label)', badge: 'NOVO' },
       { to: '/dashboard/assinatura', icon: CreditCard, label: 'Assinatura' },
+      { to: '/dashboard/novidades',  icon: Bell,       label: 'Novidades' },
       { to: '/dashboard/config',     icon: Settings,   label: 'Configurações' },
     ],
   },
@@ -499,6 +502,8 @@ const Dashboard = () => {
             <Route path="configuracao-inicial" element={<ConfiguracaoInicial />} />
             <Route path="config"      element={<SettingsPage />} />
             <Route path="marca"       element={<BrandingWizard />} />
+            <Route path="novidades"   element={<NovidadesPage />} />
+            <Route path="admin/novidades" element={<NovidadesAdmin />} />
             <Route path="conformidade" element={<PainelConformidade />} />
             <Route path="admin/incra" element={<AdminIncra />} />
             <Route path="admin/cupons" element={<CuponsAdmin />} />
