@@ -70,6 +70,7 @@ from routes.assinatura_externa import (
     router as assinatura_externa_router,
     router_publico as assinatura_externa_publico_router,
 )
+from routes.novidades import router as novidades_router
 
 all_routers = [
     auth_router, users_router, ptam_router, locacao_router,
@@ -104,4 +105,5 @@ all_routers = [
     instagram_router,
     assinatura_externa_router,
     assinatura_externa_publico_router,
+    novidades_router,
 ]

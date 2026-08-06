@@ -776,6 +776,15 @@ async def startup():
         start_polling(get_db())
     except Exception as e:
         logger.error(f"Erro ao agendar polling de assinatura: {e}")
+    # Central de Novidades: índices + seed do 1º release (idempotente, publicada=False).
+    try:
+        await db.novidades.create_index("slug", unique=True)
+        await db.novidades.create_index([("publicada", 1), ("publicada_em", -1)])
+        await db.novidades_visualizacoes.create_index([("user_id", 1), ("novidade_id", 1)], unique=True)
+        from services.novidades import seed_inicial
+        await seed_inicial(db)
+    except Exception as e:
+        logger.error(f"Erro ao criar índices/seed de novidades: {e}")
     # NFS-e: materializa o certificado .pfx de ROMATEC_CERT_PFX_B64 (Railway), se houver.
     try:
         from services.nfse.sefin.certificado import materializar_cert_de_env
