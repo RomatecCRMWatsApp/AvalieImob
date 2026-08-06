@@ -11,6 +11,7 @@ import ModalUpload from './ModalUpload';
 import ModalSignatarios from './ModalSignatarios';
 import PositionerDocExt from './PositionerDocExt';
 import ModalEnviarFinal from './ModalEnviarFinal';
+import EnviarAssinaturaModal from '../assinatura/EnviarAssinaturaModal';
 
 const fmtData = (d) => (d ? new Date(d).toLocaleDateString('pt-BR') : '');
 
@@ -46,6 +47,7 @@ export default function DocumentosExternosList() {
   const [assinarIcp, setAssinarIcp] = useState(null);
   const [enviarFinal, setEnviarFinal] = useState(null);
   const [testemunhas, setTestemunhas] = useState(null);
+  const [envioExt, setEnvioExt] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -190,6 +192,7 @@ export default function DocumentosExternosList() {
                   {(d.status === 'finalizado' || d.status === 'clientes_ok' || assinados >= sigs.length) && sigs.length > 0 && (
                     <Btn icon={Users} label="Testemunhas" onClick={() => setTestemunhas(d)} cls="border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 col-span-2" />
                   )}
+                  <Btn icon={ShieldCheck} label="Assinatura externa" onClick={() => setEnvioExt(d)} cls="border-indigo-200 text-indigo-700 hover:bg-indigo-50" />
                   <Btn icon={Trash2} label="Excluir" onClick={() => excluir(d)} cls="border-red-200 text-red-600 hover:bg-red-50" />
                 </div>
               </div>
@@ -228,6 +231,14 @@ export default function DocumentosExternosList() {
       )}
       {testemunhas && (
         <ModalTestemunhas doc={testemunhas} onClose={() => { setTestemunhas(null); load(); }} />
+      )}
+      {envioExt && (
+        <EnviarAssinaturaModal
+          origemTipo="documento_externo"
+          origemId={envioExt.id}
+          origemLabel={envioExt.nome || 'Documento externo'}
+          onClose={() => setEnvioExt(null)}
+        />
       )}
     </div>
   );
