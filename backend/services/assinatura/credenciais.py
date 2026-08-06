@@ -93,6 +93,16 @@ async def remover(db, user_id: str, provider: str) -> bool:
     return getattr(r, "deleted_count", 0) > 0
 
 
+async def registrar_teste(db, user_id: str, provider: str, ok: bool, msg: str) -> None:
+    """Grava o resultado do último teste de conexão na credencial."""
+    now = datetime.utcnow()
+    await db[COLL].update_one(
+        {"user_id": user_id, "provider": provider},
+        {"$set": {"ultimo_teste_em": now, "ultimo_teste_ok": bool(ok),
+                  "ultimo_teste_msg": (msg or "")[:300], "updated_at": now}},
+    )
+
+
 async def obter_decifrada(db, user_id: str, provider: str):
     """(doc, credenciais_dict) p/ os adapters (PR2). None,None se não houver."""
     doc = await db[COLL].find_one({"user_id": user_id, "provider": provider})
