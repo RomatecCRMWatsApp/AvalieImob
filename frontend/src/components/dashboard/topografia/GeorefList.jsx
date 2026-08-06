@@ -2,11 +2,12 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Compass, Plus, Trash2, FileText, MapPin, FolderOpen, Eye, FileDown, Send, X,
+  Compass, Plus, Trash2, FileText, MapPin, FolderOpen, Eye, FileDown, Send, X, ShieldCheck,
 } from 'lucide-react';
 import { georefAPI } from '../../../lib/api';
 import { useToast } from '../../../hooks/use-toast';
 import { BrandSpinner } from '../../brand/BrandSpinner';
+import EnviarAssinaturaModal from '../assinatura/EnviarAssinaturaModal';
 
 const GREEN = '#0C3320';
 const GOLD = '#C9A84C';
@@ -78,6 +79,7 @@ export default function GeorefList() {
 
   // Envio por WhatsApp
   const [wa, setWa] = useState(null);      // {id, nome, tema}
+  const [envioExt, setEnvioExt] = useState(null);
   const [waPeca, setWaPeca] = useState('dossie');
   const [waFone, setWaFone] = useState('');
   const [enviandoWa, setEnviandoWa] = useState(false);
@@ -311,6 +313,9 @@ export default function GeorefList() {
                   <Btn icon={Send} label="Enviar WhatsApp"
                     onClick={() => abrirWa(p)}
                     cls="text-white border-transparent hover:opacity-90" style={{ background: GREEN }} />
+                  <Btn icon={ShieldCheck} label="Assinatura externa"
+                    onClick={() => setEnvioExt(p)}
+                    cls="text-indigo-700 border-indigo-200 hover:bg-indigo-50" />
                 </div>
                 {!gerado && (
                   <p className="text-[10px] text-amber-600 mt-2">
@@ -321,6 +326,15 @@ export default function GeorefList() {
             );
           })}
         </div>
+      )}
+
+      {envioExt && (
+        <EnviarAssinaturaModal
+          origemTipo="laudo_agrimensura"
+          origemId={envioExt.id}
+          origemLabel={`Laudo — ${envioExt.nome || envioExt.numero || 'Agrimensura'}`}
+          onClose={() => setEnvioExt(null)}
+        />
       )}
 
       {/* Modal — Enviar por WhatsApp */}

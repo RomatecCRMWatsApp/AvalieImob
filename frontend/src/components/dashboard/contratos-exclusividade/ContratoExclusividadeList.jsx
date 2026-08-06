@@ -5,7 +5,8 @@
  */
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Send, Bell, Trash2, X, Check, FileSignature, Loader2 } from 'lucide-react';
+import { Plus, Send, Bell, Trash2, X, Check, FileSignature, Loader2, ShieldCheck } from 'lucide-react';
+import EnviarAssinaturaModal from '../assinatura/EnviarAssinaturaModal';
 import { BrandSpinner } from '../../brand/BrandSpinner';
 import { contratosExclusividadeAPI } from '../../../lib/api';
 import { useToast } from '../../../hooks/use-toast';
@@ -303,6 +304,7 @@ export default function ContratoExclusividadeList() {
   const [lista, setLista] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);  // legado (modal de criação substituído pelo wizard)
+  const [envioExt, setEnvioExt] = useState(null);
 
   const carregar = async () => {
     setLoading(true);
@@ -397,6 +399,10 @@ export default function ContratoExclusividadeList() {
                       <Check className="w-3.5 h-3.5" /> PDF assinado
                     </a>
                   )}
+                  <button onClick={() => setEnvioExt(c)} title="Enviar para assinatura externa (D4Sign/Clicksign/Autentique)"
+                          className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 font-medium">
+                    <ShieldCheck className="w-3.5 h-3.5" /> Assinatura externa
+                  </button>
                   {c.status !== 'assinado' && c.status !== 'cancelado' && (
                     <button onClick={() => cancelar(c)} className="p-2 rounded-lg text-red-500 hover:bg-red-50" title="Cancelar">
                       <Trash2 className="w-4 h-4" />
@@ -410,6 +416,14 @@ export default function ContratoExclusividadeList() {
       )}
 
       {modal && <CriarModal onClose={() => setModal(false)} onCriado={() => { setModal(false); carregar(); }} />}
+      {envioExt && (
+        <EnviarAssinaturaModal
+          origemTipo="contrato_exclusividade"
+          origemId={envioExt.id}
+          origemLabel={`Exclusividade — ${envioExt.imovel?.descricao_geral || envioExt.imovel?.descricao || 'Imóvel'}`}
+          onClose={() => setEnvioExt(null)}
+        />
+      )}
     </div>
   );
 }

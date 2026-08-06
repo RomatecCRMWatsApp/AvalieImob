@@ -75,6 +75,24 @@ export const brandingAPI = {
   reset: () => api.post('/branding/reset').then((r) => r.data),
 };
 
+// Assinatura Digital Externa (BYOK) — credenciais do usuário nas plataformas de assinatura.
+export const assinaturaExternaAPI = {
+  provedores: () => api.get('/assinatura-externa/provedores').then((r) => r.data.provedores || []),
+  listar: () => api.get('/assinatura-externa/credenciais').then((r) => r.data || []),
+  salvar: (body) => api.post('/assinatura-externa/credenciais', body).then((r) => r.data),
+  testar: (provider) => api.post(`/assinatura-externa/credenciais/${provider}/testar`).then((r) => r.data),
+  definirPadrao: (provider) => api.patch(`/assinatura-externa/credenciais/${provider}/padrao`).then((r) => r.data),
+  remover: (provider) => api.delete(`/assinatura-externa/credenciais/${provider}`).then((r) => r.data),
+  cofresD4Sign: () => api.get('/assinatura-externa/d4sign/cofres').then((r) => r.data.cofres || []),
+  // Envios
+  criarEnvio: (body) => api.post('/assinatura-externa/envios', body).then((r) => r.data),
+  listarEnvios: (params) => api.get('/assinatura-externa/envios', { params }).then((r) => r.data || []),
+  obterEnvio: (id) => api.get(`/assinatura-externa/envios/${id}`).then((r) => r.data),
+  sincronizarEnvio: (id) => api.post(`/assinatura-externa/envios/${id}/sincronizar`).then((r) => r.data),
+  cancelarEnvio: (id) => api.post(`/assinatura-externa/envios/${id}/cancelar`).then((r) => r.data),
+  arquivoAssinado: (id) => api.get(`/assinatura-externa/envios/${id}/arquivo-assinado`, { responseType: 'blob' }).then((r) => r.data),
+};
+
 // ---- Galeria de Fotos própria do AvalieImob (independente; banco do AvalieImob)
 export const galeriaAPI = {
   listar: (params = {}) => api.get('/galeria', { params }).then((r) => r.data),

@@ -6,6 +6,7 @@ import { Button } from '../../ui/button';
 import { useToast } from '../../../hooks/use-toast';
 import { ptamAPI, ptamExtrasAPI, assinaturaAPI } from '../../../lib/api';
 import AssinaturaDigital from './AssinaturaDigital';
+import EnviarAssinaturaModal from '../assinatura/EnviarAssinaturaModal';
 import AssinaturaPosicionadaModal from '../assinatura/AssinaturaPosicionadaModal';
 import { fromM2, fmtBR } from '../../../utils/areaConversao';
 import { isRuralImovel } from './shared/amostraCategoria';
@@ -191,6 +192,7 @@ const PtamList = () => {
   const [reciboModal, setReciboModal] = useState(null);
   const [telegramModal, setTelegramModal] = useState(null);
   const [eventosModal, setEventosModal] = useState(null);
+  const [envioExternoModal, setEnvioExternoModal] = useState(null);
   const [cloneLoading, setCloneLoading] = useState({});
 
   const load = useCallback(async () => {
@@ -550,6 +552,15 @@ const PtamList = () => {
         />
       )}
 
+      {envioExternoModal && (
+        <EnviarAssinaturaModal
+          origemTipo="ptam"
+          origemId={envioExternoModal.id}
+          origemLabel={`PTAM ${envioExternoModal.number || ''}`.trim()}
+          onClose={() => setEnvioExternoModal(null)}
+        />
+      )}
+
       {eventosModal && (
         <LinkEventosModal
           ptam={eventosModal}
@@ -822,6 +833,11 @@ const PtamList = () => {
                 <Button size="sm" variant="outline" title="Enviar por E-mail" onClick={() => setEmailModal(p)}
                   className="text-emerald-700 hover:bg-emerald-50 border-emerald-200">
                   <Mail className="w-3.5 h-3.5" />
+                </Button>
+                <Button size="sm" variant="outline" title="Enviar para assinatura (D4Sign/Clicksign/Autentique)"
+                  onClick={() => setEnvioExternoModal(p)}
+                  className="text-emerald-700 hover:bg-emerald-50 border-emerald-200">
+                  <ShieldCheck className="w-3.5 h-3.5" />
                 </Button>
                 <Button
                   size="sm"

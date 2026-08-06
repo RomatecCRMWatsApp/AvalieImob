@@ -758,6 +758,24 @@ async def startup():
         await db.documentos_externos.create_index([("status", 1), ("created_at", -1)])
     except Exception as e:
         logger.error(f"Erro ao criar índices de documentos_externos: {e}")
+    # Assinatura externa BYOK — 1 credencial por (usuário, provedor).
+    try:
+        await db.assinatura_credenciais.create_index([("user_id", 1), ("provider", 1)], unique=True)
+        await db.assinatura_credenciais.create_index([("user_id", 1), ("padrao", 1)])
+        await db.assinatura_envios.create_index([("user_id", 1), ("created_at", -1)])
+        await db.assinatura_envios.create_index("provider_doc_id")
+        await db.assinatura_envios.create_index([("origem_tipo", 1), ("origem_id", 1)])
+        await db.assinatura_envios.create_index([("status", 1), ("updated_at", 1)])
+        await db.assinatura_eventos_processados.create_index("chave", unique=True)
+        await db.assinatura_eventos_processados.create_index("expira_em", expireAfterSeconds=0)
+    except Exception as e:
+        logger.error(f"Erro ao criar índices de assinatura_externa: {e}")
+    # Polling de assinatura externa (garantia caso o webhook se perca).
+    try:
+        from services.assinatura.envios import start_polling
+        start_polling(get_db())
+    except Exception as e:
+        logger.error(f"Erro ao agendar polling de assinatura: {e}")
     # NFS-e: materializa o certificado .pfx de ROMATEC_CERT_PFX_B64 (Railway), se houver.
     try:
         from services.nfse.sefin.certificado import materializar_cert_de_env

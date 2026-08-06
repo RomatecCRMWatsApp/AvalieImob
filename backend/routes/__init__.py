@@ -66,6 +66,10 @@ from routes.testemunha_assinatura import (
 from routes.prospeccao import router as prospeccao_router
 from routes.reativacao import router as reativacao_router, router_publico as reativacao_publico_router
 from routes.instagram import router as instagram_router
+from routes.assinatura_externa import (
+    router as assinatura_externa_router,
+    router_publico as assinatura_externa_publico_router,
+)
 
 all_routers = [
     auth_router, users_router, ptam_router, locacao_router,
@@ -98,4 +102,6 @@ all_routers = [
     reativacao_router,
     reativacao_publico_router,
     instagram_router,
+    assinatura_externa_router,
+    assinatura_externa_publico_router,
 ]

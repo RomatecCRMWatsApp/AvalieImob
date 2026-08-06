@@ -11,6 +11,7 @@ import { useToast } from '../../../hooks/use-toast';
 import { recibosAPI } from '../../../lib/api';
 import AssinaturaDigital from '../ptam/AssinaturaDigital';
 import AssinaturaPosicionadaModal from '../assinatura/AssinaturaPosicionadaModal';
+import EnviarAssinaturaModal from '../assinatura/EnviarAssinaturaModal';
 
 const formatBRL = (v) => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', {
   minimumFractionDigits: 2, maximumFractionDigits: 2,
@@ -42,6 +43,7 @@ const RecibosList = () => {
   const [enviando, setEnviando] = useState({});
   const [assinaturaModal, setAssinaturaModal] = useState(null);
   const [posicionarModal, setPosicionarModal] = useState(null);
+  const [envioExt, setEnvioExt] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -130,6 +132,15 @@ const RecibosList = () => {
             setPosicionarModal(null);
           }}
           onFechar={() => setPosicionarModal(null)}
+        />
+      )}
+
+      {envioExt && (
+        <EnviarAssinaturaModal
+          origemTipo="recibo"
+          origemId={envioExt.id}
+          origemLabel={`Recibo ${envioExt.numero || ''}`.trim()}
+          onClose={() => setEnvioExt(null)}
         />
       )}
 
@@ -285,6 +296,15 @@ const RecibosList = () => {
                     className="gap-1 text-emerald-700 border-emerald-200 hover:bg-emerald-50"
                   >
                     <MapPin className="w-3.5 h-3.5" /> Posicionar
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setEnvioExt(r)}
+                    title="Enviar para assinatura externa (D4Sign/Clicksign/Autentique)"
+                    className="gap-1 text-indigo-700 border-indigo-200 hover:bg-indigo-50"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5" /> Externa
                   </Button>
                   <Button
                     size="sm"
