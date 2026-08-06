@@ -75,6 +75,15 @@ export const brandingAPI = {
   reset: () => api.post('/branding/reset').then((r) => r.data),
 };
 
+// Central de Novidades (anúncio de release no login).
+export const novidadesAPI = {
+  pendentes: () => api.get('/novidades/pendentes').then((r) => r.data || []),
+  historico: () => api.get('/novidades/historico').then((r) => r.data || []),
+  visualizada: (id) => api.post(`/novidades/${id}/visualizada`).then((r) => r.data),
+  dispensar: (id) => api.post(`/novidades/${id}/dispensar`).then((r) => r.data),
+  cta: (id) => api.post(`/novidades/${id}/cta`).then((r) => r.data),
+};
+
 // ---- Galeria de Fotos própria do AvalieImob (independente; banco do AvalieImob)
 export const galeriaAPI = {
   listar: (params = {}) => api.get('/galeria', { params }).then((r) => r.data),

@@ -15,6 +15,9 @@ import { BRAND } from '../mock/mock';
 import RomaIAAvatar from '../components/common/RomaIAAvatar';
 import LgpdBadge from '../components/common/LgpdBadge';
 import { Button } from '../components/ui/button';
+import { useNovidades } from '../hooks/useNovidades';
+import ReleaseModal from '../components/dashboard/novidades/ReleaseModal';
+import SinoNovidades from '../components/dashboard/novidades/SinoNovidades';
 
 import DashOverview from '../components/dashboard/DashOverview';
 import Clients from '../components/dashboard/Clients';
@@ -312,6 +315,8 @@ const Dashboard = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [videoMuted, setVideoMuted] = useState(true);
+  const nov = useNovidades();
+  const [sinoOpen, setSinoOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -429,7 +434,8 @@ const Dashboard = () => {
         <TopBar
           onMenu={() => setMobileOpen(true)}
           searchSlot={<GlobalSearch />}
-          notifCount={0}
+          notifCount={nov.count}
+          onNotif={() => setSinoOpen((o) => !o)}
           user={{
             name: user?.name || 'Usuário',
             role: user?.role || 'Admin',
@@ -440,6 +446,12 @@ const Dashboard = () => {
           version={APP_VERSION}
           deployDate={BUILD_DATE}
         />
+
+        {/* ── Central de Novidades: sino + modal de release ── */}
+        <SinoNovidades open={sinoOpen} onClose={() => setSinoOpen(false)}
+          itens={nov.historico.length ? nov.historico : nov.pendentes} />
+        <ReleaseModal itens={nov.pendentes.filter((n) => n.bloqueante)}
+          onVisualizar={nov.visualizar} onDispensar={nov.dispensar} onCta={nov.clicarCta} />
 
         {/* ── Page content ── */}
         <div className="flex-1 p-4 sm:p-6 lg:p-8">
