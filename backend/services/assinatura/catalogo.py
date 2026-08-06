@@ -14,8 +14,8 @@ PROVEDORES = [
         "campos_credenciais": [
             {"key": "token_api", "label": "Token API", "tipo": "password", "obrigatorio": True},
             {"key": "crypt_key", "label": "Crypt Key", "tipo": "password", "obrigatorio": True},
-            {"key": "uuid_safe", "label": "Cofre de destino", "tipo": "select_cofre", "obrigatorio": True,
-             "ajuda": "Selecionado da lista de cofres após o teste de conexão."},
+            {"key": "uuid_safe", "label": "Cofre de destino", "tipo": "select_cofre", "obrigatorio": False,
+             "ajuda": "Selecionado da lista de cofres após o teste de conexão (necessário para enviar)."},
         ],
         "ajuda": [
             "Sandbox: crie a conta em sandbox.d4sign.com.br/criar.",
@@ -61,6 +61,10 @@ PROVEDORES = [
 
 CAMPOS_OBRIGATORIOS = {
     p["slug"]: [c["key"] for c in p["campos_credenciais"] if c.get("obrigatorio")]
+    for p in PROVEDORES
+}
+CAMPOS_TODOS = {
+    p["slug"]: [c["key"] for c in p["campos_credenciais"]]
     for p in PROVEDORES
 }
 SLUGS = [p["slug"] for p in PROVEDORES]

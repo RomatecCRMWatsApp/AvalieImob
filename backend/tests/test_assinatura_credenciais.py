@@ -101,6 +101,17 @@ def test_upsert_nao_duplica():
     assert len(lst) == 1 and lst[0]["ambiente"] == "sandbox"
 
 
+def test_edicao_parcial_mantem_campos_nao_digitados():
+    db = _DB()
+    asyncio.run(CRED.salvar(db, "u1", "d4sign", "producao", _D4))
+    # edita SÓ o cofre; token/crypt vêm vazios (mascarados na UI) → mantém os atuais
+    asyncio.run(CRED.salvar(db, "u1", "d4sign", "producao",
+                            {"token_api": "", "crypt_key": "", "uuid_safe": "cofre-2"}))
+    doc, cred = asyncio.run(CRED.obter_decifrada(db, "u1", "d4sign"))
+    assert cred["token_api"] == "TOK123456789"   # preservado
+    assert cred["uuid_safe"] == "cofre-2"          # atualizado
+
+
 def test_definir_padrao_exclusivo():
     db = _DB()
     asyncio.run(CRED.salvar(db, "u1", "d4sign", "producao", _D4))

@@ -25,6 +25,7 @@ import AIAssistant from '../components/dashboard/AIAssistant';
 import SubscriptionPage from '../components/dashboard/SubscriptionPage';
 import ConfiguracaoInicial from './ConfiguracaoInicial';
 import SettingsPage from '../components/dashboard/SettingsPage';
+import AssinaturaExternaConfig from '../components/dashboard/AssinaturaExternaConfig';
 import PerfilAvaliador from '../components/dashboard/PerfilAvaliador';
 import AdminIncra from '../components/dashboard/incra/AdminIncra';
 import CuponsAdmin from './admin/CuponsAdmin';
@@ -126,6 +127,7 @@ const NAV_GROUPS = [
       { to: '/dashboard/curriculo',  icon: Award,      label: 'Meu Currículo' },
       { to: '/dashboard/conformidade', icon: ShieldCheck, label: 'Conformidade', badge: 'NOVO' },
       { to: '/dashboard/marca',      icon: Palette,    label: 'Marca (White-label)', badge: 'NOVO' },
+      { to: '/dashboard/assinatura-digital', icon: FileSignature, label: 'Assinatura Digital', badge: 'NOVO' },
       { to: '/dashboard/assinatura', icon: CreditCard, label: 'Assinatura' },
       { to: '/dashboard/config',     icon: Settings,   label: 'Configurações' },
     ],
@@ -486,6 +488,7 @@ const Dashboard = () => {
             <Route path="assinatura"  element={<SubscriptionPage />} />
             <Route path="configuracao-inicial" element={<ConfiguracaoInicial />} />
             <Route path="config"      element={<SettingsPage />} />
+            <Route path="assinatura-digital" element={<AssinaturaExternaConfig />} />
             <Route path="marca"       element={<BrandingWizard />} />
             <Route path="conformidade" element={<PainelConformidade />} />
             <Route path="admin/incra" element={<AdminIncra />} />

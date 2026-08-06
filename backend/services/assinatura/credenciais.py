@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 
 from services import crypto_service as CS
-from services.assinatura.catalogo import provedor, CAMPOS_OBRIGATORIOS
+from services.assinatura.catalogo import provedor, CAMPOS_OBRIGATORIOS, CAMPOS_TODOS
 
 COLL = "assinatura_credenciais"
 
@@ -46,15 +46,25 @@ async def salvar(db, user_id: str, provider: str, ambiente: str, credenciais: di
         raise CredencialInvalida(f"provider desconhecido: {provider}")
     ambiente = "sandbox" if str(ambiente) == "sandbox" else "producao"
     obrig = CAMPOS_OBRIGATORIOS[provider]
-    faltando = [c for c in obrig if not str((credenciais or {}).get(c) or "").strip()]
+    todos = CAMPOS_TODOS[provider]
+    cred = dict(credenciais or {})
+    existing = await db[COLL].find_one({"user_id": user_id, "provider": provider})
+    # Edição: campos não digitados (vêm mascarados/vazios) são MANTIDOS do valor atual.
+    if existing:
+        try:
+            prev = CS.decrypt_json(existing.get("credenciais_encrypted", ""))
+        except Exception:  # noqa: BLE001
+            prev = {}
+        for c in todos:
+            if not str(cred.get(c) or "").strip() and str(prev.get(c) or "").strip():
+                cred[c] = prev[c]
+    faltando = [c for c in obrig if not str(cred.get(c) or "").strip()]
     if faltando:
         raise CredencialInvalida(f"campos obrigatórios ausentes: {', '.join(faltando)}")
-    # cifra somente os campos conhecidos do provedor (não guarda lixo)
-    limpo = {k: credenciais[k] for k in obrig if credenciais.get(k) is not None}
+    # cifra TODOS os campos conhecidos do provedor preenchidos (não guarda lixo)
+    limpo = {k: cred[k] for k in todos if str(cred.get(k) or "").strip()}
     enc = CS.encrypt_json(limpo)
     now = datetime.utcnow()
-
-    existing = await db[COLL].find_one({"user_id": user_id, "provider": provider})
     if existing:
         await db[COLL].update_one(
             {"user_id": user_id, "provider": provider},
