@@ -17,7 +17,17 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  // Se o usuário foi mandado para cá por sessão expirada (401 no meio do uso),
+  // mostra o motivo em vez de uma tela de login "sem explicação".
+  const [error, setError] = useState(() => {
+    try {
+      if (sessionStorage.getItem('avalie_session_expired')) {
+        sessionStorage.removeItem('avalie_session_expired');
+        return 'Sua sessão expirou. Entre novamente para continuar.';
+      }
+    } catch (_e) { /* ignore */ }
+    return '';
+  });
 
   const submit = async (e) => {
     e.preventDefault();

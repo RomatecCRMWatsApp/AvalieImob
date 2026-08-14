@@ -24,8 +24,19 @@ api.interceptors.response.use(
       const isPublic = PUBLIC_AUTH_ROUTES.some((route) => url.includes(route));
       const skipClear = SKIP_401_CLEAR.some((route) => url.includes(route));
       if (!isPublic && !skipClear) {
+        // A sessão foi perdida (token expirado/ausente no backend). Antes isso
+        // só apagava o token do localStorage em SILÊNCIO — a UI continuava
+        // "logada" (o estado React do usuário não era resetado) e TODA escrita
+        // seguinte ia sem o header Authorization, resultando em "Not
+        // authenticated" (ex.: envio da certidão). Agora avisamos a app para
+        // deslogar de forma limpa e mandar o usuário ao login.
+        const hadToken = !!localStorage.getItem('romatec_token');
         localStorage.removeItem('romatec_token');
         localStorage.removeItem('romatec_user');
+        if (hadToken) {
+          try { sessionStorage.setItem('avalie_session_expired', '1'); } catch (_e) { /* ignore */ }
+          window.dispatchEvent(new CustomEvent('avalieimob:session-expired'));
+        }
       }
     }
 

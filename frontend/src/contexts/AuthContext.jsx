@@ -76,6 +76,20 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   }, []);
 
+  // Sessão perdida no meio do uso (401 do backend → o interceptor do axios já
+  // apagou o token). Reseta o estado React do usuário para que o ProtectedRoute
+  // redirecione ao /login — em vez de deixar a UI "logada" com escritas
+  // falhando em "Not authenticated".
+  useEffect(() => {
+    const onExpired = () => {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
+      setUser(null);
+    };
+    window.addEventListener('avalieimob:session-expired', onExpired);
+    return () => window.removeEventListener('avalieimob:session-expired', onExpired);
+  }, []);
+
   const refreshUser = useCallback(async () => {
     try {
       const u = await authAPI.me();
