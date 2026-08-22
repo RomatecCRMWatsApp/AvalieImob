@@ -326,6 +326,7 @@ Quantos dias?`, '7');
               <tr className="text-gray-500 border-b border-gray-100">
                 <th className="text-left py-3 px-4">Nome</th>
                 <th className="text-left py-3 px-4">E-mail</th>
+                <th className="text-left py-3 px-4">Origem</th>
                 <th className="text-left py-3 px-4">Último acesso</th>
                 <th className="text-center py-3 px-2">Acessos</th>
                 <th className="text-left py-3 px-4">Funil</th>
@@ -350,6 +351,11 @@ Quantos dias?`, '7');
                       {isAdmin && <span className="ml-2 text-[9px] font-bold uppercase tracking-wider text-amber-600">admin</span>}
                     </td>
                     <td className="py-3 px-4 text-gray-600">{u.email}</td>
+                    <td className="py-3 px-4">
+                      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full border border-gray-200 bg-gray-50 text-gray-700">
+                        {u.canal_origem || 'Direto'}
+                      </span>
+                    </td>
                     <td className="py-3 px-4 text-xs text-gray-500">
                       {u.nunca_acessou
                         ? <span className="text-gray-400 italic">nunca acessou</span>
@@ -395,7 +401,7 @@ Quantos dias?`, '7');
                 );
               })}
               {filtrados.length === 0 && (
-                <tr><td colSpan={8} className="text-center py-10 text-gray-400">Nenhum usuário encontrado</td></tr>
+                <tr><td colSpan={9} className="text-center py-10 text-gray-400">Nenhum usuário encontrado</td></tr>
               )}
             </tbody>
           </table>

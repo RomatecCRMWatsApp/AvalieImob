@@ -19,6 +19,7 @@ viram strings e o wrapper do slowapi (@limiter.limit + functools.wraps) faz o Fa
 resolver os type hints no namespace do slowapi — onde `EstimativaInput` não existe —
 então o body Pydantic é tratado como query param e o /estimar responde 422 "Field required".
 """
+import asyncio
 import logging
 import os
 import re
@@ -351,6 +352,12 @@ async def registrar_lead(lead: LeadInput, request: Request, db=Depends(get_db)) 
     # Anti-spam: o lead já está salvo; só notifica se passar no teto/dedupe.
     if await _deve_notificar(db, doc["whatsapp"]):
         await _notificar_avaliador(db, msg)
+        # E-mail imediato ao dono (complementa o WhatsApp; best-effort, não bloqueia).
+        try:
+            from services.notificacao_lead import enviar_email_lead
+            asyncio.create_task(enviar_email_lead(db, doc))
+        except Exception as e:  # noqa: BLE001
+            logger.error("avaliacao_publica: falha ao enfileirar e-mail de lead: %s", e)
 
     return {"ok": True, "id": str(result.inserted_id)}
 

@@ -98,6 +98,11 @@ class AuditoriaUsuarioOut(BaseModel):
     plan_status: str = ""
     plan_expires: Optional[datetime] = None
     status_funil: str = "never_started"
+    # Origem do cadastro (Google, Bing, Direto…) — classificada no servidor por
+    # services.origem_trafego, para a tela não duplicar a regra.
+    canal_origem: str = "Direto"
+    canal: str = "direto"
+    em_trial: bool = False
     checkout_iniciado_em: Optional[datetime] = None
     ultimo_evento_pagamento: Optional[EventoPagamentoResumo] = None
 

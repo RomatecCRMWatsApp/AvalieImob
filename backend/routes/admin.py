@@ -121,9 +121,12 @@ async def admin_users_audit(uid: str = Depends(get_admin_user), db=Depends(get_d
     async for ev in cursor:
         ultimo_por_uid[ev.get("user_id")] = ev  # ascendente ⇒ sobra o mais recente
 
+    from services import origem_trafego as OT
+
     saida = []
     for u in users:
         ev = ultimo_por_uid.get(u.get("id"))
+        origem = OT.classificar(u)
         saida.append(AuditoriaUsuarioOut(
             id=u.get("id", ""),
             name=u.get("name") or "",
@@ -137,6 +140,9 @@ async def admin_users_audit(uid: str = Depends(get_admin_user), db=Depends(get_d
             plan_status=u.get("plan_status") or "",
             plan_expires=u.get("plan_expires"),
             status_funil=derivar_status_funil(u, ev),
+            canal_origem=origem["label"],
+            canal=origem["canal"],
+            em_trial=bool(u.get("trial")) and str(u.get("plan") or "") in ("", "trial"),
             checkout_iniciado_em=u.get("checkout_started_at"),
             ultimo_evento_pagamento=({
                 "status": ev.get("status"),

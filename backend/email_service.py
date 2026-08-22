@@ -301,6 +301,95 @@ def build_trial_email(name: str, email: str, senha: str | None, dias: int,
     return subject, _base_template("Seu acesso de teste", body)
 
 
+def build_lead_email(lead: dict) -> tuple[str, str]:
+    """Aviso IMEDIATO de lead novo da Calculadora pública (complementa o WhatsApp)."""
+    lead = lead or {}
+    imovel = lead.get("imovel") or {}
+    est = lead.get("estimativa") or {}
+    nome = str(lead.get("nome") or "Lead sem nome")
+    cidade = f"{imovel.get('cidade') or ''}/{imovel.get('uf') or ''}".strip("/")
+    subject = f"🎯 Novo lead — {nome}" + (f" ({cidade})" if cidade else "")
+    zap = str(lead.get("whatsapp") or "").strip()
+    zap_link = f'<a href="https://wa.me/{zap}" style="color:{COLOR_GREEN};">{zap}</a>' if zap else "—"
+    linhas = (
+        _info_row("Nome", nome)
+        + _info_row("WhatsApp", zap_link)
+        + _info_row("E-mail", lead.get("email") or "—")
+        + _info_row("Imóvel", f"{str(imovel.get('tipo') or '—').capitalize()} · "
+                              f"{imovel.get('area') or '—'} m² · {cidade or '—'}")
+        + _info_row("Padrão / conservação",
+                    f"{imovel.get('padrao') or '—'} · {imovel.get('conservacao') or '—'}")
+        + _info_row("Estimativa",
+                    f"<strong>{est.get('faixa_texto') or '—'}</strong>")
+        + _info_row("Origem", lead.get("origem") or "calculadora")
+    )
+    body = f"""
+      <p style="color:#333;font-size:15px;line-height:1.7;">
+        Entrou um lead novo pela calculadora <strong>"Quanto vale meu imóvel?"</strong>.
+      </p>
+      <table width="100%" cellpadding="0" cellspacing="0"
+             style="border-collapse:collapse;margin:16px 0;">{linhas}</table>
+      {_button('Abrir painel de leads', PLATFORM_URL + '/dashboard/admin/leads')}
+      <p style="color:#888;font-size:12px;text-align:center;">
+        Responder rápido é o que converte — o lead ainda está com o assunto na cabeça.
+      </p>
+    """
+    return subject, _base_template("Novo lead", body)
+
+
+def _linha_canal(c: dict, maior: int) -> str:
+    """Barra proporcional de um canal no resumo (HTML puro, sem imagem)."""
+    total = int(c.get("total") or 0)
+    pct = int(round(100 * total / maior)) if maior else 0
+    return (
+        f'<tr>'
+        f'<td style="padding:6px 10px 6px 0;color:{COLOR_GREEN};font-size:13px;'
+        f'font-weight:600;white-space:nowrap;">{c.get("label") or c.get("canal")}</td>'
+        f'<td style="padding:6px 0;width:100%;">'
+        f'<div style="background:#eeeeee;border-radius:4px;height:10px;">'
+        f'<div style="background:{COLOR_GOLD};width:{max(pct, 3)}%;height:10px;'
+        f'border-radius:4px;"></div></div></td>'
+        f'<td style="padding:6px 0 6px 10px;color:#222;font-size:13px;'
+        f'font-weight:700;white-space:nowrap;">{total}</td>'
+        f'</tr>'
+    )
+
+
+def build_resumo_email(dados: dict) -> tuple[str, str]:
+    """Resumo periódico (diário/semanal): cadastros, canais, leads e assinaturas."""
+    dados = dados or {}
+    dias = int(dados.get("dias") or 7)
+    periodo = "do dia" if dias <= 1 else ("da semana" if dias <= 7 else f"dos últimos {dias} dias")
+    subject = (f"📊 Resumo {periodo} — AvalieImob: {dados.get('cadastros', 0)} cadastro(s), "
+               f"{dados.get('leads_calculadora', 0)} lead(s)")
+    canais = dados.get("canais") or []
+    maior = max([int(c.get("total") or 0) for c in canais], default=0)
+    tabela_canais = "".join(_linha_canal(c, maior) for c in canais) or (
+        '<tr><td style="color:#888;font-size:13px;padding:6px 0;">'
+        'Nenhum cadastro novo no período.</td></tr>')
+    numeros = (
+        _info_row("Cadastros novos", f"<strong>{dados.get('cadastros', 0)}</strong>")
+        + _info_row("Leads da calculadora", str(dados.get("leads_calculadora", 0)))
+        + _info_row("Acessos de teste liberados", str(dados.get("testes_liberados", 0)))
+        + _info_row("Assinaturas no período", f"<strong>{dados.get('assinaturas', 0)}</strong>")
+        + _info_row("Total de usuários na base", str(dados.get("total_usuarios", 0)))
+    )
+    body = f"""
+      <p style="color:#333;font-size:15px;line-height:1.7;">
+        Resumo {periodo} da captação no AvalieImob.
+      </p>
+      <table width="100%" cellpadding="0" cellspacing="0"
+             style="border-collapse:collapse;margin:16px 0;">{numeros}</table>
+      <p style="color:{COLOR_GREEN};font-size:14px;font-weight:700;margin:22px 0 6px;">
+        De onde vieram os cadastros
+      </p>
+      <table width="100%" cellpadding="0" cellspacing="0"
+             style="border-collapse:collapse;">{tabela_canais}</table>
+      {_button('Ver no painel', PLATFORM_URL + '/dashboard/admin/leads')}
+    """
+    return subject, _base_template("Resumo da captação", body)
+
+
 def build_prospeccao_email(nome: str, cta_url: str, unsub_url: str = "") -> tuple[str, str]:
     """E-mail de PROSPECÇÃO B2B (proposta de parceria) para imobiliárias/corretores."""
     subject = "Sua imobiliária com laudos, contratos e assinatura digital — AvalieImob (Romatec)"
@@ -489,6 +578,18 @@ async def send_ptam_issued_email(
     download_url: str | None = None,
 ) -> None:
     subject, html = build_ptam_issued_email(name, number, imovel, date, download_url)
+    await _send_in_background(to_email, subject, html)
+
+
+async def send_lead_email(to_email: str, lead: dict) -> None:
+    """Aviso imediato de lead novo da calculadora (fire-and-forget, loga falhas)."""
+    subject, html = build_lead_email(lead)
+    await _send_in_background(to_email, subject, html)
+
+
+async def send_resumo_email(to_email: str, dados: dict) -> None:
+    """Resumo periódico da captação (fire-and-forget, loga falhas)."""
+    subject, html = build_resumo_email(dados)
     await _send_in_background(to_email, subject, html)
 
 

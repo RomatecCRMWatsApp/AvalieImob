@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { adminAPI } from '../../lib/api';
 import { useToast } from '../../hooks/use-toast';
 import { BrandSpinner } from '../../components/brand/BrandSpinner';
+import CadastrosOrigem from './CadastrosOrigem';
 
 const VERDE = '#0C3320';
 const DOURADO = '#C9A84C';
@@ -42,6 +43,7 @@ export default function LeadsAdmin() {
   const [busca, setBusca] = useState('');
   const [loading, setLoading] = useState(true);
   const [baseM2, setBaseM2] = useState(null);
+  const [aba, setAba] = useState('calculadora');
   const [recalibrando, setRecalibrando] = useState(false);
 
   const carregar = useCallback(async () => {
@@ -107,11 +109,40 @@ export default function LeadsAdmin() {
     </div>
   );
 
+  const Abas = () => (
+    <div className="inline-flex p-1 rounded-xl bg-gray-100 border border-gray-200 mb-5">
+      {[
+        { id: 'calculadora', label: 'Calculadora' },
+        { id: 'cadastros', label: 'Cadastros por origem' },
+      ].map((t) => (
+        <button key={t.id} type="button" onClick={() => setAba(t.id)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                  aba === t.id ? 'bg-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                style={aba === t.id ? { color: VERDE } : undefined}>
+          {t.label}
+        </button>
+      ))}
+    </div>
+  );
+
+  if (aba === 'cadastros') {
+    return (
+      <div className="p-4 md:p-6 max-w-6xl mx-auto">
+        <h1 className="text-2xl font-bold mb-4 font-display" style={{ color: VERDE }}>
+          Leads &amp; Cadastros
+        </h1>
+        <Abas />
+        <CadastrosOrigem />
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 md:p-6 max-w-6xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6 font-display" style={{ color: VERDE }}>
-        Leads · Calculadora de Avaliação
+      <h1 className="text-2xl font-bold mb-4 font-display" style={{ color: VERDE }}>
+        Leads &amp; Cadastros
       </h1>
+      <Abas />
 
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">

@@ -33,10 +33,19 @@ class _Coll:
 
     def _m(self, d, f):
         for k, v in f.items():
-            if isinstance(v, dict) and "$ne" in v:
-                if d.get(k) == v["$ne"]:
+            atual = d.get(k)
+            if isinstance(v, dict):
+                if "$ne" in v and atual == v["$ne"]:
                     return False
-            elif d.get(k) != v:
+                if "$gte" in v and not (atual is not None and atual >= v["$gte"]):
+                    return False
+                if "$lt" in v and not (atual is not None and atual < v["$lt"]):
+                    return False
+                if "$in" in v and atual not in v["$in"]:
+                    return False
+                if "$exists" in v and (atual is not None) != bool(v["$exists"]):
+                    return False
+            elif atual != v:
                 return False
         return True
 
@@ -53,7 +62,11 @@ class _Coll:
     async def update_one(self, f, upd, upsert=False):
         d = next((d for d in self.docs if self._m(d, f)), None)
         if not d:
-            return type("R", (), {"matched_count": 0, "modified_count": 0})()
+            if not upsert:
+                return type("R", (), {"matched_count": 0, "modified_count": 0})()
+            d = {k: v for k, v in f.items() if not isinstance(v, dict)}
+            d.update(upd.get("$setOnInsert", {}))
+            self.docs.append(d)
         d.update(upd.get("$set", {}))
         for k in (upd.get("$unset") or {}):
             d.pop(k, None)

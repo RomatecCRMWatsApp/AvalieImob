@@ -110,6 +110,97 @@ async def stats(db=Depends(get_db)):
     }
 
 
+# ── Cadastros por origem (Google, Bing, direto…) ────────────────────────────
+# O dado já vem do cadastro (routes/auth grava utm_* + referrer); aqui só
+# classificamos e agregamos. Serve a aba "Cadastros" do painel de Leads.
+@router.get("/cadastros")
+async def listar_cadastros(
+    dias: int = Query(default=30, ge=1, le=3650),
+    canal: Optional[str] = Query(default=None, max_length=40),
+    q: Optional[str] = Query(default=None, max_length=80),
+    db=Depends(get_db),
+):
+    from services import origem_trafego as OT
+
+    usuarios = await db.users.find({}).sort("created_at", -1).to_list(5000)
+    resumo = OT.resumo_por_canal(usuarios, dias=dias)
+    resumo_geral = OT.resumo_por_canal(usuarios)
+
+    linhas = [OT.view_cadastro(u) for u in usuarios]
+    corte = datetime.utcnow() - timedelta(days=dias)
+    no_periodo = [c for c in linhas
+                  if c["cadastrado_em"] and datetime.fromisoformat(c["cadastrado_em"]) >= corte]
+    if canal:
+        no_periodo = [c for c in no_periodo if c["canal"] == canal]
+    if q:
+        alvo = q.lower()
+        no_periodo = [c for c in no_periodo
+                      if alvo in (c["nome"] or "").lower() or alvo in (c["email"] or "").lower()]
+
+    totais = {
+        "cadastros": len(no_periodo),
+        "assinantes": sum(1 for c in no_periodo if c["situacao"] == "assinante"),
+        "em_teste": sum(1 for c in no_periodo if c["situacao"] == "em_teste"),
+        "nunca_acessaram": sum(1 for c in no_periodo if c["nunca_acessou"]),
+        "total_base": len(linhas),
+    }
+    totais["conversao"] = (round(100.0 * totais["assinantes"] / totais["cadastros"], 1)
+                           if totais["cadastros"] else 0.0)
+    return {"dias": dias, "totais": totais, "canais": resumo,
+            "canais_geral": resumo_geral, "cadastros": no_periodo}
+
+
+# ── Notificações por e-mail (lead imediato + resumo periódico) ──────────────
+class NotificacoesBody(BaseModel):
+    email_lead_ativo: Optional[bool] = None
+    email_destino: Optional[str] = Field(default=None, max_length=120)
+    resumo_ativo: Optional[bool] = None
+    resumo_freq: Optional[Literal["diario", "semanal"]] = None
+    resumo_hora: Optional[int] = Field(default=None, ge=0, le=23)
+    resumo_dia_semana: Optional[int] = Field(default=None, ge=0, le=6)
+
+
+@router.get("/notificacoes")
+async def obter_notificacoes(db=Depends(get_db)):
+    from services import notificacao_lead as NL
+    cfg = await NL.carregar_config(db)
+    return {**cfg, "destino_efetivo": await NL.destino(db, cfg)}
+
+
+@router.post("/notificacoes")
+async def salvar_notificacoes(body: NotificacoesBody, db=Depends(get_db)):
+    from services import notificacao_lead as NL
+    cfg = await NL.salvar_config(db, body.model_dump(exclude_none=True))
+    return {"ok": True, **cfg, "destino_efetivo": await NL.destino(db, cfg)}
+
+
+@router.post("/notificacoes/testar")
+async def testar_notificacoes(body: dict = None, db=Depends(get_db)):
+    """Manda um e-mail de TESTE agora: `tipo` = "lead" (exemplo) ou "resumo" (real)."""
+    from services import notificacao_lead as NL
+    body = body or {}
+    tipo = str(body.get("tipo") or "resumo").lower()
+    para = str(body.get("email") or "").strip().lower() or await NL.destino(db)
+    if not para:
+        raise HTTPException(422, "Sem e-mail de destino. Informe um e-mail.")
+    if tipo == "lead":
+        exemplo = {
+            "nome": "Maria (exemplo)", "whatsapp": "5599991811246",
+            "email": "maria@exemplo.com", "origem": "teste",
+            "imovel": {"tipo": "casa", "area": 120, "cidade": "Açailândia", "uf": "MA",
+                       "padrao": "medio", "conservacao": "bom", "vagas": 1},
+            "estimativa": {"faixa_texto": "R$ 288.000 a R$ 366.000"},
+        }
+        from email_service import send_lead_email
+        try:
+            await send_lead_email(para, exemplo)
+        except Exception as e:  # noqa: BLE001
+            return {"ok": False, "erro": f"{type(e).__name__}: {e}", "para": para}
+        return {"ok": True, "tipo": "lead", "para": para}
+    r = await NL.enviar_resumo(db, dias=int(body.get("dias") or 7), para=para)
+    return {**r, "tipo": "resumo"}
+
+
 @router.patch("/{lead_id}")
 async def atualizar_lead(lead_id: str, dados: AtualizarLead, db=Depends(get_db)):
     try:

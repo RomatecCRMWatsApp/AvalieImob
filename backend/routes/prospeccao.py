@@ -704,6 +704,18 @@ async def _scheduler_tick(db, worker: str) -> None:
     except Exception as e:  # noqa: BLE001
         logger.warning("Reativação: tick falhou: %s", e)
 
+    # Resumo de captação (cadastros por canal + leads + assinaturas) por e-mail.
+    # Diário ou semanal, sob a MESMA lease — a decisão de "é a hora?" é pura.
+    try:
+        from services import notificacao_lead as NL
+        cfg_res = await NL.carregar_config(db)
+        if NL.deve_enviar_resumo(cfg_res, now):
+            await NL.marcar_resumo_enviado(db, now)   # marca ANTES (idempotente entre ticks)
+            logger.info("Resumo de captação: disparo automático (%s)", cfg_res["resumo_freq"])
+            asyncio.create_task(NL.enviar_resumo(db))
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Resumo de captação: tick falhou: %s", e)
+
 
 async def _scheduler_loop(db):
     worker = secrets.token_hex(4)
