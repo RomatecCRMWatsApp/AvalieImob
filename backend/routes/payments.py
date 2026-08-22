@@ -225,10 +225,17 @@ async def payment_status(uid: str = Depends(get_current_user_id), db=Depends(get
         if isinstance(t.get("created_at"), datetime):
             t["created_at"] = t["created_at"].isoformat()
         txns[idx] = t
+    # Acesso de teste (trial): campos DIAGNÓSTICOS p/ o banner de contagem
+    # regressiva no app. Quem decide acesso continua sendo plan_status.
+    from services import trial_service as TS
+    st_trial = TS.status_trial(u, now)
     return {
         "plan": u.get("plan", "mensal"),
         "plan_status": plan_st,
         "plan_expires": plan_expires.isoformat() if plan_expires else None,
+        "trial": st_trial["em_trial"],
+        "trial_situacao": st_trial["situacao"],
+        "trial_dias_restantes": st_trial["dias_restantes"],
         "transactions": txns,
     }
 

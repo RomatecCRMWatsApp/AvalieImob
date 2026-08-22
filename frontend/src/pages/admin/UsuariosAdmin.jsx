@@ -4,14 +4,14 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Users, Loader2, Search, CheckCircle2, Clock, AlertCircle, ShieldCheck,
-  RefreshCw, Trash2, X, LogIn, CreditCard, UserX, ShoppingCart,
+  RefreshCw, Trash2, X, LogIn, CreditCard, UserX, ShoppingCart, KeyRound,
 } from 'lucide-react';
 import { BrandSpinner } from '../../components/brand/BrandSpinner';
 import { Input } from '../../components/ui/input';
 import { Button } from '../../components/ui/button';
 import { useToast } from '../../hooks/use-toast';
 import { useAuth } from '../../contexts/AuthContext';
-import { adminAPI } from '../../lib/api';
+import { adminAPI, trialsAPI } from '../../lib/api';
 
 // O backend grava datetime NAIVE em UTC (datetime.utcnow(), padrão do repo) e
 // serializa sem sufixo de fuso. `new Date("...T16:10:00")` sem fuso é lido pelo
@@ -182,6 +182,7 @@ const UsuariosAdmin = () => {
   const [deleting, setDeleting] = useState({});
   const [bulkLoading, setBulkLoading] = useState(false);
   const [detalhe, setDetalhe] = useState(null);
+  const [liberando, setLiberando] = useState({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -193,6 +194,34 @@ const UsuariosAdmin = () => {
     } finally { setLoading(false); }
   }, [toast]);
   useEffect(() => { load(); }, [load]);
+
+  // Libera acesso de teste (trial) direto da lista — para quem JÁ se cadastrou e
+  // só quer experimentar. A senha do próprio cliente é mantida.
+  const liberarTeste = async (u) => {
+    const dias = window.prompt(
+      `Liberar acesso de teste para ${u.name || u.email}.
+
+Quantos dias?`, '7');
+    if (dias === null) return;
+    setLiberando((m) => ({ ...m, [u.id]: true }));
+    try {
+      const r = await trialsAPI.criar({
+        nome: u.name || null, email: u.email, dias: Number(dias) || 7,
+        enviar_whatsapp: false, enviar_email: true,
+      });
+      toast({
+        title: `Teste de ${Number(dias) || 7} dias liberado`,
+        description: r.envios?.email?.ok
+          ? `${u.email} recebeu o aviso por e-mail.`
+          : 'Avise o cliente — o acesso já está ativo.',
+      });
+      load();
+    } catch (e) {
+      toast({ title: 'Não foi possível liberar', description: e.response?.data?.detail, variant: 'destructive' });
+    } finally {
+      setLiberando((m) => ({ ...m, [u.id]: false }));
+    }
+  };
 
   const excluir = async (u) => {
     if (!window.confirm(`Excluir o usuário ${u.name || u.email}? Esta ação não pode ser desfeita.`)) return;
@@ -342,14 +371,24 @@ const UsuariosAdmin = () => {
                       {u.id === user?.id ? (
                         <span className="text-[10px] text-gray-300">você</span>
                       ) : (
-                        <button
-                          onClick={() => excluir(u)}
-                          disabled={deleting[u.id]}
-                          title="Excluir usuário"
-                          className="p-1.5 hover:bg-red-50 rounded text-red-600"
-                        >
-                          {deleting[u.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                        </button>
+                        <div className="inline-flex items-center gap-1">
+                          <button
+                            onClick={() => liberarTeste(u)}
+                            disabled={liberando[u.id]}
+                            title="Liberar acesso de teste (grátis por N dias)"
+                            className="p-1.5 hover:bg-emerald-50 rounded text-emerald-700"
+                          >
+                            {liberando[u.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
+                          </button>
+                          <button
+                            onClick={() => excluir(u)}
+                            disabled={deleting[u.id]}
+                            title="Excluir usuário"
+                            className="p-1.5 hover:bg-red-50 rounded text-red-600"
+                          >
+                            {deleting[u.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>

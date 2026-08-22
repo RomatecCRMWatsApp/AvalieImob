@@ -244,6 +244,15 @@ export const cuponsAPI = {
   resgatarPublico: (slug, usuarioId) => api.post(`/cupons/publico/resgatar/${encodeURIComponent(slug)}`, { usuario_id: usuarioId }).then(r => r.data),
 };
 
+// ---- Acessos de Teste (trial gratuito por N dias — admin)
+export const trialsAPI = {
+  list: () => api.get('/admin/trials').then(r => r.data),
+  criar: (data) => api.post('/admin/trials', data).then(r => r.data),
+  estender: (userId, dias) => api.post(`/admin/trials/${userId}/estender`, { dias }).then(r => r.data),
+  encerrar: (userId) => api.post(`/admin/trials/${userId}/encerrar`).then(r => r.data),
+  reenviar: (userId, payload = {}) => api.post(`/admin/trials/${userId}/reenviar`, payload).then(r => r.data),
+};
+
 // ---- Propostas de Consultoria (motor de cálculo port da ZAYRA)
 export const propostasAPI = {
   catalogo: () => api.get('/propostas/catalogo').then(r => r.data),

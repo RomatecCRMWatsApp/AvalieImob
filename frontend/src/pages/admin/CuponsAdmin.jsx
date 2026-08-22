@@ -1,12 +1,14 @@
 // @module pages/admin/CuponsAdmin — Kit Promocional de Captação (cupons + WhatsApp Z-API).
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Tag, Plus, Loader2, Trash2, Copy, Send, Check, X, MessageCircle, Pencil, RefreshCw } from 'lucide-react';
+import { Tag, Plus, Loader2, Trash2, Copy, Send, Check, X, MessageCircle, Pencil, RefreshCw, KeyRound } from 'lucide-react';
 import { BrandSpinner } from '../../components/brand/BrandSpinner';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
 import { useToast } from '../../hooks/use-toast';
 import { cuponsAPI } from '../../lib/api';
+import { WhatsAppPreview } from '../../components/admin/WhatsAppPreview';
+import TrialsAdmin from './TrialsAdmin';
 
 const fmtBRL = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtData = (v) => (v ? String(v).slice(0, 10).split('-').reverse().join('/') : '—');
@@ -46,39 +48,6 @@ const buildMensagem = (f) => {
     `👇 *Cadastre-se agora com seu desconto garantido:*\n${link}\n\n${emailStr}_RomaTec Consultoria Total — Açailândia/MA_`;
 };
 
-// Formata *negrito* e ~tachado~ + quebras para o balão.
-const renderWa = (texto) => texto.split('\n').map((linha, i) => {
-  const parts = [];
-  let rest = linha;
-  const re = /(\*[^*]+\*|~[^~]+~)/g;
-  let last = 0, m;
-  while ((m = re.exec(linha))) {
-    if (m.index > last) parts.push(linha.slice(last, m.index));
-    const tok = m[0];
-    if (tok.startsWith('*')) parts.push(<strong key={`${i}-${m.index}`}>{tok.slice(1, -1)}</strong>);
-    else parts.push(<span key={`${i}-${m.index}`} style={{ textDecoration: 'line-through' }}>{tok.slice(1, -1)}</span>);
-    last = m.index + tok.length;
-  }
-  if (last < linha.length) parts.push(linha.slice(last));
-  rest = parts.length ? parts : linha;
-  return <div key={i} style={{ minHeight: linha === '' ? 8 : undefined }}>{rest}</div>;
-});
-
-const WhatsAppPreview = ({ mensagem }) => (
-  <div className="rounded-xl overflow-hidden border border-gray-200" style={{ background: '#ECE5DD' }}>
-    <div className="flex items-center gap-2 px-3 py-2" style={{ background: '#075E54' }}>
-      <span className="w-6 h-6 rounded-full bg-emerald-300 flex items-center justify-center text-emerald-900 text-xs font-bold">R</span>
-      <span className="text-white text-sm font-medium">RomaTec AvalieImob</span>
-    </div>
-    <div className="p-3">
-      <div className="bg-white rounded-lg p-3 text-[13px] text-gray-800 shadow-sm max-w-[88%] leading-snug whitespace-pre-wrap break-words">
-        {renderWa(mensagem)}
-        <div className="text-[10px] text-gray-400 text-right mt-1">14:30 ✓✓</div>
-      </div>
-    </div>
-  </div>
-);
-
 const StatCard = ({ label, value, color }) => (
   <div className="bg-white p-5 rounded-xl border border-gray-200">
     <div className="text-xs text-gray-500 mb-1 uppercase tracking-wider">{label}</div>
@@ -86,8 +55,25 @@ const StatCard = ({ label, value, color }) => (
   </div>
 );
 
-const CuponsAdmin = () => {
+// Abas do Kit de Captação: cupom de desconto × acesso de teste gratuito.
+const AbasCaptacao = ({ aba, setAba }) => (
+  <div className="inline-flex p-1 rounded-xl bg-gray-100 border border-gray-200">
+    {[
+      { id: 'cupons', label: 'Cupons de desconto', Icon: Tag },
+      { id: 'trials', label: 'Acessos de teste', Icon: KeyRound },
+    ].map(({ id, label, Icon }) => (
+      <button key={id} type="button" onClick={() => setAba(id)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${
+                aba === id ? 'bg-white shadow-sm text-emerald-900' : 'text-gray-500 hover:text-gray-700'}`}>
+        <Icon className="w-4 h-4" /> {label}
+      </button>
+    ))}
+  </div>
+);
+
+const CuponsAdmin = ({ abaInicial = 'cupons' }) => {
   const { toast } = useToast();
+  const [aba, setAba] = useState(abaInicial);
   const [cupons, setCupons] = useState([]);
   const [stats, setStats] = useState({ ativo: 0, utilizado: 0, expirado: 0, economia_gerada_rs: 0 });
   const [loading, setLoading] = useState(true);
@@ -217,8 +203,20 @@ const CuponsAdmin = () => {
   };
 
 
+  // Duas frentes de captação na mesma tela: desconto na 1ª mensalidade (cupom)
+  // e acesso de teste gratuito por N dias (trial).
+  if (aba === 'trials') {
+    return (
+      <div className="space-y-5">
+        <AbasCaptacao aba={aba} setAba={setAba} />
+        <TrialsAdmin />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
+      <AbasCaptacao aba={aba} setAba={setAba} />
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="font-display text-3xl font-bold text-[#B8860B] flex items-center gap-2"><Tag className="w-7 h-7" /> Cupons Promocionais</h1>

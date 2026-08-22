@@ -35,6 +35,7 @@ import AssinaturasPage from '../components/dashboard/assinatura/AssinaturasPage'
 import PerfilAvaliador from '../components/dashboard/PerfilAvaliador';
 import AdminIncra from '../components/dashboard/incra/AdminIncra';
 import CuponsAdmin from './admin/CuponsAdmin';
+import TrialBanner from '../components/dashboard/TrialBanner';
 import UsuariosAdmin from './admin/UsuariosAdmin';
 import LeadsAdmin from './admin/LeadsAdmin';
 import DanfseTemas from './admin/DanfseTemas';
@@ -462,6 +463,7 @@ const Dashboard = () => {
 
         {/* ── Page content ── */}
         <div className="flex-1 p-4 sm:p-6 lg:p-8">
+          <TrialBanner />
           <Routes>
             <Route index element={<DashOverview />} />
             <Route path="clientes"    element={<Clients />} />
@@ -513,6 +515,7 @@ const Dashboard = () => {
             <Route path="conformidade" element={<PainelConformidade />} />
             <Route path="admin/incra" element={<AdminIncra />} />
             <Route path="admin/cupons" element={<CuponsAdmin />} />
+            <Route path="admin/acessos-teste" element={<CuponsAdmin abaInicial="trials" />} />
             <Route path="admin/usuarios" element={<UsuariosAdmin />} />
             <Route path="admin/leads" element={<LeadsAdmin />} />
             <Route path="admin/danfse" element={<DanfseTemas />} />

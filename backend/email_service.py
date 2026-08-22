@@ -253,6 +253,54 @@ def build_ptam_issued_email(
 
 
 # ── Low-level send helpers ────────────────────────────────────────────
+def build_trial_email(name: str, email: str, senha: str | None, dias: int,
+                      expira_em: str) -> tuple[str, str]:
+    """E-mail com as credenciais do ACESSO DE TESTE (trial de N dias).
+
+    `senha` só vem preenchida quando o login foi criado agora — para quem já era
+    cadastrado, orientamos a usar a senha do próprio cadastro (nunca a expomos).
+    """
+    subject = f"Seu acesso de teste ao AvalieImob — {dias} dias liberados 🎉"
+    saud = f"Olá, {name.split(' ')[0]}!" if (name or "").strip() else "Olá!"
+    if senha:
+        credenciais = (
+            _info_row("Login (e-mail)", email)
+            + _info_row("Senha temporária",
+                        f'<strong style="font-family:monospace;font-size:15px;">{senha}</strong>')
+        )
+        nota = ("<p style=\"color:#666;font-size:13px;line-height:1.6;\">"
+                "Por segurança, troque a senha depois em <strong>Configurações</strong>.</p>")
+    else:
+        credenciais = (_info_row("Login (e-mail)", email)
+                       + _info_row("Senha", "a mesma que você já cadastrou"))
+        nota = ("<p style=\"color:#666;font-size:13px;line-height:1.6;\">"
+                "Esqueceu a senha? Use <strong>“Esqueci minha senha”</strong> na tela de login.</p>")
+    features = "".join([
+        _feature("🏠", "Avaliação de imóveis e PTAM", "Laudos completos em PDF, NBR 14.653."),
+        _feature("📝", "Contratos e recibos", "Exclusividade, procuração e assinatura digital."),
+        _feature("📐", "Topografia e georreferenciamento", "Memoriais, SIGEF/ONR e propostas."),
+    ])
+    body = f"""
+      <p style="color:#333;font-size:15px;line-height:1.7;">{saud}</p>
+      <p style="color:#333;font-size:15px;line-height:1.7;">
+        Seu <strong>acesso de teste</strong> ao AvalieImob está liberado por
+        <strong>{dias} dias</strong>, com a plataforma completa — sem cartão, sem compromisso.
+      </p>
+      <table width="100%" cellpadding="0" cellspacing="0"
+             style="border-collapse:collapse;margin:18px 0;">{credenciais}
+        {_info_row("Seu teste vai até", f'<strong>{expira_em}</strong>')}
+      </table>
+      {nota}
+      <table width="100%" cellpadding="0" cellspacing="0"
+             style="border-collapse:collapse;margin:18px 0;">{features}</table>
+      {_button('Entrar na plataforma', PLATFORM_URL + '/login')}
+      <p style="color:#888;font-size:12px;line-height:1.6;text-align:center;">
+        Qualquer dúvida, é só responder este e-mail.
+      </p>
+    """
+    return subject, _base_template("Seu acesso de teste", body)
+
+
 def build_prospeccao_email(nome: str, cta_url: str, unsub_url: str = "") -> tuple[str, str]:
     """E-mail de PROSPECÇÃO B2B (proposta de parceria) para imobiliárias/corretores."""
     subject = "Sua imobiliária com laudos, contratos e assinatura digital — AvalieImob (Romatec)"
@@ -441,4 +489,11 @@ async def send_ptam_issued_email(
     download_url: str | None = None,
 ) -> None:
     subject, html = build_ptam_issued_email(name, number, imovel, date, download_url)
+    await _send_in_background(to_email, subject, html)
+
+
+async def send_trial_email(to_email: str, name: str, senha: str | None, dias: int,
+                           expira_em: str) -> None:
+    """Envia as credenciais do acesso de teste (fire-and-forget, loga falhas)."""
+    subject, html = build_trial_email(name, to_email, senha, dias, expira_em)
     await _send_in_background(to_email, subject, html)
