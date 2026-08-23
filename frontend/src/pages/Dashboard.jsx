@@ -34,6 +34,8 @@ import AssinaturaExternaConfig from '../components/dashboard/AssinaturaExternaCo
 import AssinaturasPage from '../components/dashboard/assinatura/AssinaturasPage';
 import PerfilAvaliador from '../components/dashboard/PerfilAvaliador';
 import AdminIncra from '../components/dashboard/incra/AdminIncra';
+import InferenciaList from '../components/dashboard/inferencia/InferenciaList';
+import InferenciaWizard from '../components/dashboard/inferencia/InferenciaWizard';
 import CuponsAdmin from './admin/CuponsAdmin';
 import TrialBanner from '../components/dashboard/TrialBanner';
 import UsuariosAdmin from './admin/UsuariosAdmin';
@@ -469,6 +471,8 @@ const Dashboard = () => {
             <Route path="clientes"    element={<Clients />} />
             <Route path="imoveis"     element={<Properties />} />
             <Route path="amostras"    element={<Samples />} />
+            <Route path="inferencia"      element={<InferenciaList />} />
+            <Route path="inferencia/:id"  element={<InferenciaWizard />} />
             <Route path="ptam"        element={<PtamList />} />
             <Route path="ptam/:id"    element={<PtamWizard />} />
             <Route path="garantias"        element={<GarantiasList />} />

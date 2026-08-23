@@ -253,6 +253,24 @@ export const trialsAPI = {
   reenviar: (userId, payload = {}) => api.post(`/admin/trials/${userId}/reenviar`, payload).then(r => r.data),
 };
 
+// ---- Inferência Estatística (MCDDM / tratamento científico — NBR 14653)
+export const inferenciaAPI = {
+  opcoes: () => api.get('/inferencia/opcoes').then(r => r.data),
+  listar: (params = {}) => api.get('/inferencia/modelos', { params }).then(r => r.data),
+  obter: (id) => api.get(`/inferencia/modelos/${id}`).then(r => r.data),
+  criar: (body) => api.post('/inferencia/modelos', body).then(r => r.data),
+  excluir: (id) => api.delete(`/inferencia/modelos/${id}`).then(r => r.data),
+  especificacao: (id, body) => api.patch(`/inferencia/modelos/${id}/especificacao`, body).then(r => r.data),
+  amostra: (id, body) => api.patch(`/inferencia/modelos/${id}/amostra`, body).then(r => r.data),
+  estimar: (id) => api.post(`/inferencia/modelos/${id}/estimar`).then(r => r.data),
+  predizer: (id, body) => api.post(`/inferencia/modelos/${id}/predizer`, body).then(r => r.data),
+  homologar: (id, body) => api.post(`/inferencia/modelos/${id}/homologar`, body).then(r => r.data),
+  novaVersao: (id) => api.post(`/inferencia/modelos/${id}/nova-versao`).then(r => r.data),
+  relatorio: (id) => api.get(`/inferencia/modelos/${id}/relatorio`).then(r => r.data),
+  pdf: (id, tema = 'prime2') => api.get(`/inferencia/modelos/${id}/pdf`, { params: { tema }, responseType: 'blob' }).then(r => r.data),
+  importarAmostras: (id, body) => api.post(`/inferencia/modelos/${id}/importar-amostras`, body).then(r => r.data),
+};
+
 // ---- Propostas de Consultoria (motor de cálculo port da ZAYRA)
 export const propostasAPI = {
   catalogo: () => api.get('/propostas/catalogo').then(r => r.data),

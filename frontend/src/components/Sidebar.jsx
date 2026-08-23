@@ -9,7 +9,7 @@ import {
   LayoutDashboard, Users, Building2, BarChart3, FileCheck2, Shield, Beef, Home,
   ClipboardCheck, FileText, FileSignature, Receipt, Sparkles, FileSearch, Award,
   CreditCard, Settings, LogOut, Globe, Search, Palette, Tag, BadgeCheck, Stamp, Inbox, Calculator,
-  Compass, MapPin, Send, Megaphone, Mail, Radar, Instagram, Bell, KeyRound,
+  Compass, MapPin, Send, Megaphone, Mail, Radar, Instagram, Bell, KeyRound, Sigma,
 } from 'lucide-react';
 import { ptamAPI } from '../lib/api';
 import { BrandMark } from './brand/BrandMark';
@@ -43,6 +43,7 @@ const MENU = [
   ]},
   { section: 'Laudos', items: [
     { id: 'ptam', label: 'PTAM (Laudos)', icon: FileCheck2, route: '/dashboard/ptam', notifKey: 'ptam' },
+    { id: 'inferencia', label: 'Tratamento Científico', icon: Sigma, route: '/dashboard/inferencia', badge: 'NOVO' },
     { id: 'garantias', label: 'Aval. de Garantias', icon: Shield, route: '/dashboard/garantias' },
     { id: 'semoventes', label: 'Semoventes', icon: Beef, route: '/dashboard/semoventes' },
     { id: 'locacao', label: 'Aval. Locação', icon: Home, route: '/dashboard/locacao' },

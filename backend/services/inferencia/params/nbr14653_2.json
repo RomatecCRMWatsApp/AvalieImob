@@ -1,0 +1,22 @@
+{
+  "_nota": "Limiares normativos de enquadramento. NAO hard-coded no codigo. O RT confere item a item contra o texto vigente da NBR 14653-2 (Anexo A) antes do release; o dev nao arbitra numero normativo.",
+  "_norma": "ABNT NBR 14653-2 — Avaliacao de bens: imoveis urbanos",
+  "_conferido_por": null,
+  "_conferido_em": null,
+  "dados_min_fator": { "III": 6, "II": 4, "I": 3 },
+  "signif_regressor_max": { "III": 0.10, "II": 0.20, "I": 0.30 },
+  "signif_modelo_max": { "III": 0.01, "II": 0.02, "I": 0.05 },
+  "amplitude_ip80_max": { "III": 0.30, "II": 0.40, "I": 0.50 },
+  "campo_arbitrio": 0.15,
+  "nivel_ip": 0.80,
+  "micronumerosidade_fator": 3,
+  "outlier_sigma": 2.0,
+  "durbin_watson_faixa": [1.5, 2.5],
+  "vif_limite": 10.0,
+  "correlacao_limite": 0.80,
+  "alfa_pressupostos": 0.05,
+  "checklist_manual": [
+    "Caracterizacao do imovel avaliando",
+    "Grau de identificacao e conferencia dos dados de mercado"
+  ]
+}
