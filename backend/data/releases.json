@@ -1,0 +1,44 @@
+{
+  "_leia_me": "Notas de atualizacao que viram o AVISO no sistema. Regra: a cada release, ANTES do commit, acrescente a entrada no topo de 'releases' (ver CLAUDE.md). Itens com publico='interno' (painel administrativo) NAO geram aviso para ninguem - ficam so registrados aqui. Tipos: novo | melhoria | correcao.",
+  "releases": [
+    {
+      "versao": "1.4.1440",
+      "build": 1440,
+      "data": "2026-08-23T21:10:00-03:00",
+      "titulo": "Avisos de atualizacao e tratamento cientifico",
+      "itens": [
+        {
+          "modulo": "Avisos de atualizacao",
+          "tipo": "novo",
+          "texto": "A partir de agora, sempre que o sistema for atualizado voce recebe este aviso dizendo o que mudou, em qual ferramenta, com a versao e o horario.",
+          "publico": "usuario"
+        },
+        {
+          "modulo": "Tratamento Cientifico",
+          "tipo": "novo",
+          "texto": "Nova ferramenta de inferencia estatistica: regressao sobre a amostra de mercado, diagnostico dos pressupostos e enquadramento na NBR 14.653 ate o Grau III.",
+          "rota": "/dashboard/inferencia",
+          "publico": "usuario"
+        },
+        {
+          "modulo": "Mapa do ONR e Geo Urbano",
+          "tipo": "correcao",
+          "texto": "O satelite nao fica mais cinza ao aproximar da poligonal, e voce pode alternar entre satelite e mapa de ruas.",
+          "publico": "usuario"
+        },
+        {
+          "modulo": "Leads e Cadastros",
+          "tipo": "melhoria",
+          "texto": "Painel administrativo passou a mostrar a origem de cada cadastro (Google, Bing, direto) e a enviar avisos por e-mail.",
+          "publico": "interno"
+        },
+        {
+          "modulo": "Acessos de Teste",
+          "tipo": "novo",
+          "texto": "Liberacao de acesso gratuito por prazo determinado, pelo painel administrativo.",
+          "publico": "interno"
+        }
+      ]
+    }
+  ]
+}

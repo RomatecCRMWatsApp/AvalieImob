@@ -8,9 +8,13 @@ C_NOV = "novidades"
 C_VIS = "novidades_visualizacoes"
 
 _CAMPOS = ("slug", "versao", "titulo", "resumo", "conteudo_md", "tag", "imagem_url",
-           "cta_label", "cta_rota", "bloqueante", "expira_em", "publico_alvo")
+           "cta_label", "cta_rota", "bloqueante", "expira_em", "publico_alvo",
+           # Aviso automático de release (services.release_notes): lista estruturada
+           # de ferramentas atualizadas + carimbo de data/hora já em pt-BR.
+           "itens", "atualizado_em_br", "automatica")
 _LISTA = ("id", "slug", "versao", "titulo", "resumo", "tag", "imagem_url",
-          "cta_label", "cta_rota", "bloqueante", "publicada_em")
+          "cta_label", "cta_rota", "bloqueante", "publicada_em",
+          "itens", "atualizado_em_br", "automatica")
 
 
 def _now() -> datetime:

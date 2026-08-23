@@ -783,6 +783,9 @@ async def startup():
         await db.novidades_visualizacoes.create_index([("user_id", 1), ("novidade_id", 1)], unique=True)
         from services.novidades import seed_inicial
         await seed_inicial(db)
+        # Aviso automático "sistema atualizado" (backend/data/releases.json).
+        from services.release_notes import sincronizar as _sync_releases
+        await _sync_releases(db)
     except Exception as e:
         logger.error(f"Erro ao criar índices/seed de novidades: {e}")
     # NFS-e: materializa o certificado .pfx de ROMATEC_CERT_PFX_B64 (Railway), se houver.
