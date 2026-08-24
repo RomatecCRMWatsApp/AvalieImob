@@ -357,6 +357,10 @@ export const adminAPI = {
   recalibrarBaseM2: () => api.post('/avaliacao-publica/recalibrar-base').then(r => r.data),
   // IndexNow — avisa Bing/Yandex de página nova ou atualizada
   indexnowPing: (body = {}) => api.post('/seo/indexnow-ping', body).then(r => r.data),
+  // QR da peça de divulgação em PDF vetorial (arte para gráfica ampliar sem perder).
+  qrPdf: (url, titulo) => api.get('/admin/divulgacao/qr-pdf', {
+    params: { url, titulo }, responseType: 'blob',
+  }).then(r => r.data),
   // DANFSe (NFS-e) — preview dos 3 temas (blob PDF)
   danfseExemplo: (tema = 'prime1') => api.get('/nfse/danfse/exemplo', { params: { tema }, responseType: 'blob' }).then(r => r.data),
   danfsePreview: (doc, tema = 'prime1') => api.post('/nfse/danfse/preview', doc, { params: { tema }, responseType: 'blob' }).then(r => r.data),

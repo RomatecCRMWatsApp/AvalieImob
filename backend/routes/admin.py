@@ -1,4 +1,5 @@
 # @module routes.admin — Endpoints administrativos (criação de usuários teste e listagem)
+import asyncio
 import logging
 from datetime import datetime, timedelta
 from typing import List
@@ -199,3 +200,26 @@ async def admin_delete_inactive_users(uid: str = Depends(get_admin_user), db=Dep
     })
     logger.info("Admin %s excluiu %s usuarios inativos", uid, res.deleted_count)
     return {"ok": True, "excluidos": res.deleted_count}
+
+
+@router.get("/admin/divulgacao/qr-pdf")
+async def divulgacao_qr_pdf(url: str, titulo: str = "QR Code",
+                            _uid: str = Depends(get_admin_user)):
+    """QR Code da peça de divulgação em PDF vetorial (arte para gráfica).
+
+    A URL vem pronta do painel — com a marcação de origem (utm_*) já aplicada,
+    para o cadastro que chegar pelo código impresso não cair como "Direto".
+    """
+    from fastapi.responses import Response
+    from services.qr_divulgacao import UrlNaoPermitida, gerar_pdf
+
+    try:
+        pdf = await asyncio.to_thread(gerar_pdf, url, titulo)
+    except UrlNaoPermitida as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": 'inline; filename="qr-divulgacao.pdf"',
+                 "Cache-Control": "no-store"},
+    )

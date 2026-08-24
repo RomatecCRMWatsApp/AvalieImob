@@ -132,6 +132,7 @@ const BuscadoresCard = ({ toast }) => {
 
 function FolderCard({ f, toast }) {
   const ref = useRef(null);
+  const [baixandoPdf, setBaixandoPdf] = React.useState(false);
 
   // Cada canal leva a SUA marcação — é o que separa "veio do folder de topografia
   // pelo WhatsApp" de "veio do QR impresso" no painel de Leads.
@@ -155,6 +156,21 @@ function FolderCard({ f, toast }) {
     a.download = `qr-avalieimob-${f.file}.png`;
     document.body.appendChild(a); a.click(); a.remove();
   };
+  // PNG serve para WhatsApp; para impressão grande a gráfica precisa do vetor.
+  const baixarQrPdf = async () => {
+    setBaixandoPdf(true);
+    try {
+      const blob = await adminAPI.qrPdf(urlQr, f.titulo);
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = href; a.download = `qr-avalieimob-${f.file}.pdf`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(href);
+    } catch (e) {
+      toast({ title: 'Não foi possível gerar o PDF',
+              description: e.response?.data?.detail || e.message, variant: 'destructive' });
+    } finally { setBaixandoPdf(false); }
+  };
   const wa = `https://wa.me/?text=${encodeURIComponent(`${f.msg} ${urlWhats}`)}`;
 
 
@@ -163,14 +179,22 @@ function FolderCard({ f, toast }) {
       {/* QR */}
       <div className="flex flex-col items-center gap-2 shrink-0">
         <div ref={ref} className="p-2.5 rounded-xl bg-white border" style={{ borderColor: '#eadfbf' }}>
+          {/* Badge de 20 px (15% do lado), não 28: com a marcação a URL ficou mais
+              longa, o código mais denso, e um badge maior cobria um padrão de
+              alinhamento — o QR de topografia deixava de ser lido. */}
           <QRCodeCanvas
             value={urlQr} size={132} level="H" bgColor="#ffffff" fgColor={GREEN}
-            imageSettings={{ src: '/icon-192.png', height: 28, width: 28, excavate: true }}
+            imageSettings={{ src: '/icon-192.png', height: 20, width: 20, excavate: true }}
           />
         </div>
         <button onClick={baixarQr}
           className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border text-emerald-800 border-emerald-200 hover:bg-emerald-50">
           <Download className="w-3.5 h-3.5" /> Baixar QR
+        </button>
+        <button onClick={baixarQrPdf} disabled={baixandoPdf}
+          title="PDF vetorial — a gráfica amplia sem serrilhar"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border text-gray-600 border-gray-200 hover:bg-gray-50 disabled:opacity-50">
+          <Download className="w-3.5 h-3.5" /> {baixandoPdf ? 'Gerando…' : 'PDF p/ gráfica'}
         </button>
       </div>
 
