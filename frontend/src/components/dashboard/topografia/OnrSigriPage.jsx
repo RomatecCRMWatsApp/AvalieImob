@@ -5,12 +5,13 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   Upload, Trash2, FileText, Download, RefreshCw, Plus, ArrowLeft, CheckCircle2, MapPin, Copy,
-  Eye, ChevronUp, ChevronDown,
+  Eye, ChevronUp, ChevronDown, FolderOpen, FileDown, Send, ShieldCheck, Package,
 } from 'lucide-react';
 import { onrSigriAPI } from '../../../lib/api';
 import { useToast } from '../../../hooks/use-toast';
 import { BrandSpinner } from '../../brand/BrandSpinner';
 import PoligonalLeaflet from '../../maps/PoligonalLeaflet';
+import AssinaturaPosicionadaModal from '../assinatura/AssinaturaPosicionadaModal';
 
 const GREEN = '#0C3320';
 const lbl = 'block text-[11px] font-medium text-gray-500 mb-1';
@@ -39,6 +40,45 @@ const UPLOADS_OPC = [
   ['cnd_iptu', 'Certidão Negativa de IPTU (CND)', '.pdf,image/*'],
   ['doc_proprietario', 'Documento do Proprietário', '.pdf,image/*'],
 ];
+
+// Abre um PDF em nova aba SEM ser bloqueado pelo navegador: a aba precisa ser
+// aberta no clique (síncrono) e só depois recebe o endereço do blob.
+const abrirBlob = async (promessa, toast) => {
+  const win = window.open('', '_blank');
+  try {
+    const blob = await promessa;
+    const url = URL.createObjectURL(blob instanceof Blob ? blob : new Blob([blob], { type: 'application/pdf' }));
+    if (win) win.location.href = url; else window.location.href = url;
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch {
+    if (win) win.close();
+    toast({ title: 'Erro ao abrir o PDF', variant: 'destructive' });
+  }
+};
+
+const baixarBlob = async (promessa, nome, toast) => {
+  try {
+    const blob = await promessa;
+    saveBlob(blob instanceof Blob ? blob : new Blob([blob]), nome);
+  } catch {
+    toast({ title: 'Erro ao baixar o arquivo', variant: 'destructive' });
+  }
+};
+
+// Nome do arquivo com vínculo da matrícula (ex.: SIGRI_ONR-2026-0001_Matricula-9809)
+// — a mesma regra usada na tela de detalhe, para os downloads não divergirem.
+const nomeArquivo = (job) => {
+  const mat = (job.matriculas || [])[0] || {};
+  const tag = mat.matricula ? `_Matricula-${String(mat.matricula).replace(/[^0-9A-Za-z.]/g, '')}` : '';
+  return `SIGRI_${job.numero || job.id}${tag}`;
+};
+
+const Btn = ({ icon: Icon, label, onClick, cls, style }) => (
+  <button onClick={onClick} style={style}
+    className={`flex items-center justify-center gap-1.5 border rounded-lg py-2 text-xs font-medium ${cls}`}>
+    <Icon className="w-3.5 h-3.5" /> {label}
+  </button>
+);
 
 function saveBlob(blob, nome) {
   const url = URL.createObjectURL(blob);
@@ -157,11 +197,65 @@ export default function OnrSigriPage() {
   const [sel, setSel] = useState(null);       // job selecionado
   const [novoNome, setNovoNome] = useState('');
   const [busy, setBusy] = useState(false);
+  const [wa, setWa] = useState(null);          // { job, fone } — modal de envio
+  const [assinId, setAssinId] = useState(null); // id do registro no assinador ICP
+  const [assinados, setAssinados] = useState({});
 
   const carregarLista = useCallback(async () => {
-    try { setJobs(await onrSigriAPI.listar()); } catch (e) { setJobs([]); }
+    try {
+      const lista = await onrSigriAPI.listar();
+      setJobs(lista);
+      // Status de assinatura por processo, para o card dizer o que já foi selado.
+      const pares = await Promise.all((lista || []).map(async (j) => {
+        try {
+          const recs = await onrSigriAPI.listarAssinaturas(j.id);
+          return [j.id, (recs || []).some((r) => r.assinado)];
+        } catch { return [j.id, false]; }
+      }));
+      setAssinados(Object.fromEntries(pares));
+    } catch (e) { setJobs([]); }
   }, []);
   useEffect(() => { carregarLista(); }, [carregarLista]);
+
+  const excluir = async (j) => {
+    const nome = j.denominacao_imovel || j.nome || j.numero;
+    if (!window.confirm(`Excluir "${nome}" e todos os arquivos deste processo?`)) return;
+    try {
+      await onrSigriAPI.excluir(j.id);
+      toast({ title: 'Processo excluído' });
+      carregarLista();
+    } catch (e) {
+      toast({ title: 'Erro ao excluir',
+              description: e.response?.data?.detail || e.message, variant: 'destructive' });
+    }
+  };
+
+  const assinar = async (j) => {
+    try {
+      // Gera o Dossiê atual e devolve o registro que o assinador ICP consome.
+      const r = await onrSigriAPI.prepararAssinatura(j.id);
+      setAssinId(r.id);
+    } catch (e) {
+      toast({ title: 'Não foi possível preparar a assinatura',
+              description: e.response?.data?.detail || e.message, variant: 'destructive' });
+    }
+  };
+
+  const enviarWa = async () => {
+    const fone = (wa?.fone || '').replace(/\D/g, '');
+    if (fone.length < 10) {
+      toast({ title: 'Informe um WhatsApp válido', variant: 'destructive' }); return;
+    }
+    setBusy(true);
+    try {
+      await onrSigriAPI.enviarWhatsapp(wa.job.id, { telefone: fone });
+      toast({ title: 'Dossiê enviado ✓', description: `WhatsApp ${fone}` });
+      setWa(null);
+    } catch (e) {
+      toast({ title: 'Falha ao enviar',
+              description: e.response?.data?.detail || e.message, variant: 'destructive' });
+    } finally { setBusy(false); }
+  };
 
   const criar = async () => {
     if (!novoNome.trim()) { toast({ title: 'Informe a denominação do imóvel', variant: 'destructive' }); return; }
@@ -202,23 +296,83 @@ export default function OnrSigriPage() {
           : (
             <div className="space-y-2">
               {jobs.map((j) => (
-                <button key={j.id} onClick={() => setSel(j)}
-                  className="w-full text-left rounded-xl border bg-white p-3 hover:border-emerald-400 transition flex items-center gap-3">
-                  {j.preview_b64
-                    ? <img src={j.preview_b64} alt="satélite" className="w-24 h-16 object-cover rounded-lg border shrink-0" />
-                    : <div className="w-24 h-16 rounded-lg bg-gray-100 flex items-center justify-center text-gray-300 shrink-0"><MapPin className="w-5 h-5" /></div>}
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-sm truncate" style={{ color: GREEN }}>{j.denominacao_imovel || j.nome}</div>
-                    <div className="text-[11px] text-gray-400">{j.numero} · {j.municipio}/{j.uf} · {(j.vertices || []).length} vértice(s)</div>
-                    {j.concluido && j.concluido_em && (
-                      <div className="text-[10px] text-emerald-600 mt-0.5">✓ Concluído em {new Date(j.concluido_em).toLocaleString('pt-BR')}</div>
-                    )}
+                <div key={j.id} className="rounded-xl border bg-white p-3">
+                  {/* Cabeçalho: clicar abre o processo (mesmo comportamento de antes) */}
+                  <button onClick={() => setSel(j)} className="w-full text-left flex items-center gap-3">
+                    {j.preview_b64
+                      ? <img src={j.preview_b64} alt="satélite" className="w-24 h-16 object-cover rounded-lg border shrink-0" />
+                      : <div className="w-24 h-16 rounded-lg bg-gray-100 flex items-center justify-center text-gray-300 shrink-0"><MapPin className="w-5 h-5" /></div>}
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-sm truncate" style={{ color: GREEN }}>{j.denominacao_imovel || j.nome}</div>
+                      <div className="text-[11px] text-gray-400">{j.numero} · {j.municipio}/{j.uf} · {(j.vertices || []).length} vértice(s)</div>
+                      {j.concluido && j.concluido_em && (
+                        <div className="text-[10px] text-emerald-600 mt-0.5">✓ Concluído em {new Date(j.concluido_em).toLocaleString('pt-BR')}</div>
+                      )}
+                      {assinados[j.id] && (
+                        <div className="text-[10px] text-indigo-600 mt-0.5">✓ Dossiê assinado (ICP-Brasil)</div>
+                      )}
+                    </div>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 shrink-0">{j.status}</span>
+                  </button>
+
+                  <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    <Btn icon={FolderOpen} label="Abrir / editar" onClick={() => setSel(j)}
+                      cls="text-gray-700 border-gray-200 hover:bg-gray-50" />
+                    <Btn icon={Eye} label="Ver Dossiê"
+                      onClick={() => abrirBlob(onrSigriAPI.dossie(j.id), toast)}
+                      cls="text-emerald-800 border-emerald-200 hover:bg-emerald-50" />
+                    <Btn icon={FileDown} label="Baixar Dossiê"
+                      onClick={() => baixarBlob(onrSigriAPI.dossie(j.id), `${nomeArquivo(j)}_Dossie.pdf`, toast)}
+                      cls="text-emerald-800 border-emerald-200 hover:bg-emerald-50" />
+                    <Btn icon={Package} label="Shapefile (.zip)"
+                      onClick={() => baixarBlob(onrSigriAPI.shapefile(j.id), `${nomeArquivo(j)}.zip`, toast)}
+                      cls="text-gray-700 border-gray-200 hover:bg-gray-50" />
+                    <Btn icon={Send} label="Enviar WhatsApp" onClick={() => setWa({ job: j, fone: '' })}
+                      cls="text-white border-transparent hover:opacity-90" style={{ background: GREEN }} />
+                    <Btn icon={ShieldCheck} label={assinados[j.id] ? 'Reassinar (ICP)' : 'Assinar (ICP)'}
+                      onClick={() => assinar(j)}
+                      cls="text-indigo-700 border-indigo-200 hover:bg-indigo-50" />
+                    <Btn icon={Trash2} label="Excluir" onClick={() => excluir(j)}
+                      cls="text-red-600 border-red-200 hover:bg-red-50" />
                   </div>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 shrink-0">{j.status}</span>
-                </button>
+                </div>
               ))}
             </div>
           )}
+
+      {wa && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={() => !busy && setWa(null)}>
+          <div className="bg-white rounded-xl p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-semibold mb-1" style={{ color: GREEN }}>Enviar Dossiê por WhatsApp</h3>
+            <p className="text-xs text-gray-500 mb-3">{wa.job.denominacao_imovel || wa.job.nome}</p>
+            <label className={lbl}>WhatsApp do destinatário</label>
+            <input className={inp} placeholder="55 99 99999-9999" value={wa.fone} autoFocus
+              onChange={(e) => setWa({ ...wa, fone: e.target.value })}
+              onKeyDown={(e) => e.key === 'Enter' && enviarWa()} />
+            <div className="flex gap-2 mt-4">
+              <button onClick={() => setWa(null)} disabled={busy}
+                className="flex-1 py-2 rounded-lg border text-sm text-gray-600">Cancelar</button>
+              <button onClick={enviarWa} disabled={busy}
+                className="flex-1 py-2 rounded-lg text-white text-sm font-semibold disabled:opacity-60"
+                style={{ background: GREEN }}>{busy ? 'Enviando…' : 'Enviar'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {assinId && (
+        <AssinaturaPosicionadaModal
+          tipo="onr"
+          documentId={assinId}
+          onAssinado={() => {
+            setAssinId(null);
+            toast({ title: 'Dossiê assinado com ICP-Brasil ✓' });
+            carregarLista();
+          }}
+          onFechar={() => setAssinId(null)}
+        />
+      )}
     </div>
   );
 }
@@ -328,9 +482,7 @@ function Detalhe({ job: job0, onBack, toast }) {
   const prop = (job.partes || [])[0] || {};
   const mat = (job.matriculas || [])[0] || {};
   const nb = job.numero || id;
-  // nome do arquivo com vínculo da matrícula (ex.: SIGRI_ONR-2026-0001_Matricula-9809)
-  const matTag = mat.matricula ? `_Matricula-${String(mat.matricula).replace(/[^0-9A-Za-z.]/g, '')}` : '';
-  const nomeArq = `SIGRI_${nb}${matTag}`;
+  const nomeArq = nomeArquivo(job);
   const podeGerar = !valid || valid.pode_gerar;
 
   const renderCard = ([tipo, label, accept]) => {

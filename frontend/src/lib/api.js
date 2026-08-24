@@ -1109,6 +1109,10 @@ export const onrSigriAPI = {
   composicaoPreview: (id) => api.get(`${ONRSIG}/jobs/${id}/composicao/preview`).then((r) => r.data),
   salvarComposicao: (id, body) => api.post(`${ONRSIG}/jobs/${id}/composicao`, body).then((r) => r.data),
   dossie: (id) => api.get(`${ONRSIG}/jobs/${id}/dossie`, { responseType: 'blob' }).then((r) => r.data),
+  // Envio e assinatura do Dossiê — mesma paridade dos demais módulos.
+  enviarWhatsapp: (id, body) => api.post(`${ONRSIG}/jobs/${id}/enviar-whatsapp`, body).then((r) => r.data),
+  prepararAssinatura: (id) => api.post(`${ONRSIG}/jobs/${id}/assinar`).then((r) => r.data),
+  listarAssinaturas: (id) => api.get(`${ONRSIG}/jobs/${id}/assinaturas`).then((r) => r.data),
 };
 
 // Geo Urbano — assinatura pública do proprietário (página mobile, sem auth)

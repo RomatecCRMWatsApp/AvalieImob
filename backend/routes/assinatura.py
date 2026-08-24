@@ -36,6 +36,8 @@ _TIPO_COLECAO = {
     "georef": "georef_assinaturas",
     # peça do Geo Urbano (Memorial/Mapa) assinada pelo TÉCNICO via ICP
     "geo_urbano": "geo_urbano_assinaturas",
+    # Dossiê de protocolo do Arquivo ONR (SIG-RI) assinado pelo RT via ICP
+    "onr": "onr_assinaturas",
     # PDF externo (módulo Documentos Externos): base do ICP = intermediário carimbado.
     "doc-ext": "documentos_externos",
 }
@@ -453,8 +455,9 @@ async def _gerar_pdf(tipo: str, doc: dict, db=None, perfil: dict | None = None) 
             raise HTTPException(status_code=500, detail="Arquivo do documento inválido.")
         pdf = await asyncio.to_thread(_normalizar_rotacao_pdf, pdf)
         return pdf
-    elif tipo in ("documento", "georef", "geo_urbano"):
-        # PDF AVULSO (usuário) ou peça do Topografia & Geo / Geo Urbano já gerada — só BAIXA do R2.
+    elif tipo in ("documento", "georef", "geo_urbano", "onr"):
+        # PDF AVULSO (usuário) ou peça do Topografia & Geo / Geo Urbano / ONR já
+        # gerada — só BAIXA do R2.
         from services import r2_storage
         key = doc.get("pdf_key")
         if not key:

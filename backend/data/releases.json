@@ -2,6 +2,25 @@
   "_leia_me": "Notas de atualizacao que viram o AVISO no sistema. Regra: a cada release, ANTES do commit, acrescente a entrada no topo de 'releases' (ver CLAUDE.md, passo 7). Itens com publico='interno' (painel administrativo ou ajuste tecnico) NAO geram aviso para ninguem - ficam so registrados aqui. Tipos: novo | melhoria | correcao. Escreva o texto COM ACENTOS: ele vai direto para a tela do cliente.",
   "releases": [
     {
+      "versao": "1.4.1458",
+      "build": 1458,
+      "data": "2026-08-24T18:30:00-03:00",
+      "titulo": "Arquivo ONR com as mesmas ações dos outros módulos",
+      "itens": [
+        {
+          "modulo": "Arquivo ONR (SIG-RI)",
+          "tipo": "novo",
+          "texto": "Cada processo da lista ganhou os botões que os outros módulos já tinham: abrir, ver e baixar o Dossiê, baixar o Shapefile, enviar por WhatsApp, assinar com ICP-Brasil e excluir — sem precisar entrar no processo.",
+          "rota": "/dashboard/topografia/onr-sigri"
+        },
+        {
+          "modulo": "Arquivo ONR (SIG-RI)",
+          "tipo": "novo",
+          "texto": "O Dossiê de protocolo agora pode ser assinado com o seu certificado ICP-Brasil, e o card mostra quando já está assinado."
+        }
+      ]
+    },
+    {
       "versao": "1.4.1456",
       "build": 1456,
       "data": "2026-08-24T17:10:00-03:00",

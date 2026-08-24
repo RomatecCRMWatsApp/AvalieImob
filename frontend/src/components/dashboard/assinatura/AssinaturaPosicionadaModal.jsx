@@ -74,8 +74,9 @@ export default function AssinaturaPosicionadaModal({ tipo, documentId, onAssinad
         setPaginas(prep.paginas || []);
         const lista = (Array.isArray(cs) ? cs : (cs?.certificados || [])).filter((c) => c.ativo !== false);
         setCerts(lista);
-        // Peças do Topografia & Geo são assinadas pelo RT (pessoa física) → prefere o e-CPF.
-        const ehGeoref = tipo === 'georef';
+        // Peças do Topografia & Geo (inclusive o Dossiê do ONR) são assinadas pelo
+        // RT — pessoa física — então prefere o e-CPF ao e-CNPJ.
+        const ehGeoref = tipo === 'georef' || tipo === 'onr';
         const escolhido = ehGeoref ? (lista.find((c) => c.perfil !== 'PJ') || lista[0]) : lista[0];
         if (escolhido) setCertId(escolhido.id);
         else setErro('Nenhum certificado ICP-Brasil cadastrado. Cadastre seu e-CPF/e-CNPJ.');

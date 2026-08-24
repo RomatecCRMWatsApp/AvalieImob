@@ -504,10 +504,12 @@ async def salvar_composicao(jid: str, body: ComposicaoOnrBody,
     return COMP.resolver_composicao({**doc, "composicao": comp})
 
 
-@router.get("/jobs/{jid}/dossie")
-async def baixar_dossie(jid: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
-    """Dossiê de protocolo (PDF): capa + descrição + anexos selecionados na composição."""
-    doc = await _get(db, jid, uid)
+async def _dossie_bytes(doc: dict) -> bytes:
+    """Monta o Dossiê de protocolo (capa + descrição + anexos ligados na composição).
+
+    Fonte única: o download, o envio por WhatsApp e a assinatura ICP usam este
+    mesmo PDF — nenhum deles pode divergir do que o RT protocola.
+    """
     comp = doc.get("composicao") or COMP.composicao_default()
     anexos_meta = COMP.anexos_ligados(doc)
     anexos = []
@@ -520,9 +522,106 @@ async def baixar_dossie(jid: str, uid: str = Depends(get_active_subscriber), db=
             raw = None
         if raw:
             anexos.append({"nome": a.get("nome"), "mime": a.get("mime"), "bytes": raw})
-    data = await asyncio.to_thread(
+    return await asyncio.to_thread(
         DOSSIE.gerar_dossie, doc, bool(comp.get("capa", True)),
         bool(comp.get("descricao_poligono", True)), anexos)
+
+
+@router.get("/jobs/{jid}/dossie")
+async def baixar_dossie(jid: str, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
+    """Dossiê de protocolo (PDF): capa + descrição + anexos selecionados na composição."""
+    doc = await _get(db, jid, uid)
+    data = await _dossie_bytes(doc)
     nome = f"{_nome_arquivo(doc)}_Dossie.pdf"
     return Response(content=data, media_type=_PDF,
                     headers={"Content-Disposition": f'inline; filename="{nome}"'})
+
+
+@router.post("/jobs/{jid}/enviar-whatsapp")
+async def enviar_whatsapp(jid: str, body: dict, uid: str = Depends(get_active_subscriber),
+                          db=Depends(get_db)):
+    """Envia o Dossiê de protocolo por WhatsApp — mesmo fluxo dos demais módulos."""
+    telefone = re.sub(r"\D", "", str((body or {}).get("telefone") or ""))
+    if len(telefone) < 10:
+        raise HTTPException(status_code=422, detail="Informe um WhatsApp válido (55 + DDD + número).")
+    doc = await _get(db, jid, uid)
+    pdf_bytes = await _dossie_bytes(doc)
+    if not pdf_bytes or pdf_bytes[:5] != b"%PDF-":
+        raise HTTPException(status_code=500, detail="Falha ao gerar o Dossiê.")
+
+    from services.integracoes_util import carregar_integracoes
+    cfg = await carregar_integracoes(db, uid, fallback_zapi=True)
+    if not cfg.get("zapi_instance_id") or not cfg.get("zapi_token"):
+        raise HTTPException(status_code=422,
+                            detail="Configure a integração Z-API (WhatsApp) antes de enviar.")
+
+    caption = ((body or {}).get("legenda")
+               or f"Dossiê de protocolo (ONR/SIG-RI) — "
+                  f"{doc.get('denominacao_imovel') or doc.get('nome') or ''} "
+                  f"({doc.get('numero') or ''})").strip()
+    fname = f"{_nome_arquivo(doc)}_Dossie.pdf".replace("/", "-")
+    from services import zapi_service
+    try:
+        await zapi_service.send_document_pdf(
+            instance_id=cfg.get("zapi_instance_id"), token=cfg.get("zapi_token"),
+            security_token=cfg.get("zapi_security_token"), phone=telefone,
+            pdf_bytes=pdf_bytes, filename=fname, caption=caption)
+    except Exception as e:  # noqa: BLE001
+        logger.error("ONR: envio WhatsApp falhou: %s", e, exc_info=True)
+        raise HTTPException(status_code=502, detail=f"Falha ao enviar pelo WhatsApp: {e}")
+    return {"ok": True, "enviado": telefone}
+
+
+@router.post("/jobs/{jid}/assinar")
+async def preparar_assinatura(jid: str, uid: str = Depends(get_active_subscriber),
+                              db=Depends(get_db)):
+    """Prepara o Dossiê para o ICP-Brasil e devolve o id do registro.
+
+    O front abre o assinador com tipo='onr' e este id — mesmo motor dos outros
+    módulos (routes/assinatura), que só baixa o PDF do R2 e carimba o selo.
+    """
+    doc = await _get(db, jid, uid)
+    pdf_bytes = await _dossie_bytes(doc)
+    if not pdf_bytes or pdf_bytes[:5] != b"%PDF-":
+        raise HTTPException(status_code=500, detail="Falha ao gerar o Dossiê para assinatura.")
+
+    filtro = {"user_id": uid, "job_id": jid, "doc": "dossie"}
+    existente = await db.onr_assinaturas.find_one(filtro)
+    aid = existente["id"] if existente else str(uuid.uuid4())
+    key = f"onr-sigri/{uid}/{jid}/assinar/dossie_{aid[:8]}.pdf"
+    try:
+        await asyncio.to_thread(r2_storage.upload_bytes, pdf_bytes, key, _PDF)
+    except Exception as e:  # noqa: BLE001
+        logger.error("ONR: upload R2 da peça p/ assinatura falhou (%s)", e)
+        raise HTTPException(status_code=502, detail="Falha ao preparar o documento.")
+    try:
+        import io as _io
+
+        from pypdf import PdfReader
+        paginas = len(PdfReader(_io.BytesIO(pdf_bytes)).pages)
+    except Exception:  # noqa: BLE001
+        paginas = 0
+
+    nome = f"Dossiê de protocolo — {doc.get('denominacao_imovel') or doc.get('nome') or ''}".strip()
+    if existente:
+        # Reassinar regenera o dossiê: o PDF muda, o registro (e o id) permanece.
+        await db.onr_assinaturas.update_one(
+            {"id": aid}, {"$set": {"nome": nome, "pdf_key": key, "paginas": paginas,
+                                   "updated_at": _agora().isoformat()}})
+    else:
+        await db.onr_assinaturas.insert_one({
+            "id": aid, "user_id": uid, "job_id": jid, "doc": "dossie", "nome": nome,
+            "pdf_key": key, "paginas": paginas, "icp_status": None,
+            "created_at": _agora().isoformat()})
+    return {"id": aid, "nome": nome, "paginas": paginas,
+            "assinado": (existente or {}).get("icp_status") == "assinado"}
+
+
+@router.get("/jobs/{jid}/assinaturas")
+async def listar_assinaturas(jid: str, uid: str = Depends(get_active_subscriber),
+                             db=Depends(get_db)):
+    await _get(db, jid, uid)
+    recs = await db.onr_assinaturas.find({"user_id": uid, "job_id": jid}).to_list(20)
+    return [{"id": r["id"], "doc": r.get("doc"), "nome": r.get("nome"),
+             "paginas": r.get("paginas"),
+             "assinado": r.get("icp_status") == "assinado"} for r in recs]

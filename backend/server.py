@@ -762,6 +762,9 @@ async def startup():
         await db.geo_urbano_projetos.create_index([("user_id", 1), ("status", 1)])
         await db.geo_urbano_assinaturas.create_index("id", unique=True)
         await db.geo_urbano_assinaturas.create_index([("user_id", 1), ("projeto_id", 1)])
+        # Dossiê do Arquivo ONR preparado p/ o ICP (um registro por job).
+        await db.onr_assinaturas.create_index("id", unique=True)
+        await db.onr_assinaturas.create_index([("user_id", 1), ("job_id", 1)])
         await db.geo_urbano_assinatura_sessoes.create_index("id", unique=True)
         await db.geo_urbano_assinatura_sessoes.create_index("signatarios.token")
         await db.geo_urbano_assinatura_sessoes.create_index([("projeto_id", 1), ("user_id", 1)])
