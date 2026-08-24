@@ -43,6 +43,7 @@ const BlogPostPtamLaudo = lazy(() => import('./pages/blog/BlogPostPtamLaudo'));
 const BlogPostAvaliacaoRural = lazy(() => import('./pages/blog/BlogPostAvaliacaoRural'));
 const BlogPostVLF = lazy(() => import('./pages/blog/BlogPostVLF'));
 const BlogPostGrauFundamentacao = lazy(() => import('./pages/blog/BlogPostGrauFundamentacao'));
+const BlogPostInferenciaEstatistica = lazy(() => import('./pages/blog/BlogPostInferenciaEstatistica'));
 const BlogPostMetodoComparativo = lazy(() => import('./pages/blog/BlogPostMetodoComparativo'));
 const BlogPostInventarioPartilha = lazy(() => import('./pages/blog/BlogPostInventarioPartilha'));
 const BlogPostART_RRT_TRT = lazy(() => import('./pages/blog/BlogPostART_RRT_TRT'));
@@ -228,6 +229,7 @@ function App() {
                 <Route path="/blog/avaliacao-imovel-rural-nbr-14653-3-guia-completo" element={<BlogPostAvaliacaoRural />} />
                 <Route path="/blog/como-calcular-valor-liquidacao-forcada-vlf" element={<BlogPostVLF />} />
                 <Route path="/blog/grau-fundamentacao-precisao-nbr-14653" element={<BlogPostGrauFundamentacao />} />
+                <Route path="/blog/inferencia-estatistica-avaliacao-imoveis-tratamento-cientifico" element={<BlogPostInferenciaEstatistica />} />
                 <Route path="/blog/metodo-comparativo-direto-passo-a-passo" element={<BlogPostMetodoComparativo />} />
                 <Route path="/blog/avaliacao-imovel-inventario-partilha" element={<BlogPostInventarioPartilha />} />
                 <Route path="/blog/como-emitir-art-rrt-trt-avaliacao-imobiliaria" element={<BlogPostART_RRT_TRT />} />

@@ -4,6 +4,16 @@
 
 export const BLOG_POSTS = [
   {
+    slug: 'inferencia-estatistica-avaliacao-imoveis-tratamento-cientifico',
+    titulo: 'Inferência estatística na avaliação de imóveis: o tratamento científico que sustenta o Grau III',
+    meta: 'Como funciona o tratamento científico (MCDDM por inferência estatística) na avaliação de imóveis: regressão sobre a amostra de mercado, testes de pressupostos, intervalo de predição de 80% e enquadramento no Grau III da NBR 14.653-2 e 14.653-3.',
+    categoria: 'Metodologia',
+    dataPublicacao: '2026-08-24',
+    dataAtualizacao: '2026-08-24',
+    tempoLeitura: '12 min',
+    resumo: 'Perícia judicial, desapropriação e servidão administrativa costumam exigir Grau III de fundamentação — e o tratamento por fatores raramente chega lá. O caminho é a inferência estatística: uma regressão sobre os dados de mercado, com os pressupostos testados e o intervalo de predição declarado. Veja o que a norma cobra em cada item, como ler os testes e o que derruba o Grau III na hora.',
+  },
+  {
     slug: 'contrato-exclusividade-procuracao-corretor-imoveis',
     titulo: 'Contrato de Exclusividade com Procuração: como funciona e por que usar',
     meta: 'Entenda o contrato de exclusividade de corretagem com procuração: base legal (art. 726 do Código Civil, COFECI/CRECI), cláusulas essenciais, prazo, comissão e como gerar e assinar digitalmente.',

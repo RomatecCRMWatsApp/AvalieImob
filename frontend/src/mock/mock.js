@@ -18,6 +18,7 @@ export const BRAND = {
 
 export const FEATURES = [
   { id: 1, icon: 'FileText', title: 'PTAM e Laudos', desc: 'Gere pareceres técnicos e laudos de avaliação com todos os requisitos legais da ABNT NBR 14.653.' },
+  { id: 13, icon: 'Sigma', title: 'Tratamento Científico', desc: 'Inferência estatística (regressão) sobre a amostra de mercado: diagnóstico dos pressupostos, gráficos automáticos no laudo e enquadramento até o Grau III da NBR 14.653 — o exigido em perícia judicial e desapropriação.' },
   { id: 2, icon: 'FileSignature', title: 'Contratos & Procuração', desc: 'Gere contratos de compra e venda, exclusividade e locação — com procuração e cláusulas redigidas por IA.' },
   { id: 3, icon: 'ShieldCheck', title: 'Assinatura ICP-Brasil', desc: 'Assine PTAMs, contratos e PDFs avulsos posicionando o carimbo na página. O cliente assina por link no WhatsApp.' },
   { id: 4, icon: 'Calculator', title: 'Propostas de Consultoria', desc: 'Orçamentos de georreferenciamento, demarcação, desmembramento e averbação com motor de cálculo automático.' },

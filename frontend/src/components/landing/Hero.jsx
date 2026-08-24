@@ -1,10 +1,11 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, CheckCircle2, Sparkles, CheckCircle, ShieldCheck, FileSignature, FileDown, Calculator } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Sparkles, CheckCircle, ShieldCheck, FileSignature, FileDown, Calculator, Sigma } from 'lucide-react';
 import { Button } from '../ui/button';
 import { BRAND } from '../../mock/mock';
 
 const DESTAQUES = [
+  { label: 'Inferência estatística — Grau III', icon: Sigma },
   { label: 'IA integrada', icon: Sparkles },
   { label: 'Assinatura ICP-Brasil', icon: ShieldCheck },
   { label: 'Contratos & Procuração', icon: FileSignature },
@@ -50,7 +51,7 @@ const Hero = () => {
           </h1>
 
           <h2 className="text-sm font-medium text-emerald-700 mb-5 tracking-wide uppercase">
-            Sistema Online · NBR 14.653 · PTAM · TVI · Contratos &amp; Procuração · Assinatura ICP-Brasil · Garantias · Semoventes · Locação
+            Sistema Online · NBR 14.653 · PTAM · TVI · Inferência Estatística · Contratos &amp; Procuração · Assinatura ICP-Brasil · Garantias · Semoventes · Locação
           </h2>
 
           <div className="flex flex-wrap gap-2 mb-6">

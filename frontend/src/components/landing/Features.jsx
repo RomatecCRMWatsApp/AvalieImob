@@ -3,13 +3,13 @@ import React from 'react';
 // do lucide pro bundle e QUEBRA no Safari/iOS (acesso dinâmico ao namespace).
 import {
   FileText, FileSignature, ShieldCheck, Calculator, Brain, ClipboardCheck,
-  Receipt, BadgeCheck, Users, Cloud, Lock, Headphones, Circle,
+  Receipt, BadgeCheck, Users, Cloud, Lock, Headphones, Circle, Sigma,
 } from 'lucide-react';
 import { FEATURES } from '../../mock/mock';
 
 const ICONES = {
   FileText, FileSignature, ShieldCheck, Calculator, Brain, ClipboardCheck,
-  Receipt, BadgeCheck, Users, Cloud, Lock, Headphones,
+  Receipt, BadgeCheck, Users, Cloud, Lock, Headphones, Sigma,
 };
 
 const Features = () => {
