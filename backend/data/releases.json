@@ -2,6 +2,26 @@
   "_leia_me": "Notas de atualizacao que viram o AVISO no sistema. Regra: a cada release, ANTES do commit, acrescente a entrada no topo de 'releases' (ver CLAUDE.md, passo 7). Itens com publico='interno' (painel administrativo ou ajuste tecnico) NAO geram aviso para ninguem - ficam so registrados aqui. Tipos: novo | melhoria | correcao. Escreva o texto COM ACENTOS: ele vai direto para a tela do cliente.",
   "releases": [
     {
+      "versao": "1.4.1448",
+      "build": 1448,
+      "data": "2026-08-24T09:45:00-03:00",
+      "titulo": "Ajustes internos",
+      "itens": [
+        {
+          "modulo": "Aviso de atualização",
+          "tipo": "melhoria",
+          "texto": "Margem de versão ampliada para 8 builds, com trava que impede recarimbar avisos antigos.",
+          "publico": "interno"
+        },
+        {
+          "modulo": "Assinatura digital (BYOK)",
+          "tipo": "novo",
+          "texto": "Diagnóstico da chave que cifra as credenciais, no painel administrativo.",
+          "publico": "interno"
+        }
+      ]
+    },
+    {
       "versao": "1.4.1446",
       "build": 1446,
       "data": "2026-08-23T22:00:00-03:00",

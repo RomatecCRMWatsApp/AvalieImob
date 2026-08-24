@@ -68,28 +68,52 @@ _VERSION_JSON = (Path(__file__).resolve().parent.parent.parent
                  / "frontend" / "build" / "version.json")
 
 
-def versao_exibida(release: dict) -> str:
+# Quantos bumps do bot do CI cabem entre o meu commit e o deploy final.
+# Em 23/08/2026 uma release chegou a 3 (declarei 1444, subiu 1447) — o dono pediu
+# margem de 8 para não voltar a raspar no limite.
+MARGEM_BUILD = 8
+
+
+def versao_exibida(release: dict, mais_recente: bool = True) -> str:
     """Versão que aparece no aviso — a MESMA do badge do rodapé.
 
     O bot do CI incrementa o `build-number` depois do commit, então o número que
-    declaro no arquivo pode ficar 1 atrás do que foi ao ar. Se o build publicado
-    (`frontend/build/version.json`) for do mesmo release e estiver à frente, ele
-    manda — assim o popup e o badge nunca divergem.
+    declaro no arquivo fica atrás do que foi ao ar. Se o build publicado
+    (`frontend/build/version.json`) estiver à frente dentro da margem, ele manda.
+
+    `mais_recente=False` DESLIGA a substituição: só a última release do arquivo
+    corresponde ao deploy atual. Sem essa trava, ampliar a margem faria uma nota
+    antiga ser recarimbada com a versão de hoje — o risco que a margem curta
+    escondia.
     """
     declarada = str(release.get("versao") or "").strip()
+    if not mais_recente:
+        return declarada
     try:
         with open(_VERSION_JSON, encoding="utf-8") as fh:
             publicada = json.load(fh)
         build_real = int(publicada.get("build") or 0)
         v_real = str(publicada.get("version") or "").lstrip("vV")
         build_decl = int(release.get("build") or 0)
-        # Só substitui dentro do mesmo release (bot bumpando 1-2 números), nunca
-        # carimba uma nota antiga com a versão de hoje.
-        if v_real and build_decl and 0 <= build_real - build_decl <= 3:
+        if v_real and build_decl and 0 <= build_real - build_decl <= MARGEM_BUILD:
             return v_real
     except (FileNotFoundError, OSError, ValueError, json.JSONDecodeError):
         pass
     return declarada
+
+
+def _build(release: dict) -> int:
+    try:
+        return int(release.get("build") or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def indice_mais_recente(releases: list) -> int:
+    """Posição da release de maior build — a que corresponde ao deploy atual."""
+    if not releases:
+        return -1
+    return max(range(len(releases)), key=lambda i: _build(releases[i]))
 
 
 def _titulo(release: dict, itens: list) -> str:
@@ -113,15 +137,17 @@ def _markdown(itens: list) -> str:
     return "\n\n".join(linhas)
 
 
-def montar_novidade(release: dict) -> dict:
+def montar_novidade(release: dict, mais_recente: bool = True) -> dict:
     """Converte uma entrada do arquivo no documento da Central de Novidades.
 
     Devolve {} quando a release não tem nada que interesse ao usuário.
+    `mais_recente` distingue a release do deploy atual (a única que pode ter a
+    versão ajustada pelo build publicado) das anteriores.
     """
     itens = itens_do_usuario(release)
     if not itens:
         return {}
-    versao = versao_exibida(release)
+    versao = versao_exibida(release, mais_recente)
     quando = _data_br(release.get("data"))
     com_rota = next((i for i in itens if i.get("rota")), None)
 
@@ -151,9 +177,11 @@ async def sincronizar(db, caminho: Path = None) -> dict:
     """
     from services import novidades as NOV
 
+    releases = carregar(caminho)
+    topo = indice_mais_recente(releases)
     criadas, atualizadas, ignoradas = [], [], 0
-    for release in carregar(caminho):
-        doc = montar_novidade(release)
+    for pos, release in enumerate(releases):
+        doc = montar_novidade(release, mais_recente=(pos == topo))
         if not doc:
             ignoradas += 1           # release só com item interno: nada a anunciar
             continue

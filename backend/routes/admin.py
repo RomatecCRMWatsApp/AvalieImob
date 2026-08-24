@@ -72,6 +72,13 @@ async def admin_send_welcome(body: dict, uid: str = Depends(get_admin_user), db=
     return {"ok": True, "enviados": len(destinatarios), "todos": todos}
 
 
+@router.get("/admin/credenciais/status")
+async def admin_credenciais_status(uid: str = Depends(get_admin_user)):
+    """A chave que cifra as credenciais BYOK está válida? (não expõe a chave)"""
+    from services.crypto_service import status
+    return status()
+
+
 @router.post("/admin/create-test-user")
 async def admin_create_test_user(data: CreateTestUserRequest, uid: str = Depends(get_admin_user), db=Depends(get_db)):
     existing = await db.users.find_one({"email": data.email.lower()})

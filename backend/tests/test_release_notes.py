@@ -305,3 +305,43 @@ def test_textos_do_repositorio_estao_acentuados():
                     f"{item.get('modulo')} ({campo})")
         achado = suspeitas.search(str(r.get("titulo") or ""))
         assert not achado, f"título de {r.get('versao')} sem acento: {achado.group(0)}"
+
+
+# ── Margem de build: só a release do deploy atual pega a versão publicada ────
+def test_margem_de_oito_builds(monkeypatch, tmp_path):
+    vj = tmp_path / "version.json"
+    io.open(vj, "w", encoding="utf-8").write('{"build":1448,"version":"v1.4.1448"}')
+    monkeypatch.setattr(RN, "_VERSION_JSON", vj)
+    assert RN.MARGEM_BUILD == 8
+    # 8 bumps de distância ainda acompanha o badge...
+    assert RN.montar_novidade(_release(versao="1.4.1440", build=1440))["versao"] == "1.4.1448"
+    # ...9 já é outro ciclo e mantém a declarada.
+    assert RN.montar_novidade(_release(versao="1.4.1439", build=1439))["versao"] == "1.4.1439"
+
+
+def test_release_antiga_nunca_e_recarimbada(monkeypatch, tmp_path):
+    """A trava que torna a margem larga segura: só o topo do arquivo se ajusta."""
+    vj = tmp_path / "version.json"
+    io.open(vj, "w", encoding="utf-8").write('{"build":1448,"version":"v1.4.1448"}')
+    monkeypatch.setattr(RN, "_VERSION_JSON", vj)
+    antiga = _release(versao="1.4.1444", build=1444)
+    assert RN.montar_novidade(antiga, mais_recente=False)["versao"] == "1.4.1444"
+
+
+def test_sincronizar_ajusta_so_a_release_do_topo(monkeypatch, tmp_path):
+    vj = tmp_path / "version.json"
+    io.open(vj, "w", encoding="utf-8").write('{"build":1448,"version":"v1.4.1448"}')
+    monkeypatch.setattr(RN, "_VERSION_JSON", vj)
+    db = _DB()
+    nova = _release(versao="1.4.1446", build=1446, data="2026-08-24T09:00:00-03:00")
+    antiga = _release(versao="1.4.1440", build=1440)
+    run(RN.sincronizar(db, _arquivo(tmp_path, [nova, antiga])))
+    por_slug = {d["slug"]: d for d in db.novidades.docs}
+    assert por_slug["release-1.4.1446"]["versao"] == "1.4.1448"   # deploy atual
+    assert por_slug["release-1.4.1440"]["versao"] == "1.4.1440"   # intacta
+
+
+def test_indice_mais_recente_usa_o_maior_build():
+    releases = [_release(build=1440), _release(build=1450), _release(build=1445)]
+    assert RN.indice_mais_recente(releases) == 1
+    assert RN.indice_mais_recente([]) == -1

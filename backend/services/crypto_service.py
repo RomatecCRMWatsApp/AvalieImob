@@ -71,3 +71,40 @@ def mascarar(value) -> str:
 def mascarar_credenciais(cred: dict) -> dict:
     """Mascara todos os valores de um dict de credenciais para o GET."""
     return {k: mascarar(v) for k, v in (cred or {}).items()}
+
+
+def status() -> dict:
+    """Diagnóstico da chave — SEM expor a chave nem qualquer credencial.
+
+    Serve para responder, da própria plataforma, a pergunta que só os logs do
+    servidor respondiam: a `CREDENCIAIS_FERNET_KEY` está válida ou o sistema caiu
+    no fallback derivado do JWT_SECRET (que não sobrevive à troca do segredo)?
+    """
+    raw = os.getenv("CREDENCIAIS_FERNET_KEY", "").strip()
+    saida = {"configurada": bool(raw), "valida": False, "origem": "jwt_secret",
+             "pronto_para_producao": False, "mensagem": ""}
+    if raw:
+        try:
+            Fernet(raw.encode())
+            saida.update({"valida": True, "origem": "env", "pronto_para_producao": True,
+                          "mensagem": "Chave dedicada configurada e válida."})
+        except Exception as e:  # noqa: BLE001
+            saida["mensagem"] = (
+                f"CREDENCIAIS_FERNET_KEY está definida mas é INVÁLIDA ({type(e).__name__}). "
+                "Precisa ser uma chave Fernet de 32 bytes em base64 url-safe (44 caracteres, "
+                "terminando em '='). Gere outra e substitua no Railway.")
+            return saida
+    else:
+        saida["mensagem"] = (
+            "CREDENCIAIS_FERNET_KEY não está definida — as credenciais são cifradas com uma "
+            "chave derivada do JWT_SECRET. Funciona, mas trocar o JWT_SECRET tornaria as "
+            "credenciais salvas ilegíveis.")
+
+    # Prova real: cifra e decifra um valor de teste com a chave em uso.
+    try:
+        assert decrypt_json(encrypt_json({"ping": "ok"})) == {"ping": "ok"}
+        saida["ciclo_de_teste"] = "ok"
+    except Exception as e:  # noqa: BLE001
+        saida["ciclo_de_teste"] = f"falhou: {type(e).__name__}"
+        saida["pronto_para_producao"] = False
+    return saida
