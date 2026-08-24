@@ -1,29 +1,43 @@
 {
-  "_leia_me": "Notas de atualizacao que viram o AVISO no sistema. Regra: a cada release, ANTES do commit, acrescente a entrada no topo de 'releases' (ver CLAUDE.md). Itens com publico='interno' (painel administrativo) NAO geram aviso para ninguem - ficam so registrados aqui. Tipos: novo | melhoria | correcao.",
+  "_leia_me": "Notas de atualizacao que viram o AVISO no sistema. Regra: a cada release, ANTES do commit, acrescente a entrada no topo de 'releases' (ver CLAUDE.md, passo 7). Itens com publico='interno' (painel administrativo ou ajuste tecnico) NAO geram aviso para ninguem - ficam so registrados aqui. Tipos: novo | melhoria | correcao. Escreva o texto COM ACENTOS: ele vai direto para a tela do cliente.",
   "releases": [
+    {
+      "versao": "1.4.1442",
+      "build": 1442,
+      "data": "2026-08-23T21:45:00-03:00",
+      "titulo": "Ajustes do aviso de atualização",
+      "itens": [
+        {
+          "modulo": "Aviso de atualização",
+          "tipo": "correcao",
+          "texto": "Popup passou a ficar acima das abas laterais, exibir a versão publicada e respeitar a acentuação.",
+          "publico": "interno"
+        }
+      ]
+    },
     {
       "versao": "1.4.1440",
       "build": 1440,
       "data": "2026-08-23T21:10:00-03:00",
-      "titulo": "Avisos de atualizacao e tratamento cientifico",
+      "titulo": "Avisos de atualização e tratamento científico",
       "itens": [
         {
-          "modulo": "Avisos de atualizacao",
+          "modulo": "Avisos de atualização",
           "tipo": "novo",
-          "texto": "A partir de agora, sempre que o sistema for atualizado voce recebe este aviso dizendo o que mudou, em qual ferramenta, com a versao e o horario.",
+          "texto": "A partir de agora, sempre que o sistema for atualizado você recebe este aviso dizendo o que mudou, em qual ferramenta, com a versão e o horário.",
           "publico": "usuario"
         },
         {
-          "modulo": "Tratamento Cientifico",
+          "modulo": "Tratamento Científico",
           "tipo": "novo",
-          "texto": "Nova ferramenta de inferencia estatistica: regressao sobre a amostra de mercado, diagnostico dos pressupostos e enquadramento na NBR 14.653 ate o Grau III.",
+          "texto": "Nova ferramenta de inferência estatística: regressão sobre a amostra de mercado, diagnóstico dos pressupostos e enquadramento na NBR 14.653 até o Grau III.",
           "rota": "/dashboard/inferencia",
           "publico": "usuario"
         },
         {
           "modulo": "Mapa do ONR e Geo Urbano",
           "tipo": "correcao",
-          "texto": "O satelite nao fica mais cinza ao aproximar da poligonal, e voce pode alternar entre satelite e mapa de ruas.",
+          "texto": "O satélite não fica mais cinza ao aproximar da poligonal, e você pode alternar entre satélite e mapa de ruas.",
           "publico": "usuario"
         },
         {
@@ -35,7 +49,7 @@
         {
           "modulo": "Acessos de Teste",
           "tipo": "novo",
-          "texto": "Liberacao de acesso gratuito por prazo determinado, pelo painel administrativo.",
+          "texto": "Liberação de acesso gratuito por prazo determinado, pelo painel administrativo.",
           "publico": "interno"
         }
       ]

@@ -234,3 +234,63 @@ def test_nao_carimba_nota_antiga_com_a_versao_de_hoje(monkeypatch, tmp_path):
 def test_sem_version_json_usa_a_declarada(monkeypatch, tmp_path):
     monkeypatch.setattr(RN, "_VERSION_JSON", tmp_path / "nao_existe.json")
     assert RN.montar_novidade(_release())["versao"] == "1.4.1440"
+
+
+# ── Correção de conteúdo já publicado (acentuação, versão) ──────────────────
+def test_corrige_conteudo_sem_reemitir_o_aviso(tmp_path):
+    """Texto errado no arquivo é corrigido no aviso — sem reabrir para quem dispensou."""
+    from services import novidades as NOV
+    db = _DB()
+    errado = _release(itens=[{"modulo": "Mapa do ONR", "tipo": "correcao",
+                              "texto": "O satelite nao fica mais cinza."}])
+    run(RN.sincronizar(db, _arquivo(tmp_path, [errado])))
+    antes = run(db.novidades.find_one({"slug": "release-1.4.1440"}))
+    publicada_em = antes["publicada_em"]
+
+    certo = _release(itens=[{"modulo": "Mapa do ONR", "tipo": "correcao",
+                             "texto": "O satélite não fica mais cinza."}])
+    res = run(RN.sincronizar(db, _arquivo(tmp_path, [certo])))
+
+    assert res["criadas"] == [] and res["atualizadas"] == ["release-1.4.1440"]
+    depois = run(db.novidades.find_one({"slug": "release-1.4.1440"}))
+    assert depois["itens"][0]["texto"] == "O satélite não fica mais cinza."
+    assert depois["publicada_em"] == publicada_em          # não reemite
+    assert len(db.novidades.docs) == 1
+
+
+def test_correcao_de_conteudo_nao_ressuscita_para_quem_dispensou(tmp_path):
+    from services import novidades as NOV
+    db = _DB()
+    run(RN.sincronizar(db, _arquivo(tmp_path, [_release()])))
+    aviso = run(NOV.listar_pendentes(db, "u1"))[0]
+    run(NOV.dispensar(db, "u1", aviso["id"]))
+
+    corrigido = _release(titulo="Título corrigido")
+    run(RN.sincronizar(db, _arquivo(tmp_path, [corrigido])))
+    assert run(NOV.listar_pendentes(db, "u1")) == []
+
+
+def test_sem_mudanca_no_arquivo_nao_atualiza_nada(tmp_path):
+    db = _DB()
+    arq = _arquivo(tmp_path, [_release()])
+    run(RN.sincronizar(db, arq))
+    res = run(RN.sincronizar(db, arq))
+    assert res["criadas"] == [] and res["atualizadas"] == []
+
+
+def test_textos_do_repositorio_estao_acentuados():
+    """O texto vai direto para a tela do cliente — 'nao', 'voce', 'versao' não passam."""
+    import re
+    suspeitas = re.compile(
+        r"\b(nao|voce|versao|horario|atualizacao|correcao|estatistica|diagnostico|"
+        r"satelite|cientifico|inferencia|liberacao|informacoes|apos|relatorio|"
+        r"usuario|proprio|codigo|imovel|avaliacao)\b", re.I)   # "poligonal" é sem acento
+    for r in RN.carregar():
+        for item in RN.itens_do_usuario(r):
+            for campo in ("modulo", "texto"):
+                achado = suspeitas.search(str(item.get(campo) or ""))
+                assert not achado, (
+                    f"'{achado.group(0)}' sem acento em {r.get('versao')} → "
+                    f"{item.get('modulo')} ({campo})")
+        achado = suspeitas.search(str(r.get("titulo") or ""))
+        assert not achado, f"título de {r.get('versao')} sem acento: {achado.group(0)}"

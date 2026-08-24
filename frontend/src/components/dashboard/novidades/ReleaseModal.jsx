@@ -65,7 +65,7 @@ const ReleaseModal = ({ itens = [], onVisualizar, onDispensar, onCta }) => {
   const cta = () => { onCta?.(n.id); if (n.cta_rota) nav(n.cta_rota); setIdx((i) => i + 1); };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50" onClick={fechar}>
+    <div className="fixed inset-0 z-[1300] flex items-end sm:items-center justify-center bg-black/50" onClick={fechar}>
       <div onClick={(e) => e.stopPropagation()}
         className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[85vh] overflow-hidden flex flex-col shadow-2xl">
         <div className="px-5 py-4 relative" style={{ background: '#0C3320' }}>

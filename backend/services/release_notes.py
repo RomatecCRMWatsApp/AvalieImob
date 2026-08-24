@@ -151,15 +151,29 @@ async def sincronizar(db, caminho: Path = None) -> dict:
     """
     from services import novidades as NOV
 
-    criadas, ignoradas = [], 0
+    criadas, atualizadas, ignoradas = [], [], 0
     for release in carregar(caminho):
         doc = montar_novidade(release)
         if not doc:
             ignoradas += 1           # release só com item interno: nada a anunciar
             continue
         try:
-            if await db[NOV.C_NOV].find_one({"slug": doc["slug"]}):
-                continue             # já anunciada — não reabre para quem dispensou
+            existente = await db[NOV.C_NOV].find_one({"slug": doc["slug"]})
+            if existente:
+                # Já anunciada: NÃO reabre para quem dispensou (não toca em
+                # `publicada`/`publicada_em` nem nas visualizações). Mas corrige o
+                # CONTEÚDO se o arquivo mudou — foi assim que consertei acentuação
+                # e o número de versão do primeiro aviso, sem reemitir o popup.
+                if existente.get("automatica"):
+                    mudou = {c: doc[c] for c in
+                             ("titulo", "resumo", "conteudo_md", "itens", "versao",
+                              "atualizado_em_br", "tag", "cta_label", "cta_rota")
+                             if existente.get(c) != doc[c]}
+                    if mudou:
+                        mudou["updated_at"] = datetime.utcnow()
+                        await db[NOV.C_NOV].update_one({"slug": doc["slug"]}, {"$set": mudou})
+                        atualizadas.append(doc["slug"])
+                continue
             novo = await NOV.criar(db, doc)
             # Aviso automático nasce PUBLICADO: o deploy é o ato de publicação.
             await db[NOV.C_NOV].update_one(
@@ -174,4 +188,7 @@ async def sincronizar(db, caminho: Path = None) -> dict:
             logger.error("release_notes: falha ao publicar %s: %s", doc.get("slug"), e)
     if criadas:
         logger.info("release_notes: avisos publicados: %s", ", ".join(criadas))
-    return {"criadas": criadas, "sem_itens_de_usuario": ignoradas}
+    if atualizadas:
+        logger.info("release_notes: avisos corrigidos: %s", ", ".join(atualizadas))
+    return {"criadas": criadas, "atualizadas": atualizadas,
+            "sem_itens_de_usuario": ignoradas}
