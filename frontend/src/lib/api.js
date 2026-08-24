@@ -355,6 +355,8 @@ export const adminAPI = {
   // Base R$/m² da Calculadora — calibração pelos PTAMs reais
   baseM2Stats: () => api.get('/avaliacao-publica/base-stats').then(r => r.data),
   recalibrarBaseM2: () => api.post('/avaliacao-publica/recalibrar-base').then(r => r.data),
+  // IndexNow — avisa Bing/Yandex de página nova ou atualizada
+  indexnowPing: (body = {}) => api.post('/seo/indexnow-ping', body).then(r => r.data),
   // DANFSe (NFS-e) — preview dos 3 temas (blob PDF)
   danfseExemplo: (tema = 'prime1') => api.get('/nfse/danfse/exemplo', { params: { tema }, responseType: 'blob' }).then(r => r.data),
   danfsePreview: (doc, tema = 'prime1') => api.post('/nfse/danfse/preview', doc, { params: { tema }, responseType: 'blob' }).then(r => r.data),

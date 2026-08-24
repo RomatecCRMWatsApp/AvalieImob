@@ -333,16 +333,11 @@ async def privacidade():
 from fastapi.responses import Response as _Response
 from datetime import datetime as _datetime
 
-@app.get("/sitemap.xml")
-async def sitemap():
-    """Sitemap dinâmico para indexação pelo Google.
-    Plano SEO v1.0 — Maio/2026: lista todas as páginas públicas com
-    prioridade e changefreq ajustados conforme estratégia de conteúdo.
-    """
-    hoje = _datetime.utcnow().strftime("%Y-%m-%d")
-    base = "https://www.romatecavalieimob.com.br"
-    # (path, priority, changefreq)
-    paginas = [
+SEO_BASE = "https://www.romatecavalieimob.com.br"
+
+# Fonte ÚNICA das páginas públicas: alimenta o sitemap.xml E o ping do IndexNow.
+# (path, priority, changefreq)
+SEO_PAGINAS = [
         ("/",                            "1.0", "weekly"),
         ("/sobre",                       "0.8", "monthly"),
         ("/planos",                      "0.9", "monthly"),
@@ -372,7 +367,24 @@ async def sitemap():
         ("/cadastro",                    "0.8", "monthly"),
         ("/login",                       "0.6", "monthly"),
         ("/privacidade",                 "0.3", "yearly"),
-    ]
+]
+
+
+def seo_urls(apenas_blog: bool = False) -> list:
+    """URLs absolutas das páginas públicas (opcionalmente só as do blog)."""
+    return [f"{SEO_BASE}{p}" for p, _prio, _freq in SEO_PAGINAS
+            if not apenas_blog or p.startswith("/blog")]
+
+
+@app.get("/sitemap.xml")
+async def sitemap():
+    """Sitemap dinâmico para indexação pelo Google.
+    Plano SEO v1.0 — Maio/2026: lista todas as páginas públicas com
+    prioridade e changefreq ajustados conforme estratégia de conteúdo.
+    """
+    hoje = _datetime.utcnow().strftime("%Y-%m-%d")
+    base = SEO_BASE
+    paginas = SEO_PAGINAS
     parts = ['<?xml version="1.0" encoding="UTF-8"?>',
              '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">']
     for path, prio, freq in paginas:
@@ -423,9 +435,13 @@ async def indexnow_ping(payload: dict, _uid: str = Depends(get_admin_user)):
     Body: { "urls": ["https://www.romatecavalieimob.com.br/blog/xyz", ...] }
     Ação de administrador (dispara ao publicar artigo novo no blog)."""
     import httpx
+    payload = payload or {}
     urls = payload.get("urls") or []
     if not urls:
-        return {"ok": False, "error": "passe ao menos 1 url"}
+        # Sem lista: usa o próprio sitemap — `escopo: "blog"` restringe aos artigos.
+        urls = seo_urls(apenas_blog=str(payload.get("escopo") or "") == "blog")
+    if not urls:
+        return {"ok": False, "error": "nenhuma URL para enviar"}
     body = {
         "host": "www.romatecavalieimob.com.br",
         "key": INDEXNOW_KEY,
@@ -435,7 +451,13 @@ async def indexnow_ping(payload: dict, _uid: str = Depends(get_admin_user)):
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             r = await client.post("https://api.indexnow.org/IndexNow", json=body)
-            return {"ok": r.status_code in (200, 202), "status": r.status_code, "submitted": len(urls)}
+            ok = r.status_code in (200, 202)
+            logger.info("IndexNow: %s URLs enviadas (HTTP %s)", len(urls), r.status_code)
+            return {"ok": ok, "status": r.status_code, "submitted": len(urls),
+                    "urls": urls[:20],
+                    "mensagem": ("Bing e Yandex avisados — a indexação costuma "
+                                 "acontecer em algumas horas." if ok else
+                                 f"O IndexNow respondeu HTTP {r.status_code}.")}
     except Exception as e:
         return {"ok": False, "error": str(e)}
 

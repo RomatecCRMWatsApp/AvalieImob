@@ -1,8 +1,9 @@
 // @page admin/Divulgação — links dos folders de divulgação + WhatsApp + QR Code.
 import React, { useRef } from 'react';
 import { QRCodeCanvas } from 'qrcode.react';
-import { Megaphone, Copy, ExternalLink, Download, Send } from 'lucide-react';
+import { Megaphone, Copy, ExternalLink, Download, Send, Search } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
+import { adminAPI } from '../../lib/api';
 
 const GREEN = '#0C3320';
 const GOLD = '#C9A84C';
@@ -42,6 +43,61 @@ const PAGAMENTO = {
   msg: 'Dados para pagamento (PIX e banco) — Romatec Consultoria Total:',
 };
 
+// Avisa Bing e Yandex (IndexNow) de que o site tem página nova ou atualizada.
+// O Google não usa IndexNow — lá o caminho é o Search Console, indicado no card.
+const BuscadoresCard = ({ toast }) => {
+  const [enviando, setEnviando] = React.useState('');
+
+  const pingar = async (escopo) => {
+    setEnviando(escopo);
+    try {
+      const r = await adminAPI.indexnowPing(escopo === 'blog' ? { escopo: 'blog' } : {});
+      toast({
+        title: r.ok ? `${r.submitted} endereços enviados ao IndexNow` : 'O envio não foi aceito',
+        description: r.mensagem || r.error,
+        variant: r.ok ? undefined : 'destructive',
+      });
+    } catch (e) {
+      toast({ title: 'Falha ao avisar os buscadores',
+              description: e.response?.data?.detail || e.message, variant: 'destructive' });
+    } finally { setEnviando(''); }
+  };
+
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-5 mb-4">
+      <div className="flex items-center gap-2 mb-2">
+        <Search className="w-4 h-4" style={{ color: GOLD }} />
+        <span className="text-xs font-bold uppercase tracking-wide text-gray-500">
+          Avisar os buscadores
+        </span>
+      </div>
+      <p className="text-sm text-gray-600 mb-3">
+        Publicou artigo novo ou mexeu numa página? Avise o <strong>Bing</strong> e o
+        <strong> Yandex</strong> na hora, em vez de esperar eles passarem sozinhos.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" onClick={() => pingar('blog')} disabled={!!enviando}
+                className="px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-60"
+                style={{ background: GREEN }}>
+          {enviando === 'blog' ? 'Enviando…' : 'Avisar sobre os artigos'}
+        </button>
+        <button type="button" onClick={() => pingar('tudo')} disabled={!!enviando}
+                className="px-4 py-2 rounded-lg text-sm font-semibold border border-gray-300 disabled:opacity-60">
+          {enviando === 'tudo' ? 'Enviando…' : 'Avisar sobre o site inteiro'}
+        </button>
+        <a href="https://search.google.com/search-console" target="_blank" rel="noreferrer"
+           className="px-4 py-2 rounded-lg text-sm font-semibold border border-gray-300 inline-flex items-center gap-1.5">
+          Google Search Console <ExternalLink className="w-3.5 h-3.5" />
+        </a>
+      </div>
+      <p className="text-[11px] text-gray-400 mt-2">
+        O Google não usa IndexNow: lá, abra o Search Console, cole o endereço em
+        “Inspeção de URL” e clique em <em>Solicitar indexação</em>.
+      </p>
+    </div>
+  );
+};
+
 function FolderCard({ f, toast }) {
   const ref = useRef(null);
 
@@ -62,6 +118,7 @@ function FolderCard({ f, toast }) {
     document.body.appendChild(a); a.click(); a.remove();
   };
   const wa = `https://wa.me/?text=${encodeURIComponent(`${f.msg} ${f.url}`)}`;
+
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-5 flex flex-col sm:flex-row gap-5">
@@ -112,7 +169,7 @@ function FolderCard({ f, toast }) {
 export default function DivulgacaoPage() {
   const { toast } = useToast();
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
+    <div className="max-w-4xl mx-auto px-4 py-8 pr-9 sm:pr-12">
       <header className="flex items-start gap-3 mb-6">
         <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: GREEN }}>
           <Megaphone className="w-6 h-6" style={{ color: GOLD }} />
@@ -129,6 +186,8 @@ export default function DivulgacaoPage() {
         💡 <strong>Dica:</strong> no celular, o botão <em>“Enviar no WhatsApp”</em> abre a lista de conversas para você
         escolher o grupo. O <em>QR Code</em> é ótimo para cartão de visita, adesivo ou status.
       </div>
+
+      <BuscadoresCard toast={toast} />
 
       <div className="space-y-4">
         {FOLDERS.map((f) => <FolderCard key={f.file} f={f} toast={toast} />)}

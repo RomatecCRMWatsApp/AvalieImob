@@ -2,6 +2,20 @@
   "_leia_me": "Notas de atualizacao que viram o AVISO no sistema. Regra: a cada release, ANTES do commit, acrescente a entrada no topo de 'releases' (ver CLAUDE.md, passo 7). Itens com publico='interno' (painel administrativo ou ajuste tecnico) NAO geram aviso para ninguem - ficam so registrados aqui. Tipos: novo | melhoria | correcao. Escreva o texto COM ACENTOS: ele vai direto para a tela do cliente.",
   "releases": [
     {
+      "versao": "1.4.1452",
+      "build": 1452,
+      "data": "2026-08-24T10:05:00-03:00",
+      "titulo": "Avisar buscadores pelo painel",
+      "itens": [
+        {
+          "modulo": "Divulgação",
+          "tipo": "novo",
+          "texto": "Botão para avisar Bing e Yandex (IndexNow) quando publicar artigo ou atualizar página, com atalho para o Google Search Console.",
+          "publico": "interno"
+        }
+      ]
+    },
+    {
       "versao": "1.4.1450",
       "build": 1450,
       "data": "2026-08-24T10:00:00-03:00",
