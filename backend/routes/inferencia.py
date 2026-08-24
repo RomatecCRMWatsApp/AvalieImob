@@ -326,6 +326,57 @@ async def pdf(mid: str, tema: str = "prime2", uid: str = Depends(get_active_subs
                              "Cache-Control": "no-store"})
 
 
+# ── Vínculo com o PTAM: o laudo passa a tirar o valor da regressão ──────────
+@router.post("/modelos/{mid}/vincular-ptam/{ptam_id}")
+async def vincular_ptam(mid: str, ptam_id: str, uid: str = Depends(get_active_subscriber),
+                        db=Depends(get_db)):
+    """Liga um modelo HOMOLOGADO ao laudo. O snapshot é congelado no vínculo."""
+    from services.inferencia.vinculo_ptam import VinculoError, preparar
+
+    modelo = await _obter(db, mid, uid)
+    ptam = await db.ptam_documents.find_one({"id": ptam_id, "user_id": uid})
+    if not ptam:
+        raise HTTPException(404, "Laudo não encontrado")
+    try:
+        campos = preparar(modelo, ptam)
+    except VinculoError as e:
+        raise HTTPException(409, str(e))
+
+    await db.ptam_documents.update_one({"id": ptam_id, "user_id": uid}, {"$set": campos})
+    await _salvar(db, mid, uid, {"ptam_id": ptam_id})
+    logger.info("Inferência: modelo %s vinculado ao PTAM %s (user %s)", mid, ptam_id, uid)
+    return {"ok": True, "ptam_id": ptam_id,
+            "valores": {k: v for k, v in campos.items() if not k.startswith("inferencia")}}
+
+
+@router.delete("/ptam/{ptam_id}/vinculo")
+async def desvincular_ptam(ptam_id: str, uid: str = Depends(get_active_subscriber),
+                           db=Depends(get_db)):
+    """Volta o laudo ao tratamento por fatores."""
+    from services.inferencia.vinculo_ptam import desvincular_campos
+
+    ptam = await db.ptam_documents.find_one({"id": ptam_id, "user_id": uid})
+    if not ptam:
+        raise HTTPException(404, "Laudo não encontrado")
+    if ptam.get("icp_status") == "assinado":
+        raise HTTPException(409, "Laudo assinado: não é possível trocar o método.")
+    await db.ptam_documents.update_one({"id": ptam_id, "user_id": uid},
+                                       {"$set": desvincular_campos()})
+    return {"ok": True}
+
+
+@router.get("/ptam/{ptam_id}/modelos-disponiveis")
+async def modelos_para_o_laudo(ptam_id: str, uid: str = Depends(get_active_subscriber),
+                               db=Depends(get_db)):
+    """Modelos HOMOLOGADOS do avaliador — os únicos que podem alimentar um laudo."""
+    docs = await db[COL].find({"user_id": uid, "status": "homologado"}, {"resultado": 0}) \
+        .sort("homologado_em", -1).to_list(100)
+    ptam = await db.ptam_documents.find_one({"id": ptam_id, "user_id": uid},
+                                            {"inferencia_modelo_id": 1})
+    return {"vinculado": (ptam or {}).get("inferencia_modelo_id"),
+            "modelos": [serialize_doc(d) for d in docs]}
+
+
 @router.post("/modelos/{mid}/importar-amostras")
 async def importar_amostras(mid: str, body: ImportarAmostrasBody,
                             uid: str = Depends(get_active_subscriber), db=Depends(get_db)):

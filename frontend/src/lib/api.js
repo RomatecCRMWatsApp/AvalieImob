@@ -269,6 +269,10 @@ export const inferenciaAPI = {
   relatorio: (id) => api.get(`/inferencia/modelos/${id}/relatorio`).then(r => r.data),
   pdf: (id, tema = 'prime2') => api.get(`/inferencia/modelos/${id}/pdf`, { params: { tema }, responseType: 'blob' }).then(r => r.data),
   importarAmostras: (id, body) => api.post(`/inferencia/modelos/${id}/importar-amostras`, body).then(r => r.data),
+  // Vínculo com o laudo: o PTAM passa a tirar o valor da regressão
+  vincularPtam: (mid, ptamId) => api.post(`/inferencia/modelos/${mid}/vincular-ptam/${ptamId}`).then(r => r.data),
+  desvincularPtam: (ptamId) => api.delete(`/inferencia/ptam/${ptamId}/vinculo`).then(r => r.data),
+  modelosDoPtam: (ptamId) => api.get(`/inferencia/ptam/${ptamId}/modelos-disponiveis`).then(r => r.data),
 };
 
 // ---- Propostas de Consultoria (motor de cálculo port da ZAYRA)

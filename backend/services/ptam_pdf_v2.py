@@ -1916,6 +1916,15 @@ def build_story(ptam, page_map):
         ('Grau de Fundamentação', ptam.get('calc_grau_fundamentacao') or ptam.get('fundamentacao_grau')),
         ('Saneamento', 'Eliminação de outliers ±10% da média'),
     ]))
+    # Tratamento CIENTÍFICO: o valor veio de um modelo de regressão homologado
+    # (services/inferencia) — a metodologia declara o modelo e os graus apurados.
+    try:
+        from services.inferencia import blocos_ptam as _INF
+        if _INF.tem_inferencia(ptam):
+            st.append(Spacer(1, 6))
+            st.append(tbl(_INF.resumo_metodologia(ptam)))
+    except Exception:
+        logger.warning('PTAM: resumo de metodologia da inferência falhou', exc_info=True)
 
     # ── 7. Calculos ──
     st.append(PageBreak())
@@ -2107,6 +2116,18 @@ def build_story(ptam, page_map):
         st.append(Spacer(1, 6))
         st += subsec('Observações sobre os Cálculos')
         st.append(Paragraph(_obs_calc, sBody))
+
+    # ── 7.x Tratamento científico (só quando há modelo de inferência vinculado) ──
+    try:
+        from services.inferencia import blocos_ptam as _INF
+        if _INF.tem_inferencia(ptam):
+            st.append(Spacer(1, 8))
+            st += _INF.flowables(ptam, UTIL_W, {
+                'body': sBody, 'cell': sCell, 'sub': subsec,
+                'tbl_header': lambda h, l, cw: tbl_header(h, l, cw),
+            })
+    except Exception:
+        logger.warning('PTAM: bloco de inferência estatística falhou', exc_info=True)
 
     # ── 8. Resultado ──
     st.append(PageBreak())

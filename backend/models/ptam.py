@@ -267,6 +267,14 @@ class PtamBase(BaseModel):
     fundamentacao_grau: Optional[str] = ""
     precisao_grau: Optional[str] = ""
 
+    # Tratamento CIENTÍFICO (inferência estatística) — quando o valor vem de um
+    # modelo de regressão homologado em vez do tratamento por fatores.
+    # O snapshot é CONGELADO no vínculo: o laudo assinado não pode mudar se o
+    # modelo for versionado depois (ver services/inferencia + ADR-018).
+    inferencia_modelo_id: Optional[str] = None
+    inferencia_snapshot: Optional[dict] = None
+    inferencia_vinculado_em: Optional[datetime] = None
+
     # Seção 9 — Resultado da Avaliação
     resultado_valor_unitario: Optional[float] = 0
     resultado_valor_total: Optional[float] = 0

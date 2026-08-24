@@ -26,6 +26,17 @@ def run(coro):
     return asyncio.run(coro)
 
 
+@pytest.fixture(autouse=True)
+def _sem_version_json(monkeypatch, tmp_path):
+    """Isola do build local: por padrão o teste usa a versão DECLARADA na nota.
+
+    Sem isso, `versao_exibida` leria o `frontend/build/version.json` da máquina e
+    o resultado mudaria conforme o último `npm run build`. Os testes específicos
+    de versão exibida sobrescrevem este patch com o seu próprio arquivo.
+    """
+    monkeypatch.setattr(RN, "_VERSION_JSON", tmp_path / "sem_version.json")
+
+
 def _release(**kw):
     base = {
         "versao": "1.4.1440", "build": 1440, "data": "2026-08-23T20:04:00-03:00",

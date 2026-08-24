@@ -1,12 +1,143 @@
 // @module ptam/steps/StepResultado — Step 11: Resultado da Avaliação (valor unitário, total, intervalo, validade)
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Sigma, Link2, Unlink, Loader2, AlertTriangle } from 'lucide-react';
 import { Input } from '../../../ui/input';
+import { Button } from '../../../ui/button';
+import { useToast } from '../../../../hooks/use-toast';
+import { inferenciaAPI } from '../../../../lib/api';
 import { Field, SectionHeader, StatBox } from '../shared/primitives';
 import { isRural } from '../shared/RuralDocSection';
 import { M2_PER_HA, fmtBR } from '@/utils/areaConversao';
 
 const fmtBRL = (v) =>
   Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+// Tratamento CIENTÍFICO: em vez de digitar o valor, o laudo puxa de um modelo de
+// regressão HOMOLOGADO (menu Laudos ▸ Tratamento Científico). É o caminho do Grau III.
+const VinculoInferencia = ({ form, setForm }) => {
+  const { toast } = useToast();
+  const [modelos, setModelos] = useState([]);
+  const [sel, setSel] = useState('');
+  const [ocupado, setOcupado] = useState(false);
+  const vinculado = form.inferencia_modelo_id;
+  const snap = form.inferencia_snapshot || null;
+  const enq = snap?.enquadramento || {};
+
+  const load = useCallback(async () => {
+    if (!form.id) return;
+    try {
+      const d = await inferenciaAPI.modelosDoPtam(form.id);
+      setModelos(Array.isArray(d?.modelos) ? d.modelos : []);
+    } catch { /* sem modelos ainda — o bloco só mostra o caminho */ }
+  }, [form.id]);
+  useEffect(() => { load(); }, [load]);
+
+  const vincular = async () => {
+    if (!sel) return;
+    setOcupado(true);
+    try {
+      const r = await inferenciaAPI.vincularPtam(sel, form.id);
+      setForm((f) => ({ ...f, ...r.valores, inferencia_modelo_id: sel }));
+      toast({ title: 'Laudo alimentado pela regressão',
+              description: 'Valor, intervalo e graus vieram do modelo homologado.' });
+    } catch (e) {
+      toast({ title: 'Não foi possível vincular', description: e.response?.data?.detail,
+              variant: 'destructive' });
+    } finally { setOcupado(false); }
+  };
+
+  const desvincular = async () => {
+    setOcupado(true);
+    try {
+      await inferenciaAPI.desvincularPtam(form.id);
+      setForm((f) => ({ ...f, inferencia_modelo_id: null, inferencia_snapshot: null }));
+      toast({ title: 'Voltou ao tratamento por fatores' });
+    } catch (e) {
+      toast({ title: 'Erro ao desvincular', description: e.response?.data?.detail,
+              variant: 'destructive' });
+    } finally { setOcupado(false); }
+  };
+
+  return (
+    <div className="mb-6 rounded-xl border p-4"
+         style={{ borderColor: vinculado ? '#0C3320' : '#E5E7EB',
+                  background: vinculado ? '#F0FDF4' : '#FFFFFF' }}>
+      <div className="flex items-center gap-2 mb-2">
+        <Sigma className="w-4 h-4" style={{ color: '#C9A84C' }} />
+        <span className="text-xs font-bold uppercase tracking-wide text-gray-600">
+          Tratamento científico (inferência estatística)
+        </span>
+      </div>
+
+      {vinculado ? (
+        <>
+          <p className="text-sm text-gray-700">
+            O valor deste laudo vem do modelo <strong>{snap?.nome || 'homologado'}</strong>
+            {snap?.versao ? ` (v${snap.versao})` : ''} — regressão sobre{' '}
+            {snap?.resultado?.n ?? '—'} dados de mercado.
+          </p>
+          <div className="flex flex-wrap gap-2 mt-2 mb-3">
+            <span className="text-[11px] font-bold text-white px-2 py-0.5 rounded"
+                  style={{ background: enq.grau_fundamentacao === 'III' ? '#059669' : '#D97706' }}>
+              Fundamentação {enq.grau_fundamentacao || '—'}
+            </span>
+            <span className="text-[11px] font-bold text-white px-2 py-0.5 rounded"
+                  style={{ background: enq.grau_precisao === 'III' ? '#059669' : '#D97706' }}>
+              Precisão {enq.grau_precisao || '—'}
+            </span>
+          </div>
+          <p className="text-[11px] text-gray-500 mb-3">
+            Os campos abaixo foram preenchidos pela regressão, e o laudo passa a trazer as
+            seções de amostra, pressupostos, gráficos e enquadramento. Os números ficam
+            congelados neste laudo mesmo que o modelo seja versionado depois.
+          </p>
+          <Button size="sm" variant="outline" onClick={desvincular} disabled={ocupado}>
+            {ocupado ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                     : <Unlink className="w-4 h-4 mr-2" />}
+            Voltar ao tratamento por fatores
+          </Button>
+        </>
+      ) : (
+        <>
+          <p className="text-sm text-gray-600 mb-3">
+            Em vez de informar o valor à mão, você pode puxá-lo de um modelo de regressão
+            homologado — é o caminho que sustenta o <strong>Grau III</strong> em perícia,
+            desapropriação e servidão.
+          </p>
+          {modelos.length === 0 ? (
+            <p className="text-xs text-amber-700 flex items-start gap-1.5">
+              <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+              <span>
+                Nenhum modelo homologado ainda. Monte em <strong>Laudos ▸ Tratamento
+                Científico</strong> e homologue para poder usar aqui.
+              </span>
+            </p>
+          ) : (
+            <div className="flex flex-wrap items-end gap-2">
+              <select className="px-3 py-2 text-sm border border-gray-300 rounded-lg min-w-[260px]"
+                      value={sel} onChange={(e) => setSel(e.target.value)}>
+                <option value="">Selecione o modelo homologado…</option>
+                {modelos.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.nome} (v{m.versao})
+                    {m.enquadramento?.grau_fundamentacao
+                      ? ` — Grau ${m.enquadramento.grau_fundamentacao}` : ''}
+                  </option>
+                ))}
+              </select>
+              <Button size="sm" onClick={vincular} disabled={!sel || ocupado}
+                      style={{ background: '#0C3320' }} className="text-white">
+                {ocupado ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                         : <Link2 className="w-4 h-4 mr-2" />}
+                Usar no laudo
+              </Button>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+};
 
 export const StepResultado = ({ form, setForm }) => {
   const val = Number(form.resultado_valor_total || 0);
@@ -31,6 +162,8 @@ export const StepResultado = ({ form, setForm }) => {
         title="11. Resultado da Avaliação"
         subtitle="Preencha ou confirme o valor de avaliação do imóvel."
       />
+
+      <VinculoInferencia form={form} setForm={setForm} />
 
       {val > 0 && (
         <div className="grid grid-cols-3 gap-4 mb-6">
