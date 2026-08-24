@@ -4,9 +4,13 @@ import { X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const TAG_DOT = { novidade: '#10b981', melhoria: '#0ea5e9', correcao: '#f59e0b', aviso: '#ef4444' };
+// Backend grava naive em UTC — sem marcar o fuso, "há 3 min" viraria data futura.
+const comoUTC = (v) => (typeof v === 'string' && !/([Zz]|[+-]\d{2}:?\d{2})$/.test(v)
+  ? new Date(`${v}Z`) : new Date(v));
 const rel = (iso) => {
   try {
-    const s = (Date.now() - new Date(iso).getTime()) / 1000;
+    const s = (Date.now() - comoUTC(iso).getTime()) / 1000;
+    if (s < 60) return 'agora';
     if (s < 3600) return `${Math.max(1, Math.floor(s / 60))}min`;
     if (s < 86400) return `${Math.floor(s / 3600)}h`;
     return `${Math.floor(s / 86400)}d`;
