@@ -258,6 +258,11 @@ export default function LeadsAdmin() {
                       <span className="inline-block rounded-full bg-gray-100 text-gray-600 text-xs font-medium px-2 py-0.5">
                         {origemFmt(l.origem)}
                       </span>
+                      {(l.utm_source || l.utm_campaign) && (
+                        <div className="mt-1 text-[11px] text-gray-500">
+                          via {l.utm_source || '—'}{l.utm_campaign ? ` · ${l.utm_campaign}` : ''}
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <select value={l.status} onChange={(e) => mudarStatus(l.id, e.target.value)}

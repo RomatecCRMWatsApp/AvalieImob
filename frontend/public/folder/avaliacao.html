@@ -263,4 +263,18 @@
       mo.observe(m); }
   })();
 </script>
+<script>
+  // Propaga a marcacao de origem (utm_*) do folder para os links internos.
+  // Sem isto a origem morre aqui: o visitante chega marcado, clica em
+  // "Cadastre-se" e entra no sistema como "Direto" no painel de Leads.
+  (function () {
+    var q = window.location.search;
+    if (!q || q.length < 2) return;
+    var alvos = document.querySelectorAll('a[href*="/cadastro"], a[href*="/quanto-vale-meu-imovel"]');
+    for (var i = 0; i < alvos.length; i++) {
+      var h = alvos[i].getAttribute('href') || '';
+      alvos[i].setAttribute('href', h + (h.indexOf('?') > -1 ? '&' : '?') + q.slice(1));
+    }
+  })();
+</script>
 </body></html>

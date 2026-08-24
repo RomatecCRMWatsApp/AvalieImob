@@ -108,3 +108,34 @@ def test_view_de_cadastro_traz_campos_da_tela():
     assert d["situacao"] == "em_teste"
     assert d["cadastrado_em"].startswith("2026-08-20")
     assert "password_hash" not in d
+
+
+# ── Peças de divulgação: cada canal precisa aparecer legível no painel ───────
+def test_folder_pelo_whatsapp():
+    r = OT.classificar(u(utm_source="whatsapp", utm_medium="folder",
+                         utm_campaign="folder-topografia"))
+    assert r["canal"] == "whatsapp" and r["label"] == "WhatsApp"
+    assert r["tipo"] == "social" and r["campanha"] == "folder-topografia"
+
+
+def test_qr_code_impresso_tem_rotulo_legivel():
+    r = OT.classificar(u(utm_source="qrcode", utm_medium="impresso",
+                         utm_campaign="folder-avaliacao"))
+    assert r["canal"] == "qrcode" and r["label"] == "QR Code"
+    assert r["campanha"] == "folder-avaliacao"
+
+
+def test_link_copiado_tem_rotulo_legivel():
+    r = OT.classificar(u(utm_source="link", utm_medium="folder",
+                         utm_campaign="folder-geral"))
+    assert r["label"] == "Link compartilhado"
+
+
+def test_folders_aparecem_separados_no_ranking():
+    """O ponto da marcação: parar de cair tudo em 'Direto'."""
+    docs = [u(utm_source="whatsapp", utm_medium="folder", utm_campaign="folder-topografia"),
+            u(utm_source="whatsapp", utm_medium="folder", utm_campaign="folder-topografia"),
+            u(utm_source="qrcode", utm_medium="impresso", utm_campaign="folder-avaliacao"),
+            u()]
+    ranking = {c["canal"]: c["total"] for c in OT.resumo_por_canal(docs)}
+    assert ranking == {"whatsapp": 2, "qrcode": 1, "direto": 1}

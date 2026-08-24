@@ -24,7 +24,18 @@
       "Bash(yarn build *)",
       "Bash(py -c \"import routes; print\\('routes package OK,', len\\(routes.all_routers\\) if hasattr\\(routes,'all_routers'\\) else '?', 'routers'\\)\")",
       "Bash(node frontend/scripts/genversion.js)",
-      "Bash(mkdir -p \"/c/Users/RONICL~1/AppData/Local/Temp/claude/C--Users-Ronicley-Pinto-Documents-ROMATEC-AVALIEIMOB--AvalieImob/716428b7-a6b3-4d65-8ea9-c54481c93669/scratchpad\" && cp \"/c/Users/Ronicley Pinto/Documents/07-Gestão de Obras_ Romatec_2026/01-Obra Ceara_Srª Florinda_ Piso_/nfes_62.pdf\" \"/c/Users/Ronicley Pinto/Documents/ROMATEC_AVALIEIMOB_/AvalieImob/backend/tests/fixtures/nfse_speedgov_62.pdf\" 2>&1; mkdir -p \"/c/Users/Ronicley Pinto/Documents/ROMATEC_AVALIEIMOB_/AvalieImob/backend/tests/fixtures\" && cp \"/c/Users/Ronicley Pinto/Documents/07-Gestão de Obras_ Romatec_2026/01-Obra Ceara_Srª Florinda_ Piso_/nfes_62.pdf\" \"/c/Users/Ronicley Pinto/Documents/ROMATEC_AVALIEIMOB_/AvalieImob/backend/tests/fixtures/nfse_speedgov_62.pdf\" && ls -la \"/c/Users/Ronicley Pinto/Documents/ROMATEC_AVALIEIMOB_/AvalieImob/backend/tests/fixtures/\")"
+      "Bash(mkdir -p \"/c/Users/RONICL~1/AppData/Local/Temp/claude/C--Users-Ronicley-Pinto-Documents-ROMATEC-AVALIEIMOB--AvalieImob/716428b7-a6b3-4d65-8ea9-c54481c93669/scratchpad\" && cp \"/c/Users/Ronicley Pinto/Documents/07-Gestão de Obras_ Romatec_2026/01-Obra Ceara_Srª Florinda_ Piso_/nfes_62.pdf\" \"/c/Users/Ronicley Pinto/Documents/ROMATEC_AVALIEIMOB_/AvalieImob/backend/tests/fixtures/nfse_speedgov_62.pdf\" 2>&1; mkdir -p \"/c/Users/Ronicley Pinto/Documents/ROMATEC_AVALIEIMOB_/AvalieImob/backend/tests/fixtures\" && cp \"/c/Users/Ronicley Pinto/Documents/07-Gestão de Obras_ Romatec_2026/01-Obra Ceara_Srª Florinda_ Piso_/nfes_62.pdf\" \"/c/Users/Ronicley Pinto/Documents/ROMATEC_AVALIEIMOB_/AvalieImob/backend/tests/fixtures/nfse_speedgov_62.pdf\" && ls -la \"/c/Users/Ronicley Pinto/Documents/ROMATEC_AVALIEIMOB_/AvalieImob/backend/tests/fixtures/\")",
+      "Bash(GIT_EDITOR=true git rebase --continue)",
+      "Bash(echo \"rc_abort=$?\")",
+      "Bash(echo \"rc_reset=$?\")",
+      "Bash(echo \"rc=$?\")",
+      "Bash(echo \"rc_push=$?\")",
+      "Bash(py -m pytest tests/test_demarcacao_geo.py tests/test_croqui_alinhamento.py tests/test_proposta_croqui_pdf.py -q)",
+      "Bash(py -m pytest tests/ -q)",
+      "Bash(py -c ' *)",
+      "Bash(npx --no-install craco build)",
+      "Bash(curl -s --max-time 25 \"https://www.romatecavalieimob.com.br/version.json?_=$\\(date +%s\\)\")",
+      "Bash(curl -s -I --max-time 25 \"https://www.romatecavalieimob.com.br/version.json\")"
     ]
   }
 }

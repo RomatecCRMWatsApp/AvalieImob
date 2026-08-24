@@ -9,6 +9,29 @@ const GREEN = '#0C3320';
 const GOLD = '#C9A84C';
 const BASE = 'https://www.romatecavalieimob.com.br';
 
+// ── Marcação de origem (UTM) ────────────────────────────────────────────────
+// Sem isso, todo cadastro que vem dos folders aparece como "Direto" no painel de
+// Leads — o link não conta de onde veio. Com a marcação, cada peça é rastreada
+// separadamente: dá para saber qual folder e qual canal trouxe o assinante.
+// Os folders são HTML estático e repassam a marcação ao /cadastro por um script
+// próprio (frontend/public/folder/*.html) — sem ele a origem morreria ali.
+const comUtm = (url, { source, medium, campaign }) => {
+  const u = new URL(url);
+  u.searchParams.set('utm_source', source);
+  u.searchParams.set('utm_medium', medium);
+  if (campaign) u.searchParams.set('utm_campaign', campaign);
+  return u.toString();
+};
+
+// Canal por onde a peça é entregue — vira `utm_source` no painel.
+const CANAIS = {
+  whatsapp: { source: 'whatsapp', medium: 'folder', rotulo: 'WhatsApp' },
+  link: { source: 'link', medium: 'folder', rotulo: 'link copiado' },
+  qr: { source: 'qrcode', medium: 'impresso', rotulo: 'QR Code' },
+};
+
+const linkDe = (f, canal) => comUtm(f.url, { ...CANAIS[canal], campaign: `folder-${f.file}` });
+
 const FOLDERS = [
   {
     file: 'geral', titulo: 'Sistema completo (Geral)',
@@ -35,6 +58,15 @@ const FOLDERS = [
     msg: 'Georreferenciamento, averbação e desmembramento — do memorial ao cartório:',
   },
 ];
+
+// A calculadora é a porta de entrada de lead mais direta: o visitante deixa
+// contato para receber a estimativa. Vale ter o link e o QR marcados também.
+const CALCULADORA = {
+  file: 'calculadora', titulo: 'Calculadora "Quanto vale meu imóvel?"',
+  desc: 'Página pública de estimativa — o visitante informa o imóvel, vê a faixa de valor e deixa o contato. O lead cai no painel com a origem marcada.',
+  url: `${BASE}/quanto-vale-meu-imovel`,
+  msg: 'Descubra em 1 minuto quanto vale o seu imóvel — estimativa de mercado gratuita:',
+};
 
 const PAGAMENTO = {
   file: 'pagamento', titulo: 'Dados para Pagamento (PIX / Banco)',
@@ -101,12 +133,18 @@ const BuscadoresCard = ({ toast }) => {
 function FolderCard({ f, toast }) {
   const ref = useRef(null);
 
+  // Cada canal leva a SUA marcação — é o que separa "veio do folder de topografia
+  // pelo WhatsApp" de "veio do QR impresso" no painel de Leads.
+  const urlWhats = linkDe(f, 'whatsapp');
+  const urlLink = linkDe(f, 'link');
+  const urlQr = linkDe(f, 'qr');
+
   const copiar = async () => {
-    try { await navigator.clipboard.writeText(f.url); toast({ title: 'Link copiado ✓', description: f.url }); }
+    try { await navigator.clipboard.writeText(urlLink); toast({ title: 'Link copiado ✓', description: urlLink }); }
     catch { toast({ title: 'Não foi possível copiar', variant: 'destructive' }); }
   };
   const copiarMsg = async () => {
-    try { await navigator.clipboard.writeText(`${f.msg} ${f.url}`); toast({ title: 'Mensagem copiada ✓', description: 'Cole no grupo do WhatsApp.' }); }
+    try { await navigator.clipboard.writeText(`${f.msg} ${urlWhats}`); toast({ title: 'Mensagem copiada ✓', description: 'Cole no grupo do WhatsApp.' }); }
     catch { toast({ title: 'Não foi possível copiar', variant: 'destructive' }); }
   };
   const baixarQr = () => {
@@ -117,7 +155,7 @@ function FolderCard({ f, toast }) {
     a.download = `qr-avalieimob-${f.file}.png`;
     document.body.appendChild(a); a.click(); a.remove();
   };
-  const wa = `https://wa.me/?text=${encodeURIComponent(`${f.msg} ${f.url}`)}`;
+  const wa = `https://wa.me/?text=${encodeURIComponent(`${f.msg} ${urlWhats}`)}`;
 
 
   return (
@@ -126,7 +164,7 @@ function FolderCard({ f, toast }) {
       <div className="flex flex-col items-center gap-2 shrink-0">
         <div ref={ref} className="p-2.5 rounded-xl bg-white border" style={{ borderColor: '#eadfbf' }}>
           <QRCodeCanvas
-            value={f.url} size={132} level="H" bgColor="#ffffff" fgColor={GREEN}
+            value={urlQr} size={132} level="H" bgColor="#ffffff" fgColor={GREEN}
             imageSettings={{ src: '/icon-192.png', height: 28, width: 28, excavate: true }}
           />
         </div>
@@ -140,7 +178,11 @@ function FolderCard({ f, toast }) {
       <div className="flex-1 min-w-0">
         <h3 className="font-semibold text-gray-800" style={{ color: GREEN }}>{f.titulo}</h3>
         <p className="text-sm text-gray-500 mt-1">{f.desc}</p>
-        <div className="mt-2 text-xs font-mono text-gray-400 break-all">{f.url}</div>
+        <div className="mt-2 text-xs font-mono text-gray-400 break-all">{urlLink}</div>
+        <div className="mt-1 text-[11px] text-gray-400">
+          Cada botão marca a origem: <strong>WhatsApp</strong>, <strong>link copiado</strong> ou
+          <strong> QR Code</strong> — o painel de Leads mostra de qual peça veio o cadastro.
+        </div>
 
         <div className="mt-4 grid grid-cols-2 gap-2">
           <a href={wa} target="_blank" rel="noopener noreferrer"
@@ -192,6 +234,11 @@ export default function DivulgacaoPage() {
       <div className="space-y-4">
         {FOLDERS.map((f) => <FolderCard key={f.file} f={f} toast={toast} />)}
       </div>
+
+      <h2 className="text-sm font-bold uppercase tracking-wide mt-9 mb-3" style={{ color: GREEN }}>
+        Captação de leads
+      </h2>
+      <FolderCard f={CALCULADORA} toast={toast} />
 
       <h2 className="text-sm font-bold uppercase tracking-wide mt-9 mb-3" style={{ color: GREEN }}>
         Cobrança / Pagamento

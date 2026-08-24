@@ -15,6 +15,20 @@ function msgErro(err, fallback) {
   return fallback;
 }
 
+// Marcação de origem capturada pelo App.js quando a página abre com ?utm_*.
+// Sobrevive à navegação dentro do site (sessionStorage), então o lead sabe dizer
+// de qual folder, QR ou link ele veio.
+function utmSalva() {
+  try {
+    const d = JSON.parse(sessionStorage.getItem('utm_data') || '{}');
+    return {
+      utm_source: d.utm_source || null,
+      utm_medium: d.utm_medium || null,
+      utm_campaign: d.utm_campaign || null,
+    };
+  } catch { return {}; }
+}
+
 export function useAvaliacao(origem = 'calculadora_publica') {
   const [step, setStep] = useState('form'); // form | result | done
   const [loading, setLoading] = useState(false);
@@ -75,6 +89,9 @@ export function useAvaliacao(origem = 'calculadora_publica') {
         email: contato.email || null,
         imovel: payload(),
         origem,
+        // De qual peça de divulgação o visitante veio (App.js guarda no
+        // sessionStorage assim que a página abre com ?utm_*).
+        ...utmSalva(),
         consentimento,
         website: hp,
       });

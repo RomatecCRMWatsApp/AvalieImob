@@ -38,6 +38,8 @@ _LABEL = {
     "ecosia": "Ecosia", "instagram": "Instagram", "facebook": "Facebook",
     "whatsapp": "WhatsApp", "telegram": "Telegram", "linkedin": "LinkedIn",
     "youtube": "YouTube", "tiktok": "TikTok", "direto": "Direto", "email": "E-mail",
+    # Canais das nossas próprias peças de divulgação (ver DivulgacaoPage).
+    "qrcode": "QR Code", "link": "Link compartilhado",
 }
 
 _MEDIUM_PAGO = {"cpc", "ppc", "paid", "ads", "paid_social", "display"}

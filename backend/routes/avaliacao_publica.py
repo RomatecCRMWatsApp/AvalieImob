@@ -138,6 +138,10 @@ class LeadInput(BaseModel):
     email: Optional[str] = Field(default=None, max_length=120)
     imovel: EstimativaInput
     origem: str = Field(default="calculadora_publica", max_length=60)
+    # Marcação da peça de divulgação que trouxe o visitante (ver DivulgacaoPage).
+    utm_source: Optional[str] = Field(default=None, max_length=60)
+    utm_medium: Optional[str] = Field(default=None, max_length=60)
+    utm_campaign: Optional[str] = Field(default=None, max_length=80)
     consentimento: bool = False          # LGPD — obrigatório True p/ gravar
     website: Optional[str] = Field(default=None, max_length=200)  # honeypot anti-bot (deve vir vazio)
 
@@ -325,6 +329,9 @@ async def registrar_lead(lead: LeadInput, request: Request, db=Depends(get_db)) 
         "whatsapp": _norm_phone(lead.whatsapp),
         "email": lead.email,
         "origem": lead.origem,
+        "utm_source": lead.utm_source,
+        "utm_medium": lead.utm_medium,
+        "utm_campaign": lead.utm_campaign,
         "imovel": lead.imovel.model_dump(),
         "estimativa": estimativa.model_dump(),
         "status": "novo",
