@@ -2,6 +2,19 @@
   "_leia_me": "Notas de atualizacao que viram o AVISO no sistema. Regra: a cada release, ANTES do commit, acrescente a entrada no topo de 'releases' (ver CLAUDE.md, passo 7). Itens com publico='interno' (painel administrativo ou ajuste tecnico) NAO geram aviso para ninguem - ficam so registrados aqui. Tipos: novo | melhoria | correcao. Escreva o texto COM ACENTOS: ele vai direto para a tela do cliente.",
   "releases": [
     {
+      "versao": "1.4.1460",
+      "build": 1460,
+      "data": "2026-10-09T10:00:00-03:00",
+      "itens": [
+        {
+          "modulo": "Infraestrutura",
+          "tipo": "correcao",
+          "texto": "Build do Railway fixado no Dockerfile e variável GEMINI_API_KEY corrigida (nome tinha espaço no fim e derrubava o build).",
+          "publico": "interno"
+        }
+      ]
+    },
+    {
       "versao": "1.4.1458",
       "build": 1458,
       "data": "2026-08-24T18:30:00-03:00",
