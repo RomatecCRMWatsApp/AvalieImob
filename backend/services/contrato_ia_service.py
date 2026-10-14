@@ -51,7 +51,7 @@ async def _call_groq(messages: list, max_tokens: int) -> str:
     client = AsyncOpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
     resp = await asyncio.wait_for(
         client.chat.completions.create(
-            model="llama-3.1-70b-versatile",
+            model=os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b"),  # llama-3.x foi descontinuado pela Groq
             messages=messages,
             max_tokens=max_tokens,
         ),
@@ -61,37 +61,27 @@ async def _call_groq(messages: list, max_tokens: int) -> str:
 
 
 async def _call_gemini(messages: list, max_tokens: int) -> str:
+    # Endpoint compativel com OpenAI do Gemini (o SDK google.generativeai foi
+    # descontinuado; usamos o alias "flash-lite-latest" p/ nao quebrar quando o
+    # Google aposentar a versao fixa — ja aconteceu com 1.5-flash e 2.5-flash).
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         raise ValueError("GEMINI_API_KEY nao configurada")
-    import google.generativeai as genai
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel(
-        model_name="gemini-1.5-flash",
-        system_instruction=next((m["content"] for m in messages if m["role"] == "system"), None),
+    from openai import AsyncOpenAI
+    client = AsyncOpenAI(
+        api_key=api_key,
+        base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
     )
-    history_gemini = []
-    for m in messages:
-        if m["role"] == "system":
-            continue
-        role = "user" if m["role"] == "user" else "model"
-        history_gemini.append({"role": role, "parts": [m["content"]]})
-    if history_gemini and history_gemini[-1]["role"] == "user":
-        last_prompt = history_gemini[-1]["parts"][0]
-        chat_history = history_gemini[:-1]
-    else:
-        last_prompt = ""
-        chat_history = history_gemini
-    chat = model.start_chat(history=chat_history)
     resp = await asyncio.wait_for(
-        asyncio.to_thread(
-            chat.send_message,
-            last_prompt,
-            generation_config={"max_output_tokens": max_tokens},
+        client.chat.completions.create(
+            model=os.environ.get("GEMINI_MODEL", "gemini-flash-lite-latest"),
+            messages=messages,
+            max_tokens=max_tokens,
+            reasoning_effort="low",  # pouco "thinking": nao gasta o max_tokens raciocinando
         ),
         timeout=25,
     )
-    return resp.text or ""
+    return resp.choices[0].message.content or ""
 
 
 async def _call_claude(messages: list, max_tokens: int) -> str:

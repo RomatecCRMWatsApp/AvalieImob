@@ -2,6 +2,18 @@
   "_leia_me": "Notas de atualizacao que viram o AVISO no sistema. Regra: a cada release, ANTES do commit, acrescente a entrada no topo de 'releases' (ver CLAUDE.md, passo 7). Itens com publico='interno' (painel administrativo ou ajuste tecnico) NAO geram aviso para ninguem - ficam so registrados aqui. Tipos: novo | melhoria | correcao. Escreva o texto COM ACENTOS: ele vai direto para a tela do cliente.",
   "releases": [
     {
+      "versao": "1.4.1462",
+      "build": 1462,
+      "data": "2026-10-14T12:00:00-03:00",
+      "itens": [
+        {
+          "modulo": "Roma_IA",
+          "tipo": "correcao",
+          "texto": "A assistente Roma_IA e os botões “Aperfeiçoar com IA” voltaram a responder normalmente."
+        }
+      ]
+    },
+    {
       "versao": "1.4.1460",
       "build": 1460,
       "data": "2026-10-09T10:00:00-03:00",
