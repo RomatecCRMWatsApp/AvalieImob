@@ -191,3 +191,29 @@ class Garantia(GarantiaBase):
     user_id: str
     created_at: datetime = Field(default_factory=_now)
     updated_at: datetime = Field(default_factory=_now)
+
+    # Estado gerido pelo SERVIDOR (fora do GarantiaBase de propósito: o PUT do wizard
+    # faz $set do Base inteiro e não pode apagar assinatura, link nem recibo).
+    # Assinatura ICP-Brasil (routes/assinatura)
+    icp_status: Optional[str] = None
+    icp_signed_at: Optional[datetime] = None
+    icp_hash: Optional[str] = None
+    icp_titular: Optional[str] = None
+    # Link público + auditoria (services/link_tracking, colecao="garantias")
+    link_publico_token: Optional[str] = None
+    link_publico_ativo: Optional[bool] = False
+    link_publico_criado_em: Optional[datetime] = None
+    link_gerado_em: Optional[datetime] = None
+    link_views: Optional[int] = 0
+    link_views_first: Optional[datetime] = None
+    link_views_last: Optional[datetime] = None
+    link_sends: Optional[int] = 0
+    link_last_sent: Optional[datetime] = None
+    link_last_canal: Optional[str] = None
+    link_last_destinatario: Optional[str] = None
+    # Recibo de honorários
+    honorarios: Optional[float] = None
+    recibo_emitido: Optional[bool] = False
+    recibo_emitido_em: Optional[datetime] = None
+    recibo_id: Optional[str] = None
+    recibo_assinado: Optional[bool] = False

@@ -76,7 +76,7 @@ def _doc(s) -> str:
     return str(s or "").strip()
 
 
-def _gen_numero(ptam) -> str:
+def _gen_numero(ptam, prefixo: str = "REC-PTAM") -> str:
     num = str(ptam.get("numero_ptam") or ptam.get("number") or "0000")
     ano = ""
     for k in ("conclusion_date", "vistoria_date"):
@@ -87,7 +87,7 @@ def _gen_numero(ptam) -> str:
     if not ano:
         ano = str(datetime.utcnow().year)
     base = num.split("/")[0].zfill(4)
-    return f"REC-PTAM-{ano}-{base}"
+    return f"{prefixo}-{ano}-{base}"
 
 
 def _qr_image(url: str):
@@ -107,7 +107,10 @@ def _qr_image(url: str):
 
 
 def gerar_recibo_pdf(*, ptam: dict, user: dict, perfil: dict, valor: float,
-                     forma_pagamento: str = "PIX", data_pagamento: Optional[str] = None) -> bytes:
+                     forma_pagamento: str = "PIX", data_pagamento: Optional[str] = None,
+                     referente: Optional[str] = None, prefixo: str = "REC-PTAM") -> bytes:
+    """`referente`/`prefixo` permitem reusar o recibo em outros laudos (ex.: Garantia)."""
+    _referente_custom = referente
     from reportlab.lib.pagesizes import A4
     from reportlab.lib import colors
     from reportlab.lib.units import mm
@@ -149,7 +152,7 @@ def gerar_recibo_pdf(*, ptam: dict, user: dict, perfil: dict, valor: float,
     pagador_doc = _doc(ptam.get("solicitante_cpf_cnpj"))
     pagador_tel = _doc(ptam.get("solicitante_telefone"))
 
-    numero = _gen_numero(ptam)
+    numero = _gen_numero(ptam, prefixo)
     dt_emissao = _data_obj(data_pagamento)
     dt_validade = dt_emissao + timedelta(days=3)
     extenso = _extenso(valor)
@@ -164,6 +167,8 @@ def gerar_recibo_pdf(*, ptam: dict, user: dict, perfil: dict, valor: float,
         f"Compreende vistoria técnica, pesquisa e tratamento estatístico de dados de mercado, "
         f"memória de cálculo, emissão do parecer e responsabilidade técnica do avaliador signatário."
     )
+    if _referente_custom:
+        referente = _referente_custom
 
     # Hash de autenticidade
     semente = f"{numero}|{valor:.2f}|{pagador_doc}|{dt_emissao.date()}|{num_ptam}"

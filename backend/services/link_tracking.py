@@ -21,6 +21,7 @@ async def registrar_evento(
     destinatario: Optional[str] = None,  # número/e-mail/nome
     ip: Optional[str] = None,
     user_agent: Optional[str] = None,
+    colecao: str = "ptam_documents",     # outra coleção (ex.: "garantias") reaproveita o tracking
 ) -> None:
     """Insere um evento de link e atualiza os contadores-resumo no PTAM.
     Nunca propaga exceção — tracking não pode quebrar o fluxo principal."""
@@ -50,7 +51,7 @@ async def registrar_evento(
             inc_fields["link_views"] = 1
             set_fields["link_views_last"] = agora
             # primeira visualização: só grava se ainda não existir
-            await db.ptam_documents.update_one(
+            await db[colecao].update_one(
                 {"id": pid, "link_views_first": {"$exists": False}},
                 {"$set": {"link_views_first": agora}},
             )
@@ -69,7 +70,7 @@ async def registrar_evento(
                 update["$set"] = set_fields
             if inc_fields:
                 update["$inc"] = inc_fields
-            await db.ptam_documents.update_one({"id": pid}, update)
+            await db[colecao].update_one({"id": pid}, update)
     except Exception as e:  # noqa: BLE001
         logger.warning("Falha ao registrar evento de link (%s): %s", tipo, e)
 
@@ -84,9 +85,10 @@ def client_ip(request) -> Optional[str]:
     return request.client.host if request.client else None
 
 
-async def listar_eventos(db, pid: str, uid: str, limit: int = 200) -> dict:
+async def listar_eventos(db, pid: str, uid: str, limit: int = 200,
+                         colecao: str = "ptam_documents") -> dict:
     """Histórico de eventos + resumo, escopado ao dono do PTAM."""
-    ptam = await db.ptam_documents.find_one(
+    ptam = await db[colecao].find_one(
         {"id": pid, "user_id": uid},
         {
             "_id": 0, "link_views": 1, "link_views_first": 1, "link_views_last": 1,

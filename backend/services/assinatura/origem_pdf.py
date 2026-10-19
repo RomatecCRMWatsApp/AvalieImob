@@ -28,6 +28,17 @@ async def resolver(db, user_id: str, origem_tipo: str, origem_id: str):
         pdf = await asyncio.to_thread(generate_ptam_pdf_v2, doc, perfil)
         return pdf, f"PTAM_{_safe(doc.get('number'))}.pdf"
 
+    # ── Avaliação de Garantia (laudo bancário/rural) ────────────────────────
+    if origem_tipo == "garantia":
+        doc = await db.garantias.find_one({"id": origem_id, "user_id": user_id})
+        if not doc:
+            raise OrigemNaoSuportada("Avaliação de garantia não encontrada")
+        from pdf.garantia_pdf import generate_garantia_pdf
+        from services import garantia_assets
+        await garantia_assets.preparar(db, doc, user_id)
+        pdf = await asyncio.to_thread(generate_garantia_pdf, doc)
+        return pdf, garantia_assets.nome_arquivo(doc)
+
     # ── Recibo de honorários ────────────────────────────────────────────────
     if origem_tipo == "recibo":
         doc = await db.recibos.find_one({"id": origem_id, "user_id": user_id})

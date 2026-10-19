@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 Provider = Literal["d4sign", "clicksign", "autentique"]
 OrigemTipo = Literal["ptam", "contrato_exclusividade", "documento_externo",
-                     "recibo", "laudo_agrimensura", "outro"]
+                     "recibo", "laudo_agrimensura", "garantia", "outro"]
 
 
 class CredencialInput(BaseModel):

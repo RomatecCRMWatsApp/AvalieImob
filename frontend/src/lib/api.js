@@ -475,6 +475,22 @@ export const garantiasAPI = {
   create: (data) => api.post('/garantias', data).then(r => r.data),
   update: (id, data) => api.put(`/garantias/${id}`, data).then(r => r.data),
   remove: (id) => api.delete(`/garantias/${id}`).then(r => r.data),
+  // Ações do card (paridade com o PTAM)
+  downloadPdf: (id) => api.get(`/garantias/${id}/pdf`, { responseType: 'blob' }).then(r => r.data),
+  downloadDocx: (id) => api.get(`/garantias/${id}/docx`, { responseType: 'blob' }).then(r => r.data),
+  clonar: (id) => api.post(`/garantias/${id}/clonar`).then(r => r.data),
+  sendEmail: (id, data) => api.post(`/garantias/${id}/email`, data).then(r => r.data),
+  enviarWhatsApp: (id, phone, legenda = '') =>
+    api.post(`/garantias/${id}/whatsapp`, { phone, legenda }).then(r => r.data),
+  enviarWhatsAppLink: (id, phone) =>
+    api.post(`/garantias/${id}/whatsapp-link`, { phone }).then(r => r.data),
+  enviarTelegram: (id, chatId = '', legenda = '') =>
+    api.post(`/garantias/${id}/telegram`, { chat_id: chatId, legenda }).then(r => r.data),
+  compartilhar: (id) => api.post(`/garantias/${id}/compartilhar`).then(r => r.data),
+  desativarCompartilhamento: (id) => api.delete(`/garantias/${id}/compartilhar`).then(r => r.data),
+  linkEventos: (id) => api.get(`/garantias/${id}/link-eventos`).then(r => r.data),
+  gerarRecibo: (id, payload) => api.post(`/garantias/${id}/recibo`, payload).then(r => r.data),
+  downloadRecibo: (id) => api.get(`/garantias/${id}/recibo`, { responseType: 'blob' }).then(r => r.data),
 };
 
 // ---- Locacao (Avaliação de Locação — Lei 8.245/91)

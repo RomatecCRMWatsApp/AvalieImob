@@ -376,12 +376,11 @@ async def _gerar_pdf(tipo: str, doc: dict, db=None, perfil: dict | None = None) 
             from services.ptam_pdf_v2 import generate_ptam_pdf_v2
             return generate_ptam_pdf_v2(doc, perfil)
     elif tipo == "garantia":
-        try:
-            from pdf.garantia_pdf import generate_garantia_pdf
-            return generate_garantia_pdf(doc)
-        except ImportError:
-            from services.ptam_pdf_v2 import generate_ptam_pdf_v2
-            return generate_ptam_pdf_v2(doc, perfil)
+        from pdf.garantia_pdf import generate_garantia_pdf
+        if db is not None:
+            from services import garantia_assets
+            await garantia_assets.preparar(db, doc)
+        return await asyncio.to_thread(generate_garantia_pdf, doc, perfil)
     elif tipo == "recibo":
         from pdf.recibo_pdf import gerar_recibo_pdf
         u = {}
@@ -1071,6 +1070,16 @@ async def _propagar_recibo_assinado(db, tipo: str, doc: dict, quando=None) -> No
             )
         except Exception as e:
             logger.warning("Falha ao propagar recibo_assinado ao Contrato %s: %s", cid, e)
+    gid = (doc or {}).get("garantia_id")
+    if gid:
+        try:
+            await db.garantias.update_one(
+                {"id": gid},
+                {"$set": {"recibo_assinado": True, "recibo_assinado_em": quando,
+                          "updated_at": datetime.utcnow()}},
+            )
+        except Exception as e:
+            logger.warning("Falha ao propagar recibo_assinado à Garantia %s: %s", gid, e)
 
 
 async def _propagar_geo_urbano_assinado(db, tipo: str, doc: dict, quando=None) -> None:

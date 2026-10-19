@@ -62,6 +62,7 @@ class ReciboBase(BaseModel):
 
     # ── Vínculos opcionais ───────────────────────────────────────────────
     ptam_id: Optional[str] = None  # se gerado a partir de um PTAM
+    garantia_id: Optional[str] = None  # se gerado a partir de uma Avaliação de Garantia
     ptam_link: Optional[str] = None  # link público do laudo (vai junto com o recibo)
     cliente_id: Optional[str] = None
 
