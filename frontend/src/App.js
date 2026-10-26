@@ -19,6 +19,7 @@ const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
 const EsqueciSenha = lazy(() => import('./pages/EsqueciSenha'));
 const RedefinirSenha = lazy(() => import('./pages/RedefinirSenha'));
+const SsoRomatecCrm = lazy(() => import('./pages/SsoRomatecCrm'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const PortalCliente = lazy(() => import('./pages/PortalCliente'));
 const ContratoPublico = lazy(() => import('./pages/ContratoPublico'));
@@ -240,6 +241,7 @@ function App() {
                 <Route path="/cadastro" element={<PublicRoute><Register /></PublicRoute>} />
                 <Route path="/esqueci-senha" element={<EsqueciSenha />} />
                 <Route path="/redefinir-senha/:token" element={<RedefinirSenha />} />
+                <Route path="/sso" element={<SsoRomatecCrm />} />
                 <Route path="/laudo/:token" element={<PortalCliente />} />
                 <Route path="/v/laudo/v/:hash" element={<VerificarLaudo />} />
                 <Route path="/contrato/public/:token" element={<ContratoPublico />} />
