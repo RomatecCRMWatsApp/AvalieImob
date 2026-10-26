@@ -147,8 +147,18 @@ async def provisionar(db, p: ProvisionarPayload) -> dict:
         if u.get("plan_origem") != ORIGEM_CRM or papel in _PAPEIS_ADMIN:
             # Plano próprio do AvalieImob (ou conta administrativa): não mexe.
             return {"ok": True, "acao": "ignorado_plano_proprio", "user_id": u["id"]}
+        # Tinha plano próprio pago quando o CRM ativou: devolve esse plano se ainda vale.
+        proprio = u.get("plano_proprio") or {}
+        proprio_ate = _utc(proprio.get("plan_expires"))
+        if proprio and (proprio_ate is None or proprio_ate > agora):
+            await db.users.update_one({"id": u["id"]}, {"$set": {
+                "plan": proprio.get("plan"), "plan_status": "active", "plan_expires": proprio_ate,
+                "plan_origem": proprio.get("plan_origem"), "romatec_crm_atualizado_em": agora},
+                "$unset": {"plano_proprio": ""}})
+            logger.info("Romatec CRM: plano próprio restaurado user=%s crm=%s", u["id"], p.crm_usuario_id)
+            return {"ok": True, "acao": "restaurado_plano_proprio", "user_id": u["id"]}
         await db.users.update_one({"id": u["id"]}, {"$set": {
-            "plan_status": "expired", "romatec_crm_atualizado_em": agora}})
+            "plan_status": "expired", "romatec_crm_atualizado_em": agora}, "$unset": {"plano_proprio": ""}})
         logger.info("Romatec CRM: acesso suspenso user=%s crm=%s", u["id"], p.crm_usuario_id)
         return {"ok": True, "acao": "suspenso", "user_id": u["id"]}
 
@@ -189,6 +199,11 @@ async def provisionar(db, p: ProvisionarPayload) -> dict:
         "romatec_crm_id": p.crm_usuario_id,
         "romatec_crm_atualizado_em": agora,
     }
+    # Plano próprio vigente (pago no AvalieImob): guarda para devolver se o CRM suspender depois.
+    if u.get("plan_origem") != ORIGEM_CRM and not u.get("plano_proprio") and plano_vigente(u, agora) \
+            and str(u.get("role") or "").lower() not in _PAPEIS_ADMIN:
+        upd["plano_proprio"] = {"plan": u.get("plan"), "plan_expires": _utc(u.get("plan_expires")),
+                                "plan_origem": u.get("plan_origem")}
     if p.telefone and p.telefone.strip() and not (u.get("phone") or "").strip():
         upd["phone"] = p.telefone.strip()
     await db.users.update_one({"id": u["id"]}, {"$set": upd})

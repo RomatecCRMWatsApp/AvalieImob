@@ -41,9 +41,22 @@ class _CollUnica(_Coll):
         return await super().insert_one(doc)
 
 
+class _CollUsers(_Coll):
+    """Coleção falsa com suporte a $unset (plano_proprio)."""
+
+    async def update_one(self, f, upd, upsert=False):
+        r = await super().update_one(f, {k: v for k, v in upd.items() if k != "$unset"}, upsert)
+        if upd.get("$unset"):
+            for d in self.docs:
+                if all(d.get(k) == v for k, v in f.items()):
+                    for k in upd["$unset"]:
+                        d.pop(k, None)
+        return r
+
+
 class _DB:
     def __init__(self):
-        self.users = _Coll()
+        self.users = _CollUsers()
         self.sso_jti_usados = _CollUnica("jti")
         self.user_access_log = _Coll()
 
@@ -184,6 +197,38 @@ def test_ativar_vincula_por_email_e_nao_encurta_plano_proprio(cliente):
     assert abs((u["plan_expires"] - longe).total_seconds()) < 1   # não encurtou
     assert u["role"] == "Profissional" and u["password_hash"] == "HASH"
     assert u["plan_status"] == "active" and u["plan_origem"] == "romatec_crm"
+
+
+def test_suspender_devolve_plano_proprio_guardado_na_ativacao(cliente):
+    longe = datetime.now(timezone.utc) + timedelta(days=120)
+    cliente.fake.users.docs.append({
+        "id": "u1", "name": "Maria", "email": "maria@exemplo.com", "role": "Profissional",
+        "plan": "anual", "plan_origem": "mercadopago", "plan_status": "active", "plan_expires": longe})
+    assert _provisionar(cliente, _payload()).json()["acao"] == "ativado"   # sem data → 2099
+    u = _user(cliente, id="u1")
+    assert u["plan_origem"] == "romatec_crm" and u["plano_proprio"]["plan"] == "anual"
+    # Reativar não sobrescreve o plano guardado
+    _provisionar(cliente, _payload(evento="reativar"))
+    assert _user(cliente, id="u1")["plano_proprio"]["plan_origem"] == "mercadopago"
+    r = _provisionar(cliente, _payload(evento="suspender"))
+    assert r.json() == {"ok": True, "acao": "restaurado_plano_proprio", "user_id": "u1"}
+    u = _user(cliente, id="u1")
+    assert u["plan"] == "anual" and u["plan_origem"] == "mercadopago" and u["plan_status"] == "active"
+    assert abs((u["plan_expires"] - longe).total_seconds()) < 1 and "plano_proprio" not in u
+    # Agora o plano é próprio: novo suspender não mexe
+    assert _provisionar(cliente, _payload(evento="suspender")).json()["acao"] == "ignorado_plano_proprio"
+
+
+def test_suspender_com_plano_proprio_ja_vencido_expira(cliente):
+    cliente.fake.users.docs.append({
+        "id": "u1", "email": "maria@exemplo.com", "role": "user", "romatec_crm_id": 42,
+        "plan": "romatec_crm", "plan_origem": "romatec_crm", "plan_status": "active",
+        "plan_expires": datetime(2099, 12, 31, tzinfo=timezone.utc),
+        "plano_proprio": {"plan": "mensal", "plan_origem": "mercadopago",
+                          "plan_expires": datetime.now(timezone.utc) - timedelta(days=1)}})
+    assert _provisionar(cliente, _payload(evento="suspender")).json()["acao"] == "suspenso"
+    u = _user(cliente, id="u1")
+    assert u["plan_status"] == "expired" and "plano_proprio" not in u
 
 
 def test_reativar_estende_acesso_vencido(cliente):
