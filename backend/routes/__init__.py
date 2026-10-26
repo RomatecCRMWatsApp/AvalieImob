@@ -73,6 +73,7 @@ from routes.assinatura_externa import (
 from routes.novidades import router as novidades_router
 from routes.trials import router as trials_router
 from routes.inferencia import router as inferencia_router
+from routes.integracoes_romatec import router as integracoes_romatec_router
 
 all_routers = [
     auth_router, users_router, ptam_router, locacao_router,
@@ -110,4 +111,5 @@ all_routers = [
     novidades_router,
     trials_router,
     inferencia_router,
+    integracoes_romatec_router,
 ]

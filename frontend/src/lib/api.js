@@ -11,7 +11,7 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-const PUBLIC_AUTH_ROUTES = ['/auth/login', '/auth/register', '/auth/forgot-password', '/auth/reset-password'];
+const PUBLIC_AUTH_ROUTES = ['/auth/login', '/auth/register', '/auth/forgot-password', '/auth/reset-password', '/integracoes/romatec/sso'];
 const SKIP_401_CLEAR = ['/auth/me'];
 
 api.interceptors.response.use(
@@ -64,6 +64,8 @@ export const authAPI = {
   updateMe: (data) => api.put('/auth/me', data).then(r => r.data),
   forgotPassword: (email) => api.post('/auth/forgot-password', { email }).then(r => r.data),
   resetPassword: (token, password) => api.post('/auth/reset-password', { token, password }).then(r => r.data),
+  // SSO do Romatec CRM: troca o link de uso único (JWT do CRM) por uma sessão do AvalieImob.
+  ssoRomatecCrm: (token) => api.post('/integracoes/romatec/sso', { token }).then(r => r.data),
 };
 
 // ---- Branding (white-label por usuário: logo, cores, rodapé)

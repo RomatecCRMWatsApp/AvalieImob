@@ -66,6 +66,10 @@ _INDICES = [
     ("alertas_conformidade", [("user_id", 1), ("lido", 1)], {}),
     ("alertas_conformidade", [("user_id", 1), ("created_at", -1)], {}),
     ("config_conformidade", "user_id", {"unique": True}),
+    # Integração Romatec CRM — vínculo do usuário e SSO de uso único
+    ("users", "romatec_crm_id", {"sparse": True}),
+    ("sso_jti_usados", "jti", {"unique": True}),
+    ("sso_jti_usados", "usado_em", {"expireAfterSeconds": 86400}),
 ]
 
 
