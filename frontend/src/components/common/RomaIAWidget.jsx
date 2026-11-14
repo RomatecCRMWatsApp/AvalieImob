@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Send, User, Loader2 } from 'lucide-react';
 import RomaIAAvatar from './RomaIAAvatar';
 import { BrandMark } from '../brand/BrandMark';
 import { aiAPI } from '../../lib/api';
+import { FERRAMENTAS, useAberturaFerramenta, useNoPainel } from '../../lib/ferramentas';
 
 /**
  * Roma_IA Chat Widget Flutuante
@@ -23,6 +24,9 @@ const RomaIAWidget = () => {
     setHidden(false);
     try { localStorage.removeItem('romatec_widget_hidden'); } catch { /* ignore */ }
   };
+  // No painel o botão flutuante e a aba lateral saem: o chat abre pelo botão Ferramentas.
+  const noPainel = useNoPainel();
+  useAberturaFerramenta(FERRAMENTAS.ROMA_IA, useCallback(() => { setShowWelcome(false); setIsOpen(true); }, []));
   const [messages, setMessages] = useState([
     { role: 'assistant', content: 'Olá! Sou a Roma_IA, especialista em avaliação imobiliária. Como posso ajudar você hoje?' }
   ]);
@@ -98,7 +102,7 @@ const RomaIAWidget = () => {
   return (
     <>
       {/* Aba discreta para reexibir quando oculto */}
-      {hidden && !isOpen && (
+      {!noPainel && hidden && !isOpen && (
         <button
           onClick={mostrar}
           className="fixed top-1/2 right-0 z-[90] bg-emerald-900/90 hover:bg-emerald-800 text-white text-xs font-bold uppercase tracking-[1.5px] px-[7px] py-[14px] rounded-l-[10px] shadow-lg"
@@ -110,7 +114,7 @@ const RomaIAWidget = () => {
       )}
 
       {/* Botão Flutuante - Responsivo para Mobile */}
-      {!isOpen && !hidden && (
+      {!noPainel && !isOpen && !hidden && (
         <div className="fixed top-1/2 -translate-y-1/2 right-3 sm:right-4 z-[100] group">
           <button
             onClick={() => setIsOpen(true)}
@@ -145,7 +149,7 @@ const RomaIAWidget = () => {
       )}
 
       {/* Tooltip de boas-vindas - Responsivo */}
-      {showWelcome && !isOpen && !hidden && (
+      {!noPainel && showWelcome && !isOpen && !hidden && (
         <div 
           className="fixed top-1/2 -translate-y-1/2 right-20 sm:right-24 z-[99] bg-white rounded-xl shadow-lg p-3 sm:p-4 max-w-[260px] sm:max-w-xs animate-fade-in-up cursor-pointer"
           onClick={() => {

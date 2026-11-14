@@ -1,11 +1,12 @@
-// @module dashboard/DashboardHero — Hero do Dashboard (design v4).
-// Fundo verde escuro + textura blueprint + saudação dinâmica, credenciais,
-// stats à direita e botões de ação.
+// @module dashboard/DashboardHero — saudação compacta do painel (upgrade visual).
+// Verde profundo, sem quadriculado; um único título em serif; ações principais
+// reais (Novo laudo em dourado, Novo cliente, Nova amostra). Credenciais e empresa
+// vêm do perfil do usuário logado e aparecem só a partir do tablet.
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FilePlus2, UserPlus, BarChart2, Users, CheckCircle2 } from 'lucide-react';
+import { FilePlus2, UserPlus, BarChart2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { adminAPI, perfilAPI } from '../../lib/api';
+import { perfilAPI } from '../../lib/api';
 
 // NUNCA voltar a fixar credenciais aqui. Este hero é visto por TODOS os
 // assinantes — texto fixo mostrava o CRECI/CNAI/CFT do dono da plataforma a
@@ -21,72 +22,31 @@ const credenciaisDoPerfil = (perfil) => {
     .join(' · ');
 };
 
-/** "Empresa · Cidade / UF" do próprio usuário (partes ausentes são omitidas). */
+/** "Empresa · Cidade / UF" do próprio usuário (partes ausentes são omitidas).
+ *  Evita "AÇAILÂNDIA/MA / MA" quando a cidade já foi cadastrada com a UF. */
 const cabecalhoDoPerfil = (perfil, user) => {
   const empresa = perfil?.empresa_nome || user?.company || '';
-  const local = [perfil?.cidade, perfil?.uf].filter(Boolean).join(' / ');
+  const cidade = String(perfil?.cidade || '').trim();
+  const uf = String(perfil?.uf || '').trim();
+  const cidadeJaTemUf = uf && new RegExp(`[/\\-,\\s]${uf}\\s*$`, 'i').test(cidade);
+  const local = cidadeJaTemUf ? cidade : [cidade, uf].filter(Boolean).join(' / ');
   return [empresa, local].filter(Boolean).join(' · ');
 };
 
-const isAdminRole = (role) => ['admin', 'owner', 'ceo'].includes(String(role || '').toLowerCase());
-
-// Bloco só-admin no hero: usuários cadastrados + assinaturas ativas.
-const AdminHeroStats = () => {
-  const { user } = useAuth();
-  const nav = useNavigate();
-  const [data, setData] = useState(null);
-
-  useEffect(() => {
-    if (!isAdminRole(user?.role)) return;
-    adminAPI.listUsers()
-      .then((us) => {
-        const arr = Array.isArray(us) ? us : [];
-        setData({ total: arr.length, ativas: arr.filter((u) => u.plan_status === 'active').length });
-      })
-      .catch(() => {});
-  }, [user]);
-
-  if (!isAdminRole(user?.role) || !data) return null;
-
-  const Card = ({ value, label, Icon, gold }) => (
-    <button
-      onClick={() => nav('/dashboard/admin/usuarios')}
-      className="flex items-center gap-2 rounded-lg px-3 py-2 transition-transform hover:-translate-y-0.5"
-      style={{ border: '1px solid rgba(201,168,76,0.25)', background: 'rgba(255,255,255,0.03)' }}
-      title="Ver usuários"
-    >
-      <Icon className="w-4 h-4" style={{ color: gold ? 'var(--dash-gold)' : '#fff' }} />
-      <span className="dash-display" style={{ fontSize: 20, color: gold ? 'var(--dash-gold)' : '#fff', lineHeight: 1 }}>{value}</span>
-      <span className="dash-eyebrow" style={{ fontSize: 8, color: 'rgba(255,255,255,0.5)' }}>{label}</span>
-    </button>
-  );
-
-  return (
-    <div className="ml-auto flex items-center gap-2">
-      <Card value={data.total} label="Usuários" Icon={Users} gold />
-      <Card value={data.ativas} label="Assinaturas ativas" Icon={CheckCircle2} />
-    </div>
-  );
-};
-
-const HeroStat = ({ value, label, gold }) => (
-  <div
-    className="flex flex-col gap-0.5 rounded-lg px-4 py-3 min-w-[88px]"
-    style={{ border: '1px solid rgba(201,168,76,0.2)', background: 'rgba(255,255,255,0.02)' }}
-  >
-    <span
-      className="dash-display leading-none"
-      style={{ fontSize: 26, color: gold ? 'var(--dash-gold)' : '#fff' }}
-    >
-      {value}
-    </span>
-    <span className="dash-eyebrow" style={{ fontSize: 9, color: 'rgba(255,255,255,0.45)' }}>
-      {label}
-    </span>
-  </div>
+/** Curvas de nível — único detalhe técnico, pequeno, à direita (decorativo). */
+const Curvas = () => (
+  <svg className="av-contour hidden sm:block" viewBox="0 0 240 200" width="240" fill="none" aria-hidden="true" focusable="false">
+    <g stroke="#d0ad4e" strokeWidth="1">
+      <path d="M240 18c-46 4-70 30-96 30S96 30 60 44 18 92 0 104" />
+      <path d="M240 46c-40 6-58 30-86 32s-44-14-74-2-44 50-80 58" />
+      <path d="M240 78c-34 6-52 26-76 28s-40-8-66 4-36 44-98 62" />
+      <path d="M240 112c-30 4-44 20-66 22s-34-4-56 8-34 40-62 58" />
+      <path d="M240 148c-24 2-38 14-56 16s-28-2-46 6-24 22-44 30" />
+    </g>
+  </svg>
 );
 
-const DashboardHero = ({ greeting, firstName, today, rascunhos, kpis }) => {
+const DashboardHero = ({ greeting, firstName, today, rascunhos }) => {
   const nav = useNavigate();
   const { user } = useAuth();
   const [perfil, setPerfil] = useState(null);
@@ -104,105 +64,54 @@ const DashboardHero = ({ greeting, firstName, today, rascunhos, kpis }) => {
 
   return (
     <section
+      aria-labelledby="av-saudacao"
       className="relative overflow-hidden rounded-2xl"
-      style={{ background: 'var(--dash-green-hero)', padding: 28 }}
+      style={{ background: 'var(--av-brand)', color: '#fff' }}
     >
-      {/* Textura blueprint (grid duplo 8px + 40px) */}
-      <div className="dash-blueprint absolute inset-0 pointer-events-none" />
-
-      {/* SVG decorativo de planta baixa (canto direito) */}
-      <svg
-        className="absolute top-0 right-0 h-full pointer-events-none hidden md:block"
-        viewBox="0 0 220 200" width="320" fill="none"
-        style={{ opacity: 0.06 }}
-        aria-hidden="true"
-      >
-        <g stroke="var(--dash-gold)" strokeWidth="1.5">
-          <rect x="20" y="20" width="180" height="160" />
-          <line x1="110" y1="20" x2="110" y2="180" />
-          <line x1="20" y1="100" x2="200" y2="100" />
-          <rect x="34" y="34" width="60" height="50" />
-          <rect x="124" y="34" width="62" height="50" />
-          <rect x="34" y="116" width="60" height="50" />
-          <rect x="124" y="116" width="62" height="50" />
-          <line x1="60" y1="20" x2="60" y2="32" />
-          <line x1="150" y1="180" x2="150" y2="168" />
-        </g>
-      </svg>
-
-      <div className="relative flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
-        {/* ── Texto ── */}
+      <Curvas />
+      <div className="relative p-5 sm:p-7 flex flex-col md:flex-row md:items-end md:justify-between gap-5">
         <div className="min-w-0">
           {cabecalho && (
-            <div className="dash-eyebrow" style={{ fontSize: 11, color: 'var(--dash-gold)' }}>
-              {cabecalho}
-            </div>
+            <p className="av-eyebrow-gold hidden sm:block" style={{ marginBottom: 6 }}>{cabecalho}</p>
           )}
-
-          <h1 className="dash-display mt-2" style={{ fontSize: 26, color: '#fff', fontWeight: 500 }}>
-            {greeting}, <span style={{ fontStyle: 'italic', color: 'var(--dash-gold)' }}>{firstName}.</span>
+          <h1 id="av-saudacao" className="av-display" style={{ fontSize: 'clamp(1.6rem, 1.3rem + 1.2vw, 2.25rem)', fontWeight: 600, lineHeight: 1.15 }}>
+            {greeting}, <span style={{ color: 'var(--av-gold)' }}>{firstName}.</span>
           </h1>
-
-          <p className="mt-1 capitalize" style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13 }}>
-            {today}
+          <p style={{ marginTop: 6, fontSize: 14, color: 'rgb(245 242 232 / 0.78)' }}>
+            <span>{today ? today.charAt(0).toUpperCase() + today.slice(1) : ''}</span>
             {rascunhos > 0 && (
-              <span className="lowercase"> · {rascunhos} laudo{rascunhos > 1 ? 's' : ''} em rascunho</span>
+              <> · {rascunhos} laudo{rascunhos > 1 ? 's' : ''} em rascunho</>
             )}
           </p>
 
+          <div className="flex flex-wrap gap-3" style={{ marginTop: 18 }}>
+            <button type="button" onClick={() => nav('/dashboard/ptam')} className="av-btn av-btn-gold av-on-dark">
+              <FilePlus2 size={18} aria-hidden="true" /> Novo laudo
+            </button>
+            <button type="button" onClick={() => nav('/dashboard/clientes')} className="av-btn av-btn-ghost-dark av-on-dark">
+              <UserPlus size={18} aria-hidden="true" /> Novo cliente
+            </button>
+            <button type="button" onClick={() => nav('/dashboard/amostras')} className="av-btn av-btn-ghost-dark av-on-dark">
+              <BarChart2 size={18} aria-hidden="true" /> Nova amostra
+            </button>
+          </div>
+        </div>
+
+        {/* Contexto profissional: só a partir do tablet, para não pesar a primeira dobra no celular */}
+        <div className="hidden md:block md:text-right" style={{ maxWidth: 320, fontSize: 13 }}>
           {credenciais ? (
-            <p className="mt-3" style={{ color: 'var(--dash-green-soft)', fontSize: 12, letterSpacing: '0.02em' }}>
-              {credenciais}
-            </p>
+            <p style={{ color: 'rgb(245 242 232 / 0.78)' }}>{credenciais}</p>
           ) : perfil && (
-            // Sem registros cadastrados: convida a configurar em vez de deixar vazio.
             <button
-              onClick={() => nav('/dashboard/configuracoes')}
-              className="mt-3 underline underline-offset-2"
-              style={{ color: 'var(--dash-gold)', fontSize: 12, letterSpacing: '0.02em' }}
+              type="button"
+              onClick={() => nav('/dashboard/config')}
+              className="underline underline-offset-2 av-on-dark"
+              style={{ color: 'var(--av-gold)', background: 'none', border: 0, cursor: 'pointer', minHeight: 44 }}
             >
-              Cadastre seus registros profissionais (CRECI, CNAI, CFT) →
+              Cadastre seus registros profissionais (CRECI, CNAI, CFT)
             </button>
           )}
         </div>
-
-        {/* ── Stats à direita ── */}
-        <div className="flex gap-3 flex-shrink-0">
-          <HeroStat value={kpis.laudosTotal} label="Laudos" gold />
-          <HeroStat value={kpis.clientes} label="Clientes" />
-          <HeroStat value={kpis.imoveis} label="Imóveis" />
-        </div>
-      </div>
-
-      {/* ── Ações ── */}
-      <div
-        className="relative mt-6 pt-5 flex flex-wrap gap-3"
-        style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
-      >
-        <button
-          onClick={() => nav('/dashboard/ptam')}
-          className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-transform hover:-translate-y-0.5"
-          style={{ background: 'var(--dash-gold)', color: 'var(--dash-text)' }}
-        >
-          <FilePlus2 className="w-4 h-4" /> Novo Laudo
-        </button>
-        <button
-          onClick={() => nav('/dashboard/clientes')}
-          className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/10"
-          style={{ border: '1px solid rgba(255,255,255,0.2)' }}
-        >
-          <UserPlus className="w-4 h-4" /> Novo Cliente
-        </button>
-        <button
-          onClick={() => nav('/dashboard/amostras')}
-          className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/10"
-          style={{ border: '1px solid rgba(255,255,255,0.2)' }}
-        >
-          <BarChart2 className="w-4 h-4" /> Nova Amostra
-        </button>
-
-        {/* Indicadores admin (usuários + assinaturas ativas) */}
-        <AdminHeroStats />
       </div>
     </section>
   );

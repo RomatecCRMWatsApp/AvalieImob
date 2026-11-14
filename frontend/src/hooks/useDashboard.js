@@ -91,8 +91,11 @@ export function useDashboard() {
       volumeCompact:    fmtCompact(volume),
       volumeFull:       fmtBRL(volume),
       ticketMedio:      fmtBRL(ticket),
+      ticketCompact:    ticket >= 1_000_000
+        ? `R$ ${(ticket / 1_000_000).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} M`
+        : fmtCompact(ticket),
       laudosPorCliente: porCli.toLocaleString('pt-BR', { maximumFractionDigits: 1 }),
-      // variações vêm do backend se existirem; senão ficam neutras (flat)
+      // variações só existem se o backend as calcular (hoje não envia → sem selo)
       variacaoLaudos:   fmtPct(stats?.variacaoLaudos),
       variacaoVolume:   fmtPct(stats?.variacaoVolume),
     };

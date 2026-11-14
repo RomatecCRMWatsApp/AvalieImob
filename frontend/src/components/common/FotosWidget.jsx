@@ -4,6 +4,7 @@ import { useToast } from '../../hooks/use-toast';
 import { galeriaAPI, brandingAPI, API_BASE } from '../../lib/api';
 import { latLonToUTM } from '../../utils/latLonToUTM';
 import './FotosWidget.css';
+import { FERRAMENTAS, useAberturaFerramenta, useNoPainel } from '../../lib/ferramentas';
 
 const fotoUrl = (id) => `${API_BASE}/upload/image/${id}`;
 
@@ -136,6 +137,10 @@ export default function FotosWidget() {
   }, [toast]);
 
   const abrir = () => { setOpen(true); carregar(); };
+  const abrirRef = useRef(abrir);
+  abrirRef.current = abrir;
+  useAberturaFerramenta(FERRAMENTAS.FOTOS, useCallback(() => abrirRef.current(), []));
+  const noPainel = useNoPainel();
 
   // Carrega a logo do overlay: branding do usuário (white-label) ou padrão AvalieImob.
   async function carregarLogoEnome() {
@@ -293,10 +298,12 @@ export default function FotosWidget() {
 
   return (
     <>
+      {!noPainel && (
       <button className="fotos-fab" onClick={abrir} title="Galeria de Fotos" aria-label="Abrir galeria de fotos">
         <span className="fotos-fab-icon">📷</span>
         <span className="fotos-fab-label">Fotos</span>
       </button>
+      )}
 
       {open && (
         <div className="fixed inset-0 z-[1100] bg-black/60 flex items-end sm:items-center justify-center p-0 sm:p-4">

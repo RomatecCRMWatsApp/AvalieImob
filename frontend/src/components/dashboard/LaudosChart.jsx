@@ -39,13 +39,13 @@ const LaudosChart = ({ data = [] }) => {
   };
 
   return (
-    <div className="bg-white rounded-2xl p-6 shadow-sm h-full flex flex-col">
+    <div className="av-card p-5 sm:p-6 h-full flex flex-col">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="dash-display" style={{ fontSize: 18, color: 'var(--dash-text)' }}>
+          <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--av-text)' }}>
             Produção de laudos
-          </h3>
-          <p style={{ fontSize: 11, color: 'var(--dash-muted)' }}>Últimos 6 meses</p>
+          </h2>
+          <p style={{ fontSize: 12, color: 'var(--av-text-secondary)' }}>Laudos criados por mês · últimos 6 meses</p>
         </div>
         <div className="flex items-center gap-3 text-[10px] font-semibold" style={{ color: 'var(--dash-muted)' }}>
           <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm inline-block" style={{ background: COL_PICO }} />Pico</span>
@@ -60,7 +60,7 @@ const LaudosChart = ({ data = [] }) => {
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%" minHeight={200}>
-            <BarChart data={data} margin={{ top: 8, right: 4, left: -20, bottom: 0 }}>
+            <BarChart data={data} margin={{ top: 8, right: 4, left: -8, bottom: 0 }}>
               <CartesianGrid vertical={false} stroke="#DFF0E6" />
               <XAxis
                 dataKey="mes"

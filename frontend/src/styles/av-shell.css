@@ -1,0 +1,194 @@
+/* ===========================================================================
+   av-shell.css — AppShell do painel (verde premium / dourado / creme).
+   Tokens do kit de upgrade visual, prefixados --av-* para não colidir com o
+   tema shadcn (--background etc.) nem com o dashboard-tokens.css (--dash-*).
+   Escopo: só classes .av-* — nada aqui é aplicado globalmente.
+   =========================================================================== */
+:root {
+  --av-brand: #0b3021;
+  --av-brand-hover: #164634;
+  --av-sidebar: #08271c;
+  --av-sidebar-hover: #0f3527;
+  --av-sidebar-active: #13402f;
+  --av-sidebar-text: #f5f2e8;
+  --av-sidebar-muted: #b9cbbf;
+  --av-gold: #d0ad4e;
+  --av-gold-hover: #bf9a37;
+  --av-gold-ink: #806219;
+  --av-background: #f5f2e8;
+  --av-surface: #ffffff;
+  --av-surface-soft: #edf4ee;
+  --av-text: #173b2b;
+  --av-text-secondary: #50635a;
+  --av-border: #dde5de;
+  --av-focus: #806219;
+  --av-font-ui: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --av-font-display: "Playfair Display", Georgia, "Times New Roman", serif;
+  --av-radius-control: 0.625rem;
+  --av-radius-card: 1rem;
+  --av-shadow-card: 0 4px 18px rgb(8 39 28 / 0.05);
+  --av-shadow-overlay: 0 18px 52px rgb(8 39 28 / 0.2);
+  --av-sidebar-width: 15.5rem;
+  --av-header-height: 4rem;
+  --av-motion-fast: 150ms;
+  --av-motion-normal: 220ms;
+  --av-ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+.av-shell { background: var(--av-background); font-family: var(--av-font-ui); color: var(--av-text); }
+
+/* ── Foco visível ─────────────────────────────────────────────────────────── */
+.av-focus:focus-visible,
+.av-shell a:focus-visible,
+.av-shell button:focus-visible {
+  outline: 2px solid var(--av-focus);
+  outline-offset: 3px;
+}
+.av-sidebar a:focus-visible,
+.av-sidebar button:focus-visible,
+.av-on-dark:focus-visible {
+  outline: 2px solid var(--av-gold);
+  outline-offset: 2px;
+}
+
+/* ── Sidebar ──────────────────────────────────────────────────────────────── */
+.av-sidebar {
+  background: var(--av-sidebar);
+  color: var(--av-sidebar-text);
+  font-family: var(--av-font-ui);
+}
+.av-nav-group-btn {
+  display: flex; align-items: center; gap: 0.5rem; width: 100%;
+  min-height: 2.25rem; padding: 0.5rem 1rem 0.375rem;
+  background: none; border: 0; cursor: pointer;
+  font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--av-sidebar-muted); text-align: left;
+}
+.av-nav-group-btn:hover { color: var(--av-sidebar-text); }
+.av-nav-link {
+  position: relative;
+  display: flex; align-items: center; gap: 0.75rem;
+  min-height: 2.75rem; margin: 0 0.5rem; padding: 0 0.75rem;
+  border-radius: var(--av-radius-control);
+  font-size: 0.875rem; color: var(--av-sidebar-muted); text-decoration: none;
+  transition: background var(--av-motion-fast) var(--av-ease), color var(--av-motion-fast) var(--av-ease);
+}
+.av-nav-link:hover { background: var(--av-sidebar-hover); color: var(--av-sidebar-text); }
+.av-nav-link[aria-current="page"] {
+  background: var(--av-sidebar-active); color: #fff; font-weight: 600;
+}
+.av-nav-link[aria-current="page"]::before {
+  content: ""; position: absolute; left: -0.5rem; top: 0.5rem; bottom: 0.5rem;
+  width: 3px; border-radius: 0 3px 3px 0; background: var(--av-gold);
+}
+.av-nav-link[aria-current="page"] svg { color: var(--av-gold); }
+.av-nav-count {
+  margin-left: auto; min-width: 1.5rem; padding: 0 0.375rem; height: 1.25rem;
+  border-radius: 999px; font-size: 0.6875rem; font-weight: 600; line-height: 1.25rem; text-align: center;
+  background: rgb(245 242 232 / 0.1); color: var(--av-sidebar-text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Header ───────────────────────────────────────────────────────────────── */
+.av-header {
+  position: sticky; top: 0; z-index: 30;
+  background: rgb(255 255 255 / 0.96);
+  border-bottom: 1px solid var(--av-border);
+  padding-top: env(safe-area-inset-top);
+}
+@supports (backdrop-filter: blur(8px)) {
+  .av-header { background: rgb(255 255 255 / 0.88); backdrop-filter: blur(8px); }
+}
+.av-icon-btn {
+  position: relative;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 2.75rem; height: 2.75rem; flex-shrink: 0;
+  border-radius: var(--av-radius-control);
+  border: 1px solid var(--av-border); background: var(--av-surface);
+  color: var(--av-text); cursor: pointer;
+  transition: background var(--av-motion-fast) var(--av-ease);
+}
+@media (min-width: 1024px) { .av-menu-btn { display: none; } }
+.av-icon-btn:hover { background: var(--av-surface-soft); }
+.av-icon-btn[aria-expanded="true"] { background: var(--av-surface-soft); border-color: var(--av-control-border, #789483); }
+
+/* ── Menus suspensos (conta, ferramentas) ─────────────────────────────────── */
+.av-popover {
+  position: absolute; right: 0; top: calc(100% + 0.5rem); z-index: 60;
+  min-width: 15rem; max-width: calc(100vw - 2rem);
+  background: var(--av-surface); border: 1px solid var(--av-border);
+  border-radius: var(--av-radius-card); box-shadow: var(--av-shadow-overlay);
+  padding: 0.375rem; color: var(--av-text);
+}
+.av-menu-item {
+  display: flex; align-items: center; gap: 0.75rem; width: 100%;
+  min-height: 2.75rem; padding: 0.5rem 0.75rem;
+  border: 0; border-radius: var(--av-radius-control); background: none;
+  font-size: 0.875rem; color: var(--av-text); text-align: left; cursor: pointer; text-decoration: none;
+}
+.av-menu-item:hover, .av-menu-item:focus-visible { background: var(--av-surface-soft); }
+.av-menu-item small { display: block; font-size: 0.75rem; color: var(--av-text-secondary); }
+
+/* ── Botões ───────────────────────────────────────────────────────────────── */
+.av-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+  min-height: 2.75rem; padding: 0 1.125rem;
+  border-radius: var(--av-radius-control); font-size: 0.875rem; font-weight: 600;
+  cursor: pointer; white-space: nowrap; text-decoration: none;
+  transition: background var(--av-motion-fast) var(--av-ease), border-color var(--av-motion-fast) var(--av-ease);
+}
+.av-btn-gold { background: var(--av-gold); color: var(--av-brand); border: 1px solid var(--av-gold); }
+.av-btn-gold:hover { background: var(--av-gold-hover); border-color: var(--av-gold-hover); }
+.av-btn-ghost-dark { background: transparent; color: #fff; border: 1px solid rgb(245 242 232 / 0.45); }
+.av-btn-ghost-dark:hover { background: rgb(245 242 232 / 0.1); }
+.av-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* ── Cartões ──────────────────────────────────────────────────────────────── */
+.av-card {
+  background: var(--av-surface); border: 1px solid var(--av-border);
+  border-radius: var(--av-radius-card); box-shadow: var(--av-shadow-card);
+}
+.av-metric-value {
+  font-family: var(--av-font-ui);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: clamp(1.25rem, 1.05rem + 0.8vw, 1.75rem);
+  line-height: 1.15; white-space: nowrap; letter-spacing: -0.01em;
+  color: var(--av-text);
+}
+.av-display { font-family: var(--av-font-display); }
+.av-eyebrow-gold { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--av-gold); }
+
+.av-module-card { display: flex; flex-direction: column; overflow: hidden; text-decoration: none; color: inherit;
+  transition: box-shadow var(--av-motion-normal) var(--av-ease), transform var(--av-motion-normal) var(--av-ease); }
+.av-module-card:hover { box-shadow: 0 10px 28px rgb(8 39 28 / 0.1); transform: translateY(-2px); }
+.av-module-card img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: var(--av-surface-soft); }
+
+@media (min-width: 768px) { .av-module-card img { aspect-ratio: 21 / 9; } }
+
+/* Curvas de nível — único detalhe técnico, pequeno e decorativo */
+.av-contour { position: absolute; right: 0; top: 0; height: 100%; pointer-events: none; opacity: 0.18; }
+
+/* ── Drawer mobile ────────────────────────────────────────────────────────── */
+.av-drawer-backdrop { position: fixed; inset: 0; z-index: 40; background: rgb(8 39 28 / 0.55); }
+.av-drawer {
+  position: fixed; top: 0; bottom: 0; left: 0; z-index: 50;
+  width: min(88vw, 22.5rem);
+  box-shadow: var(--av-shadow-overlay);
+  transform: translateX(-100%);
+  visibility: hidden; /* fechado: fora da ordem de tabulação */
+  transition: transform var(--av-motion-normal) var(--av-ease), visibility 0s linear var(--av-motion-normal);
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--av-sidebar);
+}
+.av-drawer[data-open="true"] {
+  transform: translateX(0); visibility: visible;
+  transition: transform var(--av-motion-normal) var(--av-ease), visibility 0s;
+}
+
+.av-content { padding-bottom: calc(1.5rem + env(safe-area-inset-bottom)); }
+
+@media (prefers-reduced-motion: reduce) {
+  .av-drawer, .av-nav-link, .av-btn, .av-module-card, .av-icon-btn { transition: none !important; }
+  .av-module-card:hover { transform: none; }
+}

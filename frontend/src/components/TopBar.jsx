@@ -1,8 +1,12 @@
-// TopBar Dark Elegante — AvalieImob / Romatec (adaptado para React/CRA).
-// Relógio neon + pill dourada de localização (geolocalização via Nominatim).
+// TopBar — cabeçalho compacto do painel (upgrade visual verde/dourado/creme).
+// Busca, atualização, Ferramentas, Novidades e conta. Data, localização e versão
+// ficam no menu da conta (antes: relógio + data + local + versão repetidos).
 import React, { useEffect, useState, useRef } from 'react';
-import { Menu, RefreshCw } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Menu, RefreshCw, Bell, ChevronDown, MapPin, CalendarDays, Info, User, LogOut } from 'lucide-react';
 import { BUILD_NUMBER } from '../version';
+import { BrandMark } from './brand/BrandMark';
+import ToolsLauncher from './shell/ToolsLauncher';
 
 // Detecta nova versão publicada: consulta /version.json (sem cache) e compara
 // o build publicado com o build carregado nesta sessão.
@@ -41,36 +45,6 @@ async function aplicarAtualizacao() {
   } catch { /* segue para o reload mesmo assim */ }
   window.location.reload(true);
 }
-
-const T = {
-  bg: '#0F1A10', bgSearch: 'rgba(255,255,255,0.05)', bgClock: '#0A1A0B', bgAvatar: '#1B5E20',
-  bgVer: 'rgba(255,255,255,0.05)', borderMain: 'rgba(255,255,255,0.06)', borderSearch: 'rgba(255,255,255,0.08)',
-  borderClock: '#1B5E20', borderAvatar: 'rgba(76,175,80,0.3)', borderLoc: 'rgba(184,134,11,0.25)',
-  bgLoc: 'rgba(184,134,11,0.12)', green: '#4CAF50', greenDim: '#2E7D32', gold: '#B8860B',
-  goldText: '#D4A017', textDate: 'rgba(255,255,255,0.35)', textVer: 'rgba(255,255,255,0.25)',
-  avatarText: '#C8E6C9',
-};
-
-const IconMapPin = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" />
-  </svg>
-);
-const IconBell = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" />
-  </svg>
-);
-const IconChevron = () => (
-  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-    <polyline points="6 9 12 15 18 9" />
-  </svg>
-);
-
-const PAD = (n) => String(n).padStart(2, '0');
-const DIAS = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
-const MESES = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
-const formatDate = (d) => `${DIAS[d.getDay()]}, ${PAD(d.getDate())} ${MESES[d.getMonth()]} ${d.getFullYear()}`;
 
 function useLocalizacao() {
   const [local, setLocal] = useState('Açailândia, MA');
@@ -115,15 +89,84 @@ function useLocalizacao() {
   return local;
 }
 
-const dropBtn = {
-  width: '100%', padding: '9px 14px', background: 'none', border: 'none',
-  textAlign: 'left', fontSize: 13, cursor: 'pointer', display: 'block',
-};
+
+const formatDate = (d) => d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+
+function AccountMenu({ user, version, deployDate, onProfile, onLogout }) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+  const btnRef = useRef(null);
+  const localizacao = useLocalizacao();
+  const nome = user?.name || 'Usuário';
+  const iniciais = user?.initials
+    || (nome.split(' ').filter(Boolean).slice(0, 2).map((n) => n[0]).join('').toUpperCase() || 'U');
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const fora = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
+    const tecla = (e) => { if (e.key === 'Escape') { setOpen(false); btnRef.current?.focus(); } };
+    document.addEventListener('mousedown', fora);
+    document.addEventListener('keydown', tecla);
+    return () => { document.removeEventListener('mousedown', fora); document.removeEventListener('keydown', tecla); };
+  }, [open]);
+
+  const info = { display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--av-text-secondary)', padding: '2px 0' };
+
+  return (
+    <div ref={wrapRef} style={{ position: 'relative' }}>
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-label={`Conta de ${nome}`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="av-icon-btn"
+        style={{ width: 'auto', padding: '0 8px 0 4px', gap: 8 }}
+      >
+        <span style={{
+          width: 34, height: 34, borderRadius: 999, background: 'var(--av-brand)', color: 'var(--av-gold)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700,
+        }}>{iniciais}</span>
+        <span className="hidden md:inline" style={{ fontSize: 14, fontWeight: 500, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {nome.split(' ')[0]}
+        </span>
+        <ChevronDown size={14} aria-hidden="true" className="hidden md:inline" />
+      </button>
+
+      {open && (
+        <div role="menu" aria-label="Conta" className="av-popover" style={{ minWidth: 260 }}>
+          <div style={{ padding: '10px 12px 8px', borderBottom: '1px solid var(--av-border)', marginBottom: 4 }}>
+            <div style={{ fontSize: 14, fontWeight: 600 }}>{nome}</div>
+            <div style={{ fontSize: 12, color: 'var(--av-text-secondary)', textTransform: 'capitalize' }}>{user?.role || 'Avaliador'}</div>
+            <div style={{ marginTop: 8 }}>
+              <div style={info}><CalendarDays size={14} aria-hidden="true" /> <span style={{ textTransform: 'capitalize' }}>{formatDate(new Date())}</span></div>
+              <div style={info}><MapPin size={14} aria-hidden="true" /> {localizacao}</div>
+            </div>
+          </div>
+          <button type="button" role="menuitem" className="av-menu-item" onClick={() => { setOpen(false); onProfile && onProfile(); }}>
+            <User size={16} aria-hidden="true" /> Meu perfil
+          </button>
+          <Link role="menuitem" to="/dashboard/novidades" className="av-menu-item" onClick={() => setOpen(false)}>
+            <Info size={16} aria-hidden="true" />
+            <span>Novidades<small>Versão {version}{deployDate ? ` · ${deployDate}` : ''}</small></span>
+          </Link>
+          <div style={{ height: 1, background: 'var(--av-border)', margin: '4px 8px' }} />
+          <button type="button" role="menuitem" className="av-menu-item" style={{ color: '#a52a2a' }} onClick={() => { setOpen(false); onLogout && onLogout(); }}>
+            <LogOut size={16} aria-hidden="true" /> Sair da conta
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function TopBar({
   version = 'v1.0',
   deployDate = '',
   onMenu,
+  menuOpen = false,
+  menuButtonRef,
   searchSlot,
   onNotif,
   notifCount = 0,
@@ -131,205 +174,58 @@ export default function TopBar({
   onLogout,
   onProfile,
 }) {
-  const [now, setNow] = useState(new Date());
-  const [menuOpen, setMenu] = useState(false);
-  const [compacto, setCompacto] = useState(false);
-  const menuRef = useRef(null);
-  const localizacao = useLocalizacao();
   const updateAvailable = useUpdateAvailable();
 
-  // Mostra a faixa extra (data/local/versao) só abaixo de lg (1024px), espelhando
-  // os utilitarios `lg:` da barra principal. Evita duplicacao no desktop.
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return;
-    const mq = window.matchMedia('(max-width: 1023px)');
-    const upd = () => setCompacto(mq.matches);
-    upd();
-    if (mq.addEventListener) mq.addEventListener('change', upd);
-    else mq.addListener(upd);
-    return () => {
-      if (mq.removeEventListener) mq.removeEventListener('change', upd);
-      else mq.removeListener(upd);
-    };
-  }, []);
-
-  useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(t);
-  }, []);
-  useEffect(() => {
-    const handler = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenu(false); };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  const hh = PAD(now.getHours());
-  const mm = PAD(now.getMinutes());
-  const ss = PAD(now.getSeconds());
-  const nome = user?.name || 'Usuário';
-  const iniciais = user?.initials
-    || (nome.split(' ').filter(Boolean).slice(0, 2).map((n) => n[0]).join('').toUpperCase() || 'U');
-
   return (
-    <div style={{ position: 'sticky', top: 0, zIndex: 100, width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
-    <header
-      aria-label="Barra de navegação principal"
-      style={{
-        height: 52, background: T.bg, borderBottom: `1px solid ${T.borderMain}`,
-        display: 'flex', alignItems: 'center', padding: '0 12px', gap: 10,
-        fontFamily: "'DM Sans', system-ui, sans-serif",
-        // Conter o cabeçalho: largura travada no contêiner e overflow horizontal
-        // clipado para que o conteúdo nowrap (relógio/data/local/versão) jamais
-        // escape pela lateral direita.
-        width: '100%', maxWidth: '100%', boxSizing: 'border-box',
-        overflow: 'hidden', flexWrap: 'nowrap',
-      }}
-    >
-      {onMenu && (
-        <button onClick={onMenu} aria-label="Abrir menu" className="lg:hidden" style={{
-          width: 34, height: 34, background: T.bgSearch, border: `1px solid ${T.borderSearch}`,
-          borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: 'rgba(255,255,255,0.6)', flexShrink: 0, cursor: 'pointer',
-        }}>
-          <Menu size={18} />
-        </button>
-      )}
-
-      {/* Busca real (GlobalSearch) */}
-      <div style={{ flex: '1 1 0', maxWidth: 360, minWidth: 0, overflow: 'hidden' }}>{searchSlot}</div>
-
-      {/* Centro: relógio + data + localização */}
-      <div style={{ flex: '1 1 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, minWidth: 0, overflow: 'hidden' }}>
-        <div role="timer" aria-label={`Horário ${hh}:${mm}:${ss}`} style={{
-          background: T.bgClock, border: `1px solid ${T.borderClock}`, borderRadius: 8,
-          padding: '5px 12px', display: 'flex', alignItems: 'baseline', gap: 2, flexShrink: 0,
-        }}>
-          <span style={{ fontSize: 20, fontWeight: 600, color: T.green, fontFamily: "'Courier New', monospace", letterSpacing: '2px', lineHeight: 1 }}>
-            {hh}:{mm}
-          </span>
-          <span style={{ fontSize: 12, color: T.greenDim, fontFamily: "'Courier New', monospace" }}>:{ss}</span>
-        </div>
-        <span className="hidden xl:inline" style={{ fontSize: 11, color: T.textDate, letterSpacing: '0.5px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
-          {formatDate(now)}
-        </span>
-        <div className="hidden lg:flex" style={{
-          background: T.bgLoc, border: `1px solid ${T.borderLoc}`, borderRadius: 99,
-          padding: '4px 12px', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
-        }}>
-          <span style={{ color: T.gold, display: 'flex' }}><IconMapPin /></span>
-          <span style={{ fontSize: 12, color: T.goldText, fontWeight: 500 }}>{localizacao}</span>
-        </div>
-      </div>
-
-      {/* Direita: atualizar + versão + sino + avatar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-        {updateAvailable && (
+    <header className="av-header" aria-label="Cabeçalho do painel">
+      <div style={{ minHeight: 64, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }} className="px-4 lg:px-6">
+        {onMenu && (
           <button
-            onClick={aplicarAtualizacao}
-            title="Nova versão disponível — clique para atualizar"
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
-              fontSize: 11, fontWeight: 700, color: '#1A1A1A',
-              background: 'linear-gradient(135deg, #F0B429, #D4A017)',
-              border: '1px solid rgba(184,134,11,0.5)', borderRadius: 99,
-              padding: '4px 12px', whiteSpace: 'nowrap',
-              boxShadow: '0 0 0 1px rgba(184,134,11,0.15), 0 2px 8px rgba(212,160,23,0.35)',
-            }}
+            ref={menuButtonRef}
+            type="button"
+            onClick={onMenu}
+            aria-label="Abrir menu"
+            aria-expanded={menuOpen}
+            aria-controls="av-menu-principal"
+            className="av-icon-btn av-menu-btn"
           >
-            <RefreshCw size={13} /> Atualizar
+            <Menu size={20} aria-hidden="true" />
           </button>
         )}
-        <span className="hidden sm:inline" style={{
-          fontSize: 11, fontWeight: 700, color: T.goldText, background: T.bgLoc, padding: '3px 10px',
-          borderRadius: 99, border: `1px solid ${T.borderLoc}`, whiteSpace: 'nowrap', letterSpacing: '0.3px',
-          boxShadow: '0 0 0 1px rgba(184,134,11,0.06)',
-        }}>
-          {version}{deployDate ? ` · ${deployDate}` : ''}
-        </span>
 
-        <button onClick={onNotif} aria-label="Notificações" style={{
-          width: 32, height: 32, background: T.bgSearch, border: `1px solid ${T.borderSearch}`,
-          borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          position: 'relative', cursor: 'pointer', color: 'rgba(255,255,255,0.5)', flexShrink: 0,
-        }}>
-          <IconBell />
-          {notifCount > 0 && (
-            <span style={{ position: 'absolute', top: 6, right: 6, width: 6, height: 6, background: T.gold, borderRadius: '50%', boxShadow: `0 0 0 1.5px ${T.bg}` }} />
+        {/* Logo oficial no mobile/tablet (no desktop ele está na sidebar) */}
+        <Link to="/dashboard" className="lg:hidden flex items-center gap-2 min-w-0" style={{ textDecoration: 'none', color: 'var(--av-text)' }} aria-label="AvalieImob — Visão geral">
+          <BrandMark variant="badge" size={32} title="AvalieImob" />
+          <span className="hidden min-[420px]:inline" style={{ fontWeight: 700, fontSize: 16, letterSpacing: '-0.01em' }}>AvalieImob</span>
+        </Link>
+
+        {/* Busca: no desktop fica no cabeçalho; no mobile ganha linha própria */}
+        <div className="order-last basis-full pb-3 sm:order-none sm:basis-auto sm:pb-0 sm:flex-1 flex" style={{ minWidth: 0, maxWidth: 480 }}>{searchSlot}</div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, marginLeft: 'auto', minHeight: 64 }}>
+          {updateAvailable && (
+            <button
+              type="button"
+              onClick={aplicarAtualizacao}
+              title="Nova versão disponível — clique para atualizar"
+              className="av-btn av-btn-gold"
+              style={{ minHeight: 44, padding: '0 12px' }}
+            >
+              <RefreshCw size={15} aria-hidden="true" /> <span className="hidden md:inline">Atualizar</span>
+              <span className="md:hidden sr-only">Atualizar</span>
+            </button>
           )}
-        </button>
-
-        <div ref={menuRef} style={{ position: 'relative' }}>
-          <button onClick={() => setMenu((v) => !v)} aria-label="Menu do usuário" aria-expanded={menuOpen} style={{
-            display: 'flex', alignItems: 'center', gap: 7, background: T.bgSearch,
-            border: `1px solid ${T.borderSearch}`, borderRadius: 8, padding: '4px 10px 4px 4px',
-            cursor: 'pointer', color: T.avatarText,
-          }}>
-            <div style={{
-              width: 26, height: 26, background: T.bgAvatar, border: `1px solid ${T.borderAvatar}`,
-              borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 10, fontWeight: 600, flexShrink: 0,
-            }}>{iniciais}</div>
-            <span className="hidden sm:inline" style={{ fontSize: 12, fontWeight: 500, color: 'rgba(255,255,255,0.7)', maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {nome.split(' ')[0]}
-            </span>
-            <span style={{ color: 'rgba(255,255,255,0.25)', display: 'flex', marginLeft: 2 }}><IconChevron /></span>
+          <ToolsLauncher />
+          <button type="button" onClick={onNotif} aria-label={notifCount > 0 ? `Novidades (${notifCount} não lidas)` : 'Novidades'} className="av-icon-btn">
+            <Bell size={18} aria-hidden="true" />
+            {notifCount > 0 && (
+              <span aria-hidden="true" style={{ position: 'absolute', top: 9, right: 10, width: 8, height: 8, background: 'var(--av-gold)', borderRadius: '50%', boxShadow: '0 0 0 2px #fff' }} />
+            )}
           </button>
-
-          {menuOpen && (
-            <div style={{
-              // position FIXED (não absolute): o <header> tem overflow:hidden e cortava o menu
-              // (abria mas ficava invisível). fixed escapa do clipping do ancestral.
-              position: 'fixed', top: 58, right: 12, background: '#111E12',
-              border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, minWidth: 190, zIndex: 1000,
-              overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
-            }}>
-              <div style={{ padding: '12px 14px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                <div style={{ fontSize: 13, fontWeight: 500, color: '#E8F5E9' }}>{nome}</div>
-                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>{user?.role || 'Admin'}</div>
-              </div>
-              <button
-                onClick={() => { if (onProfile) onProfile(); setMenu(false); }}
-                style={{ ...dropBtn, color: 'rgba(255,255,255,0.55)' }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
-              >
-                Meu perfil
-              </button>
-              <div style={{ height: 1, background: 'rgba(255,255,255,0.06)' }} />
-              <button
-                onClick={() => { if (onLogout) onLogout(); setMenu(false); }}
-                style={{ ...dropBtn, color: '#ef5350' }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(239,83,80,0.08)')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
-              >
-                Sair da conta
-              </button>
-            </div>
-          )}
+          <AccountMenu user={user} version={version} deployDate={deployDate} onProfile={onProfile} onLogout={onLogout} />
         </div>
       </div>
-    </header>
 
-      {/* Faixa compacta (abaixo de lg): data, localização e versão */}
-      {compacto && (
-      <div style={{
-        background: T.bg, borderBottom: `1px solid ${T.borderMain}`,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        gap: 12, padding: '4px 10px', flexWrap: 'wrap',
-        fontFamily: "'DM Sans', system-ui, sans-serif",
-      }}>
-        <span style={{ fontSize: 10, color: T.textDate, letterSpacing: '0.4px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
-          {formatDate(now)}
-        </span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: T.goldText }}>
-          <IconMapPin />
-          <span style={{ fontSize: 10.5, fontWeight: 500, whiteSpace: 'nowrap' }}>{localizacao}</span>
-        </span>
-        <span style={{ fontSize: 10, color: T.goldText, fontWeight: 600, whiteSpace: 'nowrap' }}>
-          {version}{deployDate ? ` · ${deployDate}` : ''}
-        </span>
-      </div>
-      )}
-    </div>
+    </header>
   );
 }

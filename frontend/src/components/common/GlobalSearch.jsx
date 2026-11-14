@@ -139,9 +139,10 @@ export default function GlobalSearch() {
           onChange={e => { setQuery(e.target.value); if (e.target.value.trim().length >= 2) setOpen(true); }}
           onFocus={() => { if (results.length > 0) setOpen(true); }}
           onKeyDown={onKeyDownInput}
-          placeholder="Buscar laudos, clientes, imoveis... (Ctrl+K)"
-          className="w-full pl-9 pr-8 py-2 rounded-xl text-sm bg-gray-100 border border-transparent
-                     focus:outline-none focus:border-emerald-300 focus:bg-white transition-all placeholder-gray-400"
+          placeholder="Buscar laudos, clientes, imóveis…"
+          aria-label="Buscar no sistema"
+          className="w-full h-11 pl-9 pr-8 rounded-xl text-sm bg-white border border-[#dde5de] text-[#173b2b]
+                     focus:outline-none focus:border-[#806219] focus:ring-2 focus:ring-[#806219]/30 transition-colors placeholder-gray-500"
         />
         {query && (
           <button

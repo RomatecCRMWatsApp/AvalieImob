@@ -1,153 +1,117 @@
 /**
- * Sidebar Dark Elegante — AvalieImob / Romatec (Opção 2 aprovada)
- * Adaptada ao projeto real: react-router-dom, menu completo do AvalieImob,
- * badge real de PTAM, logout via AuthContext, gatilho Roma_IA.
+ * Sidebar — menu principal do painel (upgrade visual verde premium / dourado).
+ * Mesmas rotas, mesmos itens e mesma regra de admin do menu anterior; muda só a
+ * apresentação: grupos por finalidade, recolhíveis, item ativo com marcador
+ * dourado e alvos de 44px. Usada na lateral (desktop) e no drawer (mobile).
  */
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useLocation, Link } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Building2, BarChart3, FileCheck2, Shield, Beef, Home,
   ClipboardCheck, FileText, FileSignature, Receipt, Sparkles, FileSearch, Award,
-  CreditCard, Settings, LogOut, Globe, Search, Palette, Tag, BadgeCheck, Stamp, Inbox, Calculator,
+  CreditCard, Settings, LogOut, Globe, Palette, Tag, BadgeCheck, Stamp, Inbox, Calculator,
   Compass, MapPin, Send, Megaphone, Mail, Radar, Instagram, Bell, KeyRound, Sigma, HardHat,
+  ChevronDown, X, Layers,
 } from 'lucide-react';
 import { ptamAPI } from '../lib/api';
 import { BrandMark } from './brand/BrandMark';
 
-// ── Tokens ─────────────────────────────────────────────────────────────────
-const T = {
-  bg: '#0F1A10',
-  bgHover: '#172318',
-  bgActive: 'rgba(27,94,32,0.35)',
-  bgLogo: '#1B5E20',
-  borderActive: '#4CAF50',
-  borderDiv: 'rgba(255,255,255,0.06)',
-  borderLogo: 'rgba(255,255,255,0.15)',
-  textMuted: 'rgba(255,255,255,0.45)',
-  textSection: 'rgba(255,255,255,0.22)',
-  textActive: '#C8E6C9',
-  iconInactive: 'rgba(255,255,255,0.32)',
-  iconActive: '#81C784',
-  gold: '#B8860B',
-};
-
-// ── Menu real do AvalieImob (rotas /dashboard/*) ─────────────────────────────
+// ── Menu do AvalieImob (rotas reais /dashboard/*), agrupado por finalidade ──
 const MENU = [
-  { section: null, items: [
-    { id: 'dashboard', label: 'Visão Geral', icon: LayoutDashboard, route: '/dashboard', end: true },
+  { id: 'overview', section: null, items: [
+    { id: 'dashboard', label: 'Visão geral', icon: LayoutDashboard, route: '/dashboard', end: true },
   ]},
-  { section: 'Cadastros', items: [
+  { id: 'cadastros', section: 'Cadastros', items: [
     { id: 'clientes', label: 'Clientes', icon: Users, route: '/dashboard/clientes' },
-    { id: 'imoveis', label: 'Imóveis e Garantias', icon: Building2, route: '/dashboard/imoveis' },
+    { id: 'imoveis', label: 'Imóveis e garantias', icon: Building2, route: '/dashboard/imoveis' },
     { id: 'amostras', label: 'Amostras', icon: BarChart3, route: '/dashboard/amostras' },
   ]},
-  { section: 'Laudos', items: [
-    { id: 'ptam', label: 'PTAM (Laudos)', icon: FileCheck2, route: '/dashboard/ptam', notifKey: 'ptam' },
-    { id: 'inferencia', label: 'Tratamento Científico', icon: Sigma, route: '/dashboard/inferencia', badge: 'NOVO' },
-    { id: 'garantias', label: 'Aval. de Garantias', icon: Shield, route: '/dashboard/garantias' },
+  { id: 'laudos', section: 'Laudos e avaliações', items: [
+    { id: 'ptam', label: 'PTAM e laudos', icon: FileCheck2, route: '/dashboard/ptam', countKey: 'ptam' },
+    { id: 'inferencia', label: 'Tratamento científico', icon: Sigma, route: '/dashboard/inferencia' },
+    { id: 'garantias', label: 'Avaliação de garantias', icon: Shield, route: '/dashboard/garantias' },
     { id: 'semoventes', label: 'Semoventes', icon: Beef, route: '/dashboard/semoventes' },
-    { id: 'locacao', label: 'Aval. Locação', icon: Home, route: '/dashboard/locacao' },
+    { id: 'locacao', label: 'Avaliação de locação', icon: Home, route: '/dashboard/locacao' },
     { id: 'tvi', label: 'Kit TVI', icon: ClipboardCheck, route: '/dashboard/tvi' },
     { id: 'laudos', label: 'Avaliações', icon: FileText, route: '/dashboard/laudos' },
   ]},
-  { section: 'Contratos', items: [
-    { id: 'propostas', label: 'Propostas', icon: FileText, route: '/dashboard/propostas', tag: 'NOVO' },
-    { id: 'contratos', label: 'Contratos', icon: FileSignature, route: '/dashboard/contratos', tag: 'NOVO' },
-    { id: 'exclusividade', label: 'Exclusividade', icon: BadgeCheck, route: '/dashboard/contratos-exclusivos', tag: 'NOVO' },
-    { id: 'documentos', label: 'Assinar Documentos', icon: Stamp, route: '/dashboard/documentos', tag: 'NOVO' },
-    { id: 'documentos-externos', label: 'Documentos Externos', icon: Send, route: '/dashboard/documentos-externos', tag: 'NOVO' },
-    { id: 'recibos', label: 'Recibos', icon: Receipt, route: '/dashboard/recibos', tag: 'NOVO' },
+  { id: 'documentos', section: 'Contratos e documentos', items: [
+    { id: 'propostas', label: 'Propostas', icon: FileText, route: '/dashboard/propostas' },
+    { id: 'contratos', label: 'Contratos', icon: FileSignature, route: '/dashboard/contratos' },
+    { id: 'exclusividade', label: 'Exclusividade', icon: BadgeCheck, route: '/dashboard/contratos-exclusivos' },
+    { id: 'documentos', label: 'Assinar documentos', icon: Stamp, route: '/dashboard/documentos' },
+    { id: 'documentos-externos', label: 'Documentos externos', icon: Send, route: '/dashboard/documentos-externos' },
+    { id: 'recibos', label: 'Recibos', icon: Receipt, route: '/dashboard/recibos' },
   ]},
-  { section: 'Topografia & Geo', items: [
-    { id: 'georef', label: 'Georreferenciamento', icon: Compass, route: '/dashboard/topografia/georef', tag: 'NOVO' },
-    { id: 'geo-urbano', label: 'Geo Urbano', icon: MapPin, route: '/dashboard/topografia/geo-urbano', tag: 'NOVO' },
-    { id: 'onr-sigri', label: 'Arquivo ONR (SIG-RI)', icon: FileText, route: '/dashboard/topografia/onr-sigri', tag: 'NOVO' },
-    { id: 'inss-obra', label: 'INSS de Obra', icon: HardHat, route: '/dashboard/inss-obra', tag: 'NOVO' },
+  { id: 'geo', section: 'Geoespacial', items: [
+    { id: 'georef', label: 'Georreferenciamento', icon: Compass, route: '/dashboard/topografia/georef' },
+    { id: 'geo-urbano', label: 'Geo urbano', icon: MapPin, route: '/dashboard/topografia/geo-urbano' },
+    { id: 'onr-sigri', label: 'Arquivo ONR (SIG-RI)', icon: Layers, route: '/dashboard/topografia/onr-sigri' },
+    { id: 'inss-obra', label: 'INSS de obra', icon: HardHat, route: '/dashboard/inss-obra' },
   ]},
-  { section: 'Ferramentas', items: [
+  { id: 'ferramentas', section: 'Ferramentas', items: [
     { id: 'ia', label: 'Roma_IA', icon: Sparkles, route: '/dashboard/ia' },
     { id: 'cnd', label: 'Certidões CND', icon: FileSearch, route: '/dashboard/cnd' },
     { id: 'incra', label: 'Tabelas INCRA', icon: BarChart3, route: '/dashboard/admin/incra' },
   ]},
-  { section: 'Conta', items: [
-    { id: 'curriculo', label: 'Meu Currículo', icon: Award, route: '/dashboard/curriculo' },
-    { id: 'marca', label: 'Marca (White-label)', icon: Palette, route: '/dashboard/marca', tag: 'NOVO' },
-    { id: 'assinatura-digital', label: 'Assinatura Digital', icon: FileSignature, route: '/dashboard/assinatura-digital', tag: 'NOVO' },
-    { id: 'assinaturas', label: 'Assinaturas', icon: Send, route: '/dashboard/assinaturas', tag: 'NOVO' },
+  { id: 'admin', section: 'Administração', adminOnly: true, items: [
+    { id: 'cupons', label: 'Cupons promo', icon: Tag, route: '/dashboard/admin/cupons' },
+    { id: 'acessos-teste', label: 'Acessos de teste', icon: KeyRound, route: '/dashboard/admin/acessos-teste' },
+    { id: 'usuarios', label: 'Usuários', icon: Users, route: '/dashboard/admin/usuarios' },
+    { id: 'leads', label: 'Leads', icon: Inbox, route: '/dashboard/admin/leads' },
+    { id: 'prospeccao', label: 'Prospecção', icon: Radar, route: '/dashboard/admin/prospeccao' },
+    { id: 'instagram', label: 'Instagram', icon: Instagram, route: '/dashboard/admin/instagram' },
+    { id: 'divulgacao', label: 'Divulgação', icon: Megaphone, route: '/dashboard/admin/divulgacao' },
+    { id: 'email-config', label: 'E-mail', icon: Mail, route: '/dashboard/admin/email' },
+    { id: 'danfse', label: 'DANFSe (temas)', icon: FileText, route: '/dashboard/admin/danfse' },
+    { id: 'nfse-emissao', label: 'NFS-e (emissão)', icon: Stamp, route: '/dashboard/admin/nfse-emissao' },
+  ]},
+  { id: 'conta', section: 'Conta e configurações', items: [
+    { id: 'curriculo', label: 'Meu currículo', icon: Award, route: '/dashboard/curriculo' },
+    { id: 'marca', label: 'Marca (white-label)', icon: Palette, route: '/dashboard/marca' },
+    { id: 'assinatura-digital', label: 'Assinatura digital', icon: FileSignature, route: '/dashboard/assinatura-digital' },
+    { id: 'assinaturas', label: 'Assinaturas', icon: Send, route: '/dashboard/assinaturas' },
     { id: 'novidades', label: 'Novidades', icon: Bell, route: '/dashboard/novidades' },
-    { id: 'assinatura', label: 'Assinatura', icon: CreditCard, route: '/dashboard/assinatura' },
+    { id: 'assinatura', label: 'Plano e pagamento', icon: CreditCard, route: '/dashboard/assinatura' },
     { id: 'config', label: 'Configurações', icon: Settings, route: '/dashboard/config' },
   ]},
 ];
+
+const GRUPOS_KEY = 'avalie_menu_grupos';
 
 function isActive(pathname, item) {
   if (item.end) return pathname === item.route;
   return pathname === item.route || pathname.startsWith(item.route + '/');
 }
 
-function NavItem({ item, active, notification, tag, onClick }) {
-  const [hovered, setHovered] = useState(false);
+function NavItem({ item, active, count, onNavigate }) {
   const Icon = item.icon;
   return (
-    <div
-      role="button"
-      tabIndex={0}
+    <Link
+      to={item.route}
+      onClick={onNavigate}
+      className="av-nav-link"
       aria-current={active ? 'page' : undefined}
-      onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onKeyDown={(e) => e.key === 'Enter' && onClick()}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 10, padding: '9px 16px',
-        cursor: 'pointer', transition: 'background 0.15s ease',
-        background: active ? T.bgActive : hovered ? T.bgHover : 'transparent',
-        borderLeft: active ? `2px solid ${T.borderActive}` : '2px solid transparent',
-        position: 'relative', userSelect: 'none', outline: 'none',
-      }}
     >
-      {active && (
-        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 60,
-          background: 'linear-gradient(90deg, rgba(76,175,80,0.08) 0%, transparent 100%)',
-          pointerEvents: 'none' }} />
-      )}
-      <span style={{ color: active ? T.iconActive : hovered ? 'rgba(255,255,255,0.55)' : T.iconInactive,
-        display: 'flex', flexShrink: 0, transition: 'color 0.15s ease' }}>
-        <Icon size={18} strokeWidth={1.6} />
-      </span>
-      <span style={{ fontSize: 13, color: active ? T.textActive : hovered ? 'rgba(255,255,255,0.6)' : T.textMuted,
-        fontWeight: active ? 500 : 400, transition: 'color 0.15s ease', flex: 1 }}>
-        {item.label}
-      </span>
-      {notification > 0 && (
-        <div style={{ background: T.gold, color: '#fff', fontSize: 10, fontWeight: 600,
-          minWidth: 18, height: 18, borderRadius: 99, display: 'flex', alignItems: 'center',
-          justifyContent: 'center', padding: '0 5px', boxShadow: '0 0 8px rgba(184,134,11,0.4)' }}>
-          {notification}
-        </div>
-      )}
-      {tag && notification <= 0 && (
-        <div style={{ background: 'rgba(76,175,80,0.18)', color: '#A5D6A7', fontSize: 8.5,
-          fontWeight: 700, letterSpacing: '0.5px', padding: '2px 6px', borderRadius: 5 }}>
-          {tag}
-        </div>
-      )}
-    </div>
+      <Icon size={18} strokeWidth={1.75} aria-hidden="true" style={{ flexShrink: 0 }} />
+      <span style={{ flex: 1, minWidth: 0 }}>{item.label}</span>
+      {count > 0 && <span className="av-nav-count" aria-label={`${count} registros`}>{count}</span>}
+    </Link>
   );
-}
-
-function Divider() {
-  return <div style={{ height: 1, background: T.borderDiv, margin: '6px 0' }} />;
 }
 
 export default function Sidebar({
   user = {},
   onLogout = () => {},
   onNavigate = () => {},
-  width = 240,
+  onClose,
+  width = 248,
 }) {
-  const navigate = useNavigate();
   const location = useLocation();
   const [ptamCount, setPtamCount] = useState(0);
+  const [abertos, setAbertos] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(GRUPOS_KEY) || '{}') || {}; } catch { return {}; }
+  });
 
   useEffect(() => {
     let alive = true;
@@ -157,122 +121,115 @@ export default function Sidebar({
     return () => { alive = false; };
   }, []);
 
-  const notifications = { ptam: ptamCount };
+  const counts = { ptam: ptamCount };
   const name = user?.name || 'Usuário';
   const role = user?.role || 'Avaliador';
   const initials = name.split(' ').filter(Boolean).slice(0, 2).map((n) => n[0]).join('').toUpperCase() || 'U';
 
-  const go = (route) => { navigate(route); onNavigate(); };
-
-  // Item exclusivo de admin/CEO: Cupons Promocionais.
+  // Itens administrativos: mesma regra de antes (admin/owner/ceo).
   const isAdmin = ['admin', 'owner', 'ceo'].includes(String(user?.role || '').toLowerCase());
-  const menu = MENU.map((g) =>
-    g.section === 'Ferramentas' && isAdmin
-      ? { ...g, items: [
-          ...g.items,
-          { id: 'cupons', label: 'Cupons Promo', icon: Tag, route: '/dashboard/admin/cupons' },
-          { id: 'acessos-teste', label: 'Acessos Teste', icon: KeyRound, route: '/dashboard/admin/acessos-teste' },
-          { id: 'usuarios', label: 'Usuários', icon: Users, route: '/dashboard/admin/usuarios' },
-          { id: 'leads', label: 'Leads', icon: Inbox, route: '/dashboard/admin/leads' },
-          { id: 'prospeccao', label: 'Prospecção', icon: Radar, route: '/dashboard/admin/prospeccao' },
-          { id: 'instagram', label: 'Instagram', icon: Instagram, route: '/dashboard/admin/instagram' },
-          { id: 'divulgacao', label: 'Divulgação', icon: Megaphone, route: '/dashboard/admin/divulgacao' },
-          { id: 'email-config', label: 'E-mail', icon: Mail, route: '/dashboard/admin/email' },
-          { id: 'danfse', label: 'DANFSe (temas)', icon: FileText, route: '/dashboard/admin/danfse' },
-          { id: 'nfse-emissao', label: 'NFS-e (emissão)', icon: Stamp, route: '/dashboard/admin/nfse-emissao' },
-        ] }
-      : g
-  );
+  const menu = MENU.filter((g) => !g.adminOnly || isAdmin);
+
+  // Grupo aberto: preferência salva; sem preferência, abre o que contém a rota atual.
+  const grupoAberto = (g) => {
+    if (!g.section) return true;
+    if (g.items.some((it) => isActive(location.pathname, it))) return true;
+    return abertos[g.id] ?? false;
+  };
+  const alternar = (g) => {
+    const prox = { ...abertos, [g.id]: !grupoAberto(g) };
+    setAbertos(prox);
+    try { localStorage.setItem(GRUPOS_KEY, JSON.stringify(prox)); } catch { /* ignore */ }
+  };
 
   return (
-    <nav aria-label="Menu principal" style={{
-      width, minWidth: width, height: '100vh', background: T.bg, display: 'flex',
-      flexDirection: 'column', fontFamily: "'DM Sans', system-ui, -apple-system, sans-serif",
-      overflowY: 'auto', overflowX: 'hidden',
-    }}>
-      {/* Logo */}
-      <div style={{ paddingTop: 18 }}>
-        <div style={{ padding: '0 16px 16px' }}>
-          <Link to="/dashboard" onClick={onNavigate} style={{ textDecoration: 'none' }}>
-            <div style={{ background: T.bgLogo, borderRadius: 10, padding: '10px 14px',
-              display: 'flex', alignItems: 'center', gap: 10, border: `1px solid ${T.borderLogo}` }}>
-              <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-                <BrandMark variant="badge" size={34} title="AvalieImob" />
-              </div>
-              <div>
-                <div style={{ color: '#fff', fontSize: 14, fontWeight: 600, letterSpacing: '0.2px' }}>AvalieImob</div>
-                <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, marginTop: 1 }}>Romatec · PTAM · Laudos</div>
-              </div>
-            </div>
-          </Link>
-        </div>
-        <Divider />
+    <nav
+      id="av-menu-principal"
+      aria-label="Menu principal"
+      className="av-sidebar"
+      style={{ width, minWidth: typeof width === 'number' ? width : undefined, height: '100%',
+        display: 'flex', flexDirection: 'column' }}
+    >
+      {/* Logo oficial */}
+      <div style={{ padding: '16px 12px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <Link to="/dashboard" onClick={onNavigate} className="av-on-dark"
+          style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, padding: 4, borderRadius: 10 }}>
+          <BrandMark variant="badge" size={36} title="AvalieImob" />
+          <span style={{ minWidth: 0 }}>
+            <span style={{ display: 'block', color: '#fff', fontSize: 17, fontWeight: 700, letterSpacing: '-0.01em' }}>AvalieImob</span>
+            <span style={{ display: 'block', color: 'var(--av-gold)', fontSize: 9.5, letterSpacing: '0.08em', whiteSpace: 'nowrap', textTransform: 'uppercase', marginTop: 1 }}>Romatec · PTAM · Laudos</span>
+          </span>
+        </Link>
+        {onClose && (
+          <button type="button" onClick={onClose} aria-label="Fechar menu"
+            style={{ width: 44, height: 44, borderRadius: 10, border: '1px solid rgb(245 242 232 / 0.2)', background: 'transparent', color: 'var(--av-sidebar-text)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+            <X size={20} aria-hidden="true" />
+          </button>
+        )}
       </div>
 
-      {/* Menu */}
-      <div style={{ flex: 1, paddingTop: 4 }}>
-        {menu.map((group, gi) => (
-          <div key={gi}>
-            {group.section && (
-              <>
-                {gi > 0 && <Divider />}
-                <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '1.2px',
-                  color: T.textSection, textTransform: 'uppercase', padding: '10px 16px 4px' }}>
-                  {group.section}
-                </div>
-              </>
-            )}
-            {group.items.map((item) => (
-              <NavItem
-                key={item.id}
-                item={item}
-                active={isActive(location.pathname, item)}
-                notification={item.notifKey ? (notifications[item.notifKey] || 0) : 0}
-                tag={item.tag}
-                onClick={() => go(item.route)}
-              />
-            ))}
-          </div>
-        ))}
+      {/* Itens */}
+      <div style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'contain', paddingBottom: 8 }}>
+        {menu.map((group) => {
+          const aberto = grupoAberto(group);
+          const listaId = `av-grupo-${group.id}`;
+          return (
+            <div key={group.id} style={{ marginTop: group.section ? 6 : 0 }}>
+              {group.section && (
+                <button
+                  type="button"
+                  className="av-nav-group-btn"
+                  aria-expanded={aberto}
+                  aria-controls={listaId}
+                  onClick={() => alternar(group)}
+                >
+                  <span style={{ flex: 1 }}>{group.section}</span>
+                  <ChevronDown size={14} aria-hidden="true"
+                    style={{ transform: aberto ? 'rotate(180deg)' : 'none', transition: 'transform var(--av-motion-fast)' }} />
+                </button>
+              )}
+              <div id={listaId} hidden={!aberto} style={{ display: aberto ? 'grid' : 'none', gap: 2 }}>
+                {group.items.map((item) => (
+                  <NavItem
+                    key={item.id}
+                    item={item}
+                    active={isActive(location.pathname, item)}
+                    count={item.countKey ? (counts[item.countKey] || 0) : 0}
+                    onNavigate={onNavigate}
+                  />
+                ))}
+              </div>
+            </div>
+          );
+        })}
 
-        {/* Nossos Serviços (site público) */}
-        <div style={{ borderTop: `1px solid ${T.borderDiv}`, marginTop: 6 }}>
-          <NavItem
-            item={{ id: 'site', label: 'Nossos Serviços', icon: Globe, route: '/' }}
-            active={false}
-            notification={0}
-            onClick={() => go('/')}
-          />
+        {/* Links externos (site público e calculadora — esta só admin, como antes) */}
+        <div style={{ borderTop: '1px solid rgb(245 242 232 / 0.08)', marginTop: 10, paddingTop: 8, display: 'grid', gap: 2 }}>
+          <Link to="/" onClick={onNavigate} className="av-nav-link">
+            <Globe size={18} strokeWidth={1.75} aria-hidden="true" /> <span>Nossos serviços</span>
+          </Link>
           {isAdmin && (
-            <NavItem
-              item={{ id: 'calc-publica', label: 'Calculadora pública', icon: Calculator, route: '/quanto-vale-meu-imovel' }}
-              active={false}
-              notification={0}
-              onClick={() => window.open('/quanto-vale-meu-imovel', '_blank', 'noopener')}
-            />
+            <a href="/quanto-vale-meu-imovel" target="_blank" rel="noopener noreferrer" className="av-nav-link">
+              <Calculator size={18} strokeWidth={1.75} aria-hidden="true" /> <span>Calculadora pública</span>
+            </a>
           )}
         </div>
       </div>
 
-      {/* Rodapé: usuário + logout */}
-      <div style={{ padding: '12px 16px', borderTop: `1px solid ${T.borderDiv}`,
-        display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{ width: 32, height: 32, borderRadius: '50%', background: T.bgLogo,
-          border: '1px solid rgba(76,175,80,0.3)', display: 'flex', alignItems: 'center',
-          justifyContent: 'center', fontSize: 11, fontWeight: 600, color: '#C8E6C9', flexShrink: 0 }}>
+      {/* Rodapé: usuário + sair */}
+      <div style={{ padding: '12px 16px', borderTop: '1px solid rgb(245 242 232 / 0.08)', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div aria-hidden="true" style={{ width: 34, height: 34, borderRadius: '50%', background: 'var(--av-gold)', color: 'var(--av-brand)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
           {initials}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 12, fontWeight: 500, color: 'rgba(255,255,255,0.75)',
-            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</div>
-          <div style={{ fontSize: 10, color: T.textMuted, textTransform: 'capitalize' }}>{role}</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</div>
+          <div style={{ fontSize: 11, color: 'var(--av-sidebar-muted)', textTransform: 'capitalize' }}>{role}</div>
         </div>
-        <button onClick={onLogout} title="Sair da conta" style={{ background: 'none', border: 'none',
-          cursor: 'pointer', color: 'rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center',
-          justifyContent: 'center', padding: 4, borderRadius: 6, flexShrink: 0 }}
-          onMouseEnter={(e) => { e.currentTarget.style.color = '#ef5350'; e.currentTarget.style.background = 'rgba(239,83,80,0.1)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.25)'; e.currentTarget.style.background = 'none'; }}>
-          <LogOut size={16} strokeWidth={1.6} />
+        <button type="button" onClick={onLogout} aria-label="Sair da conta" title="Sair da conta"
+          style={{ width: 44, height: 44, borderRadius: 10, background: 'none', border: 0, cursor: 'pointer',
+            color: 'var(--av-sidebar-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <LogOut size={18} strokeWidth={1.75} aria-hidden="true" />
         </button>
       </div>
     </nav>

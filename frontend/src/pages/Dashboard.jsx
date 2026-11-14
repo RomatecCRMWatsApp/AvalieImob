@@ -1,5 +1,7 @@
 /* eslint-disable no-unused-vars */
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import MenuDrawer from '../components/shell/MenuDrawer';
+import '../styles/av-shell.css';
 import { Link, NavLink, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Building2, BarChart3, FileText,
@@ -329,21 +331,33 @@ const Dashboard = () => {
   const nov = useNovidades();
   const [sinoOpen, setSinoOpen] = useState(false);
 
+  const menuBtnRef = useRef(null);
+  const fecharMenu = useCallback(() => {
+    setMobileOpen(false);
+    // devolve o foco ao botão que abriu o menu
+    setTimeout(() => menuBtnRef.current?.focus(), 0);
+  }, []);
+
   const handleLogout = () => {
     logout();
     nav('/');
   };
 
   return (
-    <div className="min-h-screen flex" style={{ background: '#f8fafc' }}>
+    <div className="av-shell min-h-screen flex">
+      <a href="#av-conteudo" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[70] av-btn av-btn-gold">
+        Pular para o conteúdo
+      </a>
 
-      {/* ── Sidebar (dark elegante) ── */}
-      <aside
-        className={`fixed lg:sticky top-0 inset-y-0 left-0 z-40 flex transition-transform duration-300 h-screen
-                    ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
-      >
-        <Sidebar user={user} onLogout={handleLogout} onNavigate={() => setMobileOpen(false)} />
+      {/* ── Menu lateral fixo (desktop ≥ 1024px) ── */}
+      <aside className="hidden lg:block sticky top-0 h-screen flex-shrink-0">
+        <Sidebar user={user} onLogout={handleLogout} />
       </aside>
+
+      {/* ── Drawer do menu (mobile/tablet < 1024px) ── */}
+      <MenuDrawer open={mobileOpen} onClose={fecharMenu}>
+        <Sidebar user={user} onLogout={handleLogout} onNavigate={fecharMenu} onClose={fecharMenu} width="100%" />
+      </MenuDrawer>
       {/* legado-sidebar-inicio */}
       <aside style={{ display: 'none' }}>
         {/* Logo (sobre fundo branco do gradiente — sem corte grosseiro) */}
@@ -430,13 +444,6 @@ const Dashboard = () => {
         </div>
       </aside>
 
-      {/* Mobile backdrop */}
-      {mobileOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-30 lg:hidden backdrop-blur-sm"
-          onClick={() => setMobileOpen(false)}
-        />
-      )}
 
       {/* ── Main content ── */}
       <main className="flex-1 min-w-0 flex flex-col">
@@ -444,6 +451,8 @@ const Dashboard = () => {
         {/* ── TopBar dark ── */}
         <TopBar
           onMenu={() => setMobileOpen(true)}
+          menuOpen={mobileOpen}
+          menuButtonRef={menuBtnRef}
           searchSlot={<GlobalSearch />}
           notifCount={nov.count}
           onNotif={() => setSinoOpen((o) => !o)}
@@ -465,7 +474,7 @@ const Dashboard = () => {
           onVisualizar={nov.visualizar} onDispensar={nov.dispensar} onCta={nov.clicarCta} />
 
         {/* ── Page content ── */}
-        <div className="flex-1 p-4 sm:p-6 lg:p-8">
+        <div id="av-conteudo" tabIndex={-1} className="av-content flex-1 min-w-0 p-4 sm:p-6 lg:p-8 outline-none">
           <TrialBanner />
           <Routes>
             <Route index element={<DashOverview />} />

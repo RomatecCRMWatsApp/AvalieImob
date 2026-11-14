@@ -1,74 +1,60 @@
-// @module dashboard/KpiStrip — 4 KPIs horizontais (design v4).
-// Cards brancos com border-left colorido, valor em Playfair e badge de variação.
+// @module dashboard/KpiStrip — indicadores do painel (upgrade visual).
+// Mesmas fontes de antes (GET /dashboard/stats via useDashboard). Valores em fonte
+// de interface, sem quebrar linha; valor completo no title/aria quando compactado.
+// Tendência só aparece se o backend enviar a variação (hoje não envia).
 import React from 'react';
-import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { FileCheck2, Users, Building2, Landmark, Receipt, Divide, TrendingUp, TrendingDown } from 'lucide-react';
 
-const DeltaBadge = ({ delta }) => {
-  if (!delta) {
-    return (
-      <span className="dash-delta-flat inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full">
-        <Minus className="w-3 h-3" /> estável
-      </span>
-    );
-  }
+const Variacao = ({ delta }) => {
+  if (!delta) return null;
   const up = !delta.startsWith('-');
   const Icon = up ? TrendingUp : TrendingDown;
   return (
-    <span className={`${up ? 'dash-delta-up' : 'dash-delta-down'} inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full`}>
-      <Icon className="w-3 h-3" /> {delta}
+    <span className={`${up ? 'dash-delta-up' : 'dash-delta-down'} inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full`}>
+      <Icon className="w-3 h-3" aria-hidden="true" /> {delta}
     </span>
   );
 };
 
-const KpiCard = ({ eyebrow, value, label, accent, delta, showDelta }) => (
-  <div
-    className="bg-white rounded-xl p-5 shadow-sm flex flex-col gap-1"
-    style={{ borderLeft: `3px solid ${accent}` }}
-  >
-    <div className="flex items-start justify-between">
-      <span className="dash-eyebrow" style={{ fontSize: 9, color: 'var(--dash-muted)' }}>
-        {eyebrow}
+const Metric = ({ Icon, label, value, full, desc, to, delta }) => {
+  const conteudo = (
+    <>
+      <span aria-hidden="true" className="hidden min-[440px]:flex items-center justify-center flex-shrink-0"
+        style={{ width: 40, height: 40, borderRadius: 999, background: 'var(--av-surface-soft)', color: 'var(--av-brand)' }}>
+        <Icon size={19} strokeWidth={1.75} />
       </span>
-      {showDelta && <DeltaBadge delta={delta} />}
-    </div>
-    <div className="dash-display" style={{ fontSize: 30, color: 'var(--dash-text)', lineHeight: 1.05 }}>
-      {value}
-    </div>
-    <span style={{ fontSize: 11, color: 'var(--dash-muted)' }}>{label}</span>
-  </div>
-);
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-2 flex-wrap" style={{ fontSize: 13, color: 'var(--av-text-secondary)' }}>
+          {label} <Variacao delta={delta} />
+        </span>
+        <span className="av-metric-value block" title={full || undefined}>
+          {value}
+          {full && full !== value && <span className="sr-only"> ({full})</span>}
+        </span>
+        {desc && <span className="block" style={{ fontSize: 12, color: 'var(--av-text-secondary)' }}>{desc}</span>}
+      </span>
+    </>
+  );
+  const cls = 'av-card flex items-center gap-3 p-4 min-w-0';
+  return to ? (
+    <Link to={to} className={`${cls} hover:shadow-md transition-shadow`} style={{ textDecoration: 'none', color: 'inherit' }}>{conteudo}</Link>
+  ) : (
+    <div className={cls}>{conteudo}</div>
+  );
+};
 
 const KpiStrip = ({ kpis }) => (
-  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-    <KpiCard
-      eyebrow="Volume avaliado"
-      value={kpis.volumeCompact}
-      label="Total acumulado"
-      accent="var(--dash-kpi-1)"
-      delta={kpis.variacaoVolume}
-      showDelta
-    />
-    <KpiCard
-      eyebrow="Laudos emitidos"
-      value={kpis.laudosTotal}
-      label="No período"
-      accent="var(--dash-kpi-2)"
-      delta={kpis.variacaoLaudos}
-      showDelta
-    />
-    <KpiCard
-      eyebrow="Ticket médio"
-      value={kpis.ticketMedio}
-      label="Por laudo"
-      accent="var(--dash-kpi-3)"
-    />
-    <KpiCard
-      eyebrow="Laudos / cliente"
-      value={kpis.laudosPorCliente}
-      label="Média"
-      accent="var(--dash-kpi-4)"
-    />
-  </div>
+  <section aria-label="Indicadores">
+    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
+      <Metric Icon={FileCheck2} label="Laudos" value={kpis.laudosTotal.toLocaleString('pt-BR')} desc="PTAMs cadastrados" to="/dashboard/ptam" delta={kpis.variacaoLaudos} />
+      <Metric Icon={Users} label="Clientes" value={kpis.clientes.toLocaleString('pt-BR')} desc="No cadastro" to="/dashboard/clientes" />
+      <Metric Icon={Building2} label="Imóveis" value={kpis.imoveis.toLocaleString('pt-BR')} desc="Identificados" to="/dashboard/imoveis" />
+      <Metric Icon={Landmark} label="Volume avaliado" value={kpis.volumeCompact} full={kpis.volumeFull} desc="Soma dos laudos" delta={kpis.variacaoVolume} />
+      <Metric Icon={Receipt} label="Ticket médio" value={kpis.ticketCompact} full={kpis.ticketMedio} desc="Por laudo" />
+      <Metric Icon={Divide} label="Laudos por cliente" value={kpis.laudosPorCliente} desc="Média" />
+    </div>
+  </section>
 );
 
 export default KpiStrip;

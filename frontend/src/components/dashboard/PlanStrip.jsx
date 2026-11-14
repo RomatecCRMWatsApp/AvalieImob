@@ -12,8 +12,8 @@ const PlanStrip = ({ plano }) => {
   return (
     <Link
       to="/dashboard/assinatura"
-      className="flex items-center justify-between gap-4 px-5 py-4 rounded-md transition-transform hover:-translate-y-0.5"
-      style={{ background: 'var(--dash-green-hero)' }}
+      className="flex items-center justify-between gap-4 px-5 py-4 rounded-2xl transition-colors hover:opacity-95"
+      style={{ background: 'var(--av-brand)', minHeight: 64 }}
     >
       <div className="flex items-center gap-4 min-w-0">
         <div
