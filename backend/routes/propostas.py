@@ -39,11 +39,11 @@ async def catalogo(uid: str = Depends(get_active_subscriber)):
 
 
 async def _dados_calculo(db, uid: str, subtipo: str, dados: dict) -> dict:
-    """Averbação vinculada a uma obra do módulo INSS de Obra: injeta a ÚLTIMA simulação
+    """Averbação/projeto executivo vinculados a uma obra do módulo INSS de Obra: injeta a ÚLTIMA simulação
     daquela obra (só do próprio usuário) para o cálculo. Não altera o que é salvo."""
     dados = dict(dados or {})
     oid = dados.get("inss_obra_id")
-    if not (subtipo or "").startswith("averbacao") or not oid:
+    if not ((subtipo or "").startswith("averbacao") or subtipo == "projeto_executivo") or not oid:
         return dados
     obra = await db.inss_obras.find_one({"id": oid, "user_id": uid},
                                         {"_id": 0, "numero": 1, "simulacoes": 1})

@@ -58,6 +58,25 @@ const CAMPOS_AVERBACAO = [
   { ...N('numero_parcelas_inss', 'Nº de parcelas INSS (2–60)', 12), when: (d) => !!d.parcelar_inss },
 ];
 
+const CAMPOS_INSS_PE = [
+  SEL('inss_destinacao', 'Destinação da obra (SERO)', [
+    { value: 'residencial_unifamiliar', label: 'Residencial unifamiliar' },
+    { value: 'residencial_multifamiliar', label: 'Residencial multifamiliar' },
+    { value: 'comercial_salas_lojas', label: 'Comercial — salas e lojas' },
+    { value: 'edificio_garagens', label: 'Edifício de garagens' },
+    { value: 'galpao_industrial', label: 'Galpão industrial' },
+    { value: 'casa_popular', label: 'Casa popular' },
+    { value: 'conjunto_habitacional_popular', label: 'Conjunto habitacional popular' }], 'residencial_unifamiliar'),
+  SEL('padrao_construtivo', 'Padrão construtivo', [
+    { value: 'popular', label: 'Popular' }, { value: 'normal', label: 'Normal' }, { value: 'alto', label: 'Alto' }], 'normal'),
+  SEL('responsavel', 'Responsável pela obra', [
+    { value: 'PF', label: 'Pessoa Física' }, { value: 'PJ_sem_contabilidade', label: 'PJ sem contabilidade' },
+    { value: 'PJ_com_contabilidade', label: 'PJ com contabilidade (sem SERO)' }], 'PF'),
+  ...CAMPOS_AVERBACAO.filter((c) => ['vau_m2', 'inss_categoria', 'inss_tipo', 'area_complementar_coberta',
+    'area_complementar_descoberta', 'usinado', 'data_inicio_obra', 'data_fim_obra'].includes(c.key))
+    .map(({ when, ...c }) => c),
+];
+
 const SCHEMAS = {
   averbacao_residencial: {
     titulo: 'Averbação Residencial',
@@ -234,6 +253,8 @@ const SCHEMAS = {
       { ...N('alvara_valor', 'Valor do alvará (R$)'), when: (d) => !!d.alvara_incluir, grupo: 'despesas' },
       { ...BOOL('placa_incluir', 'Placa de Obra (despesa)?'), grupo: 'despesas' },
       { ...N('placa_valor', 'Valor da placa (R$)'), when: (d) => !!d.placa_incluir, grupo: 'despesas' },
+      { ...BOOL('inss_estimar', 'Mostrar estimativa do INSS da obra?', true, ['Não', 'Sim (à parte do total)']), grupo: 'inss' },
+      ...CAMPOS_INSS_PE.map((c) => ({ ...c, grupo: 'inss', when: (d) => d.inss_estimar !== false && semInss(d) })),
     ],
   },
 };
@@ -290,10 +311,11 @@ const PropostaForm = () => {
   useEffect(() => () => { if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current); }, []);
   useEffect(() => { clientsAPI.list().then((d) => setClientes(Array.isArray(d) ? d : [])).catch(() => {}); }, []);
   const [obrasInss, setObrasInss] = useState([]);
+  const usaInssObra = String(subtipo || '').startsWith('averbacao') || subtipo === 'projeto_executivo';
   useEffect(() => {
-    if (!String(subtipo || '').startsWith('averbacao')) return;
+    if (!usaInssObra) return;
     inssObraAPI.listar().then((d) => setObrasInss(Array.isArray(d) ? d.filter((o) => o.ultima_simulacao) : [])).catch(() => {});
-  }, [subtipo]);
+  }, [usaInssObra]);
 
   const selecionarCliente = (cid) => {
     const c = clientes.find((x) => String(x.id) === String(cid));
@@ -449,6 +471,26 @@ const PropostaForm = () => {
   );
 
   // ── Conteúdo de cada etapa (seções) ──────────────────────────────────────
+  const blocoVinculoInss = (
+        <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-3 space-y-1">
+          <Field label="INSS da obra — usar simulação do módulo INSS de Obra">
+            <select value={form.dados_imovel.inss_obra_id || ''} onChange={(e) => setDado('inss_obra_id', e.target.value || null)}
+              className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-emerald-400 bg-white">
+              <option value="">— Não vincular: calcular aqui pela metodologia do SERO —</option>
+              {obrasInss.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.numero} · {o.cliente_nome || o.endereco || 'Obra'}{o.ultima_simulacao?.resultado?.total ? ` · R$ ${Number(o.ultima_simulacao.resultado.total).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : ''}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <p className="text-[11px] text-amber-800">
+            {form.dados_imovel.inss_obra_id
+              ? 'O INSS da proposta usa a última simulação dessa obra (memória de cálculo vai no PDF).'
+              : 'Sem vínculo, o INSS é simulado com os dados abaixo. Informe o VAU do SERO para o valor ficar igual ao do e-CAC; com 0 o sistema estima pelo CUB.'}
+          </p>
+        </div>
+  );
   const secCliente = (
     <div className="space-y-4">
       <div className={LABEL_CLS}>Cliente</div>
@@ -480,26 +522,7 @@ const PropostaForm = () => {
   const secServico = (
     <div>
       <div className={LABEL_CLS}>Dados do serviço (cálculo)</div>
-      {String(subtipo || '').startsWith('averbacao') && (
-        <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-3 space-y-1">
-          <Field label="INSS da obra — usar simulação do módulo INSS de Obra">
-            <select value={form.dados_imovel.inss_obra_id || ''} onChange={(e) => setDado('inss_obra_id', e.target.value || null)}
-              className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-emerald-400 bg-white">
-              <option value="">— Não vincular: calcular aqui pela metodologia do SERO —</option>
-              {obrasInss.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.numero} · {o.cliente_nome || o.endereco || 'Obra'}{o.ultima_simulacao?.resultado?.total ? ` · R$ ${Number(o.ultima_simulacao.resultado.total).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : ''}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <p className="text-[11px] text-amber-800">
-            {form.dados_imovel.inss_obra_id
-              ? 'O INSS da proposta usa a última simulação dessa obra (memória de cálculo vai no PDF).'
-              : 'Sem vínculo, o INSS é simulado com os dados abaixo. Informe o VAU do SERO para o valor ficar igual ao do e-CAC; com 0 o sistema estima pelo CUB.'}
-          </p>
-        </div>
-      )}
+      {String(subtipo || '').startsWith('averbacao') && blocoVinculoInss}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
         {camposVisiveis.map((campo) => <Field key={campo.key} label={campo.label}>{renderCampo(campo)}</Field>)}
       </div>
@@ -564,6 +587,22 @@ const PropostaForm = () => {
     <div>
       <div className={`${LABEL_CLS} mb-2`}>💼 Despesas Administrativas (opcionais — pagas à parte, fora das parcelas 50/50)</div>
       {gridCampos(peGrupo('despesas'))}
+    </div>
+  );
+  const inssPe = c?.inss_obra_estimativa;
+  const secInss = (
+    <div className="space-y-3">
+      <div className={LABEL_CLS}>🧾 INSS da obra — estimativa (à parte do total)</div>
+      <p className="text-[11px] text-gray-500">O INSS é pago pelo proprietário à Receita Federal na conclusão da obra (SERO/DCTFWeb), antes da averbação. Aparece na proposta só como informação — não entra nos honorários nem no total.</p>
+      {gridCampos(peGrupo('inss').filter((x) => x.key === 'inss_estimar'))}
+      {form.dados_imovel.inss_estimar !== false && blocoVinculoInss}
+      {gridCampos(peGrupo('inss').filter((x) => x.key !== 'inss_estimar'))}
+      {inssPe && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm">
+          INSS estimado: <b>R$ {Number(inssPe.total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</b>
+          <div className="text-[11px] text-gray-500">{inssPe.observacao}</div>
+        </div>
+      )}
     </div>
   );
   const secPagamento = (
@@ -1066,6 +1105,7 @@ const PropostaForm = () => {
     { key: 'pagamento', label: 'Pagamento', node: secPagamento },
     { key: 'prazos', label: 'Prazos & Obs.', node: secPrazos },
     { key: 'anexos', label: 'Anexos', node: secAnexos },
+    { key: 'inss', label: 'INSS da obra', node: secInss },
   ] : [
     { key: 'cliente', label: 'Cliente', node: secCliente },
     { key: 'servico', label: 'Serviço', node: secServico },

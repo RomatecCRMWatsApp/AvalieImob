@@ -7,6 +7,9 @@ from __future__ import annotations
 import math
 
 
+from services.pricing.inss_proposta import inss_da_obra
+
+
 def round2(n: float) -> float:
     """HALF_UP em 2 casas (espelha Math.round((n+EPSILON)*100)/100 da ZAYRA)."""
     return math.floor(float(n) * 100 + 0.5) / 100.0
@@ -257,10 +260,27 @@ def calcular_projeto_executivo(dados: dict) -> dict:
     avisos = [AVISO_TAXA_ESBOCO, AVISO_CNO_EXECUTIVO, AVISO_DESPESAS,
               AVISO_ART if responsabilidade_tipo == "ART" else AVISO_TRT]
 
+    # INSS da obra — ESTIMATIVA informativa (pago pelo proprietário à Receita na conclusão
+    # da obra, via SERO/DCTFWeb). NÃO entra nos honorários nem no total desta proposta.
+    inss_info = None
+    inss_memoria = []
+    if dados.get("inss_estimar") is not False:
+        dd = dict(dados)
+        dd.setdefault("inss_destinacao", dados.get("inss_destinacao") or "residencial_unifamiliar")
+        inss = inss_da_obra(dd, "residencial", area_construir,
+                            dados.get("padrao_construtivo") or "normal", dados.get("responsavel") or "PF")
+        if inss["origem"] != "sem_area":
+            inss_info = {"total": round2(inss["total"]), "observacao": inss["observacao"],
+                         "origem": inss["origem"], "fonte": inss["fonte"]}
+            inss_memoria = inss["base_calculo"]
+            avisos.append(inss["aviso"] + " Este valor NAO compoe o total desta proposta: e pago pelo "
+                          "proprietario a Receita Federal na conclusao da obra, antes da averbacao.")
+
     custos = {
         "secao_1_projetos": secao_1, "secao_2_taxas": secao_2, "secao_3_honorarios": secao_3,
         "condicoes_pagamento": condicoes, "base_calculo": base_calculo, "secao_4_checklist": CHECKLIST,
         "secao_5_total": total_geral, "avisos": avisos,
+        "inss_obra_estimativa": inss_info, "inss_memoria": inss_memoria,
     }
 
     return {"custos": custos, "fontes": {}, "projeto_executivo": {

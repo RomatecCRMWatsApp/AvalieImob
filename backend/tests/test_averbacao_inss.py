@@ -44,3 +44,28 @@ def test_usa_simulacao_vinculada_do_modulo():
                               "_inss_obra_sim": {"numero": "INSS-2026-0001", "resultado": sim}})
     assert _inss(res) == Decimal(sim["total"])
     assert res["fontes"]["sero"]["origem"] == "inss_obra"
+
+
+# ── Projeto executivo: INSS como estimativa à parte (não soma no total) ──────
+from services.pricing.projeto_executivo import calcular_projeto_executivo
+
+
+def test_projeto_executivo_mostra_inss_fora_do_total():
+    sem = calcular_projeto_executivo({"area_construir": 150, "inss_estimar": False})["custos"]
+    com = calcular_projeto_executivo({"area_construir": 150, "vau_m2": 2500,
+                                      "area_complementar_descoberta": 30})["custos"]
+    assert sem["inss_obra_estimativa"] is None
+    assert Decimal(str(com["inss_obra_estimativa"]["total"])) == Decimal("10377.60")
+    assert com["secao_5_total"] == sem["secao_5_total"]  # INSS não entra no total
+    assert com["inss_memoria"][-1]["rotulo"].startswith("TOTAL")
+
+
+def test_projeto_executivo_usa_simulacao_vinculada():
+    sim = simular({"responsavel": "PF", "uf": "MA", "vau": {"residencial_unifamiliar": "2000"},
+                   "data_inicio": "2026-01-01", "data_fim": "2026-05-01", "data_afericao": "2026-06-01",
+                   "areas": [{"destinacao": "residencial_unifamiliar", "categoria": "obra_nova",
+                              "tipo": "alvenaria", "classe": "principal", "area_m2": "90"}]})
+    c = calcular_projeto_executivo({"area_construir": 150,
+                                    "_inss_obra_sim": {"numero": "INSS-2026-0001", "resultado": sim}})["custos"]
+    assert Decimal(str(c["inss_obra_estimativa"]["total"])) == Decimal(sim["total"])
+    assert c["inss_obra_estimativa"]["origem"] == "inss_obra"

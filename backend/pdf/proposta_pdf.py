@@ -146,6 +146,23 @@ def _croqui_flowables(proposta, st):
     return out
 
 
+def _memoria_inss(bc: list, st: dict) -> list:
+    """Tabela 'Memória de cálculo do INSS da obra' (metodologia do Manual do SERO)."""
+    if not bc:
+        return []
+    rows = [[Paragraph(_esc(b.get("rotulo", "")), st["cell"]),
+             Paragraph(_esc(b.get("formula", "")), st["obs"]),
+             Paragraph(_brl(b.get("valor_resultado", 0)), st["cellr"])] for b in bc]
+    tb = Table(rows, colWidths=[5.6 * cm, UTIL_W - 8.8 * cm, 3.2 * cm])
+    tb.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                            ("LINEBELOW", (0, 0), (-1, -1), 0.3, colors.HexColor("#DDE5E0")),
+                            ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                            ("LEFTPADDING", (0, 0), (-1, -1), 2),
+                            ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#EFE6C8"))]))
+    return [Spacer(1, 6), KeepTogether([
+        Paragraph("<b>Memória de cálculo do INSS da obra</b> (estimativa pelo Manual do SERO)", st["cell"]), tb])]
+
+
 def gerar_proposta_pdf(proposta: dict, perfil: dict = None, user: dict = None, anexos_bytes=None) -> bytes:
     st = _styles()
     custos = proposta.get("custos_calculados") or {}
@@ -231,22 +248,8 @@ def gerar_proposta_pdf(proposta: dict, perfil: dict = None, user: dict = None, a
         el.append(Paragraph("2. Taxas e Emolumentos de Terceiros", st["sec"]))
         el.append(t2)
         # Memória de cálculo do INSS da obra (averbação) — mesma metodologia do SERO
-        bc = custos.get("base_calculo") or []
-        if bc:
-            el.append(Spacer(1, 6))
-            el.append(Paragraph("<b>Memória de cálculo do INSS da obra</b> (estimativa pelo Manual do SERO)",
-                                st["cell"]))
-            rows = [[Paragraph(_esc(b.get("rotulo", "")), st["cell"]),
-                     Paragraph(_esc(b.get("formula", "")), st["obs"]),
-                     Paragraph(_brl(b.get("valor_resultado", 0)), st["cellr"])] for b in bc]
-            tb = Table(rows, colWidths=[5.6 * cm, UTIL_W - 8.8 * cm, 3.2 * cm])
-            estilo = [("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                      ("LINEBELOW", (0, 0), (-1, -1), 0.3, colors.HexColor("#DDE5E0")),
-                      ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-                      ("LEFTPADDING", (0, 0), (-1, -1), 2),
-                      ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#EFE6C8"))]
-            tb.setStyle(TableStyle(estilo))
-            el.append(tb)
+        if not custos.get("inss_obra_estimativa"):
+            el += _memoria_inss(custos.get("inss_memoria") or [], st)
 
     # 3 — Honorários
     t3 = _tabela_itens(custos.get("secao_3_honorarios"), st)
@@ -310,6 +313,22 @@ def gerar_proposta_pdf(proposta: dict, perfil: dict = None, user: dict = None, a
                                 ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
                                 ("LEFTPADDING", (0, 0), (-1, -1), 2)]))
         el.append(td)
+
+    # INSS da obra (projeto executivo) — estimativa informativa, à parte do total
+    ie = custos.get("inss_obra_estimativa")
+    if ie:
+        el.append(Paragraph("INSS da Obra — Estimativa (à parte — não incluso no total)", st["sec"]))
+        ti = Table([[Paragraph("INSS da obra (SERO — Receita Federal, aferição indireta) — pago pelo proprietário "
+                               "na conclusão da obra, antes da averbação", st["cell"]),
+                     Paragraph(_brl(ie.get("total") or 0), st["cellr"])],
+                    [Paragraph(_esc(ie.get("observacao") or ""), st["obs"]), ""]],
+                   colWidths=[UTIL_W - 3.2 * cm, 3.2 * cm])
+        ti.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("SPAN", (0, 1), (-1, 1)),
+                                ("LINEBELOW", (0, -1), (-1, -1), 0.3, colors.HexColor("#DDE5E0")),
+                                ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                                ("LEFTPADDING", (0, 0), (-1, -1), 2)]))
+        el.append(ti)
+        el += _memoria_inss(custos.get("inss_memoria") or [], st)
 
     # Despesas administrativas (desmembramento/remembramento) — à parte do total
     dadm = custos.get("despesas_administrativas")
