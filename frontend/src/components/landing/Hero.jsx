@@ -1,173 +1,113 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, CheckCircle2, Sparkles, CheckCircle, ShieldCheck, FileSignature, FileDown, Calculator, Sigma } from 'lucide-react';
-import { Button } from '../ui/button';
-import { BRAND } from '../../mock/mock';
+import { ArrowRight, Calculator, ShieldCheck, Sigma, Sparkles, MapPinned, FileSignature } from 'lucide-react';
+import { VERDE, DOURADO, CREME, WHATS_FMT } from './campanha';
+import { BotaoTeste, CurvasTopo } from './CampanhaModulos';
 
+// Identidade da campanha: verde profundo, dourado e as artes dos módulos em leque.
 const DESTAQUES = [
+  { label: 'PTAM · NBR 14.653', icon: Sparkles },
   { label: 'Inferência estatística — Grau III', icon: Sigma },
-  { label: 'IA integrada', icon: Sparkles },
+  { label: 'Georreferenciamento e SIG-RI', icon: MapPinned },
+  { label: 'Contratos e procuração', icon: FileSignature },
   { label: 'Assinatura ICP-Brasil', icon: ShieldCheck },
-  { label: 'Contratos & Procuração', icon: FileSignature },
-  { label: 'Exporta PDF/DOCX', icon: FileDown },
 ];
 
-const NORMAS = [
-  'NBR 14.653-1:2019 — Avaliação de Bens (Procedimentos Gerais)',
-  'NBR 14.653-2:2011 — Imóveis Urbanos',
-  'NBR 14.653-3:2019 — Imóveis Rurais',
-  'NBR 14.653-4:2002 — Empreendimentos',
-  'COFECI — Resolução 1.066/2007 (PTAM por Corretor)',
-  'CRECI — Registro profissional de Corretor de Imóveis',
-  'CREA/CAU — Engenheiros e Arquitetos Avaliadores',
-  'CNAI — Cadastro Nacional de Avaliadores Imobiliários',
-  'Lei 6.530/1978 — Regulamenta profissão de Corretor',
-  'Lei 8.245/1991 — Lei do Inquilinato (Locação)',
-  'Código Civil — Art. 565 a 578 (Locação)',
-  'Código Civil — Art. 1.225 (Direitos Reais)',
-  'Lei 4.591/1964 — Incorporações Imobiliárias',
-  'Dec.-Lei 3.365/1941 — Desapropriações',
-  'LGPD — Lei 13.709/2018 (Proteção de Dados)',
-  'SUSEP — Seguros e Garantias',
-  'INCRA — Cadastro Rural (SIGEF/CCIR/CAR)',
-  'SFH/SFI — Sistema Financeiro Habitacional e Imobiliário',
+const LEQUE = [
+  { src: '/campanha/geo-1.jpg', alt: 'Do memorial ao dossiê: módulo de georreferenciamento', cls: '-rotate-[7deg] -translate-x-[38%] translate-y-6', z: 1 },
+  { src: '/campanha/exc-1.jpg', alt: 'Exclusividade assinada pelo celular', cls: 'rotate-[7deg] translate-x-[38%] translate-y-6', z: 2 },
+  { src: '/campanha/ptam-4.jpg', alt: 'Um laudo com a sua marca: PTAM em PDF com assinatura ICP-Brasil', cls: '', z: 3 },
 ];
 
-const Hero = () => {
-  return (
-    <section className="relative pt-32 pb-20 overflow-hidden bg-gradient-to-b from-emerald-50/40 to-white">
-      <div className="absolute inset-0 opacity-[0.04] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#0d4f3c 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
+const Hero = () => (
+  <section className="relative overflow-hidden pt-16 pb-20 md:pt-20 md:pb-28" style={{ background: VERDE }}>
+    <CurvasTopo cor="rgba(201,168,76,.14)" />
+    <div
+      className="absolute -right-40 -top-40 w-[560px] h-[560px] rounded-full pointer-events-none"
+      style={{ background: 'radial-gradient(circle, rgba(201,168,76,.18) 0%, rgba(201,168,76,0) 70%)' }}
+    />
 
-      <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-16 items-center relative">
-        <div className="animate-fade-in-up">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-900/5 border border-emerald-900/10 text-emerald-900 text-xs font-medium mb-6">
-            <Sparkles className="w-3.5 h-3.5" />
-            Nova versão 2026 com IA integrada
-          </div>
+    <div className="relative max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-14 items-center">
+      <div className="min-w-0 animate-fade-in-up">
+        <p className="text-xs font-bold tracking-[0.3em] uppercase mb-6" style={{ color: DOURADO }}>
+          Avaliação · Topografia · Contratos
+        </p>
 
-          <h1 className="font-display text-5xl md:text-6xl lg:text-7xl font-bold leading-[1.05] text-gray-900 mb-3">
-            Software de <span className="brand-green">PTAM</span> e<br />
-            Avaliação <span className="brand-green italic">Imobiliária</span>
-          </h1>
+        <h1 className="font-sans font-extrabold tracking-tight leading-[1.02] text-[2.15rem] sm:text-6xl lg:text-[4.1rem] mb-3" style={{ color: CREME, textWrap: 'balance' }}>
+          Software de PTAM e avaliação imobiliária.{' '}
+          <span className="block" style={{ color: DOURADO }}>Do laudo ao contrato assinado.</span>
+        </h1>
 
-          <h2 className="text-sm font-medium text-emerald-700 mb-5 tracking-wide uppercase">
-            Sistema Online · NBR 14.653 · PTAM · TVI · Inferência Estatística · Contratos &amp; Procuração · Assinatura ICP-Brasil · Garantias · Semoventes · Locação
-          </h2>
+        <div className="w-16 h-[3px] rounded-full my-7" style={{ background: DOURADO }} />
 
-          <div className="flex flex-wrap gap-2 mb-6">
-            {DESTAQUES.map(d => {
-              const Icon = d.icon;
-              return (
-                <span key={d.label} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-900/5 border border-emerald-900/10 text-emerald-900 text-xs font-semibold">
-                  <Icon className="w-3.5 h-3.5 text-emerald-700" />
-                  {d.label}
-                </span>
-              );
-            })}
-          </div>
+        <p className="text-lg leading-relaxed mb-8 max-w-xl" style={{ color: 'rgba(243,241,230,.82)' }}>
+          A plataforma do corretor, do avaliador e do agrimensor: emita <strong className="text-[#F3F1E6]">PTAM e laudos</strong> conforme a NBR 14.653, monte o <strong className="text-[#F3F1E6]">dossiê do georreferenciamento</strong> com o shapefile do SIG-RI e feche <strong className="text-[#F3F1E6]">contratos de exclusividade</strong> assinados pelo celular.
+        </p>
 
-          <p className="text-lg text-gray-600 mb-8 max-w-xl leading-relaxed">
-            A plataforma completa para emitir <strong>PTAM, Laudos e Avaliações</strong>, gerar <strong>contratos e propostas</strong> e <strong>assinar com ICP-Brasil</strong> — imóveis urbanos, rurais e garantias (grãos, safra, bovinos e equipamentos).
-          </p>
-
-          <div className="flex flex-col sm:flex-row gap-3 mb-10">
-            <Link to="/cadastro">
-              <Button size="lg" className="bg-emerald-900 hover:bg-emerald-800 text-white px-8 h-12 text-base font-semibold shadow-lg shadow-emerald-900/20">
-                Começar agora
-                <ArrowRight className="ml-2 w-4 h-4" />
-              </Button>
-            </Link>
-            <a href="#planos">
-              <Button size="lg" variant="outline" className="border-emerald-900/30 text-emerald-900 hover:bg-emerald-50 px-8 h-12 text-base">
-                Ver planos
-              </Button>
-            </a>
-          </div>
-
-          <div className="w-full">
-            <p className="text-xs font-semibold text-emerald-800 uppercase tracking-widest mb-3">
-              Conformidade Legal e Normativa
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-              {NORMAS.map(norma => {
-                const [sigla, ...resto] = norma.split(' — ');
-                return (
-                  <div
-                    key={norma}
-                    className="flex items-start gap-2 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2.5 hover:bg-emerald-100/60 transition-colors"
-                  >
-                    <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
-                    <span className="text-xs text-gray-700 leading-snug">
-                      <span className="font-semibold text-emerald-900">{sigla}</span>
-                      {resto.length > 0 && (
-                        <span className="text-gray-500"> — {resto.join(' — ')}</span>
-                      )}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        <div className="relative animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
-          {/* CTA da Calculadora pública — destaque com LED pulsante p/ chamar atenção */}
-          <Link to="/quanto-vale-meu-imovel" className="group block mb-6" aria-label="Calcular quanto vale meu imóvel">
-            <div className="relative">
-              {/* glow LED pulsante atrás do card */}
-              <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-500 opacity-70 blur-lg animate-pulse" />
-              <div className="relative flex items-center gap-4 rounded-2xl bg-white border-2 border-amber-400 px-5 py-4 shadow-xl shadow-amber-500/20 transition-transform group-hover:-translate-y-0.5">
-                <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center shadow-inner">
-                  <Calculator className="w-6 h-6 text-emerald-950" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 mb-0.5">
-                    <span className="relative flex h-2.5 w-2.5">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500" />
-                    </span>
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-amber-600">Grátis · leva 1 minuto</span>
-                  </div>
-                  <div className="font-display text-lg font-bold text-emerald-950 leading-tight">Quanto vale o seu imóvel?</div>
-                  <div className="text-xs text-gray-500">Estimativa de mercado na hora — sem cadastro</div>
-                </div>
-                <ArrowRight className="w-5 h-5 text-amber-600 flex-shrink-0 group-hover:translate-x-1 transition-transform" />
-              </div>
-            </div>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-5">
+          <BotaoTeste codigo="SITE-HERO" />
+          <Link
+            to="/cadastro"
+            className="inline-flex items-center justify-center gap-2 rounded-full px-7 h-14 text-base font-semibold border transition-colors hover:bg-white/5"
+            style={{ color: CREME, borderColor: 'rgba(201,168,76,.55)' }}
+          >
+            Criar minha conta <ArrowRight className="w-4 h-4" />
           </Link>
+        </div>
+        <p className="text-sm mb-9" style={{ color: 'rgba(243,241,230,.65)' }}>
+          Atendimento no WhatsApp <span className="font-semibold" style={{ color: DOURADO }}>{WHATS_FMT}</span> · liberamos o seu teste na hora
+        </p>
 
-          <div className="relative">
-            <div className="absolute -inset-4 bg-gradient-to-br from-emerald-100/60 to-emerald-50/30 rounded-3xl blur-2xl" />
-            <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-emerald-900/20 border border-emerald-900/10">
-              <img src="https://images.pexels.com/photos/8469999/pexels-photo-8469999.jpeg" alt="Engenheira avaliadora" className="w-full h-[520px] object-cover" />
-              <div className="absolute inset-0 bg-gradient-to-t from-emerald-900/40 via-transparent to-transparent" />
-
-              <div className="absolute bottom-6 left-6 right-6 bg-white/95 backdrop-blur rounded-xl p-5 shadow-lg">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="text-xs font-semibold text-emerald-900 tracking-wider">PTAM-2026-001</div>
-                  <span className="text-xs px-2 py-0.5 bg-emerald-100 text-emerald-900 rounded-full font-medium">Emitido</span>
-                </div>
-                <div className="font-display text-2xl font-bold text-gray-900">R$ 380.000,00</div>
-                <div className="text-xs text-gray-500 mt-1">Apartamento 85m² • Calhau/MA • Método Comparativo</div>
-              </div>
-            </div>
-
-            <div className="absolute -top-4 -left-4 bg-white rounded-xl shadow-xl border border-emerald-900/10 p-4 animate-float">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-emerald-900 flex items-center justify-center">
-                  <Sparkles className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <div className="text-xs text-gray-500">IA gerou</div>
-                  <div className="text-sm font-semibold text-gray-900">Fundamentação técnica</div>
-                </div>
-              </div>
-            </div>
-          </div>
+        <div className="flex flex-wrap gap-2">
+          {DESTAQUES.map((d) => {
+            const Icon = d.icon;
+            return (
+              <span key={d.label} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border" style={{ color: CREME, borderColor: 'rgba(201,168,76,.35)', background: 'rgba(255,255,255,.04)' }}>
+                <Icon className="w-3.5 h-3.5" style={{ color: DOURADO }} />
+                {d.label}
+              </span>
+            );
+          })}
         </div>
       </div>
-    </section>
-  );
-};
+
+      <div className="min-w-0 relative animate-fade-in-up" style={{ animationDelay: '0.15s' }}>
+        <div className="relative mx-auto w-[62%] max-w-[360px] aspect-[4/5]">
+          {LEQUE.map((c) => (
+            <img
+              key={c.src}
+              src={c.src}
+              alt={c.alt}
+              width={720}
+              height={900}
+              decoding="async"
+              className={`absolute inset-0 w-full h-full object-cover rounded-2xl ${c.cls}`}
+              style={{ zIndex: c.z, boxShadow: '0 30px 60px -20px rgba(0,0,0,.7)', border: '1px solid rgba(201,168,76,.35)' }}
+            />
+          ))}
+        </div>
+
+        {/* Calculadora pública — continua em destaque para quem quer só saber o valor do imóvel */}
+        <Link to="/quanto-vale-meu-imovel" className="group relative z-10 mt-16 flex items-center gap-4 rounded-2xl px-5 py-4 border transition-transform hover:-translate-y-0.5" style={{ background: CREME, borderColor: DOURADO }} aria-label="Calcular quanto vale meu imóvel">
+          <span className="flex-none w-12 h-12 rounded-xl grid place-items-center" style={{ background: 'linear-gradient(135deg,#E0C264,#B08A2E)' }}>
+            <Calculator className="w-6 h-6" style={{ color: VERDE }} />
+          </span>
+          <span className="flex-1 min-w-0">
+            <span className="flex items-center gap-1.5 mb-0.5">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500" />
+              </span>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700">Grátis · leva 1 minuto</span>
+            </span>
+            <span className="block font-extrabold text-lg leading-tight" style={{ color: VERDE }}>Quanto vale o seu imóvel?</span>
+            <span className="block text-xs text-gray-600">Estimativa de mercado na hora, sem cadastro</span>
+          </span>
+          <ArrowRight className="w-5 h-5 flex-none text-amber-700 group-hover:translate-x-1 transition-transform" />
+        </Link>
+      </div>
+    </div>
+  </section>
+);
 
 export default Hero;

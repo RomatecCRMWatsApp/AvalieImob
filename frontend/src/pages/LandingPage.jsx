@@ -5,6 +5,9 @@ import { ArrowRight } from 'lucide-react';
 import SEO from '../components/common/SEO';
 import Navbar from '../components/landing/Navbar';
 import Hero from '../components/landing/Hero';
+import CampanhaModulos from '../components/landing/CampanhaModulos';
+import Conformidade from '../components/landing/Conformidade';
+import CtaTeste from '../components/landing/CtaTeste';
 import Features from '../components/landing/Features';
 import Services from '../components/landing/Services';
 import VitrineImoveis from '../components/landing/VitrineImoveis';
@@ -103,6 +106,8 @@ const LandingPage = () => {
         <WelcomeBanner />
         <main>
           <Hero />
+          <CampanhaModulos />
+          <Conformidade />
           <Features />
           <Services />
           <VitrineImoveis />
@@ -112,6 +117,7 @@ const LandingPage = () => {
           <CeoSection />
           <ImoveisCarousel />
           <LgpdSection />
+          <CtaTeste />
         </main>
         <Footer />
         <WhatsAppButton />
