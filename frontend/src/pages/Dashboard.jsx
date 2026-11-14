@@ -79,6 +79,7 @@ import GeorefWizard from '../components/dashboard/topografia/GeorefWizard';
 import GeoUrbanoList from '../components/dashboard/topografia/GeoUrbanoList';
 import GeoUrbanoWizard from '../components/dashboard/topografia/GeoUrbanoWizard';
 import OnrSigriPage from '../components/dashboard/topografia/OnrSigriPage';
+import InssObraPage from '../components/dashboard/inss-obra/InssObraPage';
 
 /* ─── Brand ─────────────────────────────────────────────── */
 const GOLD       = '#D4A830';
@@ -535,6 +536,8 @@ const Dashboard = () => {
             <Route path="topografia/geo-urbano/novo" element={<GeoUrbanoWizard />} />
             <Route path="topografia/geo-urbano/:id"  element={<GeoUrbanoWizard />} />
             <Route path="topografia/onr-sigri"       element={<OnrSigriPage />} />
+            <Route path="inss-obra"                  element={<InssObraPage />} />
+            <Route path="inss-obra/:id"              element={<InssObraPage />} />
             <Route path="*"            element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </div>

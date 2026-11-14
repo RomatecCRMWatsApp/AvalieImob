@@ -9,7 +9,7 @@ import {
   LayoutDashboard, Users, Building2, BarChart3, FileCheck2, Shield, Beef, Home,
   ClipboardCheck, FileText, FileSignature, Receipt, Sparkles, FileSearch, Award,
   CreditCard, Settings, LogOut, Globe, Search, Palette, Tag, BadgeCheck, Stamp, Inbox, Calculator,
-  Compass, MapPin, Send, Megaphone, Mail, Radar, Instagram, Bell, KeyRound, Sigma,
+  Compass, MapPin, Send, Megaphone, Mail, Radar, Instagram, Bell, KeyRound, Sigma, HardHat,
 } from 'lucide-react';
 import { ptamAPI } from '../lib/api';
 import { BrandMark } from './brand/BrandMark';
@@ -62,6 +62,7 @@ const MENU = [
     { id: 'georef', label: 'Georreferenciamento', icon: Compass, route: '/dashboard/topografia/georef', tag: 'NOVO' },
     { id: 'geo-urbano', label: 'Geo Urbano', icon: MapPin, route: '/dashboard/topografia/geo-urbano', tag: 'NOVO' },
     { id: 'onr-sigri', label: 'Arquivo ONR (SIG-RI)', icon: FileText, route: '/dashboard/topografia/onr-sigri', tag: 'NOVO' },
+    { id: 'inss-obra', label: 'INSS de Obra', icon: HardHat, route: '/dashboard/inss-obra', tag: 'NOVO' },
   ]},
   { section: 'Ferramentas', items: [
     { id: 'ia', label: 'Roma_IA', icon: Sparkles, route: '/dashboard/ia' },

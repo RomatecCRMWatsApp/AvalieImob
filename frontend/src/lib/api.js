@@ -1086,6 +1086,29 @@ export const geoUrbanoAPI = {
 };
 
 // Arquivo ONR (SIG-RI) STANDALONE — sobe mapa+memorial+ART+certidão → extrai → gera shapefile
+const INSSOBRA = '/inss-obra';
+export const inssObraAPI = {
+  opcoes: () => api.get(`${INSSOBRA}/opcoes`).then((r) => r.data),
+  listar: () => api.get(`${INSSOBRA}/obras`).then((r) => r.data),
+  criar: (data) => api.post(`${INSSOBRA}/obras`, data).then((r) => r.data),
+  obter: (id) => api.get(`${INSSOBRA}/obras/${id}`).then((r) => r.data),
+  atualizar: (id, data) => api.put(`${INSSOBRA}/obras/${id}`, data).then((r) => r.data),
+  excluir: (id) => api.delete(`${INSSOBRA}/obras/${id}`).then((r) => r.data),
+  simular: (id) => api.post(`${INSSOBRA}/obras/${id}/simular`).then((r) => r.data),
+  seroOficial: (id, data) => api.post(`${INSSOBRA}/obras/${id}/sero-oficial`, data).then((r) => r.data),
+  enviarComprovante: (id, chave, file) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return api.post(`${INSSOBRA}/obras/${id}/checklist/${chave}`, fd).then((r) => r.data);
+  },
+  removerComprovante: (id, chave) => api.delete(`${INSSOBRA}/obras/${id}/checklist/${chave}`).then((r) => r.data),
+  comprovante: (id, chave) =>
+    api.get(`${INSSOBRA}/obras/${id}/checklist/${chave}/arquivo`, { responseType: 'blob' }).then((r) => r.data),
+  pdf: (id, simId) =>
+    api.get(`${INSSOBRA}/obras/${id}/pdf`, { params: simId ? { sim_id: simId } : {}, responseType: 'blob' })
+      .then((r) => r.data),
+};
+
 const ONRSIG = '/topografia/onr-sigri';
 export const onrSigriAPI = {
   listar: () => api.get(`${ONRSIG}/jobs`).then((r) => r.data),
