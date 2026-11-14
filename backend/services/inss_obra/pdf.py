@@ -176,11 +176,11 @@ def gerar_pdf(obra: dict, sim: dict, logo_bytes: bytes | None = None, autor: dic
     st.append(_tabela(resumo, [largura - 5 * cm, 5 * cm], destaque_ultima=True))
 
     st.append(Paragraph("4. Contribuições a pagar (estimativa)", s["h"]))
-    deb = [["Código", "Contribuição", "Alíquota", "Valor"]]
+    deb = [["Cód. receita", "Contribuição", "Alíquota", "Valor"]]
     for d in sim["debitos"]:
-        deb.append([d["codigo"], d["nome"], _pct(d["aliquota"]), _brl(d["valor"])])
+        deb.append([d.get("codigo_receita") or d["codigo"], d["nome"], _pct(d["aliquota"]), _brl(d["valor"])])
     deb.append(["", "TOTAL ESTIMADO", "36,8%", _brl(sim["total"])])
-    st.append(_tabela(deb, [2 * cm, largura - 7.5 * cm, 2.2 * cm, 3.3 * cm], destaque_ultima=True))
+    st.append(_tabela(deb, [2.2 * cm, largura - 7.7 * cm, 2.2 * cm, 3.3 * cm], destaque_ultima=True))
 
     if sim.get("alertas"):
         st.append(Paragraph("5. Observações", s["h"]))

@@ -429,7 +429,7 @@ function Ficha({ id }) {
             <table className="text-xs">
               <tbody>
                 {sim.debitos.map((d) => (
-                  <tr key={d.codigo} className="border-b"><td className="py-1">{d.nome}</td>
+                  <tr key={d.codigo} className="border-b"><td className="py-1">{d.codigo_receita ? <span className="text-gray-500">{d.codigo_receita} · </span> : null}{d.nome}</td>
                     <td className="text-right px-2">{pct(d.aliquota)}</td><td className="text-right">{brl(d.valor)}</td></tr>
                 ))}
                 <tr className="font-bold"><td className="py-1">Total</td><td className="text-right px-2">36,8%</td>

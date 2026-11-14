@@ -2,6 +2,20 @@
   "_leia_me": "Notas de atualizacao que viram o AVISO no sistema. Regra: a cada release, ANTES do commit, acrescente a entrada no topo de 'releases' (ver CLAUDE.md, passo 7). Itens com publico='interno' (painel administrativo ou ajuste tecnico) NAO geram aviso para ninguem - ficam so registrados aqui. Tipos: novo | melhoria | correcao. Escreva o texto COM ACENTOS: ele vai direto para a tela do cliente.",
   "releases": [
     {
+      "versao": "1.4.1471",
+      "build": 1471,
+      "data": "2026-11-14T15:00:00-03:00",
+      "titulo": "INSS de Obra conferido com o Manual do SERO",
+      "itens": [
+        {
+          "modulo": "INSS de Obra",
+          "tipo": "melhoria",
+          "rota": "/dashboard/inss-obra",
+          "texto": "Os percentuais de equivalência e as alíquotas foram conferidos com o Manual do SERO, e a simulação agora mostra o código de receita de cada contribuição, igual ao DARF."
+        }
+      ]
+    },
+    {
       "versao": "1.4.1470",
       "build": 1470,
       "data": "2026-11-14T12:00:00-03:00",

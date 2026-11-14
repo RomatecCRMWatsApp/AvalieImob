@@ -36,20 +36,17 @@ EQUIVALENCIA = {
     "residencial_unifamiliar": {"limite": D("1000"), "ate": D("0.89"), "acima": D("0.85"),
                                 "status": "texto", "fonte": "Manual p.74 (exemplos 1 e 2)"},
     "residencial_multifamiliar": {"limite": D("1000"), "ate": D("0.90"), "acima": D("0.86"),
-                                  "status": "conferir",
-                                  "fonte": "90% reproduzido no exemplo p.86-87; 86% da IN 2.021 (figura p.73)"},
+                                  "status": "texto", "fonte": "Manual p.73 (quadro conferido no PDF)"},
     "comercial_salas_lojas": {"limite": D("3000"), "ate": D("0.86"), "acima": D("0.83"),
-                              "status": "conferir",
-                              "fonte": "83% no texto p.74; 86% da IN 2.021 (figura p.73)"},
+                              "status": "texto", "fonte": "Manual p.73 (quadro conferido no PDF)"},
     "edificio_garagens": {"limite": D("3000"), "ate": D("0.86"), "acima": D("0.83"),
-                          "status": "conferir",
-                          "fonte": "enquadrado como comercial (p.84); figura p.73"},
+                          "status": "texto", "fonte": "Manual p.73 (quadro conferido no PDF)"},
     "galpao_industrial": {"limite": None, "ate": D("0.95"), "acima": D("0.95"),
-                          "status": "conferir", "fonte": "IN 2.021 (figura p.73)"},
+                          "status": "texto", "fonte": "Manual p.73 (quadro conferido no PDF)"},
     "casa_popular": {"limite": None, "ate": D("0.98"), "acima": D("0.98"),
-                     "status": "conferir", "fonte": "IN 2.021 (figura p.73)"},
+                     "status": "texto", "fonte": "Manual p.73 (quadro conferido no PDF)"},
     "conjunto_habitacional_popular": {"limite": None, "ate": D("0.98"), "acima": D("0.98"),
-                                      "status": "conferir", "fonte": "IN 2.021 (figura p.73)"},
+                                      "status": "texto", "fonte": "Manual p.73 (quadro conferido no PDF)"},
 }
 
 # 17.2 — Redução das áreas complementares (multiplicador da área)
@@ -123,21 +120,20 @@ USINADO_STATUS = {"status": "conferir",
                   "fonte": "Manual p.137 (transcrição da figura; TO/multifamiliar 7,16% reproduz o exemplo p.139)"}
 UFS = sorted(USINADO_UF)
 
-# 23 — Alíquotas sobre a RMT (soma 36,8% reproduz os exemplos p.97 e p.149).
-# A divisão por código está numa figura (p.149) — usar a composição usual do FPAS
-# da construção (20% + 8% + 3% + 5,8% de terceiros).
+# 23 — Alíquotas sobre a RMT, por código de receita da DCTFWeb Aferição de Obras
+# (quadro da p.149, conferido no PDF; soma 36,8% reproduz os exemplos p.97 e p.149).
+# (sigla, código de receita, descrição, alíquota) — na ordem do quadro do Manual.
 ALIQUOTAS = [
-    ("PAT", "Contribuição patronal", D("0.20")),
-    ("SEG", "Contribuição dos segurados", D("0.08")),
-    ("RAT", "GILRAT", D("0.03")),
-    ("FNDE", "Salário-educação (FNDE)", D("0.025")),
-    ("INCRA", "INCRA", D("0.002")),
-    ("SESI", "SESI", D("0.015")),
-    ("SENAI", "SENAI", D("0.01")),
-    ("SEBRAE", "SEBRAE", D("0.006")),
+    ("PAT", "1138-31", "CP patronal — empregados", D("0.20")),
+    ("SEG", "1082-31", "CP segurados — empregados", D("0.08")),
+    ("GILRAT", "1646-31", "CP patronal — GILRAT", D("0.03")),
+    ("FNDE", "1170-31", "Terceiros — salário-educação", D("0.025")),
+    ("INCRA", "1176-31", "Terceiros — INCRA", D("0.002")),
+    ("SEBRAE", "1200-31", "Terceiros — SEBRAE", D("0.006")),
+    ("SESI", "1184-31", "Terceiros — SESI", D("0.015")),
+    ("SENAI", "1181-31", "Terceiros — SENAI", D("0.01")),
 ]
-ALIQUOTAS_STATUS = {"status": "conferir",
-                    "fonte": "Total 36,8% confirmado nos exemplos p.97 e p.149; divisão por código na figura p.149"}
+ALIQUOTAS_STATUS = {"status": "texto", "fonte": "Manual p.149 (quadro conferido no PDF)"}
 
 
 def percentual_mao_de_obra(destinacao: str, tipo: str) -> D:

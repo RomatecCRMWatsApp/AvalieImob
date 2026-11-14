@@ -69,7 +69,7 @@ def test_meses_p97():
 def test_debito_36_8_p149_e_p97():
     for rmt, total in [("48879.32", "17987.59"), ("292174.40", "107520.18")]:
         base = D(rmt)
-        soma = sum((v * base).quantize(D("0.01"), rounding="ROUND_HALF_UP") for _, _, v in P.ALIQUOTAS)
+        soma = sum((v * base).quantize(D("0.01"), rounding="ROUND_HALF_UP") for _, _, _, v in P.ALIQUOTAS)
         assert soma == D(total)
 
 
@@ -91,8 +91,12 @@ def test_obra_decadente_zera():
 def test_marca_parametros_a_conferir():
     r = simular(_base(vau={"galpao_industrial": "2000"}, areas=[
         {"destinacao": "galpao_industrial", "categoria": "obra_nova", "classe": "principal", "area_m2": 300}]))
-    assert "equivalencia:galpao_industrial" in r["parametros_a_conferir"]
-    assert "aliquotas" in r["parametros_a_conferir"]
+    # p.73 e p.149 conferidos no PDF: nada mais em conferência sem o usinado
+    assert r["parametros_a_conferir"] == []
+    r2 = simular(_base(usinado=True, vau={"galpao_industrial": "2000"}, areas=[
+        {"destinacao": "galpao_industrial", "categoria": "obra_nova", "classe": "principal", "area_m2": 300}]))
+    assert r2["parametros_a_conferir"] == ["usinado"]
+    assert [d["codigo_receita"] for d in r["debitos"]][:3] == ["1138-31", "1082-31", "1646-31"]
 
 
 def test_erros_claros():

@@ -205,9 +205,9 @@ def simular(entrada: dict) -> dict:
 
     _usa("aliquotas", P.ALIQUOTAS_STATUS)
     debitos = []
-    for codigo, nome, aliq in P.ALIQUOTAS:
-        debitos.append({"codigo": codigo, "nome": nome, "aliquota": str(aliq),
-                        "valor": str(_r2(base * aliq))})
+    for sigla, cr, nome, aliq in P.ALIQUOTAS:
+        debitos.append({"codigo": sigla, "codigo_receita": cr, "nome": nome,
+                        "aliquota": str(aliq), "valor": str(_r2(base * aliq))})
     total = sum((D(d["valor"]) for d in debitos), D(0))
 
     a_conferir = sorted({k for k, v in usados.items() if v["status"] == "conferir"})
