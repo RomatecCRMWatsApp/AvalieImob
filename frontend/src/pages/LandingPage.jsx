@@ -6,6 +6,7 @@ import SEO from '../components/common/SEO';
 import Navbar from '../components/landing/Navbar';
 import Hero from '../components/landing/Hero';
 import CampanhaModulos from '../components/landing/CampanhaModulos';
+import PreviaNovoVisual from '../components/landing/PreviaNovoVisual';
 import Conformidade from '../components/landing/Conformidade';
 import CtaTeste from '../components/landing/CtaTeste';
 import Features from '../components/landing/Features';
@@ -102,6 +103,7 @@ const LandingPage = () => {
         <main>
           <Hero />
           <CampanhaModulos />
+          <PreviaNovoVisual />
           <Conformidade />
           <Features />
           <Services />
