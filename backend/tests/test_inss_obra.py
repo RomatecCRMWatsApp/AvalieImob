@@ -95,7 +95,10 @@ def test_marca_parametros_a_conferir():
     assert r["parametros_a_conferir"] == []
     r2 = simular(_base(usinado=True, vau={"galpao_industrial": "2000"}, areas=[
         {"destinacao": "galpao_industrial", "categoria": "obra_nova", "classe": "principal", "area_m2": 300}]))
-    assert r2["parametros_a_conferir"] == ["usinado"]
+    assert r2["parametros_a_conferir"] == []
+    from decimal import Decimal as _D
+    assert P.USINADO_UF["MG"]["residencial_unifamiliar"] == _D("0.0468")
+    assert P.USINADO_UF["PE"]["edificio_garagens"] == _D("0.0947")
     assert [d["codigo_receita"] for d in r["debitos"]][:3] == ["1138-31", "1082-31", "1646-31"]
 
 

@@ -94,12 +94,12 @@ DF 3,53 9,62 3,53 9,62 3,43 7,06 5,24
 ES 3,33 9,45 3,33 9,45 3,26 6,85 5,15
 GO 3,88 10,27 3,88 10,27 3,60 7,62 5,79
 MA 4,18 12,06 4,18 12,06 4,07 8,73 6,94
-MG 3,15 8,66 3,15 8,66 3,05 6,22 4,88
+MG 3,15 8,66 3,15 8,66 3,05 6,22 4,68
 MS 4,34 12,20 4,34 12,20 4,28 8,74 6,74
 MT 4,02 10,96 4,02 10,96 3,89 8,01 6,22
 PA 4,91 13,48 4,91 13,48 4,45 9,77 7,58
 PB 4,12 11,81 4,12 11,81 3,81 8,58 6,32
-PE 3,51 9,74 3,51 9,74 3,42 6,89 5,12
+PE 3,51 9,74 3,51 9,47 3,42 6,89 5,12
 PI 3,53 10,00 3,53 10,00 3,30 7,16 5,33
 PR 3,18 8,78 3,18 8,78 3,08 6,50 4,91
 RJ 3,20 9,02 3,20 9,02 3,08 6,52 4,94
@@ -116,8 +116,9 @@ USINADO_UF = {}
 for _l in _USINADO_TXT.strip().splitlines():
     _p = _l.split()
     USINADO_UF[_p[0]] = {c: D(v.replace(",", ".")) / 100 for c, v in zip(_USINADO_COLS, _p[1:])}
-USINADO_STATUS = {"status": "conferir",
-                  "fonte": "Manual p.137 (transcrição da figura; TO/multifamiliar 7,16% reproduz o exemplo p.139)"}
+# Conferido célula a célula no PDF (p.137). Mantido como está no Manual, inclusive
+# PE: comercial 9,74% × edifício de garagens 9,47% (únicas colunas que diferem entre si).
+USINADO_STATUS = {"status": "texto", "fonte": "Manual p.137 (quadro conferido no PDF)"}
 UFS = sorted(USINADO_UF)
 
 # 23 — Alíquotas sobre a RMT, por código de receita da DCTFWeb Aferição de Obras
