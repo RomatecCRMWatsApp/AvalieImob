@@ -38,11 +38,28 @@ async def catalogo(uid: str = Depends(get_active_subscriber)):
     return {"tipos": CATALOGO_CONSULTORIA}
 
 
+async def _dados_calculo(db, uid: str, subtipo: str, dados: dict) -> dict:
+    """Averbação vinculada a uma obra do módulo INSS de Obra: injeta a ÚLTIMA simulação
+    daquela obra (só do próprio usuário) para o cálculo. Não altera o que é salvo."""
+    dados = dict(dados or {})
+    oid = dados.get("inss_obra_id")
+    if not (subtipo or "").startswith("averbacao") or not oid:
+        return dados
+    obra = await db.inss_obras.find_one({"id": oid, "user_id": uid},
+                                        {"_id": 0, "numero": 1, "simulacoes": 1})
+    sims = (obra or {}).get("simulacoes") or []
+    if sims:
+        dados["_inss_obra_sim"] = {"numero": obra.get("numero"), "resultado": sims[-1].get("resultado")}
+    return dados
+
+
 # ── Preview de cálculo (sem salvar) ────────────────────────────────────────
 @router.post("/preview")
-async def preview(body: PropostaPreviewRequest, uid: str = Depends(get_active_subscriber)):
+async def preview(body: PropostaPreviewRequest, uid: str = Depends(get_active_subscriber),
+                  db=Depends(get_db)):
     try:
-        resultado = calcular_consultoria(body.subtipo, body.dados_imovel)
+        resultado = calcular_consultoria(
+            body.subtipo, await _dados_calculo(db, uid, body.subtipo, body.dados_imovel))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return {
@@ -117,7 +134,8 @@ async def croqui_svg(body: _CroquiSvgBody, uid: str = Depends(get_active_subscri
 @router.post("", status_code=201)
 async def criar(body: PropostaBase, uid: str = Depends(get_active_subscriber), db=Depends(get_db)):
     try:
-        resultado = calcular_consultoria(body.subtipo, body.dados_imovel)
+        resultado = calcular_consultoria(
+            body.subtipo, await _dados_calculo(db, uid, body.subtipo, body.dados_imovel))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -167,7 +185,8 @@ async def atualizar(pid: str, body: PropostaBase, uid: str = Depends(get_active_
     if not doc:
         raise HTTPException(status_code=404, detail="Proposta não encontrada")
     try:
-        resultado = calcular_consultoria(body.subtipo, body.dados_imovel)
+        resultado = calcular_consultoria(
+            body.subtipo, await _dados_calculo(db, uid, body.subtipo, body.dados_imovel))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     update = body.model_dump()
@@ -228,9 +247,11 @@ async def proposta_pdf(pid: str, uid: str = Depends(get_active_subscriber), db=D
 
 # ── PDF de preview (sem salvar — calcula na hora a partir do form) ──────────
 @router.post("/preview/pdf")
-async def preview_pdf(body: PropostaPreviewRequest, uid: str = Depends(get_active_subscriber)):
+async def preview_pdf(body: PropostaPreviewRequest, uid: str = Depends(get_active_subscriber),
+                      db=Depends(get_db)):
     try:
-        resultado = calcular_consultoria(body.subtipo, body.dados_imovel)
+        resultado = calcular_consultoria(
+            body.subtipo, await _dados_calculo(db, uid, body.subtipo, body.dados_imovel))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     doc = {

@@ -230,6 +230,23 @@ def gerar_proposta_pdf(proposta: dict, perfil: dict = None, user: dict = None, a
     if t2 is not None:
         el.append(Paragraph("2. Taxas e Emolumentos de Terceiros", st["sec"]))
         el.append(t2)
+        # Memória de cálculo do INSS da obra (averbação) — mesma metodologia do SERO
+        bc = custos.get("base_calculo") or []
+        if bc:
+            el.append(Spacer(1, 6))
+            el.append(Paragraph("<b>Memória de cálculo do INSS da obra</b> (estimativa pelo Manual do SERO)",
+                                st["cell"]))
+            rows = [[Paragraph(_esc(b.get("rotulo", "")), st["cell"]),
+                     Paragraph(_esc(b.get("formula", "")), st["obs"]),
+                     Paragraph(_brl(b.get("valor_resultado", 0)), st["cellr"])] for b in bc]
+            tb = Table(rows, colWidths=[5.6 * cm, UTIL_W - 8.8 * cm, 3.2 * cm])
+            estilo = [("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                      ("LINEBELOW", (0, 0), (-1, -1), 0.3, colors.HexColor("#DDE5E0")),
+                      ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                      ("LEFTPADDING", (0, 0), (-1, -1), 2),
+                      ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#EFE6C8"))]
+            tb.setStyle(TableStyle(estilo))
+            el.append(tb)
 
     # 3 — Honorários
     t3 = _tabela_itens(custos.get("secao_3_honorarios"), st)

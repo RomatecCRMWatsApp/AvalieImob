@@ -6,7 +6,7 @@ import { BrandSpinner } from '../../brand/BrandSpinner';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { useToast } from '../../../hooks/use-toast';
-import { propostasAPI, clientsAPI } from '../../../lib/api';
+import { propostasAPI, clientsAPI, inssObraAPI } from '../../../lib/api';
 import EtapaConcluidaBox from '../ptam/EtapaConcluidaBox';
 import { comodosPorCategoria, CATEGORIAS_LABEL, ORDEM_CATEGORIAS } from '../../../constants/comodosEdificacao';
 import { PROJETOS_EXECUTIVO_DEFAULT } from '../../../constants/projetosExecutivo';
@@ -28,6 +28,9 @@ const BOOL = (key, label, def = false, labels = ['Não', 'Sim']) => ({
   options: [{ value: 'false', label: labels[0] }, { value: 'true', label: labels[1] }], _bool: true,
 });
 
+const D = (key, label) => ({ key, label, type: 'date', def: '' });
+const semInss = (d) => !d.inss_obra_id;
+
 const CAMPOS_AVERBACAO = [
   N('area_construida', 'Área construída (m²)'),
   N('valor_venal_imovel', 'Valor venal do imóvel (R$)'),
@@ -39,6 +42,18 @@ const CAMPOS_AVERBACAO = [
   SEL('anotacao_tecnica', 'Anotação técnica', [
     { value: 'art_crea', label: 'ART CREA-MA' }, { value: 'rrt_cau', label: 'RRT CAU/MA' }, { value: 'trt_cft', label: 'TRT CFT/MA' }], 'art_crea'),
   BOOL('tem_alvara_construcao', 'Já possui alvará?', false, ['Não (cobra alvará)', 'Sim']),
+  // INSS da obra (SERO) — usado quando a proposta NÃO está vinculada a uma simulação do módulo INSS de Obra
+  { ...N('vau_m2', 'VAU do SERO (R$/m²) — 0 = estimar pelo CUB'), when: semInss },
+  { ...SEL('inss_categoria', 'Categoria da obra (SERO)', [
+    { value: 'obra_nova', label: 'Obra nova' }, { value: 'acrescimo', label: 'Acréscimo' },
+    { value: 'reforma', label: 'Reforma' }, { value: 'demolicao', label: 'Demolição' }], 'obra_nova'), when: semInss },
+  { ...SEL('inss_tipo', 'Material predominante', [
+    { value: 'alvenaria', label: 'Alvenaria' }, { value: 'mista', label: 'Mista' }, { value: 'madeira', label: 'Madeira' }], 'alvenaria'), when: semInss },
+  { ...N('area_complementar_coberta', 'Área complementar coberta (m²)'), when: semInss },
+  { ...N('area_complementar_descoberta', 'Área complementar descoberta (m²)'), when: semInss },
+  { ...BOOL('usinado', 'Usou concreto usinado (com nota)?'), when: semInss },
+  { ...D('data_inicio_obra', 'Início da obra'), when: semInss },
+  { ...D('data_fim_obra', 'Fim da obra'), when: semInss },
   BOOL('parcelar_inss', 'Parcelar INSS/SERO?'),
   { ...N('numero_parcelas_inss', 'Nº de parcelas INSS (2–60)', 12), when: (d) => !!d.parcelar_inss },
 ];
@@ -274,6 +289,11 @@ const PropostaForm = () => {
 
   useEffect(() => () => { if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current); }, []);
   useEffect(() => { clientsAPI.list().then((d) => setClientes(Array.isArray(d) ? d : [])).catch(() => {}); }, []);
+  const [obrasInss, setObrasInss] = useState([]);
+  useEffect(() => {
+    if (!String(subtipo || '').startsWith('averbacao')) return;
+    inssObraAPI.listar().then((d) => setObrasInss(Array.isArray(d) ? d.filter((o) => o.ultima_simulacao) : [])).catch(() => {});
+  }, [subtipo]);
 
   const selecionarCliente = (cid) => {
     const c = clientes.find((x) => String(x.id) === String(cid));
@@ -414,6 +434,9 @@ const PropostaForm = () => {
         </select>
       );
     }
+    if (campo.type === 'date') {
+      return <Input type="date" value={val ?? ''} onChange={(e) => setDado(campo.key, e.target.value)} />;
+    }
     return <Input value={val ?? ''} onChange={(e) => setDado(campo.key, e.target.value)} />;
   };
 
@@ -457,6 +480,26 @@ const PropostaForm = () => {
   const secServico = (
     <div>
       <div className={LABEL_CLS}>Dados do serviço (cálculo)</div>
+      {String(subtipo || '').startsWith('averbacao') && (
+        <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-3 space-y-1">
+          <Field label="INSS da obra — usar simulação do módulo INSS de Obra">
+            <select value={form.dados_imovel.inss_obra_id || ''} onChange={(e) => setDado('inss_obra_id', e.target.value || null)}
+              className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-emerald-400 bg-white">
+              <option value="">— Não vincular: calcular aqui pela metodologia do SERO —</option>
+              {obrasInss.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.numero} · {o.cliente_nome || o.endereco || 'Obra'}{o.ultima_simulacao?.resultado?.total ? ` · R$ ${Number(o.ultima_simulacao.resultado.total).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : ''}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <p className="text-[11px] text-amber-800">
+            {form.dados_imovel.inss_obra_id
+              ? 'O INSS da proposta usa a última simulação dessa obra (memória de cálculo vai no PDF).'
+              : 'Sem vínculo, o INSS é simulado com os dados abaixo. Informe o VAU do SERO para o valor ficar igual ao do e-CAC; com 0 o sistema estima pelo CUB.'}
+          </p>
+        </div>
+      )}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
         {camposVisiveis.map((campo) => <Field key={campo.key} label={campo.label}>{renderCampo(campo)}</Field>)}
       </div>
