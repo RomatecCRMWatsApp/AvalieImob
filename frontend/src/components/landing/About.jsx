@@ -1,6 +1,5 @@
 import React from 'react';
 import { ShieldCheck, Lock, RefreshCw, Award } from 'lucide-react';
-import { TESTIMONIALS } from '../../mock/mock';
 
 const About = () => {
   const items = [
@@ -41,7 +40,7 @@ const About = () => {
           </div>
         </div>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-24">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {items.map((it) => {
             const Icon = it.icon;
             return (
@@ -58,27 +57,6 @@ const About = () => {
           })}
         </div>
 
-        <div>
-          <div className="text-center max-w-2xl mx-auto mb-12">
-            <div className="text-xs font-semibold tracking-[0.2em] text-emerald-700 mb-3">DEPOIMENTOS</div>
-            <h3 className="font-display text-3xl md:text-4xl font-bold text-gray-900">Profissionais que <span className="brand-green italic">confiam no RomaTec</span></h3>
-          </div>
-          <div className="grid md:grid-cols-3 gap-6">
-            {TESTIMONIALS.map(t => (
-              <div key={t.id} className="p-6 rounded-xl border border-gray-200 bg-white hover:shadow-lg transition-shadow">
-                <div className="flex gap-1 mb-4">{['s1','s2','s3','s4','s5'].map((k) => <span key={k} className="text-amber-500">★</span>)}</div>
-                <p className="text-gray-700 italic mb-6 leading-relaxed">“{t.text}”</p>
-                <div className="flex items-center gap-3 pt-4 border-t border-gray-100">
-                  <img src={t.avatar} alt={t.name} className="w-11 h-11 rounded-full object-cover" />
-                  <div>
-                    <div className="font-semibold text-gray-900 text-sm">{t.name}</div>
-                    <div className="text-xs text-gray-500">{t.role} · {t.crea}</div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
     </section>
   );

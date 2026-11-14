@@ -50,6 +50,14 @@ _LOCK_MINUTES = 15       # tempo de bloqueio temporário
 _RESET_TTL_MIN = 30      # validade do link de redefinição
 
 
+def _dias_trial_cadastro() -> int:
+    """Dias de teste automático no cadastro. TRIAL_CADASTRO_DIAS=0 desliga."""
+    try:
+        return max(0, min(30, int(os.environ.get("TRIAL_CADASTRO_DIAS", "7"))))
+    except (TypeError, ValueError):
+        return 7
+
+
 def _app_url() -> str:
     """Base pública canônica (força www — o apex não resolve em conexões novas)."""
     raw = (os.environ.get("APP_URL") or "https://www.romatecavalieimob.com.br").rstrip("/")
@@ -69,6 +77,19 @@ async def register(request: Request, data: UserRegister, db=Depends(get_db)):
     user = User(name=data.name, email=data.email.lower(), role=_sanitize_role(data.role), crea=data.crea or "")
     doc = user.model_dump()
     doc["password_hash"] = hash_password(data.password)
+    # Teste grátis automático no cadastro (a página promete "7 dias grátis").
+    # Mesmo formato do trial liberado pelo painel: plan_status=active + plan_expires;
+    # o get_active_subscriber já expira sozinho quando a data passa.
+    dias_trial = _dias_trial_cadastro()
+    if dias_trial > 0:
+        agora = datetime.utcnow()
+        expira = agora + timedelta(days=dias_trial)
+        doc.update({
+            "plan": "trial", "plan_status": "active", "plan_expires": expira,
+            "trial": True, "trial_dias": dias_trial, "trial_inicio": agora,
+            "trial_expires": expira, "trial_criado_por": "cadastro",
+            "trial_observacao": "Teste automático do cadastro",
+        })
     # Persiste UTM no doc do user pra historico/analytics futuros
     for k in ("utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "page_origin", "referrer", "phone"):
         v = getattr(data, k, None)
@@ -94,7 +115,8 @@ async def register(request: Request, data: UserRegister, db=Depends(get_db)):
         page_origin=data.page_origin,
         referrer=data.referrer,
     ))
-    return AuthResponse(user=UserPublic(**user.model_dump()), token=token)
+    pub = {k: doc.get(k) for k in UserPublic.model_fields}
+    return AuthResponse(user=UserPublic(**pub), token=token)
 
 
 @router.post("/login", response_model=AuthResponse)

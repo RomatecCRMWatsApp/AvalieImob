@@ -90,13 +90,8 @@ const LandingPage = () => {
           operatingSystem: 'Web',
           offers: {
             '@type': 'Offer',
-            price: '49.00',
+            price: '89.90',
             priceCurrency: 'BRL',
-          },
-          aggregateRating: {
-            '@type': 'AggregateRating',
-            ratingValue: '4.9',
-            ratingCount: '127',
           },
           description: 'Sistema online para emissão de PTAM (Parecer Técnico de Avaliação Mercadológica) e laudos de avaliação imobiliária conforme NBR 14.653 da ABNT.',
         })}</script>
