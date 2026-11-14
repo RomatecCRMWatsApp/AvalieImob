@@ -86,4 +86,28 @@ export const MODULOS = [
     assunto: 'contratos',
     escuro: false,
   },
+  {
+    id: 'sig-ri',
+    eyebrow: 'Provimento CNJ 195/2025 · SIG-RI',
+    titulo: 'Seu shapefile urbano.',
+    destaque: 'Pronto para o ONR.',
+    texto:
+      'Na retificação administrativa, no parcelamento e na regularização fundiária, o registro passa a exigir os dados no SIG-RI. Envie planta, memorial, ART/TRT e matrícula: o sistema extrai vértices, área, perímetro e proprietário, você confere e gera o pacote.',
+    itens: [
+      'Pacote .shp, .shx, .dbf e .prj em SIRGAS 2000, com os atributos do Provimento 195',
+      'Validação antes de gerar: polígono, CPF/CNPJ, código IBGE e área',
+      'Texto da descrição do polígono pronto para colar no portal do ONR',
+    ],
+    imagens: [
+      { src: '/campanha/onr-1.jpg', alt: 'Provimento CNJ 195/2025: dados no SIG-RI são exigidos' },
+      { src: '/campanha/onr-2.jpg', alt: 'Passo 1: envie os documentos e evite redigitar' },
+      { src: '/campanha/onr-3.jpg', alt: 'Passo 2: o sistema extrai, você confere' },
+      { src: '/campanha/onr-4.jpg', alt: 'Passo 3: shapefile urbano em um pacote (.shp, .shx, .dbf, .prj)' },
+      { src: '/campanha/onr-5.jpg', alt: 'Atenda à exigência com mais praticidade: solicite seu acesso de teste' },
+    ],
+    cta: 'Testar o arquivo ONR',
+    codigo: 'SITE-ONR',
+    assunto: 'arquivo ONR / SIG-RI',
+    escuro: true,
+  },
 ];
