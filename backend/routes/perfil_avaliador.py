@@ -166,15 +166,28 @@ async def set_certidao_regularidade(body: CertidaoRegularidadeBody,
         upd["certidao_regularidade_link"] = body.certidao_regularidade_link
     if body.certidao_regularidade_anexar is not None:
         upd["certidao_regularidade_anexar"] = body.certidao_regularidade_anexar
+    leitura = None
     if body.certidao_regularidade_b64 is not None:
         upd.update(_campos_arquivo_regularidade("certidao_regularidade", body.certidao_regularidade_b64))
+        if body.certidao_regularidade_b64:
+            # Lê a validade/emissão/código direto do arquivo — o usuário não precisa digitar.
+            import asyncio
+            from services.certidao_creci import ler_certidao
+            leitura = await asyncio.to_thread(ler_certidao, body.certidao_regularidade_b64)
+            if leitura.get("validade") and body.certidao_regularidade_validade is None:
+                upd["certidao_regularidade_validade"] = leitura["validade"]
+            for k in ("emitida_em", "codigo"):
+                if leitura.get(k):
+                    upd[f"certidao_regularidade_{k}"] = leitura[k]
     await db.perfil_avaliador.update_one(
         {"user_id": uid},
         {"$set": upd, "$setOnInsert": {"id": str(uuid.uuid4()), "created_at": datetime.utcnow()}},
         upsert=True,
     )
-    doc = await db.perfil_avaliador.find_one({"user_id": uid})
-    return serialize_doc(doc)
+    doc = serialize_doc(await db.perfil_avaliador.find_one({"user_id": uid}))
+    if leitura is not None:
+        doc["certidao_leitura"] = leitura
+    return doc
 
 
 @router.put("/perfil-avaliador/certificado-cnai")

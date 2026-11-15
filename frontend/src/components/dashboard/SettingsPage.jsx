@@ -178,7 +178,10 @@ const SettingsPage = () => {
       });
       const p = await perfilAPI.setCertidaoRegularidade({ certidao_regularidade_b64: b64, certidao_regularidade_anexar: true });
       if (p) aplicaPerfilCertidao(p);
-      toast({ title: 'Certidão de regularidade salva!', description: 'Informe a data de validade (a certidão CRECI vale 30 dias).' });
+      const lida = p?.certidao_leitura?.validade;
+      toast(lida
+        ? { title: 'Certidão salva e lida ✓', description: `Validade preenchida automaticamente: ${lida.split('-').reverse().join('/')}${p.certidao_leitura.codigo ? ` · código ${p.certidao_leitura.codigo}` : ''}.` }
+        : { title: 'Certidão salva', description: 'Não consegui ler a validade no arquivo — informe a data abaixo (a certidão vale 30 dias).' });
     } catch (err) {
       toast({ title: 'Erro ao enviar a certidão', description: err.response?.data?.detail, variant: 'destructive' });
     } finally { setSavingCertidao(false); e.target.value = ''; }
@@ -542,6 +545,9 @@ const SettingsPage = () => {
         </p>
 
         {/* Aviso de validade */}
+        <p className="text-xs text-gray-500 mb-3">
+          Renovar leva 1 minuto: toque em <b>Renovar certidão</b>, tire um <b>print</b> da certidão (ou salve em PDF) e envie em <b>Trocar arquivo</b>. O sistema lê a validade sozinho.
+        </p>
         {certidaoStatus === 'vencida' && (
           <div className="mb-4 flex flex-col sm:flex-row sm:items-center gap-2 p-3 rounded-lg bg-red-50 border border-red-200">
             <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
