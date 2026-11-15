@@ -172,6 +172,7 @@ const VIDEOS = [
 ];
 
 const textoVideo = (v) => {
+  if (v.texto) return v.texto;  // campanha com texto/destino próprios
   // O vídeo do teste grátis leva direto ao cadastro (3 dias liberados na hora).
   const site = comUtm(`${BASE}${v.destino || '/'}`, { source: 'whatsapp', medium: 'video', campaign: `video-${v.id}` });
   return `${v.msg}\n\n${v.destino ? 'Crie sua conta' : 'Saiba mais'}: ${site}\nFale conosco: ${ZAP_ROMATEC}`;
@@ -221,6 +222,9 @@ function VideoCard({ v, toast }) {
         <video controls playsInline preload="none" poster={`${VIDEO_DIR}/${v.arquivo}.jpg`}
           aria-label={`Vídeo: ${v.titulo}`} className="block w-full h-full" style={{ objectFit: 'contain' }}>
           <source src={mp4} type="video/mp4" />
+          {v.legendas && (
+            <track kind="captions" src={`${VIDEO_DIR}/${v.arquivo}.vtt`} srcLang="pt-BR" label="Português" default />
+          )}
         </video>
       </div>
       <div className="flex-1 min-w-0">
@@ -249,6 +253,109 @@ function VideoCard({ v, toast }) {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Campanha: prévia da Análise Estatística Avançada (kit de 15/11/2026) ──
+// É PRÉVIA: a chamada é "conhecer a proposta" (WhatsApp), nunca "usar agora".
+const AA_DIR = '/campanha/analise-avancada';
+const AA_ZAP = 'https://wa.me/5599991811246?text=' + encodeURIComponent(
+  'Olá! Vi a prévia da Análise Estatística Avançada do AvalieImob. Quero conhecer a proposta e acompanhar sua liberação.');
+const AA_SITE = comUtm(`${BASE}/`, { source: 'instagram', medium: 'social', campaign: 'analise_avancada_previa' });
+const AA_LEGENDA = [
+  'SUA AMOSTRA MERECE MAIS ANÁLISE.',
+  'O AvalieImob prepara uma opção adicional de Análise Estatística Avançada para apoiar o trabalho com amostras de mercado.',
+  'A proposta reúne escolha de variáveis, regressão linear múltipla, diagnósticos do modelo, estimativas com intervalos e memória de cálculo, com revisão do avaliador e sem substituir os tratamentos atuais.',
+  'PRÉVIA: a opção está em preparação. A disponibilização depende da implementação, dos testes e da liberação técnica. As telas desta publicação são ilustrativas.',
+  'Quer conhecer a proposta e acompanhar a liberação? Fale com a Rómatec.',
+  `WhatsApp: (99) 99181-1246\n${AA_ZAP}`,
+  `Conheça a plataforma:\n${AA_SITE}`,
+  '#AvalieImob #Romatec #AvaliacaoImobiliaria #InferenciaEstatistica #EngenhariaDeAvaliacoes #PericiaImobiliaria',
+].join('\n\n');
+const AA_PAGINAS = ['01', '02', '03', '04', '05'];
+const AA_VIDEO = {
+  id: 'analise-avancada-previa', arquivo: 'AvalieImob_Previa_Analise_Avancada_1080x1920', duracao: '32 s',
+  legendas: true,
+  titulo: 'Vídeo — prévia da Análise Estatística Avançada',
+  desc: 'Narrado, com legendas. Telas ilustrativas: anuncia a proposta em preparação, não uma função liberada.',
+  texto: AA_LEGENDA,
+};
+
+function CampanhaAnaliseAvancada({ toast }) {
+  const [enviando, setEnviando] = React.useState(false);
+  const arquivos = async (nomes) => Promise.all(nomes.map(async (n) => {
+    const blob = await (await fetch(`${AA_DIR}/${n}.jpg`)).blob();
+    return new File([blob], `AvalieImob_Analise_Avancada_${n}.jpg`, { type: 'image/jpeg' });
+  }));
+  const compartilhar = async (nomes) => {
+    setEnviando(true);
+    try {
+      const files = await arquivos(nomes);
+      try { await navigator.clipboard.writeText(AA_LEGENDA); } catch { /* opcional */ }
+      if (navigator.canShare && navigator.canShare({ files })) {
+        await navigator.share({ files, text: AA_LEGENDA });
+      } else {
+        toast({ title: 'Legenda copiada ✓', description: 'Neste aparelho, baixe as imagens e publique pelo app.' });
+      }
+    } catch (e) {
+      if (e?.name !== 'AbortError') toast({ title: 'Não foi possível compartilhar', variant: 'destructive' });
+    } finally { setEnviando(false); }
+  };
+  const copiar = async () => {
+    try { await navigator.clipboard.writeText(AA_LEGENDA); toast({ title: 'Legenda copiada ✓' }); }
+    catch { toast({ title: 'Não foi possível copiar', variant: 'destructive' }); }
+  };
+
+  return (
+    <div className="space-y-4 mb-9">
+      <div className="rounded-2xl border border-gray-200 bg-white p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="font-semibold" style={{ color: GREEN }}>Carrossel + folder</h3>
+          <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full"
+            style={{ background: '#FBF3DC', color: '#8A6D1F' }}>Prévia · em preparação</span>
+        </div>
+        <p className="text-sm text-gray-500 mt-1">
+          5 páginas para o Instagram (1080×1350, nesta ordem) e o folder avulso para grupos e status.
+        </p>
+        <div className="mt-3 flex gap-2 overflow-x-auto pb-2">
+          {[...AA_PAGINAS, 'Folder_Analise_Estatistica_Avancada'].map((n) => (
+            <a key={n} href={`${AA_DIR}/${n}.jpg`} download={`AvalieImob_Analise_Avancada_${n}.jpg`}
+              className="shrink-0 w-[110px] group" title="Baixar imagem">
+              <img src={`${AA_DIR}/${n}.webp`} alt={n === 'Folder_Analise_Estatistica_Avancada' ? 'Folder' : `Página ${n}`}
+                loading="lazy" width={110} height={138}
+                className="w-[110px] h-[138px] object-cover rounded-lg border border-gray-200 group-hover:opacity-80" />
+              <span className="block text-[10px] text-center text-gray-500 mt-1">
+                {n.startsWith('Folder') ? 'Folder' : `Página ${n}`} · baixar
+              </span>
+            </a>
+          ))}
+        </div>
+        <pre className="mt-2 text-xs text-gray-600 whitespace-pre-wrap font-sans bg-gray-50 border border-gray-100 rounded-lg p-3 max-h-40 overflow-auto">{AA_LEGENDA}</pre>
+        <p className="text-[11px] text-gray-400 mt-1">
+          No Instagram o link da legenda não é clicável: use o link da bio, um sticker de link ou o botão de WhatsApp do anúncio.
+        </p>
+        <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <button onClick={() => compartilhar(AA_PAGINAS)} disabled={enviando}
+            className="inline-flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-semibold text-white disabled:opacity-60"
+            style={{ background: GREEN }}>
+            <Share2 className="w-3.5 h-3.5" /> {enviando ? 'Preparando…' : 'Enviar carrossel'}
+          </button>
+          <button onClick={() => compartilhar(['Folder_Analise_Estatistica_Avancada'])} disabled={enviando}
+            className="inline-flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-semibold border text-emerald-800 border-emerald-200 hover:bg-emerald-50 disabled:opacity-60">
+            <Send className="w-3.5 h-3.5" /> Enviar folder
+          </button>
+          <button onClick={copiar}
+            className="inline-flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-medium border text-gray-700 border-gray-200 hover:bg-gray-50">
+            <Copy className="w-3.5 h-3.5" /> Copiar legenda
+          </button>
+          <a href={AA_ZAP} target="_blank" rel="noopener noreferrer"
+            className="inline-flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-medium border text-gray-700 border-gray-200 hover:bg-gray-50">
+            <Send className="w-3.5 h-3.5" /> Testar o WhatsApp
+          </a>
+        </div>
+      </div>
+      <VideoCard v={AA_VIDEO} toast={toast} />
     </div>
   );
 }
@@ -505,6 +612,15 @@ export default function DivulgacaoPage() {
       </div>
 
       <BuscadoresCard toast={toast} />
+
+      <h2 className="text-sm font-bold uppercase tracking-wide mt-2 mb-1" style={{ color: GREEN }}>
+        Campanha — Análise Estatística Avançada (prévia)
+      </h2>
+      <p className="text-xs text-gray-500 mb-3">
+        Material da proposta em preparação. A chamada é <strong>conhecer a proposta</strong> pelo WhatsApp —
+        não anuncia a função como liberada.
+      </p>
+      <CampanhaAnaliseAvancada toast={toast} />
 
       <h2 className="text-sm font-bold uppercase tracking-wide mt-2 mb-1" style={{ color: GREEN }}>
         Vídeos de apresentação para clientes

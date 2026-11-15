@@ -561,6 +561,38 @@ const AbaDiagnostico = ({ r, travado, alternarDado, modelo }) => {
         )}
       </Bloco>
 
+      {(d.influencia || []).length > 0 && (
+        <Bloco titulo={`Influência dos dados (alavancagem e Cook) — ${(d.pontos_influentes || []).length} para revisar`}>
+          <p className="text-[11px] text-gray-500 mb-2">
+            Triagem: alavancagem &gt; {num(d.limites_influencia?.alavancagem, 3)} (2p/n) ou
+            Cook &gt; {num(d.limites_influencia?.cook, 3)} (4/n). Pede revisão do avaliador —
+            o sistema não exclui dado sozinho.
+          </p>
+          {(d.pontos_influentes || []).length === 0 ? (
+            <p className="text-sm text-gray-400">Nenhum dado acima dos limites de triagem.</p>
+          ) : (
+            <table className="w-full text-xs">
+              <thead className="text-gray-500 uppercase">
+                <tr><th className="text-left py-1">Dado</th>
+                    <th className="text-right py-1">Alavancagem</th>
+                    <th className="text-right py-1">Cook</th>
+                    <th className="text-left py-1 pl-3">Motivo</th></tr>
+              </thead>
+              <tbody>
+                {d.pontos_influentes.map((o) => (
+                  <tr key={o.id} className="border-t border-gray-100">
+                    <td className="py-1.5 font-medium">{o.id}</td>
+                    <td className="py-1.5 text-right font-mono">{num(o.alavancagem, 3)}</td>
+                    <td className="py-1.5 text-right font-mono">{num(o.cook, 3)}</td>
+                    <td className="py-1.5 pl-3 text-amber-700">{(o.revisar || []).join(', ')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </Bloco>
+      )}
+
       {Object.keys(modelo.graficos || {}).length > 0 && (
         <Bloco titulo="Gráficos de diagnóstico">
           <div className="grid sm:grid-cols-2 gap-3">
@@ -709,6 +741,14 @@ const AbaValor = ({ r, enq, modelo, travado, ocupado, homologar }) => {
             </tbody>
           </table>
 
+          {enq.parametros_conferidos === false && (
+            <p className="mt-3 text-[11px] text-amber-700">
+              <AlertTriangle className="w-3 h-3 inline mr-1" />
+              Os limiares de enquadramento ({enq.norma || 'NBR 14653'}) ainda não foram
+              conferidos pelo responsável técnico contra o texto vigente da norma. O grau
+              exibido é uma triagem: confira antes de assinar.
+            </p>
+          )}
           {(enq.bloqueios_grau_iii || []).length > 0 ? (
             <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
               <p className="text-xs font-bold text-amber-800 flex items-center gap-1.5">

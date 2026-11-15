@@ -2,6 +2,25 @@
   "_leia_me": "Notas de atualizacao que viram o AVISO no sistema. Regra: a cada release, ANTES do commit, acrescente a entrada no topo de 'releases' (ver CLAUDE.md, passo 7). Itens com publico='interno' (painel administrativo ou ajuste tecnico) NAO geram aviso para ninguem - ficam so registrados aqui. Tipos: novo | melhoria | correcao. Escreva o texto COM ACENTOS: ele vai direto para a tela do cliente.",
   "releases": [
     {
+      "versao": "1.4.1518",
+      "build": 1518,
+      "data": "2026-11-15",
+      "itens": [
+        {
+          "modulo": "Tratamento Científico",
+          "tipo": "melhoria",
+          "texto": "O diagnóstico do modelo agora aponta os dados com maior influência (alavancagem e distância de Cook) para você revisar, e o sistema avisa com clareza quando há variáveis redundantes ou dados faltando, em vez de calcular um resultado sem sentido.",
+          "rota": "/dashboard/inferencia"
+        },
+        {
+          "modulo": "Divulgação",
+          "tipo": "novo",
+          "publico": "interno",
+          "texto": "Campanha da prévia da Análise Estatística Avançada: carrossel de 5 páginas, folder, vídeo narrado com legendas e legenda pronta com o WhatsApp da proposta."
+        }
+      ]
+    },
+    {
       "versao": "1.4.1516",
       "build": 1516,
       "data": "2026-11-15",

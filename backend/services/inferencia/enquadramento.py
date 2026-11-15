@@ -108,4 +108,9 @@ def enquadrar(n, k, signif_f, regressores_out, amplitude_ip, extrapolacoes,
         "bloqueios_grau_iii": bloqueios,
         "checklist_manual": list(params.get("checklist_manual") or []),
         "norma": params.get("_norma"),
+        # Os limiares vêm de params/*.json; enquanto o RT não os conferir contra o
+        # texto vigente da norma, o laudo deve sinalizar isso (não muda o grau).
+        "parametros_conferidos": bool(params.get("_conferido_por")),
+        "parametros_conferidos_por": params.get("_conferido_por"),
+        "parametros_conferidos_em": params.get("_conferido_em"),
     }

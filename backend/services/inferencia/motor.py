@@ -34,6 +34,7 @@ def estimar(amostra: pd.DataFrame, esp: Especificacao, avaliando: dict,
     validar_avaliando(esp, avaliando)   # falha cedo, antes de estimar
 
     y, X, X_sem_const = montar(df, esp)
+    condicionamento = EST.validar_entrada(y, X)
     modelo = EST.ajustar(y, X)
 
     regressores_out = EST.tabela_regressores(modelo, X)
@@ -50,6 +51,7 @@ def estimar(amostra: pd.DataFrame, esp: Especificacao, avaliando: dict,
 
     return {
         **EST.estatisticas_modelo(modelo, n, k),
+        "condicionamento": condicionamento,
         "norma": norma,
         "regressores": regressores_out,
         "diagnostico": diag,

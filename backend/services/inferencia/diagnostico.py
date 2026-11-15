@@ -71,7 +71,45 @@ def rodar(modelo, X_sem_const: pd.DataFrame, df: pd.DataFrame, params: dict) -> 
                 "id": str(linha.get("dado_id", linha.get("id", idx))),
             })
 
+    # Influência (alavancagem, resíduo studentizado interno, distância de Cook).
+    # Só SINALIZA para revisão do avaliador — nunca exclui dado sozinho.
+    n_obs = len(resid)
+    p_par = int(modelo.df_model) + (1 if "const" in modelo.model.exog_names else 0)
+    lim_alav = float(params.get("alavancagem_fator", 2.0)) * p_par / n_obs
+    lim_cook = float(params.get("cook_fator", 4.0)) / n_obs
+    influencia, influentes = [], []
+    try:
+        inf = modelo.get_influence()
+        alav = np.asarray(inf.hat_matrix_diag, dtype=float)
+        stud = np.asarray(inf.resid_studentized_internal, dtype=float)
+        cook = np.asarray(inf.cooks_distance[0], dtype=float)
+        for pos, idx in enumerate(df.index):
+            linha = df.loc[idx]
+            item = {
+                "indice": int(pos),
+                "id": str(linha.get("dado_id", linha.get("id", idx))),
+                "alavancagem": float(alav[pos]),
+                "residuo_studentizado": float(stud[pos]),
+                "cook": float(cook[pos]),
+            }
+            motivos = []
+            if alav[pos] > lim_alav:
+                motivos.append("alavancagem alta")
+            if cook[pos] > lim_cook:
+                motivos.append("distância de Cook alta")
+            item["revisar"] = motivos
+            influencia.append(item)
+            if motivos:
+                influentes.append(item)
+    except Exception:  # noqa: BLE001 — diagnóstico informativo não derruba o modelo
+        influencia, influentes = [], []
+
     return {
+        "influencia": influencia,
+        "pontos_influentes": influentes,
+        "limites_influencia": {"alavancagem": lim_alav, "cook": lim_cook,
+                               "regra": "alavancagem > 2p/n · Cook > 4/n (triagem — "
+                                        "pede revisão, não exclusão automática)"},
         "normalidade_ks": {"estatistica": float(ks_stat), "p_valor": float(ks_p),
                            "atende": bool(ks_p > alfa)},
         "normalidade_jb": {"estatistica": float(jb_stat), "p_valor": float(jb_p),

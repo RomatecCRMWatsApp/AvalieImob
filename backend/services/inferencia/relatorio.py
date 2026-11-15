@@ -310,6 +310,21 @@ def gerar_pdf(doc: dict, tema: str = "prime2") -> bytes:
         S.append(Paragraph("Não há pontos com resíduo padronizado fora de ±2σ.", st["nota"]))
     S.append(Spacer(1, 12))
 
+    if diag.get("pontos_influentes"):
+        lim = diag.get("limites_influencia") or {}
+        S.append(Paragraph(
+            "Dados com influência acima da triagem (alavancagem &gt; 2p/n = "
+            f"{_n(lim.get('alavancagem'), 3)}; distância de Cook &gt; 4/n = "
+            f"{_n(lim.get('cook'), 3)}). A triagem pede revisão; a decisão é do avaliador.",
+            st["nota"]))
+        linhas = [["Dado", "Alavancagem", "Cook", "Motivo"]]
+        for o in diag["pontos_influentes"]:
+            linhas.append([o["id"], _n(o["alavancagem"], 3), _n(o["cook"], 3),
+                           ", ".join(o.get("revisar") or [])])
+        S.append(_tabela(linhas, [L * 0.18, L * 0.20, L * 0.20, L * 0.42], st,
+                         align_dir=(1, 2)))
+        S.append(Spacer(1, 12))
+
     # 6. Gráficos de diagnóstico (2×2)
     imagens = []
     for chave in ("residuos", "observado_estimado", "histograma", "qq"):
