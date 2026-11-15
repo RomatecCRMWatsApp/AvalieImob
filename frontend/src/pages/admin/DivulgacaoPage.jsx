@@ -128,13 +128,6 @@ const VIDEOS = [
     msg: 'Olá! Tudo bem? Segue um vídeo rápido para você conhecer a AvalieImob e seus módulos de avaliação e laudos, georreferenciamento, contratos, shapefile urbano e ONR.\n\nQual desses módulos faz mais sentido para o seu trabalho?\n\nSe quiser, posso orientar seu acesso para um teste e você conhece a plataforma no seu ritmo.',
   },
   {
-    id: 'ptam-12-passos', arquivo: 'AvalieImob_PTAM_Divulgacao_1080x1920', duracao: '1 min',
-    titulo: 'PTAM em 12 passos',
-    desc: 'O PTAM do solicitante à assinatura: amostras com valor e fonte, tratamento e memória de cálculo, e 3 dias grátis no fim.',
-    msg: 'Olá! Tudo bem? 👋 Ainda perde tempo juntando documentos espalhados para fechar um parecer? Separei um vídeo de 1 minuto mostrando o *PTAM em 12 passos* na AvalieImob: solicitante, imóvel, amostras com valor e fonte, tratamento e memória de cálculo — você confere e assina.\n\n🎁 Teste *3 dias grátis*, sem cartão e sem cobrança automática.',
-    destino: '/cadastro',
-  },
-  {
     id: 'ptam-campanha', arquivo: 'AvalieImob_ptam_1080x1920', duracao: '25 s',
     titulo: 'Campanha — PTAM',
     desc: 'Para corretores e avaliadores: clientes, imóveis e amostras conectados, IA que apoia e laudo com a sua marca e assinatura ICP-Brasil.',
@@ -197,17 +190,20 @@ const VIDEO_CADASTRO = {
 function VideoCard({ v, toast }) {
   const [enviando, setEnviando] = React.useState(false);
   const mp4 = `${VIDEO_DIR}/${v.arquivo}.mp4`;
+  // Arquivo que vai para a conversa: a versão leve, quando existir.
+  const envio = `${VIDEO_DIR}/${v.envio || v.arquivo}.mp4`;
+  const videoRef = React.useRef(null);
   const texto = textoVideo(v);
   // Sem o arquivo, o WhatsApp recebe o link do vídeo junto com a mensagem.
-  const waLink = `https://wa.me/?text=${encodeURIComponent(`${texto}\n\nVídeo: ${BASE}${mp4}`)}`;
+  const waLink = `https://wa.me/?text=${encodeURIComponent(`${texto}\n\nVídeo: ${BASE}${envio}`)}`;
 
   // No celular, o compartilhamento nativo manda o PRÓPRIO vídeo para a conversa
   // escolhida (com a mensagem). Onde não houver suporte, abre o WhatsApp com o link.
   const enviarVideo = async () => {
     setEnviando(true);
     try {
-      const blob = await (await fetch(mp4)).blob();
-      const file = new File([blob], `${v.arquivo}.mp4`, { type: 'video/mp4' });
+      const blob = await (await fetch(envio)).blob();
+      const file = new File([blob], `${v.envio || v.arquivo}.mp4`, { type: 'video/mp4' });
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         try { await navigator.clipboard.writeText(texto); } catch { /* opcional */ }
         await navigator.share({ files: [file], text: texto });
@@ -224,15 +220,31 @@ function VideoCard({ v, toast }) {
   };
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-4 flex flex-col sm:flex-row gap-4">
-      <div className="shrink-0 mx-auto sm:mx-0 w-[180px] rounded-xl overflow-hidden bg-black" style={{ aspectRatio: '9 / 16' }}>
-        <video controls playsInline preload="none" poster={`${VIDEO_DIR}/${v.arquivo}.jpg`}
-          aria-label={`Vídeo: ${v.titulo}`} className="block w-full h-full" style={{ objectFit: 'contain' }}>
-          <source src={mp4} type="video/mp4" />
-          {v.legendas && (
-            <track kind="captions" src={`${VIDEO_DIR}/${v.arquivo}.vtt`} srcLang="pt-BR" label="Português" default />
-          )}
-        </video>
+    <div className={`rounded-2xl border border-gray-200 bg-white p-4 flex flex-col gap-4 ${v.horizontal ? '' : 'sm:flex-row'}`}>
+      <div className={v.horizontal ? 'w-full' : 'shrink-0 mx-auto sm:mx-0 w-[180px]'}>
+        <div className="rounded-xl overflow-hidden bg-black" style={{ aspectRatio: v.horizontal ? '16 / 9' : '9 / 16' }}>
+          <video ref={videoRef} controls playsInline preload="none" poster={`${VIDEO_DIR}/${v.arquivo}.jpg`}
+            aria-label={`Vídeo: ${v.titulo}`} className="block w-full h-full" style={{ objectFit: 'contain' }}>
+            <source src={mp4} type="video/mp4" />
+            {/* Legendas já gravadas na imagem: a faixa fica opcional (sem default) para não duplicar. */}
+            {(v.legendas || v.legendasOpcionais) && (
+              v.legendasOpcionais
+                ? <track kind="captions" src={`${VIDEO_DIR}/${v.arquivo}.vtt`} srcLang="pt-BR" label="Português (Brasil)" />
+                : <track kind="captions" src={`${VIDEO_DIR}/${v.arquivo}.vtt`} srcLang="pt-BR" label="Português" default />
+            )}
+          </video>
+        </div>
+        {v.capitulos && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {v.capitulos.map(([t, rotulo]) => (
+              <button key={t} type="button"
+                onClick={() => { const el = videoRef.current; if (!el) return; el.currentTime = t; el.play().catch(() => {}); }}
+                className="text-[11px] px-2 py-1 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-50">
+                {`${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`} · {rotulo}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       <div className="flex-1 min-w-0">
         <h3 className="font-semibold" style={{ color: GREEN }}>
@@ -250,7 +262,7 @@ function VideoCard({ v, toast }) {
             className="inline-flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-semibold border text-emerald-800 border-emerald-200 hover:bg-emerald-50">
             <Send className="w-3.5 h-3.5" /> Mandar link no WhatsApp
           </a>
-          <a href={mp4} download={`${v.arquivo}.mp4`}
+          <a href={envio} download={`${v.envio || v.arquivo}.mp4`}
             className="inline-flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-medium border text-gray-700 border-gray-200 hover:bg-gray-50">
             <Download className="w-3.5 h-3.5" /> Baixar vídeo
           </a>
@@ -260,6 +272,100 @@ function VideoCard({ v, toast }) {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Campanha: PTAM em 12 passos (kit de 15/11/2026) ──
+// Oferta aprovada: 3 dias grátis, contratação opcional depois, sem cobrança automática.
+// Textos do dono, sem alteração. Os vídeos já trazem a legenda gravada na imagem.
+const P12_CAD_INSTA = 'https://www.romatecavalieimob.com.br/cadastro?utm_source=instagram&utm_medium=paid_social&utm_campaign=ptam_12_passos_3_dias';
+const P12_CAD_ZAP = 'https://www.romatecavalieimob.com.br/cadastro?utm_source=whatsapp&utm_medium=folder&utm_campaign=folder-cadastro';
+const P12_LEGENDA = [
+  'Documentos espalhados, retrabalho e dificuldade para explicar o valor ao cliente?',
+  'Conheça o AvalieImob, da Romatec: um fluxo de PTAM em 12 passos, do cadastro à apresentação do parecer.',
+  'Organize os dados do imóvel, mapas, documentos e pesquisa de mercado. Em cada amostragem, você pode anexar imagens e planta baixa do comparável, além de registrar área, valor, fonte e características — mais contexto para uma análise bem documentada.',
+  'Confira os tratamentos e a memória de cálculo e prepare a entrega com resultado, conclusão, capa, sumário e anexos. Você revisa e assina; a plataforma apoia o seu trabalho.',
+  'Para corretores, avaliadores e peritos que querem uma rotina mais organizada e uma apresentação mais clara para o cliente.',
+  'Teste grátis por 3 dias. Depois, você decide se quer contratar. Sem cobrança automática.',
+  `Faça seu cadastro:\n${P12_CAD_INSTA}`,
+  '#AvalieImob #Romatec #PTAM #AvaliacaoImobiliaria #CorretorDeImoveis #PeritoImobiliario',
+].join('\n\n');
+const P12_CURTA = [
+  'Do cadastro à entrega: conheça o PTAM em 12 passos no AvalieImob.',
+  'Organize comparáveis com campos para imagens e planta baixa, confira os tratamentos e a memória de cálculo e prepare um documento com capa, sumário e anexos. Você revisa e assina.',
+  '3 dias grátis para conhecer. Contratação opcional depois do teste, sem cobrança automática.',
+  `Cadastre-se:\n${P12_CAD_INSTA}`,
+].join('\n\n');
+const P12_LEAD = [
+  'Olá! Preparei esta apresentação rápida do AvalieImob para você conhecer o fluxo de PTAM, a pesquisa de amostras, os tratamentos e a organização do documento final.',
+  'Você pode testar a plataforma grátis por 3 dias. Depois, decide se quer contratar, sem cobrança automática.',
+  `Cadastro:\n${P12_CAD_ZAP}`,
+  'Se quiser, também posso te enviar a demonstração completa das 12 etapas.',
+].join('\n\n');
+const P12_DEMO_MSG = [
+  'Olá! Como combinamos, segue a demonstração completa do PTAM em 12 passos no AvalieImob (cerca de 6 minutos): do cadastro do solicitante ao documento final com capa, sumário e anexos, assinatura e entrega.',
+  'Você pode testar a plataforma grátis por 3 dias. Depois, decide se quer contratar, sem cobrança automática.',
+  `Cadastro:\n${P12_CAD_ZAP}`,
+].join('\n\n');
+const P12_TEXTOS = [
+  { id: 'principal', rotulo: 'Legenda principal (Instagram)', texto: P12_LEGENDA },
+  { id: 'curta', rotulo: 'Versão curta (Reels / anúncio)', texto: P12_CURTA },
+  { id: 'lead', rotulo: 'Mensagem ao lead (WhatsApp)', texto: P12_LEAD },
+];
+const P12_VIDEO = {
+  id: 'ptam-12-passos', arquivo: 'AvalieImob_PTAM_Divulgacao_1080x1920', envio: 'AvalieImob_PTAM_Divulgacao_WhatsApp_720x1280',
+  duracao: '1 min', legendasOpcionais: true,
+  titulo: 'Anúncio — PTAM em 12 passos',
+  desc: 'Vertical, narrado, com legenda na imagem. "Enviar o vídeo" e "Baixar" usam a versão leve (2,4 MB). No anúncio, aponte o botão para o link de cadastro da legenda.',
+  texto: P12_LEAD,
+};
+const P12_DEMO = {
+  id: 'ptam-12-passos-demo', arquivo: 'AvalieImob_PTAM_Demonstracao_Web_1280x720',
+  duracao: '6 min', legendasOpcionais: true, horizontal: true,
+  titulo: 'Demonstração completa — PTAM em 12 passos',
+  desc: 'Para o lead que quer detalhes. Clique num capítulo para ir direto à etapa.',
+  texto: P12_DEMO_MSG,
+  capitulos: [
+    [0, 'Abertura'], [28, '1. Solicitante'], [47, '2. Objetivo'], [65, '3. Imóvel'], [91, '4. Região'],
+    [107, '5. Caracterização'], [131, '6. Amostras'], [159, '7. Metodologia'], [177, '8. Cálculos'],
+    [201, '9. Ponderação'], [219, '10. Depreciação'], [239, '11. Resultado'], [268, '12. Conclusão'],
+    [288, 'PTAM exportado'], [317, 'Assinatura e entrega'], [339, '3 dias grátis'],
+  ],
+};
+
+function CampanhaPtam12({ toast }) {
+  const [sel, setSel] = React.useState('principal');
+  const atual = P12_TEXTOS.find((t) => t.id === sel) || P12_TEXTOS[0];
+  const copiar = async () => {
+    try { await navigator.clipboard.writeText(atual.texto); toast({ title: 'Texto copiado ✓', description: atual.rotulo }); }
+    catch { toast({ title: 'Não foi possível copiar', variant: 'destructive' }); }
+  };
+  return (
+    <div className="space-y-4 mb-9">
+      <div className="rounded-2xl border border-gray-200 bg-white p-4">
+        <h3 className="font-semibold" style={{ color: GREEN }}>Legendas e mensagens</h3>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {P12_TEXTOS.map((t) => (
+            <button key={t.id} type="button" onClick={() => setSel(t.id)} aria-pressed={sel === t.id}
+              className={`text-xs px-3 py-1.5 rounded-full border ${sel === t.id ? 'text-white border-transparent' : 'text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+              style={sel === t.id ? { background: GREEN } : undefined}>
+              {t.rotulo}
+            </button>
+          ))}
+        </div>
+        <pre className="mt-3 text-xs text-gray-600 whitespace-pre-wrap font-sans bg-gray-50 border border-gray-100 rounded-lg p-3 max-h-48 overflow-auto">{atual.texto}</pre>
+        <p className="text-[11px] text-gray-400 mt-1">
+          No Instagram o link da legenda não é clicável: use o link da bio, um sticker de link ou o botão do anúncio.
+        </p>
+        <button onClick={copiar}
+          className="mt-3 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold text-white"
+          style={{ background: GREEN }}>
+          <Copy className="w-3.5 h-3.5" /> Copiar texto
+        </button>
+      </div>
+      <VideoCard v={P12_VIDEO} toast={toast} />
+      <VideoCard v={P12_DEMO} toast={toast} />
     </div>
   );
 }
@@ -619,6 +725,14 @@ export default function DivulgacaoPage() {
       </div>
 
       <BuscadoresCard toast={toast} />
+
+      <h2 className="text-sm font-bold uppercase tracking-wide mt-2 mb-1" style={{ color: GREEN }}>
+        Campanha — PTAM em 12 passos (3 dias grátis)
+      </h2>
+      <p className="text-xs text-gray-500 mb-3">
+        Para captar: o anúncio vertical com o link de cadastro. Para o lead que quer detalhes: a demonstração completa.
+      </p>
+      <CampanhaPtam12 toast={toast} />
 
       <h2 className="text-sm font-bold uppercase tracking-wide mt-2 mb-1" style={{ color: GREEN }}>
         Campanha — Análise Estatística Avançada (prévia)

@@ -2,6 +2,7 @@ import React from 'react';
 import { Check, MessageCircle } from 'lucide-react';
 import { MODULOS, VERDE, DOURADO, CREME, whatsLink } from './campanha';
 import PreviaAnaliseAvancada from './PreviaAnaliseAvancada';
+import DemoPtam12Passos from './DemoPtam12Passos';
 
 // Ícone do WhatsApp (o lucide não tem a marca).
 export const WhatsIcon = ({ className = 'w-5 h-5' }) => (
@@ -119,6 +120,7 @@ const CampanhaModulos = () => (
       <React.Fragment key={m.id}>
         <Modulo m={m} indice={i} />
         {/* Prévia logo após a Avaliação, onde a análise de amostras é apresentada. */}
+        {m.id === 'avaliacao' && <DemoPtam12Passos />}
         {m.id === 'avaliacao' && <PreviaAnaliseAvancada />}
       </React.Fragment>
     ))}

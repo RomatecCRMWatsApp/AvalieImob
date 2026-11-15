@@ -2,6 +2,31 @@
   "_leia_me": "Notas de atualizacao que viram o AVISO no sistema. Regra: a cada release, ANTES do commit, acrescente a entrada no topo de 'releases' (ver CLAUDE.md, passo 7). Itens com publico='interno' (painel administrativo ou ajuste tecnico) NAO geram aviso para ninguem - ficam so registrados aqui. Tipos: novo | melhoria | correcao. Escreva o texto COM ACENTOS: ele vai direto para a tela do cliente.",
   "releases": [
     {
+      "versao": "1.4.1524",
+      "build": 1524,
+      "data": "2026-11-15",
+      "itens": [
+        {
+          "modulo": "Site",
+          "tipo": "novo",
+          "texto": "Página inicial ganhou a demonstração narrada do PTAM em 12 passos, com capítulos e botão de cadastro.",
+          "publico": "interno"
+        },
+        {
+          "modulo": "Divulgação",
+          "tipo": "novo",
+          "texto": "Campanha PTAM em 12 passos: anúncio, versão leve para WhatsApp, demonstração completa e as três legendas prontas.",
+          "publico": "interno"
+        },
+        {
+          "modulo": "Site",
+          "tipo": "correcao",
+          "texto": "Vídeos do site passam a tocar e avançar normalmente no iPhone e no iPad.",
+          "publico": "interno"
+        }
+      ]
+    },
+    {
       "versao": "1.4.1523",
       "build": 1523,
       "data": "2026-11-15",

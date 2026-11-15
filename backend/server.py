@@ -590,7 +590,7 @@ if _frontend_build.exists():
         return HTMLResponse(content=html, headers=dict(_NO_CACHE))
 
     @app.get("/{full_path:path}")
-    async def serve_spa(full_path: str):
+    async def serve_spa(full_path: str, request: Request):
         # IndexNow: serve a chave em texto puro. Precisa estar AQUI dentro
         # do catch-all senao o roteador serve a home pra qualquer .txt.
         if full_path == f"{INDEXNOW_KEY}.txt":
@@ -614,6 +614,11 @@ if _frontend_build.exists():
         if full_path and _dentro and file_path.is_file():
             if full_path in _NO_CACHE_FILES or full_path.endswith(".html"):
                 return FileResponse(str(file_path), headers=dict(_NO_CACHE))
+            # Vídeo/áudio: atende pedidos de intervalo (206). Sem isso o Safari não
+            # toca e nenhum navegador pula de capítulo antes de baixar o arquivo todo.
+            from services.media_range import eh_midia, resposta_midia
+            if eh_midia(full_path):
+                return resposta_midia(str(file_path), request.headers.get("range"))
             return FileResponse(str(file_path))
         # Índice de diretório estático: /folder/ -> build/folder/index.html
         # (só um diretório DENTRO do build que tenha index.html; a raiz `/` — full_path
