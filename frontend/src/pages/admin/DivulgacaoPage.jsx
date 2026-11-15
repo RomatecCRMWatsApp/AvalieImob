@@ -71,9 +71,17 @@ const CALCULADORA = {
 // Resposta pronta para "qual o valor da assinatura?" — página só com os planos.
 const PLANOS = {
   file: 'planos', titulo: 'Valores da assinatura (planos)',
-  desc: 'Página só com os planos — mensal R$ 89,90, trimestral R$ 239,90 e anual R$ 849,90 — e o botão de cadastro com 7 dias grátis.',
+  desc: 'Página só com os planos — mensal R$ 89,90, trimestral R$ 239,90 e anual R$ 849,90 — e o botão de cadastro com 3 dias grátis.',
   url: `${BASE}/planos`,
-  msg: 'Os valores da assinatura do AvalieImob: mensal R$ 89,90, trimestral R$ 239,90 ou anual R$ 849,90 — e 7 dias grátis para testar:',
+  msg: 'Os valores da assinatura do AvalieImob: mensal R$ 89,90, trimestral R$ 239,90 ou anual R$ 849,90 — e 3 dias grátis para testar:',
+};
+
+// Link direto para o cadastro: quem cria a conta ganha o teste automático de 3 dias.
+const CADASTRO = {
+  file: 'cadastro', titulo: 'Cadastro com 3 dias de teste grátis',
+  desc: 'Link direto para a tela de cadastro. Ao criar a conta, o lead já entra com 3 dias de teste liberados automaticamente — sem cartão.',
+  url: `${BASE}/cadastro`,
+  msg: 'Crie sua conta no AvalieImob e teste o sistema completo por 3 dias grátis, sem cartão de crédito:',
 };
 
 const PAGAMENTO = {
@@ -394,6 +402,7 @@ export default function DivulgacaoPage() {
         Valores da assinatura
       </h2>
       <div className="mb-8"><FolderCard f={PLANOS} toast={toast} /></div>
+      <div className="mb-8"><FolderCard f={CADASTRO} toast={toast} /></div>
 
       <BuscadoresCard toast={toast} />
 

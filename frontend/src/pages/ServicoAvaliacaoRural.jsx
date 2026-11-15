@@ -48,7 +48,7 @@ export default function ServicoAvaliacaoRural() {
         { q: 'O laudo serve para ações judiciais agrárias?', a: 'Sim. Os laudos do AvalieImob são totalmente compatíveis com perícias judiciais em ações de desapropriação, partilha, divisão, demarcação e indenização rural. Geramos PTAM completo conforme NBR 14.653-3 com toda a fundamentação técnica exigida em juízo.' },
       ]}
       ctaTitulo="Avalie qualquer imóvel rural com precisão técnica"
-      ctaTexto="7 dias grátis. NBR 14.653-3 completa. Para engenheiros agrônomos, peritos rurais e bancos."
+      ctaTexto="3 dias grátis. NBR 14.653-3 completa. Para engenheiros agrônomos, peritos rurais e bancos."
     />
   );
 }

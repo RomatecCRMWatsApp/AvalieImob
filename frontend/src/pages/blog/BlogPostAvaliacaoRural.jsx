@@ -150,7 +150,7 @@ export default function BlogPostAvaliacaoRural() {
           'Memorial fotográfico organizado por benfeitoria e talhão com geolocalização',
           'IA agropecuária especializada que conhece particularidades de cada bioma',
         ]},
-        { cta: 'Teste o módulo de Avaliação Rural do AvalieImob por 7 dias grátis.', ctaTexto: 'Começar grátis →' },
+        { cta: 'Teste o módulo de Avaliação Rural do AvalieImob por 3 dias grátis.', ctaTexto: 'Começar grátis →' },
 
         { h2: 'Conclusão' },
         { p: 'A avaliação de imóveis rurais é uma especialidade técnica que exige domínio integrado de várias áreas — agronomia, edificações rurais, zootecnia e legislação ambiental e fundiária. A NBR 14.653-3 padroniza esse processo em componentes obrigatórios: terra nua, benfeitorias, semoventes, safras e equipamentos.' },

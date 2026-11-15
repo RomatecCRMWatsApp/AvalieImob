@@ -111,7 +111,7 @@ export default function BlogPostPtamLaudo() {
           'PTAM Grau II: versão intermediária, ideal para a maioria das transações bancárias',
           'Laudo simplificado (Grau I): ágil, ideal para consultas privadas e transações rotineiras',
         ]},
-        { cta: 'Teste o AvalieImob 7 dias grátis e veja como é fácil emitir PTAM ou Laudo conforme NBR 14.653.', ctaTexto: 'Começar grátis →' },
+        { cta: 'Teste o AvalieImob 3 dias grátis e veja como é fácil emitir PTAM ou Laudo conforme NBR 14.653.', ctaTexto: 'Começar grátis →' },
 
         { h2: 'Conclusão' },
         { p: 'PTAM e Laudo de Avaliação não são sinônimos. PTAM é o documento técnico-formal completo, com maior peso jurídico, exigido em situações onde haja disputa judicial, garantia bancária de grande porte ou perícia técnica. Laudo é a versão mais ágil, ideal para transações rotineiras e consultas privadas.' },

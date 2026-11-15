@@ -143,7 +143,7 @@ export default function BlogPostGrauFundamentacao() {
           'Indicador visual mostrando seu grau atual e o que falta pra subir um nível',
           'Sugestões da IA: "adicione mais 2 amostras pra subir pra Grau III"',
         ]},
-        { cta: 'Teste o sistema completo do AvalieImob por 7 dias grátis.', ctaTexto: 'Começar grátis →' },
+        { cta: 'Teste o sistema completo do AvalieImob por 3 dias grátis.', ctaTexto: 'Começar grátis →' },
 
         { h2: 'Conclusão' },
         { p: 'Os Graus de Fundamentação e Precisão são o "selo de qualidade" do seu laudo de avaliação. Dominar esse cálculo é o que separa o avaliador iniciante do profissional consolidado — e é também o diferencial que justifica honorários mais altos no mercado.' },

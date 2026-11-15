@@ -16,6 +16,7 @@ import { useToast } from '../../hooks/use-toast';
 import { trialsAPI } from '../../lib/api';
 
 const PRESETS_DIAS = [3, 7, 15, 30];
+const ESTENDER_DIAS = [3, 4, 7];
 
 const SITUACAO = {
   ativo: { label: 'Em teste', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
@@ -32,7 +33,7 @@ const fmtData = (v) => {
 };
 
 const emptyForm = () => ({
-  nome: '', email: '', telefone: '', dias: 7, senha: '', observacao: '',
+  nome: '', email: '', telefone: '', dias: 3, senha: '', observacao: '',
   enviar_whatsapp: true, enviar_email: true,
 });
 
@@ -126,7 +127,7 @@ const TrialsAdmin = () => {
         nome: form.nome || null,
         email: form.email.trim(),
         telefone: form.telefone || null,
-        dias: Number(form.dias) || 7,
+        dias: Number(form.dias) || 3,
         senha: form.senha || null,
         observacao: form.observacao || null,
         enviar_whatsapp: !!form.enviar_whatsapp,
@@ -156,6 +157,26 @@ const TrialsAdmin = () => {
       load();
     } catch (e) {
       toast({ title: 'Erro ao estender', description: e.response?.data?.detail, variant: 'destructive' });
+    } finally { setAcaoId(''); }
+  };
+
+  const ajustar = async (t) => {
+    const v = window.prompt(
+      `Quantos dias de teste devem restar para ${t.name || t.email}, a partir de agora?\n(serve para reduzir ou aumentar — ex.: 2, 3, 7)`,
+      String(t.dias_restantes || 3));
+    if (v === null) return;
+    const dias = parseInt(v, 10);
+    if (!dias || dias < 1 || dias > 365) {
+      toast({ title: 'Informe um número de dias entre 1 e 365', variant: 'destructive' });
+      return;
+    }
+    setAcaoId(t.id);
+    try {
+      await trialsAPI.ajustar(t.id, dias);
+      toast({ title: `Teste ajustado: restam ${dias} dia(s)` });
+      load();
+    } catch (e) {
+      toast({ title: 'Erro ao ajustar', description: e.response?.data?.detail, variant: 'destructive' });
     } finally { setAcaoId(''); }
   };
 
@@ -273,12 +294,16 @@ const TrialsAdmin = () => {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1 flex-wrap">
-                      {PRESETS_DIAS.slice(0, 2).map((d) => (
+                      {ESTENDER_DIAS.map((d) => (
                         <Button key={d} size="sm" variant="outline" disabled={ocupado}
                                 onClick={() => estender(t, d)} title={`Estender ${d} dias`}>
                           +{d}d
                         </Button>
                       ))}
+                      <Button size="sm" variant="outline" disabled={ocupado} onClick={() => ajustar(t)}
+                              title="Definir quantos dias restam (aumentar ou reduzir)">
+                        Ajustar
+                      </Button>
                       <Button size="sm" variant="outline" disabled={ocupado} onClick={() => reenviar(t)}
                               title="Reenviar credenciais">
                         {ocupado ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}

@@ -61,7 +61,7 @@ export default function BlogPostPropostasConsultoria() {
           'Averbação de construção (residencial e comercial)',
           'Cálculo separado de honorários, emolumentos e taxas',
         ]},
-        { cta: 'Monte propostas de consultoria com cálculo automático. Teste 7 dias grátis.', ctaTexto: 'Começar grátis →' },
+        { cta: 'Monte propostas de consultoria com cálculo automático. Teste 3 dias grátis.', ctaTexto: 'Começar grátis →' },
 
         { h2: 'Conclusão' },
         { p: 'Uma boa proposta de consultoria é transparente: separa o que é honorário do que é repasse, justifica a complexidade e fecha com parcelamento claro. Quando esse cálculo é automatizado, você responde o cliente na hora, com consistência — e fecha mais trabalhos sem deixar dinheiro na mesa.' },

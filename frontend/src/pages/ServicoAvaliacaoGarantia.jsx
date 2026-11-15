@@ -7,7 +7,7 @@ export default function ServicoAvaliacaoGarantia() {
       slug="avaliacao-garantia"
       titulo="Avaliação de Garantias Bancárias"
       subtitulo="Laudos de avaliação para garantias hipotecárias, alienação fiduciária e penhor"
-      meta="Sistema online para avaliação de garantias bancárias: hipoteca, alienação fiduciária e penhor. Conforme NBR 14.653 e exigências bancárias. Teste grátis 7 dias."
+      meta="Sistema online para avaliação de garantias bancárias: hipoteca, alienação fiduciária e penhor. Conforme NBR 14.653 e exigências bancárias. Teste grátis 3 dias."
       palavrasChave="avaliação garantia bancária, laudo garantia hipotecária, alienação fiduciária avaliação, penhor avaliação, avaliação para banco, laudo banco do brasil, laudo caixa econômica, avaliador credenciado banco"
       hero="Plataforma profissional para emissão de laudos de avaliação de garantias bancárias. Compatível com exigências de Banco do Brasil, Caixa, Itaú, Bradesco, Santander, Sicredi e cooperativas. Conformidade NBR 14.653 garantida."
       intro={[
@@ -24,7 +24,7 @@ export default function ServicoAvaliacaoGarantia() {
         { titulo: 'Assinatura digital ICP-Brasil', descricao: 'Laudo assinado com certificado digital ICP-Brasil ou via D4Sign, com validade jurídica plena.' },
       ]}
       comoFunciona={[
-        { titulo: 'Cadastre-se grátis', descricao: 'Acesso ao módulo de avaliação de garantias durante 7 dias de teste. Sem cartão de crédito.' },
+        { titulo: 'Cadastre-se grátis', descricao: 'Acesso ao módulo de avaliação de garantias durante 3 dias de teste. Sem cartão de crédito.' },
         { titulo: 'Selecione o banco/finalidade', descricao: 'Escolha o modelo bancário (BB, Caixa, Itaú, etc.) e o tipo de garantia (hipoteca, alienação, penhor).' },
         { titulo: 'Identifique o imóvel-garantia', descricao: 'Matrícula, IPTU, CAR, dados do proprietário, características físicas e fotos.' },
         { titulo: 'Levante o mercado', descricao: 'Cadastre amostras comparáveis. Sistema calcula valor de mercado pelo método comparativo direto.' },
@@ -48,7 +48,7 @@ export default function ServicoAvaliacaoGarantia() {
         { q: 'O laudo precisa de assinatura digital?', a: 'A maioria dos bancos exige assinatura digital com certificado ICP-Brasil. O AvalieImob integra com D4Sign e suporta certificados A1/A3 do avaliador, garantindo validade jurídica plena e aceitação por todos os bancos.' },
       ]}
       ctaTitulo="Emita laudos de garantia bancária com agilidade"
-      ctaTexto="7 dias grátis. Modelos compatíveis com BB, Caixa, Itaú, Bradesco, Santander e cooperativas."
+      ctaTexto="3 dias grátis. Modelos compatíveis com BB, Caixa, Itaú, Bradesco, Santander e cooperativas."
     />
   );
 }

@@ -276,6 +276,37 @@ async def estender_trial(db, user_id: str, dias, admin_uid: str = "") -> dict:
     return _view(atual, agora)
 
 
+async def definir_dias_restantes(db, user_id: str, dias, admin_uid: str = "") -> dict:
+    """Ajusta o teste para terminar daqui a N dias — serve para REDUZIR (ex.: deixar
+    só 2 dias) ou corrigir um teste longo demais. N conta a partir de agora."""
+    dias = validar_dias(dias)
+    u = await db.users.find_one({"id": user_id})
+    if not u:
+        raise TrialError("Usuário não encontrado.")
+    agora = datetime.utcnow()
+    nova = agora + timedelta(days=dias)
+    inicio = _naive(u.get("trial_inicio")) or agora
+    concedidos = max(dias, (nova - inicio).days + (1 if (nova - inicio).seconds else 0))
+    upd = {
+        "plan": PLANO_TRIAL,
+        "plan_status": "active",
+        "plan_expires": nova,
+        "trial": True,
+        "trial_expires": nova,
+        "trial_dias": int(concedidos),
+        "trial_encerrado_em": None,
+    }
+    if not u.get("trial_inicio"):
+        upd["trial_inicio"] = agora
+    await db.users.update_one(
+        {"id": user_id},
+        {"$set": upd, "$push": {"trial_historico": {"acao": "ajustado", "dias_restantes": dias,
+                                                    "em": agora, "por": admin_uid,
+                                                    "expira_em": nova}}})
+    atual = await db.users.find_one({"id": user_id})
+    return _view(atual, agora)
+
+
 async def encerrar_trial(db, user_id: str, admin_uid: str = "") -> dict:
     """Corta o acesso na hora (o gate passa a barrar na próxima requisição)."""
     u = await db.users.find_one({"id": user_id})

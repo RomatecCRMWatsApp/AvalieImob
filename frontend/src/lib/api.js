@@ -251,6 +251,7 @@ export const trialsAPI = {
   list: () => api.get('/admin/trials').then(r => r.data),
   criar: (data) => api.post('/admin/trials', data).then(r => r.data),
   estender: (userId, dias) => api.post(`/admin/trials/${userId}/estender`, { dias }).then(r => r.data),
+  ajustar: (userId, dias) => api.post(`/admin/trials/${userId}/ajustar`, { dias }).then(r => r.data),
   encerrar: (userId) => api.post(`/admin/trials/${userId}/encerrar`).then(r => r.data),
   reenviar: (userId, payload = {}) => api.post(`/admin/trials/${userId}/reenviar`, payload).then(r => r.data),
 };

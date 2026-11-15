@@ -103,7 +103,7 @@ export default function Blog() {
               Quer emitir laudos profissionais conforme NBR 14.653?
             </h2>
             <p style={{ fontSize: 17, marginBottom: 20, maxWidth: 600, margin: '0 auto 20px' }}>
-              Teste o AvalieImob 7 dias grátis. Sem cartão de crédito.
+              Teste o AvalieImob 3 dias grátis. Sem cartão de crédito.
             </p>
             <Link to="/cadastro" style={{ ...styles.ctaPrimary, background: '#0d4f3c', color: '#fff' }}>
               Começar grátis →

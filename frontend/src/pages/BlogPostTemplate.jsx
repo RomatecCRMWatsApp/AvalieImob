@@ -151,7 +151,7 @@ export default function BlogPostTemplate({
                 Pronto para emitir laudos profissionais?
               </h2>
               <p style={{ fontSize: 17, marginBottom: 20, maxWidth: 600, margin: '0 auto 20px' }}>
-                Teste o AvalieImob 7 dias grátis. Sem cartão de crédito. Sistema completo conforme NBR 14.653.
+                Teste o AvalieImob 3 dias grátis. Sem cartão de crédito. Sistema completo conforme NBR 14.653.
               </p>
               <Link to="/cadastro" style={{ ...styles.ctaPrimary, background: '#0d4f3c', color: '#fff' }}>
                 Começar grátis →

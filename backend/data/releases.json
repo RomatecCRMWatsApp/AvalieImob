@@ -2,6 +2,31 @@
   "_leia_me": "Notas de atualizacao que viram o AVISO no sistema. Regra: a cada release, ANTES do commit, acrescente a entrada no topo de 'releases' (ver CLAUDE.md, passo 7). Itens com publico='interno' (painel administrativo ou ajuste tecnico) NAO geram aviso para ninguem - ficam so registrados aqui. Tipos: novo | melhoria | correcao. Escreva o texto COM ACENTOS: ele vai direto para a tela do cliente.",
   "releases": [
     {
+      "versao": "1.4.1506",
+      "build": 1506,
+      "data": "2026-11-15",
+      "itens": [
+        {
+          "modulo": "Cadastro",
+          "tipo": "melhoria",
+          "texto": "Quem cria a conta agora recebe 3 dias de teste grátis do sistema completo.",
+          "publico": "interno"
+        },
+        {
+          "modulo": "Acessos de teste",
+          "tipo": "melhoria",
+          "texto": "Novos botões +4d e Ajustar: dá para somar 3, 4 ou 7 dias, ou definir quantos dias restam (inclusive reduzir).",
+          "publico": "interno"
+        },
+        {
+          "modulo": "Divulgação",
+          "tipo": "novo",
+          "texto": "Card com o link direto do cadastro (3 dias grátis), com QR, WhatsApp e mensagem pronta.",
+          "publico": "interno"
+        }
+      ]
+    },
+    {
       "versao": "1.4.1504",
       "build": 1504,
       "data": "2026-11-15",

@@ -133,6 +133,19 @@ async def estender(user_id: str, payload: dict = None,
     return {"ok": True, "user": user}
 
 
+@router.post("/{user_id}/ajustar")
+async def ajustar(user_id: str, payload: dict = None,
+                  uid: str = Depends(get_admin_user), db=Depends(get_db)):
+    """Define quantos dias de teste restam, a partir de agora (aumenta ou reduz)."""
+    try:
+        user = await TS.definir_dias_restantes(db, user_id, (payload or {}).get("dias"), admin_uid=uid)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+    except TS.TrialError as e:
+        raise HTTPException(404, str(e))
+    return {"ok": True, "user": user}
+
+
 @router.post("/{user_id}/encerrar")
 async def encerrar(user_id: str, uid: str = Depends(get_admin_user), db=Depends(get_db)):
     """Corta o acesso na hora (bloqueia na próxima requisição do cliente)."""

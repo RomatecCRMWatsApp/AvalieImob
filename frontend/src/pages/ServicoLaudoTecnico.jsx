@@ -7,7 +7,7 @@ export default function ServicoLaudoTecnico() {
       slug="laudo-tecnico"
       titulo="Laudo Técnico de Avaliação Imobiliária"
       subtitulo="Emita laudos técnicos profissionais conforme NBR 14.653 com IA integrada"
-      meta="Sistema online para emissão de Laudo Técnico de Avaliação Imobiliária conforme NBR 14.653. Modelo pronto, IA especializada, exportação DOCX/PDF. Teste grátis 7 dias."
+      meta="Sistema online para emissão de Laudo Técnico de Avaliação Imobiliária conforme NBR 14.653. Modelo pronto, IA especializada, exportação DOCX/PDF. Teste grátis 3 dias."
       palavrasChave="laudo técnico avaliação, laudo de avaliação imobiliária, modelo laudo de avaliação, laudo simplificado, laudo de avaliação imóvel, software laudo de avaliação online, NBR 14.653 laudo"
       hero="Crie laudos técnicos de avaliação imobiliária com qualidade profissional em minutos. Modelo pronto conforme NBR 14.653, com IA que ajuda em cada etapa do processo."
       intro={[
@@ -24,7 +24,7 @@ export default function ServicoLaudoTecnico() {
         { titulo: 'Histórico e versionamento', descricao: 'Todo laudo fica salvo em nuvem com histórico de versões, fácil de revisar e atualizar quando necessário.' },
       ]}
       comoFunciona={[
-        { titulo: 'Cadastro gratuito', descricao: 'Crie sua conta em 30 segundos. Sem cartão de crédito. Acesso completo durante 7 dias de teste.' },
+        { titulo: 'Cadastro gratuito', descricao: 'Crie sua conta em 30 segundos. Sem cartão de crédito. Acesso completo durante 3 dias de teste.' },
         { titulo: 'Identifique o imóvel', descricao: 'Endereço, área, padrão construtivo, idade aparente, características e fotos do imóvel avaliado.' },
         { titulo: 'Levante o mercado', descricao: 'Cadastre amostras comparáveis. A IA sugere fontes confiáveis e ajuda a homogeneizar valores.' },
         { titulo: 'Calcule o valor', descricao: 'Sistema aplica o método avaliatório escolhido (comparativo, renda, evolutivo) com transparência total.' },
@@ -44,11 +44,11 @@ export default function ServicoLaudoTecnico() {
         { q: 'Quem pode emitir um laudo técnico de avaliação?', a: 'Corretores de imóveis credenciados (CRECI), engenheiros civis e arquitetos com ART/RRT, e peritos habilitados. Cada categoria profissional tem suas atribuições específicas conforme legislação (Lei 6.530/78 para corretores, Resolução 218/73 do CONFEA para engenheiros).' },
         { q: 'Posso emitir laudo para imóvel rural?', a: 'Sim. O AvalieImob possui módulo específico para imóveis rurais conforme NBR 14.653-3, incluindo avaliação de terras, benfeitorias, semoventes (penhor rural), safras e equipamentos agrícolas.' },
         { q: 'O laudo gerado é editável?', a: 'Sim. Exportamos em formato DOCX (Microsoft Word) totalmente editável. Você pode personalizar logo, layout, fontes e adicionar conteúdo customizado antes de entregar ao cliente. Também há opção PDF para entrega final.' },
-        { q: 'Quantos laudos posso emitir por mês?', a: 'Nos planos pagos, laudos ilimitados. Plano Mensal R$ 89,90, Trimestral R$ 239,90, Anual R$ 849,90. No teste grátis de 7 dias você também tem acesso ilimitado.' },
+        { q: 'Quantos laudos posso emitir por mês?', a: 'Nos planos pagos, laudos ilimitados. Plano Mensal R$ 89,90, Trimestral R$ 239,90, Anual R$ 849,90. No teste grátis de 3 dias você também tem acesso ilimitado.' },
         { q: 'Vocês oferecem treinamento para usar o sistema?', a: 'Sim. Disponibilizamos tutoriais em vídeo, base de conhecimento detalhada e suporte direto via WhatsApp. Para clientes corporativos, fazemos onboarding personalizado.' },
       ]}
       ctaTitulo="Emita seu primeiro laudo grátis hoje"
-      ctaTexto="7 dias grátis. Sem cartão de crédito. Cancele quando quiser. Ideal para corretores, engenheiros e arquitetos."
+      ctaTexto="3 dias grátis. Sem cartão de crédito. Cancele quando quiser. Ideal para corretores, engenheiros e arquitetos."
     />
   );
 }

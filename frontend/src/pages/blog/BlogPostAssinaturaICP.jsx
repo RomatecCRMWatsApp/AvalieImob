@@ -63,7 +63,7 @@ export default function BlogPostAssinaturaICP() {
           'Baixe, visualize ou reenvie o documento assinado',
         ]},
         { p: 'O módulo de Assinatura de Documentos aceita qualquer PDF — útil para assinar ART/TRT, certidões, declarações e ofícios sem sair da plataforma.' },
-        { cta: 'Assine PTAMs, contratos e PDFs avulsos com ICP-Brasil. Teste 7 dias grátis.', ctaTexto: 'Começar grátis →' },
+        { cta: 'Assine PTAMs, contratos e PDFs avulsos com ICP-Brasil. Teste 3 dias grátis.', ctaTexto: 'Começar grátis →' },
 
         { h2: 'Conclusão' },
         { p: 'A assinatura ICP-Brasil dá ao seu laudo ou contrato o maior grau de segurança jurídica disponível no país (MP 2.200-2/2001), enquanto a assinatura eletrônica do cliente (Lei 14.063/2020) formaliza a vontade das partes com rastreabilidade. Usar as duas camadas, na ordem correta, entrega documentos profissionais, verificáveis e prontos para banco, cartório e juízo.' },

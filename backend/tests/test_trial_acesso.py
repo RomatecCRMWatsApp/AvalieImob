@@ -249,3 +249,17 @@ def test_listar_traz_dias_restantes_e_situacao():
     assert [t["id"] for t in lista] == ["a"]      # só quem está em teste
     assert lista[0]["dias_restantes"] == 2 and lista[0]["situacao"] == "ativo"
     assert "password_hash" not in lista[0]
+
+
+def test_ajustar_reduz_para_n_dias_a_partir_de_agora():
+    db = _DB()
+    agora = datetime.utcnow()
+    run(db.users.insert_one({"id": "t9", "email": "t9@x.com", "trial": True, "trial_dias": 7,
+                             "plan": "trial", "plan_status": "active", "trial_inicio": agora,
+                             "plan_expires": agora + timedelta(days=7)}))
+    run(TS.definir_dias_restantes(db, "t9", 2))
+    u = run(db.users.find_one({"id": "t9"}))
+    restante = u["plan_expires"] - datetime.utcnow()
+    assert timedelta(days=1, hours=23) < restante <= timedelta(days=2)
+    assert u["plan_status"] == "active" and u["trial_dias"] == 2
+    assert u["trial_historico"][-1]["acao"] == "ajustado"

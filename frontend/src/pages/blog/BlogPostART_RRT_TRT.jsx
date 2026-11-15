@@ -194,7 +194,7 @@ export default function BlogPostART_RRT_TRT() {
           'Lembrete de renovação anual da anuidade do conselho',
           'Templates específicos por categoria profissional (engenheiro, arquiteto, técnico)',
         ]},
-        { cta: 'Teste o sistema completo do AvalieImob por 7 dias grátis.', ctaTexto: 'Começar grátis →' },
+        { cta: 'Teste o sistema completo do AvalieImob por 3 dias grátis.', ctaTexto: 'Começar grátis →' },
 
         { h2: 'Conclusão' },
         { p: 'ART (CREA), RRT (CAU) e TRT (CFT) são documentos obrigatórios pra qualquer profissional que assina laudos técnicos no Brasil. Não é burocracia inútil — é o que dá peso jurídico ao seu trabalho e protege legalmente tanto o cliente quanto você mesmo.' },
