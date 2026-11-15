@@ -28,7 +28,7 @@ const MODULOS = [
     to: '/dashboard/topografia/onr-sigri',
     titulo: 'Shapefile urbano (ONR)',
     texto: 'Pacote do lote urbano para envio ao SIG-RI.',
-    img: 'modulo-shapefile-urbano',
+    img: 'modulo-onr',
   },
 ];
 

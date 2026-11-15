@@ -269,13 +269,21 @@ export default function OnrSigriPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">
-      <header className="flex items-center gap-3 mb-5">
-        <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: GREEN }}>
-          <MapPin className="w-5 h-5 text-white" />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold" style={{ color: GREEN }}>Arquivo ONR (SIG-RI)</h1>
-          <p className="text-sm text-gray-500">Suba o mapa pronto + memorial + ART + certidão e gere o shapefile p/ o mapa.onr.org.br.</p>
+      {/* Cabeçalho com a arte da campanha (maquete + .shp/.shx/.dbf/.prj) ao fundo;
+          o degradê verde da esquerda garante a leitura do título. */}
+      <header className="relative overflow-hidden rounded-2xl mb-5 border" style={{ borderColor: 'rgba(201,168,76,.35)', background: GREEN }}>
+        <img src="/modulos/modulo-onr.webp" alt="" aria-hidden="true" decoding="async"
+          className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: '60% 55%' }} />
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(90deg, rgba(8,39,28,.96) 0%, rgba(8,39,28,.88) 55%, rgba(8,39,28,.55) 100%)' }} />
+        <div className="relative flex items-center gap-3 px-4 sm:px-6 py-6 sm:py-8">
+          <div className="w-11 h-11 shrink-0 rounded-xl flex items-center justify-center" style={{ background: 'rgba(201,168,76,.18)', border: '1px solid rgba(201,168,76,.55)' }}>
+            <MapPin className="w-5 h-5" style={{ color: '#E0C264' }} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] font-bold tracking-[0.2em] uppercase" style={{ color: '#E0C264' }}>Shapefile urbano</p>
+            <h1 className="text-xl sm:text-2xl font-bold" style={{ color: '#F3F1E6' }}>Arquivo ONR (SIG-RI)</h1>
+            <p className="text-sm max-w-md" style={{ color: '#d7e3da' }}>Suba o mapa pronto + memorial + ART + certidão e gere o shapefile p/ o mapa.onr.org.br.</p>
+          </div>
         </div>
       </header>
 
