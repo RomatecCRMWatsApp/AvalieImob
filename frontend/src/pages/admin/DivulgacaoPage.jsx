@@ -68,6 +68,14 @@ const CALCULADORA = {
   msg: 'Descubra em 1 minuto quanto vale o seu imóvel — estimativa de mercado gratuita:',
 };
 
+// Resposta pronta para "qual o valor da assinatura?" — página só com os planos.
+const PLANOS = {
+  file: 'planos', titulo: 'Valores da assinatura (planos)',
+  desc: 'Página só com os planos — mensal R$ 89,90, trimestral R$ 239,90 e anual R$ 849,90 — e o botão de cadastro com 7 dias grátis.',
+  url: `${BASE}/planos`,
+  msg: 'Os valores da assinatura do AvalieImob: mensal R$ 89,90, trimestral R$ 239,90 ou anual R$ 849,90 — e 7 dias grátis para testar:',
+};
+
 const PAGAMENTO = {
   file: 'pagamento', titulo: 'Dados para Pagamento (PIX / Banco)',
   desc: 'Página com a chave Pix e os dados bancários da Romatec. Funciona em qualquer aparelho — envie ao cliente ou mostre o QR para ele pagar na hora.',
@@ -335,7 +343,7 @@ function FolderCard({ f, toast }) {
           </button>
           <a href={f.url} target="_blank" rel="noopener noreferrer"
             className="inline-flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium border text-gray-700 border-gray-200 hover:bg-gray-50">
-            <ExternalLink className="w-3.5 h-3.5" /> Abrir folder
+            <ExternalLink className="w-3.5 h-3.5" /> {f.file === 'planos' ? 'Abrir página' : 'Abrir folder'}
           </a>
         </div>
       </div>
@@ -363,6 +371,11 @@ export default function DivulgacaoPage() {
         💡 <strong>Dica:</strong> no celular, o botão <em>“Enviar no WhatsApp”</em> abre a lista de conversas para você
         escolher o grupo. O <em>QR Code</em> é ótimo para cartão de visita, adesivo ou status.
       </div>
+
+      <h2 className="text-sm font-bold uppercase tracking-wide mb-3" style={{ color: GREEN }}>
+        Valores da assinatura
+      </h2>
+      <div className="mb-8"><FolderCard f={PLANOS} toast={toast} /></div>
 
       <BuscadoresCard toast={toast} />
 
