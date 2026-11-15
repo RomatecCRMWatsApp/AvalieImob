@@ -2,6 +2,38 @@
   "_leia_me": "Notas de atualizacao que viram o AVISO no sistema. Regra: a cada release, ANTES do commit, acrescente a entrada no topo de 'releases' (ver CLAUDE.md, passo 7). Itens com publico='interno' (painel administrativo ou ajuste tecnico) NAO geram aviso para ninguem - ficam so registrados aqui. Tipos: novo | melhoria | correcao. Escreva o texto COM ACENTOS: ele vai direto para a tela do cliente.",
   "releases": [
     {
+      "versao": "1.4.1486",
+      "build": 1486,
+      "data": "2026-11-15",
+      "titulo": "Novo visual do painel",
+      "itens": [
+        {
+          "modulo": "Painel",
+          "tipo": "melhoria",
+          "texto": "O menu agora agrupa as áreas por finalidade: cadastros, laudos e avaliações, contratos e documentos e geoespacial.",
+          "rota": "/dashboard"
+        },
+        {
+          "modulo": "Visão geral",
+          "tipo": "melhoria",
+          "texto": "A tela inicial ficou mais limpa, com indicadores fáceis de ler e atalhos para PTAM, georreferenciamento, contratos e arquivo ONR.",
+          "rota": "/dashboard"
+        },
+        {
+          "modulo": "Ferramentas",
+          "tipo": "melhoria",
+          "texto": "Roma_IA, Fotos e consulta de CNPJ/CPF ficam no botão Ferramentas, no topo, sem abas cobrindo a tela no celular.",
+          "rota": "/dashboard"
+        },
+        {
+          "modulo": "Site",
+          "tipo": "novo",
+          "texto": "A página inicial ganhou o vídeo narrado de apresentação do novo visual.",
+          "publico": "interno"
+        }
+      ]
+    },
+    {
       "versao": "1.4.1484",
       "build": 1484,
       "data": "2026-11-14",

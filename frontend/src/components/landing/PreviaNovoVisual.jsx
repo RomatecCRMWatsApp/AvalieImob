@@ -2,7 +2,7 @@
 // <video> nativo: controles, playsinline, preload=metadata, poster. Sem autoplay,
 // loop ou muted — a narração do MP4 toca após o clique. As legendas já estão
 // gravadas na imagem, por isso não há <track> ativo; VTT/SRT ficam para download.
-// É PRÉVIA de layout: não anunciar como atualização já disponível.
+// O vídeo foi gravado como prévia (fala em 'quando estiver disponível').
 import React from 'react';
 import { VERDE } from './campanha';
 
@@ -37,8 +37,8 @@ const PreviaNovoVisual = () => (
         Conheça a prévia do novo visual
       </h2>
       <p id="descricao-preview-upgrade" className="text-base text-gray-700 dark:text-[#d7e3da] mb-6 max-w-3xl">
-        Prévia narrada do upgrade visual do AvalieImob. Esta apresentação mostra um layout em avaliação
-        e não representa uma atualização já disponível no sistema.
+        Apresentação narrada do novo visual do painel do AvalieImob: navegação agrupada por finalidade,
+        indicadores mais legíveis e ferramentas reunidas em um só lugar.
       </p>
 
       <div className="w-full rounded-2xl overflow-hidden shadow-lg border border-[#C9A84C]/30 bg-black" style={{ aspectRatio: '16 / 9' }}>
