@@ -302,7 +302,7 @@ export default function NfseEmissao() {
           <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-800 border-b border-emerald-100 pb-1">Tomador & Serviço (teste)</div>
           <Field label="Cliente (tomador) cadastrado">
             <div className="flex items-center gap-2">
-              <select value={teste.cliente_id || ''} onChange={(e) => selecionarCliente(e.target.value)} className="flex-1 rounded-xl border border-gray-200 px-3 py-2 text-sm">
+              <select value={teste.cliente_id || ''} onChange={(e) => selecionarCliente(e.target.value)} className="flex-1 min-w-0 rounded-xl border border-gray-200 px-3 py-2 text-sm">
                 <option value="">Selecionar cliente cadastrado…</option>
                 {clientes.map((c) => (<option key={c.id} value={c.id}>{c.name || c.nome}{(c.doc || c.cpf_cnpj) ? ` · ${c.doc || c.cpf_cnpj}` : ''}</option>))}
               </select>

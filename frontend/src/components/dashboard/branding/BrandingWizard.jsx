@@ -204,8 +204,8 @@ const BrandingWizard = () => {
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-6">
-      <div className="flex items-center justify-between mb-6">
-        <div>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <Palette className="w-6 h-6" /> Personalização da Marca
           </h1>
@@ -335,8 +335,8 @@ const BrandingWizard = () => {
 
         {/* ── Aba Preview ── */}
         <TabsContent value="preview" className="mt-4">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-sm text-gray-500">Amostra do cabeçalho e rodapé com a marca atual (salve antes para refletir mudanças).</p>
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <p className="text-sm text-gray-500 min-w-0">Amostra do cabeçalho e rodapé com a marca atual (salve antes para refletir mudanças).</p>
             <Button variant="outline" size="sm" onClick={loadPreview} disabled={previewLoading}>
               {previewLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4" />}
               <span className="ml-2">Atualizar</span>

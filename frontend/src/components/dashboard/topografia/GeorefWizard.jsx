@@ -344,19 +344,19 @@ export default function GeorefWizard() {
   const nb = (proj.imovel?.matricula || proj.numero || 'projeto');
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6">
+    <div className="max-w-5xl mx-auto px-3 sm:px-4 py-6 min-w-0">
       {/* header */}
       <div className="flex items-center gap-3 mb-5">
         <button onClick={() => nav('/dashboard/topografia/georef')} className="text-gray-400 hover:text-gray-700">
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <div className="flex-1">
-          <h1 className="text-lg font-bold" style={{ color: GREEN }}>{proj.nome_projeto || 'Projeto'}</h1>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-lg font-bold break-words" style={{ color: GREEN }}>{proj.nome_projeto || 'Projeto'}</h1>
           <p className="text-xs text-gray-500">
             {proj.numero} · {TIPOS_SERVICO.find((t) => t.value === proj.tipo_servico)?.label}
           </p>
         </div>
-        <span className="text-xs text-gray-400">{proj.completude || 0}% preenchido</span>
+        <span className="text-xs text-gray-400 shrink-0">{proj.completude || 0}% preenchido</span>
       </div>
 
       {/* stepper */}
@@ -404,7 +404,7 @@ export default function GeorefWizard() {
         <Card>
           <H title="Documentos-fonte"
             sub="Suba o Memorial SIGEF (obrigatório) e os demais. Depois clique em Extrair." />
-          <div className="grid sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 [&>*]:min-w-0">
             {UPLOADS.map((u) => (
               u.tipo === 'itr'
                 ? <ItrBox key="itr" itens={normLista(proj.uploads?.itr)}
@@ -495,14 +495,14 @@ export default function GeorefWizard() {
                 <div className="font-medium text-gray-700 mb-1">Confrontantes</div>
                 <ul className="space-y-1">
                   {(proj.confrontantes || []).map((c, i) => (
-                    <li key={i} className="flex items-center gap-2 text-xs text-gray-600">
+                    <li key={i} className="flex items-start gap-2 text-xs text-gray-600">
                       <span className={`px-1.5 py-0.5 rounded text-[10px] ${
                         c.tipo === 'via_publica' ? 'bg-sky-100 text-sky-700'
                           : c.tipo === 'proprio' ? 'bg-gray-100 text-gray-500'
                             : 'bg-emerald-100 text-emerald-700'}`}>
                         {c.tipo === 'via_publica' ? 'via pública' : c.tipo === 'proprio' ? 'próprio' : 'particular'}
                       </span>
-                      <span className="truncate">{c.nome || c.descricao || c.imovel || `Mat. ${c.matricula}`}</span>
+                      <span className="min-w-0 break-words">{c.nome || c.descricao || c.imovel || `Mat. ${c.matricula}`}</span>
                       <span className="text-gray-400">({(c.segmentos || []).length} seg.)</span>
                     </li>
                   ))}
@@ -528,14 +528,14 @@ export default function GeorefWizard() {
                           <div className="text-xs font-medium text-gray-700 mb-1">Confrontantes</div>
                           <ul className="space-y-1">
                             {(pc.confrontantes || []).map((c, j) => (
-                              <li key={j} className="flex items-center gap-2 text-xs text-gray-600">
+                              <li key={j} className="flex items-start gap-2 text-xs text-gray-600">
                                 <span className={`px-1.5 py-0.5 rounded text-[10px] ${
                                   c.tipo === 'via_publica' ? 'bg-sky-100 text-sky-700'
                                     : c.tipo === 'proprio' ? 'bg-gray-100 text-gray-500'
                                       : 'bg-emerald-100 text-emerald-700'}`}>
                                   {c.tipo === 'via_publica' ? 'via pública' : c.tipo === 'proprio' ? 'próprio' : 'particular'}
                                 </span>
-                                <span className="truncate">{c.nome || c.descricao || c.imovel || `Mat. ${c.matricula}`}</span>
+                                <span className="min-w-0 break-words">{c.nome || c.descricao || c.imovel || `Mat. ${c.matricula}`}</span>
                                 <span className="text-gray-400">({(c.segmentos || []).length} seg.)</span>
                               </li>
                             ))}
@@ -985,7 +985,7 @@ function updCadeia(setProj, mark, i, k, v) {
 }
 
 // ── UI primitives ──
-const Card = ({ children }) => <div className="rounded-xl border border-gray-200 bg-white p-5">{children}</div>;
+const Card = ({ children }) => <div className="rounded-xl border border-gray-200 bg-white p-3 sm:p-5 min-w-0">{children}</div>;
 const H = ({ title, sub }) => (
   <div className="mb-4">
     <h2 className="font-bold" style={{ color: GREEN }}>{title}</h2>
@@ -1078,21 +1078,21 @@ function ComposicaoPanel({ projId, refreshKey, toast }) {
 function UploadBox({ u, info, onPick }) {
   const ref = useRef(null);
   return (
-    <div className="border border-dashed rounded-lg p-3 flex items-center gap-3">
+    <div className="border border-dashed rounded-lg p-3 flex items-center gap-3 min-w-0">
       <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
         style={{ background: info ? 'rgba(12,51,32,0.08)' : '#F3F4F6' }}>
         {info ? <FileCheck2 className="w-5 h-5" style={{ color: GREEN }} /> : <UploadCloud className="w-5 h-5 text-gray-400" />}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium text-gray-700 flex items-center gap-1">
-          {u.label}{u.req && <span className="text-red-500">*</span>}
+        <div className="text-sm font-medium text-gray-700 break-words" style={{ overflowWrap: 'anywhere' }}>
+          {u.label}{u.req && <span className="text-red-500"> *</span>}
         </div>
-        <div className="text-xs text-gray-400 truncate">{info ? (info.filename || 'enviado') : 'Nenhum arquivo'}</div>
+        <div className="text-xs text-gray-400 break-all">{info ? (info.filename || 'enviado') : 'Nenhum arquivo'}</div>
       </div>
       <input ref={ref} type="file" accept={u.accept} className="hidden"
         onChange={(e) => { onPick(e.target.files?.[0]); e.target.value = ''; }} />
       <button onClick={() => ref.current?.click()}
-        className="text-xs font-semibold px-3 py-1.5 rounded-lg border hover:bg-gray-50" style={{ color: GREEN }}>
+        className="text-xs font-semibold px-3 py-1.5 rounded-lg border hover:bg-gray-50 shrink-0" style={{ color: GREEN }}>
         {info ? 'Trocar' : 'Enviar'}
       </button>
     </div>
@@ -1191,9 +1191,9 @@ function LogoBranding({ toast }) {
 function ItrBox({ itens, onAdd, onRemove }) {
   const ref = useRef(null);
   return (
-    <div className="border border-dashed rounded-lg p-3 sm:col-span-2">
-      <div className="flex items-center justify-between mb-2">
-        <div>
+    <div className="border border-dashed rounded-lg p-3 sm:col-span-2 min-w-0">
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <div className="min-w-0">
           <div className="text-sm font-medium text-gray-700">
             ITR — Imposto Territorial Rural <span className="text-xs text-gray-400">(últimos 5 exercícios)</span>
           </div>
@@ -1204,7 +1204,7 @@ function ItrBox({ itens, onAdd, onRemove }) {
         <input ref={ref} type="file" accept=".pdf,image/*" multiple className="hidden"
           onChange={(e) => { onAdd(e.target.files); e.target.value = ''; }} />
         <button onClick={() => ref.current?.click()} disabled={itens.length >= 5}
-          className="text-xs font-semibold px-3 py-1.5 rounded-lg border hover:bg-gray-50 disabled:opacity-40"
+          className="text-xs font-semibold px-3 py-1.5 rounded-lg border hover:bg-gray-50 disabled:opacity-40 shrink-0"
           style={{ color: GREEN }}>
           + Adicionar
         </button>
@@ -1217,7 +1217,7 @@ function ItrBox({ itens, onAdd, onRemove }) {
               <li key={it.id || it.key} className="flex items-center gap-2 text-xs text-gray-600 bg-gray-50 rounded px-2 py-1">
                 <FileCheck2 className="w-3.5 h-3.5 shrink-0" style={{ color: GREEN }} />
                 {ano > 0 && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 shrink-0">{ano}</span>}
-                <span className="truncate flex-1">{it.filename || 'arquivo'}</span>
+                <span className="flex-1 min-w-0 break-all">{it.filename || 'arquivo'}</span>
                 <button onClick={() => onRemove(it.id || it.key)} className="text-gray-300 hover:text-red-500" title="Remover exercício">
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
@@ -1251,8 +1251,8 @@ function Validacao({ v }) {
 
 function DocRow({ label, badge, onVer, onPdf, onDocx, onAssinar, assinado, onVerAssinado }) {
   return (
-    <div className={`flex items-center justify-between gap-3 border rounded-lg px-4 py-2.5 ${assinado ? 'border-emerald-300 bg-emerald-50/40' : ''}`}>
-      <div className="text-sm font-medium text-gray-700 truncate">
+    <div className={`flex flex-wrap items-center justify-between gap-2 sm:gap-3 border rounded-lg px-3 sm:px-4 py-2.5 ${assinado ? 'border-emerald-300 bg-emerald-50/40' : ''}`}>
+      <div className="text-sm font-medium text-gray-700 min-w-0 break-words">
         {label}
         {badge && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-sky-100 text-sky-700">{badge}</span>}
         {assinado && (
@@ -1261,7 +1261,7 @@ function DocRow({ label, badge, onVer, onPdf, onDocx, onAssinar, assinado, onVer
           </span>
         )}
       </div>
-      <div className="flex gap-1.5 shrink-0">
+      <div className="flex flex-wrap gap-1.5">
         {assinado && onVerAssinado && <Mini icon={Eye} label="Ver assinado" onClick={onVerAssinado} green />}
         {onVer && <Mini icon={Eye} label="Ver" onClick={onVer} />}
         {onPdf && <Mini icon={FileDown} label="PDF" onClick={onPdf} />}

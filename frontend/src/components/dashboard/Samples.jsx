@@ -97,7 +97,7 @@ const Samples = () => {
           <h1 className="font-display text-3xl font-bold text-[#B8860B] dark:text-amber-400">Amostras de Mercado</h1>
           <p className="text-gray-600 mt-1">Elementos comparativos — Método Comparativo Direto (NBR 14653).</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <button onClick={() => abrirModal('urbano')}
             className="flex items-center gap-2 px-5 py-3 bg-white border-2 border-emerald-800 text-emerald-800 rounded-xl hover:bg-emerald-800 hover:text-white transition-all font-medium">
             <Home className="w-4 h-4" /> Imóvel Urbano
@@ -126,18 +126,18 @@ const Samples = () => {
       </div>
 
       {/* Estatísticas */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <div className="bg-white p-5 rounded-xl border border-gray-200">
           <div className="flex items-center gap-2 text-xs text-gray-500 mb-1"><TrendingUp className="w-3.5 h-3.5" />PREÇO MÉDIO</div>
-          <div className="font-display text-2xl font-bold text-emerald-800">{fmtBRL(stats.media)}<span className="text-sm font-normal text-gray-400">/{unidade.replace('R$/', '')}</span></div>
+          <div className="font-display text-2xl font-bold text-emerald-800 break-words">{fmtBRL(stats.media)}<span className="text-sm font-normal text-gray-400">/{unidade.replace('R$/', '')}</span></div>
         </div>
         <div className="bg-white p-5 rounded-xl border border-gray-200">
           <div className="text-xs text-gray-500 mb-1">MÍNIMO</div>
-          <div className="font-display text-2xl font-bold text-gray-900">{fmtBRL(stats.minimo)}<span className="text-sm font-normal text-gray-400">/{unidade.replace('R$/', '')}</span></div>
+          <div className="font-display text-2xl font-bold text-gray-900 break-words">{fmtBRL(stats.minimo)}<span className="text-sm font-normal text-gray-400">/{unidade.replace('R$/', '')}</span></div>
         </div>
         <div className="bg-white p-5 rounded-xl border border-gray-200">
           <div className="text-xs text-gray-500 mb-1">MÁXIMO</div>
-          <div className="font-display text-2xl font-bold text-gray-900">{fmtBRL(stats.maximo)}<span className="text-sm font-normal text-gray-400">/{unidade.replace('R$/', '')}</span></div>
+          <div className="font-display text-2xl font-bold text-gray-900 break-words">{fmtBRL(stats.maximo)}<span className="text-sm font-normal text-gray-400">/{unidade.replace('R$/', '')}</span></div>
         </div>
       </div>
 
