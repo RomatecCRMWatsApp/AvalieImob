@@ -97,6 +97,18 @@ const VIDEOS = [
     msg: 'Olá! Tudo bem? Segue um vídeo rápido para você conhecer a AvalieImob e seus módulos de avaliação e laudos, georreferenciamento, contratos, shapefile urbano e ONR.\n\nQual desses módulos faz mais sentido para o seu trabalho?\n\nSe quiser, posso orientar seu acesso para um teste e você conhece a plataforma no seu ritmo.',
   },
   {
+    id: 'onr-campanha', arquivo: 'AvalieImob_onr_1080x1920', duracao: '29 s',
+    titulo: 'Campanha — Shapefile urbano (SIG-RI)',
+    desc: 'Provimento CNJ 195/2025: envie os documentos, o sistema extrai, você confere e recebe o pacote .shp/.shx/.dbf/.prj.',
+    msg: 'Olá! Tudo bem? Os dados no SIG-RI agora são exigidos (Provimento CNJ 195/2025) na retificação administrativa, no parcelamento e na regularização fundiária. Segue um vídeo rápido de como a AvalieImob resolve isso: você envia a planta, o memorial, a ART e a matrícula, o sistema extrai as informações, você confere e recebe o pacote Shapefile pronto para o envio.\n\nSe quiser, posso orientar seu acesso para um teste.',
+  },
+  {
+    id: 'geo-campanha', arquivo: 'AvalieImob_geo_1080x1920', duracao: '26 s',
+    titulo: 'Campanha — Georreferenciamento',
+    desc: 'Para agrimensores e topógrafos: do memorial SIGEF ao dossiê, com as peças, a assinatura ICP-Brasil e o sumário clicável.',
+    msg: 'Olá! Tudo bem? Seu processo de georreferenciamento ainda está espalhado? Segue um vídeo rápido de como a AvalieImob organiza tudo: você sobe o memorial do SIGEF, confere vértices, área, perímetro e confrontantes, e entrega ao cliente o dossiê com as peças certas (Shapefile, KML, memorial, requerimento, DRL e laudo), assinado com ICP-Brasil.\n\nSe quiser, posso orientar seu acesso para um teste do módulo de georreferenciamento.',
+  },
+  {
     id: 'ptam', arquivo: 'AvalieImob_PTAM_Apresentacao_Clientes', duracao: '18 s',
     titulo: 'PTAM e avaliações',
     desc: 'Clientes, imóveis e amostras conectados; análise revisada e laudo em PDF com a sua marca.',
