@@ -1,7 +1,7 @@
 // @page admin/Divulgação — links dos folders de divulgação + WhatsApp + QR Code.
 import React, { useRef } from 'react';
 import { QRCodeCanvas } from 'qrcode.react';
-import { Megaphone, Copy, ExternalLink, Download, Send, Search } from 'lucide-react';
+import { Megaphone, Copy, ExternalLink, Download, Send, Search, Share2 } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
 import { adminAPI } from '../../lib/api';
 
@@ -74,6 +74,117 @@ const PAGAMENTO = {
   url: `${BASE}/pagamento/`,
   msg: 'Dados para pagamento (PIX e banco) — Romatec Consultoria Total:',
 };
+
+// ── Vídeos de apresentação para o cliente ───────────────────────────────────
+// Vídeos verticais (720×1280) em frontend/public/video/apresentacoes/, com os
+// nomes originais. O texto padrão é o da Mensagem_Para_Enviar_Ao_Cliente.txt.
+const VIDEO_DIR = '/video/apresentacoes';
+const ZAP_ROMATEC = 'https://wa.me/5599991811246';
+
+const VIDEOS = [
+  {
+    id: 'geral', arquivo: 'AvalieImob_Apresentacao_Clientes_WhatsApp_720x1280', duracao: '45 s',
+    titulo: 'Apresentação completa',
+    desc: 'Todos os módulos: avaliação e laudos, georreferenciamento, contratos, shapefile urbano e ONR.',
+    msg: 'Olá! Tudo bem? Segue um vídeo rápido para você conhecer a AvalieImob e seus módulos de avaliação e laudos, georreferenciamento, contratos, shapefile urbano e ONR.\n\nQual desses módulos faz mais sentido para o seu trabalho?\n\nSe quiser, posso orientar seu acesso para um teste e você conhece a plataforma no seu ritmo.',
+  },
+  {
+    id: 'ptam', arquivo: 'AvalieImob_PTAM_Apresentacao_Clientes', duracao: '18 s',
+    titulo: 'PTAM e avaliações',
+    desc: 'Clientes, imóveis e amostras conectados; análise revisada e laudo em PDF com a sua marca.',
+    msg: 'Olá! Tudo bem? Segue um vídeo rápido do módulo de avaliações da AvalieImob: você conecta clientes, imóveis e amostras e gera o laudo (PTAM) em PDF com a sua marca.\n\nSe quiser, posso orientar seu acesso para um teste.',
+  },
+  {
+    id: 'georreferenciamento', arquivo: 'AvalieImob_Georreferenciamento_Apresentacao_Clientes', duracao: '14 s',
+    titulo: 'Georreferenciamento',
+    desc: 'Do memorial SIGEF ao dossiê para o cartório.',
+    msg: 'Olá! Tudo bem? Segue um vídeo rápido do módulo de georreferenciamento da AvalieImob — do memorial ao dossiê para o cartório.\n\nSe quiser, posso orientar seu acesso para um teste.',
+  },
+  {
+    id: 'contratos', arquivo: 'AvalieImob_Contratos_Apresentacao_Clientes', duracao: '14 s',
+    titulo: 'Contratos',
+    desc: 'Contratos e procuração com assinatura pelo WhatsApp e certificado ICP-Brasil.',
+    msg: 'Olá! Tudo bem? Segue um vídeo rápido do módulo de contratos da AvalieImob, com assinatura pelo WhatsApp.\n\nSe quiser, posso orientar seu acesso para um teste.',
+  },
+  {
+    id: 'onr', arquivo: 'AvalieImob_ONR_Apresentacao_Clientes', duracao: '16 s',
+    titulo: 'Shapefile urbano / ONR',
+    desc: 'Extração e conferência dos documentos e o pacote de arquivos para o SIG-RI.',
+    msg: 'Olá! Tudo bem? Segue um vídeo rápido do módulo ONR da AvalieImob: você confere os dados extraídos dos documentos e gera o pacote para o SIG-RI.\n\nSe quiser, posso orientar seu acesso para um teste.',
+  },
+];
+
+const textoVideo = (v) => {
+  const site = comUtm(`${BASE}/`, { source: 'whatsapp', medium: 'video', campaign: `video-${v.id}` });
+  return `${v.msg}\n\nSaiba mais: ${site}\nFale conosco: ${ZAP_ROMATEC}`;
+};
+
+function VideoCard({ v, toast }) {
+  const [enviando, setEnviando] = React.useState(false);
+  const mp4 = `${VIDEO_DIR}/${v.arquivo}.mp4`;
+  const texto = textoVideo(v);
+  // Sem o arquivo, o WhatsApp recebe o link do vídeo junto com a mensagem.
+  const waLink = `https://wa.me/?text=${encodeURIComponent(`${texto}\n\nVídeo: ${BASE}${mp4}`)}`;
+
+  // No celular, o compartilhamento nativo manda o PRÓPRIO vídeo para a conversa
+  // escolhida (com a mensagem). Onde não houver suporte, abre o WhatsApp com o link.
+  const enviarVideo = async () => {
+    setEnviando(true);
+    try {
+      const blob = await (await fetch(mp4)).blob();
+      const file = new File([blob], `${v.arquivo}.mp4`, { type: 'video/mp4' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try { await navigator.clipboard.writeText(texto); } catch { /* opcional */ }
+        await navigator.share({ files: [file], text: texto });
+        return;
+      }
+      window.open(waLink, '_blank', 'noopener');
+    } catch (e) {
+      if (e?.name !== 'AbortError') window.open(waLink, '_blank', 'noopener');
+    } finally { setEnviando(false); }
+  };
+  const copiarMsg = async () => {
+    try { await navigator.clipboard.writeText(texto); toast({ title: 'Mensagem copiada ✓', description: 'Cole junto com o vídeo no WhatsApp.' }); }
+    catch { toast({ title: 'Não foi possível copiar', variant: 'destructive' }); }
+  };
+
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-4 flex flex-col sm:flex-row gap-4">
+      <div className="shrink-0 mx-auto sm:mx-0 w-[180px] rounded-xl overflow-hidden bg-black" style={{ aspectRatio: '9 / 16' }}>
+        <video controls playsInline preload="none" poster={`${VIDEO_DIR}/${v.arquivo}.jpg`}
+          aria-label={`Vídeo: ${v.titulo}`} className="block w-full h-full" style={{ objectFit: 'contain' }}>
+          <source src={mp4} type="video/mp4" />
+        </video>
+      </div>
+      <div className="flex-1 min-w-0">
+        <h3 className="font-semibold" style={{ color: GREEN }}>
+          {v.titulo} <span className="text-xs font-normal text-gray-400">· {v.duracao}</span>
+        </h3>
+        <p className="text-sm text-gray-500 mt-1">{v.desc}</p>
+        <pre className="mt-3 text-xs text-gray-600 whitespace-pre-wrap font-sans bg-gray-50 border border-gray-100 rounded-lg p-3 max-h-32 overflow-auto">{texto}</pre>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <button onClick={enviarVideo} disabled={enviando}
+            className="inline-flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-semibold text-white disabled:opacity-60"
+            style={{ background: GREEN }}>
+            <Share2 className="w-3.5 h-3.5" /> {enviando ? 'Preparando…' : 'Enviar o vídeo'}
+          </button>
+          <a href={waLink} target="_blank" rel="noopener noreferrer"
+            className="inline-flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-semibold border text-emerald-800 border-emerald-200 hover:bg-emerald-50">
+            <Send className="w-3.5 h-3.5" /> Mandar link no WhatsApp
+          </a>
+          <a href={mp4} download={`${v.arquivo}.mp4`}
+            className="inline-flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-medium border text-gray-700 border-gray-200 hover:bg-gray-50">
+            <Download className="w-3.5 h-3.5" /> Baixar vídeo
+          </a>
+          <button onClick={copiarMsg}
+            className="inline-flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-medium border text-gray-700 border-gray-200 hover:bg-gray-50">
+            <Copy className="w-3.5 h-3.5" /> Copiar mensagem
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // Avisa Bing e Yandex (IndexNow) de que o site tem página nova ou atualizada.
 // O Google não usa IndexNow — lá o caminho é o Search Console, indicado no card.
@@ -243,7 +354,7 @@ export default function DivulgacaoPage() {
         <div>
           <h1 className="text-2xl font-bold" style={{ color: GREEN }}>Divulgação</h1>
           <p className="text-sm text-gray-500">
-            Folders prontos para os grupos de WhatsApp — copie o link, envie direto ou baixe o QR Code para imprimir.
+            Vídeos e folders prontos para enviar ao cliente — mande o vídeo, copie o link ou baixe o QR Code para imprimir.
           </p>
         </div>
       </header>
@@ -254,6 +365,21 @@ export default function DivulgacaoPage() {
       </div>
 
       <BuscadoresCard toast={toast} />
+
+      <h2 className="text-sm font-bold uppercase tracking-wide mt-2 mb-1" style={{ color: GREEN }}>
+        Vídeos de apresentação para clientes
+      </h2>
+      <p className="text-xs text-gray-500 mb-3">
+        No celular, <strong>Enviar o vídeo</strong> abre o compartilhamento: escolha o WhatsApp e a conversa — o vídeo vai
+        com a mensagem (ela também fica copiada, caso o app não a cole sozinho). No computador, baixe o vídeo e anexe na conversa.
+      </p>
+      <div className="space-y-4 mb-9">
+        {VIDEOS.map((v) => <VideoCard key={v.id} v={v} toast={toast} />)}
+      </div>
+
+      <h2 className="text-sm font-bold uppercase tracking-wide mb-3" style={{ color: GREEN }}>
+        Folders
+      </h2>
 
       <div className="space-y-4">
         {FOLDERS.map((f) => <FolderCard key={f.file} f={f} toast={toast} />)}
