@@ -128,6 +128,13 @@ const VIDEOS = [
     msg: 'Olá! Tudo bem? Segue um vídeo rápido para você conhecer a AvalieImob e seus módulos de avaliação e laudos, georreferenciamento, contratos, shapefile urbano e ONR.\n\nQual desses módulos faz mais sentido para o seu trabalho?\n\nSe quiser, posso orientar seu acesso para um teste e você conhece a plataforma no seu ritmo.',
   },
   {
+    id: 'ptam-12-passos', arquivo: 'AvalieImob_PTAM_Divulgacao_1080x1920', duracao: '1 min',
+    titulo: 'PTAM em 12 passos',
+    desc: 'O PTAM do solicitante à assinatura: amostras com valor e fonte, tratamento e memória de cálculo, e 3 dias grátis no fim.',
+    msg: 'Olá! Tudo bem? 👋 Ainda perde tempo juntando documentos espalhados para fechar um parecer? Separei um vídeo de 1 minuto mostrando o *PTAM em 12 passos* na AvalieImob: solicitante, imóvel, amostras com valor e fonte, tratamento e memória de cálculo — você confere e assina.\n\n🎁 Teste *3 dias grátis*, sem cartão e sem cobrança automática.',
+    destino: '/cadastro',
+  },
+  {
     id: 'ptam-campanha', arquivo: 'AvalieImob_ptam_1080x1920', duracao: '25 s',
     titulo: 'Campanha — PTAM',
     desc: 'Para corretores e avaliadores: clientes, imóveis e amostras conectados, IA que apoia e laudo com a sua marca e assinatura ICP-Brasil.',
