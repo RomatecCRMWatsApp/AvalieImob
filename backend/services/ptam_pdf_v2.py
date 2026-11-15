@@ -2083,19 +2083,37 @@ def build_story(ptam, page_map):
     _ndados = _nvp or _validas or _n
     _gf = 'III' if _ndados >= 12 else ('II' if _ndados >= 6 else ('I' if _ndados >= 3 else '—'))
     _gp = 'III' if _cv_final <= 10 else ('II' if _cv_final <= 20 else ('I' if _cv_final <= 30 else '—'))
+    # Com modelo de regressão vinculado, os graus vêm do enquadramento do modelo (snapshot)
+    # e a precisão é pela amplitude do IP 80% — o CV das amostras do PTAM não se aplica.
+    _snap_inf = ptam.get('inferencia_snapshot') if ptam.get('inferencia_modelo_id') else None
+    _inf_txt = None
+    if isinstance(_snap_inf, dict):
+        _enq_inf = _snap_inf.get('enquadramento') or (_snap_inf.get('resultado') or {}).get('enquadramento') or {}
+        _res_inf = _snap_inf.get('resultado') or {}
+        _gf = _enq_inf.get('grau_fundamentacao') or _gf
+        _gp = _enq_inf.get('grau_precisao') or _gp
+        _ndados = _res_inf.get('n') or _ndados
+        try:
+            _amp = float((_res_inf.get('predicao') or {}).get('amplitude_ip80') or 0) * 100
+        except (TypeError, ValueError):
+            _amp = 0.0
+        _inf_txt = (f'amplitude do intervalo de predição de 80% de {_num(_amp)}%', f'IP 80% {_num(_amp)}%')
     _gf_lbl = {'III': 'Máximo', 'II': 'Intermediário', 'I': 'Mínimo'}.get(_gf, 'Insuficiente')
     _gp_lbl = {'III': 'Máxima', 'II': 'Intermediária', 'I': 'Mínima'}.get(_gp, 'Fora dos limites')
     st.append(Spacer(1, 8))
     st += subsec('D. Graus de Fundamentação e Precisão (NBR 14653-2)', 'sec7graus')
     st.append(_pdf_cards_row([
         _pdf_card('Grau de Fundamentação', f'Grau {_gf}', f'{_gf_lbl} · {_ndados} dados de mercado', '#B8860B', 15),
-        _pdf_card('Grau de Precisão', f'Grau {_gp}', f'{_gp_lbl} · CV {_num(_cv_final)}%', '#0B6E4F', 15),
+        _pdf_card('Grau de Precisão', f'Grau {_gp}',
+                  f'{_gp_lbl} · ' + (_inf_txt[1] if _inf_txt else f'CV {_num(_cv_final)}%'), '#0B6E4F', 15),
     ], [HexColor('#FFF8E6'), VERDE_CLR]))
     st.append(Spacer(1, 4))
     st.append(Paragraph(
         f'Conforme a ABNT NBR 14653-2, o imóvel avaliando <b>enquadra-se no Grau {_gf} de Fundamentação</b> '
-        f'(Método Comparativo Direto de Dados de Mercado, com {_ndados} dados) <b>e no Grau {_gp} de '
-        f'Precisão</b> (coeficiente de variação de {_num(_cv_final)}%).', sBody))
+        f'(Método Comparativo Direto de Dados de Mercado'
+        + (', tratamento científico por inferência estatística' if _inf_txt else '')
+        + f', com {_ndados} dados) <b>e no Grau {_gp} de Precisão</b> ('
+        + (_inf_txt[0] if _inf_txt else f'coeficiente de variação de {_num(_cv_final)}%') + ').', sBody))
 
     # Referência INCRA (Valores de Terra Nua) — só rural e se marcado para o laudo.
     if _rural and ptam.get('incra_incluir_laudo', True):

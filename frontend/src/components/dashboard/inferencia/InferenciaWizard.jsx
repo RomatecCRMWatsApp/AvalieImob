@@ -182,9 +182,9 @@ const InferenciaWizard = () => {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <button onClick={() => nav(modelo.ptam_id ? `/dashboard/ptam/${modelo.ptam_id}`
-                                                    : '/dashboard/inferencia')}
+                                                    : '/dashboard/ptam')}
                   className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1 mb-1">
-            <ArrowLeft className="w-3.5 h-3.5" /> {modelo.ptam_id ? 'Voltar ao laudo' : 'Modelos'}
+            <ArrowLeft className="w-3.5 h-3.5" /> {modelo.ptam_id ? 'Voltar ao laudo' : 'Laudos'}
           </button>
           <h1 className="font-display text-2xl font-bold flex items-center gap-2" style={{ color: VERDE }}>
             <Sigma className="w-6 h-6" style={{ color: DOURADO }} /> {modelo.nome}

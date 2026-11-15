@@ -41,7 +41,8 @@ const VinculoInferencia = ({ form, setForm }) => {
     setOcupado(true);
     try {
       const r = await inferenciaAPI.vincularPtam(sel, form.id);
-      setForm((f) => ({ ...f, ...r.valores, inferencia_modelo_id: sel }));
+      setForm((f) => ({ ...f, ...r.valores, inferencia_modelo_id: sel,
+                         inferencia_snapshot: r.snapshot || f.inferencia_snapshot }));
       toast({ title: 'Laudo alimentado pela regressão',
               description: 'Valor, intervalo e graus vieram do modelo homologado.' });
     } catch (e) {
@@ -279,7 +280,7 @@ export const StepResultado = ({ form, setForm }) => {
         </Field>
         <Field label="Grau de Precisão (NBR 14653-1 item 9)">
           <select
-            value={form.grau_precisao || 'I'}
+            value={String(form.grau_precisao || 'I').replace(/^Grau\s+/i, '')}
             onChange={(e) => setForm({ ...form, grau_precisao: e.target.value })}
             className="w-full h-9 rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
           >

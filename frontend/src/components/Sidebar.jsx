@@ -10,7 +10,7 @@ import {
   LayoutDashboard, Users, Building2, BarChart3, FileCheck2, Shield, Beef, Home,
   ClipboardCheck, FileText, FileSignature, Receipt, Sparkles, FileSearch, Award,
   CreditCard, Settings, LogOut, Globe, Palette, Tag, BadgeCheck, Stamp, Inbox, Calculator,
-  Compass, MapPin, Send, Megaphone, Mail, Radar, Instagram, Bell, KeyRound, Sigma, HardHat,
+  Compass, MapPin, Send, Megaphone, Mail, Radar, Instagram, Bell, KeyRound, HardHat,
   ChevronDown, X, Layers,
 } from 'lucide-react';
 import { ptamAPI } from '../lib/api';
@@ -28,8 +28,9 @@ const MENU = [
     { id: 'amostras', label: 'Amostras', icon: BarChart3, route: '/dashboard/amostras' },
   ]},
   { id: 'laudos', section: 'Laudos e avaliações', items: [
-    { id: 'ptam', label: 'PTAM e laudos', icon: FileCheck2, route: '/dashboard/ptam', countKey: 'ptam' },
-    { id: 'inferencia', label: 'Tratamento científico', icon: Sigma, route: '/dashboard/inferencia' },
+    { id: 'ptam', label: 'PTAM e laudos', icon: FileCheck2, route: '/dashboard/ptam', countKey: 'ptam',
+      // o tratamento científico (regressão) é aberto de dentro do PTAM — passo 11
+      alias: ['/dashboard/inferencia'] },
     { id: 'garantias', label: 'Avaliação de garantias', icon: Shield, route: '/dashboard/garantias' },
     { id: 'semoventes', label: 'Semoventes', icon: Beef, route: '/dashboard/semoventes' },
     { id: 'locacao', label: 'Avaliação de locação', icon: Home, route: '/dashboard/locacao' },
@@ -82,7 +83,8 @@ const GRUPOS_KEY = 'avalie_menu_grupos';
 
 function isActive(pathname, item) {
   if (item.end) return pathname === item.route;
-  return pathname === item.route || pathname.startsWith(item.route + '/');
+  if (pathname === item.route || pathname.startsWith(item.route + '/')) return true;
+  return (item.alias || []).some((a) => pathname === a || pathname.startsWith(a + '/'));
 }
 
 function NavItem({ item, active, count, onNavigate }) {

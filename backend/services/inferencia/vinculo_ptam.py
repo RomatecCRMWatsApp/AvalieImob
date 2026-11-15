@@ -53,6 +53,14 @@ def valores_para_o_laudo(modelo: dict) -> dict:
         inf = float(total["ip80"].get("inferior") or inf)
         sup = float(total["ip80"].get("superior") or sup)
 
+    # Campo de arbítrio (±15%) do valor total — antes ficava o do tratamento por fatores.
+    arb = total.get("campo_arbitrio") or pred.get("campo_arbitrio") or {}
+    try:
+        from utils.extenso import valor_por_extenso
+        extenso = valor_por_extenso(round(vtotal, 2)) if vtotal else ""
+    except Exception:  # noqa: BLE001
+        extenso = ""
+
     grau_f = enq.get("grau_fundamentacao") or ""
     grau_p = enq.get("grau_precisao") or ""
     return {
@@ -67,6 +75,10 @@ def valores_para_o_laudo(modelo: dict) -> dict:
         "fundamentacao_grau": f"Grau {grau_f}" if grau_f else "",
         "grau_precisao": f"Grau {grau_p}" if grau_p else "",
         "precisao_grau": f"Grau {grau_p}" if grau_p else "",
+        **({"campo_arbitrio_min": round(float(arb["inferior"]), 2),
+            "campo_arbitrio_max": round(float(arb["superior"]), 2)}
+           if arb.get("inferior") and arb.get("superior") else {}),
+        **({"total_indemnity_words": extenso} if extenso else {}),
     }
 
 

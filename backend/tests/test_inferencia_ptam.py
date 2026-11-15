@@ -75,6 +75,8 @@ def test_laudo_passa_a_tirar_o_valor_da_regressao(ctx):
     _ptam(ctx.fake)
     resp = ctx.post("/inferencia/modelos/m1/vincular-ptam/p1")
     assert resp.status_code == 200, resp.text
+    # o card do passo 11 precisa do snapshot na hora (graus e nº de dados)
+    assert resp.json()["snapshot"]["enquadramento"]["grau_fundamentacao"]
 
     ptam = ctx.fake.ptam_documents.docs[0]
     pred = r["predicao"]
@@ -183,6 +185,11 @@ def test_pdf_do_ptam_traz_a_regressao_e_os_mesmos_numeros(ctx):
     esperado = f"{round(r['predicao']['total']['valor_central'], 2):,.2f}" \
         .replace(",", "@").replace(".", ",").replace("@", ".")
     assert esperado.split(",")[0] in texto
+    # A seção D (graus) usa o enquadramento do modelo, não as amostras do PTAM:
+    # antes saía "Grau — de Fundamentação ... com 0 dados".
+    plano = " ".join(texto.split())
+    assert "Grau — de Fundamentação" not in plano and "com 0 dados" not in plano
+    assert "intervalo de predição de 80%" in plano
 
 
 def test_ptam_sem_modelo_nao_ganha_secao_nenhuma(ctx):
@@ -221,3 +228,15 @@ def test_amostra_do_ptam_converte_amostras_de_mercado():
     assert len(a) == 2
     assert a[0]["variaveis"] == {"vu": 500.0, "area": 300.0, "quartos": 3.0}
     assert a[1]["variaveis"]["vu"] == 520.0 and a[1]["dado_id"] == "A02"
+
+
+def test_valores_trazem_arbitrio_e_extenso_do_modelo():
+    from services.inferencia.vinculo_ptam import valores_para_o_laudo
+    m = {"area_total_avaliando": 450, "enquadramento": {"grau_fundamentacao": "III", "grau_precisao": "III"},
+         "resultado": {"predicao": {"valor_central": 266.41, "ip80": {"inferior": 247.0, "superior": 287.0},
+                       "total": {"valor_central": 119884.48,
+                                 "ip80": {"inferior": 111268.61, "superior": 129167.51},
+                                 "campo_arbitrio": {"inferior": 101901.81, "superior": 137867.16}}}}}
+    v = valores_para_o_laudo(m)
+    assert v["campo_arbitrio_min"] == 101901.81 and v["campo_arbitrio_max"] == 137867.16
+    assert v["total_indemnity_words"].startswith("cento e dezenove mil")

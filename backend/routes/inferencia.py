@@ -321,7 +321,10 @@ async def pdf(mid: str, tema: str = "prime2", uid: str = Depends(get_active_subs
     except Exception as e:  # noqa: BLE001
         logger.exception("Inferência: falha ao gerar PDF do modelo %s", mid)
         raise HTTPException(500, f"Falha ao gerar o PDF: {type(e).__name__}: {e}")
-    nome = f"Inferencia_{(doc.get('nome') or 'modelo').replace(' ', '_')}.pdf"
+    import re, unicodedata
+    base = unicodedata.normalize("NFKD", doc.get("nome") or "modelo").encode("ascii", "ignore").decode()
+    base = re.sub(r"[^A-Za-z0-9._-]+", "_", base).strip("_") or "modelo"
+    nome = f"Inferencia_{base}.pdf"  # cabeçalho HTTP só aceita latin-1: travessão/aspas curvas davam 500
     return Response(content=blob, media_type="application/pdf",
                     headers={"Content-Disposition": f'inline; filename="{nome}"',
                              "Cache-Control": "no-store"})
@@ -347,7 +350,9 @@ async def vincular_ptam(mid: str, ptam_id: str, uid: str = Depends(get_active_su
     await _salvar(db, mid, uid, {"ptam_id": ptam_id})
     logger.info("Inferência: modelo %s vinculado ao PTAM %s (user %s)", mid, ptam_id, uid)
     return {"ok": True, "ptam_id": ptam_id,
-            "valores": {k: v for k, v in campos.items() if not k.startswith("inferencia")}}
+            "valores": {k: v for k, v in campos.items() if not k.startswith("inferencia")},
+            # o card do passo 11 lê graus e nº de dados do snapshot — sem ele ficava "—"
+            "snapshot": serialize_doc(campos.get("inferencia_snapshot") or {})}
 
 
 @router.delete("/ptam/{ptam_id}/vinculo")
