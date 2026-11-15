@@ -82,6 +82,27 @@ const CADASTRO = {
   desc: 'Link direto para a tela de cadastro. Ao criar a conta, o lead já entra com 3 dias de teste liberados automaticamente — sem cartão.',
   url: `${BASE}/cadastro`,
   msg: 'Crie sua conta no AvalieImob e teste o sistema completo por 3 dias grátis, sem cartão de crédito:',
+  // Variações prontas — o card mostra a escolhida e é ela que vai no WhatsApp/cópia.
+  msgs: [
+    { rotulo: 'Convite completo', texto:
+      'Olá! 👋 Tudo bem?\n\n' +
+      'Liberei pra você *3 dias de teste GRÁTIS* no *AvalieImob* — a plataforma que eu uso no dia a dia para:\n\n' +
+      '✅ *PTAM e laudos de avaliação* (NBR 14.653) prontos em minutos\n' +
+      '✅ *Contratos de exclusividade e compra e venda*, com assinatura pelo WhatsApp\n' +
+      '✅ *Georreferenciamento, memorial e shapefile* para cartório\n' +
+      '✅ *Recibos e propostas* com a sua marca\n' +
+      '✅ *Inteligência artificial* que redige os textos técnicos pra você\n\n' +
+      'Sem cartão de crédito e sem compromisso. São só *3 dias* — aproveita pra testar com um caso real seu. 🚀\n\n' +
+      '👉 Crie sua conta aqui:' },
+    { rotulo: 'Gatilho: tempo', texto:
+      'Quanto tempo você gasta montando um *laudo* ou um *contrato* do zero? ⏳\n\n' +
+      'No *AvalieImob* o PTAM sai conforme a NBR 14.653, o contrato já vai para assinatura pelo WhatsApp e a IA escreve os textos técnicos — tudo em um só lugar.\n\n' +
+      '🎁 Você tem *3 dias grátis* para testar o sistema completo, *sem cartão*.\n\n' +
+      '👉 Comece agora:' },
+    { rotulo: 'Curta', texto:
+      '🎁 *3 dias grátis* no AvalieImob: PTAM, laudos, contratos com assinatura e georreferenciamento num só sistema. Sem cartão.\n\n' +
+      '👉 Cadastre-se:' },
+  ],
 };
 
 const PAGAMENTO = {
@@ -277,6 +298,8 @@ const BuscadoresCard = ({ toast }) => {
 
 function FolderCard({ f, toast }) {
   const ref = useRef(null);
+  const [msgIdx, setMsgIdx] = React.useState(0);
+  const msg = f.msgs?.[msgIdx]?.texto || f.msg;
   const [baixandoPdf, setBaixandoPdf] = React.useState(false);
 
   // Cada canal leva a SUA marcação — é o que separa "veio do folder de topografia
@@ -290,7 +313,7 @@ function FolderCard({ f, toast }) {
     catch { toast({ title: 'Não foi possível copiar', variant: 'destructive' }); }
   };
   const copiarMsg = async () => {
-    try { await navigator.clipboard.writeText(`${f.msg} ${urlWhats}`); toast({ title: 'Mensagem copiada ✓', description: 'Cole no grupo do WhatsApp.' }); }
+    try { await navigator.clipboard.writeText(`${msg} ${urlWhats}`); toast({ title: 'Mensagem copiada ✓', description: 'Cole no grupo do WhatsApp.' }); }
     catch { toast({ title: 'Não foi possível copiar', variant: 'destructive' }); }
   };
   const baixarQr = () => {
@@ -316,7 +339,7 @@ function FolderCard({ f, toast }) {
               description: e.response?.data?.detail || e.message, variant: 'destructive' });
     } finally { setBaixandoPdf(false); }
   };
-  const wa = `https://wa.me/?text=${encodeURIComponent(`${f.msg} ${urlWhats}`)}`;
+  const wa = `https://wa.me/?text=${encodeURIComponent(`${msg} ${urlWhats}`)}`;
 
 
   return (
@@ -353,6 +376,26 @@ function FolderCard({ f, toast }) {
           <strong> QR Code</strong> — o painel de Leads mostra de qual peça veio o cadastro.
         </div>
 
+        {f.msgs && (
+          <div className="mt-3">
+            <div className="text-xs font-semibold text-gray-600 mb-1.5">Mensagem para enviar</div>
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {f.msgs.map((m, i) => (
+                <button key={m.rotulo} type="button" onClick={() => setMsgIdx(i)} aria-pressed={i === msgIdx}
+                  className={`text-xs px-2.5 py-1 rounded-full border ${i === msgIdx
+                    ? 'text-white border-transparent' : 'text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                  style={i === msgIdx ? { background: GREEN } : {}}>
+                  {m.rotulo}
+                </button>
+              ))}
+            </div>
+            <div className="text-xs text-gray-700 whitespace-pre-wrap break-words rounded-lg p-3 border"
+              style={{ background: '#F7F4EA', borderColor: '#eadfbf' }}>
+              {msg} <span className="text-emerald-700 break-all">{urlWhats}</span>
+            </div>
+          </div>
+        )}
+
         <div className="mt-4 grid grid-cols-2 gap-2">
           <a href={wa} target="_blank" rel="noopener noreferrer"
             className="inline-flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold text-white"
@@ -369,7 +412,7 @@ function FolderCard({ f, toast }) {
           </button>
           <a href={f.url} target="_blank" rel="noopener noreferrer"
             className="inline-flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium border text-gray-700 border-gray-200 hover:bg-gray-50">
-            <ExternalLink className="w-3.5 h-3.5" /> {f.file === 'planos' ? 'Abrir página' : 'Abrir folder'}
+            <ExternalLink className="w-3.5 h-3.5" /> {['planos', 'cadastro'].includes(f.file) ? 'Abrir página' : 'Abrir folder'}
           </a>
         </div>
       </div>
