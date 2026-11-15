@@ -501,7 +501,8 @@ def _og_escape(s) -> str:
             .replace("<", "&lt;").replace(">", "&gt;"))
 
 
-def _inject_og(html: str, title: str, desc: str, image: str = None) -> str:
+def _inject_og(html: str, title: str, desc: str, image: str = None,
+               image_w: int = None, image_h: int = None) -> str:
     """Substitui título/descrição OG/Twitter do index.html por valores dinâmicos
     (o preview de link do WhatsApp/Telegram lê estas meta tags, não roda JS)."""
     import re as _re
@@ -520,6 +521,13 @@ def _inject_og(html: str, title: str, desc: str, image: str = None) -> str:
         img = _og_escape(image)
         html = _re.sub(r'(<meta\s+property=["\']og:image["\']\s+content=["\'])(.*?)(["\'])',
                        lambda m: m.group(1) + img + m.group(3), html, count=1, flags=_re.I | _re.S)
+        html = _re.sub(r'(<meta\s+name=["\']twitter:image["\']\s+content=["\'])(.*?)(["\'])',
+                       lambda m: m.group(1) + img + m.group(3), html, count=1, flags=_re.I | _re.S)
+        # As dimensões do banner padrão (1200x630) não valem para outra arte.
+        for k, v in (("width", image_w), ("height", image_h)):
+            if v:
+                html = _re.sub(r'(<meta\s+property=["\']og:image:' + k + r'["\']\s+content=["\'])(.*?)(["\'])',
+                               lambda m, v=v: m.group(1) + str(v) + m.group(3), html, count=1, flags=_re.I | _re.S)
     return html
 
 
@@ -614,6 +622,16 @@ if _frontend_build.exists():
             _idx = file_path / "index.html"
             if _idx.is_file():
                 return FileResponse(str(_idx), headers=dict(_NO_CACHE))
+        # Link do cadastro (3 dias grátis) enviado aos leads: o preview do WhatsApp
+        # mostra o folder da campanha em vez do banner genérico.
+        if full_path.strip("/") == "cadastro":
+            return HTMLResponse(content=_inject_og(
+                _render_index_html(),
+                "3 dias grátis no AvalieImob — crie sua conta",
+                "PTAM, laudos, contratos com assinatura e georreferenciamento num só sistema. "
+                "Teste por 3 dias, sem cartão e sem cobrança automática.",
+                "https://www.romatecavalieimob.com.br/campanha/cadastro-3-dias-og.jpg", 640, 800,
+            ), headers=dict(_NO_CACHE))
         # SPA fallback (index.html) — sempre revalidar
         return HTMLResponse(content=_render_index_html(), headers=dict(_NO_CACHE))
 

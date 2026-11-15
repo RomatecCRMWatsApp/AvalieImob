@@ -81,6 +81,8 @@ const CADASTRO = {
   file: 'cadastro', titulo: 'Cadastro com 3 dias de teste grátis',
   desc: 'Link direto para a tela de cadastro. Ao criar a conta, o lead já entra com 3 dias de teste liberados automaticamente — sem cartão.',
   url: `${BASE}/cadastro`,
+  // Folder da campanha — vai como imagem junto com a mensagem e é o preview do link.
+  arte: '/campanha/cadastro-3-dias.jpg',
   msg: 'Crie sua conta no AvalieImob e teste o sistema completo por 3 dias grátis, sem cartão de crédito:',
   // Variações prontas — o card mostra a escolhida e é ela que vai no WhatsApp/cópia.
   msgs: [
@@ -341,6 +343,27 @@ function FolderCard({ f, toast }) {
   };
   const wa = `https://wa.me/?text=${encodeURIComponent(`${msg} ${urlWhats}`)}`;
 
+  // No celular, o compartilhamento nativo manda a ARTE + a mensagem com o link para
+  // a conversa escolhida. Sem suporte, abre o WhatsApp só com o texto (o link já
+  // mostra o folder no preview).
+  const [enviandoArte, setEnviandoArte] = React.useState(false);
+  const enviarArte = async () => {
+    const texto = `${msg} ${urlWhats}`;
+    setEnviandoArte(true);
+    try {
+      const blob = await (await fetch(f.arte)).blob();
+      const file = new File([blob], `avalieimob-${f.file}.jpg`, { type: 'image/jpeg' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try { await navigator.clipboard.writeText(texto); } catch { /* opcional */ }
+        await navigator.share({ files: [file], text: texto });
+        return;
+      }
+      window.open(wa, '_blank', 'noopener');
+    } catch (e) {
+      if (e?.name !== 'AbortError') window.open(wa, '_blank', 'noopener');
+    } finally { setEnviandoArte(false); }
+  };
+
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-5 flex flex-col sm:flex-row gap-5">
@@ -375,6 +398,27 @@ function FolderCard({ f, toast }) {
           Cada botão marca a origem: <strong>WhatsApp</strong>, <strong>link copiado</strong> ou
           <strong> QR Code</strong> — o painel de Leads mostra de qual peça veio o cadastro.
         </div>
+
+        {f.arte && (
+          <div className="mt-3 flex flex-wrap items-end gap-3">
+            <a href={f.arte} target="_blank" rel="noopener noreferrer" title="Abrir o folder em tamanho real"
+              className="block w-[120px] shrink-0 rounded-lg overflow-hidden border" style={{ borderColor: '#eadfbf' }}>
+              <img src={f.arte} alt={`Folder — ${f.titulo}`} loading="lazy" className="block w-full h-auto" />
+            </a>
+            <div className="flex flex-col gap-2 min-w-0">
+              <button onClick={enviarArte} disabled={enviandoArte}
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold disabled:opacity-60"
+                style={{ background: '#C9A84C', color: GREEN }}>
+                <Send className="w-3.5 h-3.5" /> {enviandoArte ? 'Preparando…' : 'Enviar folder + mensagem'}
+              </button>
+              <a href={f.arte} download={`avalieimob-${f.file}.jpg`}
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border text-gray-700 border-gray-200 hover:bg-gray-50">
+                <Download className="w-3.5 h-3.5" /> Baixar folder
+              </a>
+              <span className="text-[11px] text-gray-400">No celular, o folder vai como imagem com a mensagem.</span>
+            </div>
+          </div>
+        )}
 
         {f.msgs && (
           <div className="mt-3">
