@@ -866,6 +866,20 @@ export const recibosAPI = {
     api.delete(`/recibos/${id}/anexos/${anexoId}`).then(r => r.data),
 };
 
+// Robô de atendimento do site (visitante sem login) + painel admin
+export const atendimentoAPI = {
+  sessao: (sid) => api.get(`/atendimento/sessao/${sid}`).then((r) => r.data),
+  mensagem: (payload) => api.post('/atendimento/mensagem', payload).then((r) => r.data),
+  contato: (payload) => api.post('/atendimento/contato', payload).then((r) => r.data),
+  evento: (sessao_id, evento) => api.post('/atendimento/evento', { sessao_id, evento }).then((r) => r.data),
+  // admin
+  stats: (dias) => api.get('/admin/atendimento/stats', { params: { dias } }).then((r) => r.data),
+  listar: (params = {}) => api.get('/admin/atendimento/conversas', { params }).then((r) => r.data),
+  detalhe: (id) => api.get(`/admin/atendimento/conversas/${id}`).then((r) => r.data),
+  atualizar: (id, data) => api.patch(`/admin/atendimento/conversas/${id}`, data).then((r) => r.data),
+  excluir: (id) => api.delete(`/admin/atendimento/conversas/${id}`).then((r) => r.data),
+};
+
 // Calculadora pública "Quanto vale meu imóvel?" + captura de lead (sem auth)
 export const avaliacaoPublicaAPI = {
   estimar: (imovel) => api.post('/avaliacao-publica/estimar', imovel).then((r) => r.data),

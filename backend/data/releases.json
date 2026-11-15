@@ -2,6 +2,26 @@
   "_leia_me": "Notas de atualizacao que viram o AVISO no sistema. Regra: a cada release, ANTES do commit, acrescente a entrada no topo de 'releases' (ver CLAUDE.md, passo 7). Itens com publico='interno' (painel administrativo ou ajuste tecnico) NAO geram aviso para ninguem - ficam so registrados aqui. Tipos: novo | melhoria | correcao. Escreva o texto COM ACENTOS: ele vai direto para a tela do cliente.",
   "releases": [
     {
+      "versao": "1.4.1512",
+      "build": 1512,
+      "data": "2026-11-15",
+      "titulo": "Robô de atendimento no site",
+      "itens": [
+        {
+          "modulo": "Site",
+          "tipo": "novo",
+          "publico": "interno",
+          "texto": "Robô de atendimento no site: explica PTAM, laudos, perícia, georreferenciamento, usucapião, Arquivo ONR, contratos e planos, qualifica o visitante e avisa o dono no WhatsApp quando ele quer fechar."
+        },
+        {
+          "modulo": "Leads",
+          "tipo": "novo",
+          "publico": "interno",
+          "texto": "Aba Robô de atendimento: conversas, interessados, qualificados, enviados ao dono e cadastros, com o que mais perguntam e a conversa completa."
+        }
+      ]
+    },
+    {
       "versao": "1.4.1509",
       "build": 1509,
       "data": "2026-11-15",

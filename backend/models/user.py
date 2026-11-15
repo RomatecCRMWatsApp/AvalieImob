@@ -22,6 +22,7 @@ class UserRegister(BaseModel):
     page_origin: Optional[str] = None
     referrer: Optional[str] = None
     phone: Optional[str] = None  # opcional, ZAYRA usa pra auto-resposta WhatsApp
+    atendimento_sessao_id: Optional[str] = None  # conversa do robô do site → conversão
 
 
 class UserLogin(BaseModel):

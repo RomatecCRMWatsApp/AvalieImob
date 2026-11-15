@@ -55,7 +55,9 @@ const Register = () => {
         page_origin:  stored.page_origin || document.referrer || '/',
         referrer:     document.referrer || null,
       };
-      await register({ ...form, ...utm, promo_cupom: promoSlug || null });
+      let atendimento_sessao_id = null;
+      try { atendimento_sessao_id = localStorage.getItem('romatec_atendimento_sessao'); } catch { /* ignore */ }
+      await register({ ...form, ...utm, promo_cupom: promoSlug || null, atendimento_sessao_id });
       // Marca o cupom como utilizado (best-effort — não bloqueia o cadastro).
       if (promoSlug && promo?.valido) {
         cuponsAPI.resgatarPublico(promoSlug).catch(() => {});

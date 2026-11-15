@@ -97,6 +97,9 @@ async def register(request: Request, data: UserRegister, db=Depends(get_db)):
             doc[k] = v
     await db.users.insert_one(doc)
     token = create_token(user.id)
+    if getattr(data, "atendimento_sessao_id", None):
+        from routes.atendimento import marcar_conversao
+        await marcar_conversao(db, data.atendimento_sessao_id, user.id, user.email)
     asyncio.create_task(send_welcome_email(user.email, user.name))
     # Plano SEO/leads v1.0: ZAYRA recebe e notifica CEO via WhatsApp+Telegram
     asyncio.create_task(notify_lead(
