@@ -1,6 +1,7 @@
 // @module ptam/steps/StepResultado — Step 11: Resultado da Avaliação (valor unitário, total, intervalo, validade)
 import React, { useCallback, useEffect, useState } from 'react';
-import { Sigma, Link2, Unlink, Loader2, AlertTriangle } from 'lucide-react';
+import { Sigma, Link2, Unlink, Loader2, AlertTriangle, Plus, ArrowRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Input } from '../../../ui/input';
 import { Button } from '../../../ui/button';
 import { useToast } from '../../../../hooks/use-toast';
@@ -16,7 +17,9 @@ const fmtBRL = (v) =>
 // regressão HOMOLOGADO (menu Laudos ▸ Tratamento Científico). É o caminho do Grau III.
 const VinculoInferencia = ({ form, setForm }) => {
   const { toast } = useToast();
+  const nav = useNavigate();
   const [modelos, setModelos] = useState([]);
+  const [emMontagem, setEmMontagem] = useState([]);
   const [sel, setSel] = useState('');
   const [ocupado, setOcupado] = useState(false);
   const vinculado = form.inferencia_modelo_id;
@@ -28,6 +31,7 @@ const VinculoInferencia = ({ form, setForm }) => {
     try {
       const d = await inferenciaAPI.modelosDoPtam(form.id);
       setModelos(Array.isArray(d?.modelos) ? d.modelos : []);
+      setEmMontagem(Array.isArray(d?.em_montagem) ? d.em_montagem : []);
     } catch { /* sem modelos ainda — o bloco só mostra o caminho */ }
   }, [form.id]);
   useEffect(() => { load(); }, [load]);
@@ -42,6 +46,22 @@ const VinculoInferencia = ({ form, setForm }) => {
               description: 'Valor, intervalo e graus vieram do modelo homologado.' });
     } catch (e) {
       toast({ title: 'Não foi possível vincular', description: e.response?.data?.detail,
+              variant: 'destructive' });
+    } finally { setOcupado(false); }
+  };
+
+  // Monta o modelo AQUI, a partir das amostras de mercado deste laudo.
+  const montar = async () => {
+    if (!form.id) {
+      toast({ title: 'Salve o laudo primeiro', variant: 'destructive' });
+      return;
+    }
+    setOcupado(true);
+    try {
+      const m = await inferenciaAPI.criarDoPtam(form.id);
+      nav(`/dashboard/inferencia/${m.id}`);
+    } catch (e) {
+      toast({ title: 'Não foi possível montar o modelo', description: e.response?.data?.detail,
               variant: 'destructive' });
     } finally { setOcupado(false); }
   };
@@ -104,13 +124,30 @@ const VinculoInferencia = ({ form, setForm }) => {
             homologado — é o caminho que sustenta o <strong>Grau III</strong> em perícia,
             desapropriação e servidão.
           </p>
+          <div className="mb-3 rounded-lg bg-gray-50 border border-gray-100 p-3">
+            <p className="text-xs text-gray-600 mb-2">
+              Monte a regressão com as <strong>amostras de mercado deste laudo</strong> (passo
+              Amostras). Depois de estimar e homologar, volte aqui e clique em “Usar no laudo”.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" onClick={montar} disabled={ocupado}
+                      style={{ background: '#0C3320' }} className="text-white">
+                {ocupado ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                         : <Plus className="w-4 h-4 mr-2" />}
+                Montar modelo com as amostras do laudo
+              </Button>
+              {emMontagem.map((m) => (
+                <Button key={m.id} size="sm" variant="outline"
+                        onClick={() => nav(`/dashboard/inferencia/${m.id}`)}>
+                  Continuar {m.nome} <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                </Button>
+              ))}
+            </div>
+          </div>
           {modelos.length === 0 ? (
             <p className="text-xs text-amber-700 flex items-start gap-1.5">
               <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-              <span>
-                Nenhum modelo homologado ainda. Monte em <strong>Laudos ▸ Tratamento
-                Científico</strong> e homologue para poder usar aqui.
-              </span>
+              <span>Nenhum modelo homologado ainda.</span>
             </p>
           ) : (
             <div className="flex flex-wrap items-end gap-2">

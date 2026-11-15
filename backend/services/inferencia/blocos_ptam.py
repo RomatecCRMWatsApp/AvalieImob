@@ -150,6 +150,14 @@ def flowables(ptam: dict, largura: float, estilos: dict) -> list:
         st.append(Paragraph("Não há pontos com resíduo padronizado fora de ±2σ.", sBody))
     st.append(Spacer(1, 10))
 
+    influentes = diag.get("pontos_influentes") or []
+    if influentes:
+        st.append(tblh(["Dado influente", "Alavancagem", "Cook", "Motivo"],
+                       [[o["id"], _n(o["alavancagem"], 3), _n(o["cook"], 3),
+                         ", ".join(o.get("revisar") or [])] for o in influentes],
+                       [largura * 0.20, largura * 0.20, largura * 0.18, largura * 0.42]))
+        st.append(Spacer(1, 10))
+
     # ── Gráficos 2×2 ──
     imagens = []
     for chave in ("residuos", "observado_estimado", "histograma", "qq"):

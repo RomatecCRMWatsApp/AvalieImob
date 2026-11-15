@@ -115,9 +115,10 @@ async def criar_modelo(body: CriarModeloBody, uid: str = Depends(get_active_subs
         tipo_imovel=body.tipo_imovel,
         norma=body.norma or _NORMA_POR_TIPO.get(body.tipo_imovel, "14653-2"),
         amostra=body.amostra or [],
-        especificacao=body.especificacao or None,
         avaliando=body.avaliando or {},
         area_total_avaliando=body.area_total_avaliando,
+        # Sem especificação no corpo → usa o padrão do modelo (passar None quebrava: 500).
+        **({"especificacao": body.especificacao} if body.especificacao else {}),
     )
     doc = modelo.model_dump(mode="json")
     await db[COL].insert_one(dict(doc))
@@ -373,8 +374,74 @@ async def modelos_para_o_laudo(ptam_id: str, uid: str = Depends(get_active_subsc
         .sort("homologado_em", -1).to_list(100)
     ptam = await db.ptam_documents.find_one({"id": ptam_id, "user_id": uid},
                                             {"inferencia_modelo_id": 1})
+    # Modelos EM MONTAGEM a partir deste laudo (rascunho/estimado) — para continuar.
+    em_montagem = await db[COL].find(
+        {"user_id": uid, "ptam_id": ptam_id, "status": {"$ne": "homologado"}},
+        {"resultado": 0, "amostra": 0}).sort("criado_em", -1).to_list(20)
     return {"vinculado": (ptam or {}).get("inferencia_modelo_id"),
-            "modelos": [serialize_doc(d) for d in docs]}
+            "modelos": [serialize_doc(d) for d in docs],
+            "em_montagem": [serialize_doc(d) for d in em_montagem]}
+
+
+# Campos numéricos da amostra do PTAM que viram variáveis do modelo.
+_CAMPOS_AMOSTRA_PTAM = ("area", "area_construida_m2", "area_terreno_m2", "testada_m",
+                        "quartos", "banheiros", "vagas", "idade_anos",
+                        "pe_direito_m", "lotacao_ua_ha")
+_RURAL_RE = ("rural", "fazenda", "sítio", "sitio", "chácara", "chacara", "gleba")
+
+
+def _num(v) -> float:
+    try:
+        return float(v or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def amostra_do_ptam(ptam: dict) -> list:
+    """Converte `market_samples` do laudo nos dados do modelo (puro, testável)."""
+    saida = []
+    for i, a in enumerate(ptam.get("market_samples") or [], start=1):
+        area = _num(a.get("area"))
+        vu = _num(a.get("value_per_sqm")) or (
+            round(_num(a.get("value")) / area, 2) if area and _num(a.get("value")) else 0.0)
+        if not vu:
+            continue                    # sem valor unitário o dado não serve ao modelo
+        variaveis = {"vu": vu}
+        for c in _CAMPOS_AMOSTRA_PTAM:
+            v = _num(a.get(c))
+            if v:
+                variaveis[c] = v
+        saida.append({"dado_id": a.get("referencia") or f"A{i:02d}",
+                      "utilizado": True, "motivo_descarte": None, "variaveis": variaveis})
+    return saida
+
+
+@router.post("/ptam/{ptam_id}/criar-modelo", status_code=201)
+async def criar_modelo_do_laudo(ptam_id: str, uid: str = Depends(get_active_subscriber),
+                                db=Depends(get_db)):
+    """Monta o modelo DENTRO do fluxo do PTAM: já nasce vinculado ao laudo e com as
+    amostras de mercado que o avaliador cadastrou nele."""
+    ptam = await db.ptam_documents.find_one({"id": ptam_id, "user_id": uid})
+    if not ptam:
+        raise HTTPException(404, "Laudo não encontrado.")
+    amostra = amostra_do_ptam(ptam)
+    if not amostra:
+        raise HTTPException(422, "Cadastre as amostras de mercado do laudo (com valor e "
+                                 "área) antes de montar o modelo.")
+    tipo_txt = str(ptam.get("property_type") or "").lower()
+    tipo = "rural" if any(t in tipo_txt for t in _RURAL_RE) else "urbano"
+    area = _num(ptam.get("imovel_area_a_considerar")) or _num(ptam.get("property_area_sqm"))
+    n = await db[COL].count_documents({"user_id": uid})
+    modelo = ModeloInferencia(
+        user_id=uid, tenant_id=uid, ptam_id=ptam_id,
+        nome=f"Modelo {n + 1:02d} — {ptam.get('numero_ptam') or ptam.get('number') or 'laudo'}",
+        tipo_imovel=tipo, norma=_NORMA_POR_TIPO[tipo],
+        amostra=amostra, avaliando={"area": area} if area else {},
+        area_total_avaliando=area or None,
+    )
+    doc = modelo.model_dump(mode="json")
+    await db[COL].insert_one(dict(doc))
+    return serialize_doc(doc)
 
 
 @router.post("/modelos/{mid}/importar-amostras")

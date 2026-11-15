@@ -276,6 +276,7 @@ export const inferenciaAPI = {
   vincularPtam: (mid, ptamId) => api.post(`/inferencia/modelos/${mid}/vincular-ptam/${ptamId}`).then(r => r.data),
   desvincularPtam: (ptamId) => api.delete(`/inferencia/ptam/${ptamId}/vinculo`).then(r => r.data),
   modelosDoPtam: (ptamId) => api.get(`/inferencia/ptam/${ptamId}/modelos-disponiveis`).then(r => r.data),
+  criarDoPtam: (ptamId) => api.post(`/inferencia/ptam/${ptamId}/criar-modelo`).then(r => r.data),
 };
 
 // ---- Propostas de Consultoria (motor de cálculo port da ZAYRA)

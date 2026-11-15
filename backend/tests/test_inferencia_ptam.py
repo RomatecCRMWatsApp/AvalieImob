@@ -197,3 +197,27 @@ def test_ptam_sem_modelo_nao_ganha_secao_nenhuma(ctx):
                       for p in pypdf.PdfReader(_io.BytesIO(blob)).pages)
     assert "Durbin-Watson" not in texto
     assert "Modelo de Regressão Adotado" not in texto
+
+
+# ── v1.4.1522: montar o modelo dentro do laudo + fix da criação sem especificação ──
+def test_criar_modelo_sem_especificacao_nao_quebra():
+    from models.modelo_inferencia import ModeloInferencia, CriarModeloBody
+    body = CriarModeloBody(nome="x")
+    assert body.especificacao is None
+    m = ModeloInferencia(user_id="u", tenant_id="u", nome="x", tipo_imovel="urbano",
+                         norma="14653-2",
+                         **({"especificacao": body.especificacao} if body.especificacao else {}))
+    assert m.especificacao.dependente is not None
+
+
+def test_amostra_do_ptam_converte_amostras_de_mercado():
+    from routes.inferencia import amostra_do_ptam
+    ptam = {"market_samples": [
+        {"area": 300, "value": 150000, "quartos": 3},
+        {"area": 250, "value_per_sqm": 520, "vagas": 2},
+        {"area": 0, "value": 0},                       # sem valor unitário → fora
+    ]}
+    a = amostra_do_ptam(ptam)
+    assert len(a) == 2
+    assert a[0]["variaveis"] == {"vu": 500.0, "area": 300.0, "quartos": 3.0}
+    assert a[1]["variaveis"]["vu"] == 520.0 and a[1]["dado_id"] == "A02"
