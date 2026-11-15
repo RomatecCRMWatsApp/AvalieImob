@@ -97,6 +97,12 @@ const VIDEOS = [
     msg: 'Olá! Tudo bem? Segue um vídeo rápido para você conhecer a AvalieImob e seus módulos de avaliação e laudos, georreferenciamento, contratos, shapefile urbano e ONR.\n\nQual desses módulos faz mais sentido para o seu trabalho?\n\nSe quiser, posso orientar seu acesso para um teste e você conhece a plataforma no seu ritmo.',
   },
   {
+    id: 'ptam-campanha', arquivo: 'AvalieImob_ptam_1080x1920', duracao: '25 s',
+    titulo: 'Campanha — PTAM',
+    desc: 'Para corretores e avaliadores: clientes, imóveis e amostras conectados, IA que apoia e laudo com a sua marca e assinatura ICP-Brasil.',
+    msg: 'Olá! Tudo bem? Seu PTAM não precisa virar uma maratona. Segue um vídeo rápido da AvalieImob: você organiza clientes, imóveis e amostras de mercado em um só lugar, conta com cálculos automatizados e textos que você revisa, e entrega o laudo com a sua marca e assinatura com certificado digital.\n\nSe quiser, posso orientar seu acesso para um teste.',
+  },
+  {
     id: 'onr-campanha', arquivo: 'AvalieImob_onr_1080x1920', duracao: '29 s',
     titulo: 'Campanha — Shapefile urbano (SIG-RI)',
     desc: 'Provimento CNJ 195/2025: envie os documentos, o sistema extrai, você confere e recebe o pacote .shp/.shx/.dbf/.prj.',

@@ -20,6 +20,14 @@ const TRANSCRICAO = [
   'Essa é a direção da nova experiência do AvalieImob. Acompanhe a atualização e, quando ela estiver disponível, explore o novo painel. Em caso de dúvida, fale com o nosso atendimento.',
 ];
 
+// Vídeos verticais de campanha (1080×1920) — mesmos arquivos da aba Divulgação.
+const DIR_CAMPANHA = '/video/apresentacoes';
+const VIDEOS_MODULOS = [
+  { arquivo: 'AvalieImob_ptam_1080x1920', titulo: 'PTAM e laudos', desc: 'Clientes, imóveis e amostras conectados; laudo com a sua marca.' },
+  { arquivo: 'AvalieImob_onr_1080x1920', titulo: 'Shapefile urbano (SIG-RI)', desc: 'Prov. CNJ 195/2025: envie os documentos e receba o pacote para o SIG-RI.' },
+  { arquivo: 'AvalieImob_geo_1080x1920', titulo: 'Georreferenciamento', desc: 'Do memorial do SIGEF ao dossiê, sem espalhar o processo.' },
+];
+
 const PreviaNovoVisual = () => (
   <section
     aria-labelledby="titulo-preview-upgrade"
@@ -77,6 +85,39 @@ const PreviaNovoVisual = () => (
           </p>
         </div>
       </details>
+
+      <h3 className="font-sans font-extrabold tracking-tight text-2xl md:text-3xl mt-12 mb-2 dark:!text-[#F3F1E6]" style={{ color: VERDE }}>
+        Veja os módulos em ação
+      </h3>
+      <p className="text-base text-gray-700 dark:text-[#d7e3da] mb-6 max-w-3xl">
+        Vídeos curtos do PTAM, do shapefile urbano e do georreferenciamento.
+      </p>
+      <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-3 sm:gap-6 sm:overflow-visible max-w-4xl">
+        {VIDEOS_MODULOS.map((v) => (
+          <figure key={v.arquivo} className="min-w-0 w-[44%] shrink-0 snap-start sm:w-auto">
+            <div className="rounded-2xl overflow-hidden shadow-lg border border-[#C9A84C]/30 bg-black" style={{ aspectRatio: '9 / 16' }}>
+              <video
+                controls
+                playsInline
+                preload="none"
+                poster={`${DIR_CAMPANHA}/${v.arquivo}.jpg`}
+                aria-label={`Vídeo: ${v.titulo}`}
+                width="1080"
+                height="1920"
+                className="block w-full h-full"
+                style={{ objectFit: 'contain' }}
+              >
+                <source src={`${DIR_CAMPANHA}/${v.arquivo}.mp4`} type="video/mp4" />
+                Seu navegador não consegue reproduzir este vídeo.
+              </video>
+            </div>
+            <figcaption className="mt-2">
+              <span className="block text-sm sm:text-base font-semibold text-[#0C3320] dark:text-[#F3F1E6]">{v.titulo}</span>
+              <span className="block text-xs sm:text-sm text-gray-600 dark:text-[#d7e3da]">{v.desc}</span>
+            </figcaption>
+          </figure>
+        ))}
+      </div>
     </div>
   </section>
 );
