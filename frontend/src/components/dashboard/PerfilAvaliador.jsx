@@ -39,6 +39,7 @@ const PerfilAvaliador = () => {
     setSaving(true);
     try {
       await perfilAPI.update(form);
+      window.dispatchEvent(new Event('avalie:perfil-atualizado'));
       toast({ title: 'Perfil salvo com sucesso!' });
     } catch {
       toast({ title: 'Erro ao salvar perfil', variant: 'destructive' });

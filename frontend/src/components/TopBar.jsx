@@ -7,6 +7,7 @@ import { Menu, RefreshCw, Bell, ChevronDown, MapPin, CalendarDays, Info, User, L
 import { BUILD_NUMBER } from '../version';
 import { BrandMark } from './brand/BrandMark';
 import ToolsLauncher from './shell/ToolsLauncher';
+import AvatarPerfil from './shell/AvatarPerfil';
 
 // Detecta nova versão publicada: consulta /version.json (sem cache) e compara
 // o build publicado com o build carregado nesta sessão.
@@ -124,10 +125,7 @@ function AccountMenu({ user, version, deployDate, onProfile, onLogout }) {
         className="av-icon-btn"
         style={{ width: 'auto', padding: '0 8px 0 4px', gap: 8 }}
       >
-        <span style={{
-          width: 34, height: 34, borderRadius: 999, background: 'var(--av-brand)', color: 'var(--av-gold)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700,
-        }}>{iniciais}</span>
+        <AvatarPerfil iniciais={iniciais} size={34} />
         <span className="hidden md:inline" style={{ fontSize: 14, fontWeight: 500, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {nome.split(' ')[0]}
         </span>

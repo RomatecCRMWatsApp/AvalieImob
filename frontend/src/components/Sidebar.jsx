@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { ptamAPI } from '../lib/api';
 import { BrandMark } from './brand/BrandMark';
+import AvatarPerfil from './shell/AvatarPerfil';
 
 // ── Menu do AvalieImob (rotas reais /dashboard/*), agrupado por finalidade ──
 const MENU = [
@@ -218,10 +219,7 @@ export default function Sidebar({
 
       {/* Rodapé: usuário + sair */}
       <div style={{ padding: '12px 16px', borderTop: '1px solid rgb(245 242 232 / 0.08)', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div aria-hidden="true" style={{ width: 34, height: 34, borderRadius: '50%', background: 'var(--av-gold)', color: 'var(--av-brand)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
-          {initials}
-        </div>
+        <AvatarPerfil iniciais={initials} size={34} bg="var(--av-gold)" color="var(--av-brand)" />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</div>
           <div style={{ fontSize: 11, color: 'var(--av-sidebar-muted)', textTransform: 'capitalize' }}>{role}</div>
