@@ -1,0 +1,252 @@
+/* AvalieImob — complemento isolado, não reset global.
+   Adicionar estas classes SOMENTE à seção nova e mapear no componente existente.
+   Não aplicar sobre cartões decorativos da hero ou carrosséis de imóveis.
+   Este arquivo não altera o site sozinho: depende do markup descrito no MD. */
+
+.av-inferencia {
+  --av-surface: #f3f1e6;
+  --av-ink: #0c3320;
+  --av-muted: #42584a;
+  --av-gold: #c9a84c;
+  --av-border: rgba(201, 168, 76, 0.35);
+  --av-card-bg: #0c3320;
+  --av-status-bg: #e5eadf;
+  --av-focus: #0c3320;
+  --av-track-gap: 1rem;
+  --av-slide-width: 90%;
+  position: relative;
+  padding-block: 5rem;
+  background: var(--av-surface);
+  color: var(--av-ink);
+  scroll-margin-block-start: var(--av-anchor-offset, 8rem);
+  border-block-start: 1px solid var(--av-border);
+}
+
+.dark .av-inferencia {
+  --av-surface: #0c3320;
+  --av-ink: #f3f1e6;
+  --av-muted: #c8d4cb;
+  --av-status-bg: #204833;
+  --av-focus: #e3c56a;
+}
+
+.av-inferencia *,
+.av-inferencia *::before,
+.av-inferencia *::after {
+  box-sizing: border-box;
+}
+
+.av-inferencia .av-inferencia__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  gap: 2rem;
+  width: 100%;
+  max-width: 80rem;
+  margin-inline: auto;
+  padding-inline: 1.5rem;
+}
+
+.av-inferencia .av-inferencia__copy,
+.av-inferencia .av-inferencia__media {
+  min-width: 0;
+}
+
+.av-inferencia .av-inferencia__title {
+  margin: 1rem 0;
+  color: var(--av-ink);
+  font-size: 2.25rem;
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: -0.025em;
+  overflow-wrap: break-word;
+}
+
+.av-inferencia .av-inferencia__description,
+.av-inferencia .av-inferencia__hint {
+  color: var(--av-muted);
+  line-height: 1.6;
+}
+
+.av-inferencia .av-inferencia__description {
+  max-width: 52ch;
+  margin-block: 1rem 1.5rem;
+}
+
+.av-inferencia .av-inferencia__status {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--av-border);
+  border-radius: 999px;
+  background: var(--av-status-bg);
+  color: var(--av-ink);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+/* Usa a rolagem NATIVA observada no site. Não misturar com track transformado
+   por Swiper/Embla nem implementar uma segunda lógica de arraste. */
+.av-inferencia .av-inferencia__track {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--av-track-gap);
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0.25rem 0.25rem 1rem;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: 0.25rem;
+  overscroll-behavior-x: contain;
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: var(--av-gold) var(--av-surface);
+}
+
+.av-inferencia .av-inferencia__slide {
+  flex: 0 0 var(--av-slide-width);
+  min-width: 0;
+  margin: 0;
+  scroll-snap-align: start;
+}
+
+.av-inferencia .av-inferencia__art-link {
+  display: block;
+  border-radius: 1rem;
+}
+
+.av-inferencia .av-inferencia__image {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 5;
+  object-fit: contain;
+  object-position: center;
+  border: 1px solid var(--av-border);
+  border-radius: 1rem;
+  background: var(--av-card-bg);
+  box-shadow: 0 5px 16px rgba(12, 51, 32, 0.08);
+}
+
+.av-inferencia .av-inferencia__caption {
+  margin-block: 0.625rem 0;
+  color: var(--av-muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.av-inferencia .av-inferencia__hint {
+  margin-block: 0.5rem 0;
+  font-size: 0.875rem;
+}
+
+.av-inferencia .av-inferencia__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-block-start: 1rem;
+}
+
+.av-inferencia .av-inferencia__cta,
+.av-inferencia .av-inferencia__control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--av-border);
+  border-radius: 0.875rem;
+  font: inherit;
+  font-weight: 700;
+  line-height: 1.3;
+  text-align: center;
+  text-decoration: none;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+
+.av-inferencia .av-inferencia__cta {
+  background: var(--av-gold);
+  color: #0c3320;
+}
+
+.av-inferencia .av-inferencia__control {
+  background: var(--av-status-bg);
+  color: var(--av-ink);
+  cursor: pointer;
+}
+
+.av-inferencia .av-inferencia__control:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.av-inferencia .av-inferencia__track:focus-visible,
+.av-inferencia .av-inferencia__art-link:focus-visible,
+.av-inferencia .av-inferencia__cta:focus-visible,
+.av-inferencia .av-inferencia__control:focus-visible {
+  outline: 3px solid var(--av-focus);
+  outline-offset: 3px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .av-inferencia .av-inferencia__cta:hover {
+    background: #ddbf68;
+  }
+}
+
+@media (min-width: 640px) {
+  .av-inferencia {
+    --av-slide-width: 46%;
+  }
+}
+
+@media (min-width: 768px) {
+  .av-inferencia {
+    padding-block: 7rem;
+  }
+
+  .av-inferencia .av-inferencia__title {
+    font-size: 3rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .av-inferencia {
+    --av-slide-width: 48%;
+  }
+
+  .av-inferencia .av-inferencia__layout {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    gap: 3rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .av-inferencia .av-inferencia__track {
+    scroll-behavior: auto;
+  }
+
+  .av-inferencia .av-inferencia__cta,
+  .av-inferencia .av-inferencia__control {
+    transition: none;
+  }
+}
+
+/* Acréscimos do projeto (mesmo escopo .av-inferencia): vídeo 9:16 da prévia. */
+.av-inferencia .av-inferencia__video {
+  display: block;
+  width: 100%;
+  max-width: 200px;
+  aspect-ratio: 9 / 16;
+  margin-block-start: 1.5rem;
+  border: 1px solid var(--av-border);
+  border-radius: 1rem;
+  background: #000;
+  object-fit: contain;
+}

@@ -268,7 +268,7 @@ const AA_LEGENDA = [
   'O AvalieImob prepara uma opção adicional de Análise Estatística Avançada para apoiar o trabalho com amostras de mercado.',
   'A proposta reúne escolha de variáveis, regressão linear múltipla, diagnósticos do modelo, estimativas com intervalos e memória de cálculo, com revisão do avaliador e sem substituir os tratamentos atuais.',
   'PRÉVIA: a opção está em preparação. A disponibilização depende da implementação, dos testes e da liberação técnica. As telas desta publicação são ilustrativas.',
-  'Quer conhecer a proposta e acompanhar a liberação? Fale com a Rómatec.',
+  'Quer conhecer a proposta e acompanhar a liberação? Fale com a Romatec.',
   `WhatsApp: (99) 99181-1246\n${AA_ZAP}`,
   `Conheça a plataforma:\n${AA_SITE}`,
   '#AvalieImob #Romatec #AvaliacaoImobiliaria #InferenciaEstatistica #EngenhariaDeAvaliacoes #PericiaImobiliaria',
