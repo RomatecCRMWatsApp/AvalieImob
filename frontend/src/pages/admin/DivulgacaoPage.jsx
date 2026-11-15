@@ -172,8 +172,18 @@ const VIDEOS = [
 ];
 
 const textoVideo = (v) => {
-  const site = comUtm(`${BASE}/`, { source: 'whatsapp', medium: 'video', campaign: `video-${v.id}` });
-  return `${v.msg}\n\nSaiba mais: ${site}\nFale conosco: ${ZAP_ROMATEC}`;
+  // O vídeo do teste grátis leva direto ao cadastro (3 dias liberados na hora).
+  const site = comUtm(`${BASE}${v.destino || '/'}`, { source: 'whatsapp', medium: 'video', campaign: `video-${v.id}` });
+  return `${v.msg}\n\n${v.destino ? 'Crie sua conta' : 'Saiba mais'}: ${site}\nFale conosco: ${ZAP_ROMATEC}`;
+};
+
+// Vídeo da campanha dos 3 dias grátis — mostrado logo abaixo do card de cadastro.
+const VIDEO_CADASTRO = {
+  id: 'cadastro-3-dias', arquivo: 'AvalieImob_3_Dias_Gratis_Carrossel_Narrado_1080x1920', duracao: '26 s',
+  destino: '/cadastro',
+  titulo: 'Vídeo — 3 dias grátis',
+  desc: 'Carrossel narrado da campanha de teste grátis, com o link direto para o cadastro.',
+  msg: 'Olá! Tudo bem? 👋 Separei um vídeo rápido da AvalieImob — PTAM, laudos, contratos com assinatura e georreferenciamento num só sistema.\n\n🎁 Você tem *3 dias grátis* para testar tudo, sem cartão e sem cobrança automática.',
 };
 
 function VideoCard({ v, toast }) {
@@ -489,7 +499,10 @@ export default function DivulgacaoPage() {
         Valores da assinatura
       </h2>
       <div className="mb-8"><FolderCard f={PLANOS} toast={toast} /></div>
-      <div className="mb-8"><FolderCard f={CADASTRO} toast={toast} /></div>
+      <div className="mb-8 space-y-4">
+        <FolderCard f={CADASTRO} toast={toast} />
+        <VideoCard v={VIDEO_CADASTRO} toast={toast} />
+      </div>
 
       <BuscadoresCard toast={toast} />
 
