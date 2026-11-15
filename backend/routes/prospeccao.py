@@ -398,8 +398,48 @@ def _wa_query(uid: str, max_tent: int) -> dict:
         "telefone": {"$nin": [None, ""]},
         "opt_out": {"$ne": True},
         "status": {"$lt": 2},
+        "whatsapp_invalido": {"$ne": True},
         "$or": [{"wa_tentativas": {"$lt": int(max_tent)}}, {"wa_tentativas": {"$exists": False}}],
     }
+
+
+def _erro_do_numero(msg: str) -> bool:
+    """A falha é do NÚMERO (sem WhatsApp / inválido) — e não da conexão do Z-API?
+    Falha do número: tira da fila. Falha da conexão: NÃO gasta tentativa do contato."""
+    m = (msg or "").lower()
+    return any(k in m for k in ("não entregou", "nao entregou", "telefone inválido",
+                                "telefone invalido", "not exist", "não existe", "invalid phone"))
+
+
+def _motivo_legivel(msg: str) -> str:
+    m = (msg or "").lower()
+    if not m:
+        return ""
+    if _erro_do_numero(m):
+        return "Número sem WhatsApp ou inválido"
+    if "not connected" in m or "desconect" in m or "disconnected" in m or "session" in m:
+        return "WhatsApp (Z-API) desconectado no momento do envio"
+    if "401" in m or "403" in m or "client-token" in m or "unauthorized" in m:
+        return "Token da Z-API recusado (verifique Integrações)"
+    if "timeout" in m or "connecterror" in m or "readtimeout" in m:
+        return "Z-API não respondeu (instabilidade)"
+    if "sem messageid" in m or "não confirmou" in m:
+        return "Z-API não confirmou o envio"
+    return "Falha no envio pela Z-API"
+
+
+async def _zapi_conectada(cfg: dict) -> tuple:
+    """(ok, motivo). Consulta o status da instância antes de disparar — sem isso, um celular
+    desconectado queimava as tentativas de todos os contatos da fila."""
+    from services import zapi_service
+    try:
+        st = await zapi_service.status_instance(cfg["zapi_instance_id"], cfg["zapi_token"],
+                                                cfg.get("zapi_security_token"))
+    except Exception as e:  # noqa: BLE001 — sem status não bloqueia (o envio dirá)
+        return True, f"status indisponível: {type(e).__name__}"
+    if isinstance(st, dict) and st.get("connected") is False:
+        return False, (st.get("error") or "WhatsApp desconectado na Z-API")
+    return True, ""
 
 
 def _fone_match_key(tel) -> str:
@@ -441,7 +481,16 @@ async def _rodar_whatsapp(db, uid: str, limite_pedido: int) -> int:
         enviados_hoje = int(camp.get("wa_enviados_hoje", 0))
     n_enviar = max(0, min(int(limite_pedido), limite_dia - enviados_hoje))
     enviados = 0
-    for _ in range(n_enviar):
+    if n_enviar:
+        ok, motivo = await _zapi_conectada(cfg)
+        if not ok:
+            await db.prospeccao_campanha.update_one(
+                {"_id": uid}, {"$set": {"wa_ultimo_erro": motivo, "wa_ultimo_erro_em": _iso()}}, upsert=True)
+            logger.warning("Prospecção WA: Z-API desconectada p/ %s — envio adiado (%s)", uid, motivo)
+            return 0
+    for _ in range(n_enviar + 10):   # +10: pula números sem WhatsApp sem estourar o teto do dia
+        if enviados >= n_enviar:
+            break
         # FILA CIRCULAR: o de envio mais ANTIGO (ou nunca enviado) primeiro → sem duplicar,
         # e ao terminar a volta recontata o 1º. Quem respondeu (status ≥ 2) já saiu da fila.
         p = await db.prospeccao.find_one(_wa_query(uid, max_tent), sort=[("whatsapp_enviado_em", 1)])
@@ -457,11 +506,22 @@ async def _rodar_whatsapp(db, uid: str, limite_pedido: int) -> int:
                 phone=p["telefone"], message=msg)
             await db.prospeccao.update_one({"id": p["id"], "user_id": uid},
                                            {"$set": {**base, "whatsapp_erro": None}, "$inc": {"wa_tentativas": 1}})
-        except Exception as e:  # noqa: BLE001 — conta a tentativa e roda p/ o fim da fila
-            await db.prospeccao.update_one({"id": p["id"], "user_id": uid},
-                                           {"$set": {**base, "whatsapp_erro": f"{type(e).__name__}: {e}"},
-                                            "$inc": {"wa_tentativas": 1}})
+            await db.prospeccao_campanha.update_one({"_id": uid}, {"$set": {"wa_ultimo_erro": None}})
+        except Exception as e:  # noqa: BLE001
+            erro = f"{type(e).__name__}: {e}"
             logger.warning("Prospecção WA: falha p/ %s: %s", p.get("telefone"), e)
+            if _erro_do_numero(erro):
+                # Número sem WhatsApp: sai da fila (não adianta recontatar).
+                await db.prospeccao.update_one({"id": p["id"], "user_id": uid}, {"$set": {
+                    "whatsapp_erro": erro, "whatsapp_invalido": True, "updated_at": _iso()},
+                    "$inc": {"wa_tentativas": 1}})
+                continue   # não conta no teto do dia: tenta o próximo da fila
+            # Falha da conexão/Z-API: NÃO gasta a tentativa do contato e para o lote.
+            await db.prospeccao.update_one({"id": p["id"], "user_id": uid},
+                                           {"$set": {"whatsapp_erro": erro, "updated_at": _iso()}})
+            await db.prospeccao_campanha.update_one(
+                {"_id": uid}, {"$set": {"wa_ultimo_erro": erro, "wa_ultimo_erro_em": _iso()}}, upsert=True)
+            break
         enviados += 1
         await db.prospeccao_campanha.update_one(
             {"_id": uid}, {"$inc": {"wa_enviados_hoje": 1, "wa_enviados_total": 1},
@@ -513,6 +573,13 @@ async def wa_status(uid: str = Depends(get_admin_user), db=Depends(get_db)):
         "responderam": await db.prospeccao.count_documents(
             {"user_id": uid, "telefone": {"$nin": [None, ""]}, "status": {"$gte": 2}}),
         "com_erro": await db.prospeccao.count_documents({"user_id": uid, "whatsapp_erro": {"$nin": [None, ""]}}),
+        "sem_whatsapp": await db.prospeccao.count_documents({"user_id": uid, "whatsapp_invalido": True}),
+        "esgotados": await db.prospeccao.count_documents({
+            "user_id": uid, "telefone": {"$nin": [None, ""]}, "opt_out": {"$ne": True}, "status": {"$lt": 2},
+            "whatsapp_invalido": {"$ne": True}, "wa_tentativas": {"$gte": max_tent}}),
+        "ultimo_erro": _motivo_legivel(camp.get("wa_ultimo_erro") or ""),
+        "ultimo_erro_detalhe": (camp.get("wa_ultimo_erro") or "")[:300],
+        "ultimo_erro_em": camp.get("wa_ultimo_erro_em"),
         "enviados_hoje": (int(camp.get("wa_enviados_hoje", 0)) if camp.get("wa_dia") == hoje else 0),
         "limite_dia": int(camp.get("wa_limite_dia", 1)),
         "max_tentativas": max_tent,
@@ -550,6 +617,36 @@ async def wa_enviar(body: WaEnviarBody, uid: str = Depends(get_admin_user), db=D
     limite = max(1, min(int(body.limite or 1), 2))
     asyncio.create_task(_rodar_whatsapp(db, uid, limite))
     return {"ok": True, "iniciada": True, "elegiveis": n, "limite": limite}
+
+
+@router.get("/prospeccao/whatsapp/erros")
+async def wa_erros(uid: str = Depends(get_admin_user), db=Depends(get_db)):
+    """Lista quem deu erro no WhatsApp, com o motivo em português."""
+    cur = db.prospeccao.find({"user_id": uid, "whatsapp_erro": {"$nin": [None, ""]}},
+                             {"_id": 0, "id": 1, "nome": 1, "cidade": 1, "telefone": 1, "whatsapp_erro": 1,
+                              "whatsapp_invalido": 1, "wa_tentativas": 1, "whatsapp_enviado_em": 1, "status": 1})
+    itens = []
+    async for p in cur:
+        itens.append({**p, "motivo": _motivo_legivel(p.get("whatsapp_erro") or ""),
+                      "detalhe": (p.get("whatsapp_erro") or "")[:300]})
+    itens.sort(key=lambda x: (x.get("motivo") or "", x.get("nome") or ""))
+    return {"itens": itens, "total": len(itens)}
+
+
+class WaReabilitarBody(BaseModel):
+    modo: str = "erros"   # "erros" = só quem falhou · "todos" = recomeça a fila de quem não respondeu
+
+
+@router.post("/prospeccao/whatsapp/reabilitar")
+async def wa_reabilitar(body: WaReabilitarBody, uid: str = Depends(get_admin_user), db=Depends(get_db)):
+    """Devolve à fila (zera tentativas e erro). Nunca mexe em quem respondeu (status ≥ 2) ou descadastrou."""
+    filtro = {"user_id": uid, "telefone": {"$nin": [None, ""]}, "opt_out": {"$ne": True}, "status": {"$lt": 2}}
+    if body.modo != "todos":
+        filtro["whatsapp_erro"] = {"$nin": [None, ""]}
+    res = await db.prospeccao.update_many(filtro, {"$set": {
+        "wa_tentativas": 0, "whatsapp_erro": None, "whatsapp_invalido": False, "updated_at": _iso()}})
+    await db.prospeccao_campanha.update_one({"_id": uid}, {"$set": {"wa_ultimo_erro": None}}, upsert=True)
+    return {"ok": True, "reabilitados": res.modified_count}
 
 
 # ──────────────────────────────────────────────────────────────────────────────

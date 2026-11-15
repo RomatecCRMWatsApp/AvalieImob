@@ -115,6 +115,25 @@ export default function ProspeccaoPage() {
     } catch (e) { toast({ title: 'Falha no teste', description: e?.response?.data?.detail || '', variant: 'destructive' }); }
     finally { setBusy(''); }
   };
+  const [errosWa, setErrosWa] = useState(null);
+  const abrirErrosWa = async () => {
+    try { setErrosWa(await prospeccaoAPI.waErros()); }
+    catch { toast({ title: 'Não consegui carregar os erros', variant: 'destructive' }); }
+  };
+  const reabilitarWa = async (modo) => {
+    const txt = modo === 'todos'
+      ? 'Recomeçar a fila? Todos que ainda não responderam voltam a receber (respeitando 1–2 por dia). Quem respondeu ou descadastrou não é afetado.'
+      : 'Devolver à fila os contatos que deram erro?';
+    if (!window.confirm(txt)) return;
+    setBusy('wareab');
+    try {
+      const r = await prospeccaoAPI.waReabilitar(modo);
+      toast({ title: `${r.reabilitados} contato(s) de volta na fila ✓` });
+      setErrosWa(null);
+      refreshWa();
+    } catch (e) { toast({ title: 'Falha ao reabilitar', description: e?.response?.data?.detail || '', variant: 'destructive' }); }
+    finally { setBusy(''); }
+  };
   const enviarWaAgora = async () => {
     if (!window.confirm('Enviar 1 mensagem de WhatsApp agora para a próxima imobiliária da fila?')) return;
     setBusy('waenviar');
@@ -413,10 +432,33 @@ export default function ProspeccaoPage() {
               {waSt && (
                 <span className="text-xs text-gray-500">
                   Hoje <strong>{waSt.enviados_hoje}/{waSt.limite_dia}</strong> · em acompanhamento <strong>{waSt.elegiveis}</strong> · responderam <strong>{waSt.responderam ?? 0}</strong>
-                  {waSt.com_erro ? <> · <span className="text-red-500">{waSt.com_erro} erro</span></> : null}
+                  {waSt.com_erro ? <> · <button type="button" onClick={abrirErrosWa} className="text-red-500 underline">{waSt.com_erro} erro — ver motivo</button></> : null}
+                  {waSt.sem_whatsapp ? <> · {waSt.sem_whatsapp} sem WhatsApp</> : null}
+                  {waSt.esgotados ? <> · {waSt.esgotados} já receberam todas as tentativas</> : null}
                 </span>
               )}
             </div>
+            {waSt?.ultimo_erro && (
+              <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                <strong>Último problema:</strong> {waSt.ultimo_erro}
+                {waSt.ultimo_erro_em ? ` (${new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(waSt.ultimo_erro_em) ? waSt.ultimo_erro_em : waSt.ultimo_erro_em + 'Z').toLocaleString('pt-BR')})` : ''}.
+                {' '}Quando o problema é da conexão, o contato não perde a tentativa — o envio volta no próximo horário.
+              </div>
+            )}
+            {waSt && (waSt.com_erro > 0 || waSt.esgotados > 0 || (waSt.elegiveis === 0 && waSt.com_telefone > 0)) && (
+              <div className="mb-3 flex flex-wrap gap-2">
+                {waSt.com_erro > 0 && (
+                  <button type="button" onClick={() => reabilitarWa('erros')} disabled={busy === 'wareab'}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-red-300 text-red-700 bg-white disabled:opacity-50">
+                    <RefreshCw className="w-3.5 h-3.5" /> Reabilitar os {waSt.com_erro} com erro
+                  </button>
+                )}
+                <button type="button" onClick={() => reabilitarWa('todos')} disabled={busy === 'wareab'}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border disabled:opacity-50" style={{ color: GREEN }}>
+                  <RefreshCw className="w-3.5 h-3.5" /> Recomeçar a fila (quem ainda não respondeu)
+                </button>
+              </div>
+            )}
 
             <div className="pt-3 border-t border-gray-100">
               <label className="flex items-center gap-2 text-sm font-semibold cursor-pointer" style={{ color: GREEN }}>
@@ -605,6 +647,34 @@ export default function ProspeccaoPage() {
               <button onClick={() => setProposta(null)}><X className="w-5 h-5 text-gray-400" /></button>
             </div>
             <iframe title="proposta" srcDoc={proposta} className="flex-1 w-full" />
+          </div>
+        </div>
+      )}
+      {errosWa && (
+        <div className="fixed inset-0 z-[1300] bg-black/50 flex items-center justify-center p-3" onClick={() => setErrosWa(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="p-4 flex items-center justify-between border-b">
+              <h3 className="font-bold" style={{ color: GREEN }}>Erros no WhatsApp ({errosWa.total})</h3>
+              <button onClick={() => setErrosWa(null)}><X className="w-5 h-5" /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto divide-y">
+              {errosWa.itens.map((p) => (
+                <div key={p.id} className="p-3 text-sm min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <strong className="text-gray-800">{p.nome}</strong>
+                    <span className="text-xs text-gray-500">{p.cidade} · {p.telefone}</span>
+                  </div>
+                  <p className={`text-xs mt-1 font-semibold ${p.whatsapp_invalido ? 'text-gray-600' : 'text-red-600'}`}>{p.motivo}</p>
+                  <p className="text-[11px] text-gray-400 break-all">{p.detalhe} · tentativas: {p.wa_tentativas || 0}</p>
+                </div>
+              ))}
+            </div>
+            <div className="p-3 border-t flex flex-wrap justify-end gap-2">
+              <button onClick={() => reabilitarWa('erros')} disabled={busy === 'wareab'}
+                className="px-3 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50" style={{ background: GREEN }}>
+                Reabilitar todos os com erro
+              </button>
+            </div>
           </div>
         </div>
       )}
