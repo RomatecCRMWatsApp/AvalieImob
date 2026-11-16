@@ -22,7 +22,7 @@ const STATUS_BADGE = {
 
 const emptyForm = () => ({
   codigo: '', prefixo_codigo: 'ROMATEC',
-  valor_desconto: 20, valor_plano_normal: 89.9,
+  valor_desconto: 20, valor_plano_normal: 189.9,
   nome_destinatario: '', telefone_destinatario: '', email_destinatario: '',
   validade: '', limite_usos: 1,
   usar_padrao: true, mensagem_customizada: '',
@@ -33,7 +33,7 @@ const buildMensagem = (f) => {
   const nome = (f.nome_destinatario || '').trim();
   const saud = nome ? `Olá, ${nome}! 👋\n\n` : 'Olá! 👋\n\n';
   const link = `${window.location.origin}/cadastro?promo=SEU-LINK`;
-  const vnorm = Number(f.valor_plano_normal || 89.9);
+  const vnorm = Number(f.valor_plano_normal || 189.9);
   const vdesc = Math.max(0, vnorm - Number(f.valor_desconto || 0));
   const val = f.validade ? `\n⏰ *Oferta válida até:* ${fmtData(f.validade)}` : '';
   const email = (f.email_destinatario || '').trim();
@@ -143,7 +143,7 @@ const CuponsAdmin = ({ abaInicial = 'cupons' }) => {
       codigo: c.codigo || '',
       prefixo_codigo: c.prefixo_codigo || 'ROMATEC',
       valor_desconto: c.valor_desconto ?? 20,
-      valor_plano_normal: c.valor_plano_normal ?? 89.9,
+      valor_plano_normal: c.valor_plano_normal ?? 189.9,
       nome_destinatario: c.nome_destinatario || '',
       telefone_destinatario: c.telefone_destinatario || '',
       email_destinatario: c.email_destinatario || '',

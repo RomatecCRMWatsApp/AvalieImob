@@ -30,7 +30,7 @@ class CupomBase(BaseModel):
     # DESCONTO
     tipo_desconto: Literal["valor_fixo", "percentual"] = "valor_fixo"
     valor_desconto: float = 20.00
-    valor_plano_normal: float = 89.90
+    valor_plano_normal: float = 189.90
     aplicar_em: Literal["primeira_mensalidade"] = "primeira_mensalidade"
     # DESTINATÁRIO (opcional)
     nome_destinatario: Optional[str] = None

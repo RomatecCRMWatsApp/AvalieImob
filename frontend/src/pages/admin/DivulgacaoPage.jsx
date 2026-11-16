@@ -71,9 +71,9 @@ const CALCULADORA = {
 // Resposta pronta para "qual o valor da assinatura?" — página só com os planos.
 const PLANOS = {
   file: 'planos', titulo: 'Valores da assinatura (planos)',
-  desc: 'Página só com os planos — mensal R$ 89,90, trimestral R$ 239,90 e anual R$ 849,90 — e o botão de cadastro com 3 dias grátis.',
+  desc: 'Página só com os planos — mensal R$ 189,90, trimestral R$ 449,90 e anual R$ 1.199,00 — e o botão de cadastro com 3 dias grátis.',
   url: `${BASE}/planos`,
-  msg: 'Os valores da assinatura do AvalieImob: mensal R$ 89,90, trimestral R$ 239,90 ou anual R$ 849,90 — e 3 dias grátis para testar:',
+  msg: 'Os valores da assinatura do AvalieImob: mensal R$ 189,90, trimestral R$ 449,90 ou anual R$ 1.199,00 — e 3 dias grátis para testar:',
 };
 
 // Link direto para o cadastro: quem cria a conta ganha o teste automático de 3 dias.

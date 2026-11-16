@@ -45,7 +45,7 @@ export default function ServicoTemplate({
     serviceType: titulo,
     offers: {
       '@type': 'Offer',
-      price: '89.90',
+      price: '189.90',
       priceCurrency: 'BRL',
       availability: 'https://schema.org/InStock',
       url: `${BASE}/cadastro`,

@@ -106,7 +106,7 @@ class _DB:
 def test_base_tem_os_assuntos_e_precos():
     p = KB.system_prompt()
     for termo in ("PTAM", "Grau III", "SIGEF", "ONR", "Provimento CNJ 195/2025", "usucapi",
-                  "R$ 89,90", "R$ 239,90", "R$ 849,90", "3 dias", "/cadastro", "META"):
+                  "R$ 189,90", "R$ 449,90", "R$ 1.199,00", "3 dias", "/cadastro", "META"):
         assert termo.lower() in p.lower(), termo
 
 
@@ -221,7 +221,7 @@ def test_sessao_invalida_e_ia_fora_cai_no_offline(cli, monkeypatch):
         raise RuntimeError("sem provedor")
     monkeypatch.setattr("routes.ai._roma_ia_cascata", quebra)
     d = cli.post("/atendimento/mensagem", json={"sessao_id": "offline_123456", "mensagem": "quanto custa o plano?"}).json()
-    assert d["provedor"] == "offline" and "89,90" in d["resposta"] and d["estagio"] == "interessado"
+    assert d["provedor"] == "offline" and "189,90" in d["resposta"] and d["estagio"] == "interessado"
     assert any(a["tipo"] == "cadastro" for a in d["acoes"])
 
 

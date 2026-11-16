@@ -42,9 +42,9 @@ export const SERVICES = [
 ];
 
 export const PLANS = [
-  { id: 'monthly', name: 'Mensal', price: 89.90, period: 'mês', desc: 'Ideal para testar', features: ['Laudos ilimitados', 'IA para textos (50 usos/mês)', 'Suporte por email', '1 usuário', 'Armazenamento 5GB'], highlight: false },
-  { id: 'quarterly', name: 'Trimestral', price: 239.90, period: 'trimestre', saving: 'Economize 11%', desc: 'Mais popular', features: ['Laudos ilimitados', 'IA para textos (200 usos/mês)', 'Suporte prioritário', '3 usuários', 'Armazenamento 25GB', 'Personalização com logo'], highlight: true },
-  { id: 'annual', name: 'Anual', price: 849.90, period: 'ano', saving: 'Economize 21%', desc: 'Melhor custo-benefício', features: ['Laudos ilimitados', 'IA para textos (ilimitado)', 'Suporte VIP WhatsApp', 'Até 10 usuários', 'Armazenamento 100GB', 'Personalização total', 'Certificação técnica inclusa', 'Consultoria mensal'], highlight: false },
+  { id: 'monthly', name: 'Mensal', price: 189.90, period: 'mês', desc: 'Ideal para testar', features: ['Laudos ilimitados', 'IA para textos (50 usos/mês)', 'Suporte por email', '1 usuário', 'Armazenamento 5GB'], highlight: false },
+  { id: 'quarterly', name: 'Trimestral', price: 449.90, period: 'trimestre', saving: 'Economize 21%', desc: 'Mais popular', features: ['Laudos ilimitados', 'IA para textos (200 usos/mês)', 'Suporte prioritário', '3 usuários', 'Armazenamento 25GB', 'Personalização com logo'], highlight: true },
+  { id: 'annual', name: 'Anual', price: 1199.00, period: 'ano', saving: 'Economize 47%', desc: 'Melhor custo-benefício', features: ['Laudos ilimitados', 'IA para textos (ilimitado)', 'Suporte VIP WhatsApp', 'Até 10 usuários', 'Armazenamento 100GB', 'Personalização total', 'Certificação técnica inclusa', 'Consultoria mensal'], highlight: false },
 ];
 
 export const TESTIMONIALS = [

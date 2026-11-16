@@ -28,7 +28,7 @@ const Pricing = () => {
               <div className={`text-sm font-semibold mb-2 ${p.highlight ? 'text-emerald-200' : 'text-emerald-700'}`}>{p.name}</div>
               <div className="flex items-baseline gap-1 mb-1">
                 <span className="text-2xl font-bold">R$</span>
-                <span className="font-display text-5xl font-bold">{p.price.toFixed(2).replace('.', ',')}</span>
+                <span className="font-display text-5xl font-bold">{p.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
               <div className={`text-sm mb-3 ${p.highlight ? 'text-emerald-200/80' : 'text-gray-500'}`}>por {p.period}</div>
               {p.saving && (

@@ -10,10 +10,10 @@ WHATSAPP_ROMATEC = "5599991811246"
 TRIAL_DIAS = 3
 
 PLANOS = [
-    ("Mensal", "R$ 89,90 por mês", "laudos ilimitados, IA para textos, 1 usuário"),
-    ("Trimestral", "R$ 239,90 a cada 3 meses (economia de 11%)",
+    ("Mensal", "R$ 189,90 por mês", "laudos ilimitados, IA para textos, 1 usuário"),
+    ("Trimestral", "R$ 449,90 a cada 3 meses (economia de 21%)",
      "laudos ilimitados, mais usos de IA, até 3 usuários, logo própria nos documentos"),
-    ("Anual", "R$ 849,90 por ano (economia de 21%)",
+    ("Anual", "R$ 1.199,00 por ano (economia de 47%)",
      "laudos ilimitados, IA ilimitada, até 10 usuários, suporte VIP no WhatsApp, personalização total"),
 ]
 

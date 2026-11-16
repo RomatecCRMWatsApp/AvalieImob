@@ -7,9 +7,9 @@ from fastapi import HTTPException
 logger = logging.getLogger("romatec")
 
 PLAN_CONFIG = {
-    "mensal":     {"title": "AvalieImob - Plano Mensal",      "unit_price": 89.90,  "days": 30},
-    "trimestral": {"title": "AvalieImob - Plano Trimestral",  "unit_price": 239.90, "days": 90},
-    "anual":      {"title": "AvalieImob - Plano Anual",        "unit_price": 849.90, "days": 365},
+    "mensal":     {"title": "AvalieImob - Plano Mensal",      "unit_price": 189.90, "days": 30},
+    "trimestral": {"title": "AvalieImob - Plano Trimestral",  "unit_price": 449.90, "days": 90},
+    "anual":      {"title": "AvalieImob - Plano Anual",        "unit_price": 1199.00, "days": 365},
 }
 
 APP_URL = os.environ.get("APP_URL", "https://www.romatecavalieimob.com.br").rstrip("/")

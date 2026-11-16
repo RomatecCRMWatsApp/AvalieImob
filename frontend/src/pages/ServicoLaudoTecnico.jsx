@@ -44,7 +44,7 @@ export default function ServicoLaudoTecnico() {
         { q: 'Quem pode emitir um laudo técnico de avaliação?', a: 'Corretores de imóveis credenciados (CRECI), engenheiros civis e arquitetos com ART/RRT, e peritos habilitados. Cada categoria profissional tem suas atribuições específicas conforme legislação (Lei 6.530/78 para corretores, Resolução 218/73 do CONFEA para engenheiros).' },
         { q: 'Posso emitir laudo para imóvel rural?', a: 'Sim. O AvalieImob possui módulo específico para imóveis rurais conforme NBR 14.653-3, incluindo avaliação de terras, benfeitorias, semoventes (penhor rural), safras e equipamentos agrícolas.' },
         { q: 'O laudo gerado é editável?', a: 'Sim. Exportamos em formato DOCX (Microsoft Word) totalmente editável. Você pode personalizar logo, layout, fontes e adicionar conteúdo customizado antes de entregar ao cliente. Também há opção PDF para entrega final.' },
-        { q: 'Quantos laudos posso emitir por mês?', a: 'Nos planos pagos, laudos ilimitados. Plano Mensal R$ 89,90, Trimestral R$ 239,90, Anual R$ 849,90. No teste grátis de 3 dias você também tem acesso ilimitado.' },
+        { q: 'Quantos laudos posso emitir por mês?', a: 'Nos planos pagos, laudos ilimitados. Plano Mensal R$ 189,90, Trimestral R$ 449,90, Anual R$ 1.199,00. No teste grátis de 3 dias você também tem acesso ilimitado.' },
         { q: 'Vocês oferecem treinamento para usar o sistema?', a: 'Sim. Disponibilizamos tutoriais em vídeo, base de conhecimento detalhada e suporte direto via WhatsApp. Para clientes corporativos, fazemos onboarding personalizado.' },
       ]}
       ctaTitulo="Emita seu primeiro laudo grátis hoje"

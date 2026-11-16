@@ -126,7 +126,7 @@ const SubscriptionPage = () => {
               <div className="text-sm font-semibold text-emerald-700 mb-2">{p.name}</div>
               <div className="flex items-baseline gap-1">
                 <span className="text-lg font-bold text-gray-900">R$</span>
-                <span className="font-display text-4xl font-bold text-gray-900">{p.price.toFixed(2).replace('.', ',')}</span>
+                <span className="font-display text-4xl font-bold text-gray-900">{p.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
               <div className="text-xs text-gray-500 mb-4">por {p.period}</div>
               {p.saving && <div className="text-xs font-semibold text-emerald-700 mb-2">{p.saving}</div>}

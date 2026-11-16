@@ -67,7 +67,7 @@ def montar_mensagem_whatsapp(cupom: dict) -> str:
     if msg_custom:
         return f"{saudacao}{msg_custom}\n\n🔗 *Acesse agora:*\n{link}"
 
-    vnorm = float(cupom.get("valor_plano_normal", 89.90))
+    vnorm = float(cupom.get("valor_plano_normal", 189.90))
     vdesc = float(cupom.get("valor_com_desconto", 60.00))
     return (
         f"{saudacao}"
@@ -117,7 +117,7 @@ async def criar_cupom(payload: dict, uid: str = Depends(get_admin_user), db=Depe
         raise HTTPException(400, f"Código {codigo} já existe")
     base["codigo"] = codigo
 
-    plano = float(base.get("valor_plano_normal", 89.90) or 89.90)
+    plano = float(base.get("valor_plano_normal", 189.90) or 189.90)
     desconto = float(base.get("valor_desconto", 20.00) or 0)
     base["valor_com_desconto"] = round(plano - desconto, 2)
     base["validade"] = _parse_validade(base.get("validade"))
@@ -221,7 +221,7 @@ async def atualizar_cupom(cupom_id: str, payload: dict, uid: str = Depends(get_a
         update["codigo"] = str(update["codigo"]).upper().strip()
     if "validade" in payload:
         update["validade"] = _parse_validade(payload.get("validade"))
-    vn = float(update.get("valor_plano_normal", doc.get("valor_plano_normal", 89.90)) or 0)
+    vn = float(update.get("valor_plano_normal", doc.get("valor_plano_normal", 189.90)) or 0)
     vd = float(update.get("valor_desconto", doc.get("valor_desconto", 20.0)) or 0)
     update["valor_com_desconto"] = round(max(0.0, vn - vd), 2)
     update["atualizado_em"] = datetime.utcnow()

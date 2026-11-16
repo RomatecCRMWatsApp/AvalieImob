@@ -12,7 +12,7 @@ export default function Planos() {
     <>
       <SEO
         title="Planos e valores da assinatura"
-        description="Mensal R$ 89,90, trimestral R$ 239,90 ou anual R$ 849,90. Cadastre-se e teste o AvalieImob grátis por 3 dias."
+        description="Mensal R$ 189,90, trimestral R$ 449,90 ou anual R$ 1.199,00. Cadastre-se e teste o AvalieImob grátis por 3 dias."
         url="https://www.romatecavalieimob.com.br/planos"
       />
       <div className="bg-white pt-28">
