@@ -334,6 +334,65 @@ const P12_DEMO = {
   ],
 };
 
+// Mesma demonstração, em pé (9:16) — feita para o WhatsApp e o Status.
+const P12_DEMO_VERT = {
+  id: 'ptam-12-passos-demo-vertical', arquivo: 'AvalieImob_PTAM_Demonstracao_WhatsApp_Vertical_720x1280',
+  duracao: '6 min', legendasOpcionais: true,
+  titulo: 'Demonstração completa — vertical (WhatsApp)',
+  desc: 'A demonstração inteira em pé, para enviar pelo WhatsApp (18 MB). É o mesmo vídeo que aparece no chat de ajuda do sistema.',
+  texto: P12_DEMO_MSG,
+};
+// Links prontos para colar em bio, grupos e anúncios. Cada um marca a origem (UTM).
+const P12_LINKS = [
+  { rotulo: 'Página com a demonstração (site)', desc: 'Abre o site já na seção do vídeo, com capítulos e botão de cadastro.',
+    url: `${BASE}/?utm_source=whatsapp&utm_medium=link&utm_campaign=ptam_12_passos_demo#ptam-12-passos` },
+  { rotulo: 'Página com a demonstração — Instagram (bio/stories)', desc: 'Mesmo destino, marcado como Instagram.',
+    url: `${BASE}/?utm_source=instagram&utm_medium=social&utm_campaign=ptam_12_passos_demo#ptam-12-passos` },
+  { rotulo: 'Vídeo vertical (arquivo)', desc: 'Link direto do vídeo em pé, abre e toca no celular.',
+    url: `${BASE}${VIDEO_DIR}/AvalieImob_PTAM_Demonstracao_WhatsApp_Vertical_720x1280.mp4` },
+  { rotulo: 'Vídeo horizontal (arquivo)', desc: 'Link direto da versão 16:9, para computador.',
+    url: `${BASE}${VIDEO_DIR}/AvalieImob_PTAM_Demonstracao_Web_1280x720.mp4` },
+  { rotulo: 'Cadastro — 3 dias grátis (WhatsApp)', desc: 'Para mandar junto do vídeo.', url: P12_CAD_ZAP },
+  { rotulo: 'Cadastro — 3 dias grátis (Instagram)', desc: 'Para bio, sticker de link ou botão do anúncio.', url: P12_CAD_INSTA },
+];
+
+function LinksPtam12({ toast }) {
+  const copiar = async (l) => {
+    try { await navigator.clipboard.writeText(l.url); toast({ title: 'Link copiado ✓', description: l.rotulo }); }
+    catch { toast({ title: 'Não foi possível copiar', variant: 'destructive' }); }
+  };
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-4">
+      <h3 className="font-semibold" style={{ color: GREEN }}>Links para divulgação</h3>
+      <ul className="mt-3 divide-y divide-gray-100">
+        {P12_LINKS.map((l) => (
+          <li key={l.rotulo} className="py-2.5 flex flex-col sm:flex-row sm:items-center gap-2">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-800">{l.rotulo}</p>
+              <p className="text-[11px] text-gray-500">{l.desc}</p>
+              <p className="text-[11px] text-gray-400 break-all">{l.url}</p>
+            </div>
+            <div className="flex gap-2 shrink-0">
+              <button type="button" onClick={() => copiar(l)}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-white" style={{ background: GREEN }}>
+                <Copy className="w-3.5 h-3.5" /> Copiar
+              </button>
+              <a href={`https://wa.me/?text=${encodeURIComponent(l.url)}`} target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border text-emerald-800 border-emerald-200 hover:bg-emerald-50">
+                <Send className="w-3.5 h-3.5" /> WhatsApp
+              </a>
+              <a href={l.url} target="_blank" rel="noopener noreferrer" aria-label={`Abrir: ${l.rotulo}`}
+                className="inline-flex items-center px-2.5 py-2 rounded-lg text-xs border text-gray-600 border-gray-200 hover:bg-gray-50">
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function CampanhaPtam12({ toast }) {
   const [sel, setSel] = React.useState('principal');
   const atual = P12_TEXTOS.find((t) => t.id === sel) || P12_TEXTOS[0];
@@ -366,6 +425,8 @@ function CampanhaPtam12({ toast }) {
       </div>
       <VideoCard v={P12_VIDEO} toast={toast} />
       <VideoCard v={P12_DEMO} toast={toast} />
+      <VideoCard v={P12_DEMO_VERT} toast={toast} />
+      <LinksPtam12 toast={toast} />
     </div>
   );
 }

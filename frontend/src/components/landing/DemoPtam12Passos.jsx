@@ -36,6 +36,13 @@ const DemoPtam12Passos = () => {
     return () => io.disconnect();
   }, [src]);
 
+  // Link de divulgação chega com #ptam-12-passos: rola até aqui depois que a página monta.
+  React.useEffect(() => {
+    if (typeof window === 'undefined' || window.location.hash !== '#ptam-12-passos') return undefined;
+    const t = setTimeout(() => boxRef.current?.closest('section')?.scrollIntoView({ block: 'start' }), 400);
+    return () => clearTimeout(t);
+  }, []);
+
   const garantir = () => { if (!src) setSrc(`${VIDEO}.mp4`); };
 
   const irPara = (t) => {

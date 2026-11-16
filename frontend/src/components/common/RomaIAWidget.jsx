@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { X, Send, User, Loader2, ArrowRight, MessageCircle } from 'lucide-react';
+import { X, Send, User, Loader2, ArrowRight, MessageCircle, PlayCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import RomaIAAvatar from './RomaIAAvatar';
 import { BrandMark } from '../brand/BrandMark';
@@ -25,6 +25,36 @@ const SUGESTOES = [
   'Contratos e assinatura',
 ];
 const SID_ATEND = 'romatec_atendimento_sessao';
+// Vídeo de ajuda: demonstração completa do PTAM em 12 passos (vertical, ~6 min).
+const VIDEO_AJUDA = '/video/apresentacoes/AvalieImob_PTAM_Demonstracao_WhatsApp_Vertical_720x1280';
+
+// Card do vídeo no início da conversa. O arquivo (18 MB) só carrega quando a pessoa toca.
+function VideoAjuda() {
+  const [aberto, setAberto] = useState(false);
+  if (!aberto) {
+    return (
+      <button type="button" onClick={() => setAberto(true)}
+        className="ml-9 flex w-[calc(100%-2.25rem)] items-center gap-3 rounded-xl border border-[#C9A84C] bg-[#0C3320] p-2.5 text-left text-white hover:brightness-110">
+        <PlayCircle className="w-8 h-8 flex-shrink-0 text-[#E0C264]" />
+        <span className="min-w-0">
+          <span className="block text-xs font-bold">Veja como fazer um PTAM</span>
+          <span className="block text-[11px] text-emerald-100">Vídeo de 6 min · os 12 passos, do cadastro à entrega</span>
+        </span>
+      </button>
+    );
+  }
+  return (
+    <div className="ml-9 rounded-xl overflow-hidden bg-black border border-[#C9A84C]">
+      <video controls playsInline autoPlay preload="metadata" poster={`${VIDEO_AJUDA}.jpg`}
+        aria-label="Demonstração do PTAM em 12 passos no AvalieImob"
+        className="block w-full" style={{ aspectRatio: '9 / 16', maxHeight: '60vh', objectFit: 'contain' }}>
+        <source src={`${VIDEO_AJUDA}.mp4`} type="video/mp4" />
+        {/* Legenda já gravada na imagem: faixa opcional, sem default. */}
+        <track kind="captions" srcLang="pt-BR" label="Português (Brasil)" src={`${VIDEO_AJUDA}.vtt`} />
+      </video>
+    </div>
+  );
+}
 
 function sessaoAtendimento() {
   try {
@@ -379,6 +409,7 @@ const RomaIAWidget = () => {
                   </div>
                 </div>
               )}
+              {!loading && messages.length <= 1 && <VideoAjuda />}
               {atendimento && !loading && messages.length <= 1 && (
                 <div className="flex flex-wrap gap-1.5 pl-9">
                   {SUGESTOES.map((t) => (

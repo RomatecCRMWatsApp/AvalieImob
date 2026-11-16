@@ -2,6 +2,24 @@
   "_leia_me": "Notas de atualizacao que viram o AVISO no sistema. Regra: a cada release, ANTES do commit, acrescente a entrada no topo de 'releases' (ver CLAUDE.md, passo 7). Itens com publico='interno' (painel administrativo ou ajuste tecnico) NAO geram aviso para ninguem - ficam so registrados aqui. Tipos: novo | melhoria | correcao. Escreva o texto COM ACENTOS: ele vai direto para a tela do cliente.",
   "releases": [
     {
+      "versao": "1.4.1528",
+      "build": 1528,
+      "data": "2026-11-16",
+      "itens": [
+        {
+          "modulo": "Ajuda (Roma_IA)",
+          "tipo": "novo",
+          "texto": "O chat de ajuda ganhou o vídeo \"Veja como fazer um PTAM\": os 12 passos, do cadastro à entrega, em 6 minutos."
+        },
+        {
+          "modulo": "Divulgação",
+          "tipo": "novo",
+          "texto": "Demonstração vertical para WhatsApp e links prontos (site, vídeos e cadastro) para copiar e enviar.",
+          "publico": "interno"
+        }
+      ]
+    },
+    {
       "versao": "1.4.1526",
       "build": 1526,
       "data": "2026-11-15",
