@@ -144,7 +144,7 @@ export default function BlogPostVLF() {
           'Localização e características específicas do bem',
         ]},
         { p: 'O sistema sugere os fatores adequados (FL, FA, FP) com base em dados regionais e práticas do banco selecionado, mas você pode editá-los manualmente com justificativa técnica. Toda a metodologia fica registrada no laudo final.' },
-        { cta: 'Teste o módulo de Avaliação de Garantias Bancárias por 3 dias grátis.', ctaTexto: 'Começar grátis →' },
+        { cta: 'Teste o módulo de Avaliação de Garantias Bancárias por 7 dias grátis.', ctaTexto: 'Começar grátis →' },
 
         { h2: 'Conclusão' },
         { p: 'O Valor de Liquidação Forçada é um conceito técnico fundamental para qualquer avaliador que trabalhe com garantias bancárias. Calculá-lo corretamente exige aplicar três fatores principais — Liquidez, Atratividade e Prazo — sobre o Valor de Mercado, com fundamentação técnica adequada.' },

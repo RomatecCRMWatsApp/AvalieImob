@@ -71,38 +71,38 @@ const CALCULADORA = {
 // Resposta pronta para "qual o valor da assinatura?" — página só com os planos.
 const PLANOS = {
   file: 'planos', titulo: 'Valores da assinatura (planos)',
-  desc: 'Página só com os planos — mensal R$ 189,90, trimestral R$ 449,90 e anual R$ 1.199,00 — e o botão de cadastro com 3 dias grátis.',
+  desc: 'Página só com os planos — mensal R$ 189,90, trimestral R$ 449,90 e anual R$ 1.199,00 — e o botão de cadastro com 7 dias grátis.',
   url: `${BASE}/planos`,
-  msg: 'Os valores da assinatura do AvalieImob: mensal R$ 189,90, trimestral R$ 449,90 ou anual R$ 1.199,00 — e 3 dias grátis para testar:',
+  msg: 'Os valores da assinatura do AvalieImob: mensal R$ 189,90, trimestral R$ 449,90 ou anual R$ 1.199,00 — e 7 dias grátis para testar:',
 };
 
-// Link direto para o cadastro: quem cria a conta ganha o teste automático de 3 dias.
+// Link direto para o cadastro: quem cria a conta ganha o teste automático de 7 dias.
 const CADASTRO = {
-  file: 'cadastro', titulo: 'Cadastro com 3 dias de teste grátis',
-  desc: 'Link direto para a tela de cadastro. Ao criar a conta, o lead já entra com 3 dias de teste liberados automaticamente — sem cartão.',
+  file: 'cadastro', titulo: 'Cadastro com 7 dias de teste grátis',
+  desc: 'Link direto para a tela de cadastro. Ao criar a conta, o lead já entra com 7 dias de teste liberados automaticamente — sem cartão.',
   url: `${BASE}/cadastro`,
   // Folder da campanha — vai como imagem junto com a mensagem e é o preview do link.
   arte: '/campanha/cadastro-3-dias.jpg',
-  msg: 'Crie sua conta no AvalieImob e teste o sistema completo por 3 dias grátis, sem cartão de crédito:',
+  msg: 'Crie sua conta no AvalieImob e teste o sistema completo por 7 dias grátis, sem cartão de crédito:',
   // Variações prontas — o card mostra a escolhida e é ela que vai no WhatsApp/cópia.
   msgs: [
     { rotulo: 'Convite completo', texto:
       'Olá! 👋 Tudo bem?\n\n' +
-      'Liberei pra você *3 dias de teste GRÁTIS* no *AvalieImob* — a plataforma que eu uso no dia a dia para:\n\n' +
+      'Liberei pra você *7 dias de teste GRÁTIS* no *AvalieImob* — a plataforma que eu uso no dia a dia para:\n\n' +
       '✅ *PTAM e laudos de avaliação* (NBR 14.653) prontos em minutos\n' +
       '✅ *Contratos de exclusividade e compra e venda*, com assinatura pelo WhatsApp\n' +
       '✅ *Georreferenciamento, memorial e shapefile* para cartório\n' +
       '✅ *Recibos e propostas* com a sua marca\n' +
       '✅ *Inteligência artificial* que redige os textos técnicos pra você\n\n' +
-      'Sem cartão de crédito e sem compromisso. São só *3 dias* — aproveita pra testar com um caso real seu. 🚀\n\n' +
+      'Sem cartão de crédito e sem compromisso. São só *7 dias* — aproveita pra testar com um caso real seu. 🚀\n\n' +
       '👉 Crie sua conta aqui:' },
     { rotulo: 'Gatilho: tempo', texto:
       'Quanto tempo você gasta montando um *laudo* ou um *contrato* do zero? ⏳\n\n' +
       'No *AvalieImob* o PTAM sai conforme a NBR 14.653, o contrato já vai para assinatura pelo WhatsApp e a IA escreve os textos técnicos — tudo em um só lugar.\n\n' +
-      '🎁 Você tem *3 dias grátis* para testar o sistema completo, *sem cartão*.\n\n' +
+      '🎁 Você tem *7 dias grátis* para testar o sistema completo, *sem cartão*.\n\n' +
       '👉 Comece agora:' },
     { rotulo: 'Curta', texto:
-      '🎁 *3 dias grátis* no AvalieImob: PTAM, laudos, contratos com assinatura e georreferenciamento num só sistema. Sem cartão.\n\n' +
+      '🎁 *7 dias grátis* no AvalieImob: PTAM, laudos, contratos com assinatura e georreferenciamento num só sistema. Sem cartão.\n\n' +
       '👉 Cadastre-se:' },
   ],
 };
@@ -173,18 +173,18 @@ const VIDEOS = [
 
 const textoVideo = (v) => {
   if (v.texto) return v.texto;  // campanha com texto/destino próprios
-  // O vídeo do teste grátis leva direto ao cadastro (3 dias liberados na hora).
+  // O vídeo do teste grátis leva direto ao cadastro (7 dias liberados na hora).
   const site = comUtm(`${BASE}${v.destino || '/'}`, { source: 'whatsapp', medium: 'video', campaign: `video-${v.id}` });
   return `${v.msg}\n\n${v.destino ? 'Crie sua conta' : 'Saiba mais'}: ${site}\nFale conosco: ${ZAP_ROMATEC}`;
 };
 
-// Vídeo da campanha dos 3 dias grátis — mostrado logo abaixo do card de cadastro.
+// Vídeo da campanha dos 7 dias grátis — mostrado logo abaixo do card de cadastro.
 const VIDEO_CADASTRO = {
   id: 'cadastro-3-dias', arquivo: 'AvalieImob_3_Dias_Gratis_Carrossel_Narrado_1080x1920', duracao: '26 s',
   destino: '/cadastro',
-  titulo: 'Vídeo — 3 dias grátis',
+  titulo: 'Vídeo — 7 dias grátis',
   desc: 'Carrossel narrado da campanha de teste grátis, com o link direto para o cadastro.',
-  msg: 'Olá! Tudo bem? 👋 Separei um vídeo rápido da AvalieImob — PTAM, laudos, contratos com assinatura e georreferenciamento num só sistema.\n\n🎁 Você tem *3 dias grátis* para testar tudo, sem cartão e sem cobrança automática.',
+  msg: 'Olá! Tudo bem? 👋 Separei um vídeo rápido da AvalieImob — PTAM, laudos, contratos com assinatura e georreferenciamento num só sistema.\n\n🎁 Você tem *7 dias grátis* para testar tudo, sem cartão e sem cobrança automática.',
 };
 
 function VideoCard({ v, toast }) {
@@ -277,7 +277,7 @@ function VideoCard({ v, toast }) {
 }
 
 // ── Campanha: PTAM em 12 passos (kit de 15/11/2026) ──
-// Oferta aprovada: 3 dias grátis, contratação opcional depois, sem cobrança automática.
+// Oferta aprovada: 7 dias grátis, contratação opcional depois, sem cobrança automática.
 // Textos do dono, sem alteração. Os vídeos já trazem a legenda gravada na imagem.
 const P12_CAD_INSTA = 'https://www.romatecavalieimob.com.br/cadastro?utm_source=instagram&utm_medium=paid_social&utm_campaign=ptam_12_passos_3_dias';
 const P12_CAD_ZAP = 'https://www.romatecavalieimob.com.br/cadastro?utm_source=whatsapp&utm_medium=folder&utm_campaign=folder-cadastro';
@@ -287,25 +287,25 @@ const P12_LEGENDA = [
   'Organize os dados do imóvel, mapas, documentos e pesquisa de mercado. Em cada amostragem, você pode anexar imagens e planta baixa do comparável, além de registrar área, valor, fonte e características — mais contexto para uma análise bem documentada.',
   'Confira os tratamentos e a memória de cálculo e prepare a entrega com resultado, conclusão, capa, sumário e anexos. Você revisa e assina; a plataforma apoia o seu trabalho.',
   'Para corretores, avaliadores e peritos que querem uma rotina mais organizada e uma apresentação mais clara para o cliente.',
-  'Teste grátis por 3 dias. Depois, você decide se quer contratar. Sem cobrança automática.',
+  'Teste grátis por 7 dias. Depois, você decide se quer contratar. Sem cobrança automática.',
   `Faça seu cadastro:\n${P12_CAD_INSTA}`,
   '#AvalieImob #Romatec #PTAM #AvaliacaoImobiliaria #CorretorDeImoveis #PeritoImobiliario',
 ].join('\n\n');
 const P12_CURTA = [
   'Do cadastro à entrega: conheça o PTAM em 12 passos no AvalieImob.',
   'Organize comparáveis com campos para imagens e planta baixa, confira os tratamentos e a memória de cálculo e prepare um documento com capa, sumário e anexos. Você revisa e assina.',
-  '3 dias grátis para conhecer. Contratação opcional depois do teste, sem cobrança automática.',
+  '7 dias grátis para conhecer. Contratação opcional depois do teste, sem cobrança automática.',
   `Cadastre-se:\n${P12_CAD_INSTA}`,
 ].join('\n\n');
 const P12_LEAD = [
   'Olá! Preparei esta apresentação rápida do AvalieImob para você conhecer o fluxo de PTAM, a pesquisa de amostras, os tratamentos e a organização do documento final.',
-  'Você pode testar a plataforma grátis por 3 dias. Depois, decide se quer contratar, sem cobrança automática.',
+  'Você pode testar a plataforma grátis por 7 dias. Depois, decide se quer contratar, sem cobrança automática.',
   `Cadastro:\n${P12_CAD_ZAP}`,
   'Se quiser, também posso te enviar a demonstração completa das 12 etapas.',
 ].join('\n\n');
 const P12_DEMO_MSG = [
   'Olá! Como combinamos, segue a demonstração completa do PTAM em 12 passos no AvalieImob (cerca de 6 minutos): do cadastro do solicitante ao documento final com capa, sumário e anexos, assinatura e entrega.',
-  'Você pode testar a plataforma grátis por 3 dias. Depois, decide se quer contratar, sem cobrança automática.',
+  'Você pode testar a plataforma grátis por 7 dias. Depois, decide se quer contratar, sem cobrança automática.',
   `Cadastro:\n${P12_CAD_ZAP}`,
 ].join('\n\n');
 const P12_TEXTOS = [
@@ -330,7 +330,7 @@ const P12_DEMO = {
     [0, 'Abertura'], [28, '1. Solicitante'], [47, '2. Objetivo'], [65, '3. Imóvel'], [91, '4. Região'],
     [107, '5. Caracterização'], [131, '6. Amostras'], [159, '7. Metodologia'], [177, '8. Cálculos'],
     [201, '9. Ponderação'], [219, '10. Depreciação'], [239, '11. Resultado'], [268, '12. Conclusão'],
-    [288, 'PTAM exportado'], [317, 'Assinatura e entrega'], [339, '3 dias grátis'],
+    [288, 'PTAM exportado'], [317, 'Assinatura e entrega'], [339, '7 dias grátis'],
   ],
 };
 
@@ -352,8 +352,8 @@ const P12_LINKS = [
     url: `${BASE}${VIDEO_DIR}/AvalieImob_PTAM_Demonstracao_WhatsApp_Vertical_720x1280.mp4` },
   { rotulo: 'Vídeo horizontal (arquivo)', desc: 'Link direto da versão 16:9, para computador.',
     url: `${BASE}${VIDEO_DIR}/AvalieImob_PTAM_Demonstracao_Web_1280x720.mp4` },
-  { rotulo: 'Cadastro — 3 dias grátis (WhatsApp)', desc: 'Para mandar junto do vídeo.', url: P12_CAD_ZAP },
-  { rotulo: 'Cadastro — 3 dias grátis (Instagram)', desc: 'Para bio, sticker de link ou botão do anúncio.', url: P12_CAD_INSTA },
+  { rotulo: 'Cadastro — 7 dias grátis (WhatsApp)', desc: 'Para mandar junto do vídeo.', url: P12_CAD_ZAP },
+  { rotulo: 'Cadastro — 7 dias grátis (Instagram)', desc: 'Para bio, sticker de link ou botão do anúncio.', url: P12_CAD_INSTA },
 ];
 
 function LinksPtam12({ toast }) {
@@ -788,7 +788,7 @@ export default function DivulgacaoPage() {
       <BuscadoresCard toast={toast} />
 
       <h2 className="text-sm font-bold uppercase tracking-wide mt-2 mb-1" style={{ color: GREEN }}>
-        Campanha — PTAM em 12 passos (3 dias grátis)
+        Campanha — PTAM em 12 passos (7 dias grátis)
       </h2>
       <p className="text-xs text-gray-500 mb-3">
         Para captar: o anúncio vertical com o link de cadastro. Para o lead que quer detalhes: a demonstração completa.

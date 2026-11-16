@@ -53,7 +53,7 @@ _RESET_TTL_MIN = 30      # validade do link de redefinição
 def _dias_trial_cadastro() -> int:
     """Dias de teste automático no cadastro. TRIAL_CADASTRO_DIAS=0 desliga."""
     try:
-        return max(0, min(30, int(os.environ.get("TRIAL_CADASTRO_DIAS", "3"))))
+        return max(0, min(30, int(os.environ.get("TRIAL_CADASTRO_DIAS", "7"))))
     except (TypeError, ValueError):
         return 7
 

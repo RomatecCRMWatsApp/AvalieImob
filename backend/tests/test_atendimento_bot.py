@@ -106,7 +106,7 @@ class _DB:
 def test_base_tem_os_assuntos_e_precos():
     p = KB.system_prompt()
     for termo in ("PTAM", "Grau III", "SIGEF", "ONR", "Provimento CNJ 195/2025", "usucapi",
-                  "R$ 189,90", "R$ 449,90", "R$ 1.199,00", "3 dias", "/cadastro", "META"):
+                  "R$ 189,90", "R$ 449,90", "R$ 1.199,00", "7 dias", "/cadastro", "META"):
         assert termo.lower() in p.lower(), termo
 
 

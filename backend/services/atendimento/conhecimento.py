@@ -7,7 +7,7 @@ um módulo novo ou mudar preço, atualize este arquivo (e o `mock.PLANS` do fron
 
 SITE = "https://www.romatecavalieimob.com.br"
 WHATSAPP_ROMATEC = "5599991811246"
-TRIAL_DIAS = 3
+TRIAL_DIAS = 7
 
 PLANOS = [
     ("Mensal", "R$ 189,90 por mês", "laudos ilimitados, IA para textos, 1 usuário"),

@@ -166,7 +166,7 @@ export default function BlogPostMetodoComparativo() {
           'Geração da planilha de homogeneização pronta pra anexar ao laudo',
           'IA especializada que sugere amostras adicionais quando o Grau de Precisão fica baixo',
         ]},
-        { cta: 'Teste o sistema completo do AvalieImob por 3 dias grátis.', ctaTexto: 'Começar grátis →' },
+        { cta: 'Teste o sistema completo do AvalieImob por 7 dias grátis.', ctaTexto: 'Começar grátis →' },
 
         { h2: 'Conclusão' },
         { p: 'O Método Comparativo Direto é a base do trabalho do avaliador imobiliário urbano. Dominar a técnica — especialmente a homogeneização e o tratamento estatístico — é o que separa um laudo Grau I (questionável) de um Grau III (defendível em juízo).' },

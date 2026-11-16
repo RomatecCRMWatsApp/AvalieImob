@@ -177,7 +177,7 @@ export default function BlogPostInventarioPartilha() {
           'Espaço pra ART/RRT, número do processo, juízo e partes envolvidas',
           'IA especializada que sugere fundamentação técnica conforme a finalidade',
         ]},
-        { cta: 'Teste o sistema completo do AvalieImob por 3 dias grátis.', ctaTexto: 'Começar grátis →' },
+        { cta: 'Teste o sistema completo do AvalieImob por 7 dias grátis.', ctaTexto: 'Começar grátis →' },
 
         { h2: 'Conclusão' },
         { p: 'Avaliação pra inventário e partilha exige mais rigor técnico que avaliação comum, porque o laudo será analisado por advogados, juízes e (em ações litigiosas) por peritos contrários. Sempre opte por Grau II ou III de fundamentação, nunca Grau I.' },

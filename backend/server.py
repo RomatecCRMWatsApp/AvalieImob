@@ -627,14 +627,14 @@ if _frontend_build.exists():
             _idx = file_path / "index.html"
             if _idx.is_file():
                 return FileResponse(str(_idx), headers=dict(_NO_CACHE))
-        # Link do cadastro (3 dias grátis) enviado aos leads: o preview do WhatsApp
+        # Link do cadastro (7 dias grátis) enviado aos leads: o preview do WhatsApp
         # mostra o folder da campanha em vez do banner genérico.
         if full_path.strip("/") == "cadastro":
             return HTMLResponse(content=_inject_og(
                 _render_index_html(),
-                "3 dias grátis no AvalieImob — crie sua conta",
+                "7 dias grátis no AvalieImob — crie sua conta",
                 "PTAM, laudos, contratos com assinatura e georreferenciamento num só sistema. "
-                "Teste por 3 dias, sem cartão e sem cobrança automática.",
+                "Teste por 7 dias, sem cartão e sem cobrança automática.",
                 "https://www.romatecavalieimob.com.br/campanha/cadastro-3-dias-og.jpg", 640, 800,
             ), headers=dict(_NO_CACHE))
         # SPA fallback (index.html) — sempre revalidar

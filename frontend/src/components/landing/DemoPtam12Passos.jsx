@@ -99,7 +99,7 @@ const DemoPtam12Passos = () => {
             Cadastre-se e experimente
           </a>
           <p className="text-sm" style={{ color: '#C9D8CE' }}>
-            3 dias grátis. Depois, a contratação é opcional — sem cobrança automática.
+            7 dias grátis. Depois, a contratação é opcional — sem cobrança automática.
           </p>
         </div>
       </div>

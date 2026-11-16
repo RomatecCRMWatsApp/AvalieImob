@@ -78,7 +78,7 @@ const Register = () => {
     <div className="min-h-screen grid lg:grid-cols-2">
       <SEO
         title="Cadastro grátis — Crie sua conta"
-        description="Crie sua conta gratuita no AvalieImob e emita seu primeiro PTAM em minutos. 3 dias grátis sem cartão de crédito. Conforme NBR 14.653."
+        description="Crie sua conta gratuita no AvalieImob e emita seu primeiro PTAM em minutos. 7 dias grátis sem cartão de crédito. Conforme NBR 14.653."
         url="https://www.romatecavalieimob.com.br/cadastro"
         keywords="cadastro AvalieImob, criar conta avaliador, PTAM gratis, teste gratis software avaliacao"
       />

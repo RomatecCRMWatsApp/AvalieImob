@@ -24,7 +24,7 @@ export default function ServicoAvaliacaoUrbana() {
         { titulo: 'IA especializada', descricao: 'Assistente sugere método mais adequado, fundamenta escolhas técnicas e revisa pontos críticos do laudo.' },
       ]}
       comoFunciona={[
-        { titulo: 'Cadastro grátis', descricao: 'Crie sua conta em 30 segundos. Acesso completo durante 3 dias de teste sem cartão.' },
+        { titulo: 'Cadastro grátis', descricao: 'Crie sua conta em 30 segundos. Acesso completo durante 7 dias de teste sem cartão.' },
         { titulo: 'Identifique o imóvel', descricao: 'Endereço completo, matrícula, IPTU, áreas (terreno/construída/privativa), padrão, idade, conservação, fotos.' },
         { titulo: 'Pesquise o mercado', descricao: 'Cadastre amostras comparáveis. Sistema homogeneíza valores aplicando fatores conforme NBR 14.653-2.' },
         { titulo: 'Aplique o método', descricao: 'Comparativo direto, capitalização da renda, evolutivo, involutivo, custo de reprodução. IA sugere o melhor.' },
@@ -48,7 +48,7 @@ export default function ServicoAvaliacaoUrbana() {
         { q: 'Posso usar para avaliação judicial?', a: 'Sim. Os laudos do AvalieImob seguem rigorosamente a NBR 14.653-2 e são amplamente aceitos em ações judiciais (partilha, divórcio, inventário, ações possessórias, desapropriação urbana). Para perícia judicial, recomendamos emitir como PTAM completo, com Grau II ou III de fundamentação.' },
       ]}
       ctaTitulo="Avalie qualquer imóvel urbano com precisão"
-      ctaTexto="3 dias grátis. NBR 14.653-2 completa. Para casas, apartamentos, terrenos, salas e galpões."
+      ctaTexto="7 dias grátis. NBR 14.653-2 completa. Para casas, apartamentos, terrenos, salas e galpões."
     />
   );
 }

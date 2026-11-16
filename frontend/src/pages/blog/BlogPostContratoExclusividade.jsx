@@ -75,7 +75,7 @@ export default function BlogPostContratoExclusividade() {
           'Cartão e certidão de regularidade do corretor (CRECI) como anexos',
           'Assinatura eletrônica do cliente por link no WhatsApp e assinatura ICP-Brasil do corretor',
         ]},
-        { cta: 'Gere contratos de exclusividade com procuração e assine digitalmente. Teste 3 dias grátis.', ctaTexto: 'Começar grátis →' },
+        { cta: 'Gere contratos de exclusividade com procuração e assine digitalmente. Teste 7 dias grátis.', ctaTexto: 'Começar grátis →' },
 
         { h2: 'Conclusão' },
         { p: 'O contrato de exclusividade, ancorado no art. 726 do Código Civil, é o que garante a remuneração do corretor e profissionaliza a captação. Somado a uma procuração limitada ao imóvel, ele dá autonomia para reunir a documentação e fechar negócios com segurança. O segredo está em formalizar por escrito, com prazo determinado, comissão explícita e assinatura — algo que hoje se faz em minutos, de forma digital.' },

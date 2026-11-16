@@ -33,7 +33,7 @@ const fmtData = (v) => {
 };
 
 const emptyForm = () => ({
-  nome: '', email: '', telefone: '', dias: 3, senha: '', observacao: '',
+  nome: '', email: '', telefone: '', dias: 7, senha: '', observacao: '',
   enviar_whatsapp: true, enviar_email: true,
 });
 
@@ -127,7 +127,7 @@ const TrialsAdmin = () => {
         nome: form.nome || null,
         email: form.email.trim(),
         telefone: form.telefone || null,
-        dias: Number(form.dias) || 3,
+        dias: Number(form.dias) || 7,
         senha: form.senha || null,
         observacao: form.observacao || null,
         enviar_whatsapp: !!form.enviar_whatsapp,
