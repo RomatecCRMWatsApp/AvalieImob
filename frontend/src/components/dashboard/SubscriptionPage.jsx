@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Check, Star, CreditCard, Calendar, AlertCircle, CheckCircle, Clock } from 'lucide-react';
 import { Button } from '../ui/button';
 import { useToast } from '../../hooks/use-toast';
-import { PLANS } from '../../mock/mock';
+import usePlanos from '../../hooks/usePlanos';
 import { useAuth } from '../../contexts/AuthContext';
 import { paymentsAPI } from '../../lib/api';
 
@@ -27,6 +27,7 @@ const PLAN_ID_MAP = {
 };
 
 const SubscriptionPage = () => {
+  const { planos: PLANS } = usePlanos();
   const { toast } = useToast();
   const { user } = useAuth();
   const [payStatus, setPayStatus] = useState(null);

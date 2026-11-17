@@ -9,6 +9,7 @@ from typing import Optional, Literal
 
 from pydantic import BaseModel, Field
 from models.common import _id, _now
+from services.planos import preco_mensal
 
 
 def gerar_slug(n: int = 10) -> str:
@@ -30,7 +31,7 @@ class CupomBase(BaseModel):
     # DESCONTO
     tipo_desconto: Literal["valor_fixo", "percentual"] = "valor_fixo"
     valor_desconto: float = 20.00
-    valor_plano_normal: float = 189.90
+    valor_plano_normal: float = preco_mensal()  # fonte única: services/planos.py
     aplicar_em: Literal["primeira_mensalidade"] = "primeira_mensalidade"
     # DESTINATÁRIO (opcional)
     nome_destinatario: Optional[str] = None

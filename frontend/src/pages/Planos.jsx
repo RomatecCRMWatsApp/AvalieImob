@@ -6,8 +6,11 @@ import Navbar from '../components/landing/Navbar';
 import Pricing from '../components/landing/Pricing';
 import Footer from '../components/landing/Footer';
 import WhatsAppButton from '../components/landing/WhatsAppButton';
+import usePlanos from '../hooks/usePlanos';
 
 export default function Planos() {
+  const { testeDias } = usePlanos();
+  const dias = testeDias ?? 7;
   return (
     <>
       <SEO
@@ -20,7 +23,7 @@ export default function Planos() {
         <main>
           <Pricing />
           <div className="text-center pb-16 -mt-10 px-6 text-sm text-gray-600">
-            Ao criar a conta você ganha <strong>7 dias de teste grátis</strong>. Dúvidas? Fale no WhatsApp{' '}
+            Ao criar a conta você ganha <strong>{dias} dias de teste grátis</strong>. Dúvidas? Fale no WhatsApp{' '}
             <a className="text-emerald-800 underline" href="https://wa.me/5599991811246" target="_blank" rel="noopener noreferrer">(99) 99181-1246</a>.
           </div>
         </main>

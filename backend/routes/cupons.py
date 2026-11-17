@@ -15,8 +15,11 @@ from db import get_db
 from dependencies import get_admin_user
 from models.cupom import Cupom, gerar_codigo
 from services.ratelimit import pub_limiter
+from services.planos import preco_mensal as _preco_mensal
 
 logger = logging.getLogger("romatec")
+_PRECO_MENSAL = _preco_mensal()  # fonte única: services/planos.py
+
 router = APIRouter(prefix="/cupons", tags=["Cupons Promocionais"])
 
 
@@ -67,7 +70,7 @@ def montar_mensagem_whatsapp(cupom: dict) -> str:
     if msg_custom:
         return f"{saudacao}{msg_custom}\n\n🔗 *Acesse agora:*\n{link}"
 
-    vnorm = float(cupom.get("valor_plano_normal", 189.90))
+    vnorm = float(cupom.get("valor_plano_normal", _PRECO_MENSAL))
     vdesc = float(cupom.get("valor_com_desconto", 60.00))
     return (
         f"{saudacao}"
@@ -117,7 +120,7 @@ async def criar_cupom(payload: dict, uid: str = Depends(get_admin_user), db=Depe
         raise HTTPException(400, f"Código {codigo} já existe")
     base["codigo"] = codigo
 
-    plano = float(base.get("valor_plano_normal", 189.90) or 189.90)
+    plano = float(base.get("valor_plano_normal", _PRECO_MENSAL) or _PRECO_MENSAL)
     desconto = float(base.get("valor_desconto", 20.00) or 0)
     base["valor_com_desconto"] = round(plano - desconto, 2)
     base["validade"] = _parse_validade(base.get("validade"))
@@ -221,7 +224,7 @@ async def atualizar_cupom(cupom_id: str, payload: dict, uid: str = Depends(get_a
         update["codigo"] = str(update["codigo"]).upper().strip()
     if "validade" in payload:
         update["validade"] = _parse_validade(payload.get("validade"))
-    vn = float(update.get("valor_plano_normal", doc.get("valor_plano_normal", 189.90)) or 0)
+    vn = float(update.get("valor_plano_normal", doc.get("valor_plano_normal", _PRECO_MENSAL)) or 0)
     vd = float(update.get("valor_desconto", doc.get("valor_desconto", 20.0)) or 0)
     update["valor_com_desconto"] = round(max(0.0, vn - vd), 2)
     update["atualizado_em"] = datetime.utcnow()

@@ -6,10 +6,12 @@ from fastapi import HTTPException
 
 logger = logging.getLogger("romatec")
 
+# Derivado da fonte única (services/planos.py) — não editar preços aqui.
+from services.planos import PLANOS as _PLANOS
+
 PLAN_CONFIG = {
-    "mensal":     {"title": "AvalieImob - Plano Mensal",      "unit_price": 189.90, "days": 30},
-    "trimestral": {"title": "AvalieImob - Plano Trimestral",  "unit_price": 449.90, "days": 90},
-    "anual":      {"title": "AvalieImob - Plano Anual",        "unit_price": 1199.00, "days": 365},
+    pid: {"title": p["titulo"], "unit_price": p["preco"], "days": p["dias"]}
+    for pid, p in _PLANOS.items()
 }
 
 APP_URL = os.environ.get("APP_URL", "https://www.romatecavalieimob.com.br").rstrip("/")

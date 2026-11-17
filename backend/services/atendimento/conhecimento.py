@@ -2,18 +2,31 @@
 """Tudo o que o robô sabe sobre o AvalieImob e a Romatec.
 
 É a FONTE ÚNICA das respostas: preços, módulos e serviços vêm daqui. Ao lançar
-um módulo novo ou mudar preço, atualize este arquivo (e o `mock.PLANS` do front).
+um módulo novo, atualize este arquivo. Preços e dias de teste: services/planos.py.
 """
 
 SITE = "https://www.romatecavalieimob.com.br"
 WHATSAPP_ROMATEC = "5599991811246"
-TRIAL_DIAS = 7
+from services import planos as _P
+
+# Preço e dias de teste vêm da fonte única (services/planos.py).
+TRIAL_DIAS = _P.dias_teste()
+
+
+def _linha_plano(pid: str) -> str:
+    p = _P.PLANOS[pid]
+    eco = _P.economia_pct(pid)
+    if pid == "mensal":
+        return f"{_P.brl(p['preco'])} por mês"
+    periodo = "a cada 3 meses" if p["meses"] == 3 else "por ano"
+    return f"{_P.brl(p['preco'])} {periodo} (economia de {eco}%)"
+
 
 PLANOS = [
-    ("Mensal", "R$ 189,90 por mês", "laudos ilimitados, IA para textos, 1 usuário"),
-    ("Trimestral", "R$ 449,90 a cada 3 meses (economia de 21%)",
+    ("Mensal", _linha_plano("mensal"), "laudos ilimitados, IA para textos, 1 usuário"),
+    ("Trimestral", _linha_plano("trimestral"),
      "laudos ilimitados, mais usos de IA, até 3 usuários, logo própria nos documentos"),
-    ("Anual", "R$ 1.199,00 por ano (economia de 47%)",
+    ("Anual", _linha_plano("anual"),
      "laudos ilimitados, IA ilimitada, até 10 usuários, suporte VIP no WhatsApp, personalização total"),
 ]
 

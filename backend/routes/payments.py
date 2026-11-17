@@ -25,6 +25,14 @@ except ImportError:
     async def send_payment_email(*a, **kw): pass
 
 router = APIRouter(tags=["payments"])
+
+
+@router.get("/planos")
+async def listar_planos_publico():
+    """Planos e dias de teste — PÚBLICO, só leitura. Fonte: services/planos.py.
+    A tela de planos do site consome esta rota (com os valores locais como reserva)."""
+    from services.planos import resumo_publico
+    return resumo_publico()
 limiter = Limiter(key_func=get_remote_address)
 logger = logging.getLogger("romatec")
 

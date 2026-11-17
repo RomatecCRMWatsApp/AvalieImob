@@ -2,9 +2,10 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Check, Star } from 'lucide-react';
 import { Button } from '../ui/button';
-import { PLANS } from '../../mock/mock';
+import usePlanos from '../../hooks/usePlanos';
 
 const Pricing = () => {
+  const { planos: PLANS } = usePlanos();
   return (
     <section id="planos" className="py-24 bg-gradient-to-b from-emerald-50/30 to-white">
       <div className="max-w-7xl mx-auto px-6">
