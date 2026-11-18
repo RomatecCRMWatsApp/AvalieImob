@@ -130,7 +130,7 @@ export default function BlogPostComoFazerPTAM() {
           'IA especializada em NBR 14.653 que sugere o método mais adequado e ajuda a fundamentar decisões',
           'Enquadramento automático no Grau de Fundamentação e Precisão',
           'Exportação direta em DOCX (Microsoft Word) ou PDF profissional',
-          'Integração com D4Sign para assinatura digital com validade jurídica plena',
+          'Assinatura digital ICP-Brasil e assinatura do cliente via WhatsApp',
         ]},
         { cta: 'Crie sua conta gratuita e emita seu primeiro PTAM em minutos.', ctaTexto: 'Começar grátis →' },
 

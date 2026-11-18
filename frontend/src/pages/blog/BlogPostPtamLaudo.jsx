@@ -100,7 +100,7 @@ export default function BlogPostPtamLaudo() {
           'Emitir ART (engenheiros) ou RRT (arquitetos) no CREA/CAU para todo PTAM com finalidade jurídica ou bancária',
           'Cobrar valor compatível com tabela do CREA-MA / CAU / COFECI (para evitar caracterização de concorrência desleal)',
           'Manter cópia digital do laudo por no mínimo 5 anos (preferencialmente 10) para defesa em eventual ação',
-          'Assinar com certificado digital ICP-Brasil ou via D4Sign — documentos sem assinatura digital têm peso reduzido',
+          'Assinar com certificado digital ICP-Brasil — documentos sem assinatura digital têm peso reduzido',
           'Identificar claramente a finalidade do laudo no documento (não emitir laudo "para fins gerais" — sempre específico)',
         ]},
 

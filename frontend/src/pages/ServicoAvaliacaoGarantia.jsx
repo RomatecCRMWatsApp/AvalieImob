@@ -21,7 +21,7 @@ export default function ServicoAvaliacaoGarantia() {
         { titulo: 'Análise de regularidade', descricao: 'Checklist de matrícula, certidões, IPTU/ITR, CAR, situação ambiental e jurídica da garantia.' },
         { titulo: 'Reavaliação periódica', descricao: 'Sistema mantém histórico de avaliações para reavaliação de garantias durante a vigência do contrato.' },
         { titulo: 'Hipoteca e alienação fiduciária', descricao: 'Suporte completo para garantia hipotecária (Lei 4.380/64) e alienação fiduciária de imóvel (Lei 9.514/97).' },
-        { titulo: 'Assinatura digital ICP-Brasil', descricao: 'Laudo assinado com certificado digital ICP-Brasil ou via D4Sign, com validade jurídica plena.' },
+        { titulo: 'Assinatura digital ICP-Brasil', descricao: 'Laudo assinado com certificado digital ICP-Brasil, com validade jurídica plena.' },
       ]}
       comoFunciona={[
         { titulo: 'Cadastre-se grátis', descricao: 'Acesso ao módulo de avaliação de garantias durante 7 dias de teste. Sem cartão de crédito.' },
@@ -45,7 +45,7 @@ export default function ServicoAvaliacaoGarantia() {
         { q: 'Tem modelo específico para Caixa Econômica?', a: 'Sim. Temos modelo compatível com as exigências da Caixa para SBPE (financiamento imobiliário) e FGTS, incluindo Mútuo, Apoio à Produção e PMCMV. O laudo segue o padrão Caixa com todos os campos obrigatórios.' },
         { q: 'Avalia para alienação fiduciária?', a: 'Sim. Cobrimos ambas as modalidades: garantia hipotecária (regime tradicional, Lei 4.380/64) e alienação fiduciária de imóvel (Lei 9.514/97 — mais usada em financiamentos imobiliários atuais).' },
         { q: 'Posso usar para garantia rural (penhor agrícola)?', a: 'Sim. Combine este módulo com o módulo de Avaliação Rural para emitir laudos de penhor agrícola (semoventes, safras pendentes, equipamentos), aceitos por BB, Sicredi, Banco do Nordeste e BASA para Pronaf, Pronamp e custeio.' },
-        { q: 'O laudo precisa de assinatura digital?', a: 'A maioria dos bancos exige assinatura digital com certificado ICP-Brasil. O AvalieImob integra com D4Sign e suporta certificados A1/A3 do avaliador, garantindo validade jurídica plena e aceitação por todos os bancos.' },
+        { q: 'O laudo precisa de assinatura digital?', a: 'A maioria dos bancos exige assinatura digital com certificado ICP-Brasil. O AvalieImob suporta certificados A1/A3 do avaliador, garantindo validade jurídica plena e aceitação por todos os bancos.' },
       ]}
       ctaTitulo="Emita laudos de garantia bancária com agilidade"
       ctaTexto="7 dias grátis. Modelos compatíveis com BB, Caixa, Itaú, Bradesco, Santander e cooperativas."

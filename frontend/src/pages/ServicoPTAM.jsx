@@ -16,7 +16,7 @@ export default function ServicoPTAM() {
         'Diferente de planilhas Excel ou softwares desktop antigos, o AvalieImob roda 100% no navegador, com sincronização automática, backup em nuvem e integração com IA especializada em NBR 14.653 que ajuda você a tomar decisões em pontos críticos da avaliação — como escolha do método mais adequado, tratamento estatístico de amostras e justificativas técnicas.',
       ]}
       beneficios={[
-        { titulo: 'Conformidade total NBR 14.653', descricao: 'Sistema desenvolvido por engenheiro avaliador. Todos os campos seguem a norma ABNT, incluindo grau de fundamentação e precisão.' },
+        { titulo: 'Conformidade total NBR 14.653', descricao: 'Sistema desenvolvido por técnico avaliador e corretor de imóveis. Todos os campos seguem a norma ABNT, incluindo grau de fundamentação e precisão.' },
         { titulo: 'IA especializada em avaliação', descricao: 'Assistente de IA treinado na NBR 14.653 ajuda a escolher métodos, justificar escolhas técnicas e revisar o laudo final.' },
         { titulo: 'Wizard guiado de 6 etapas', descricao: 'Da identificação do imóvel até as conclusões finais. Sem deixar nenhum campo crítico de fora.' },
         { titulo: 'Exporta DOCX editável', descricao: 'Receba o PTAM em formato Microsoft Word para personalização final antes de entregar ao cliente. PDF também disponível.' },
@@ -29,7 +29,7 @@ export default function ServicoPTAM() {
         { titulo: 'Adicione amostras de mercado', descricao: 'Imóveis comparáveis com valores e características. O sistema homogeneíza automaticamente seguindo a NBR.' },
         { titulo: 'Escolha o método avaliatório', descricao: 'Sistema sugere o método mais adequado e a IA ajuda a justificar a escolha tecnicamente.' },
         { titulo: 'Gere e exporte o PTAM', descricao: 'Documento DOCX ou PDF profissional pronto para assinatura e entrega ao cliente.' },
-        { titulo: 'Assinatura digital opcional', descricao: 'Integração com D4Sign para assinatura digital com validade jurídica plena.' },
+        { titulo: 'Assinatura digital opcional', descricao: 'Assinatura digital ICP-Brasil do avaliador e assinatura do cliente via WhatsApp (Lei 14.063/2020).' },
       ]}
       publicoAlvo={[
         'Engenheiros civis e arquitetos avaliadores (CREA/CAU)',
@@ -45,7 +45,7 @@ export default function ServicoPTAM() {
         { q: 'PTAM e laudo de avaliação são a mesma coisa?', a: 'São documentos similares mas com finalidades distintas. PTAM é mais técnico, segue rigorosamente a NBR 14.653 e tem maior peso jurídico. Laudo simplificado é uma versão reduzida usada em situações menos formais. Nosso sistema emite ambos.' },
         { q: 'Quanto custa emitir um PTAM no AvalieImob?', a: 'Os planos começam em R$ 189,90/mês (Mensal) com PTAMs ilimitados. Trimestral R$ 449,90 e Anual R$ 1.199,00. Teste 7 dias grátis sem cartão de crédito.' },
         { q: 'O sistema atende imóveis rurais?', a: 'Sim. Além de imóveis urbanos, temos módulos específicos para imóveis rurais (NBR 14.653-3), semoventes (penhor rural), safras e equipamentos.' },
-        { q: 'O PTAM gerado tem validade jurídica?', a: 'Sim, desde que assinado por profissional habilitado (engenheiro/arquiteto com ART/RRT ou corretor com CRECI ativo). Para validade plena recomendamos assinatura digital com certificado ICP-Brasil ou D4Sign integrado.' },
+        { q: 'O PTAM gerado tem validade jurídica?', a: 'Sim, desde que assinado por profissional habilitado (engenheiro/arquiteto com ART/RRT ou corretor com CRECI ativo). Para validade plena recomendamos assinatura digital com certificado ICP-Brasil.' },
       ]}
       ctaTitulo="Comece a emitir PTAMs profissionais hoje"
       ctaTexto="7 dias grátis. Sem cartão de crédito. Cancele quando quiser. Sistema completo conforme NBR 14.653."

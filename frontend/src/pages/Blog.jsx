@@ -36,7 +36,7 @@ export default function Blog() {
     <>
       <Helmet>
         <title>Blog AvalieImob — Artigos sobre PTAM, NBR 14.653 e Avaliação Imobiliária</title>
-        <meta name="description" content="Artigos técnicos sobre PTAM, Laudo Técnico, NBR 14.653, avaliação rural e urbana, garantias bancárias e mercado imobiliário. Conteúdo escrito por engenheiro avaliador." />
+        <meta name="description" content="Artigos técnicos sobre PTAM, Laudo Técnico, NBR 14.653, avaliação rural e urbana, garantias bancárias e mercado imobiliário. Conteúdo escrito por técnico avaliador e corretor de imóveis." />
         <meta name="keywords" content="blog avaliação imobiliária, artigos PTAM, NBR 14.653, blog avaliador imobiliário, conteúdo técnico avaliação" />
         <link rel="canonical" href={url} />
         <meta property="og:type" content="website" />
@@ -70,7 +70,7 @@ export default function Blog() {
             <h1 style={styles.h1}>Conhecimento técnico para avaliadores imobiliários</h1>
             <p style={styles.subtitulo}>
               Artigos práticos sobre PTAM, NBR 14.653, avaliação urbana e rural, garantias bancárias e mercado.
-              Conteúdo escrito por engenheiro avaliador com 10+ anos de experiência.
+              Conteúdo escrito por técnico avaliador e corretor de imóveis com 10+ anos de experiência.
             </p>
           </div>
         </section>

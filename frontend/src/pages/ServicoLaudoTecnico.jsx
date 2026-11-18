@@ -16,7 +16,7 @@ export default function ServicoLaudoTecnico() {
         'O grande diferencial é a IA especializada em avaliação imobiliária integrada ao sistema. Ela analisa as características do imóvel, sugere os melhores comparáveis, alerta sobre inconsistências nos dados, gera justificativas técnicas e pode até revisar o laudo final apontando pontos de melhoria. Você emite mais laudos, com mais qualidade e menos retrabalho.',
       ]}
       beneficios={[
-        { titulo: 'Modelo pronto profissional', descricao: 'Template de laudo desenvolvido por engenheiro avaliador, formatado conforme melhores práticas do mercado e NBR 14.653.' },
+        { titulo: 'Modelo pronto profissional', descricao: 'Template de laudo desenvolvido por técnico avaliador e corretor de imóveis, formatado conforme melhores práticas do mercado e NBR 14.653.' },
         { titulo: 'IA que economiza tempo', descricao: 'Assistente IA sugere comparáveis, justifica escolhas técnicas e revisa o laudo final automaticamente.' },
         { titulo: 'Wizard ágil', descricao: 'Estrutura guiada que reduz o tempo de emissão de horas para minutos, sem perder qualidade técnica.' },
         { titulo: 'DOCX e PDF', descricao: 'Exporte em Microsoft Word para personalização ou em PDF pronto para entrega ao cliente.' },
@@ -29,7 +29,7 @@ export default function ServicoLaudoTecnico() {
         { titulo: 'Levante o mercado', descricao: 'Cadastre amostras comparáveis. A IA sugere fontes confiáveis e ajuda a homogeneizar valores.' },
         { titulo: 'Calcule o valor', descricao: 'Sistema aplica o método avaliatório escolhido (comparativo, renda, evolutivo) com transparência total.' },
         { titulo: 'Revise com IA', descricao: 'Use o assistente para revisar o laudo, identificar pontos a melhorar e gerar justificativas.' },
-        { titulo: 'Entregue ao cliente', descricao: 'Exporte DOCX ou PDF profissional. Opção de assinatura digital com D4Sign integrada.' },
+        { titulo: 'Entregue ao cliente', descricao: 'Exporte DOCX ou PDF profissional. Assinatura digital ICP-Brasil ou assinatura do cliente via WhatsApp.' },
       ]}
       publicoAlvo={[
         'Corretores de imóveis (CRECI) que emitem laudos para clientes',
