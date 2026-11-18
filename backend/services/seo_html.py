@@ -1,0 +1,196 @@
+# @module services.seo_html — HTML inicial das páginas públicas (antes do JavaScript).
+"""O site é um SPA React: sem isto, toda rota respondia o MESMO index.html — título
+da home, `canonical` apontando para a home e corpo vazio ("habilite o JavaScript").
+
+Aqui, função PURA sobre o index.html já renderizado:
+  * `canonical` e `og:url` da PRÓPRIA rota (antes todas apontavam para a home);
+  * título/descrição da rota quando a página tem texto próprio;
+  * dentro de <div id="root">, um bloco com H1, resumo e links <a href> reais para as
+    páginas de serviço. É o MESMO texto que a página mostra depois (copiado dos
+    componentes), não texto escondido para robô; o React substitui o bloco ao montar
+    (index.js usa createRoot, que limpa o conteúdo do container);
+  * `noindex` nas telas de conta (login, recuperar senha, SSO);
+  * `status_para` diz se a rota existe (200) ou não (404 — antes era 200 + redirect
+    no navegador para a home, o "soft 404").
+
+Ao criar rota pública nova no App.js: o teste `tests/test_seo_html.py` lê o App.js e
+quebra se a rota cair em 404 aqui. Ao mudar título/texto de uma página de serviço,
+atualize PAGINAS.
+"""
+import html as _html
+import re
+
+BASE = "https://www.romatecavalieimob.com.br"
+
+# Texto copiado das próprias páginas (ServicoTemplate titulo/meta, SEO.jsx, index.html).
+PAGINAS = {
+    "/": {
+        "titulo": "AvalieImob — Software de PTAM e Avaliação Imobiliária Online | NBR 14.653",
+        "h1": "AvalieImob — software de PTAM e avaliação imobiliária online",
+        "descricao": ("Sistema online de avaliação imobiliária para emitir PTAM, Laudos Técnicos, "
+                      "TVI e Avaliação de Garantias, com tratamento científico por inferência "
+                      "estatística. Conforme NBR 14.653 e Resolução COFECI 1.066/2007."),
+    },
+    "/ptam": {
+        "titulo": "PTAM — Parecer Técnico de Avaliação Mercadológica | AvalieImob - RomaTec",
+        "h1": "PTAM — Parecer Técnico de Avaliação Mercadológica",
+        "descricao": ("Emita PTAM (Parecer Técnico de Avaliação Mercadológica) online conforme "
+                      "NBR 14.653 da ABNT. Wizard guiado, IA especializada e exportação DOCX/PDF."),
+    },
+    "/laudo-tecnico": {
+        "titulo": "Laudo Técnico de Avaliação Imobiliária | AvalieImob - RomaTec",
+        "h1": "Laudo Técnico de Avaliação Imobiliária",
+        "descricao": "Emita laudos técnicos profissionais conforme NBR 14.653 com IA integrada.",
+    },
+    "/avaliacao-urbana": {
+        "titulo": "Avaliação de Imóveis Urbanos | AvalieImob - RomaTec",
+        "h1": "Avaliação de Imóveis Urbanos",
+        "descricao": ("Avalie casas, apartamentos, terrenos, salas comerciais e galpões "
+                      "conforme NBR 14.653-2."),
+    },
+    "/avaliacao-rural": {
+        "titulo": "Avaliação de Imóveis Rurais — NBR 14.653-3 | AvalieImob - RomaTec",
+        "h1": "Avaliação de Imóveis Rurais — NBR 14.653-3",
+        "descricao": ("Avalie fazendas, sítios, terras nuas, benfeitorias, safras e semoventes "
+                      "(penhor rural)."),
+    },
+    "/avaliacao-garantia": {
+        "titulo": "Avaliação de Garantias Bancárias | AvalieImob - RomaTec",
+        "h1": "Avaliação de Garantias Bancárias",
+        "descricao": ("Laudos de avaliação para garantias hipotecárias, alienação fiduciária "
+                      "e penhor."),
+    },
+    "/planos": {
+        "titulo": "Planos e valores da assinatura | AvalieImob",
+        "h1": "Planos e valores da assinatura",
+        "descricao": ("Mensal R$ 189,90, trimestral R$ 449,90 ou anual R$ 1.199,00. "
+                      "Cadastre-se e teste o AvalieImob grátis por 7 dias."),
+    },
+    "/quanto-vale-meu-imovel": {
+        "titulo": "Quanto vale meu imóvel? Estimativa preliminar grátis | AvalieImob",
+        "h1": "Quanto vale meu imóvel?",
+        "descricao": ("Estimativa preliminar de valor de mercado, gratuita. Não substitui PTAM "
+                      "nem laudo: o documento técnico é elaborado e assinado por profissional "
+                      "habilitado."),
+    },
+    "/blog": {
+        "titulo": "Blog AvalieImob — PTAM, NBR 14.653 e avaliação imobiliária",
+        "h1": "Blog AvalieImob",
+        "descricao": ("Guias sobre PTAM, NBR 14.653, avaliação urbana e rural, métodos "
+                      "avaliatórios e documentos do avaliador."),
+    },
+    "/cadastro": {
+        "titulo": "Cadastro grátis — Crie sua conta | AvalieImob",
+        "h1": "Crie sua conta no AvalieImob",
+        "descricao": ("Crie sua conta e teste o AvalieImob por 7 dias, sem cartão de crédito "
+                      "e sem cobrança automática."),
+    },
+}
+
+# Rotas que só repetem outra página: o canonical aponta para a principal.
+CANONICAL_DE = {
+    "/avaliacao-imovel": "/avaliacao-urbana",
+    "/avaliacao-imobiliaria": "/avaliacao-urbana",
+}
+
+# Existem (200), mas não entram no índice de busca: telas de conta e links pessoais
+# com token (laudo, assinatura, aceite, verificação) — dado de cliente não vai pro Google.
+NOINDEX = ("/login", "/esqueci-senha", "/redefinir-senha", "/sso", "/dashboard",
+           "/laudo", "/v", "/contrato", "/aceite", "/assinar-cliente", "/assinar-doc",
+           "/assinar-geo", "/assinar", "/verificar", "/avaliacao", "/servicos")
+
+# Links rastreáveis presentes em toda página pública (as páginas que existem de fato).
+LINKS = [
+    ("/ptam", "PTAM"),
+    ("/laudo-tecnico", "Laudo técnico"),
+    ("/avaliacao-urbana", "Imóveis urbanos"),
+    ("/avaliacao-rural", "Imóveis rurais"),
+    ("/avaliacao-garantia", "Garantias bancárias"),
+    ("/quanto-vale-meu-imovel", "Quanto vale meu imóvel?"),
+    ("/planos", "Planos"),
+    ("/blog", "Blog"),
+    ("/cadastro", "Criar conta"),
+]
+
+# Rotas do SPA (App.js). Exatas ou por prefixo "/x/". O resto é 404.
+_EXATAS = {
+    "/", "/ptam", "/laudo-tecnico", "/avaliacao-rural", "/avaliacao-garantia",
+    "/avaliacao-urbana", "/avaliacao-imovel", "/avaliacao-imobiliaria", "/blog",
+    "/login", "/cadastro", "/esqueci-senha", "/sso", "/como-assinar", "/planos",
+    "/quanto-vale-meu-imovel", "/dashboard",
+}
+_PREFIXOS = (
+    "/servicos/", "/blog/", "/redefinir-senha/", "/laudo/", "/v/", "/contrato/",
+    "/aceite/", "/assinar-cliente/", "/assinar-doc/", "/assinar-geo/", "/assinar/",
+    "/verificar/", "/avaliacao/", "/dashboard/",
+)
+
+
+def _norm(path: str) -> str:
+    p = "/" + (path or "").split("?", 1)[0].split("#", 1)[0].strip("/")
+    return p if p != "/" else "/"
+
+
+def rota_existe(path: str) -> bool:
+    p = _norm(path)
+    return p in _EXATAS or any((p + "/").startswith(pref) for pref in _PREFIXOS)
+
+
+def status_para(path: str) -> int:
+    return 200 if rota_existe(path) else 404
+
+
+def _esc(s: str) -> str:
+    return _html.escape(s or "", quote=True)
+
+
+def _sub_attr(html: str, pattern: str, valor: str) -> str:
+    return re.sub(pattern, lambda m: m.group(1) + valor + m.group(3), html,
+                  count=1, flags=re.I | re.S)
+
+
+def _bloco(info: dict) -> str:
+    links = "".join(f'<li><a href="{href}">{_esc(txt)}</a></li>' for href, txt in LINKS)
+    h1 = f"<h1>{_esc(info['h1'])}</h1><p>{_esc(info['descricao'])}</p>" if info else ""
+    return (
+        '<div data-seo-inicial style="font-family:system-ui,sans-serif;max-width:860px;'
+        'margin:0 auto;padding:32px 20px;color:#0C3320">'
+        f'{h1}<nav aria-label="Páginas do AvalieImob"><ul>{links}</ul></nav>'
+        '<p><small>RomaTec Consultoria Total — AvalieImob · Açailândia/MA</small></p></div>'
+    )
+
+
+def _noindex(html: str) -> str:
+    # Sem canonical: "noindex" + canonical para a home seriam sinais contraditórios.
+    html = re.sub(r'\s*<link\s+rel=["\']canonical["\'][^>]*>', "", html, count=1, flags=re.I)
+    return html.replace("<head>", '<head><meta name="robots" content="noindex" />', 1)
+
+
+def eh_noindex(path: str) -> bool:
+    p = _norm(path)
+    return any(p == n or p.startswith(n + "/") for n in NOINDEX)
+
+
+def montar_html(html: str, path: str) -> str:
+    """Ajusta o index.html para a rota pedida (ver docstring do módulo)."""
+    p = _norm(path)
+    if not rota_existe(p):
+        return _noindex(html).replace('<div id="root"></div>', f'<div id="root">{_bloco(None)}</div>', 1)
+    if eh_noindex(p):
+        return _noindex(html)
+    url = BASE + (CANONICAL_DE.get(p, p) if p != "/" else "/")
+    html = _sub_attr(html, r'(<link\s+rel=["\']canonical["\']\s+href=["\'])(.*?)(["\'])', _esc(url))
+    html = _sub_attr(html, r'(<meta\s+property=["\']og:url["\']\s+content=["\'])(.*?)(["\'])', _esc(url))
+    info = PAGINAS.get(CANONICAL_DE.get(p, p))
+    if info and p != "/":
+        t, d = _esc(info["titulo"]), _esc(info["descricao"])
+        for pat, val in (
+            (r'(<title[^>]*>)(.*?)(</title>)', t),
+            (r'(<meta\s+name=["\']description["\']\s+content=["\'])(.*?)(["\'])', d),
+            (r'(<meta\s+property=["\']og:title["\']\s+content=["\'])(.*?)(["\'])', t),
+            (r'(<meta\s+property=["\']og:description["\']\s+content=["\'])(.*?)(["\'])', d),
+            (r'(<meta\s+name=["\']twitter:title["\']\s+content=["\'])(.*?)(["\'])', t),
+            (r'(<meta\s+name=["\']twitter:description["\']\s+content=["\'])(.*?)(["\'])', d),
+        ):
+            html = _sub_attr(html, pat, val)
+    return html.replace('<div id="root"></div>', f'<div id="root">{_bloco(info)}</div>', 1)

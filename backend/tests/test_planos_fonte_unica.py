@@ -110,3 +110,13 @@ def test_textos_fixos_citam_os_dias_de_teste_padrao():
         f"Dias de teste divergentes do padrão ({P.TRIAL_DIAS_PADRAO}) de services/planos.py:\n"
         + "\n".join(erros)
     )
+
+
+def test_price_range_do_index_html_bate_com_os_planos():
+    from services.planos import PLANOS, brl
+    html = (RAIZ / "frontend/public/index.html").read_text(encoding="utf-8")
+    m = re.search(r'"priceRange":\s*"([^"]+)"', html)
+    assert m, "priceRange sumiu do index.html"
+    faixa = m.group(1).replace("\u2013", "-")
+    precos = sorted(p["preco"] for p in PLANOS.values())
+    assert brl(precos[0]) in faixa and brl(precos[-1]) in faixa, faixa

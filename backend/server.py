@@ -336,10 +336,10 @@ from datetime import datetime as _datetime
 SEO_BASE = "https://www.romatecavalieimob.com.br"
 
 # Fonte ÚNICA das páginas públicas: alimenta o sitemap.xml E o ping do IndexNow.
+# Só URLs CANÔNICAS e indexáveis (sem login, sem aliases como /avaliacao-imovel).
 # (path, priority, changefreq)
 SEO_PAGINAS = [
         ("/",                            "1.0", "weekly"),
-        ("/sobre",                       "0.8", "monthly"),
         ("/planos",                      "0.9", "monthly"),
         # SEO v1.1 — URLs curtas viraram canonicas. /servicos/* fazem 301 pra elas.
         ("/ptam",                        "1.0", "weekly"),
@@ -347,8 +347,6 @@ SEO_PAGINAS = [
         ("/avaliacao-rural",             "0.9", "monthly"),
         ("/avaliacao-garantia",          "0.9", "monthly"),
         ("/avaliacao-urbana",            "0.9", "monthly"),
-        ("/avaliacao-imovel",            "1.0", "weekly"),
-        ("/avaliacao-imobiliaria",       "1.0", "weekly"),
         ("/quanto-vale-meu-imovel",      "0.9", "monthly"),
         ("/blog",                        "0.8", "daily"),
         ("/blog/como-fazer-ptam-passo-a-passo-nbr-14653",           "0.8", "monthly"),
@@ -363,9 +361,7 @@ SEO_PAGINAS = [
         ("/blog/contrato-exclusividade-procuracao-corretor-imoveis", "0.8", "monthly"),
         ("/blog/assinatura-icp-brasil-laudos-contratos-validade-juridica", "0.8", "monthly"),
         ("/blog/precificar-georreferenciamento-demarcacao-averbacao-proposta", "0.8", "monthly"),
-        ("/contato",                     "0.7", "monthly"),
         ("/cadastro",                    "0.8", "monthly"),
-        ("/login",                       "0.6", "monthly"),
         ("/privacidade",                 "0.3", "yearly"),
 ]
 
@@ -382,7 +378,7 @@ async def sitemap():
     Plano SEO v1.0 — Maio/2026: lista todas as páginas públicas com
     prioridade e changefreq ajustados conforme estratégia de conteúdo.
     """
-    hoje = _datetime.utcnow().strftime("%Y-%m-%d")
+    # Sem <lastmod>: a data de "hoje" em todas as URLs era falsa (não houve mudança).
     base = SEO_BASE
     paginas = SEO_PAGINAS
     parts = ['<?xml version="1.0" encoding="UTF-8"?>',
@@ -390,7 +386,7 @@ async def sitemap():
     for path, prio, freq in paginas:
         loc = f"{base}{path}"
         parts.append(
-            f'  <url><loc>{loc}</loc><lastmod>{hoje}</lastmod>'
+            f'  <url><loc>{loc}</loc>'
             f'<changefreq>{freq}</changefreq><priority>{prio}</priority>'
             f'<xhtml:link rel="alternate" hreflang="pt-BR" href="{loc}"/>'
             f'<xhtml:link rel="alternate" hreflang="x-default" href="{loc}"/>'
@@ -547,6 +543,9 @@ if _frontend_build.exists():
         "servicos/avaliacao-rural": "/avaliacao-rural",
         "servicos/avaliacao-garantia": "/avaliacao-garantia",
         "servicos/avaliacao-urbana": "/avaliacao-urbana",
+        # Estavam no sitemap mas nunca existiram como página (o app mandava p/ a home).
+        "sobre": "/",
+        "contato": "/",
     }
 
     # Arquivos que NUNCA podem ser cacheados (senao iOS/Safari serve app velho):
@@ -562,7 +561,8 @@ if _frontend_build.exists():
     async def laudo_public_preview(token: str):
         """Serve o SPA com OG dinâmico (PTAM nº + denominação + solicitante) para
         o link público — o preview no WhatsApp/Telegram mostra a avaliação real."""
-        html = _render_index_html()
+        from services.seo_html import montar_html as _seo_html
+        html = _seo_html(_render_index_html(), f"/laudo/{token}")  # noindex: link pessoal
         try:
             from db import get_db
             _db = get_db()
@@ -629,16 +629,20 @@ if _frontend_build.exists():
                 return FileResponse(str(_idx), headers=dict(_NO_CACHE))
         # Link do cadastro (7 dias grátis) enviado aos leads: o preview do WhatsApp
         # mostra o folder da campanha em vez do banner genérico.
+        from services.seo_html import montar_html as _seo_html, status_para as _seo_status
         if full_path.strip("/") == "cadastro":
             return HTMLResponse(content=_inject_og(
-                _render_index_html(),
+                _seo_html(_render_index_html(), "/cadastro"),
                 "7 dias grátis no AvalieImob — crie sua conta",
                 "PTAM, laudos, contratos com assinatura e georreferenciamento num só sistema. "
                 "Teste por 7 dias, sem cartão e sem cobrança automática.",
                 "https://www.romatecavalieimob.com.br/campanha/cadastro-3-dias-og.jpg", 640, 800,
             ), headers=dict(_NO_CACHE))
-        # SPA fallback (index.html) — sempre revalidar
-        return HTMLResponse(content=_render_index_html(), headers=dict(_NO_CACHE))
+        # SPA fallback (index.html) — sempre revalidar. canonical/og:url e o bloco
+        # inicial (H1 + links) da própria rota; rota inexistente responde 404 real.
+        return HTMLResponse(content=_seo_html(_render_index_html(), "/" + full_path),
+                            status_code=_seo_status("/" + full_path),
+                            headers=dict(_NO_CACHE))
 
 # ── Middlewares (ordem importa: após rotas, antes do startup) ────────
 app.add_middleware(SecurityHeadersMiddleware)

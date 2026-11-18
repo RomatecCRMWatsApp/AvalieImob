@@ -1,8 +1,11 @@
+# Cópia do que o servidor entrega em /robots.txt (backend/server.py manda).
 User-agent: *
 Allow: /
+Disallow: /admin/
 Disallow: /dashboard/
-Disallow: /login
-Disallow: /cadastro
 Disallow: /api/
+Disallow: /reset-senha
+Disallow: /*?token=
+Disallow: /*?reset=
 
 Sitemap: https://www.romatecavalieimob.com.br/sitemap.xml
