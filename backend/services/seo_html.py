@@ -18,7 +18,10 @@ quebra se a rota cair em 404 aqui. Ao mudar título/texto de uma página de serv
 atualize PAGINAS.
 """
 import html as _html
+import json
 import re
+
+from services import planos as _planos
 
 BASE = "https://www.romatecavalieimob.com.br"
 
@@ -171,6 +174,57 @@ def eh_noindex(path: str) -> bool:
     return any(p == n or p.startswith(n + "/") for n in NOINDEX)
 
 
+def schema_planos() -> dict:
+    """JSON-LD dos 3 planos (Product + AggregateOffer) — preços de services/planos.py.
+
+    É o mesmo preço que a página /planos mostra; o Google pode exibir a faixa
+    "R$ 189,90 – R$ 1.199,00" no resultado da busca.
+    """
+    url = BASE + "/planos"
+    ofertas = [
+        {
+            "@type": "Offer",
+            "name": f"Plano {p['nome']}",
+            "price": f"{p['preco']:.2f}",
+            "priceCurrency": "BRL",
+            "availability": "https://schema.org/InStock",
+            "url": url,
+            "priceSpecification": {
+                "@type": "UnitPriceSpecification",
+                "price": f"{p['preco']:.2f}",
+                "priceCurrency": "BRL",
+                "billingDuration": f"P{p['meses']}M",
+            },
+        }
+        for p in _planos.PLANOS.values()
+    ]
+    precos = [p["preco"] for p in _planos.PLANOS.values()]
+    return {
+        "@context": "https://schema.org",
+        "@type": "Product",
+        "name": "AvalieImob — assinatura do software de avaliação imobiliária",
+        "description": ("Software online para emitir PTAM, laudos técnicos e avaliações "
+                        "conforme NBR 14.653. Assinatura mensal, trimestral ou anual."),
+        "brand": {"@type": "Brand", "name": "AvalieImob"},
+        "image": BASE + "/brand/og-banner.png",
+        "url": url,
+        "offers": {
+            "@type": "AggregateOffer",
+            "priceCurrency": "BRL",
+            "lowPrice": f"{min(precos):.2f}",
+            "highPrice": f"{max(precos):.2f}",
+            "offerCount": len(ofertas),
+            "offers": ofertas,
+        },
+    }
+
+
+def _json_ld(dado: dict) -> str:
+    # "</" escapado: o JSON nunca fecha a tag <script> antes da hora.
+    txt = json.dumps(dado, ensure_ascii=False).replace("</", "<\\/")
+    return f'<script type="application/ld+json" data-seo-planos>{txt}</script>'
+
+
 def montar_html(html: str, path: str) -> str:
     """Ajusta o index.html para a rota pedida (ver docstring do módulo)."""
     p = _norm(path)
@@ -193,4 +247,6 @@ def montar_html(html: str, path: str) -> str:
             (r'(<meta\s+name=["\']twitter:description["\']\s+content=["\'])(.*?)(["\'])', d),
         ):
             html = _sub_attr(html, pat, val)
+    if p == "/planos":
+        html = html.replace("</head>", _json_ld(schema_planos()) + "</head>", 1)
     return html.replace('<div id="root"></div>', f'<div id="root">{_bloco(info)}</div>', 1)

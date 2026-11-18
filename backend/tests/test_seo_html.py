@@ -79,3 +79,20 @@ def test_sitemap_so_com_paginas_canonicas_existentes():
         assert p not in S.CANONICAL_DE, f"sitemap com alias não canônico: {p}"
         assert not S.eh_noindex(p), p
     assert "<lastmod>{" not in src[src.index("async def sitemap"):src.index("@app.get(\"/robots.txt\")")]
+
+
+def test_planos_tem_json_ld_com_os_precos_da_fonte_unica():
+    import json
+    from services import planos as P
+    html = S.montar_html(INDEX, "/planos")
+    m = re.search(r'<script type="application/ld\+json" data-seo-planos>(.*?)</script>', html, re.S)
+    assert m, "JSON-LD dos planos ausente em /planos"
+    assert html.index("data-seo-planos") < html.index("</head>")
+    dado = json.loads(m.group(1))
+    assert dado["@type"] == "Product"
+    precos = sorted(float(o["price"]) for o in dado["offers"]["offers"])
+    assert precos == sorted(p["preco"] for p in P.PLANOS.values())
+    assert dado["offers"]["lowPrice"] == "189.90" and dado["offers"]["highPrice"] == "1199.00"
+    # só em /planos
+    assert "data-seo-planos" not in S.montar_html(INDEX, "/ptam")
+    assert "data-seo-planos" not in S.montar_html(INDEX, "/")
