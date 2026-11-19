@@ -14,7 +14,7 @@ export default function BlogPostComoFazerPTAM() {
       titulo={post.titulo}
       subtitulo="Guia prático em 6 etapas, seguindo os requisitos da NBR 14.653 — identificação, vistoria, mercado, método, cálculo e conclusão."
       meta={post.meta}
-      palavrasChave="como fazer PTAM, PTAM passo a passo, modelo PTAM, emitir PTAM, NBR 14.653, parecer técnico avaliação mercadológica, tutorial PTAM"
+      palavrasChave="como fazer PTAM, PTAM passo a passo, modelo PTAM, modelo de PTAM comentado, emitir PTAM, NBR 14.653, parecer técnico avaliação mercadológica, tutorial PTAM"
       dataPublicacao={post.dataPublicacao}
       dataAtualizacao={post.dataAtualizacao}
       tempoLeitura={post.tempoLeitura}
@@ -47,7 +47,7 @@ export default function BlogPostComoFazerPTAM() {
           'Identificação física: endereço completo, georreferenciamento (lat/long), área do terreno e área construída, padrão construtivo, idade aparente, estado de conservação',
           'Documentação fotográfica: fachada, ambientes internos, áreas externas, vícios construtivos visíveis, vizinhança',
         ]},
-        { callout: 'Não pule a vistoria presencial. PTAMs feitos só com fotos ou descrição do cliente são automaticamente Grau I (o menor) e podem ser questionados em juízo.', calloutTitulo: 'Dica de campo' },
+        { callout: 'Não pule a vistoria sem necessidade. Fotos ou descrição fornecidas pelo cliente, sem vistoria do avaliador, não determinam automaticamente o Grau I, mas o parecer precisa identificar os elementos utilizados, as limitações de acesso, as justificativas e a metodologia. Grau de fundamentação e grau de precisão são classificações distintas e não se definem apenas pela ausência de vistoria.', calloutTitulo: 'Dica de campo' },
 
         { h3: 'Etapa 2 — Vistoria técnica do imóvel' },
         { p: 'A vistoria é o momento em que você efetivamente verifica e mensura tudo que foi declarado no documento. É onde você vai detectar discrepâncias entre a matrícula e a realidade (área averbada vs. construída de fato), patologias construtivas, vícios redibitórios e fatores de depreciação ou valorização não óbvios.' },
@@ -83,7 +83,7 @@ export default function BlogPostComoFazerPTAM() {
           'Custo de reprodução: calcula quanto custaria reconstruir as benfeitorias hoje, descontando depreciação. Usado em imóveis especiais.',
           'Quantificação de custo: usado em obras em andamento ou para perícias específicas.',
         ]},
-        { callout: 'Em 80% dos PTAMs urbanos residenciais e comerciais, o método correto é o Comparativo Direto. Em rurais, frequentemente combina-se Comparativo (terra nua) com Custo (benfeitorias).', calloutTitulo: 'Regra de ouro' },
+        { callout: 'Na maioria dos PTAMs urbanos com mercado ativo, usa-se o Método Comparativo Direto. Em rurais, frequentemente combina-se Comparativo (terra nua) com Custo (benfeitorias).', calloutTitulo: 'Regra de ouro' },
 
         { h3: 'Etapa 5 — Cálculo do valor com tratamento estatístico' },
         { p: 'Esta etapa transforma os dados brutos da pesquisa em um valor único de mercado. Envolve:' },
@@ -91,10 +91,11 @@ export default function BlogPostComoFazerPTAM() {
           'Homogeneização das amostras: aplicação de fatores de transposição (atualização temporal), oferta (negociação), área, padrão, idade, conservação e localização',
           'Tratamento estatístico: cálculo da média, mediana, desvio padrão',
           'Saneamento de outliers: remoção de amostras discrepantes (Critério de Chauvenet)',
-          'Determinação do intervalo de confiança (IC) — geralmente 80% conforme NBR',
+          'Quando a metodologia e os dados permitirem, estimativa intervalar com o intervalo calculado, o nível de confiança utilizado e os critérios de precisão aplicáveis',
           'Enquadramento no Grau de Fundamentação e Precisão (I, II ou III)',
         ]},
-        { p: 'O grau de fundamentação depende do número de variáveis usadas, da qualidade das amostras e da metodologia aplicada. Grau III é o mais rigoroso (exigido em ações judiciais complexas e bancos de grande porte).' },
+        { p: 'O grau de fundamentação depende do número de variáveis usadas, da qualidade das amostras e da metodologia aplicada. O grau exigido depende do contratante e da finalidade: confira a exigência do banco, do juízo ou de quem contratou o trabalho.' },
+        { callout: 'Nos procedimentos documentados pelo Manual de Avaliação da SPU para o método comparativo direto, aparece o intervalo de confiança de 80%, cuja amplitude relativa participa do enquadramento da precisão. Esse percentual não significa "80% de acerto do preço", não é garantia de software e não deve ser aplicado automaticamente a todo PTAM. Os critérios devem ser conferidos na norma e no método efetivamente utilizados.', calloutTitulo: 'Sobre o intervalo de 80%' },
 
         { h3: 'Etapa 6 — Conclusão técnica e fundamentação' },
         { p: 'A última etapa é onde você consolida todo o trabalho técnico em uma conclusão clara. Um bom PTAM termina com:' },
@@ -102,27 +103,67 @@ export default function BlogPostComoFazerPTAM() {
           'Valor de mercado conclusivo (em R$, por extenso e numérico)',
           'Intervalo de confiança (R$ X até R$ Y)',
           'Data de referência da avaliação',
-          'Validade do parecer (geralmente 6 meses)',
           'Justificativa técnica para escolhas metodológicas',
           'Pressupostos e limitações da avaliação',
-          'Anexos: matrícula, IPTU/ITR, fotos, planilhas estatísticas, ART/RRT',
-          'Identificação do avaliador (nome, registro profissional, ART/RRT do CREA/CAU ou CRECI)',
+          'Anexos pertinentes: matrícula, IPTU/ITR, mapa, fotos, planilhas',
+          'Identificação do corretor avaliador, breve currículo e assinatura',
         ]},
 
         { h2: 'Erros mais comuns que invalidam um PTAM' },
         { p: 'Em quase 10 anos avaliando imóveis e revisando laudos de outros profissionais, vejo os mesmos erros se repetirem. Os mais críticos:' },
         { lista: [
-          'Pesquisa de mercado insuficiente (menos de 5 amostras, ou amostras de regiões muito diferentes)',
+          'Pesquisa de mercado insuficiente para a metodologia adotada, ou amostras de regiões muito diferentes',
           'Não documentar fontes das amostras (sem fonte, a amostra é inválida)',
           'Pular a vistoria presencial e basear-se apenas em fotos do cliente',
           'Escolher o método errado para o tipo de imóvel',
           'Não fazer tratamento estatístico (apenas média simples)',
-          'Não emitir ART/RRT no CREA/CAU (engenheiros e arquitetos) ou trabalhar fora da atribuição (corretores avaliando para fins judiciais)',
+          'Trabalhar fora da própria atribuição profissional ou sem o registro exigido para o tipo de trabalho',
           'PTAM sem assinatura digital com certificado ICP-Brasil quando exigido',
         ]},
 
+        { h2: 'Modelo comentado de PTAM: o que vai em cada seção' },
+        { p: 'Um PTAM é organizado em seções que respondem, em ordem, quem pediu, para quê, qual imóvel, como foi avaliado, com quais dados e a que valor se chegou. A forma de apresentar pode variar; o conteúdo mínimo, não.' },
+        { tabela: { cabecalho: ['Seção', 'Para que serve'], linhas: [
+          ['Solicitante e finalidade', 'Diz quem pediu e para que o valor será usado. A finalidade muda o que precisa ser demonstrado.'],
+          ['Identificação e caracterização', 'Matrícula, endereço, áreas com a fonte, construção, conservação, vizinhança e data da vistoria.'],
+          ['Metodologia', 'Qual método foi usado e por que ele cabe neste imóvel.'],
+          ['Pesquisa de mercado', 'Os imóveis comparados, com fonte, data, características e se o preço é de oferta ou de negócio fechado.'],
+          ['Tratamento dos dados', 'Como os comparáveis foram ajustados e quais foram descartados, com o motivo.'],
+          ['Conclusão', 'Valor, data de referência e limitações do trabalho.'],
+          ['Corretor avaliador', 'Identificação, breve currículo e assinatura do profissional.'],
+          ['Anexos', 'Fotos, documentos e planilhas que sustentam o parecer, conforme o caso.'],
+        ] } },
+        { p: 'A estrutura do PTAM deve identificar o solicitante e a finalidade, caracterizar o imóvel, explicar a metodologia e apresentar o valor com sua data de referência. O documento também deve identificar o corretor avaliador e conter seu breve currículo e assinatura. O art. 5º da Resolução COFECI nº 1.066/2007 estabelece os elementos mínimos.' },
+        { p: 'Para o corretor inscrito no CNAI, também deve ser observada a forma e a tecnicidade do Anexo IV do Ato Normativo nº 001/2011. O cadastro, os registros profissionais e o selo têm funções próprias. Atender à estrutura do modelo não garante aceitação por banco, tribunal ou outro destinatário, que pode exigir documentação e habilitação específicas.' },
+        { p: 'Mapa, matrícula atualizada e relatório fotográfico aparecem na resolução como recomendações gerais. Use-os sempre que possível, sem apresentá-los como requisito mínimo.' },
+
+        { h3: 'Como documentar os comparáveis' },
+        { p: 'Cada imóvel usado na comparação precisa ser identificável por quem ler o parecer. Para cada um, registre:' },
+        { lista: [
+          'a fonte (anúncio, imobiliária, cartório, informante) e como contatá-la;',
+          'a data da coleta;',
+          'se o preço é de oferta ou de negócio fechado;',
+          'as características usadas na comparação: área, padrão, idade, localização.',
+        ]},
+        { p: 'A quantidade de comparáveis e o raio de busca dependem do mercado e do grau que se pretende alcançar. Não existe um número que sirva para todos os casos.' },
+
+        { h3: 'Checklist de revisão do parecer' },
+        { lista: [
+          'A finalidade combina com o método e com os dados usados?',
+          'A data de referência do valor está explícita?',
+          'Cada área citada tem a sua fonte?',
+          'Todos os comparáveis têm fonte, data e tipo de preço?',
+          'Os descartes estão justificados?',
+          'As limitações (acesso negado, documento faltando, divergência) estão escritas?',
+          'A identificação do corretor avaliador, o breve currículo e a assinatura estão completos?',
+        ]},
+
+        { h3: 'O que um modelo não resolve' },
+        { p: 'Um modelo organiza o trabalho, mas não garante que o parecer será aceito por banco ou tribunal, não define o grau de fundamentação e não substitui a habilitação do profissional. O que sustenta o PTAM são os dados coletados e a fundamentação de cada escolha.' },
+        { p: 'Para conhecer como o sistema organiza essas seções, veja a página do módulo de PTAM.', link: '/ptam', linkTexto: 'Conhecer o módulo de PTAM →' },
+
         { h2: 'Como o AvalieImob automatiza todo este processo' },
-        { p: 'Fazer um PTAM manual (planilhas Excel + Word) leva de 4 a 8 horas e exige conhecimento técnico apurado. O AvalieImob organiza o processo inteiro num assistente guiado, sem você montar planilha nem formatar documento:' },
+        { p: 'Fazer um PTAM com planilhas e editor de texto exige conhecimento técnico e bastante trabalho de montagem. O AvalieImob organiza o processo inteiro num assistente guiado, sem você montar planilha nem formatar documento:' },
         { lista: [
           'Assistente guiado (13 passos, da identificação à conclusão) que segue os requisitos da NBR 14.653',
           'Homogeneização automática de amostras com todos os fatores de transposição',
@@ -138,7 +179,7 @@ export default function BlogPostComoFazerPTAM() {
 
         { h2: 'Conclusão' },
         { p: 'Fazer um PTAM corretamente exige cumprir os requisitos da NBR 14.653 em cada uma das 6 etapas deste guia: identificação, vistoria, mercado, método, cálculo e conclusão. Cada etapa tem suas exigências técnicas e os atalhos cobram caro depois — em laudos rejeitados, perícias contrarias e prejuízo profissional.' },
-        { p: 'O que diferencia um PTAM Grau I de um Grau III não é só o tempo gasto, mas a profundidade técnica em cada etapa. Avaliadores que dominam o processo e usam ferramentas adequadas conseguem emitir laudos Grau II ou III consistentemente, em metade do tempo dos colegas que ainda usam planilhas e modelos manuais.' },
+        { p: 'O que diferencia um PTAM Grau I de um Grau III não é só o tempo gasto, mas a profundidade técnica em cada etapa. Dominar o processo e documentar cada escolha é o que sustenta o parecer; a ferramenta ajuda a organizar, mas a responsabilidade técnica continua sendo do avaliador.' },
       ]}
       servicosRelacionados={[
         { slug: 'ptam', titulo: 'PTAM — Parecer Técnico de Avaliação Mercadológica' },

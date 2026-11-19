@@ -44,6 +44,8 @@ const BlogPostComoFazerPTAM = lazy(() => import('./pages/blog/BlogPostComoFazerP
 const BlogPostPtamLaudo = lazy(() => import('./pages/blog/BlogPostPtamLaudo'));
 const BlogPostAvaliacaoRural = lazy(() => import('./pages/blog/BlogPostAvaliacaoRural'));
 const BlogPostVLF = lazy(() => import('./pages/blog/BlogPostVLF'));
+const BlogPostFichaLocacao = lazy(() => import('./pages/blog/BlogPostFichaLocacao'));
+const BlogPostChecklistVistoria = lazy(() => import('./pages/blog/BlogPostChecklistVistoria'));
 const BlogPostGrauFundamentacao = lazy(() => import('./pages/blog/BlogPostGrauFundamentacao'));
 const BlogPostInferenciaEstatistica = lazy(() => import('./pages/blog/BlogPostInferenciaEstatistica'));
 const BlogPostMetodoComparativo = lazy(() => import('./pages/blog/BlogPostMetodoComparativo'));
@@ -245,6 +247,8 @@ function App() {
                 <Route path="/blog/diferenca-ptam-laudo-avaliacao-imobiliaria" element={<BlogPostPtamLaudo />} />
                 <Route path="/blog/avaliacao-imovel-rural-nbr-14653-3-guia-completo" element={<BlogPostAvaliacaoRural />} />
                 <Route path="/blog/como-calcular-valor-liquidacao-forcada-vlf" element={<BlogPostVLF />} />
+                <Route path="/blog/ficha-resumo-contrato-locacao-comercial" element={<BlogPostFichaLocacao />} />
+                <Route path="/blog/checklist-vistoria-avaliacao-imobiliaria-ptam" element={<BlogPostChecklistVistoria />} />
                 <Route path="/blog/grau-fundamentacao-precisao-nbr-14653" element={<BlogPostGrauFundamentacao />} />
                 <Route path="/blog/inferencia-estatistica-avaliacao-imoveis-tratamento-cientifico" element={<BlogPostInferenciaEstatistica />} />
                 <Route path="/blog/metodo-comparativo-direto-passo-a-passo" element={<BlogPostMetodoComparativo />} />

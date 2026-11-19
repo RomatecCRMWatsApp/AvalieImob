@@ -2,6 +2,16 @@
   "_leia_me": "Notas de atualizacao que viram o AVISO no sistema. Regra: a cada release, ANTES do commit, acrescente a entrada no topo de 'releases' (ver CLAUDE.md, passo 7). Itens com publico='interno' (painel administrativo ou ajuste tecnico) NAO geram aviso para ninguem - ficam so registrados aqui. Tipos: novo | melhoria | correcao. Escreva o texto COM ACENTOS: ele vai direto para a tela do cliente.",
   "releases": [
     {
+      "versao": "1.4.1547",
+      "build": 1547,
+      "data": "2026-11-19",
+      "titulo": "Blog: dois artigos novos e guia de PTAM revisado",
+      "itens": [
+        {"modulo": "Site", "tipo": "novo", "texto": "Novos artigos no blog: ficha-resumo de contrato de locação comercial e checklist de vistoria para avaliação imobiliária.", "publico": "interno"},
+        {"modulo": "Site", "tipo": "melhoria", "texto": "Guia de PTAM ganhou o modelo comentado seção por seção, o checklist de revisão e textos revistos conforme a Resolução COFECI 1.066/2007.", "publico": "interno"}
+      ]
+    },
+    {
       "versao": "1.4.1545",
       "build": 1545,
       "data": "2026-11-19",

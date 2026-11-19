@@ -4,6 +4,26 @@
 
 export const BLOG_POSTS = [
   {
+    slug: 'checklist-vistoria-avaliacao-imobiliaria-ptam',
+    titulo: 'Checklist de vistoria para avaliação imobiliária: o que registrar antes do PTAM',
+    meta: 'O que conferir antes da visita, o que registrar em campo e como organizar fotos, divergências de área e limitações para elaborar o PTAM com segurança.',
+    categoria: 'PTAM e Avaliação',
+    dataPublicacao: '2026-11-19',
+    dataAtualizacao: '2026-11-19',
+    tempoLeitura: '9 min',
+    resumo: 'A vistoria para avaliação serve para registrar as características do imóvel e confrontá-las com os documentos. Um checklist ajuda a não esquecer áreas, conservação, benfeitorias, localização e fotografias. Ele não substitui o julgamento do avaliador nem uma investigação especializada de problemas construtivos.',
+  },
+  {
+    slug: 'ficha-resumo-contrato-locacao-comercial',
+    titulo: 'Ficha-resumo de contrato de locação comercial: modelo e exemplo para corretores',
+    meta: 'Como montar a ficha-resumo de um contrato de locação comercial: campos, fonte de cada informação, garantias (art. 37 da Lei 8.245/1991), renovação (art. 51) e exemplo fictício.',
+    categoria: 'Contratos',
+    dataPublicacao: '2026-11-19',
+    dataAtualizacao: '2026-11-19',
+    tempoLeitura: '9 min',
+    resumo: 'A ficha-resumo de locação reúne as informações essenciais de um contrato em uma ou duas páginas de consulta rápida. Ela ajuda o corretor a localizar valores, datas e obrigações sem reler o contrato inteiro, mas não substitui o contrato original nem a análise jurídica. Cada informação deve indicar a cláusula ou a página de onde foi tirada.',
+  },
+  {
     slug: 'inferencia-estatistica-avaliacao-imoveis-tratamento-cientifico',
     titulo: 'Inferência estatística na avaliação de imóveis: o tratamento científico que sustenta o Grau III',
     meta: 'Como funciona o tratamento científico (MCDDM por inferência estatística) na avaliação de imóveis: regressão sobre a amostra de mercado, testes de pressupostos, intervalo de predição de 80% e enquadramento no Grau III da NBR 14.653-2 e 14.653-3.',
@@ -86,12 +106,12 @@ export const BLOG_POSTS = [
   {
     slug: 'como-fazer-ptam-passo-a-passo-nbr-14653',
     titulo: 'Como fazer um PTAM passo a passo conforme NBR 14.653',
-    meta: 'Aprenda como fazer um PTAM (Parecer Técnico de Avaliação Mercadológica) do zero, conforme NBR 14.653 da ABNT. Wizard de 6 etapas com exemplo prático.',
+    meta: 'Aprenda como fazer um PTAM (Parecer Técnico de Avaliação Mercadológica) do zero, conforme NBR 14.653 e Resolução COFECI 1.066/2007: etapas, modelo comentado e checklist de revisão.',
     categoria: 'Tutorial',
     dataPublicacao: '2026-04-15',
-    dataAtualizacao: '2026-05-04',
-    tempoLeitura: '12 min',
-    resumo: 'Um PTAM bem estruturado precisa cobrir 6 etapas obrigatórias da NBR 14.653: identificação do imóvel, vistoria, pesquisa de mercado, escolha do método avaliatório, cálculo do valor e conclusão. Veja o passo a passo completo com exemplo prático.',
+    dataAtualizacao: '2026-11-19',
+    tempoLeitura: '15 min',
+    resumo: 'Um PTAM bem estruturado percorre 6 etapas, seguindo os requisitos da NBR 14.653: identificação do imóvel, vistoria, pesquisa de mercado, escolha do método avaliatório, cálculo do valor e conclusão. Veja o passo a passo, o modelo comentado seção por seção e o checklist de revisão.',
   },
   {
     slug: 'diferenca-ptam-laudo-avaliacao-imobiliaria',

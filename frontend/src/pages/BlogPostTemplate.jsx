@@ -223,6 +223,17 @@ function renderBloco(bloco, i) {
       {bloco.callout}
     </div>
   );
+  if (bloco.tabela) return (
+    <div key={i} style={styles.tabelaWrap}>
+      <table style={styles.tabela}>
+        <thead><tr>{bloco.tabela.cabecalho.map((c, j) => <th key={j} style={styles.th}>{c}</th>)}</tr></thead>
+        <tbody>{bloco.tabela.linhas.map((l, j) => (
+          <tr key={j}>{l.map((c, k) => <td key={k} style={styles.td}>{c}</td>)}</tr>
+        ))}</tbody>
+      </table>
+      {bloco.tabelaNota && <p style={{ fontSize: 13, color: '#6b7280', marginTop: 8 }}>{bloco.tabelaNota}</p>}
+    </div>
+  );
   if (bloco.link) {
     // Âncora (/#...) precisa de carga completa para a home rolar até a seção.
     const ehAncora = bloco.link.includes('#');
@@ -276,6 +287,10 @@ const styles = {
   lista: { marginBottom: 18, paddingLeft: 22 },
   listaItem: { marginBottom: 8, color: '#374151' },
   callout: { padding: '18px 22px', background: '#fff7e0', borderLeft: '4px solid #c9a84c', borderRadius: 4, margin: '24px 0', fontSize: 15, color: '#374151' },
+  tabelaWrap: { overflowX: 'auto', margin: '20px 0 24px', border: '1px solid #d1d5db', borderRadius: 8 },
+  tabela: { borderCollapse: 'collapse', width: '100%', fontSize: 15, minWidth: 480 },
+  th: { textAlign: 'left', padding: '10px 12px', background: '#eef4f0', color: '#0d4f3c', fontWeight: 700, borderBottom: '1px solid #d1d5db' },
+  td: { textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid #e5e7eb', verticalAlign: 'top', color: '#374151' },
   linkBloco: { padding: '18px 22px', background: '#f5f7f5', border: '1px solid #d1d5db', borderRadius: 8, margin: '24px 0', fontSize: 16, color: '#374151' },
   linkBlocoBtn: { color: '#0d4f3c', fontWeight: 700, textDecoration: 'none', borderBottom: '2px solid #c9a84c' },
   ctaInline: { padding: '24px', background: '#0d4f3c', color: '#fff', borderRadius: 8, textAlign: 'center', margin: '24px 0' },

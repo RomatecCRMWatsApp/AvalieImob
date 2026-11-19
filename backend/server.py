@@ -353,6 +353,8 @@ SEO_PAGINAS = [
         ("/blog/diferenca-ptam-laudo-avaliacao-imobiliaria",         "0.8", "monthly"),
         ("/blog/avaliacao-imovel-rural-nbr-14653-3-guia-completo",   "0.8", "monthly"),
         ("/blog/como-calcular-valor-liquidacao-forcada-vlf",         "0.8", "monthly"),
+        ("/blog/ficha-resumo-contrato-locacao-comercial",            "0.8", "monthly"),
+        ("/blog/checklist-vistoria-avaliacao-imobiliaria-ptam",      "0.8", "monthly"),
         ("/blog/grau-fundamentacao-precisao-nbr-14653",              "0.8", "monthly"),
         ("/blog/inferencia-estatistica-avaliacao-imoveis-tratamento-cientifico", "0.9", "monthly"),
         ("/blog/metodo-comparativo-direto-passo-a-passo",            "0.8", "monthly"),
