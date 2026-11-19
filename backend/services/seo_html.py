@@ -123,10 +123,31 @@ _EXATAS = {
     "/quanto-vale-meu-imovel", "/dashboard",
 }
 _PREFIXOS = (
-    "/servicos/", "/blog/", "/redefinir-senha/", "/laudo/", "/v/", "/contrato/",
+    "/servicos/", "/redefinir-senha/", "/laudo/", "/v/", "/contrato/",
     "/aceite/", "/assinar-cliente/", "/assinar-doc/", "/assinar-geo/", "/assinar/",
     "/verificar/", "/avaliacao/", "/dashboard/",
 )
+
+
+# Artigos do blog que existem (slugs de frontend/src/data/blogPosts.js e das rotas do
+# App.js). Endereço inventado dentro de /blog/ responde 404 em vez de 200. Ao publicar
+# artigo novo, acrescente o slug aqui — tests/test_seo_html.py acusa se faltar.
+BLOG_SLUGS = frozenset({
+    "checklist-vistoria-avaliacao-imobiliaria-ptam",
+    "ficha-resumo-contrato-locacao-comercial",
+    "inferencia-estatistica-avaliacao-imoveis-tratamento-cientifico",
+    "contrato-exclusividade-procuracao-corretor-imoveis",
+    "assinatura-icp-brasil-laudos-contratos-validade-juridica",
+    "precificar-georreferenciamento-demarcacao-averbacao-proposta",
+    "como-emitir-art-rrt-trt-avaliacao-imobiliaria",
+    "avaliacao-imovel-inventario-partilha",
+    "metodo-comparativo-direto-passo-a-passo",
+    "grau-fundamentacao-precisao-nbr-14653",
+    "como-fazer-ptam-passo-a-passo-nbr-14653",
+    "diferenca-ptam-laudo-avaliacao-imobiliaria",
+    "avaliacao-imovel-rural-nbr-14653-3-guia-completo",
+    "como-calcular-valor-liquidacao-forcada-vlf",
+})
 
 
 def _norm(path: str) -> str:
@@ -136,6 +157,8 @@ def _norm(path: str) -> str:
 
 def rota_existe(path: str) -> bool:
     p = _norm(path)
+    if p.startswith("/blog/"):
+        return p[len("/blog/"):] in BLOG_SLUGS
     return p in _EXATAS or any((p + "/").startswith(pref) for pref in _PREFIXOS)
 
 

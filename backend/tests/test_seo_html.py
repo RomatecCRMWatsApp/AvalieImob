@@ -96,3 +96,22 @@ def test_planos_tem_json_ld_com_os_precos_da_fonte_unica():
     # só em /planos
     assert "data-seo-planos" not in S.montar_html(INDEX, "/ptam")
     assert "data-seo-planos" not in S.montar_html(INDEX, "/")
+
+
+def test_blog_slugs_batem_com_o_frontend():
+    import re
+    posts = (RAIZ / "frontend/src/data/blogPosts.js").read_text(encoding="utf-8")
+    app = (RAIZ / "frontend/src/App.js").read_text(encoding="utf-8")
+    slugs_posts = set(re.findall(r"slug: '([^']+)'", posts))
+    slugs_rotas = set(re.findall(r'path="/blog/([^"/:]+)"', app))
+    assert slugs_posts == S.BLOG_SLUGS, f"Atualize BLOG_SLUGS em seo_html: {slugs_posts ^ S.BLOG_SLUGS}"
+    assert slugs_rotas == S.BLOG_SLUGS, f"Rota de blog sem slug (ou vice-versa): {slugs_rotas ^ S.BLOG_SLUGS}"
+
+
+def test_artigo_inexistente_404_e_artigo_real_200():
+    assert S.status_para("/blog/nao-existe-esse-artigo") == 404
+    assert S.status_para("/blog/como-fazer-ptam-passo-a-passo-nbr-14653") == 200
+    assert S.status_para("/blog/como-fazer-ptam-passo-a-passo-nbr-14653/") == 200
+    assert S.status_para("/blog") == 200
+    assert S.eh_noindex("/blog/nao-existe-esse-artigo") or "noindex" in S.montar_html(
+        "<html><head><title>x</title></head><body><div id=\"root\"></div></body></html>", "/blog/nao-existe-esse-artigo")
