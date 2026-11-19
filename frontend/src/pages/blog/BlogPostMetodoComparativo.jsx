@@ -161,10 +161,9 @@ export default function BlogPostMetodoComparativo() {
         { lista: [
           'Wizard guiado de coleta de amostras com campos obrigatórios da NBR',
           'Aplicação automática de todos os fatores conforme atributos cadastrados',
-          'Cálculo estatístico em tempo real (média, mediana, IC, Chauvenet)',
-          'Validação dos limites NBR (avisa se fator final extrapola 0,5 a 2,0)',
-          'Geração da planilha de homogeneização pronta pra anexar ao laudo',
-          'IA especializada que sugere amostras adicionais quando o Grau de Precisão fica baixo',
+          'Cálculo estatístico automático (média, desvio padrão e saneamento de amostras fora de ±10% da média)',
+          'Tabela de homogeneização das amostras incluída no laudo em PDF',
+          'Tratamento científico por regressão quando você precisa de Grau III',
         ]},
         { cta: 'Teste o sistema completo do AvalieImob por 7 dias grátis.', ctaTexto: 'Começar grátis →' },
 

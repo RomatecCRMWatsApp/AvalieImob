@@ -206,7 +206,7 @@ export default function BlogPostTemplate({
 function renderBloco(bloco, i) {
   if (bloco.h2) return <h2 key={i} style={styles.h2Artigo}>{bloco.h2}</h2>;
   if (bloco.h3) return <h3 key={i} style={styles.h3Artigo}>{bloco.h3}</h3>;
-  if (bloco.p) return <p key={i} style={styles.p}>{bloco.p}</p>;
+  if (bloco.p && !bloco.link) return <p key={i} style={styles.p}>{bloco.p}</p>;
   if (bloco.lista) return (
     <ul key={i} style={styles.lista}>
       {bloco.lista.map((item, j) => <li key={j} style={styles.listaItem}>{item}</li>)}
@@ -223,6 +223,18 @@ function renderBloco(bloco, i) {
       {bloco.callout}
     </div>
   );
+  if (bloco.link) {
+    // Âncora (/#...) precisa de carga completa para a home rolar até a seção.
+    const ehAncora = bloco.link.includes('#');
+    return (
+      <div key={i} style={styles.linkBloco}>
+        {bloco.p && <p style={{ marginBottom: 10 }}>{bloco.p}</p>}
+        {ehAncora
+          ? <a href={bloco.link} style={styles.linkBlocoBtn}>{bloco.linkTexto || 'Saiba mais →'}</a>
+          : <Link to={bloco.link} style={styles.linkBlocoBtn}>{bloco.linkTexto || 'Saiba mais →'}</Link>}
+      </div>
+    );
+  }
   if (bloco.cta) return (
     <div key={i} style={styles.ctaInline}>
       <p style={{ marginBottom: 12 }}>{bloco.cta}</p>
@@ -236,9 +248,9 @@ function renderBloco(bloco, i) {
 
 const styles = {
   main: { fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif', color: '#1a1916', lineHeight: 1.7 },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 32px', borderBottom: '1px solid #e5e7eb', background: '#fff', position: 'sticky', top: 0, zIndex: 10 },
+  header: { display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'space-between', alignItems: 'center', padding: '14px clamp(16px, 4vw, 32px)', borderBottom: '1px solid #e5e7eb', background: '#fff', position: 'sticky', top: 0, zIndex: 10 },
   logoLink: { color: '#0d4f3c', fontSize: 22, textDecoration: 'none' },
-  nav: { display: 'flex', gap: 20, alignItems: 'center' },
+  nav: { display: 'flex', flexWrap: 'wrap', gap: 'clamp(10px, 3vw, 20px)', alignItems: 'center' },
   navLink: { color: '#4b5563', textDecoration: 'none', fontSize: 14 },
   navCTA: { background: '#0d4f3c', color: '#fff', padding: '8px 16px', borderRadius: 6, textDecoration: 'none', fontSize: 14, fontWeight: 600 },
 
@@ -264,6 +276,8 @@ const styles = {
   lista: { marginBottom: 18, paddingLeft: 22 },
   listaItem: { marginBottom: 8, color: '#374151' },
   callout: { padding: '18px 22px', background: '#fff7e0', borderLeft: '4px solid #c9a84c', borderRadius: 4, margin: '24px 0', fontSize: 15, color: '#374151' },
+  linkBloco: { padding: '18px 22px', background: '#f5f7f5', border: '1px solid #d1d5db', borderRadius: 8, margin: '24px 0', fontSize: 16, color: '#374151' },
+  linkBlocoBtn: { color: '#0d4f3c', fontWeight: 700, textDecoration: 'none', borderBottom: '2px solid #c9a84c' },
   ctaInline: { padding: '24px', background: '#0d4f3c', color: '#fff', borderRadius: 8, textAlign: 'center', margin: '24px 0' },
   ctaPrimary: { background: '#c9a84c', color: '#1a1916', padding: '12px 24px', borderRadius: 8, fontWeight: 700, textDecoration: 'none', display: 'inline-block', fontSize: 15 },
 

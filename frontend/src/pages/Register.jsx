@@ -46,14 +46,15 @@ const Register = () => {
         try { return JSON.parse(sessionStorage.getItem('utm_data') || '{}'); }
         catch { return {}; }
       })();
+      const ss = (k) => { try { return sessionStorage.getItem(k) || null; } catch { return null; } };
       const utm = {
         utm_source:   params.get('utm_source')   || stored.utm_source   || null,
         utm_medium:   params.get('utm_medium')   || stored.utm_medium   || null,
         utm_campaign: params.get('utm_campaign') || stored.utm_campaign || null,
         utm_content:  params.get('utm_content')  || stored.utm_content  || null,
         utm_term:     params.get('utm_term')     || stored.utm_term     || null,
-        page_origin:  stored.page_origin || document.referrer || '/',
-        referrer:     document.referrer || null,
+        page_origin:  stored.page_origin || ss('landing_page') || document.referrer || '/',
+        referrer:     ss('landing_referrer') || document.referrer || null,
       };
       let atendimento_sessao_id = null;
       try { atendimento_sessao_id = localStorage.getItem('romatec_atendimento_sessao'); } catch { /* ignore */ }

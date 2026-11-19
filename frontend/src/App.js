@@ -202,6 +202,21 @@ function captureUtm() {
 }
 captureUtm();
 
+// Página de entrada da visita (1x por sessão), mesmo sem UTM. Quem chega do
+// Copilot/Google num artigo e só depois clica em "Começar grátis" ficava como
+// "direto" — sem saber qual artigo trouxe o cadastro. Também guarda o primeiro
+// referrer externo (um reload interno troca o document.referrer pelo próprio site).
+function captureLanding() {
+  if (typeof window === 'undefined') return;
+  try {
+    if (sessionStorage.getItem('landing_page')) return;
+    sessionStorage.setItem('landing_page', window.location.pathname);
+    const ref = document.referrer || '';
+    if (ref && !ref.includes(window.location.host)) sessionStorage.setItem('landing_referrer', ref);
+  } catch (_e) { /* sessionStorage indisponível — ignora */ }
+}
+captureLanding();
+
 function App() {
   return (
     <div className="App">

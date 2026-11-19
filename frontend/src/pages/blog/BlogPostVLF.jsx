@@ -136,15 +136,16 @@ export default function BlogPostVLF() {
         { p: 'Em laudos para outras finalidades (transação privada, partilha, ação judicial não-bancária), o VLF não é obrigatório, embora possa ser informado em separado para fins informativos.' },
 
         { h2: 'Como o AvalieImob automatiza o cálculo do VLF' },
-        { p: 'No módulo de Avaliação de Garantias Bancárias do AvalieImob, o VLF é calculado automaticamente conforme você seleciona:' },
+        { p: 'No módulo de Avaliação de Garantias Bancárias do AvalieImob, você registra no laudo:' },
         { lista: [
-          'Banco/credor (BB, Caixa, Itaú, Bradesco, Santander, Sicredi, BNB, BASA, etc.)',
+          'Banco/credor (Caixa, BB, Bradesco, Itaú, Santander, Sicoob, Sicredi e outros)',
           'Tipo de garantia (hipoteca, alienação fiduciária, penhor mercantil)',
           'Tipologia do imóvel (apartamento, casa, terreno, comercial, rural)',
-          'Localização e características específicas do bem',
+          'O fator de desconto do VLF que você definiu, com a justificativa técnica',
         ]},
-        { p: 'O sistema sugere os fatores adequados (FL, FA, FP) com base em dados regionais e práticas do banco selecionado, mas você pode editá-los manualmente com justificativa técnica. Toda a metodologia fica registrada no laudo final.' },
-        { cta: 'Teste o módulo de Avaliação de Garantias Bancárias por 7 dias grátis.', ctaTexto: 'Começar grátis →' },
+        { p: 'O sistema calcula o VLF a partir do Valor de Mercado e do fator de desconto que você informar, e leva o cálculo e a justificativa para o laudo em PDF e Word. Os fatores FL, FA e FP explicados acima são calculados por você, com base no mercado local e nas exigências do banco.' },
+        { p: 'Veja como funciona a Avaliação de Garantias Bancárias no AvalieImob.', link: '/avaliacao-garantia', linkTexto: 'Ver Avaliação de Garantias →' },
+        { cta: 'Teste o módulo de Avaliação de Garantias Bancárias por 7 dias grátis.', ctaTexto: 'Começar grátis →', ctaPos: 'meio' },
 
         { h2: 'Conclusão' },
         { p: 'O Valor de Liquidação Forçada é um conceito técnico fundamental para qualquer avaliador que trabalhe com garantias bancárias. Calculá-lo corretamente exige aplicar três fatores principais — Liquidez, Atratividade e Prazo — sobre o Valor de Mercado, com fundamentação técnica adequada.' },

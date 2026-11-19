@@ -12,7 +12,7 @@ export default function BlogPostComoFazerPTAM() {
     <BlogPostTemplate
       slug={SLUG}
       titulo={post.titulo}
-      subtitulo="Guia prático com as 6 etapas obrigatórias da norma — identificação, vistoria, mercado, método, cálculo e conclusão."
+      subtitulo="Guia prático em 6 etapas, seguindo os requisitos da NBR 14.653 — identificação, vistoria, mercado, método, cálculo e conclusão."
       meta={post.meta}
       palavrasChave="como fazer PTAM, PTAM passo a passo, modelo PTAM, emitir PTAM, NBR 14.653, parecer técnico avaliação mercadológica, tutorial PTAM"
       dataPublicacao={post.dataPublicacao}
@@ -21,8 +21,8 @@ export default function BlogPostComoFazerPTAM() {
       categoria={post.categoria}
       resumo={post.resumo}
       conteudo={[
-        { p: 'Fazer um Parecer Técnico de Avaliação Mercadológica (PTAM) corretamente é uma das atividades mais importantes — e mais críticas — do trabalho do avaliador imobiliário. Um PTAM mal estruturado pode ser invalidado em juízo, rejeitado por bancos ou gerar prejuízo ao cliente. Por isso, a NBR 14.653 da ABNT padroniza um processo rigoroso de 6 etapas obrigatórias que todo PTAM precisa seguir.' },
-        { p: 'Neste guia, você vai aprender exatamente como fazer um PTAM do zero, com exemplo prático de cada etapa, dicas de campo e os erros mais comuns que comprometem a aceitação do laudo. No fim, você verá como o sistema AvalieImob automatiza todo esse processo, garantindo conformidade total com a norma.' },
+        { p: 'Fazer um Parecer Técnico de Avaliação Mercadológica (PTAM) corretamente é uma das atividades mais importantes — e mais críticas — do trabalho do avaliador imobiliário. Um PTAM mal estruturado pode ser invalidado em juízo, rejeitado por bancos ou gerar prejuízo ao cliente. Por isso, este guia organiza o trabalho em 6 etapas, seguindo os requisitos da NBR 14.653 da ABNT.' },
+        { p: 'Neste guia, você vai aprender exatamente como fazer um PTAM do zero, com exemplo prático de cada etapa, dicas de campo e os erros mais comuns que comprometem a aceitação do laudo. No fim, você verá como o AvalieImob ajuda a organizar esse processo. A responsabilidade técnica pelo laudo continua sendo do avaliador.' },
 
         { h2: 'O que é PTAM e quando ele é obrigatório?' },
         { p: 'PTAM é a sigla para Parecer Técnico de Avaliação Mercadológica. É o documento técnico que estabelece o valor de mercado de um imóvel (urbano ou rural), seguindo metodologia padronizada pela ABNT. É exigido em diversas situações:' },
@@ -36,8 +36,8 @@ export default function BlogPostComoFazerPTAM() {
         ]},
         { p: 'Diferente de um laudo simples, o PTAM segue rigorosamente a NBR 14.653 e tem maior peso jurídico. Por isso a importância de fazê-lo corretamente desde o início.' },
 
-        { h2: 'As 6 etapas obrigatórias de um PTAM' },
-        { p: 'A NBR 14.653 organiza o processo de avaliação em 6 etapas sequenciais. Pular ou negligenciar qualquer uma compromete a validade do laudo. Vamos ver cada uma em detalhe.' },
+        { h2: 'As 6 etapas de um PTAM' },
+        { p: 'Para fins didáticos, organizamos os requisitos da NBR 14.653 em 6 etapas sequenciais. Negligenciar qualquer uma delas enfraquece a fundamentação do laudo. Vamos ver cada uma em detalhe.' },
 
         { h3: 'Etapa 1 — Identificação completa do imóvel' },
         { p: 'É a base de tudo. Sem identificação cartorial, fiscal e física precisa, o PTAM não tem valor jurídico. Você precisa coletar:' },
@@ -122,20 +122,22 @@ export default function BlogPostComoFazerPTAM() {
         ]},
 
         { h2: 'Como o AvalieImob automatiza todo este processo' },
-        { p: 'Fazer um PTAM manual (planilhas Excel + Word) leva de 4 a 8 horas e exige conhecimento técnico apurado. O AvalieImob reduz esse tempo para 30-60 minutos sem comprometer qualidade técnica:' },
+        { p: 'Fazer um PTAM manual (planilhas Excel + Word) leva de 4 a 8 horas e exige conhecimento técnico apurado. O AvalieImob organiza o processo inteiro num assistente guiado, sem você montar planilha nem formatar documento:' },
         { lista: [
-          'Wizard de 6 etapas que cobre exatamente os requisitos da NBR 14.653',
+          'Assistente guiado (13 passos, da identificação à conclusão) que segue os requisitos da NBR 14.653',
           'Homogeneização automática de amostras com todos os fatores de transposição',
-          'Cálculo estatístico automatizado (média, mediana, IC, saneamento de outliers pelo Critério de Chauvenet)',
-          'IA especializada em NBR 14.653 que sugere o método mais adequado e ajuda a fundamentar decisões',
-          'Enquadramento automático no Grau de Fundamentação e Precisão',
+          'Cálculo estatístico automatizado (média, desvio padrão, saneamento de amostras fora de ±10% da média, campo de arbítrio)',
+          'Tratamento científico por regressão (inferência estatística) para quem precisa de Grau III',
+          'Assistente de IA (Roma_IA) que ajuda a redigir e fundamentar os textos do laudo',
+          'Campos de Grau de Fundamentação e Precisão no laudo (preenchidos automaticamente quando você usa o tratamento científico)',
           'Exportação direta em DOCX (Microsoft Word) ou PDF profissional',
           'Assinatura digital ICP-Brasil e assinatura do cliente via WhatsApp',
         ]},
-        { cta: 'Crie sua conta gratuita e emita seu primeiro PTAM em minutos.', ctaTexto: 'Começar grátis →' },
+        { p: 'Quer ver como o PTAM fica pronto antes de testar? Assista à demonstração em vídeo do PTAM em 12 passos.', link: '/#ptam-12-passos', linkTexto: 'Ver a demonstração do PTAM →' },
+        { cta: 'Crie sua conta e teste por 7 dias grátis.', ctaTexto: 'Começar grátis →', ctaPos: 'meio' },
 
         { h2: 'Conclusão' },
-        { p: 'Fazer um PTAM corretamente exige seguir rigorosamente as 6 etapas previstas na NBR 14.653: identificação, vistoria, mercado, método, cálculo e conclusão. Cada etapa tem suas exigências técnicas e os atalhos cobram caro depois — em laudos rejeitados, perícias contrarias e prejuízo profissional.' },
+        { p: 'Fazer um PTAM corretamente exige cumprir os requisitos da NBR 14.653 em cada uma das 6 etapas deste guia: identificação, vistoria, mercado, método, cálculo e conclusão. Cada etapa tem suas exigências técnicas e os atalhos cobram caro depois — em laudos rejeitados, perícias contrarias e prejuízo profissional.' },
         { p: 'O que diferencia um PTAM Grau I de um Grau III não é só o tempo gasto, mas a profundidade técnica em cada etapa. Avaliadores que dominam o processo e usam ferramentas adequadas conseguem emitir laudos Grau II ou III consistentemente, em metade do tempo dos colegas que ainda usam planilhas e modelos manuais.' },
       ]}
       servicosRelacionados={[

@@ -137,11 +137,10 @@ export default function BlogPostGrauFundamentacao() {
         { h2: 'Como o AvalieImob automatiza o cálculo' },
         { p: 'No AvalieImob, todo laudo é automaticamente enquadrado em Grau de Fundamentação e Precisão conforme você cadastra os dados:' },
         { lista: [
-          'Pontuação automática dos 5 itens da tabela conforme amostras e atributos cadastrados',
-          'Cálculo estatístico em tempo real (média, mediana, desvio padrão, IC 80%)',
-          'Saneamento de outliers pelo Critério de Chauvenet aplicado automaticamente',
-          'Indicador visual mostrando seu grau atual e o que falta pra subir um nível',
-          'Sugestões da IA: "adicione mais 2 amostras pra subir pra Grau III"',
+          'No tratamento científico (regressão), enquadramento automático do Grau de Fundamentação e de Precisão',
+          'Lista objetiva do que está impedindo o Grau III (amostra, significância, extrapolação)',
+          'Intervalo de predição de 80%, que define o Grau de Precisão',
+          'No tratamento por fatores: média, desvio padrão e saneamento de amostras fora de ±10% da média',
         ]},
         { cta: 'Teste o sistema completo do AvalieImob por 7 dias grátis.', ctaTexto: 'Começar grátis →' },
 

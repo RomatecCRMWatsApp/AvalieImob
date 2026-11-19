@@ -2,6 +2,17 @@
   "_leia_me": "Notas de atualizacao que viram o AVISO no sistema. Regra: a cada release, ANTES do commit, acrescente a entrada no topo de 'releases' (ver CLAUDE.md, passo 7). Itens com publico='interno' (painel administrativo ou ajuste tecnico) NAO geram aviso para ninguem - ficam so registrados aqui. Tipos: novo | melhoria | correcao. Escreva o texto COM ACENTOS: ele vai direto para a tela do cliente.",
   "releases": [
     {
+      "versao": "1.4.1545",
+      "build": 1545,
+      "data": "2026-11-19",
+      "titulo": "Blog: textos corrigidos e origem dos cadastros",
+      "itens": [
+        {"modulo": "Site", "tipo": "correcao", "texto": "Artigos do blog (avaliação rural, PTAM, VLF, grau de fundamentação e método comparativo) passam a descrever só o que o sistema realmente faz.", "publico": "interno"},
+        {"modulo": "Site", "tipo": "melhoria", "texto": "Artigos ganharam chamadas para as páginas de serviço e para a demonstração do PTAM; menu do blog cabe no celular.", "publico": "interno"},
+        {"modulo": "Leads", "tipo": "melhoria", "texto": "O cadastro registra a página de entrada e o site de origem mesmo sem UTM, para saber qual artigo trouxe cada cliente.", "publico": "interno"}
+      ]
+    },
+    {
       "versao": "1.4.1543",
       "build": 1543,
       "data": "2026-11-19",
