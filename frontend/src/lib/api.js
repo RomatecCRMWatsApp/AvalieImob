@@ -353,6 +353,7 @@ export const adminAPI = {
   excluirLead: (id) => api.delete(`/admin/leads/${id}`).then(r => r.data),
   // Cadastros por ORIGEM (Google, Bing, direto…) + avisos por e-mail
   cadastrosOrigem: (params = {}) => api.get('/admin/leads/cadastros', { params }).then(r => r.data),
+  blogMetricas: (params = {}) => api.get('/admin/leads/blog', { params }).then(r => r.data),
   notificacoes: () => api.get('/admin/leads/notificacoes').then(r => r.data),
   salvarNotificacoes: (body) => api.post('/admin/leads/notificacoes', body).then(r => r.data),
   testarNotificacao: (body) => api.post('/admin/leads/notificacoes/testar', body).then(r => r.data),
@@ -884,6 +885,22 @@ export const atendimentoAPI = {
 };
 
 // Calculadora pública "Quanto vale meu imóvel?" + captura de lead (sem auth)
+// Contagem anônima de leituras e cliques nos artigos do blog (sem dado pessoal).
+// Fire-and-forget: falha de rede nunca atrapalha a leitura nem a navegação.
+export const blogMetricasAPI = {
+  evento: (slug, tipo, posicao) => {
+    const corpo = JSON.stringify({ slug, tipo, posicao });
+    // sendBeacon sobrevive à troca de página (link com carga completa); senão, axios.
+    try {
+      if (navigator.sendBeacon &&
+          navigator.sendBeacon(`${API_BASE}/blog/evento`, new Blob([corpo], { type: 'application/json' }))) {
+        return Promise.resolve();
+      }
+    } catch (_e) { /* cai no axios */ }
+    return api.post('/blog/evento', { slug, tipo, posicao }).catch(() => {});
+  },
+};
+
 export const avaliacaoPublicaAPI = {
   estimar: (imovel) => api.post('/avaliacao-publica/estimar', imovel).then((r) => r.data),
   lead: (payload) => api.post('/avaliacao-publica/lead', payload).then((r) => r.data),

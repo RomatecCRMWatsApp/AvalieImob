@@ -72,6 +72,8 @@ class _Coll:
             d.pop(k, None)
         for k, v in (upd.get("$push") or {}).items():
             d.setdefault(k, []).append(v)
+        for k, v in (upd.get("$inc") or {}).items():
+            d[k] = (d.get(k) or 0) + v
         return type("R", (), {"matched_count": 1, "modified_count": 1})()
 
 

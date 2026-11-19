@@ -7,6 +7,7 @@ import { useToast } from '../../hooks/use-toast';
 import { BrandSpinner } from '../../components/brand/BrandSpinner';
 import CadastrosOrigem from './CadastrosOrigem';
 import AtendimentoBotAdmin from './AtendimentoBotAdmin';
+import BlogMetricasAdmin from './BlogMetricasAdmin';
 
 const VERDE = '#0C3320';
 const DOURADO = '#C9A84C';
@@ -116,6 +117,7 @@ export default function LeadsAdmin() {
         { id: 'robo', label: 'Robô de atendimento' },
         { id: 'calculadora', label: 'Calculadora' },
         { id: 'cadastros', label: 'Cadastros por origem' },
+        { id: 'blog', label: 'Artigos do blog' },
       ].map((t) => (
         <button key={t.id} type="button" onClick={() => setAba(t.id)}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
@@ -135,6 +137,18 @@ export default function LeadsAdmin() {
         </h1>
         <Abas />
         <AtendimentoBotAdmin />
+      </div>
+    );
+  }
+
+  if (aba === 'blog') {
+    return (
+      <div className="p-4 md:p-6 max-w-6xl mx-auto">
+        <h1 className="text-2xl font-bold mb-4 font-display" style={{ color: VERDE }}>
+          Leads &amp; Cadastros
+        </h1>
+        <Abas />
+        <BlogMetricasAdmin />
       </div>
     );
   }

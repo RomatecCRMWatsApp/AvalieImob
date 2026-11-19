@@ -4,9 +4,13 @@
 //
 // Cada artigo: ~2.000 palavras unicas, schema.org Article, breadcrumbs,
 // links internos para servicos relacionados, CTA pro cadastro.
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
+import { blogMetricasAPI } from '../lib/api';
+
+// Clique em botão do artigo: conta só artigo + posição (anônimo).
+const rastrear = (slug, posicao) => blogMetricasAPI.evento(slug, 'clique', posicao);
 
 const BASE = 'https://www.romatecavalieimob.com.br';
 
@@ -27,6 +31,16 @@ export default function BlogPostTemplate({
   postsRelacionados = [],
 }) {
   const url = `${BASE}/blog/${slug}`;
+
+  // Leitura: 1x por artigo por sessão do navegador (recarregar não infla a conta).
+  useEffect(() => {
+    try {
+      const k = `blog_lido_${slug}`;
+      if (sessionStorage.getItem(k)) return;
+      sessionStorage.setItem(k, '1');
+    } catch (_e) { /* sessionStorage indisponível — conta mesmo assim */ }
+    blogMetricasAPI.evento(slug, 'leitura', 'pagina');
+  }, [slug]);
   const ogImage = `${BASE}/brand/banner.png`;
 
   const articleSchema = {
@@ -101,7 +115,7 @@ export default function BlogPostTemplate({
             <Link to="/" style={styles.navLink}>Início</Link>
             <Link to="/blog" style={styles.navLink}>Blog</Link>
             <Link to="/planos" style={styles.navLink}>Planos</Link>
-            <Link to="/cadastro" style={styles.navCTA}>Teste Grátis</Link>
+            <Link to="/cadastro" style={styles.navCTA} onClick={() => rastrear(slug, 'topo')}>Teste Grátis</Link>
           </nav>
         </header>
 
@@ -140,7 +154,7 @@ export default function BlogPostTemplate({
                 </div>
               )}
               <div style={styles.conteudo}>
-                {conteudo.map((bloco, i) => renderBloco(bloco, i))}
+                {conteudo.map((bloco, i) => renderBloco(bloco, i, slug))}
               </div>
             </div>
           </section>
@@ -153,7 +167,7 @@ export default function BlogPostTemplate({
               <p style={{ fontSize: 17, marginBottom: 20, maxWidth: 600, margin: '0 auto 20px' }}>
                 Teste o AvalieImob 7 dias grátis. Sem cartão de crédito. Sistema completo conforme NBR 14.653.
               </p>
-              <Link to="/cadastro" style={{ ...styles.ctaPrimary, background: '#0d4f3c', color: '#fff' }}>
+              <Link to="/cadastro" style={{ ...styles.ctaPrimary, background: '#0d4f3c', color: '#fff' }} onClick={() => rastrear(slug, 'fim')}>
                 Começar grátis →
               </Link>
             </div>
@@ -165,7 +179,7 @@ export default function BlogPostTemplate({
                 <h3 style={styles.h3Sec}>Serviços relacionados</h3>
                 <div style={styles.linksInternos}>
                   {servicosRelacionados.map(s => (
-                    <Link key={s.slug} to={`/${s.slug}`} style={styles.linkInterno}>
+                    <Link key={s.slug} to={`/${s.slug}`} style={styles.linkInterno} onClick={() => rastrear(slug, 'servico')}>
                       → {s.titulo}
                     </Link>
                   ))}
@@ -180,7 +194,7 @@ export default function BlogPostTemplate({
                 <h3 style={styles.h3Sec}>Continue lendo</h3>
                 <div style={styles.postsRelGrid}>
                   {postsRelacionados.map(p => (
-                    <Link key={p.slug} to={`/blog/${p.slug}`} style={styles.postRelCard}>
+                    <Link key={p.slug} to={`/blog/${p.slug}`} style={styles.postRelCard} onClick={() => rastrear(slug, 'relacionado')}>
                       <span style={styles.postRelCat}>{p.categoria || 'Artigo'}</span>
                       <h4 style={styles.postRelTitulo}>{p.titulo}</h4>
                       <p style={styles.postRelMeta}>{p.tempoLeitura} de leitura</p>
@@ -203,7 +217,7 @@ export default function BlogPostTemplate({
   );
 }
 
-function renderBloco(bloco, i) {
+function renderBloco(bloco, i, slug) {
   if (bloco.h2) return <h2 key={i} style={styles.h2Artigo}>{bloco.h2}</h2>;
   if (bloco.h3) return <h3 key={i} style={styles.h3Artigo}>{bloco.h3}</h3>;
   if (bloco.p && !bloco.link) return <p key={i} style={styles.p}>{bloco.p}</p>;
@@ -241,15 +255,15 @@ function renderBloco(bloco, i) {
       <div key={i} style={styles.linkBloco}>
         {bloco.p && <p style={{ marginBottom: 10 }}>{bloco.p}</p>}
         {ehAncora
-          ? <a href={bloco.link} style={styles.linkBlocoBtn}>{bloco.linkTexto || 'Saiba mais →'}</a>
-          : <Link to={bloco.link} style={styles.linkBlocoBtn}>{bloco.linkTexto || 'Saiba mais →'}</Link>}
+          ? <a href={bloco.link} style={styles.linkBlocoBtn} onClick={() => rastrear(slug, 'link')}>{bloco.linkTexto || 'Saiba mais →'}</a>
+          : <Link to={bloco.link} style={styles.linkBlocoBtn} onClick={() => rastrear(slug, 'link')}>{bloco.linkTexto || 'Saiba mais →'}</Link>}
       </div>
     );
   }
   if (bloco.cta) return (
     <div key={i} style={styles.ctaInline}>
       <p style={{ marginBottom: 12 }}>{bloco.cta}</p>
-      <Link to={bloco.ctaLink || '/cadastro'} style={styles.ctaPrimary}>
+      <Link to={bloco.ctaLink || '/cadastro'} style={styles.ctaPrimary} onClick={() => rastrear(slug, 'meio')}>
         {bloco.ctaTexto || 'Começar grátis →'}
       </Link>
     </div>

@@ -749,6 +749,7 @@ async def startup():
         await db.atendimento_conversas.create_index([("criado_em", -1)])
         await db.atendimento_conversas.create_index([("atualizado_em", -1)])
         await db.atendimento_conversas.create_index([("estagio", 1), ("criado_em", -1)])
+        await db.blog_eventos.create_index([("dia", -1)])
     except Exception as e:
         logger.error(f"Erro ao criar índices de leads_avaliacao: {e}")
     # Índices do módulo Prospecção (campanhas B2B) — idempotente.

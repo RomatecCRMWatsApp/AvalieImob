@@ -150,6 +150,23 @@ async def listar_cadastros(
             "canais_geral": resumo_geral, "cadastros": no_periodo}
 
 
+@router.get("/blog")
+async def metricas_blog(
+    dias: int = Query(default=30, ge=1, le=3650),
+    db=Depends(get_db),
+):
+    """Funil por artigo do blog: leituras → cliques nos botões → cadastros → teste/assinatura."""
+    from services import blog_metricas as BM
+
+    eventos = await db[BM.COL].find({"dia": {"$gte": BM.dia_corte(dias)}}).to_list(20000)
+    usuarios = await db.users.find(
+        {"page_origin": {"$regex": "^/blog/"}},
+        {"page_origin": 1, "created_at": 1, "plan": 1, "plan_status": 1, "trial": 1,
+         "last_login_at": 1, "login_count": 1},
+    ).to_list(5000)
+    return BM.resumo(eventos, usuarios, dias)
+
+
 # ── Notificações por e-mail (lead imediato + resumo periódico) ──────────────
 class NotificacoesBody(BaseModel):
     email_lead_ativo: Optional[bool] = None
