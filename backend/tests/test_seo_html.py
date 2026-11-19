@@ -102,7 +102,10 @@ def test_blog_slugs_batem_com_o_frontend():
     import re
     posts = (RAIZ / "frontend/src/data/blogPosts.js").read_text(encoding="utf-8")
     app = (RAIZ / "frontend/src/App.js").read_text(encoding="utf-8")
-    slugs_posts = set(re.findall(r"slug: '([^']+)'", posts))
+    import json as _json
+    slugs_posts = set(re.findall(r"slug: '([^']+)'", posts)) | {
+        _json.loads(f.read_text(encoding="utf-8"))["slug"]
+        for f in (RAIZ / "frontend/src/data/blog").glob("*.json")}
     slugs_rotas = set(re.findall(r'path="/blog/([^"/:]+)"', app))
     assert slugs_posts == S.BLOG_SLUGS, f"Atualize BLOG_SLUGS em seo_html: {slugs_posts ^ S.BLOG_SLUGS}"
     assert slugs_rotas == S.BLOG_SLUGS, f"Rota de blog sem slug (ou vice-versa): {slugs_rotas ^ S.BLOG_SLUGS}"
@@ -115,3 +118,48 @@ def test_artigo_inexistente_404_e_artigo_real_200():
     assert S.status_para("/blog") == 200
     assert S.eh_noindex("/blog/nao-existe-esse-artigo") or "noindex" in S.montar_html(
         "<html><head><title>x</title></head><body><div id=\"root\"></div></body></html>", "/blog/nao-existe-esse-artigo")
+
+
+def _html_artigo(slug):
+    html = "<html><head><title>x</title><link rel=\"canonical\" href=\"https://x/\" />" \
+           "<meta name=\"description\" content=\"x\" /></head><body><div id=\"root\"></div></body></html>"
+    return S.montar_html(html, "/blog/" + slug)
+
+
+def test_artigos_migrados_entregam_o_texto_completo_no_html_inicial():
+    """Fonte única: todo texto do JSON do artigo aparece no HTML inicial (antes do JS)."""
+    import html as _h
+    import json as _json
+    arquivos = sorted((RAIZ / "frontend/src/data/blog").glob("*.json"))
+    assert len(arquivos) >= 3
+    for f in arquivos:
+        a = _json.loads(f.read_text(encoding="utf-8"))
+        assert a["slug"] + ".json" == f.name and a["slug"] in S.BLOG_SLUGS
+        out = _html_artigo(a["slug"])
+        assert f"<title>{_h.escape(a['titulo'])} | Blog AvalieImob</title>" in out
+        assert out.count("<h1>") == 1 and _h.escape(a["titulo"]) in out
+        assert f'href="https://www.romatecavalieimob.com.br/blog/{a["slug"]}"' in out
+        textos = []
+        for b in a["conteudo"]:
+            for k in ("h2", "h3", "p", "callout", "cta", "linkTexto", "tabelaNota"):
+                if b.get(k):
+                    textos.append(b[k])
+            textos += b.get("lista") or []
+            textos += b.get("listaOrd") or []
+            for linha in (b.get("tabela") or {}).get("linhas", []):
+                textos += linha
+            if b.get("link"):
+                assert f'href="{_h.escape(b["link"])}"' in out
+        faltando = [t for t in textos if _h.escape(t, quote=True) not in out]
+        assert not faltando, f"{a['slug']}: texto da tela ausente do HTML inicial: {faltando[:3]}"
+
+
+def test_componente_do_artigo_migrado_le_o_json():
+    """Garante que a tela renderiza o MESMO arquivo que o servidor (sem cópia do texto no JSX)."""
+    import json as _json
+    for f in (RAIZ / "frontend/src/data/blog").glob("*.json"):
+        a = _json.loads(f.read_text(encoding="utf-8"))
+        comps = [c for c in (RAIZ / "frontend/src/pages/blog").glob("*.jsx")
+                 if f"data/blog/{a['slug']}.json" in c.read_text(encoding="utf-8")]
+        assert len(comps) == 1, f"{a['slug']}: nenhum componente importa o JSON"
+        assert "conteudo={[" not in comps[0].read_text(encoding="utf-8")

@@ -20,6 +20,8 @@ atualize PAGINAS.
 import html as _html
 import json
 import re
+from functools import lru_cache
+from pathlib import Path
 
 from services import planos as _planos
 
@@ -186,6 +188,85 @@ def _bloco(info: dict) -> str:
     )
 
 
+# ── Artigos do blog com texto completo no HTML inicial ─────────────────────────
+# Fonte ÚNICA: frontend/src/data/blog/<slug>.json. O React renderiza esse arquivo; o
+# prebuild (scripts/genblogseo.js) junta todos em build/blog-seo.json, que é o que existe
+# no container (o src não vai para a imagem). Em dev/teste, lê direto do src.
+_FRONT = Path(__file__).resolve().parents[2] / "frontend"
+
+
+@lru_cache(maxsize=1)
+def carregar_artigos() -> dict:
+    empacotado = _FRONT / "build" / "blog-seo.json"
+    try:
+        if empacotado.exists():
+            return json.loads(empacotado.read_text(encoding="utf-8"))
+        pasta = _FRONT / "src" / "data" / "blog"
+        return {f.stem: json.loads(f.read_text(encoding="utf-8"))
+                for f in sorted(pasta.glob("*.json"))} if pasta.exists() else {}
+    except Exception:  # arquivo ruim nunca derruba o site: cai no HTML genérico
+        return {}
+
+
+def _bloco_conteudo(b: dict) -> str:
+    """Um bloco do artigo, com a MESMA estrutura do BlogPostTemplate.renderBloco."""
+    e = _esc
+    if b.get("h2"):
+        return f"<h2>{e(b['h2'])}</h2>"
+    if b.get("h3"):
+        return f"<h3>{e(b['h3'])}</h3>"
+    if b.get("tabela"):
+        t = b["tabela"]
+        cab = "".join(f"<th>{e(c)}</th>" for c in t.get("cabecalho", []))
+        lin = "".join("<tr>" + "".join(f"<td>{e(c)}</td>" for c in l) + "</tr>"
+                      for l in t.get("linhas", []))
+        nota = f"<p>{e(b['tabelaNota'])}</p>" if b.get("tabelaNota") else ""
+        return f"<table><thead><tr>{cab}</tr></thead><tbody>{lin}</tbody></table>{nota}"
+    if b.get("link"):
+        p = f"<p>{e(b['p'])}</p>" if b.get("p") else ""
+        return f'{p}<p><a href="{e(b["link"])}">{e(b.get("linkTexto") or "Saiba mais →")}</a></p>'
+    if b.get("p"):
+        return f"<p>{e(b['p'])}</p>"
+    if b.get("lista"):
+        return "<ul>" + "".join(f"<li>{e(i)}</li>" for i in b["lista"]) + "</ul>"
+    if b.get("listaOrd"):
+        return "<ol>" + "".join(f"<li>{e(i)}</li>" for i in b["listaOrd"]) + "</ol>"
+    if b.get("callout"):
+        tit = f"<strong>{e(b['calloutTitulo'])}</strong> " if b.get("calloutTitulo") else ""
+        return f"<aside><p>{tit}{e(b['callout'])}</p></aside>"
+    if b.get("cta"):
+        return (f"<p>{e(b['cta'])}</p>"
+                f'<p><a href="{e(b.get("ctaLink") or "/cadastro")}">{e(b.get("ctaTexto") or "Começar grátis →")}</a></p>')
+    return ""
+
+
+def _bloco_artigo(a: dict) -> str:
+    e = _esc
+    corpo = "".join(_bloco_conteudo(b) for b in a.get("conteudo") or [] if isinstance(b, dict))
+    servicos = "".join(f'<li><a href="/{e(s.get("slug", ""))}">{e(s.get("titulo", ""))}</a></li>'
+                       for s in a.get("servicosRelacionados") or [])
+    servicos = f"<h3>Serviços relacionados</h3><ul>{servicos}</ul>" if servicos else ""
+    resumo = f"<p><strong>Resumo executivo:</strong> {e(a['resumo'])}</p>" if a.get("resumo") else ""
+    sub = f"<p>{e(a['subtitulo'])}</p>" if a.get("subtitulo") else ""
+    return (
+        '<div data-seo-inicial style="font-family:system-ui,sans-serif;max-width:760px;'
+        'margin:0 auto;padding:32px 20px;color:#1f2937;line-height:1.7">'
+        '<nav aria-label="breadcrumb"><a href="/">Início</a> › <a href="/blog">Blog</a></nav>'
+        f'<article><h1>{e(a.get("titulo"))}</h1>{sub}'
+        f'<p><small>Por {e(a.get("autor") or "José Romário Pinto Bezerra")} · '
+        f'{e(a.get("tempoLeitura") or "")} de leitura</small></p>'
+        f'{resumo}{corpo}{servicos}</article>'
+        '<p><a href="/cadastro">Teste grátis</a> · <a href="/planos">Planos</a> · '
+        '<a href="/blog">Mais artigos</a></p></div>'
+    )
+
+
+def artigo_do_path(p: str):
+    if not p.startswith("/blog/"):
+        return None
+    return carregar_artigos().get(p[len("/blog/"):])
+
+
 def _noindex(html: str) -> str:
     # Sem canonical: "noindex" + canonical para a home seriam sinais contraditórios.
     html = re.sub(r'\s*<link\s+rel=["\']canonical["\'][^>]*>', "", html, count=1, flags=re.I)
@@ -259,6 +340,11 @@ def montar_html(html: str, path: str) -> str:
     html = _sub_attr(html, r'(<link\s+rel=["\']canonical["\']\s+href=["\'])(.*?)(["\'])', _esc(url))
     html = _sub_attr(html, r'(<meta\s+property=["\']og:url["\']\s+content=["\'])(.*?)(["\'])', _esc(url))
     info = PAGINAS.get(CANONICAL_DE.get(p, p))
+    artigo = artigo_do_path(p)
+    if artigo:
+        # Mesmo título que o Helmet do BlogPostTemplate põe depois do JavaScript.
+        info = {"titulo": f"{artigo.get('titulo', '')} | Blog AvalieImob",
+                "descricao": artigo.get("meta") or artigo.get("resumo") or ""}
     if info and p != "/":
         t, d = _esc(info["titulo"]), _esc(info["descricao"])
         for pat, val in (
@@ -272,4 +358,5 @@ def montar_html(html: str, path: str) -> str:
             html = _sub_attr(html, pat, val)
     if p == "/planos":
         html = html.replace("</head>", _json_ld(schema_planos()) + "</head>", 1)
-    return html.replace('<div id="root"></div>', f'<div id="root">{_bloco(info)}</div>', 1)
+    bloco = _bloco_artigo(artigo) if artigo else _bloco(info)
+    return html.replace('<div id="root"></div>', f'<div id="root">{bloco}</div>', 1)

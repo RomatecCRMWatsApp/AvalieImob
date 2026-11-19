@@ -2,6 +2,18 @@
 // Usado pelo indice (Blog.jsx) e por cada artigo para listar "Continue lendo".
 // Ordem: mais recente primeiro.
 
+// Artigos migrados para data/blog/<slug>.json (fonte única com o HTML do servidor):
+// a metadata vem do próprio arquivo, para não haver duas cópias do título/descrição.
+import artigoRural from './blog/avaliacao-imovel-rural-nbr-14653-3-guia-completo.json';
+import artigoPtam from './blog/como-fazer-ptam-passo-a-passo-nbr-14653.json';
+import artigoVlf from './blog/como-calcular-valor-liquidacao-forcada-vlf.json';
+
+const meta_ = (a) => ({
+  slug: a.slug, titulo: a.titulo, meta: a.meta, categoria: a.categoria,
+  dataPublicacao: a.dataPublicacao, dataAtualizacao: a.dataAtualizacao,
+  tempoLeitura: a.tempoLeitura, resumo: a.resumo,
+});
+
 export const BLOG_POSTS = [
   {
     slug: 'checklist-vistoria-avaliacao-imobiliaria-ptam',
@@ -103,16 +115,7 @@ export const BLOG_POSTS = [
     tempoLeitura: '11 min',
     resumo: 'Os Graus de Fundamentação (I, II, III) e Precisão são o "selo de qualidade" do laudo de avaliação. Em ações judiciais e bancos grandes, Grau III é obrigatório. Veja como calcular cada um, a tabela de pontuação detalhada e como subir o grau sem trabalho extra excessivo.',
   },
-  {
-    slug: 'como-fazer-ptam-passo-a-passo-nbr-14653',
-    titulo: 'Como fazer um PTAM passo a passo conforme NBR 14.653',
-    meta: 'Aprenda como fazer um PTAM (Parecer Técnico de Avaliação Mercadológica) do zero, conforme NBR 14.653 e Resolução COFECI 1.066/2007: etapas, modelo comentado e checklist de revisão.',
-    categoria: 'Tutorial',
-    dataPublicacao: '2026-04-15',
-    dataAtualizacao: '2026-11-19',
-    tempoLeitura: '15 min',
-    resumo: 'Um PTAM bem estruturado percorre 6 etapas, seguindo os requisitos da NBR 14.653: identificação do imóvel, vistoria, pesquisa de mercado, escolha do método avaliatório, cálculo do valor e conclusão. Veja o passo a passo, o modelo comentado seção por seção e o checklist de revisão.',
-  },
+  meta_(artigoPtam),
   {
     slug: 'diferenca-ptam-laudo-avaliacao-imobiliaria',
     titulo: 'Qual a diferença entre PTAM e Laudo de Avaliação Imobiliária?',
@@ -123,26 +126,8 @@ export const BLOG_POSTS = [
     tempoLeitura: '8 min',
     resumo: 'PTAM e Laudo de Avaliação são documentos similares mas com finalidades, profundidade técnica e peso jurídico diferentes. Saiba quando emitir cada um e os requisitos legais para corretores, engenheiros e arquitetos.',
   },
-  {
-    slug: 'avaliacao-imovel-rural-nbr-14653-3-guia-completo',
-    titulo: 'Avaliação de imóvel rural: guia completo NBR 14.653-3',
-    meta: 'Guia completo para avaliação de imóveis rurais conforme NBR 14.653-3: terra nua, benfeitorias, semoventes, safras, equipamentos. Para penhor rural, Pronaf, Pronamp e perícia.',
-    categoria: 'Avaliação Rural',
-    dataPublicacao: '2026-04-29',
-    dataAtualizacao: '2026-05-04',
-    tempoLeitura: '15 min',
-    resumo: 'Avaliar imóveis rurais exige conhecimento técnico em terra nua, benfeitorias produtivas e reprodutivas, semoventes, safras e equipamentos. Veja como cada componente é avaliado conforme NBR 14.653-3 e o que bancos exigem para penhor rural.',
-  },
-  {
-    slug: 'como-calcular-valor-liquidacao-forcada-vlf',
-    titulo: 'Como calcular o Valor de Liquidação Forçada (VLF) corretamente',
-    meta: 'Aprenda como calcular o Valor de Liquidação Forçada (VLF) para garantias bancárias. Fatores de liquidez, atratividade e prazo. Exemplo prático com cálculo passo a passo.',
-    categoria: 'Garantias Bancárias',
-    dataPublicacao: '2026-05-03',
-    dataAtualizacao: '2026-05-04',
-    tempoLeitura: '10 min',
-    resumo: 'O Valor de Liquidação Forçada (VLF) é exigido por bancos em laudos de garantia. Representa o valor estimado em venda forçada (leilão), considerando fatores de liquidez, atratividade e prazo. Veja como calcular conforme metodologia BB, Caixa e Itaú.',
-  },
+  meta_(artigoRural),
+  meta_(artigoVlf),
 ];
 
 export function getPostBySlug(slug) {

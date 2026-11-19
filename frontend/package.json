@@ -62,7 +62,7 @@
   },
   "scripts": {
     "start": "craco start",
-    "prebuild": "node scripts/genversion.js",
+    "prebuild": "node scripts/genversion.js && node scripts/genblogseo.js",
     "build": "craco build",
     "test": "craco test",
     "icons": "node scripts/build-icons.mjs"
