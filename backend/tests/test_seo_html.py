@@ -131,7 +131,7 @@ def test_artigos_migrados_entregam_o_texto_completo_no_html_inicial():
     import html as _h
     import json as _json
     arquivos = sorted((RAIZ / "frontend/src/data/blog").glob("*.json"))
-    assert len(arquivos) >= 3
+    assert {f.stem for f in arquivos} == set(S.BLOG_SLUGS), "todo artigo do blog precisa do JSON"
     for f in arquivos:
         a = _json.loads(f.read_text(encoding="utf-8"))
         assert a["slug"] + ".json" == f.name and a["slug"] in S.BLOG_SLUGS
@@ -163,3 +163,50 @@ def test_componente_do_artigo_migrado_le_o_json():
                  if f"data/blog/{a['slug']}.json" in c.read_text(encoding="utf-8")]
         assert len(comps) == 1, f"{a['slug']}: nenhum componente importa o JSON"
         assert "conteudo={[" not in comps[0].read_text(encoding="utf-8")
+    for c in (RAIZ / "frontend/src/pages/blog").glob("*.jsx"):
+        assert "conteudo={[" not in c.read_text(encoding="utf-8"), f"{c.name}: texto ainda no JSX"
+
+
+SERVICOS_ROTAS = ("ptam", "laudo-tecnico", "avaliacao-rural", "avaliacao-garantia", "avaliacao-urbana")
+
+
+def test_paginas_de_servico_entregam_o_texto_completo_no_html_inicial():
+    """Mesma fonte da tela (data/servicos/<slug>.json): todo texto aparece antes do JavaScript."""
+    import html as _h
+    import json as _json
+    arquivos = {f.stem: f for f in (RAIZ / "frontend/src/data/servicos").glob("*.json")}
+    assert set(arquivos) == set(SERVICOS_ROTAS)
+    for slug, f in arquivos.items():
+        sv = _json.loads(f.read_text(encoding="utf-8"))
+        assert sv["slug"] == slug
+        out = S.montar_html(INDEX, "/" + slug)
+        assert f"<title>{_h.escape(sv['titulo'])} | AvalieImob - RomaTec</title>" in out
+        assert out.count("<h1>") == 1
+        textos = [sv["titulo"], sv["subtitulo"], sv["hero"], sv["ctaTitulo"], sv["ctaTexto"]]
+        textos += sv["intro"] + sv["publicoAlvo"]
+        for i in sv["beneficios"] + sv["comoFunciona"]:
+            textos += [i["titulo"], i["descricao"]]
+        for q in sv["faq"]:
+            textos += [q["q"], q["a"]]
+        faltando = [t for t in textos if _h.escape(t, quote=True) not in out]
+        assert not faltando, f"{slug}: texto da tela ausente do HTML inicial: {faltando[:3]}"
+        # links internos apontam para a URL canônica, não para /servicos/ (noindex)
+        assert 'href="/servicos/' not in out
+
+
+def test_componentes_de_servico_leem_o_json_e_links_batem():
+    tpl = (RAIZ / "frontend/src/pages/ServicoTemplate.jsx").read_text(encoding="utf-8")
+    for slug, titulo in S._SERVICOS_LINKS:
+        assert f"{{ slug: '{slug}', titulo: '{titulo}' }}" in tpl
+    assert "`/servicos/${s.slug}`" not in tpl
+    for c in (RAIZ / "frontend/src/pages").glob("Servico*.jsx"):
+        if c.name == "ServicoTemplate.jsx":
+            continue
+        txt = c.read_text(encoding="utf-8")
+        assert "../data/servicos/" in txt and "intro={[" not in txt, c.name
+
+
+def test_index_html_sem_faq_invisivel_e_sem_promessa_de_conformidade_total():
+    """Perguntas frequentes só vão em dados estruturados quando aparecem na página."""
+    assert '"FAQPage"' not in INDEX
+    assert "partes 1 a 7" not in INDEX

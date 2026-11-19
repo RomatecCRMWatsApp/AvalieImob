@@ -1,12 +1,26 @@
 // @module data/blogPosts — metadata central dos artigos do blog
 // Usado pelo indice (Blog.jsx) e por cada artigo para listar "Continue lendo".
 // Ordem: mais recente primeiro.
-
-// Artigos migrados para data/blog/<slug>.json (fonte única com o HTML do servidor):
-// a metadata vem do próprio arquivo, para não haver duas cópias do título/descrição.
-import artigoRural from './blog/avaliacao-imovel-rural-nbr-14653-3-guia-completo.json';
-import artigoPtam from './blog/como-fazer-ptam-passo-a-passo-nbr-14653.json';
-import artigoVlf from './blog/como-calcular-valor-liquidacao-forcada-vlf.json';
+//
+// Cada artigo mora em data/blog/<slug>.json — FONTE ÚNICA: o componente renderiza o arquivo,
+// o servidor (services/seo_html) entrega o mesmo texto no HTML inicial e a metadata abaixo
+// vem do próprio arquivo (sem segunda cópia de título/descrição).
+// ARTIGO NOVO: crie o JSON (slug = nome do arquivo), importe aqui e acrescente o slug
+// em backend/services/seo_html.BLOG_SLUGS.
+import a_checklist_vistoria_avaliacao_imobiliaria_ptam from './blog/checklist-vistoria-avaliacao-imobiliaria-ptam.json';
+import a_ficha_resumo_contrato_locacao_comercial from './blog/ficha-resumo-contrato-locacao-comercial.json';
+import a_inferencia_estatistica_avaliacao_imoveis_tratamento_cientifico from './blog/inferencia-estatistica-avaliacao-imoveis-tratamento-cientifico.json';
+import a_contrato_exclusividade_procuracao_corretor_imoveis from './blog/contrato-exclusividade-procuracao-corretor-imoveis.json';
+import a_assinatura_icp_brasil_laudos_contratos_validade_juridica from './blog/assinatura-icp-brasil-laudos-contratos-validade-juridica.json';
+import a_precificar_georreferenciamento_demarcacao_averbacao_proposta from './blog/precificar-georreferenciamento-demarcacao-averbacao-proposta.json';
+import a_como_emitir_art_rrt_trt_avaliacao_imobiliaria from './blog/como-emitir-art-rrt-trt-avaliacao-imobiliaria.json';
+import a_avaliacao_imovel_inventario_partilha from './blog/avaliacao-imovel-inventario-partilha.json';
+import a_metodo_comparativo_direto_passo_a_passo from './blog/metodo-comparativo-direto-passo-a-passo.json';
+import a_grau_fundamentacao_precisao_nbr_14653 from './blog/grau-fundamentacao-precisao-nbr-14653.json';
+import a_como_fazer_ptam_passo_a_passo_nbr_14653 from './blog/como-fazer-ptam-passo-a-passo-nbr-14653.json';
+import a_diferenca_ptam_laudo_avaliacao_imobiliaria from './blog/diferenca-ptam-laudo-avaliacao-imobiliaria.json';
+import a_avaliacao_imovel_rural_nbr_14653_3_guia_completo from './blog/avaliacao-imovel-rural-nbr-14653-3-guia-completo.json';
+import a_como_calcular_valor_liquidacao_forcada_vlf from './blog/como-calcular-valor-liquidacao-forcada-vlf.json';
 
 const meta_ = (a) => ({
   slug: a.slug, titulo: a.titulo, meta: a.meta, categoria: a.categoria,
@@ -15,120 +29,21 @@ const meta_ = (a) => ({
 });
 
 export const BLOG_POSTS = [
-  {
-    slug: 'checklist-vistoria-avaliacao-imobiliaria-ptam',
-    titulo: 'Checklist de vistoria para avaliação imobiliária: o que registrar antes do PTAM',
-    meta: 'O que conferir antes da visita, o que registrar em campo e como organizar fotos, divergências de área e limitações para elaborar o PTAM com segurança.',
-    categoria: 'PTAM e Avaliação',
-    dataPublicacao: '2026-11-19',
-    dataAtualizacao: '2026-11-19',
-    tempoLeitura: '9 min',
-    resumo: 'A vistoria para avaliação serve para registrar as características do imóvel e confrontá-las com os documentos. Um checklist ajuda a não esquecer áreas, conservação, benfeitorias, localização e fotografias. Ele não substitui o julgamento do avaliador nem uma investigação especializada de problemas construtivos.',
-  },
-  {
-    slug: 'ficha-resumo-contrato-locacao-comercial',
-    titulo: 'Ficha-resumo de contrato de locação comercial: modelo e exemplo para corretores',
-    meta: 'Como montar a ficha-resumo de um contrato de locação comercial: campos, fonte de cada informação, garantias (art. 37 da Lei 8.245/1991), renovação (art. 51) e exemplo fictício.',
-    categoria: 'Contratos',
-    dataPublicacao: '2026-11-19',
-    dataAtualizacao: '2026-11-19',
-    tempoLeitura: '9 min',
-    resumo: 'A ficha-resumo de locação reúne as informações essenciais de um contrato em uma ou duas páginas de consulta rápida. Ela ajuda o corretor a localizar valores, datas e obrigações sem reler o contrato inteiro, mas não substitui o contrato original nem a análise jurídica. Cada informação deve indicar a cláusula ou a página de onde foi tirada.',
-  },
-  {
-    slug: 'inferencia-estatistica-avaliacao-imoveis-tratamento-cientifico',
-    titulo: 'Inferência estatística na avaliação de imóveis: o tratamento científico que sustenta o Grau III',
-    meta: 'Como funciona o tratamento científico (MCDDM por inferência estatística) na avaliação de imóveis: regressão sobre a amostra de mercado, testes de pressupostos, intervalo de predição de 80% e enquadramento no Grau III da NBR 14.653-2 e 14.653-3.',
-    categoria: 'Metodologia',
-    dataPublicacao: '2026-08-24',
-    dataAtualizacao: '2026-08-24',
-    tempoLeitura: '12 min',
-    resumo: 'Perícia judicial, desapropriação e servidão administrativa costumam exigir Grau III de fundamentação — e o tratamento por fatores raramente chega lá. O caminho é a inferência estatística: uma regressão sobre os dados de mercado, com os pressupostos testados e o intervalo de predição declarado. Veja o que a norma cobra em cada item, como ler os testes e o que derruba o Grau III na hora.',
-  },
-  {
-    slug: 'contrato-exclusividade-procuracao-corretor-imoveis',
-    titulo: 'Contrato de Exclusividade com Procuração: como funciona e por que usar',
-    meta: 'Entenda o contrato de exclusividade de corretagem com procuração: base legal (art. 726 do Código Civil, COFECI/CRECI), cláusulas essenciais, prazo, comissão e como gerar e assinar digitalmente.',
-    categoria: 'Contratos',
-    dataPublicacao: '2026-06-16',
-    dataAtualizacao: '2026-06-16',
-    tempoLeitura: '10 min',
-    resumo: 'O contrato de exclusividade garante ao corretor o direito à comissão em qualquer venda durante a vigência (art. 726 do CC) e, somado a uma procuração, o autoriza a obter certidões, IPTU e o extrato de saldo devedor do imóvel. Veja as cláusulas essenciais, o prazo ideal e como gerar e assinar tudo digitalmente.',
-  },
-  {
-    slug: 'assinatura-icp-brasil-laudos-contratos-validade-juridica',
-    titulo: 'Assinatura ICP-Brasil em laudos e contratos: validade jurídica',
-    meta: 'Como funciona a assinatura digital ICP-Brasil (PAdES) em PTAMs, contratos e documentos avulsos. Base legal (MP 2.200-2/2001, Lei 14.063/2020), diferença para a assinatura eletrônica do cliente e passo a passo.',
-    categoria: 'Assinatura Digital',
-    dataPublicacao: '2026-06-16',
-    dataAtualizacao: '2026-06-16',
-    tempoLeitura: '9 min',
-    resumo: 'A assinatura ICP-Brasil dá presunção de autenticidade e integridade aos seus laudos e contratos (MP 2.200-2/2001). Entenda a diferença entre o certificado ICP-Brasil do profissional e a assinatura eletrônica do cliente (Lei 14.063/2020), e como posicionar o carimbo na página de forma simples.',
-  },
-  {
-    slug: 'precificar-georreferenciamento-demarcacao-averbacao-proposta',
-    titulo: 'Como precificar georreferenciamento, demarcação e averbação',
-    meta: 'Guia para montar propostas de consultoria de georreferenciamento (INCRA/SIGEF), demarcação de lotes, desmembramento, remembramento e averbação de construção. Honorários, emolumentos (TJMA), ART/TRT e parcelamento.',
-    categoria: 'Consultoria',
-    dataPublicacao: '2026-06-16',
-    dataAtualizacao: '2026-06-16',
-    tempoLeitura: '11 min',
-    resumo: 'Precificar serviços de agrimensura e regularização exige separar honorários técnicos, emolumentos de cartório e taxas. Veja como estruturar propostas de georreferenciamento (INCRA/SIGEF), demarcação, desmembramento, remembramento e averbação — com os componentes que não podem faltar e como gerar a proposta automaticamente.',
-  },
-  {
-    slug: 'como-emitir-art-rrt-trt-avaliacao-imobiliaria',
-    titulo: 'Como emitir ART, RRT e TRT de avaliação imobiliária — guia completo',
-    meta: 'Guia completo para emitir ART (CREA), RRT (CAU) e TRT (CFT) em laudos de avaliação imobiliária. Quando emitir, valores, prazos, passo a passo e consequências de não emitir.',
-    categoria: 'Tutorial',
-    dataPublicacao: '2026-05-04',
-    dataAtualizacao: '2026-05-04',
-    tempoLeitura: '11 min',
-    resumo: 'Engenheiros emitem ART no CREA, arquitetos emitem RRT no CAU e técnicos emitem TRT no CFT. Sem esses documentos, o laudo de avaliação pode ser invalidado em juízo e você ficar sujeito a multas e suspensão profissional. Veja como emitir cada um passo a passo.',
-  },
-  {
-    slug: 'avaliacao-imovel-inventario-partilha',
-    titulo: 'Avaliação de imóvel para inventário e partilha — guia jurídico',
-    meta: 'Como avaliar imóveis em inventário, partilha por divórcio e dissolução de sociedade. Exigências legais, peso jurídico, NBR 14.653 e como atuar como perito ou assistente técnico.',
-    categoria: 'Perícia',
-    dataPublicacao: '2026-05-04',
-    dataAtualizacao: '2026-05-04',
-    tempoLeitura: '13 min',
-    resumo: 'Avaliações para inventário, divórcio e dissolução de sociedade exigem mais rigor técnico que avaliações comuns — vão parar nas mãos de juízes e advogados. Veja os cuidados específicos, grau de fundamentação mínimo e como precificar esse tipo de trabalho.',
-  },
-  {
-    slug: 'metodo-comparativo-direto-passo-a-passo',
-    titulo: 'Método Comparativo Direto: passo a passo com exemplo prático',
-    meta: 'Como aplicar o Método Comparativo Direto de Dados de Mercado conforme NBR 14.653. Os 6 passos com exemplo prático: pesquisa, homogeneização, tratamento estatístico e conclusão.',
-    categoria: 'Metodologia',
-    dataPublicacao: '2026-05-04',
-    dataAtualizacao: '2026-05-04',
-    tempoLeitura: '14 min',
-    resumo: 'O Método Comparativo Direto é o mais usado em 80% dos PTAMs urbanos. Aprenda os 6 passos completos — da pesquisa de mercado à homogeneização e tratamento estatístico — com exemplo prático de avaliação de apartamento em São Luís/MA.',
-  },
-  {
-    slug: 'grau-fundamentacao-precisao-nbr-14653',
-    titulo: 'Grau de Fundamentação e Precisão: como calcular e enquadrar',
-    meta: 'Aprenda a calcular o Grau de Fundamentação (I, II ou III) e o Grau de Precisão de um laudo conforme NBR 14.653. Tabela de pontuação, exemplo prático e como subir de grau.',
-    categoria: 'Metodologia',
-    dataPublicacao: '2026-05-04',
-    dataAtualizacao: '2026-05-04',
-    tempoLeitura: '11 min',
-    resumo: 'Os Graus de Fundamentação (I, II, III) e Precisão são o "selo de qualidade" do laudo de avaliação. Em ações judiciais e bancos grandes, Grau III é obrigatório. Veja como calcular cada um, a tabela de pontuação detalhada e como subir o grau sem trabalho extra excessivo.',
-  },
-  meta_(artigoPtam),
-  {
-    slug: 'diferenca-ptam-laudo-avaliacao-imobiliaria',
-    titulo: 'Qual a diferença entre PTAM e Laudo de Avaliação Imobiliária?',
-    meta: 'Entenda a diferença entre PTAM e Laudo Técnico de Avaliação. Quando usar cada um, custo, validade jurídica e exigências legais conforme NBR 14.653 e COFECI 1.066/2007.',
-    categoria: 'Conceitos',
-    dataPublicacao: '2026-04-22',
-    dataAtualizacao: '2026-05-04',
-    tempoLeitura: '8 min',
-    resumo: 'PTAM e Laudo de Avaliação são documentos similares mas com finalidades, profundidade técnica e peso jurídico diferentes. Saiba quando emitir cada um e os requisitos legais para corretores, engenheiros e arquitetos.',
-  },
-  meta_(artigoRural),
-  meta_(artigoVlf),
-];
+  a_checklist_vistoria_avaliacao_imobiliaria_ptam,
+  a_ficha_resumo_contrato_locacao_comercial,
+  a_inferencia_estatistica_avaliacao_imoveis_tratamento_cientifico,
+  a_contrato_exclusividade_procuracao_corretor_imoveis,
+  a_assinatura_icp_brasil_laudos_contratos_validade_juridica,
+  a_precificar_georreferenciamento_demarcacao_averbacao_proposta,
+  a_como_emitir_art_rrt_trt_avaliacao_imobiliaria,
+  a_avaliacao_imovel_inventario_partilha,
+  a_metodo_comparativo_direto_passo_a_passo,
+  a_grau_fundamentacao_precisao_nbr_14653,
+  a_como_fazer_ptam_passo_a_passo_nbr_14653,
+  a_diferenca_ptam_laudo_avaliacao_imobiliaria,
+  a_avaliacao_imovel_rural_nbr_14653_3_guia_completo,
+  a_como_calcular_valor_liquidacao_forcada_vlf,
+].map(meta_);
 
 export function getPostBySlug(slug) {
   return BLOG_POSTS.find(p => p.slug === slug);

@@ -14,18 +14,28 @@ Aqui, função PURA sobre o index.html já renderizado:
     no navegador para a home, o "soft 404").
 
 Ao criar rota pública nova no App.js: o teste `tests/test_seo_html.py` lê o App.js e
-quebra se a rota cair em 404 aqui. Ao mudar título/texto de uma página de serviço,
-atualize PAGINAS.
+quebra se a rota cair em 404 aqui. O texto das páginas de serviço e dos artigos vem dos
+JSON do frontend (data/servicos e data/blog) — edite lá, nunca aqui.
 """
 import html as _html
 import json
 import re
 from functools import lru_cache
 from pathlib import Path
+from typing import Optional
 
 from services import planos as _planos
 
 BASE = "https://www.romatecavalieimob.com.br"
+
+# Igual ao SERVICOS_LINKS do ServicoTemplate.jsx (o teste confere).
+_SERVICOS_LINKS = (
+    ("ptam", "PTAM — Parecer Técnico de Avaliação Mercadológica"),
+    ("laudo-tecnico", "Laudo Técnico de Avaliação"),
+    ("avaliacao-rural", "Avaliação de Imóveis Rurais"),
+    ("avaliacao-garantia", "Avaliação de Garantias Bancárias"),
+    ("avaliacao-urbana", "Avaliação de Imóveis Urbanos"),
+)
 
 # Texto copiado das próprias páginas (ServicoTemplate titulo/meta, SEO.jsx, index.html).
 PAGINAS = {
@@ -195,17 +205,27 @@ def _bloco(info: dict) -> str:
 _FRONT = Path(__file__).resolve().parents[2] / "frontend"
 
 
-@lru_cache(maxsize=1)
-def carregar_artigos() -> dict:
-    empacotado = _FRONT / "build" / "blog-seo.json"
+def _carregar(pasta: str, empacotado: str) -> dict:
+    """Lê o pacote do build (produção) ou os JSON de src/ (dev e testes). Nunca levanta."""
     try:
-        if empacotado.exists():
-            return json.loads(empacotado.read_text(encoding="utf-8"))
-        pasta = _FRONT / "src" / "data" / "blog"
+        arq = _FRONT / "build" / empacotado
+        if arq.exists():
+            return json.loads(arq.read_text(encoding="utf-8"))
+        d = _FRONT / "src" / "data" / pasta
         return {f.stem: json.loads(f.read_text(encoding="utf-8"))
-                for f in sorted(pasta.glob("*.json"))} if pasta.exists() else {}
+                for f in sorted(d.glob("*.json"))} if d.exists() else {}
     except Exception:  # arquivo ruim nunca derruba o site: cai no HTML genérico
         return {}
+
+
+@lru_cache(maxsize=1)
+def carregar_artigos() -> dict:
+    return _carregar("blog", "blog-seo.json")
+
+
+@lru_cache(maxsize=1)
+def carregar_servicos() -> dict:
+    return _carregar("servicos", "servicos-seo.json")
 
 
 def _bloco_conteudo(b: dict) -> str:
@@ -259,6 +279,43 @@ def _bloco_artigo(a: dict) -> str:
         '<p><a href="/cadastro">Teste grátis</a> · <a href="/planos">Planos</a> · '
         '<a href="/blog">Mais artigos</a></p></div>'
     )
+
+
+def _bloco_servico(sv: dict) -> str:
+    """Página de serviço com a MESMA estrutura do ServicoTemplate (hero, intro, benefícios,
+    como funciona, público, perguntas frequentes, chamada final e links internos)."""
+    e = _esc
+    def cards(itens):
+        return "".join(f"<h3>{e(i.get('titulo'))}</h3><p>{e(i.get('descricao'))}</p>" for i in itens or [])
+    intro = "".join(f"<p>{e(p)}</p>" for p in sv.get("intro") or [])
+    ben = (f"<h2>Por que escolher o AvalieImob para {e((sv.get('titulo') or '').lower())}?</h2>"
+           + cards(sv.get("beneficios"))) if sv.get("beneficios") else ""
+    passos = ("<h2>Como funciona</h2><ol>" + "".join(
+        f"<li><h3>{e(i.get('titulo'))}</h3><p>{e(i.get('descricao'))}</p></li>"
+        for i in sv["comoFunciona"]) + "</ol>") if sv.get("comoFunciona") else ""
+    publico = ("<h2>Para quem é este serviço</h2><ul>" + "".join(
+        f"<li>{e(p)}</li>" for p in sv["publicoAlvo"]) + "</ul>") if sv.get("publicoAlvo") else ""
+    faq = ("<h2>Perguntas frequentes</h2>" + "".join(
+        f"<details><summary>{e(f.get('q'))}</summary><p>{e(f.get('a'))}</p></details>"
+        for f in sv["faq"]) + "") if sv.get("faq") else ""
+    outros = "".join(f'<li><a href="/{e(s2)}">{e(t)}</a></li>'
+                     for s2, t in _SERVICOS_LINKS if s2 != sv.get("slug"))
+    return (
+        '<div data-seo-inicial style="font-family:system-ui,sans-serif;max-width:860px;'
+        'margin:0 auto;padding:32px 20px;color:#1f2937;line-height:1.7">'
+        '<nav><a href="/">Início</a> · <a href="/planos">Planos</a> · <a href="/blog">Blog</a> · '
+        '<a href="/cadastro">Teste Grátis</a></nav>'
+        f'<main><h1>{e(sv.get("titulo"))}</h1><p>{e(sv.get("subtitulo"))}</p><p>{e(sv.get("hero"))}</p>'
+        '<p><a href="/cadastro">Começar grátis →</a> · <a href="/planos">Ver planos</a></p>'
+        f'{intro}{ben}{passos}{publico}{faq}'
+        f'<h2>{e(sv.get("ctaTitulo"))}</h2><p>{e(sv.get("ctaTexto"))}</p>'
+        '<p><a href="/cadastro">Comece agora grátis →</a></p>'
+        f'<h3>Outros serviços do AvalieImob</h3><ul>{outros}</ul></main></div>'
+    )
+
+
+def servico_do_path(p: str) -> Optional[dict]:
+    return carregar_servicos().get(CANONICAL_DE.get(p, p).lstrip("/")) if p != "/" else None
 
 
 def artigo_do_path(p: str):
@@ -341,6 +398,11 @@ def montar_html(html: str, path: str) -> str:
     html = _sub_attr(html, r'(<meta\s+property=["\']og:url["\']\s+content=["\'])(.*?)(["\'])', _esc(url))
     info = PAGINAS.get(CANONICAL_DE.get(p, p))
     artigo = artigo_do_path(p)
+    servico = None if artigo else servico_do_path(p)
+    if servico:
+        # Mesmo título que o Helmet do ServicoTemplate põe depois do JavaScript.
+        info = {"titulo": f"{servico.get('titulo', '')} | AvalieImob - RomaTec",
+                "descricao": servico.get("meta") or ""}
     if artigo:
         # Mesmo título que o Helmet do BlogPostTemplate põe depois do JavaScript.
         info = {"titulo": f"{artigo.get('titulo', '')} | Blog AvalieImob",
@@ -358,5 +420,5 @@ def montar_html(html: str, path: str) -> str:
             html = _sub_attr(html, pat, val)
     if p == "/planos":
         html = html.replace("</head>", _json_ld(schema_planos()) + "</head>", 1)
-    bloco = _bloco_artigo(artigo) if artigo else _bloco(info)
+    bloco = _bloco_artigo(artigo) if artigo else (_bloco_servico(servico) if servico else _bloco(info))
     return html.replace('<div id="root"></div>', f'<div id="root">{bloco}</div>', 1)

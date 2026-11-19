@@ -105,7 +105,7 @@ export default function ServicoTemplate({
           <nav style={styles.nav}>
             <Link to="/" style={styles.navLink}>Início</Link>
             <Link to="/planos" style={styles.navLink}>Planos</Link>
-            <Link to="/sobre" style={styles.navLink}>Sobre</Link>
+            <Link to="/blog" style={styles.navLink}>Blog</Link>
             <Link to="/cadastro" style={styles.navCTA}>Teste Grátis</Link>
           </nav>
         </header>
@@ -216,7 +216,7 @@ export default function ServicoTemplate({
             <h3 style={{ ...styles.h2, fontSize: 22, marginBottom: 16 }}>Outros serviços do AvalieImob</h3>
             <div style={styles.linksInternos}>
               {SERVICOS_LINKS.filter(s => s.slug !== slug).map(s => (
-                <Link key={s.slug} to={`/servicos/${s.slug}`} style={styles.linkInterno}>
+                <Link key={s.slug} to={`/${s.slug}`} style={styles.linkInterno}>
                   → {s.titulo}
                 </Link>
               ))}
@@ -246,9 +246,9 @@ export const SERVICOS_LINKS = [
 
 const styles = {
   main: { fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif', color: '#1a1916', lineHeight: 1.6 },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 32px', borderBottom: '1px solid #e5e7eb', background: '#fff', position: 'sticky', top: 0, zIndex: 10 },
+  header: { display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'space-between', alignItems: 'center', padding: '14px clamp(16px, 4vw, 32px)', borderBottom: '1px solid #e5e7eb', background: '#fff', position: 'sticky', top: 0, zIndex: 10 },
   logoLink: { color: '#0d4f3c', fontSize: 22, textDecoration: 'none' },
-  nav: { display: 'flex', gap: 20, alignItems: 'center' },
+  nav: { display: 'flex', flexWrap: 'wrap', gap: '8px 16px', alignItems: 'center' },
   navLink: { color: '#4b5563', textDecoration: 'none', fontSize: 14 },
   navCTA: { background: '#0d4f3c', color: '#fff', padding: '8px 16px', borderRadius: 6, textDecoration: 'none', fontSize: 14, fontWeight: 600 },
   hero: { padding: '60px 32px 40px', background: 'linear-gradient(135deg, #0d4f3c 0%, #1a6b52 100%)', color: '#fff' },
