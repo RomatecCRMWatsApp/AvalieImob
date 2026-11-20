@@ -404,3 +404,19 @@ def test_upload_recusa_conteudo_falso():
         assert r.status_code == 400
         r = c.post("/upload/image", files={"file": ("x.html", b"<html></html>", "text/html")})
         assert r.status_code == 400
+
+
+# ── Páginas de Privacidade/Termos existem (antes caíam em 404) e ficam fora do índice ─
+def test_rotas_de_privacidade_existem_e_sao_noindex():
+    from services import seo_html
+    for p in ("/privacidade", "/termos", "/privacidade/solicitacao"):
+        assert seo_html.rota_existe(p), p
+        assert seo_html.eh_noindex(p), p
+
+
+def test_documentos_minuta_versionados():
+    from services.privacidade import documentos
+    for tipo in documentos.TIPOS:
+        d = documentos.carregar(tipo)
+        assert d and d["minuta"] is True and d["versao"].startswith("0.1-minuta")
+    assert documentos.carregar("inexistente") is None

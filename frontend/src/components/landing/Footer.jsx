@@ -152,6 +152,12 @@ const Footer = () => {
             <div>
               <div className="font-display text-lg font-bold text-white">RomaTec AvalieImob</div>
               <div className="text-xs text-emerald-300">© 2026 — Todos os direitos reservados</div>
+              <div className="text-xs text-emerald-300 flex flex-wrap gap-x-3 mt-1">
+                <a href="/privacidade" className="underline hover:text-white">Privacidade</a>
+                <a href="/termos" className="underline hover:text-white">Termos</a>
+                <a href="/privacidade/solicitacao" className="underline hover:text-white">Seus dados</a>
+                <button type="button" onClick={() => window.dispatchEvent(new Event('avalie:preferencias-cookies'))} className="underline hover:text-white">Cookies</button>
+              </div>
             </div>
           </div>
           <div className="flex flex-col sm:flex-row items-center gap-4">

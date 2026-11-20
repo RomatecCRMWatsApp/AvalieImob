@@ -112,7 +112,9 @@ CANONICAL_DE = {
 # com token (laudo, assinatura, aceite, verificação) — dado de cliente não vai pro Google.
 NOINDEX = ("/login", "/esqueci-senha", "/redefinir-senha", "/sso", "/dashboard",
            "/laudo", "/v", "/contrato", "/aceite", "/assinar-cliente", "/assinar-doc",
-           "/assinar-geo", "/assinar", "/verificar", "/avaliacao", "/servicos")
+           "/assinar-geo", "/assinar", "/verificar", "/avaliacao", "/servicos",
+           # Termos/Aviso ainda são MINUTA (docs/privacidade): fora do índice até aprovação.
+           "/privacidade", "/termos")
 
 # Links rastreáveis presentes em toda página pública (as páginas que existem de fato).
 LINKS = [
@@ -133,6 +135,7 @@ _EXATAS = {
     "/avaliacao-urbana", "/avaliacao-imovel", "/avaliacao-imobiliaria", "/blog",
     "/login", "/cadastro", "/esqueci-senha", "/sso", "/como-assinar", "/planos",
     "/quanto-vale-meu-imovel", "/dashboard",
+    "/privacidade", "/privacidade/solicitacao", "/termos",
 }
 _PREFIXOS = (
     "/servicos/", "/redefinir-senha/", "/laudo/", "/v/", "/contrato/",

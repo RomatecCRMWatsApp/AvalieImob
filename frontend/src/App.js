@@ -7,6 +7,7 @@ import { AppLoader } from './components/brand/AppLoader';
 import { Toaster } from './components/ui/toaster';
 import InstallPrompt from './components/common/InstallPrompt';
 import RomaIAWidget from './components/common/RomaIAWidget';
+import CookieConsent from './components/common/CookieConsent';
 import DarkModeToggle from './components/DarkModeToggle';
 import ConsultaWidget from './components/consulta/ConsultaWidget';
 import { BUILD_NUMBER } from './version';
@@ -20,6 +21,8 @@ const Register = lazy(() => import('./pages/Register'));
 const EsqueciSenha = lazy(() => import('./pages/EsqueciSenha'));
 const RedefinirSenha = lazy(() => import('./pages/RedefinirSenha'));
 const SsoRomatecCrm = lazy(() => import('./pages/SsoRomatecCrm'));
+const DocumentoLegal = lazy(() => import('./pages/privacidade/DocumentoLegal'));
+const SolicitacaoTitular = lazy(() => import('./pages/privacidade/SolicitacaoTitular'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const PortalCliente = lazy(() => import('./pages/PortalCliente'));
 const ContratoPublico = lazy(() => import('./pages/ContratoPublico'));
@@ -273,6 +276,9 @@ function App() {
                 <Route path="/como-assinar" element={<ComoAssinar />} />
                 <Route path="/verificar/:hash" element={<VerificarContrato />} />
                 <Route path="/planos" element={<Planos />} />
+                <Route path="/privacidade" element={<DocumentoLegal tipo="privacidade" />} />
+                <Route path="/termos" element={<DocumentoLegal tipo="termos" />} />
+                <Route path="/privacidade/solicitacao" element={<SolicitacaoTitular />} />
                 <Route path="/quanto-vale-meu-imovel" element={<CalculadoraPortal />} />
                 <Route path="/avaliacao/classica" element={<CalculadoraClassica />} />
                 <Route path="/avaliacao/premium" element={<CalculadoraPremium />} />
@@ -283,6 +289,7 @@ function App() {
             </ErrorBoundary>
             <Toaster />
             <InstallPrompt />
+            <CookieConsent />
             <RomaIAWidget />
             <ConsultaWidget />
             <DarkModeToggle />
