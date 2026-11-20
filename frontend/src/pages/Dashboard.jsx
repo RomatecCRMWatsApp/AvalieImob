@@ -41,6 +41,7 @@ import CuponsAdmin from './admin/CuponsAdmin';
 import TrialBanner from '../components/dashboard/TrialBanner';
 import UsuariosAdmin from './admin/UsuariosAdmin';
 import LeadsAdmin from './admin/LeadsAdmin';
+import PrivacidadeAdmin from './admin/PrivacidadeAdmin';
 import DanfseTemas from './admin/DanfseTemas';
 import NfseEmissao from './admin/NfseEmissao';
 import DivulgacaoPage from './admin/DivulgacaoPage';
@@ -527,6 +528,7 @@ const Dashboard = () => {
             <Route path="admin/acessos-teste" element={<CuponsAdmin abaInicial="trials" />} />
             <Route path="admin/usuarios" element={<UsuariosAdmin />} />
             <Route path="admin/leads" element={<LeadsAdmin />} />
+            <Route path="admin/privacidade" element={<PrivacidadeAdmin />} />
             <Route path="admin/danfse" element={<DanfseTemas />} />
             <Route path="admin/nfse-emissao" element={<NfseEmissao />} />
             <Route path="admin/divulgacao" element={<DivulgacaoPage />} />

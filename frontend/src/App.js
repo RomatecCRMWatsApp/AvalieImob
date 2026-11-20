@@ -7,6 +7,7 @@ import { AppLoader } from './components/brand/AppLoader';
 import { Toaster } from './components/ui/toaster';
 import InstallPrompt from './components/common/InstallPrompt';
 import RomaIAWidget from './components/common/RomaIAWidget';
+import ConsentimentoCookies from './components/common/ConsentimentoCookies';
 import DarkModeToggle from './components/DarkModeToggle';
 import ConsultaWidget from './components/consulta/ConsultaWidget';
 import { BUILD_NUMBER } from './version';
@@ -29,6 +30,7 @@ const AssinarDocExt = lazy(() => import('./pages/AssinarDocExt'));
 const AssinarGeoUrbano = lazy(() => import('./pages/AssinarGeoUrbano'));
 const ComoAssinar = lazy(() => import('./pages/ComoAssinar'));
 const Planos = lazy(() => import('./pages/Planos'));
+const Privacidade = lazy(() => import('./pages/Privacidade'));
 const AssinarTestemunha = lazy(() => import('./pages/AssinarTestemunha'));
 const VerificarContrato = lazy(() => import('./pages/VerificarContrato'));
 const CalculadoraPortal = lazy(() => import('./pages/avaliacao/CalculadoraPortal'));
@@ -273,6 +275,7 @@ function App() {
                 <Route path="/como-assinar" element={<ComoAssinar />} />
                 <Route path="/verificar/:hash" element={<VerificarContrato />} />
                 <Route path="/planos" element={<Planos />} />
+                <Route path="/privacidade" element={<Privacidade />} />
                 <Route path="/quanto-vale-meu-imovel" element={<CalculadoraPortal />} />
                 <Route path="/avaliacao/classica" element={<CalculadoraClassica />} />
                 <Route path="/avaliacao/premium" element={<CalculadoraPremium />} />
@@ -284,6 +287,7 @@ function App() {
             <Toaster />
             <InstallPrompt />
             <RomaIAWidget />
+            <ConsentimentoCookies />
             <ConsultaWidget />
             <DarkModeToggle />
           </BrowserRouter>

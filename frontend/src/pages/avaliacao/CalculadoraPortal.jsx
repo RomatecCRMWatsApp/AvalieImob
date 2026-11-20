@@ -110,7 +110,7 @@ export default function CalculadoraPortal() {
                   <input type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" value={v.hp} onChange={(e) => v.setHp(e.target.value)} style={{ position: 'absolute', left: '-9999px', width: 1, height: 1, opacity: 0 }} />
                   <label className="flex items-start gap-2 text-[10px] text-[#bfd2c8] leading-snug cursor-pointer">
                     <input type="checkbox" checked={v.consentimento} onChange={(e) => v.setConsentimento(e.target.checked)} className="mt-0.5 accent-[#C9A84C]" />
-                    <span>Autorizo o contato e o tratamento dos meus dados conforme a <a href="/privacidade" target="_blank" rel="noreferrer" className="underline">Política de Privacidade</a> (LGPD).</span>
+                    <span>Autorizo o contato e o tratamento dos meus dados para responder a esta estimativa — <a href="/privacidade" target="_blank" rel="noreferrer" className="underline">veja como tratamos seus dados</a> (LGPD).</span>
                   </label>
                   <button disabled={v.loading} className="w-full rounded-lg bg-[#C9A84C] py-3 font-semibold text-[#0C3320] transition hover:brightness-105 disabled:opacity-60">
                     {v.loading ? 'Enviando...' : 'Falar com um avaliador'}

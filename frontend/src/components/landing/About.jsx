@@ -4,7 +4,7 @@ import { ShieldCheck, Lock, RefreshCw, Award } from 'lucide-react';
 const About = () => {
   const items = [
     { icon: ShieldCheck, title: 'Segurança', desc: 'Níveis de certificação de segurança da informação.' },
-    { icon: Lock, title: 'Privacidade', desc: 'Total conformidade com a LGPD e dados criptografados.' },
+    { icon: Lock, title: 'Privacidade', desc: 'Tratamento de dados conforme a LGPD, conexão HTTPS e dados isolados por conta.' },
     { icon: RefreshCw, title: 'Sincronização', desc: 'Painel limpo com sincronização em tempo real na nuvem.' },
     { icon: Award, title: 'Certificação', desc: 'Capacitação técnica reconhecida pelo mercado.' },
   ];

@@ -1,0 +1,12 @@
+{
+  "_leia_me": "Identificação do responsável pelo tratamento. Só dados JÁ publicados pelo dono no próprio site (rodapé das páginas de serviço e dados estruturados do index.html). Encarregado (DPO) NÃO definido: decisão pendente do responsável/jurídico. aviso_completo_aprovado só vira true depois da revisão jurídica da minuta em docs/privacidade/minutas/aviso-de-privacidade.md.",
+  "controlador": {
+    "razao_social": "J R P Bezerra LTDA (RomaTec Consultoria Total)",
+    "cnpj": "17.261.987/0001-09",
+    "endereco": "Rua São Raimundo, nº 10, Centro — Açailândia/MA — CEP 65930-000",
+    "email": "contato@romatecavalieimob.com.br"
+  },
+  "encarregado": null,
+  "aviso_completo_aprovado": false,
+  "versao_aviso": null
+}

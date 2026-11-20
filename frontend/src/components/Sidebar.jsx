@@ -61,6 +61,7 @@ const MENU = [
     { id: 'acessos-teste', label: 'Acessos de teste', icon: KeyRound, route: '/dashboard/admin/acessos-teste' },
     { id: 'usuarios', label: 'Usuários', icon: Users, route: '/dashboard/admin/usuarios' },
     { id: 'leads', label: 'Leads', icon: Inbox, route: '/dashboard/admin/leads' },
+    { id: 'privacidade', label: 'Pedidos LGPD', icon: Shield, route: '/dashboard/admin/privacidade' },
     { id: 'prospeccao', label: 'Prospecção', icon: Radar, route: '/dashboard/admin/prospeccao' },
     { id: 'instagram', label: 'Instagram', icon: Instagram, route: '/dashboard/admin/instagram' },
     { id: 'divulgacao', label: 'Divulgação', icon: Megaphone, route: '/dashboard/admin/divulgacao' },

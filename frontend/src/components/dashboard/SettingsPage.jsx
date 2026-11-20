@@ -7,6 +7,7 @@ import { Switch } from '../ui/switch';
 import { useToast } from '../../hooks/use-toast';
 import { useAuth } from '../../contexts/AuthContext';
 import { authAPI, uploadAPI, certificadosAPI, integracoesAPI, perfilAPI } from '../../lib/api';
+import PrivacidadeConta from './PrivacidadeConta';
 
 const MAX_LOGO_SIZE = 2 * 1024 * 1024; // 2 MB
 
@@ -764,6 +765,8 @@ const SettingsPage = () => {
           <Button size="sm" onClick={salvarQuals} disabled={savingQuals}>{savingQuals ? 'Salvando…' : 'Salvar qualidades'}</Button>
         </div>
       </div>
+
+      <PrivacidadeConta />
 
       <div className="bg-white rounded-xl border border-gray-200 p-6">
         <h3 className="font-semibold text-gray-900 mb-4">Preferências</h3>

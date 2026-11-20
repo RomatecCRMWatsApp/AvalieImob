@@ -161,7 +161,7 @@ const Register = () => {
             <Button type="submit" disabled={loading} className="w-full h-11 bg-emerald-900 hover:bg-emerald-800 text-white font-semibold">
               {loading ? 'Criando conta...' : <>Criar conta <ArrowRight className="ml-2 w-4 h-4" /></>}
             </Button>
-            <p className="text-xs text-gray-500 text-center">Ao se cadastrar, você concorda com nossos Termos e Política de Privacidade.</p>
+            <p className="text-xs text-gray-500 text-center">Veja <a href="/privacidade" target="_blank" rel="noreferrer" className="underline">como tratamos seus dados</a>.</p>
           </form>
 
           <div className="mt-6 text-center text-sm text-gray-600">

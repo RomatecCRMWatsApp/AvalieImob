@@ -5,6 +5,7 @@ import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
 import { useToast } from '../../hooks/use-toast';
 import { BRAND } from '../../mock/mock';
+import { abrirPreferencias } from '../../lib/consentimento';
 
 const SPECIALISTS = [
   {
@@ -39,7 +40,11 @@ const Footer = () => {
       toast({ title: 'Preencha todos os campos', variant: 'destructive' });
       return;
     }
-    toast({ title: 'Mensagem enviada!', description: 'Retornaremos em breve.' });
+    // Antes este formulário mostrava "Mensagem enviada!" sem enviar nada a ninguém.
+    // Agora abre o WhatsApp da Romatec com o texto pronto — a pessoa vê e decide enviar.
+    const texto = `Olá! Sou ${form.name} (${form.email}).\n\n${form.message}`;
+    window.open(`https://wa.me/5599991811246?text=${encodeURIComponent(texto)}`, '_blank', 'noopener');
+    toast({ title: 'Abrimos o WhatsApp', description: 'Confira o texto e toque em enviar para falar com a gente.' });
     setForm({ name: '', email: '', message: '' });
   };
 
@@ -138,7 +143,7 @@ const Footer = () => {
                 <Textarea value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} className="bg-white/10 border-white/20 text-white placeholder:text-emerald-200/50 min-h-[120px]" placeholder="Como podemos ajudar?" />
               </div>
               <Button type="submit" className="w-full bg-amber-500 hover:bg-amber-400 text-emerald-950 font-semibold">
-                Enviar mensagem
+                Enviar pelo WhatsApp
                 <Send className="ml-2 w-4 h-4" />
               </Button>
             </div>
@@ -154,6 +159,10 @@ const Footer = () => {
             </div>
           </div>
           <div className="flex flex-col sm:flex-row items-center gap-4">
+            <div className="flex flex-col items-center sm:items-start gap-1 text-xs">
+              <a href="/privacidade" className="text-emerald-200 hover:text-white underline">Privacidade e LGPD</a>
+              <button type="button" onClick={abrirPreferencias} className="text-emerald-200 hover:text-white underline">Preferências de cookies</button>
+            </div>
             <div className="flex items-center gap-2 text-xs text-emerald-300">
               <Phone className="w-3.5 h-3.5 text-emerald-400" />
               <span>Jose Romario: (99) 9 9181-1246</span>

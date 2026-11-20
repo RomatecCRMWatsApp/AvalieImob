@@ -77,9 +77,10 @@ from routes.inferencia import router as inferencia_router
 from routes.integracoes_romatec import router as integracoes_romatec_router
 from routes.inss_obra import router as inss_obra_router
 from routes.blog_metricas import router as blog_metricas_router
+from routes.privacidade import router as privacidade_router, admin_router as privacidade_admin_router
 
 all_routers = [
-    blog_metricas_router,
+    blog_metricas_router, privacidade_router, privacidade_admin_router,
     auth_router, users_router, ptam_router, locacao_router,
     garantias_router, semoventes_router, payments_router,
     uploads_router, admin_router, dashboard_router, ai_router,

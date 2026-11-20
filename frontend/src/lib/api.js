@@ -901,6 +901,17 @@ export const blogMetricasAPI = {
   },
 };
 
+// Privacidade (LGPD art. 18) — canal de titulares e exportação da própria conta.
+export const privacidadeAPI = {
+  tipos: () => api.get('/privacidade/tipos').then((r) => r.data),
+  solicitar: (dados) => api.post('/privacidade/solicitacao', dados).then((r) => r.data),
+  exportarMeusDados: () => api.get('/privacidade/meus-dados', { responseType: 'blob' }),
+  minhas: () => api.get('/privacidade/minhas-solicitacoes').then((r) => r.data),
+  solicitarDaConta: (tipo, descricao) => api.post('/privacidade/minhas-solicitacoes', { tipo, descricao }).then((r) => r.data),
+  adminListar: (status) => api.get('/admin/privacidade/solicitacoes', { params: status ? { status } : {} }).then((r) => r.data),
+  adminAtualizar: (protocolo, dados) => api.patch(`/admin/privacidade/solicitacoes/${protocolo}`, dados).then((r) => r.data),
+};
+
 export const avaliacaoPublicaAPI = {
   estimar: (imovel) => api.post('/avaliacao-publica/estimar', imovel).then((r) => r.data),
   lead: (payload) => api.post('/avaliacao-publica/lead', payload).then((r) => r.data),

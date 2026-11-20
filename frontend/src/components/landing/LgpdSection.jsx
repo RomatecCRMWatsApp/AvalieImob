@@ -8,22 +8,22 @@ const PILARES = [
   {
     icon: ShieldCheck,
     titulo: 'Coleta mínima',
-    desc: 'Pedimos apenas os dados estritamente necessários para prestar o serviço de avaliação imobiliária.',
+    desc: 'No cadastro pedimos só nome, e-mail e senha. Os dados de clientes e imóveis são os que você mesmo registra para o seu trabalho.',
   },
   {
     icon: FileLock,
-    titulo: 'Armazenamento seguro',
-    desc: 'Dados criptografados em repouso e em trânsito (TLS 1.3 + AES-256). Servidores em data centers com certificação ISO 27001.',
+    titulo: 'Acesso protegido',
+    desc: 'Conexão sempre por HTTPS e dados de cada conta isolados: um usuário não acessa os cadastros de outro.',
   },
   {
     icon: KeyRound,
     titulo: 'Senhas com hash bcrypt',
-    desc: 'Senhas são armazenadas apenas como hash bcrypt — nem nossos engenheiros têm acesso à senha original.',
+    desc: 'Senhas são guardadas apenas como hash bcrypt, nunca em texto aberto.',
   },
   {
     icon: Trash2,
-    titulo: 'Direito ao esquecimento',
-    desc: 'Você pode solicitar a exclusão completa dos seus dados a qualquer momento. Atendido em até 15 dias.',
+    titulo: 'Seus direitos',
+    desc: 'Você pode pedir acesso, correção ou eliminação dos seus dados pelo canal de privacidade, mesmo sem ter conta. Cada pedido recebe um protocolo.',
   },
 ];
 
@@ -39,7 +39,7 @@ export default function LgpdSection() {
                 <Lock className="w-10 h-10 text-white" strokeWidth={2.5} />
               </div>
               <div className="flex flex-col leading-none">
-                <span className="text-xs font-semibold tracking-[0.2em] text-gray-500 uppercase mb-1">Certificado</span>
+                <span className="text-xs font-semibold tracking-[0.2em] text-gray-500 uppercase mb-1">Privacidade</span>
                 <span className="text-4xl font-extrabold text-emerald-600 tracking-tight">LGPD</span>
               </div>
             </div>
@@ -47,7 +47,7 @@ export default function LgpdSection() {
               to="/privacidade"
               className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-700 hover:text-emerald-900 hover:underline"
             >
-              Ler nossa Política de Privacidade completa →
+              Privacidade e canal do titular →
             </Link>
           </div>
 
@@ -55,10 +55,10 @@ export default function LgpdSection() {
           <div>
             <div className="text-xs font-semibold tracking-[0.2em] text-emerald-600 mb-3">SEGURANÇA E PRIVACIDADE</div>
             <h2 className="font-display text-3xl md:text-4xl font-bold text-gray-900 leading-tight mb-4">
-              Em conformidade com a LGPD
+              Privacidade e LGPD
             </h2>
             <p className="text-gray-600 mb-8 leading-relaxed">
-              O AvalieImob foi projetado desde o primeiro dia respeitando a Lei Geral de Proteção de Dados (Lei 13.709/2018). Seus dados de cliente, laudos e amostras de mercado ficam isolados e protegidos.
+              O AvalieImob trata dados pessoais seguindo a Lei Geral de Proteção de Dados (Lei 13.709/2018). Seus cadastros de clientes, laudos e amostras de mercado ficam isolados na sua conta.
             </p>
 
             <div className="grid sm:grid-cols-2 gap-4">

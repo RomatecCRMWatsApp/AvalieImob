@@ -28,7 +28,7 @@ export const FEATURES = [
   { id: 8, icon: 'BadgeCheck', title: 'Laudos Personalizados', desc: 'Personalize laudos com sua marca, logotipo, currículo, cartão de regularidade e assinatura.' },
   { id: 9, icon: 'Users', title: 'Cadastro de Clientes', desc: 'Organize seus clientes, imóveis, garantias e histórico em uma base centralizada.' },
   { id: 10, icon: 'Cloud', title: 'Armazenamento na Nuvem', desc: 'Mantenha avaliações, contratos e documentos em um só lugar, com acesso de qualquer dispositivo.' },
-  { id: 11, icon: 'Lock', title: 'Segurança e LGPD', desc: 'Dados criptografados, conformidade com a LGPD e controle de acesso por usuário.' },
+  { id: 11, icon: 'Lock', title: 'Segurança e LGPD', desc: 'Conexão HTTPS, senhas com hash bcrypt, dados isolados por usuário e canal para pedidos de privacidade (LGPD).' },
   { id: 12, icon: 'Headphones', title: 'Suporte Técnico', desc: 'Equipe especializada pronta para ajudar com dúvidas técnicas e operacionais.' },
 ];
 

@@ -94,6 +94,12 @@ PAGINAS = {
         "descricao": ("Guias sobre PTAM, NBR 14.653, avaliação urbana e rural, métodos "
                       "avaliatórios e documentos do avaliador."),
     },
+    "/privacidade": {
+        "titulo": "Privacidade e LGPD | AvalieImob",
+        "h1": "Privacidade e LGPD",
+        "descricao": ("Quem é o responsável pelos dados no AvalieImob e como pedir acesso, "
+                      "correção ou eliminação dos seus dados pessoais."),
+    },
     "/cadastro": {
         "titulo": "Cadastro grátis — Crie sua conta | AvalieImob",
         "h1": "Crie sua conta no AvalieImob",
@@ -131,7 +137,7 @@ LINKS = [
 _EXATAS = {
     "/", "/ptam", "/laudo-tecnico", "/avaliacao-rural", "/avaliacao-garantia",
     "/avaliacao-urbana", "/avaliacao-imovel", "/avaliacao-imobiliaria", "/blog",
-    "/login", "/cadastro", "/esqueci-senha", "/sso", "/como-assinar", "/planos",
+    "/login", "/cadastro", "/esqueci-senha", "/sso", "/como-assinar", "/planos", "/privacidade",
     "/quanto-vale-meu-imovel", "/dashboard",
 }
 _PREFIXOS = (

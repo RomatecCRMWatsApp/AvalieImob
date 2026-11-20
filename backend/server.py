@@ -31,6 +31,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger("romatec")
 
+# Dados pessoais (telefone, e-mail, CPF) e tokens saem mascarados de todos os logs.
+from services import log_redact as _log_redact  # noqa: E402
+_log_redact.instalar()
+
 
 def _cors_origins() -> list[str]:
     raw = os.getenv("CORS_ORIGINS", "")
@@ -660,6 +664,7 @@ app.add_middleware(
 # ── Lifecycle ────────────────────────────────────────────────────────
 @app.on_event("startup")
 async def startup():
+    _log_redact.instalar()  # uvicorn cria os próprios handlers depois do import
     init_db()
     logger.info("MongoDB conectado")
     # Índices de PTAM/CUB/contratos/amostras/cupons/conformidade. Esta função
@@ -750,6 +755,9 @@ async def startup():
         await db.atendimento_conversas.create_index([("atualizado_em", -1)])
         await db.atendimento_conversas.create_index([("estagio", 1), ("criado_em", -1)])
         await db.blog_eventos.create_index([("dia", -1)])
+        await db.privacidade_solicitacoes.create_index("protocolo", unique=True)
+        await db.privacidade_solicitacoes.create_index([("user_id", 1), ("recebida_em", -1)])
+        await db.privacidade_solicitacoes.create_index([("status", 1), ("recebida_em", -1)])
     except Exception as e:
         logger.error(f"Erro ao criar índices de leads_avaliacao: {e}")
     # Índices do módulo Prospecção (campanhas B2B) — idempotente.
