@@ -11,7 +11,7 @@ import {
   ClipboardCheck, FileText, FileSignature, Receipt, Sparkles, FileSearch, Award,
   CreditCard, Settings, LogOut, Globe, Palette, Tag, BadgeCheck, Stamp, Inbox, Calculator,
   Compass, MapPin, Send, Megaphone, Mail, Radar, Instagram, Bell, KeyRound, HardHat,
-  ChevronDown, X, Layers,
+  ChevronDown, X, Layers, Lock,
 } from 'lucide-react';
 import { ptamAPI } from '../lib/api';
 import { BrandMark } from './brand/BrandMark';
@@ -76,6 +76,10 @@ const MENU = [
     { id: 'novidades', label: 'Novidades', icon: Bell, route: '/dashboard/novidades' },
     { id: 'assinatura', label: 'Plano e pagamento', icon: CreditCard, route: '/dashboard/assinatura' },
     { id: 'config', label: 'Configurações', icon: Settings, route: '/dashboard/config' },
+    // Central de Privacidade (LGPD): só aparece quando o build liga a flag
+    ...(process.env.REACT_APP_PRIVACIDADE_RECURSOS_ATIVOS === '1'
+      ? [{ id: 'privacidade', label: 'Privacidade', icon: Lock, route: '/dashboard/privacidade' }]
+      : []),
   ]},
 ];
 

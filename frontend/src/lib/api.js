@@ -1227,3 +1227,26 @@ export const testemunhaPublicoAPI = {
   enviarDocumento: (token, body) => api.post(`/publico/testemunha/${token}/documento`, body).then((r) => r.data),
   assinar: (token, body) => api.post(`/publico/testemunha/${token}/assinar`, body).then((r) => r.data),
 };
+
+// ── Privacidade (LGPD) — canal do titular e Central de Privacidade ──────────────
+// Recursos atrás de flags no backend (PRIVACIDADE_*); com elas desligadas, as rotas
+// de titular/usuário respondem 404 e as telas mostram "em implantação".
+export const privacidadeAPI = {
+  config: () => api.get('/privacidade/config').then((r) => r.data),
+  documento: (tipo) => api.get(`/privacidade/documentos/${tipo}`).then((r) => r.data),
+  abrirPedido: (dados) => api.post('/privacidade/titular/pedidos', dados).then((r) => r.data),
+  verificarPedido: (protocolo, email, codigo) =>
+    api.post(`/privacidade/titular/pedidos/${encodeURIComponent(protocolo)}/verificar`, { email, codigo }).then((r) => r.data),
+  statusPedido: (protocolo, email) =>
+    api.post(`/privacidade/titular/pedidos/${encodeURIComponent(protocolo)}/status`, { email }).then((r) => r.data),
+  me: () => api.get('/privacidade/me').then((r) => r.data),
+  aceitar: (tipo, versao, hash) => api.post('/privacidade/me/aceites', { tipo, versao, hash }).then((r) => r.data),
+  consentir: (finalidade, concedido) =>
+    api.post('/privacidade/me/consentimentos', { finalidade, concedido }).then((r) => r.data),
+  pedidoConta: (tipo_direito, descricao) =>
+    api.post('/privacidade/me/pedidos', { tipo_direito, descricao }).then((r) => r.data),
+  criarExportacao: (formato) => api.post('/privacidade/me/exportacao', { formato }).then((r) => r.data),
+  baixarExportacao: (url) => api.get(url.replace(/^\/api/, ''), { responseType: 'blob' }).then((r) => r.data),
+  assinatura: () => api.get('/privacidade/me/assinatura').then((r) => r.data),
+  arrependimento: () => api.post('/privacidade/me/assinatura/arrependimento').then((r) => r.data),
+};

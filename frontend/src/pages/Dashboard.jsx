@@ -32,6 +32,7 @@ import AIAssistant from '../components/dashboard/AIAssistant';
 import SubscriptionPage from '../components/dashboard/SubscriptionPage';
 import ConfiguracaoInicial from './ConfiguracaoInicial';
 import SettingsPage from '../components/dashboard/SettingsPage';
+import CentralPrivacidade from '../components/dashboard/privacidade/CentralPrivacidade';
 import AssinaturaExternaConfig from '../components/dashboard/AssinaturaExternaConfig';
 import AssinaturasPage from '../components/dashboard/assinatura/AssinaturasPage';
 import PerfilAvaliador from '../components/dashboard/PerfilAvaliador';
@@ -521,6 +522,7 @@ const Dashboard = () => {
             <Route path="assinatura"  element={<SubscriptionPage />} />
             <Route path="configuracao-inicial" element={<ConfiguracaoInicial />} />
             <Route path="config"      element={<SettingsPage />} />
+            <Route path="privacidade" element={<CentralPrivacidade />} />
             <Route path="assinatura-digital" element={<AssinaturaExternaConfig />} />
             <Route path="assinaturas" element={<AssinaturasPage />} />
             <Route path="marca"       element={<BrandingWizard />} />
