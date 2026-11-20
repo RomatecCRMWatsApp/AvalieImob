@@ -6,7 +6,7 @@ import { Link, NavLink, Routes, Route, Navigate, useNavigate } from 'react-route
 import {
   LayoutDashboard, Users, Building2, BarChart3, FileText,
   CreditCard, Settings, LogOut, Menu, X, Bell, FileCheck2, Globe,
-  Search, ChevronDown, User, Shield, Beef, Award, Home, ClipboardCheck, FileSearch, FileSignature, Receipt, Palette, ShieldCheck
+  Search, ChevronDown, User, Shield, Beef, Award, Home, ClipboardCheck, FileSearch, FileSignature, Receipt, Palette, ShieldCheck, CalendarClock
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { APP_VERSION, BUILD_DATE } from '../version';
@@ -62,6 +62,8 @@ import TVIList from '../components/dashboard/tvi/TVIList';
 import TVINew from '../components/dashboard/tvi/TVINew';
 import TVIForm from '../components/dashboard/tvi/TVIForm';
 import VistoriaCampo from '../components/dashboard/tvi/VistoriaCampo';
+import ProcessosList from '../components/dashboard/processos/ProcessosList';
+import ProcessoDetalhe from '../components/dashboard/processos/ProcessoDetalhe';
 import CNDConsulta from '../components/dashboard/cnd/CNDConsulta';
 import CNDHistorico from '../components/dashboard/cnd/CNDHistorico';
 import ConsultaPage from '../components/dashboard/consulta/ConsultaPage';
@@ -107,6 +109,7 @@ const NAV_GROUPS = [
   {
     label: 'Laudos',
     items: [
+      { to: '/dashboard/processos',  icon: CalendarClock, label: 'Processos e Agenda' },
       { to: '/dashboard/ptam',       icon: FileCheck2, label: 'PTAM (Laudos)' },
       { to: '/dashboard/garantias',  icon: Shield,     label: 'Aval. de Garantias' },
       { to: '/dashboard/semoventes', icon: Beef,       label: 'Semoventes' },
@@ -497,6 +500,8 @@ const Dashboard = () => {
             <Route path="tvi"              element={<TVIList />} />
             <Route path="tvi/nova"         element={<TVINew />} />
             <Route path="tvi/campo"        element={<VistoriaCampo />} />
+            <Route path="processos"        element={<ProcessosList />} />
+            <Route path="processos/:id"    element={<ProcessoDetalhe />} />
             <Route path="tvi/:id"          element={<TVIForm />} />
             <Route path="cnd"              element={<CNDConsulta />} />
             <Route path="cnd/historico"    element={<CNDHistorico />} />

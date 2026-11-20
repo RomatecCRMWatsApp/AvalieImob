@@ -47,6 +47,11 @@ CORPOS = {
     ("POST", "/tvi/vistoria/{vid}/share"): {"vistoria_id": ID_B, "canal": "whatsapp", "destinatario": "99999999999"},
     ("POST", "/tvi/vistoria/{vid}/share/email"): {"destinatario": "x@exemplo.com"},
     ("POST", "/tvi/vistoria/{vid}/share/whatsapp"): {"phone": "99999999999"},
+    ("POST", "/processos/{pid}/etapas"): {"titulo": "Etapa invasora"},
+    ("PATCH", "/processos/{pid}/etapas/{eid}"): {"concluida": True},
+    ("POST", "/processos/{pid}/referencias"): {"tipo": "ptam", "id": "x"},
+    ("POST", "/processos/{pid}/agenda"): {"tipo": "vistoria", "inicio": "2026-12-01T13:00:00Z"},
+    ("POST", "/processos/{pid}/agenda/{aid}/acao"): {"acao": "cancelar"},
 }
 
 MODULOS = {
@@ -61,6 +66,10 @@ MODULOS = {
                 {"id": ID_B, "user_id": B, "numero": "REC-2026-0001", "valor": 100.0}),
     "clientes": ("routes.clients", "clients", "cid",
                  {"id": ID_B, "user_id": B, "name": "Cliente de B"}),
+    "processos": ("routes.processos", "processos", "pid",
+                  {"id": ID_B, "user_id": B, "numero": "PROC-2026-0001", "titulo": "Processo de B",
+                   "status": "aberto", "etapas": [], "referencias": [], "agenda": [],
+                   "historico": []}),
 }
 
 
@@ -150,6 +159,7 @@ CONTROLE = {
     "contratos": ("GET", f"/contratos/{ID_B}", None),
     "recibos": ("GET", f"/recibos/{ID_B}", None),
     "clientes": ("PUT", f"/clients/{ID_B}", {"name": "Cliente de B (editado)"}),
+    "processos": ("GET", f"/processos/{ID_B}", None),
 }
 
 

@@ -760,6 +760,13 @@ async def startup():
         await db.privacidade_solicitacoes.create_index([("status", 1), ("recebida_em", -1)])
     except Exception as e:
         logger.error(f"Erro ao criar índices de leads_avaliacao: {e}")
+    try:
+        db = get_db()
+        await db.processos.create_index("id", unique=True)
+        await db.processos.create_index([("user_id", 1), ("updated_at", -1)])
+        await db.processos.create_index([("user_id", 1), ("agenda.inicio", 1)])
+    except Exception as e:
+        logger.error(f"Erro ao criar índices de processos: {e}")
     # Fila offline da vistoria: client_id único por usuário (só onde existe — as
     # vistorias antigas não têm o campo e ficam fora do índice).
     try:

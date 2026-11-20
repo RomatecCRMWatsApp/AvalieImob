@@ -650,6 +650,25 @@ export const certificadosAPI = {
 };
 
 // ---- PTAM extras: Clonar, Recibo de honorários, WhatsApp via Z-API, Telegram
+// ---- Processos de trabalho e agenda de vistorias
+export const processosAPI = {
+  opcoes: () => api.get('/processos/opcoes').then(r => r.data),
+  listar: (params) => api.get('/processos', { params }).then(r => r.data),
+  obter: (id) => api.get(`/processos/${id}`).then(r => r.data),
+  criar: (data) => api.post('/processos', data).then(r => r.data),
+  editar: (id, data) => api.put(`/processos/${id}`, data).then(r => r.data),
+  excluir: (id) => api.delete(`/processos/${id}`).then(r => r.data),
+  novaEtapa: (id, titulo) => api.post(`/processos/${id}/etapas`, { titulo }).then(r => r.data),
+  editarEtapa: (id, eid, data) => api.patch(`/processos/${id}/etapas/${eid}`, data).then(r => r.data),
+  excluirEtapa: (id, eid) => api.delete(`/processos/${id}/etapas/${eid}`).then(r => r.data),
+  documentos: (tipo, q) => api.get('/processos/documentos-disponiveis', { params: { tipo, q } }).then(r => r.data),
+  vincular: (id, tipo, docId) => api.post(`/processos/${id}/referencias`, { tipo, id: docId }).then(r => r.data),
+  desvincular: (id, tipo, docId) => api.delete(`/processos/${id}/referencias/${tipo}/${docId}`).then(r => r.data),
+  agendar: (id, data) => api.post(`/processos/${id}/agenda`, data).then(r => r.data),
+  acaoAgenda: (id, aid, data) => api.post(`/processos/${id}/agenda/${aid}/acao`, data).then(r => r.data),
+  agenda: (params) => api.get('/processos/agenda', { params }).then(r => r.data),
+};
+
 // ---- Linha do tempo de evidências (somente leitura)
 export const evidenciasAPI = {
   ptam: (id) => api.get(`/ptam/${id}/evidencias`).then(r => r.data),

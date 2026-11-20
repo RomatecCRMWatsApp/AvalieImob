@@ -11,7 +11,7 @@ import {
   ClipboardCheck, FileText, FileSignature, Receipt, Sparkles, FileSearch, Award,
   CreditCard, Settings, LogOut, Globe, Palette, Tag, BadgeCheck, Stamp, Inbox, Calculator,
   Compass, MapPin, Send, Megaphone, Mail, Radar, Instagram, Bell, KeyRound, HardHat,
-  ChevronDown, X, Layers,
+  ChevronDown, X, Layers, CalendarClock,
 } from 'lucide-react';
 import { ptamAPI } from '../lib/api';
 import { BrandMark } from './brand/BrandMark';
@@ -28,6 +28,7 @@ const MENU = [
     { id: 'amostras', label: 'Amostras', icon: BarChart3, route: '/dashboard/amostras' },
   ]},
   { id: 'laudos', section: 'Laudos e avaliações', items: [
+    { id: 'processos', label: 'Processos e agenda', icon: CalendarClock, route: '/dashboard/processos' },
     { id: 'ptam', label: 'PTAM e laudos', icon: FileCheck2, route: '/dashboard/ptam', countKey: 'ptam',
       // o tratamento científico (regressão) é aberto de dentro do PTAM — passo 11
       alias: ['/dashboard/inferencia'] },
