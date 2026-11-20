@@ -5,6 +5,16 @@ import os
 
 router = APIRouter(tags=["seed"])
 
+# Rota NÃO registrada em routes/__init__.py (código legado). Mantida sem segredo fixo.
+
+
+def _hash_senha_seed() -> str:
+    from services.auth_service import hash_password
+    senha = os.getenv("SEED_ADMIN_PASSWORD", "")
+    if len(senha) < 12:
+        raise HTTPException(503, "SEED_ADMIN_PASSWORD ausente ou curta (mín. 12)")
+    return hash_password(senha)
+
 @router.post("/seed-admin")
 async def seed_admin(x_seed_token: str | None = Header(default=None)):
     if os.getenv("ENABLE_SEED_ADMIN", "false").lower() != "true":
@@ -27,7 +37,8 @@ async def seed_admin(x_seed_token: str | None = Header(default=None)):
         "email": "admin@romatec.com",
         "cpf_cnpj": "00000000000",
         "telefone": "(99) 99999-9999",
-        "password_hash": "$2b$12$F10KB.hC/fTjhUdjxcBJ0e/3jYAJv.ugf8OPWKw1.3mroa5dTaK1S",  # senha: 430198Ro
+        # Senha vem do ambiente (nunca fixa no código). Ver docs/privacidade/auditoria-e-plano.md.
+        "password_hash": _hash_senha_seed(),
         "plano": "anual",
         "plan_status": "active",
         "role": "admin",
