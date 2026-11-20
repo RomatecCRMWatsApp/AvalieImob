@@ -19,11 +19,18 @@ def _heartbeat(db, uid: str) -> None:
         pass
 
 
+def _recusar_conta_encerrada(u: dict) -> None:
+    """Conta anonimizada/encerrada (LGPD) não acessa mais, mesmo com JWT ainda válido."""
+    if u.get("conta_encerrada"):
+        raise HTTPException(status_code=401, detail="Conta encerrada.")
+
+
 async def get_active_subscriber(uid: str = Depends(get_current_user_id), db=Depends(get_db)) -> str:
     """Verifica se o usuário possui assinatura ativa. Admin bypassa a verificação."""
     u = await db.users.find_one({"id": uid})
     if not u:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    _recusar_conta_encerrada(u)
     role = str(u.get("role") or "user").lower()
     if role in ("admin", "owner", "ceo"):
         _heartbeat(db, uid)
@@ -54,6 +61,7 @@ async def get_authenticated_user(uid: str = Depends(get_current_user_id), db=Dep
     u = await db.users.find_one({"id": uid})
     if not u:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    _recusar_conta_encerrada(u)
     _heartbeat(db, uid)
     return uid
 
@@ -62,6 +70,7 @@ async def get_admin_user(uid: str = Depends(get_current_user_id), db=Depends(get
     u = await db.users.find_one({"id": uid})
     if not u:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    _recusar_conta_encerrada(u)
     if str(u.get("role") or "").lower() not in ("admin", "owner", "ceo"):
         raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
     _heartbeat(db, uid)

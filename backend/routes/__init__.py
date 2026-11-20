@@ -1,5 +1,6 @@
 # @module routes — Pacote de rotas FastAPI; importa todos os routers para registro no app
 from routes.auth import router as auth_router
+from routes.privacidade import router as privacidade_router
 from routes.users import router as users_router
 from routes.ptam import router as ptam_router
 from routes.locacao import router as locacao_router
@@ -119,4 +120,5 @@ all_routers = [
     inferencia_router,
     integracoes_romatec_router,
     inss_obra_router,
+    privacidade_router,
 ]
