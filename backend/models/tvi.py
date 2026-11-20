@@ -165,3 +165,5 @@ class SignatureRequest(BaseModel):
     data_b64: str
     signatario: str
     cargo: Optional[str] = ""
+    # chave gerada no aparelho: reenviar a mesma assinatura não duplica (fila offline)
+    client_id: Optional[str] = None

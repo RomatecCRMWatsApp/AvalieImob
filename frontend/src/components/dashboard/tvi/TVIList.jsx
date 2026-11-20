@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ClipboardCheck, Plus, Search, SearchX, Loader2, Trash2, Edit3 } from 'lucide-react';
+import { ClipboardCheck, Plus, Search, SearchX, Loader2, Trash2, Edit3, Smartphone } from 'lucide-react';
 import { BrandSpinner } from '../../brand/BrandSpinner';
 import { Badge } from '../../ui/badge';
 import { useToast } from '../../../hooks/use-toast';
@@ -149,6 +149,13 @@ const TVIList = () => {
                        focus:outline-none focus-visible:ring-[3px] focus-visible:ring-[rgba(201,168,76,0.45)]"
           >
             <Plus className="w-4 h-4" /> Iniciar nova vistoria
+          </button>
+          <button
+            type="button" onClick={() => nav('/dashboard/tvi/campo')}
+            className="inline-flex items-center gap-2 rounded-[10px] px-4 py-2.5 text-sm font-semibold
+                       border border-[#C9A84C] text-[#0C3320] dark:text-[#C9A84C] hover:bg-[rgba(201,168,76,0.12)] transition"
+          >
+            <Smartphone className="w-4 h-4" /> Vistoria de campo (sem internet)
           </button>
           <div className="relative w-full sm:w-80">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9FB5A6]" />

@@ -1487,6 +1487,30 @@ async def listar_link_eventos(
     return dados
 
 
+@router.get("/ptam/{pid}/evidencias")
+async def linha_do_tempo_evidencias(
+    pid: str,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db),
+):
+    """Linha do tempo SOMENTE LEITURA do laudo: versões, lacres (SHA-256), assinatura,
+    vistoria importada e eventos do link público. Não altera nada."""
+    from services.evidencias import eventos_ptam
+    ptam = await db.ptam_documents.find_one({"id": pid, "user_id": uid})
+    if not ptam:
+        raise HTTPException(status_code=404, detail="PTAM não encontrado")
+    versoes = await db.ptam_versions.find(
+        {"ptam_id": pid, "user_id": uid}, {"snapshot": 0}).to_list(500)
+    link = await db.ptam_link_eventos.find(
+        {"ptam_id": pid, "user_id": uid}, {"_id": 0, "ip": 0, "user_agent": 0}).to_list(500)
+    vist = None
+    if ptam.get("vistoria_origem_id"):
+        vist = await db.vistorias.find_one(
+            {"id": ptam["vistoria_origem_id"], "user_id": uid},
+            {"_id": 0, "id": 1, "numero_tvi": 1, "updated_at": 1})
+    return {"eventos": eventos_ptam(ptam, versoes, link, vist)}
+
+
 @router.get("/ptam/public/{token}")
 async def get_ptam_publico(token: str, request: Request, db=Depends(get_db)):
     """Retorna dados públicos de um PTAM para o portal do cliente (SEM autenticação)."""

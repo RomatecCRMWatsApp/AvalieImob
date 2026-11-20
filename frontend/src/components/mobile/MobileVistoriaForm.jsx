@@ -3,8 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { ChevronRight, ChevronLeft, Save, Loader2 } from 'lucide-react';
 import MobilePhotoCapture from './MobilePhotoCapture';
 import MobileSignature from './MobileSignature';
-import { useOfflineStorage } from '@/hooks/useOfflineStorage';
-import { tviAPI } from '@/lib/api';
+import { enfileirar, enviarItem, novaChave } from '@/lib/filaOffline';
 import { VistoriaFields } from './vistoria-fields';
 
 const DRAFT_KEY = 'avalieimob_tvi_draft';
@@ -16,6 +15,7 @@ export const defaultForm = {
   tipo_imovel: '', area_total: '', num_quartos: '', num_banheiros: '',
   estado_conservacao: '', observacoes: '',
   fotos: [], assinatura: null,
+  client_id: '',
 };
 
 const MobileVistoriaForm = ({ modelId, onSuccess, onCancel }) => {
@@ -23,35 +23,42 @@ const MobileVistoriaForm = ({ modelId, onSuccess, onCancel }) => {
   const [form, setForm] = useState(() => {
     try {
       const draft = localStorage.getItem(DRAFT_KEY);
-      return draft ? { ...defaultForm, ...JSON.parse(draft) } : { ...defaultForm };
-    } catch { return { ...defaultForm }; }
+      const base = draft ? { ...defaultForm, ...JSON.parse(draft) } : { ...defaultForm };
+      // a chave nasce com o rascunho e acompanha todas as tentativas de envio
+      return base.client_id ? base : { ...base, client_id: novaChave('vist') };
+    } catch { return { ...defaultForm, client_id: novaChave('vist') }; }
   });
   const [submitting, setSubmitting] = useState(false);
-  const { saveVistoria } = useOfflineStorage();
 
   useEffect(() => {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(form));
+    // As fotos ficam fora do rascunho: em data-URL estouram o limite do localStorage
+    // (~5 MB) e o setItem derrubaria a tela. Elas vão para a fila (IndexedDB) no envio.
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...form, fotos: [] }));
+    } catch { /* armazenamento cheio/bloqueado: segue sem rascunho */ }
   }, [form]);
 
   const set = useCallback((key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   }, []);
 
+  // Grava SEMPRE na fila do aparelho primeiro e só então tenta enviar: um único
+  // caminho, e a mesma chave em todas as tentativas (o reenvio não duplica).
   const handleSubmit = async () => {
     setSubmitting(true);
-    const payload = { ...form, model_id: modelId };
+    const { fotos, assinatura, client_id, ...campos } = form;
     try {
-      if (navigator.onLine) {
-        await tviAPI.create(payload);
-      } else {
-        await saveVistoria(payload);
-      }
+      const localId = await enfileirar({
+        clientId: client_id,
+        dados: { ...campos, model_id: modelId, titulo: campos.imovel_endereco || 'Vistoria de campo' },
+        fotos,
+        assinatura,
+        assinante: campos.locatario,
+      });
       localStorage.removeItem(DRAFT_KEY);
-      onSuccess && onSuccess();
-    } catch {
-      await saveVistoria(payload);
-      localStorage.removeItem(DRAFT_KEY);
-      onSuccess && onSuccess();
+      let resultado = null;
+      if (navigator.onLine) resultado = await enviarItem(localId);
+      onSuccess && onSuccess(resultado);
     } finally {
       setSubmitting(false);
     }

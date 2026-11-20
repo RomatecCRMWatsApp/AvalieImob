@@ -14,6 +14,7 @@ import { resolvePtamStatus, calcularProgressoPtam } from './ptamStatus';
 import PTAMStatusCircle from './PTAMStatusCircle';
 import PTAMStatusBadge from './PTAMStatusBadge';
 import { fmtDataHora } from '../../../utils/datasServidor';
+import LinhaDoTempoEvidencias from '../../common/LinhaDoTempoEvidencias';
 
 // Resolve a URL da primeira foto do imóvel (itens podem ser string-id, url ou dict).
 function primeiraFotoUrl(p) {
@@ -192,6 +193,7 @@ const PtamList = () => {
   const [reciboModal, setReciboModal] = useState(null);
   const [telegramModal, setTelegramModal] = useState(null);
   const [eventosModal, setEventosModal] = useState(null);
+  const [linhaTempo, setLinhaTempo] = useState(null);
   const [envioExternoModal, setEnvioExternoModal] = useState(null);
   const [cloneLoading, setCloneLoading] = useState({});
 
@@ -861,6 +863,13 @@ const PtamList = () => {
                 </Button>
               </div>
 
+              <div className="flex justify-end mt-2 px-1">
+                <button type="button" onClick={() => setLinhaTempo(p)}
+                  className="text-xs text-emerald-800 hover:underline font-medium">
+                  Linha do tempo
+                </button>
+              </div>
+
               {/* Controle do link: visualizações + envios + histórico */}
               {(p.link_publico_ativo || p.link_views || p.link_sends) && (
                 <div className="flex items-center justify-between mt-2 px-1 text-xs text-gray-500">
@@ -885,6 +894,12 @@ const PtamList = () => {
             </div>
           ))}
         </div>
+      )}
+
+      {linhaTempo && (
+        <LinhaDoTempoEvidencias tipo="ptam" id={linhaTempo.id}
+          titulo={`PTAM nº ${linhaTempo.numero_ptam || ''} — ${linhaTempo.property_label || linhaTempo.property_address || ''}`}
+          onClose={() => setLinhaTempo(null)} />
       )}
 
       {modalPdf && (

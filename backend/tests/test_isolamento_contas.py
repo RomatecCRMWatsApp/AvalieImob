@@ -134,9 +134,7 @@ def test_conta_a_nao_alcanca_documento_da_conta_b(nome):
             else:
                 kw = {}
             r = c.request(metodo, _url(caminho, param), **kw)
-            # 200 com lista vazia também não expõe nada (ex.: versões filtradas por dono)
-            vazio = r.status_code == 200 and r.text.strip() in ("[]", "{}")
-            if r.status_code not in (403, 404) and not vazio:
+            if r.status_code not in (403, 404):
                 falhas.append(f"{metodo} {caminho} → {r.status_code} {r.text[:120]}")
 
     restante = [d for d in getattr(fake, colecao).docs if d.get("id") == ID_B]

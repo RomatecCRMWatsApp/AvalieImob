@@ -1989,6 +1989,8 @@ async def listar_versoes(
     db=Depends(get_db),
 ):
     """Lista histórico de versões do contrato."""
+    if not await db.contratos.find_one({"id": cid, "user_id": uid}, {"_id": 1}):
+        raise HTTPException(status_code=404, detail="Contrato não encontrado")
     cursor = db.contrato_versions.find(
         {"contrato_id": cid, "user_id": uid}
     ).sort("numero_versao", -1)

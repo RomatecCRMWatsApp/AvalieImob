@@ -760,6 +760,24 @@ async def startup():
         await db.privacidade_solicitacoes.create_index([("status", 1), ("recebida_em", -1)])
     except Exception as e:
         logger.error(f"Erro ao criar índices de leads_avaliacao: {e}")
+    # Fila offline da vistoria: client_id único por usuário (só onde existe — as
+    # vistorias antigas não têm o campo e ficam fora do índice).
+    try:
+        db = get_db()
+        await db.vistorias.create_index(
+            [("user_id", 1), ("client_id", 1)], unique=True,
+            partialFilterExpression={"client_id": {"$type": "string"}},
+            name="vistorias_client_id_unico")
+        await db.vistoria_photos.create_index(
+            [("vistoria_id", 1), ("client_photo_id", 1)],
+            partialFilterExpression={"client_photo_id": {"$type": "string"}},
+            name="vistoria_photos_client_id")
+        await db.vistoria_signatures.create_index(
+            [("vistoria_id", 1), ("client_id", 1)],
+            partialFilterExpression={"client_id": {"$type": "string"}},
+            name="vistoria_signatures_client_id")
+    except Exception as e:
+        logger.error(f"Erro ao criar índices da fila offline de vistorias: {e}")
     # Índices do módulo Prospecção (campanhas B2B) — idempotente.
     try:
         db = get_db()

@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from pymongo import ReturnDocument
 
 from db import get_db
+from pymongo.errors import DuplicateKeyError
 from dependencies import get_active_subscriber, serialize_doc
 from models.tvi import (
     VistoriaBase, Vistoria,
@@ -121,8 +122,18 @@ async def create_vistoria(
     uid: str = Depends(get_active_subscriber),
     db=Depends(get_db),
 ):
+    # Idempotência da fila offline: o aparelho gera um client_id por vistoria e o
+    # reenvia em cada tentativa. Se a 1ª tentativa chegou e só a resposta se perdeu,
+    # devolvemos a vistoria já criada em vez de criar outra.
+    client_id = (getattr(data, "client_id", None) or "").strip() or None
+    if client_id:
+        existente = await db.vistorias.find_one({"user_id": uid, "client_id": client_id})
+        if existente:
+            return Vistoria(**serialize_doc(existente))
     numero = await _next_tvi_numero(db)
     payload = data.model_dump()
+    if client_id:
+        payload["client_id"] = client_id
     payload["numero_tvi"] = numero
     if payload.get("averbacao"):
         payload["averbacao"] = calcular_averbacao(payload["averbacao"])
@@ -133,7 +144,14 @@ async def create_vistoria(
         ramo = modelo.get("ramo", "")
         payload["categoria"] = modelo.get("categoria") or RAMO_MAP.get(ramo, ramo)
     v = Vistoria(user_id=uid, **payload)
-    await db.vistorias.insert_one(v.model_dump())
+    try:
+        await db.vistorias.insert_one(v.model_dump())
+    except DuplicateKeyError:
+        # duas tentativas simultâneas com o mesmo client_id (índice único parcial)
+        existente = await db.vistorias.find_one({"user_id": uid, "client_id": client_id})
+        if existente:
+            return Vistoria(**serialize_doc(existente))
+        raise
     return v
 
 
@@ -222,12 +240,23 @@ async def add_photos(
     gps_lat: Optional[float] = Form(None),
     gps_lng: Optional[float] = Form(None),
     timestamp: Optional[str] = Form(None),
+    client_photo_id: Optional[str] = Form(None),
     uid: str = Depends(get_active_subscriber),
     db=Depends(get_db),
 ):
     doc = await db.vistorias.find_one({"id": vid, "user_id": uid})
     if not doc:
         raise HTTPException(status_code=404, detail="Vistoria não encontrada")
+
+    # Idempotência da fila offline (uma foto por envio quando há client_photo_id).
+    client_photo_id = (client_photo_id or "").strip() or None
+    if client_photo_id:
+        ja = await db.vistoria_photos.find_one(
+            {"vistoria_id": vid, "client_photo_id": client_photo_id})
+        if ja:
+            return {"photos": [{"url": ja.get("url"), "ambiente": ja.get("ambiente"),
+                                "legenda": ja.get("legenda"), "id": ja.get("id")}],
+                    "repetida": True}
 
     gps = GpsCoord(lat=gps_lat, lng=gps_lng) if gps_lat is not None and gps_lng is not None else None
     saved = []
@@ -257,7 +286,10 @@ async def add_photos(
             legenda=legenda, gps=gps,
             timestamp=timestamp or datetime.utcnow().isoformat(),
         )
-        await db.vistoria_photos.insert_one(photo.model_dump())
+        foto_doc = photo.model_dump()
+        if client_photo_id:
+            foto_doc["client_photo_id"] = client_photo_id
+        await db.vistoria_photos.insert_one(foto_doc)
         saved.append({"url": url, "ambiente": ambiente, "legenda": legenda, "id": photo.id})
 
     if not saved:
@@ -266,6 +298,24 @@ async def add_photos(
         raise HTTPException(status_code=400, detail="Nenhum arquivo enviado")
 
     return {"photos": saved}
+
+
+@router.get("/tvi/vistoria/{vid}/evidencias")
+async def linha_do_tempo_evidencias(
+    vid: str,
+    uid: str = Depends(get_active_subscriber),
+    db=Depends(get_db),
+):
+    """Linha do tempo SOMENTE LEITURA da vistoria: registro, fotos (data/hora + GPS),
+    assinaturas (SHA-256 da imagem) e compartilhamentos. Não altera nada."""
+    from services.evidencias import eventos_tvi
+    doc = await db.vistorias.find_one({"id": vid, "user_id": uid})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Vistoria não encontrada")
+    fotos = await db.vistoria_photos.find({"vistoria_id": vid}).to_list(500)
+    assin = await db.vistoria_signatures.find({"vistoria_id": vid}).to_list(100)
+    comp = await db.vistoria_shares.find({"vistoria_id": vid}).to_list(200)
+    return {"eventos": eventos_tvi(doc, fotos, assin, comp)}
 
 
 @router.get("/tvi/vistoria/{vid}/photos", response_model=List[VistoriaPhoto])
@@ -292,13 +342,21 @@ async def save_signature(
     doc = await db.vistorias.find_one({"id": vid, "user_id": uid})
     if not doc:
         raise HTTPException(status_code=404, detail="Vistoria não encontrada")
+    if data.client_id:
+        ja = await db.vistoria_signatures.find_one(
+            {"vistoria_id": vid, "client_id": data.client_id})
+        if ja:
+            return VistoriaSignature(**serialize_doc(ja))
     sig = VistoriaSignature(
         vistoria_id=vid,
         data_b64=data.data_b64,
         signatario=data.signatario,
         cargo=data.cargo,
     )
-    await db.vistoria_signatures.insert_one(sig.model_dump())
+    sig_doc = sig.model_dump()
+    if data.client_id:
+        sig_doc["client_id"] = data.client_id
+    await db.vistoria_signatures.insert_one(sig_doc)
     return sig
 
 

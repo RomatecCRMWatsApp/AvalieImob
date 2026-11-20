@@ -1,100 +1,49 @@
-// @module useOfflineStorage — IndexedDB via idb para vistorias offline (TVI)
-import { openDB } from 'idb';
+// @module useOfflineStorage — estado da fila de vistorias do aparelho (ver lib/filaOffline).
 import { useEffect, useCallback, useState } from 'react';
-import { tviAPI } from '@/lib/api';
-
-const DB_NAME = 'avalieimob-offline';
-const DB_VERSION = 1;
-const STORE = 'vistorias-pendentes';
-
-async function getDB() {
-  return openDB(DB_NAME, DB_VERSION, {
-    upgrade(db) {
-      if (!db.objectStoreNames.contains(STORE)) {
-        const store = db.createObjectStore(STORE, { keyPath: 'localId' });
-        store.createIndex('status', 'status');
-      }
-    },
-  });
-}
+import {
+  listar, enfileirar, sincronizar, tentarDeNovo, remover, estaSincronizando,
+} from '@/lib/filaOffline';
 
 export function useOfflineStorage() {
-  const [pendingCount, setPendingCount] = useState(0);
-  const [isSyncing, setIsSyncing] = useState(false);
+  const [itens, setItens] = useState([]);
+  const [isSyncing, setIsSyncing] = useState(estaSincronizando());
 
-  const refreshCount = useCallback(async () => {
-    const db = await getDB();
-    const all = await db.getAll(STORE);
-    setPendingCount(all.filter((v) => v.status === 'pending').length);
+  const atualizar = useCallback(async () => {
+    try {
+      const lista = await listar();
+      lista.sort((a, b) => (b.criadoEm || '').localeCompare(a.criadoEm || ''));
+      setItens(lista);
+    } catch {
+      setItens([]);
+    }
+    setIsSyncing(estaSincronizando());
   }, []);
 
   useEffect(() => {
-    refreshCount();
-
-    const handleSync = () => syncPending();
-    window.addEventListener('avalieimob:sync-pending', handleSync);
-    window.addEventListener('online', handleSync);
-
+    atualizar();
+    // ao abrir a tela com internet, tenta mandar o que ficou pendente
+    if (navigator.onLine) sincronizar();
+    const aoMudar = () => atualizar();
+    const aoIniciar = () => setIsSyncing(true);
+    const aoVoltarRede = () => sincronizar();
+    window.addEventListener('avalieimob:fila-mudou', aoMudar);
+    window.addEventListener('avalieimob:fila-sincronizando', aoIniciar);
+    window.addEventListener('online', aoVoltarRede);
     return () => {
-      window.removeEventListener('avalieimob:sync-pending', handleSync);
-      window.removeEventListener('online', handleSync);
+      window.removeEventListener('avalieimob:fila-mudou', aoMudar);
+      window.removeEventListener('avalieimob:fila-sincronizando', aoIniciar);
+      window.removeEventListener('online', aoVoltarRede);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const saveVistoria = useCallback(async (data) => {
-    const db = await getDB();
-    const localId = `local_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-    const record = {
-      localId,
-      status: 'pending',
-      createdAt: new Date().toISOString(),
-      data,
-    };
-    await db.put(STORE, record);
-    await refreshCount();
-    return localId;
-  }, [refreshCount]);
-
-  const getPendingVistorias = useCallback(async () => {
-    const db = await getDB();
-    const all = await db.getAll(STORE);
-    return all.filter((v) => v.status === 'pending');
-  }, []);
-
-  const markSynced = useCallback(async (localId) => {
-    const db = await getDB();
-    const record = await db.get(STORE, localId);
-    if (record) {
-      await db.put(STORE, { ...record, status: 'synced' });
-      await refreshCount();
-    }
-  }, [refreshCount]);
-
-  const syncPending = useCallback(async () => {
-    if (!navigator.onLine || isSyncing) return;
-    setIsSyncing(true);
-    try {
-      const pending = await getPendingVistorias();
-      for (const item of pending) {
-        try {
-          await tviAPI.create(item.data);
-          await markSynced(item.localId);
-        } catch {
-          // keep as pending, retry next time
-        }
-      }
-    } finally {
-      setIsSyncing(false);
-      await refreshCount();
-    }
-  }, [getPendingVistorias, markSynced, isSyncing, refreshCount]);
+  }, [atualizar]);
 
   return {
-    saveVistoria,
-    getPendingVistorias,
-    syncPending,
-    pendingCount,
+    itens,
+    pendingCount: itens.filter((i) => i.status === 'pendente').length,
+    falhasCount: itens.filter((i) => i.status === 'falhou').length,
     isSyncing,
+    enfileirar,
+    syncPending: sincronizar,
+    tentarDeNovo,
+    descartar: async (localId) => { await remover(localId); atualizar(); },
   };
 }

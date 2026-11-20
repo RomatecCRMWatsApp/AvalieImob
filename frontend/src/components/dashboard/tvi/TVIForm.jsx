@@ -10,6 +10,7 @@ import SignaturePad from './components/SignaturePad';
 import ExportBar from './components/ExportBar';
 import { useExport } from './hooks/useExport';
 import VistoriaAverbacaoForm from './VistoriaAverbacaoForm';
+import LinhaDoTempoEvidencias from '../../common/LinhaDoTempoEvidencias';
 
 const TABS = [
   { id: 'dados', label: 'Dados Gerais', icon: ClipboardCheck },
@@ -23,6 +24,7 @@ const TVIForm = () => {
   const { toast } = useToast();
   const { loading: exportLoading, exportPdf, exportDocx, shareWhatsApp, shareEmail } = useExport();
 
+  const [linhaTempo, setLinhaTempo] = useState(false);
   const [vistoria, setVistoria] = useState(null);
   const [model, setModel] = useState(null);
   const [fields, setFields] = useState({});
@@ -256,7 +258,11 @@ const TVIForm = () => {
       {/* Export bar */}
       {vistoria && (
         <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-xs text-gray-500 mb-3 font-medium">Exportar / Compartilhar</p>
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <p className="text-xs text-gray-500 font-medium">Exportar / Compartilhar</p>
+            <button type="button" onClick={() => setLinhaTempo(true)}
+              className="text-xs text-emerald-800 hover:underline font-medium">Linha do tempo</button>
+          </div>
           <ExportBar
             vistoria={vistoria}
             loading={exportLoading}
@@ -266,6 +272,11 @@ const TVIForm = () => {
             onEmail={shareEmail}
           />
         </div>
+      )}
+      {linhaTempo && vistoria && (
+        <LinhaDoTempoEvidencias tipo="tvi" id={vistoria.id}
+          titulo={vistoria.numero_tvi || vistoria.titulo || ''}
+          onClose={() => setLinhaTempo(false)} />
       )}
     </div>
   );

@@ -61,6 +61,7 @@ import LocacaoWizard from '../components/dashboard/locacao/LocacaoWizard';
 import TVIList from '../components/dashboard/tvi/TVIList';
 import TVINew from '../components/dashboard/tvi/TVINew';
 import TVIForm from '../components/dashboard/tvi/TVIForm';
+import VistoriaCampo from '../components/dashboard/tvi/VistoriaCampo';
 import CNDConsulta from '../components/dashboard/cnd/CNDConsulta';
 import CNDHistorico from '../components/dashboard/cnd/CNDHistorico';
 import ConsultaPage from '../components/dashboard/consulta/ConsultaPage';
@@ -495,6 +496,7 @@ const Dashboard = () => {
             <Route path="propostas/:id"        element={<PropostaForm />} />
             <Route path="tvi"              element={<TVIList />} />
             <Route path="tvi/nova"         element={<TVINew />} />
+            <Route path="tvi/campo"        element={<VistoriaCampo />} />
             <Route path="tvi/:id"          element={<TVIForm />} />
             <Route path="cnd"              element={<CNDConsulta />} />
             <Route path="cnd/historico"    element={<CNDHistorico />} />

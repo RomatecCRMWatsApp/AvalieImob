@@ -650,6 +650,12 @@ export const certificadosAPI = {
 };
 
 // ---- PTAM extras: Clonar, Recibo de honorários, WhatsApp via Z-API, Telegram
+// ---- Linha do tempo de evidências (somente leitura)
+export const evidenciasAPI = {
+  ptam: (id) => api.get(`/ptam/${id}/evidencias`).then(r => r.data),
+  tvi: (id) => api.get(`/tvi/vistoria/${id}/evidencias`).then(r => r.data),
+};
+
 export const ptamExtrasAPI = {
   clonar: (id) => api.post(`/ptam/${id}/clonar`).then(r => r.data),
   gerarRecibo: (id, payload) => api.post(`/ptam/${id}/recibo`, payload).then(r => r.data),
@@ -695,10 +701,13 @@ export const tviAPI = {
   update: (id, data) => api.put(`/tvi/vistoria/${id}`, data).then(r => r.data),
   remove: (id) => api.delete(`/tvi/vistoria/${id}`).then(r => r.data),
   listPhotos: (id) => api.get(`/tvi/vistoria/${id}/photos`).then(r => r.data),
-  uploadPhotos: (id, formData) => api.post(`/tvi/vistoria/${id}/photos`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  }).then(r => r.data),
-  saveSignature: (id, signatureBase64) => api.post(`/tvi/vistoria/${id}/signature`, { signature: signatureBase64 }).then(r => r.data),
+  // Sem Content-Type manual: o axios monta o multipart COM o boundary.
+  uploadPhotos: (id, formData) => api.post(`/tvi/vistoria/${id}/photos`, formData).then(r => r.data),
+  // O backend exige data_b64 + signatario (antes ia { signature } e voltava 422).
+  saveSignature: (id, signatureBase64, { signatario = 'Vistoriador', clientId } = {}) =>
+    api.post(`/tvi/vistoria/${id}/signature`, {
+      data_b64: signatureBase64, signatario, ...(clientId ? { client_id: clientId } : {}),
+    }).then(r => r.data),
   exportPdf: (id) => api.post(`/tvi/vistoria/${id}/export/pdf`, {}, { responseType: 'blob' }).then(r => r.data),
   exportDocx: (id) => api.post(`/tvi/vistoria/${id}/export/docx`, {}, { responseType: 'blob' }).then(r => r.data),
   // Vistoria de Obra para Averbação
