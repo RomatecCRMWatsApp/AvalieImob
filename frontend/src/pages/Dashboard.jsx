@@ -47,6 +47,7 @@ import DanfseTemas from './admin/DanfseTemas';
 import NfseEmissao from './admin/NfseEmissao';
 import DivulgacaoPage from './admin/DivulgacaoPage';
 import EmailDiagnostico from './admin/EmailDiagnostico';
+import IaUsoAdmin from './admin/IaUsoAdmin';
 import ProspeccaoPage from './admin/ProspeccaoPage';
 import InstagramStudio from '../components/dashboard/instagram/InstagramStudio';
 import PropostasList from '../components/dashboard/propostas/PropostasList';
@@ -542,6 +543,7 @@ const Dashboard = () => {
             <Route path="admin/nfse-emissao" element={<NfseEmissao />} />
             <Route path="admin/divulgacao" element={<DivulgacaoPage />} />
             <Route path="admin/email" element={<EmailDiagnostico />} />
+            <Route path="admin/ia" element={<IaUsoAdmin />} />
             <Route path="admin/prospeccao" element={<ProspeccaoPage />} />
             <Route path="admin/instagram" element={<InstagramStudio />} />
             <Route path="topografia/georef"      element={<GeorefList />} />

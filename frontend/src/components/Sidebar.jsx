@@ -11,7 +11,7 @@ import {
   ClipboardCheck, FileText, FileSignature, Receipt, Sparkles, FileSearch, Award,
   CreditCard, Settings, LogOut, Globe, Palette, Tag, BadgeCheck, Stamp, Inbox, Calculator,
   Compass, MapPin, Send, Megaphone, Mail, Radar, Instagram, Bell, KeyRound, HardHat,
-  ChevronDown, X, Layers, CalendarClock,
+  ChevronDown, X, Layers, CalendarClock, Cpu,
 } from 'lucide-react';
 import { ptamAPI } from '../lib/api';
 import { BrandMark } from './brand/BrandMark';
@@ -67,6 +67,7 @@ const MENU = [
     { id: 'instagram', label: 'Instagram', icon: Instagram, route: '/dashboard/admin/instagram' },
     { id: 'divulgacao', label: 'Divulgação', icon: Megaphone, route: '/dashboard/admin/divulgacao' },
     { id: 'email-config', label: 'E-mail', icon: Mail, route: '/dashboard/admin/email' },
+    { id: 'ia-uso', label: 'Uso da IA', icon: Cpu, route: '/dashboard/admin/ia' },
     { id: 'danfse', label: 'DANFSe (temas)', icon: FileText, route: '/dashboard/admin/danfse' },
     { id: 'nfse-emissao', label: 'NFS-e (emissão)', icon: Stamp, route: '/dashboard/admin/nfse-emissao' },
     { id: 'receita-rtc', label: 'Alíquotas CBS/IBS', icon: Calculator, route: '/dashboard/admin/receita-rtc' },

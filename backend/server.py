@@ -777,6 +777,15 @@ async def startup():
         await db.rtc_config_conta.create_index("user_id", unique=True)
     except Exception as e:
         logger.error(f"Erro ao criar índices de receita_rtc: {e}")
+    # Uso da IA: só metadados; expira sozinho (services.ia_uso.RETENCAO_DIAS).
+    try:
+        from services import ia_uso
+        db = get_db()
+        await db.ia_uso.create_index("ts", expireAfterSeconds=ia_uso.RETENCAO_DIAS * 86400,
+                                     name="ia_uso_ttl")
+        await db.ia_uso.create_index([("origem", 1), ("ts", -1)])
+    except Exception as e:
+        logger.error(f"Erro ao criar índices de ia_uso: {e}")
     # Fila offline da vistoria: client_id único por usuário (só onde existe — as
     # vistorias antigas não têm o campo e ficam fora do índice).
     try:

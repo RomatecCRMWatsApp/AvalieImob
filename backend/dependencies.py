@@ -13,6 +13,11 @@ def _heartbeat(db, uid: str) -> None:
     Só é chamado em caminhos de acesso CONCEDIDO — request negada não é acesso.
     """
     try:
+        from services import ia_uso
+        ia_uso.definir_usuario(uid)  # a cascata de IA registra de quem é a chamada
+    except Exception:  # noqa: BLE001
+        pass
+    try:
         from services import acesso_log
         asyncio.create_task(acesso_log.registrar_heartbeat(db, uid))
     except Exception:  # noqa: BLE001

@@ -55,6 +55,7 @@ from routes.documentos_externos_publico import router_publico as documentos_exte
 from routes.avaliacao_publica import router as avaliacao_publica_router
 from routes.atendimento import router as atendimento_router, admin_router as admin_atendimento_router
 from routes.admin_leads import router as admin_leads_router
+from routes.admin_ia import router as admin_ia_router
 from routes.nfse import router as nfse_router
 from routes.georef import router as georef_router
 from routes.geo_urbano import router as geo_urbano_router
@@ -106,6 +107,7 @@ all_routers = [
     atendimento_router,
     admin_atendimento_router,
     admin_leads_router,
+    admin_ia_router,
     nfse_router,
     georef_router,
     geo_urbano_router,

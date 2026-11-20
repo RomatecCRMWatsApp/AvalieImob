@@ -344,6 +344,7 @@ export const adminAPI = {
   rtcConfirmarAliquota: (id, confirmado_por) => api.post(`/admin/receita-rtc/aliquotas/${id}/confirmar`, { confirmado_por }).then(r => r.data),
   rtcRevogarAliquota: (id, motivo) => api.post(`/admin/receita-rtc/aliquotas/${id}/revogar`, { motivo }).then(r => r.data),
   rtcAuditoria: () => api.get('/admin/receita-rtc/aliquotas/auditoria').then(r => r.data),
+  iaUso: (dias = 7) => api.get('/admin/ia/uso', { params: { dias } }).then(r => r.data),
   listUsers: () => api.get('/admin/users').then(r => r.data),
   usersAudit: () => api.get('/admin/users/audit').then(r => r.data),
   userTimeline: (id) => api.get(`/admin/users/${id}/timeline`).then(r => r.data),

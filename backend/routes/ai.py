@@ -180,28 +180,15 @@ _PROVIDERS = [
 ]
 
 
-async def _roma_ia_cascata(messages: list, max_tokens: int = 2000):
-    """Tenta provedores em ordem. Retorna (reply, provedor_usado)."""
-    last_error = None
-    for name, fn in _PROVIDERS:
-        try:
-            reply = await fn(messages, max_tokens)
-            if reply:
-                logger.info("Roma_IA respondeu via provedor: %s", name)
-                return reply, name
-        except ValueError as e:
-            logger.debug("Provedor %s ignorado (nao configurado): %s", name, e)
-            last_error = e
-        except asyncio.TimeoutError:
-            logger.warning("Provedor %s timeout, tentando proximo", name)
-            last_error = asyncio.TimeoutError(f"{name} timeout")
-        except Exception as e:
-            logger.warning("Provedor %s falhou (%s: %s), tentando proximo", name, type(e).__name__, str(e)[:120])
-            last_error = e
-    raise HTTPException(
-        status_code=503,
-        detail=f"Nenhum provedor de IA disponivel. Ultimo erro: {str(last_error)[:200]}",
-    )
+async def _roma_ia_cascata(messages: list, max_tokens: int = 2000, origem: str = "chat"):
+    """Tenta provedores em ordem. Retorna (reply, provedor_usado). Registra em ia_uso."""
+    from services import ia_uso
+    return await ia_uso.cascata(_PROVIDERS, messages, max_tokens, origem=origem, rotulo="Roma_IA")
+
+
+def _modelo_de(provider):
+    from services.ia_uso import modelo_de
+    return modelo_de(provider)
 
 
 # ---------- Endpoints ----------
@@ -235,7 +222,7 @@ async def ai_chat(
     for h in history:
         messages.append({"role": h["role"], "content": h["content"]})
 
-    reply, provider = await _roma_ia_cascata(messages)
+    reply, provider = await _roma_ia_cascata(messages, origem=f"chat:{persona_key}")
 
     if not reply:
         raise HTTPException(status_code=500, detail="Resposta vazia da IA")
@@ -247,6 +234,7 @@ async def ai_chat(
         "role": "assistant",
         "content": reply,
         "provider": provider,
+        "modelo": _modelo_de(provider),
         "ts": datetime.utcnow(),
     })
 
@@ -268,6 +256,7 @@ async def ai_history(
             "content": i["content"],
             "ts": i["ts"].isoformat(),
             "provider": i.get("provider"),
+            "modelo": i.get("modelo"),
         }
         for i in items
     ]

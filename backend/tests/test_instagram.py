@@ -27,7 +27,7 @@ import services.instagram_ia_service as IA
 
 
 def test_gerar_conteudo_monta_saida(monkeypatch):
-    async def fake_cascata(messages, max_tokens=2000):
+    async def fake_cascata(messages, max_tokens=2000, **_kw):
         return ('{"titulo":"Quanto vale seu imovel?","legenda":"Descubra agora. Siga @avalieimob",'
                 '"hashtags":["#imovel","#avaliacao"],"slides":[],"roteiro":"","cta":"Acesse a calculadora"}')
     monkeypatch.setattr(IA, "_roma_ia_cascata", fake_cascata)
@@ -44,7 +44,7 @@ def test_gerar_conteudo_pilar_invalido():
 
 
 def test_gerar_conteudo_json_ruim_erro(monkeypatch):
-    async def fake_cascata(messages, max_tokens=2000):
+    async def fake_cascata(messages, max_tokens=2000, **_kw):
         return "isso nao e json"
     monkeypatch.setattr(IA, "_roma_ia_cascata", fake_cascata)
     with pytest.raises(Exception):

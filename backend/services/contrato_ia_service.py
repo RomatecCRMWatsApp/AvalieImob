@@ -129,28 +129,12 @@ _PROVIDERS = [
 ]
 
 
-async def _roma_ia_cascata(messages: list, max_tokens: int = 3000) -> str:
-    """Tenta provedores em ordem. Retorna texto da resposta."""
-    last_error = None
-    for name, fn in _PROVIDERS:
-        try:
-            reply = await fn(messages, max_tokens)
-            if reply:
-                logger.info("Roma_IA contratos respondeu via: %s", name)
-                return reply
-        except ValueError as e:
-            logger.debug("Provedor %s ignorado: %s", name, e)
-            last_error = e
-        except asyncio.TimeoutError:
-            logger.warning("Provedor %s timeout", name)
-            last_error = asyncio.TimeoutError(f"{name} timeout")
-        except Exception as e:
-            logger.warning("Provedor %s falhou: %s", name, str(e)[:120])
-            last_error = e
-    raise HTTPException(
-        status_code=503,
-        detail=f"Nenhum provedor de IA disponivel. Ultimo erro: {str(last_error)[:200]}",
-    )
+async def _roma_ia_cascata(messages: list, max_tokens: int = 3000, origem: str = "contratos") -> str:
+    """Tenta provedores em ordem. Retorna texto da resposta. Registra em ia_uso."""
+    from services import ia_uso
+    reply, _ = await ia_uso.cascata(_PROVIDERS, messages, max_tokens, origem=origem,
+                                    rotulo="Roma_IA contratos")
+    return reply
 
 
 def _parse_json_safe(text: str) -> Any:

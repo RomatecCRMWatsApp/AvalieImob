@@ -55,7 +55,7 @@ async def gerar_conteudo(pilar: str, assunto: str, formato: str) -> Dict[str, An
         '"slides": [{"titulo": str, "texto": str}], "roteiro": str, "cta": str}.'
     )
     messages = [{"role": "user", "content": prompt}]
-    texto = await _roma_ia_cascata(messages, max_tokens=2000)
+    texto = await _roma_ia_cascata(messages, max_tokens=2000, origem="instagram")
     data = _parse_json_safe(texto)
     if not isinstance(data, dict):
         raise HTTPException(status_code=502, detail="A IA não retornou um JSON válido. Tente novamente.")

@@ -115,7 +115,7 @@ async def _responder_ia(conversa: dict) -> tuple:
     contexto = (f"[Contexto interno: estágio atual={conversa.get('estagio')}, perfil={conversa.get('perfil')}, "
                 f"contato já informado={'sim' if (conversa.get('whatsapp') or conversa.get('email')) else 'não'}]")
     msgs.insert(1, {"role": "system", "content": contexto})
-    reply, provedor = await _roma_ia_cascata(msgs, max_tokens=700)
+    reply, provedor = await _roma_ia_cascata(msgs, max_tokens=700, origem="atendimento_site")
     return reply, provedor
 
 
