@@ -2,6 +2,20 @@
   "_leia_me": "Notas de atualizacao que viram o AVISO no sistema. Regra: a cada release, ANTES do commit, acrescente a entrada no topo de 'releases' (ver CLAUDE.md, passo 7). Itens com publico='interno' (painel administrativo ou ajuste tecnico) NAO geram aviso para ninguem - ficam so registrados aqui. Tipos: novo | melhoria | correcao. Escreva o texto COM ACENTOS: ele vai direto para a tela do cliente.",
   "releases": [
     {
+      "versao": "1.4.1568",
+      "build": 1568,
+      "data": "2026-11-20",
+      "titulo": "Processos e agenda de vistorias",
+      "itens": [
+        {
+          "modulo": "Processos e agenda",
+          "tipo": "novo",
+          "texto": "Acompanhe cada trabalho do início à entrega: etapas, prazo, documentos ligados ao processo e a agenda de vistorias com aviso de horário em conflito.",
+          "rota": "/dashboard/processos"
+        }
+      ]
+    },
+    {
       "versao": "1.4.1565",
       "build": 1565,
       "data": "2026-11-20",
