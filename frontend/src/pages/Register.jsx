@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { cuponsAPI } from '../lib/api';
 import { User, Mail, Lock, Briefcase, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import SEO from '../components/common/SEO';
-import LgpdBadge from '../components/common/LgpdBadge';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
@@ -164,11 +163,6 @@ const Register = () => {
             </Button>
             <p className="text-xs text-gray-500 text-center">Ao se cadastrar, você concorda com nossos Termos e Política de Privacidade.</p>
           </form>
-
-          {/* Selo LGPD — transmite confianca no momento do registro */}
-          <div className="mt-6 flex justify-center">
-            <LgpdBadge size="md" />
-          </div>
 
           <div className="mt-6 text-center text-sm text-gray-600">
             Já tem conta? <Link to="/login" className="font-semibold text-emerald-800 hover:underline">Entrar</Link>

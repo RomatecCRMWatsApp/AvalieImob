@@ -15,7 +15,6 @@ import HeaderClock from '../components/common/HeaderClock';
 import TopBar from '../components/TopBar';
 import { BRAND } from '../mock/mock';
 import RomaIAAvatar from '../components/common/RomaIAAvatar';
-import LgpdBadge from '../components/common/LgpdBadge';
 import { Button } from '../components/ui/button';
 import { useNovidades } from '../hooks/useNovidades';
 import ReleaseModal from '../components/dashboard/novidades/ReleaseModal';
@@ -437,10 +436,6 @@ const Dashboard = () => {
           >
             <LogOut className="w-4 h-4" /> Sair da conta
           </button>
-          {/* LGPD compliance badge */}
-          <div className="mt-3 flex justify-center">
-            <LgpdBadge size="sm" />
-          </div>
         </div>
       </aside>
 
