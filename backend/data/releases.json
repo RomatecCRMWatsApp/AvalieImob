@@ -2,6 +2,38 @@
   "_leia_me": "Notas de atualizacao que viram o AVISO no sistema. Regra: a cada release, ANTES do commit, acrescente a entrada no topo de 'releases' (ver CLAUDE.md, passo 7). Itens com publico='interno' (painel administrativo ou ajuste tecnico) NAO geram aviso para ninguem - ficam so registrados aqui. Tipos: novo | melhoria | correcao. Escreva o texto COM ACENTOS: ele vai direto para a tela do cliente.",
   "releases": [
     {
+      "versao": "1.4.1559",
+      "build": 1559,
+      "data": "2026-11-20",
+      "titulo": "Privacidade: seus dados no seu controle",
+      "itens": [
+        {
+          "modulo": "Privacidade",
+          "tipo": "novo",
+          "texto": "Em Configurações, você pode baixar todos os dados da sua conta e pedir o encerramento dela, acompanhando o andamento do pedido.",
+          "rota": "/dashboard/config"
+        },
+        {
+          "modulo": "Site",
+          "tipo": "novo",
+          "texto": "Página de privacidade com formulário para pedidos sobre dados pessoais e escolha de cookies de medição.",
+          "publico": "interno"
+        },
+        {
+          "modulo": "Pedidos LGPD",
+          "tipo": "novo",
+          "texto": "Painel para acompanhar e responder os pedidos de titulares.",
+          "publico": "interno"
+        },
+        {
+          "modulo": "Segurança",
+          "tipo": "melhoria",
+          "texto": "Registros do servidor passam a mascarar e-mail, CPF, telefone e tokens.",
+          "publico": "interno"
+        }
+      ]
+    },
+    {
       "versao": "1.4.1557",
       "build": 1557,
       "data": "2026-11-21",
@@ -21,8 +53,18 @@
       "data": "2026-11-19",
       "titulo": "Site: blog e serviços completos para os buscadores",
       "itens": [
-        {"modulo": "Site", "tipo": "melhoria", "texto": "Todos os artigos do blog e as páginas de serviço (PTAM, laudo técnico, avaliação urbana, rural e de garantias) chegam completos ao Google e ao Bing, antes mesmo do carregamento da página.", "publico": "interno"},
-        {"modulo": "Site", "tipo": "correcao", "texto": "Dados para buscadores com acentuação correta e sem perguntas frequentes que não aparecem na página; cabeçalho das páginas de serviço não passa mais da tela no celular.", "publico": "interno"}
+        {
+          "modulo": "Site",
+          "tipo": "melhoria",
+          "texto": "Todos os artigos do blog e as páginas de serviço (PTAM, laudo técnico, avaliação urbana, rural e de garantias) chegam completos ao Google e ao Bing, antes mesmo do carregamento da página.",
+          "publico": "interno"
+        },
+        {
+          "modulo": "Site",
+          "tipo": "correcao",
+          "texto": "Dados para buscadores com acentuação correta e sem perguntas frequentes que não aparecem na página; cabeçalho das páginas de serviço não passa mais da tela no celular.",
+          "publico": "interno"
+        }
       ]
     },
     {
@@ -31,7 +73,12 @@
       "data": "2026-11-19",
       "titulo": "Blog: artigos completos para os buscadores",
       "itens": [
-        {"modulo": "Site", "tipo": "melhoria", "texto": "Os guias de PTAM, avaliação rural e VLF passam a chegar completos ao Google e ao Bing, com título, H1 e todo o texto, antes mesmo do carregamento da página.", "publico": "interno"}
+        {
+          "modulo": "Site",
+          "tipo": "melhoria",
+          "texto": "Os guias de PTAM, avaliação rural e VLF passam a chegar completos ao Google e ao Bing, com título, H1 e todo o texto, antes mesmo do carregamento da página.",
+          "publico": "interno"
+        }
       ]
     },
     {
@@ -40,7 +87,12 @@
       "data": "2026-11-19",
       "titulo": "Blog: leituras e cliques por artigo",
       "itens": [
-        {"modulo": "Leads", "tipo": "novo", "texto": "Nova aba Artigos do blog em Leads: leituras, cliques nos botões, cadastros e assinantes de cada artigo.", "publico": "interno"}
+        {
+          "modulo": "Leads",
+          "tipo": "novo",
+          "texto": "Nova aba Artigos do blog em Leads: leituras, cliques nos botões, cadastros e assinantes de cada artigo.",
+          "publico": "interno"
+        }
       ]
     },
     {
@@ -49,7 +101,12 @@
       "data": "2026-11-19",
       "titulo": "Blog: página inexistente responde 404",
       "itens": [
-        {"modulo": "Site", "tipo": "correcao", "texto": "Endereço de artigo que não existe no blog passa a responder como página não encontrada para o Google.", "publico": "interno"}
+        {
+          "modulo": "Site",
+          "tipo": "correcao",
+          "texto": "Endereço de artigo que não existe no blog passa a responder como página não encontrada para o Google.",
+          "publico": "interno"
+        }
       ]
     },
     {
@@ -58,8 +115,18 @@
       "data": "2026-11-19",
       "titulo": "Blog: dois artigos novos e guia de PTAM revisado",
       "itens": [
-        {"modulo": "Site", "tipo": "novo", "texto": "Novos artigos no blog: ficha-resumo de contrato de locação comercial e checklist de vistoria para avaliação imobiliária.", "publico": "interno"},
-        {"modulo": "Site", "tipo": "melhoria", "texto": "Guia de PTAM ganhou o modelo comentado seção por seção, o checklist de revisão e textos revistos conforme a Resolução COFECI 1.066/2007.", "publico": "interno"}
+        {
+          "modulo": "Site",
+          "tipo": "novo",
+          "texto": "Novos artigos no blog: ficha-resumo de contrato de locação comercial e checklist de vistoria para avaliação imobiliária.",
+          "publico": "interno"
+        },
+        {
+          "modulo": "Site",
+          "tipo": "melhoria",
+          "texto": "Guia de PTAM ganhou o modelo comentado seção por seção, o checklist de revisão e textos revistos conforme a Resolução COFECI 1.066/2007.",
+          "publico": "interno"
+        }
       ]
     },
     {
@@ -68,9 +135,24 @@
       "data": "2026-11-19",
       "titulo": "Blog: textos corrigidos e origem dos cadastros",
       "itens": [
-        {"modulo": "Site", "tipo": "correcao", "texto": "Artigos do blog (avaliação rural, PTAM, VLF, grau de fundamentação e método comparativo) passam a descrever só o que o sistema realmente faz.", "publico": "interno"},
-        {"modulo": "Site", "tipo": "melhoria", "texto": "Artigos ganharam chamadas para as páginas de serviço e para a demonstração do PTAM; menu do blog cabe no celular.", "publico": "interno"},
-        {"modulo": "Leads", "tipo": "melhoria", "texto": "O cadastro registra a página de entrada e o site de origem mesmo sem UTM, para saber qual artigo trouxe cada cliente.", "publico": "interno"}
+        {
+          "modulo": "Site",
+          "tipo": "correcao",
+          "texto": "Artigos do blog (avaliação rural, PTAM, VLF, grau de fundamentação e método comparativo) passam a descrever só o que o sistema realmente faz.",
+          "publico": "interno"
+        },
+        {
+          "modulo": "Site",
+          "tipo": "melhoria",
+          "texto": "Artigos ganharam chamadas para as páginas de serviço e para a demonstração do PTAM; menu do blog cabe no celular.",
+          "publico": "interno"
+        },
+        {
+          "modulo": "Leads",
+          "tipo": "melhoria",
+          "texto": "O cadastro registra a página de entrada e o site de origem mesmo sem UTM, para saber qual artigo trouxe cada cliente.",
+          "publico": "interno"
+        }
       ]
     },
     {
