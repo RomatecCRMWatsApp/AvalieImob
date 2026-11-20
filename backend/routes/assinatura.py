@@ -1478,6 +1478,16 @@ async def download_icp(
 # Verificação pública (NÃO autenticada) — alvo do QR Code
 # ════════════════════════════════════════════════════════════════════════════
 
+def _mascarar_doc_publico(documento):
+    """Mascara CPF (11 dígitos) exibido na verificação pública; mantém CNPJ/vazio."""
+    from utils.cpf import limpar_cpf, mascarar_cpf
+    if not documento:
+        return documento
+    if len(limpar_cpf(str(documento))) == 11:
+        return mascarar_cpf(str(documento))
+    return documento
+
+
 @router.get("/v/laudo/v/{hash_id}", include_in_schema=True)
 async def verificar_publico(hash_id: str, db=Depends(get_db)):
     """Endpoint público pra validar autenticidade de um laudo assinado.
@@ -1504,7 +1514,8 @@ async def verificar_publico(hash_id: str, db=Depends(get_db)):
         "tipo": tipo,
         "numero": doc.get("numero_ptam") or doc.get("number") or doc_id,
         "titular": doc.get("icp_titular"),
-        "documento": doc.get("icp_documento"),
+        # Página pública (QR Code): CPF do titular vai MASCARADO (CNPJ segue inteiro).
+        "documento": _mascarar_doc_publico(doc.get("icp_documento")),
         "emissor": doc.get("icp_emissor"),
         "assinado_em": doc.get("icp_signed_at").isoformat() if doc.get("icp_signed_at") else None,
         "imovel": doc.get("property_label") or doc.get("property_address"),

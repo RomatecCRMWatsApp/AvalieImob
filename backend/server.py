@@ -31,6 +31,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger("romatec")
 
+# LGPD: redige e-mail/telefone/CPF/tokens nas mensagens de log antes de saírem
+# (services/log_redaction). Instalado nos handlers já configurados (root + uvicorn).
+from services.log_redaction import instalar_filtro as _instalar_redacao_logs  # noqa: E402
+_instalar_redacao_logs()
+
 
 def _cors_origins() -> list[str]:
     raw = os.getenv("CORS_ORIGINS", "")
@@ -660,6 +665,7 @@ app.add_middleware(
 # ── Lifecycle ────────────────────────────────────────────────────────
 @app.on_event("startup")
 async def startup():
+    _instalar_redacao_logs()  # idempotente: cobre handlers criados após o import
     init_db()
     logger.info("MongoDB conectado")
     # Índices de PTAM/CUB/contratos/amostras/cupons/conformidade. Esta função

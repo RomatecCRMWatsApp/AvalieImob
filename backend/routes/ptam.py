@@ -1514,10 +1514,11 @@ async def get_ptam_publico(token: str, request: Request, db=Depends(get_db)):
     )
     
     # Buscar perfil do avaliador
-    perfil_avaliador = await db.perfil_avaliador.find_one({"user_id": ptam.get("user_id")})
-    if perfil_avaliador:
-        perfil_avaliador.pop("_id", None)
-        perfil_avaliador.pop("user_id", None)
+    # Só a projeção PÚBLICA do perfil (allowlist) — nunca CPF/RG/imagem da assinatura.
+    from services.perfil_publico import perfil_publico
+    perfil_avaliador = perfil_publico(
+        await db.perfil_avaliador.find_one({"user_id": ptam.get("user_id")})
+    )
     
     # Dados públicos (NUNCA expor campos sensíveis)
     public_data = {
