@@ -2,6 +2,38 @@
   "_leia_me": "Notas de atualizacao que viram o AVISO no sistema. Regra: a cada release, ANTES do commit, acrescente a entrada no topo de 'releases' (ver CLAUDE.md, passo 7). Itens com publico='interno' (painel administrativo ou ajuste tecnico) NAO geram aviso para ninguem - ficam so registrados aqui. Tipos: novo | melhoria | correcao. Escreva o texto COM ACENTOS: ele vai direto para a tela do cliente.",
   "releases": [
     {
+      "versao": "1.4.1565",
+      "build": 1565,
+      "data": "2026-11-20",
+      "titulo": "Vistoria de campo sem internet e linha do tempo",
+      "itens": [
+        {
+          "modulo": "Kit TVI",
+          "tipo": "novo",
+          "texto": "Vistoria de campo: preencha, fotografe e colha a assinatura no celular mesmo sem internet — o envio acontece sozinho quando a rede voltar, sem duplicar nada.",
+          "rota": "/dashboard/tvi/campo"
+        },
+        {
+          "modulo": "PTAM e Kit TVI",
+          "tipo": "novo",
+          "texto": "Linha do tempo de cada laudo e vistoria, com versões, lacres, assinaturas, fotos com GPS e aberturas do link pelo cliente.",
+          "rota": "/dashboard/ptam"
+        },
+        {
+          "modulo": "Kit TVI",
+          "tipo": "correcao",
+          "texto": "A assinatura feita na vistoria volta a ser salva normalmente.",
+          "rota": "/dashboard/tvi"
+        },
+        {
+          "modulo": "Contratos",
+          "tipo": "correcao",
+          "texto": "Ajuste interno no histórico de versões.",
+          "publico": "interno"
+        }
+      ]
+    },
+    {
       "versao": "1.4.1562",
       "build": 1562,
       "data": "2026-11-20",
