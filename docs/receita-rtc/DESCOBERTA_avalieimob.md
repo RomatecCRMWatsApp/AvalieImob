@@ -30,7 +30,7 @@ e o que precisa ser decidido antes da Fase 1.
   (`<servico>.railway.internal`). Isso atende o item 2.3 (nada exposto à internet).
   Alternativa: uma VPS única para as 3 calculadoras, acessada por rede privada/VPN.
 - **Não verificado daqui:** os planos/limites do projeto Railway do dono (memória dos serviços Java,
-  custo adicional). Ver pergunta P-02.
+  custo adicional). Ver P-02, P-03 e P-04.
 
 ### Repositórios oficiais conferidos em 21/11/2026 (leitura, sem uso ainda)
 
@@ -65,7 +65,7 @@ Consequências para o desenho:
    Simples, Lucro Presumido). O regime e os códigos (NBS, CST, cClassTrib) precisam ser **configuração por conta**.
 2. **O DANFSe da Receita seria um 3º caminho de PDF.** Hoje o sistema já gera um DANFSe temático a partir dos
    dados da nota. O gerador oficial (Go) recebe o **XML** da NFS-e. Proposta: oferecer o oficial apenas quando
-   houver XML anexado, sem substituir o temático (decisão P-05).
+   houver XML anexado, sem substituir o temático (P-09).
 3. **Grupo IBSCBS hoje é omitido** no XML da DPS do adaptador Sefin (`services/nfse/sefin/dps_xml.py`, comentário
    na linha 153). A calculadora oficial gera e valida esse grupo (`/xml/generate`, `/xml/validate`); pode ser
    aproveitada lá no futuro, mas isso é emissão e está **fora de escopo** desta entrega.
@@ -85,7 +85,7 @@ Consequências para o desenho:
 ## 5. Regime tributário
 
 - **Romatec (dono):** a NFS-e real nº 59 traz `OptanteSimplesNacional=2` → **não é optante do Simples**.
-  Se é Lucro Presumido ou Real **não está no sistema** (P-03).
+  Se é Lucro Presumido ou Real **não está no sistema** (P-07).
 - **Assinantes:** não há campo de regime tributário no perfil. Precisa ser criado (configurável por conta),
   com valor inicial "não informado".
 - Defaults fiscais hoje gravados (só no módulo NFS-e do dono): `codigo_nbs = 114039000` (marcado no código como
@@ -105,4 +105,4 @@ Consequências para o desenho:
 
 ## 7. Perguntas abertas
 
-Ver `PENDENCIAS.md` (P-01 a P-08).
+Ver `PENDENCIAS.md` (fonte única; P-01 a P-12).

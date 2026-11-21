@@ -36,7 +36,7 @@ Cobrança pelo **uso real**, não pelo limite. Preços de referência: ~US$ 10 p
 | **Total** | | **~US$ 9 a 10** |
 
 **App Sleeping fica desligado** (decisão do dono): a subida leva 13–15 s e a primeira simulação esperaria por isso.
-Antes de criar os serviços, configurar um **alerta/limite de gasto** no Railway (`PENDENCIAS.md`, P-10).
+Antes de criar os serviços, configurar um **alerta/limite de gasto** no Railway (`docs/receita-rtc/PENDENCIAS.md`, P-04 e seção 4.5).
 
 ## Railway (produção)
 
