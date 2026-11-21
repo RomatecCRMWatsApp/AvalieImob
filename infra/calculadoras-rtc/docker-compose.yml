@@ -1,0 +1,43 @@
+# Calculadoras oficiais da Receita (CBS/IBS/IS) — uso LOCAL/teste.
+# Em produção (Railway) cada serviço é um serviço próprio, SEM domínio público, só rede privada.
+# Nenhuma porta é publicada no host: só quem está na rede "rtc" (o backend) alcança as calculadoras.
+# O DANFSe (Go) entra na última fase.
+x-build: &build
+  context: .
+  dockerfile: Dockerfile.java
+  args: &args
+    RTC_REGIME_REGULAR_TAG: ${RTC_REGIME_REGULAR_TAG}
+    RTC_REGIME_REGULAR_SHA: ${RTC_REGIME_REGULAR_SHA}
+    RTC_SIMPLES_TAG: ${RTC_SIMPLES_TAG}
+    RTC_SIMPLES_SHA: ${RTC_SIMPLES_SHA}
+
+services:
+  rtc-regime-regular:
+    image: rtc-regime-regular:${RTC_REGIME_REGULAR_TAG}
+    build:
+      <<: *build
+      args:
+        <<: *args
+        SERVICE: regime-regular
+    environment:
+      SERVER_PORT: "8080"
+    mem_limit: 768m
+    networks: [rtc]
+    restart: unless-stopped
+
+  rtc-simples-nacional:
+    image: rtc-simples-nacional:${RTC_SIMPLES_TAG}
+    build:
+      <<: *build
+      args:
+        <<: *args
+        SERVICE: simples-nacional
+    environment:
+      SERVER_PORT: "8082"
+    mem_limit: 768m
+    networks: [rtc]
+    restart: unless-stopped
+
+networks:
+  rtc:
+    internal: true   # sem saída para a internet e sem porta publicada
