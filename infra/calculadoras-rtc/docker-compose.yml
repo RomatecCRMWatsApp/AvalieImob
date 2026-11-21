@@ -34,7 +34,7 @@ services:
         SERVICE: simples-nacional
     environment:
       SERVER_PORT: "8082"
-    mem_limit: 768m
+    mem_limit: 512m
     networks: [rtc]
     restart: unless-stopped
 
