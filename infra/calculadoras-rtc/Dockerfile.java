@@ -20,8 +20,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends git curl ca-cer
 # CA extra opcional (só para builds atrás de proxy corporativo/sandbox). Em produção não é passado.
 RUN --mount=type=secret,id=extra_ca,required=false \
     if [ -s /run/secrets/extra_ca ]; then \
-      keytool -importcert -noprompt -alias extra-ca -file /run/secrets/extra_ca -cacerts -storepass changeit && \
-      cp /run/secrets/extra_ca /usr/local/share/ca-certificates/extra-ca.crt && update-ca-certificates; \
+      cp /run/secrets/extra_ca /usr/local/share/ca-certificates/extra-ca.crt && update-ca-certificates && \
+      keytool -importcert -noprompt -alias extra-ca -file /run/secrets/extra_ca -cacerts -storepass changeit; \
     fi
 WORKDIR /src
 # 1) regime regular: sempre (fornece o banco SQLite oficial)
