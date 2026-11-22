@@ -1,0 +1,1 @@
+{"detail":"Alíquota de referencia ou padrão não encontrada para o tributo com id 2, UF null, município null e data 2027-06-01","instance":"/api/calculadora/dados-abertos/aliquota-uniao","status":404,"title":"Alíquota não encontrada","type":"http://127.0.0.1/errors/aliquota-nao-encontrada","timestamp":"2026-11-22T23:54:26.810230588Z"}

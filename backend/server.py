@@ -767,6 +767,15 @@ async def startup():
         await db.processos.create_index([("user_id", 1), ("agenda.inicio", 1)])
     except Exception as e:
         logger.error(f"Erro ao criar índices de processos: {e}")
+    try:
+        db = get_db()
+        await db.simulacao_tributaria.create_index("id", unique=True)
+        await db.simulacao_tributaria.create_index([("user_id", 1), ("origem_tipo", 1), ("origem_id", 1), ("criado_em", -1)])
+        await db.rtc_aliquotas.create_index("id", unique=True)
+        await db.rtc_aliquotas.create_index([("tributo", 1), ("uf", 1), ("codigo_municipio", 1), ("situacao", 1)])
+        await db.rtc_aliquotas_auditoria.create_index([("registro_id", 1), ("em", -1)])
+    except Exception as e:
+        logger.error(f"Erro ao criar índices de receita_rtc: {e}")
     # Fila offline da vistoria: client_id único por usuário (só onde existe — as
     # vistorias antigas não têm o campo e ficam fora do índice).
     try:

@@ -27,6 +27,8 @@
 | P-10 | Versões fixadas das calculadoras | RESOLVIDA (21/11/2026) | Coddy |
 | P-11 | Código NBS provisório no módulo de NFS-e | AGUARDA CONTADOR | Contador |
 | P-12 | Local do botão "Simular CBS/IBS" | ABERTA | Solicitante |
+| P-13 | Simples Nacional: serviço só a partir de 2027 e alíquota efetiva por conta | AGUARDA CONTADOR | Contador / Produto |
+| P-14 | Código do município: a tabela da calculadora devolve 0,0 para município inexistente | RESOLVIDA (21/11/2026) | Coddy |
 
 ---
 
@@ -114,7 +116,7 @@ Regras de integridade:
 |---|---|---|---|
 | 1 | Contador fornece as alíquotas de CBS, IBS-UF e IBS-município por vigência, com a fonte legal | Contador | AGUARDA CONTADOR |
 | 2 | Definir quais UFs e municípios entram na carga inicial (começar pelos que o solicitante e os assinantes de fato usam) | Solicitante | ABERTA |
-| 3 | Implementar a tela de administração e a tabela com auditoria | Coddy | ABERTA (Fase 1 em diante) |
+| 3 | Implementar a tela de administração e a tabela com auditoria | Coddy | EM ANDAMENTO: backend, regras e auditoria prontos e testados (Fase 2); falta a tela |
 | 4 | Definir a rotina de revisão (por exemplo, a cada mudança normativa e no início de cada ano) | Solicitante + Contador | ABERTA |
 
 ---
@@ -253,6 +255,17 @@ Premissas de preço: RAM a ~US$ 10 por GB/mês e CPU a ~US$ 20 por vCPU/mês, co
 - O módulo de NFS-e do sistema hoje usa o código provisório **114039000**.
 - **Decisão:** o simulador **não** o utiliza. O código só deve mudar no módulo de NFS-e **depois** de confirmação do contador (ver P-06).
 
+### P-13: Simples Nacional — data e alíquota efetiva
+
+- **Fato (testado na calculadora 1.0.2, 21/11/2026):** para serviço (documento tipo `91`, atividades `07` a `14`), a calculadora do Simples só calcula com fato gerador **a partir de 2027**. Em 2026 responde **VSN-015** (tipo de documento não suportado). O simulador mostra esse erro traduzido; não há o que fazer para 2026.
+- **A calculadora do Simples exige a alíquota efetiva do Simples** (`pIBSSN` e `pCBSSN`, em pontos percentuais) e o código da atividade (`cAtivSN`). Esses valores dependem da faixa de faturamento de cada empresa: entram na **configuração por conta** (P-08), informados pelo assinante a partir do contador dele. O sistema **não** calcula nem sugere esses valores.
+- **MEI (`CRT=4`) está fora do escopo da calculadora** (NT 2026.005): o simulador recusa com mensagem clara.
+- **Ação:** contador confirmar, para a Romatec e para orientação dos assinantes, de onde tirar `pIBSSN`/`pCBSSN`.
+
+### P-14: Município inexistente
+
+- A consulta `aliquota-municipio` devolve `0,0` (e não erro) para um código de município que não existe. Por isso o sistema **confere o município na lista oficial da UF** (`dados-abertos/ufs/municipios`) antes de calcular, e recusa município de outra UF. Coberto por teste.
+
 ### P-12: Local do botão "Simular CBS/IBS"
 
 | Sistema | Primeira entrega | Fase seguinte |
@@ -306,3 +319,4 @@ Premissas de preço: RAM a ~US$ 10 por GB/mês e CPU a ~US$ 20 por vCPU/mês, co
 |---|---|---|
 | 21/11/2026 | Criação com decisões, regras de alíquotas e Railway | Solicitante + Coddy |
 | 21/11/2026 | RAM e custo medidos (4.3), limites 768/512 MB, healthcheck, P-03 e P-10 resolvidas | Coddy |
+| 22/11/2026 | Fase 2: módulo `receita_rtc` (cliente, alíquotas híbridas, tabela interna com auditoria, snapshot), 27 testes com respostas reais + teste ao vivo; P-13 e P-14 registradas | Coddy |
