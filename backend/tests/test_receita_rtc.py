@@ -387,3 +387,114 @@ def test_integracao_ao_vivo():
     assert snap["totais"]["total"] == "40.00"
     diag = run(SVC.diagnostico(conf))
     assert diag["servicos"]["REGULAR"]["no_ar"] and diag["servicos"]["SIMPLES"]["versao"] == "1.0.2"
+
+
+# ── Fase 4: configuração por conta e simulação pelo recibo ────────────────────
+def _app_assinante(monkeypatch, db, calc, ativo=True, uid="user-1"):
+    from db import get_db
+    from dependencies import get_active_subscriber
+    from routes.receita_rtc import router_assinante
+    conf = cfg.Config(ativo, RR, SN, 1, 1)
+    monkeypatch.setattr(cfg, "carregar", lambda: conf)
+    original = SVC.clientes
+    monkeypatch.setattr(SVC, "clientes", lambda c=None, t=None: original(conf, httpx.MockTransport(calc)))
+    app = FastAPI()
+    app.include_router(router_assinante)
+    app.dependency_overrides[get_db] = lambda: db
+    app.dependency_overrides[get_active_subscriber] = lambda: uid
+    return TestClient(app)
+
+
+CONFIG_OK = {"regime": "REGULAR", "uf": "MA", "codigo_municipio": "2100055", "nome_municipio": "Açailândia",
+             "nbs": "114039000", "cst": "200", "cClassTrib": "200052", "confirmado_com_contador": True}
+
+
+def test_flag_desligada_esconde_tudo(monkeypatch):
+    c = _app_assinante(monkeypatch, FakeDB(), Calc(), ativo=False)
+    assert c.get("/receita-rtc/disponivel").json() == {"ativo": False}
+    assert c.put("/receita-rtc/config", json=CONFIG_OK).status_code == 404
+    assert c.post("/receita-rtc/simular", json={"origem_id": "x", "data_operacao": "2026-06-10"}).status_code == 404
+
+
+def test_conta_sem_configuracao_nao_simula(monkeypatch):
+    db = FakeDB()
+    db.recibos.docs.append({"id": "rec-1", "user_id": "user-1", "valor": 1000.0})
+    c = _app_assinante(monkeypatch, db, Calc(calculo=fx("rr_2026_calculado.json")))
+    d = c.get("/receita-rtc/disponivel").json()
+    assert d["ativo"] and not d["configurado"] and "nbs" in d["faltantes"]
+    sem_ciencia = {**CONFIG_OK, "confirmado_com_contador": False}
+    assert c.put("/receita-rtc/config", json=sem_ciencia).json()["faltantes"] == ["confirmado_com_contador"]
+    r = c.post("/receita-rtc/simular", json={"origem_id": "rec-1", "data_operacao": "2026-06-10"})
+    assert r.status_code == 409 and r.json()["detail"]["faltantes"] == ["confirmado_com_contador"]
+
+
+def test_config_mal_formada_e_recusada(monkeypatch):
+    c = _app_assinante(monkeypatch, FakeDB(), Calc())
+    for ruim in ({**CONFIG_OK, "nbs": "123"}, {**CONFIG_OK, "regime": "LUCRO"},
+                 {**CONFIG_OK, "regime": "SIMPLES", "simples": {"crt": "4"}}):
+        assert c.put("/receita-rtc/config", json=ruim).status_code == 422
+
+
+def test_simulacao_pelo_recibo_e_historico(monkeypatch):
+    db = FakeDB()
+    db.recibos.docs += [{"id": "rec-1", "user_id": "user-1", "valor": 1000.0},
+                        {"id": "rec-9", "user_id": "outra-conta", "valor": 5000.0}]
+    calc = Calc(calculo=fx("rr_2026_calculado.json"))
+    c = _app_assinante(monkeypatch, db, calc)
+    assert c.put("/receita-rtc/config", json=CONFIG_OK).json()["faltantes"] == []
+    r = c.post("/receita-rtc/simular", json={"origem_id": "rec-1", "data_operacao": "2026-06-10"})
+    assert r.status_code == 200, r.text
+    s = r.json()
+    assert s["totais"]["cbs"] == "6.30" and cfg.AVISO_FIXO in s["avisos"]
+    assert "resultado_bruto" not in s and "entrada_enviada" not in s and "user_id" not in s
+    assert calc.calculos()[0]["itens"][0]["baseCalculo"] == 1000.0        # valor vem do recibo
+    # recibo de outra conta: nem calcula
+    assert c.post("/receita-rtc/simular", json={"origem_id": "rec-9", "data_operacao": "2026-06-10"}).status_code == 404
+    # data obrigatória
+    assert c.post("/receita-rtc/simular", json={"origem_id": "rec-1", "data_operacao": ""}).status_code == 422
+    hist = c.get("/receita-rtc/simulacoes", params={"origem_tipo": "recibo", "origem_id": "rec-1"}).json()
+    assert len(hist["simulacoes"]) == 1 and hist["simulacoes"][0]["id"] == s["id"]
+    # outra conta não vê o histórico
+    c2 = _app_assinante(monkeypatch, db, calc, uid="outra-conta")
+    assert c2.get("/receita-rtc/simulacoes", params={"origem_tipo": "recibo", "origem_id": "rec-1"}).json() == \
+        {"simulacoes": []}
+
+
+def test_simulacao_2027_sem_aliquota_devolve_motivo(monkeypatch):
+    db = FakeDB()
+    db.recibos.docs.append({"id": "rec-1", "user_id": "user-1", "valor": 1000.0})
+    c = _app_assinante(monkeypatch, db, Calc(calculo=fx("rr_2027_simulado.json")))
+    c.put("/receita-rtc/config", json=CONFIG_OK)
+    r = c.post("/receita-rtc/simular", json={"origem_id": "rec-1", "data_operacao": "2027-06-10"})
+    assert r.status_code == 409 and "Solicite ao administrador" in r.json()["detail"]["mensagem"]
+
+
+def test_calculadora_fora_do_ar_responde_503(monkeypatch):
+    async def sem_espera(*_):
+        return None
+    monkeypatch.setattr(CL.asyncio, "sleep", sem_espera)
+    db = FakeDB()
+    db.recibos.docs.append({"id": "rec-1", "user_id": "user-1", "valor": 1000.0})
+    c = _app_assinante(monkeypatch, db, Calc(falha="rede"))
+    db.rtc_config_conta.docs.append({**CONFIG_OK, "user_id": "user-1", "simples": {}})
+    r = c.post("/receita-rtc/simular", json={"origem_id": "rec-1", "data_operacao": "2026-06-10"})
+    assert r.status_code == 503 and r.json()["detail"] == cfg.MSG_INDISPONIVEL
+
+
+def test_ajuda_de_classificacao_pelo_nbs(monkeypatch):
+    calc = Calc()
+    orig = calc.__call__
+
+    def com_nbs(req):
+        if req.url.path.endswith("/dados-abertos/nbs"):
+            return httpx.Response(200, json={"capitulo": "Serviços de engenharia", "item": "Outros"})
+        if req.url.path.endswith("/situacoes-classificacoes-tributarias"):
+            return httpx.Response(200, json=[{"codigoSituacaoTributaria": "200", "descricaoSituacaoTributaria": "Alíquota reduzida",
+                                              "codigoClassificacaoTributaria": "200052",
+                                              "descricaoClassificacaoTributaria": "Prestação de serviços de profissões intelectuais"}])
+        return orig(req)
+    c = _app_assinante(monkeypatch, FakeDB(), com_nbs)
+    r = c.get("/receita-rtc/classificacoes", params={"nbs": "114039000", "data": "2026-11-23"}).json()
+    assert r["descricao"] == "Serviços de engenharia — Outros"
+    assert r["opcoes"][0] == {"cst": "200", "cst_descricao": "Alíquota reduzida", "cClassTrib": "200052",
+                              "descricao": "Prestação de serviços de profissões intelectuais"}

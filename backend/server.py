@@ -774,6 +774,7 @@ async def startup():
         await db.rtc_aliquotas.create_index("id", unique=True)
         await db.rtc_aliquotas.create_index([("tributo", 1), ("uf", 1), ("codigo_municipio", 1), ("situacao", 1)])
         await db.rtc_aliquotas_auditoria.create_index([("registro_id", 1), ("em", -1)])
+        await db.rtc_config_conta.create_index("user_id", unique=True)
     except Exception as e:
         logger.error(f"Erro ao criar índices de receita_rtc: {e}")
     # Fila offline da vistoria: client_id único por usuário (só onde existe — as

@@ -337,6 +337,13 @@ export const assinaturaClienteAPI = {
 
 // ---- Admin (usuários cadastrados / assinaturas) — somente admin/owner/ceo
 export const adminAPI = {
+  // Calculadoras oficiais da Receita (CBS/IBS): diagnóstico e tabela interna de alíquotas.
+  rtcStatus: () => api.get('/admin/receita-rtc/status').then(r => r.data),
+  rtcAliquotas: () => api.get('/admin/receita-rtc/aliquotas').then(r => r.data),
+  rtcCriarAliquota: (data) => api.post('/admin/receita-rtc/aliquotas', data).then(r => r.data),
+  rtcConfirmarAliquota: (id, confirmado_por) => api.post(`/admin/receita-rtc/aliquotas/${id}/confirmar`, { confirmado_por }).then(r => r.data),
+  rtcRevogarAliquota: (id, motivo) => api.post(`/admin/receita-rtc/aliquotas/${id}/revogar`, { motivo }).then(r => r.data),
+  rtcAuditoria: () => api.get('/admin/receita-rtc/aliquotas/auditoria').then(r => r.data),
   listUsers: () => api.get('/admin/users').then(r => r.data),
   usersAudit: () => api.get('/admin/users/audit').then(r => r.data),
   userTimeline: (id) => api.get(`/admin/users/${id}/timeline`).then(r => r.data),
@@ -865,6 +872,16 @@ export const consultaAPI = {
 };
 
 // ---- Recibos (independentes — honorários, serviços, mão de obra...)
+// Simulador de CBS/IBS (calculadoras oficiais da Receita). Só aparece com a flag ligada no servidor.
+export const receitaRtcAPI = {
+  disponivel: () => api.get('/receita-rtc/disponivel').then(r => r.data),
+  salvarConfig: (data) => api.put('/receita-rtc/config', data).then(r => r.data),
+  municipios: (uf) => api.get('/receita-rtc/municipios', { params: { uf } }).then(r => r.data),
+  classificacoes: (nbs, data) => api.get('/receita-rtc/classificacoes', { params: { nbs, data } }).then(r => r.data),
+  simular: (body) => api.post('/receita-rtc/simular', body).then(r => r.data),
+  simulacoes: (origem_tipo, origem_id) => api.get('/receita-rtc/simulacoes', { params: { origem_tipo, origem_id } }).then(r => r.data),
+};
+
 export const recibosAPI = {
   listar: (params) => api.get('/recibos', { params }).then(r => r.data),
   buscar: (id) => api.get(`/recibos/${id}`).then(r => r.data),

@@ -69,6 +69,7 @@ const MENU = [
     { id: 'email-config', label: 'E-mail', icon: Mail, route: '/dashboard/admin/email' },
     { id: 'danfse', label: 'DANFSe (temas)', icon: FileText, route: '/dashboard/admin/danfse' },
     { id: 'nfse-emissao', label: 'NFS-e (emissão)', icon: Stamp, route: '/dashboard/admin/nfse-emissao' },
+    { id: 'receita-rtc', label: 'Alíquotas CBS/IBS', icon: Calculator, route: '/dashboard/admin/receita-rtc' },
   ]},
   { id: 'conta', section: 'Conta e configurações', items: [
     { id: 'curriculo', label: 'Meu currículo', icon: Award, route: '/dashboard/curriculo' },

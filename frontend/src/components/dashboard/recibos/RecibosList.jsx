@@ -3,12 +3,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Plus, Receipt, Loader2, Calendar, Trash2, MessageCircle,
-  CheckCircle2, Clock, Send, Search, Edit3, Lock, ShieldCheck, Copy, BadgeCheck, MapPin, Eye,
+  CheckCircle2, Clock, Send, Search, Edit3, Lock, ShieldCheck, Copy, BadgeCheck, MapPin, Eye, Calculator,
 } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Badge } from '../../ui/badge';
 import { useToast } from '../../../hooks/use-toast';
-import { recibosAPI } from '../../../lib/api';
+import { recibosAPI, receitaRtcAPI } from '../../../lib/api';
+import SimuladorCbsIbsModal from '../receita-rtc/SimuladorCbsIbsModal';
 import AssinaturaDigital from '../ptam/AssinaturaDigital';
 import AssinaturaPosicionadaModal from '../assinatura/AssinaturaPosicionadaModal';
 import EnviarAssinaturaModal from '../assinatura/EnviarAssinaturaModal';
@@ -44,6 +45,12 @@ const RecibosList = () => {
   const [assinaturaModal, setAssinaturaModal] = useState(null);
   const [posicionarModal, setPosicionarModal] = useState(null);
   const [envioExt, setEnvioExt] = useState(null);
+  // Simulador de CBS/IBS: o botão só existe com a flag ligada no servidor.
+  const [rtcAtivo, setRtcAtivo] = useState(false);
+  const [simulador, setSimulador] = useState(null);
+  useEffect(() => {
+    receitaRtcAPI.disponivel().then((d) => setRtcAtivo(!!d?.ativo)).catch(() => setRtcAtivo(false));
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -143,6 +150,8 @@ const RecibosList = () => {
           onClose={() => setEnvioExt(null)}
         />
       )}
+
+      {simulador && <SimuladorCbsIbsModal recibo={simulador} onClose={() => setSimulador(null)} />}
 
       {assinaturaModal && (
         <AssinaturaDigital
@@ -306,6 +315,17 @@ const RecibosList = () => {
                   >
                     <ShieldCheck className="w-3.5 h-3.5" /> Externa
                   </Button>
+                  {rtcAtivo && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setSimulador(r)}
+                      title="Estimar CBS/IBS sobre os honorários (calculadora oficial da Receita)"
+                      className="gap-1 text-sky-800 border-sky-200 hover:bg-sky-50"
+                    >
+                      <Calculator className="w-3.5 h-3.5" /> CBS/IBS
+                    </Button>
+                  )}
                   <Button
                     size="sm"
                     className="bg-green-600 hover:bg-green-700 text-white gap-1"

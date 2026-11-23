@@ -159,3 +159,25 @@ async def diagnostico(conf: Optional[cfg.Config] = None, transport=None) -> dict
         except CalculadoraIndisponivel:
             out["servicos"][regime] = {"no_ar": False, "status": None}
     return out
+
+
+async def municipios(uf: str, conf: Optional[cfg.Config] = None, transport=None) -> list:
+    c = clientes(conf, transport)["REGULAR"]
+    r = await c.get_cache("/calculadora/dados-abertos/ufs/municipios", {"siglaUf": uf.upper()})
+    return [{"codigo": str(m.get("codigo")), "nome": m.get("nome")} for m in (r.corpo or [])
+            if isinstance(m, dict)] if r.ok else []
+
+
+async def classificacoes_do_nbs(nbs: str, data_ref: str, conf: Optional[cfg.Config] = None, transport=None) -> dict:
+    """Ajuda a escolher CST/cClassTrib: o que a tabela oficial associa ao NBS. Não escolhe por ninguém."""
+    c = clientes(conf, transport)["REGULAR"]
+    rn = await c.get_cache("/calculadora/dados-abertos/nbs", {"nbs": nbs, "data": data_ref})
+    rc = await c.get_cache("/calculadora/nfse/situacoes-classificacoes-tributarias", {"nbs": nbs, "data": data_ref})
+    descricao = None
+    if rn.ok and isinstance(rn.corpo, dict):
+        descricao = " — ".join(x for x in (rn.corpo.get("capitulo"), rn.corpo.get("item")) if x) or None
+    opcoes = [{"cst": o.get("codigoSituacaoTributaria"), "cst_descricao": o.get("descricaoSituacaoTributaria"),
+               "cClassTrib": o.get("codigoClassificacaoTributaria"),
+               "descricao": o.get("descricaoClassificacaoTributaria")}
+              for o in (rc.corpo or []) if isinstance(o, dict)] if rc.ok else []
+    return {"nbs": nbs, "encontrado": rn.ok, "descricao": descricao, "opcoes": opcoes}

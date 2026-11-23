@@ -29,6 +29,7 @@
 | P-12 | Local do botão "Simular CBS/IBS" | ABERTA | Solicitante |
 | P-13 | Simples Nacional: serviço só a partir de 2027 e alíquota efetiva por conta | AGUARDA CONTADOR | Contador / Produto |
 | P-14 | Código do município: a tabela da calculadora devolve 0,0 para município inexistente | RESOLVIDA (21/11/2026) | Coddy |
+| P-15 | Valor bruto e líquido dos honorários com CBS/IBS | AGUARDA CONTADOR | Contador / Solicitante |
 
 ---
 
@@ -116,7 +117,7 @@ Regras de integridade:
 |---|---|---|---|
 | 1 | Contador fornece as alíquotas de CBS, IBS-UF e IBS-município por vigência, com a fonte legal | Contador | AGUARDA CONTADOR |
 | 2 | Definir quais UFs e municípios entram na carga inicial (começar pelos que o solicitante e os assinantes de fato usam) | Solicitante | ABERTA |
-| 3 | Implementar a tela de administração e a tabela com auditoria | Coddy | EM ANDAMENTO: backend, regras e auditoria prontos e testados (Fase 2); falta a tela |
+| 3 | Implementar a tela de administração e a tabela com auditoria | Coddy | RESOLVIDA (23/11/2026): Painel ▸ Administração ▸ Alíquotas CBS/IBS |
 | 4 | Definir a rotina de revisão (por exemplo, a cada mudança normativa e no início de cada ano) | Solicitante + Contador | ABERTA |
 
 ---
@@ -262,6 +263,13 @@ Premissas de preço: RAM a ~US$ 10 por GB/mês e CPU a ~US$ 20 por vCPU/mês, co
 - **MEI (`CRT=4`) está fora do escopo da calculadora** (NT 2026.005): o simulador recusa com mensagem clara.
 - **Ação:** contador confirmar, para a Romatec e para orientação dos assinantes, de onde tirar `pIBSSN`/`pCBSSN`.
 
+### P-15: Valor bruto e líquido
+
+- A especificação pede mostrar "valor líquido e bruto" dos honorários. **Não implementado de propósito:** somar ou subtrair CBS/IBS do valor do recibo seria uma conta nossa, e a regra é não recalcular nada fora da calculadora.
+- Na reforma, CBS e IBS são cobrados "por fora" do preço, mas como isso se reflete no valor cobrado do cliente (acrescido ou embutido) é decisão comercial e tributária de cada assinante.
+- **Hoje a tela mostra:** valor do recibo, base de cálculo, alíquota, alíquota efetiva e valor de cada tributo, exatamente como a calculadora devolve.
+- **Ação:** contador indicar se e como mostrar bruto/líquido; só então entra na tela.
+
 ### P-14: Município inexistente
 
 - A consulta `aliquota-municipio` devolve `0,0` (e não erro) para um código de município que não existe. Por isso o sistema **confere o município na lista oficial da UF** (`dados-abertos/ufs/municipios`) antes de calcular, e recusa município de outra UF. Coberto por teste.
@@ -270,7 +278,7 @@ Premissas de preço: RAM a ~US$ 10 por GB/mês e CPU a ~US$ 20 por vCPU/mês, co
 
 | Sistema | Primeira entrega | Fase seguinte |
 |---|---|---|
-| AvalieImob | Recibo / honorários do PTAM | Proposta e avaliação de garantias |
+| AvalieImob | Recibo / honorários do PTAM — **ENTREGUE (23/11/2026)**: botão "CBS/IBS" no card do recibo | Proposta e avaliação de garantias |
 | CRM Romatec | Proposta ou contrato (depende de P-01) | Relatórios |
 
 ---
@@ -319,4 +327,5 @@ Premissas de preço: RAM a ~US$ 10 por GB/mês e CPU a ~US$ 20 por vCPU/mês, co
 |---|---|---|
 | 21/11/2026 | Criação com decisões, regras de alíquotas e Railway | Solicitante + Coddy |
 | 21/11/2026 | RAM e custo medidos (4.3), limites 768/512 MB, healthcheck, P-03 e P-10 resolvidas | Coddy |
+| 23/11/2026 | Fase 4 (AvalieImob): configuração tributária por conta (desativada até confirmar com o contador), simulação pelo recibo com histórico, tela de administração das alíquotas; 34 testes; telas conferidas a 390 px; P-15 registrada | Coddy |
 | 22/11/2026 | Fase 2: módulo `receita_rtc` (cliente, alíquotas híbridas, tabela interna com auditoria, snapshot), 27 testes com respostas reais + teste ao vivo; P-13 e P-14 registradas | Coddy |

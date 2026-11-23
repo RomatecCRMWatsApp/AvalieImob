@@ -79,11 +79,11 @@ from routes.inss_obra import router as inss_obra_router
 from routes.blog_metricas import router as blog_metricas_router
 from routes.privacidade import router as privacidade_router, admin_router as privacidade_admin_router
 from routes.processos import router as processos_router
-from routes.receita_rtc import router as receita_rtc_router
+from routes.receita_rtc import router as receita_rtc_router, router_assinante as receita_rtc_assinante_router
 
 all_routers = [
     blog_metricas_router, privacidade_router, privacidade_admin_router,
-    processos_router, receita_rtc_router,
+    processos_router, receita_rtc_router, receita_rtc_assinante_router,
     auth_router, users_router, ptam_router, locacao_router,
     garantias_router, semoventes_router, payments_router,
     uploads_router, admin_router, dashboard_router, ai_router,
