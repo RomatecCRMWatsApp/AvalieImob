@@ -498,3 +498,80 @@ def test_ajuda_de_classificacao_pelo_nbs(monkeypatch):
     assert r["descricao"] == "Serviços de engenharia — Outros"
     assert r["opcoes"][0] == {"cst": "200", "cst_descricao": "Alíquota reduzida", "cClassTrib": "200052",
                               "descricao": "Prestação de serviços de profissões intelectuais"}
+
+
+# ── Ponte Romatec CRM -> calculadoras (assinada com o segredo da integração) ───
+SEGREDO_CRM = "s" * 40
+
+
+def _app_crm(monkeypatch, db, calc, ativo=True):
+    import time as _t
+    from db import get_db
+    from routes.integracoes_romatec_rtc import router as crm_router
+    conf = cfg.Config(ativo, RR, SN, 1, 1)
+    monkeypatch.setattr(cfg, "carregar", lambda: conf)
+    original = SVC.clientes
+    monkeypatch.setattr(SVC, "clientes", lambda c=None, t=None: original(conf, httpx.MockTransport(calc)))
+    monkeypatch.setenv("ROMATEC_CRM_INTEGRACAO_SECRET", SEGREDO_CRM)
+    app = FastAPI()
+    app.include_router(crm_router)
+    app.dependency_overrides[get_db] = lambda: db
+    return TestClient(app), _t
+
+
+def _post_assinado(c, caminho, corpo: dict, segredo=SEGREDO_CRM, ts=None):
+    import time as _t
+    from services import romatec_crm_integracao as RC
+    txt = json.dumps(corpo)
+    ts = str(int(_t.time()) if ts is None else ts)
+    return c.post(caminho, content=txt, headers={"Content-Type": "application/json", "X-Romatec-Timestamp": ts,
+                                                 "X-Romatec-Signature": RC.assinar(segredo, ts, txt.encode())})
+
+
+PEDIDO_CRM = {**entrada(), "origem": {"tipo": "proposta", "id": "PROP-123"}, "solicitado_por": "usuario 7"}
+
+
+def test_ponte_crm_simula_com_assinatura_valida(monkeypatch):
+    db = FakeDB()
+    c, _ = _app_crm(monkeypatch, db, Calc(calculo=fx("rr_2026_calculado.json")))
+    r = _post_assinado(c, "/integracoes/romatec/rtc/simular", PEDIDO_CRM)
+    assert r.status_code == 200, r.text
+    s = r.json()
+    assert s["totais"]["cbs"] == "6.30" and s["origem_tipo"] == "crm_proposta" and s["origem_id"] == "PROP-123"
+    assert "resultado_bruto" not in s and "user_id" not in s and cfg.AVISO_FIXO in s["avisos"]
+    [doc] = db.simulacao_tributaria.docs
+    assert doc["user_id"] == "romatec-crm" and doc["solicitado_por_crm"] == "usuario 7"
+
+
+def test_ponte_crm_recusa_assinatura_errada_ou_velha(monkeypatch):
+    import time as _t
+    db, calc = FakeDB(), Calc(calculo=fx("rr_2026_calculado.json"))
+    c, _ = _app_crm(monkeypatch, db, calc)
+    assert _post_assinado(c, "/integracoes/romatec/rtc/simular", PEDIDO_CRM, segredo="x" * 40).status_code == 401
+    assert _post_assinado(c, "/integracoes/romatec/rtc/simular", PEDIDO_CRM, ts=int(_t.time()) - 900).status_code == 401
+    assert c.post("/integracoes/romatec/rtc/simular", json=PEDIDO_CRM).status_code == 401
+    assert calc.pedidos == [] and db.simulacao_tributaria.docs == []
+
+
+def test_ponte_crm_sem_segredo_ou_desligada(monkeypatch):
+    db = FakeDB()
+    c, _ = _app_crm(monkeypatch, db, Calc(), ativo=False)
+    assert _post_assinado(c, "/integracoes/romatec/rtc/simular", PEDIDO_CRM).status_code == 404
+    monkeypatch.delenv("ROMATEC_CRM_INTEGRACAO_SECRET")
+    assert _post_assinado(c, "/integracoes/romatec/rtc/simular", PEDIDO_CRM).status_code == 503
+
+
+def test_ponte_crm_erros_de_entrada_e_sem_aliquota(monkeypatch):
+    c, _ = _app_crm(monkeypatch, FakeDB(), Calc(calculo=fx("rr_2027_simulado.json")))
+    assert _post_assinado(c, "/integracoes/romatec/rtc/simular", {**PEDIDO_CRM, "origem": {"tipo": "lead", "id": "1"}}).status_code == 422
+    assert _post_assinado(c, "/integracoes/romatec/rtc/simular", {**PEDIDO_CRM, "data_operacao": ""}).status_code == 422
+    r = _post_assinado(c, "/integracoes/romatec/rtc/simular", {**entrada("2027-06-10"), "origem": {"tipo": "contrato", "id": "C-9"}})
+    assert r.status_code == 409 and r.json()["detail"]["faltantes"] == ["CBS", "IBS_UF", "IBS_MUN"]
+
+
+def test_ponte_crm_status_e_municipios(monkeypatch):
+    c, _ = _app_crm(monkeypatch, FakeDB(), Calc())
+    st = _post_assinado(c, "/integracoes/romatec/rtc/status", {}).json()
+    assert st["ativo"] and st["servicos"]["REGULAR"]["versao"] == "1.7.2"
+    m = _post_assinado(c, "/integracoes/romatec/rtc/municipios", {"uf": "MA"}).json()
+    assert {"codigo": "2100055", "nome": "Açailândia"} in m["municipios"]

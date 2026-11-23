@@ -12,7 +12,7 @@ from . import mapper as MP
 from .client import CalculadoraClient, CalculadoraIndisponivel
 
 COLECAO = "simulacao_tributaria"
-ORIGENS = ("recibo", "ptam", "proposta", "garantia", "avulsa")
+ORIGENS = ("recibo", "ptam", "proposta", "garantia", "avulsa", "crm_proposta", "crm_contrato", "crm_venda")
 
 ERROS_PATH = {"REGULAR": "/calculadora/observabilidade/erros",
               "SIMPLES": "/calculadora/observabilidade/simples-nacional/erros"}
