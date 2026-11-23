@@ -15,8 +15,8 @@
 
 | ID | Tema | Status | Responsável pela decisão |
 |---|---|---|---|
-| P-01 | Identidade do "CRM Romatec" | AGUARDA SOLICITANTE | Solicitante |
-| P-02 | Projeto do Railway (CRM e AvalieImob no mesmo projeto?) | AGUARDA SOLICITANTE | Solicitante |
+| P-01 | Identidade do "CRM Romatec" | RESOLVIDA: Romatec_CRM_WhatsApp | Solicitante |
+| P-02 | Projeto do Railway (CRM e AvalieImob no mesmo projeto?) | RESOLVIDA: não importa, o CRM usa a ponte do AvalieImob | Solicitante |
 | P-03 | Estimativa de RAM e custo no Railway (medição real) | RESOLVIDA (21/11/2026, medida) | Coddy |
 | P-04 | Saldo do plano Railway e alerta de gasto | AGUARDA SOLICITANTE | Solicitante |
 | P-05 | Alíquotas de 2027 em diante (tabela interna) | AGUARDA CONTADOR | Contador / Solicitante |
@@ -30,6 +30,7 @@
 | P-13 | Simples Nacional: serviço só a partir de 2027 e alíquota efetiva por conta | AGUARDA CONTADOR | Contador / Produto |
 | P-14 | Código do município: a tabela da calculadora devolve 0,0 para município inexistente | RESOLVIDA (21/11/2026) | Coddy |
 | P-15 | Valor bruto e líquido dos honorários com CBS/IBS | AGUARDA CONTADOR | Contador / Solicitante |
+| P-16 | Códigos (NBS/CST/cClassTrib) e redutores da venda de lotes no CRM | AGUARDA CONTADOR | Contador |
 
 ---
 
@@ -199,7 +200,7 @@ Premissas de preço: RAM a ~US$ 10 por GB/mês e CPU a ~US$ 20 por vCPU/mês, co
 | 4 | Confirmar preços em railway.com/pricing | Solicitante | ABERTA |
 | 5 | Conferir o saldo em Usage e registrar na seção 4.5 | Solicitante | AGUARDA SOLICITANTE |
 | 6 | Configurar alerta e limite de gasto | Solicitante | AGUARDA SOLICITANTE |
-| 7 | Confirmar se o CRM está no mesmo projeto do Railway (P-02) | Solicitante | AGUARDA SOLICITANTE |
+| 7 | Confirmar se o CRM está no mesmo projeto do Railway (P-02) | Solicitante | RESOLVIDA: dispensado, o CRM não acessa a rede privada |
 | 8 | Definir o healthcheck e o tempo limite de subida | Coddy | RESOLVIDA: rotas e 90 s em 4.2 item 5 |
 | 9 | Validar o build do `Dockerfile.java` no primeiro deploy no Railway | Coddy | ABERTA |
 
@@ -213,6 +214,17 @@ Premissas de preço: RAM a ~US$ 10 por GB/mês e CPU a ~US$ 20 por vCPU/mês, co
 - **Impacto:** define onde fica o botão "Simular CBS/IBS" e quais entidades (proposta, contrato, venda) recebem o snapshot.
 - **Estado:** a descoberta do CRM está **preliminar** (`DESCOBERTA_crm_romatec_preliminar.md`). Só será concluída depois desta resposta.
 - **Critério de escolha:** o sistema que tem **proposta, contrato ou venda com valor**.
+- **Resposta (23/11/2026):** é o **Romatec_CRM_WhatsApp**, que já se integra ao AvalieImob (provisionamento e SSO assinados).
+  O CRM não alcança a rede privada das calculadoras: chama a ponte `/api/integracoes/romatec/rtc/*` do AvalieImob,
+  com o mesmo segredo e a mesma assinatura (`PONTE_CRM.md`). Por isso a P-02 deixou de importar.
+
+### P-16: Códigos fiscais da venda de lotes (CRM)
+
+- **Dúvida:** que NBS, CST e cClassTrib usar na venda de lotes do loteamento e se há redutor ou regime específico
+  de operações com imóveis (LC 214/2025) que a calculadora precise receber.
+- **Regra:** o CRM não sugere código. O administrador informa a cada simulação (a tela repete os da última).
+  Sem a confirmação do contador, o resultado não deve ser usado em proposta ao cliente.
+- **Responsável:** contador.
 
 ### P-06: NBS e cClassTrib dos serviços de avaliação
 
@@ -279,7 +291,7 @@ Premissas de preço: RAM a ~US$ 10 por GB/mês e CPU a ~US$ 20 por vCPU/mês, co
 | Sistema | Primeira entrega | Fase seguinte |
 |---|---|---|
 | AvalieImob | Recibo / honorários do PTAM — **ENTREGUE (23/11/2026)**: botão "CBS/IBS" no card do recibo | Proposta e avaliação de garantias |
-| CRM Romatec | Proposta ou contrato (depende de P-01) | Relatórios |
+| CRM Romatec | Contrato — **ENTREGUE (23/11/2026, branch local)**: bloco "CBS/IBS" abaixo do Plano, só administrador | Proposta e relatórios |
 
 ---
 
@@ -301,8 +313,8 @@ Premissas de preço: RAM a ~US$ 10 por GB/mês e CPU a ~US$ 20 por vCPU/mês, co
 
 ## 7. Checklist para liberar a Fase 1
 
-- [ ] P-01 respondida (qual é o CRM Romatec)
-- [ ] P-02 respondida (mesmo projeto do Railway?)
+- [x] P-01 respondida (qual é o CRM Romatec)
+- [x] P-02 respondida (mesmo projeto do Railway?)
 - [ ] Saldo do Railway conferido e registrado (4.5)
 - [ ] Alerta/limite de gasto configurado
 - [x] RAM medida e tabela 4.3 atualizada com valores reais
@@ -328,4 +340,5 @@ Premissas de preço: RAM a ~US$ 10 por GB/mês e CPU a ~US$ 20 por vCPU/mês, co
 | 21/11/2026 | Criação com decisões, regras de alíquotas e Railway | Solicitante + Coddy |
 | 21/11/2026 | RAM e custo medidos (4.3), limites 768/512 MB, healthcheck, P-03 e P-10 resolvidas | Coddy |
 | 23/11/2026 | Fase 4 (AvalieImob): configuração tributária por conta (desativada até confirmar com o contador), simulação pelo recibo com histórico, tela de administração das alíquotas; 34 testes; telas conferidas a 390 px; P-15 registrada | Coddy |
+| 23/11/2026 | Ponte CRM → AvalieImob (`/api/integracoes/romatec/rtc/*`, HMAC do provisionamento) e lado do CRM: tabela `simulacoesTributarias`, router `tributos` (só administrador), bloco no contrato; 12 testes no CRM, suíte do CRM 1.383 verdes; P-01 e P-02 resolvidas, P-16 registrada | Coddy |
 | 22/11/2026 | Fase 2: módulo `receita_rtc` (cliente, alíquotas híbridas, tabela interna com auditoria, snapshot), 27 testes com respostas reais + teste ao vivo; P-13 e P-14 registradas | Coddy |
