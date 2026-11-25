@@ -45,6 +45,7 @@
 7. **Nenhum código NBS provisório será usado** no simulador (ver P-11).
 8. **DANFSe oficial convive com o gerador temático já existente**, atrás de feature flag, apenas para quem tiver o XML da nota.
 9. **Aviso fixo** em todas as telas de simulação: "Estimativa baseada nas calculadoras oficiais da Receita Federal. Não substitui o sistema emissor nem a validação do contador."
+10. **CONGELADO (25/11/2026, decisão do dono).** O módulo fica pronto e desligado: as calculadoras **não** são criadas no Railway e `RECEITA_RTC_ENABLED` fica ausente/`false` no AvalieImob, para não gerar custo (~US$ 9 a 10/mês). O CRM pode receber o código (o bloco não aparece com o simulador desligado). Motivo: a estimativa é ferramenta opcional; o destaque de CBS/IBS que a lei exige vai na própria nota, emitida pelo emissor oficial. Reativar só por decisão do dono ou se uma obrigação legal passar a depender do cálculo no sistema — o passo a passo está em `infra/calculadoras-rtc/OPERACAO.md` e na seção 4.
 
 ---
 
@@ -202,7 +203,7 @@ Premissas de preço: RAM a ~US$ 10 por GB/mês e CPU a ~US$ 20 por vCPU/mês, co
 | 6 | Configurar alerta e limite de gasto | Solicitante | AGUARDA SOLICITANTE |
 | 7 | Confirmar se o CRM está no mesmo projeto do Railway (P-02) | Solicitante | RESOLVIDA: dispensado, o CRM não acessa a rede privada |
 | 8 | Definir o healthcheck e o tempo limite de subida | Coddy | RESOLVIDA: rotas e 90 s em 4.2 item 5 |
-| 9 | Validar o build do `Dockerfile.java` no primeiro deploy no Railway | Coddy | ABERTA |
+| 9 | Validar o build do `Dockerfile.java` no primeiro deploy no Railway | Coddy | CONGELADA (decisão 10) |
 
 ---
 
@@ -341,4 +342,5 @@ Premissas de preço: RAM a ~US$ 10 por GB/mês e CPU a ~US$ 20 por vCPU/mês, co
 | 21/11/2026 | RAM e custo medidos (4.3), limites 768/512 MB, healthcheck, P-03 e P-10 resolvidas | Coddy |
 | 23/11/2026 | Fase 4 (AvalieImob): configuração tributária por conta (desativada até confirmar com o contador), simulação pelo recibo com histórico, tela de administração das alíquotas; 34 testes; telas conferidas a 390 px; P-15 registrada | Coddy |
 | 23/11/2026 | Ponte CRM → AvalieImob (`/api/integracoes/romatec/rtc/*`, HMAC do provisionamento) e lado do CRM: tabela `simulacoesTributarias`, router `tributos` (só administrador), bloco no contrato; 12 testes no CRM, suíte do CRM 1.383 verdes; P-01 e P-02 resolvidas, P-16 registrada | Coddy |
+| 25/11/2026 | Módulo CONGELADO por decisão do dono (seção 2, item 10): calculadoras não sobem no Railway, flag desligada, sem custo | Coddy |
 | 22/11/2026 | Fase 2: módulo `receita_rtc` (cliente, alíquotas híbridas, tabela interna com auditoria, snapshot), 27 testes com respostas reais + teste ao vivo; P-13 e P-14 registradas | Coddy |
