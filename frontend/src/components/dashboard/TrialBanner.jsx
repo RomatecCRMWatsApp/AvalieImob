@@ -46,7 +46,7 @@ const TrialBanner = () => {
         </div>
       </div>
       <Link to="/dashboard/assinatura"
-            className="inline-flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-lg text-white"
+            className="inline-flex min-h-[44px] items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-lg text-white"
             style={{ background: cor.borda }}>
         Assinar agora <ArrowRight className="w-4 h-4" />
       </Link>

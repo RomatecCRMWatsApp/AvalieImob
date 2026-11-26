@@ -1,6 +1,6 @@
 import React, { lazy, Suspense } from 'react';
 import './App.css';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { AppLoader } from './components/brand/AppLoader';
@@ -221,6 +221,14 @@ function captureLanding() {
 }
 captureLanding();
 
+// Na calculadora pública as abas flutuantes (Roma_IA, CNPJ/CPF, tema) cobriam o formulário e o botão principal
+const SEM_FLUTUANTES = ['/quanto-vale-meu-imovel', '/avaliacao/'];
+function FerramentasFlutuantes() {
+  const { pathname } = useLocation();
+  if (SEM_FLUTUANTES.some((r) => pathname === r || pathname.startsWith(r))) return null;
+  return (<><RomaIAWidget /><ConsultaWidget /><DarkModeToggle /></>);
+}
+
 function App() {
   return (
     <div className="App">
@@ -286,10 +294,8 @@ function App() {
             </ErrorBoundary>
             <Toaster />
             <InstallPrompt />
-            <RomaIAWidget />
+            <FerramentasFlutuantes />
             <ConsentimentoCookies />
-            <ConsultaWidget />
-            <DarkModeToggle />
           </BrowserRouter>
         </AuthProvider>
       </HelmetProvider>

@@ -2,6 +2,31 @@
   "_leia_me": "Notas de atualizacao que viram o AVISO no sistema. Regra: a cada release, ANTES do commit, acrescente a entrada no topo de 'releases' (ver CLAUDE.md, passo 7). Itens com publico='interno' (painel administrativo ou ajuste tecnico) NAO geram aviso para ninguem - ficam so registrados aqui. Tipos: novo | melhoria | correcao. Escreva o texto COM ACENTOS: ele vai direto para a tela do cliente.",
   "releases": [
     {
+      "versao": "1.4.1585",
+      "build": 1585,
+      "data": "2026-11-26",
+      "titulo": "Telas mais fáceis no celular",
+      "itens": [
+        {
+          "modulo": "Assinatura",
+          "tipo": "melhoria",
+          "texto": "Na página de planos, o plano mais escolhido aparece primeiro no celular e os botões ficaram maiores para tocar.",
+          "rota": "/dashboard/assinatura"
+        },
+        {
+          "modulo": "Acesso",
+          "tipo": "melhoria",
+          "texto": "No login e no cadastro, o botão de mostrar a senha ficou mais fácil de tocar e o logo volta para a página inicial."
+        },
+        {
+          "modulo": "Calculadora do site",
+          "tipo": "melhoria",
+          "texto": "Calculadora pública: valor estimado em destaque, passos numerados e resultado visível logo após calcular no celular.",
+          "publico": "interno"
+        }
+      ]
+    },
+    {
       "versao": "1.4.1582",
       "build": 1582,
       "data": "2026-11-25",

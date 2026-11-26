@@ -84,10 +84,10 @@ const Register = () => {
       />
       <div className="flex items-center justify-center p-6 md:p-12 bg-white order-2 lg:order-1">
         <div className="w-full max-w-md">
-          <div className="lg:hidden mb-8 flex items-center gap-3">
+          <Link to="/" className="lg:hidden mb-8 flex w-fit items-center gap-3" aria-label="AvalieImob, página inicial">
             <BrandMark variant="badge" size={40} />
             <div className="font-display text-xl font-bold brand-green">AvalieImob</div>
-          </div>
+          </Link>
           <h2 className="font-display text-3xl md:text-4xl font-bold text-gray-900 mb-2">Crie sua conta</h2>
           <p className="text-gray-600 mb-8">Comece a emitir laudos com IA em minutos.</p>
 
@@ -119,10 +119,10 @@ const Register = () => {
               <label className="block text-sm font-medium text-gray-700 mb-1.5">E-mail</label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="pl-10 h-11" placeholder="voce@email.com" />
+                <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="pl-10 h-11" autoComplete="email" placeholder="voce@email.com" />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Profissão</label>
                 <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v })}>
@@ -149,8 +149,8 @@ const Register = () => {
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Senha</label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <Input type={show ? 'text' : 'password'} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="pl-10 pr-10 h-11" placeholder="Mínimo 8 caracteres" />
-                <button type="button" onClick={() => setShow(!show)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                <Input type={show ? 'text' : 'password'} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="pl-10 pr-12 h-11" autoComplete="new-password" placeholder="Mínimo 8 caracteres" />
+                <button type="button" onClick={() => setShow(!show)} aria-label={show ? "Esconder senha" : "Mostrar senha"} className="absolute right-0 top-1/2 -translate-y-1/2 flex h-11 w-11 items-center justify-center text-gray-400">
                   {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>

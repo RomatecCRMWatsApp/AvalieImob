@@ -118,7 +118,7 @@ const SubscriptionPage = () => {
         <h2 className="font-display text-xl font-bold text-gray-900 mb-4">Escolha seu plano</h2>
         <div className="grid md:grid-cols-3 gap-4">
           {PLANS.map(p => (
-            <div key={p.id} className={`relative rounded-xl p-6 border-2 ${p.highlight ? 'border-emerald-900 bg-emerald-50/40' : 'border-gray-200 bg-white'}`}>
+            <div key={p.id} className={`relative rounded-xl p-6 border-2 ${p.highlight ? 'order-first md:order-none border-emerald-900 bg-emerald-50/40' : 'border-gray-200 bg-white'}`}>
               {p.highlight && (
                 <div className="absolute -top-3 left-6 px-2.5 py-0.5 bg-amber-500 text-white text-[10px] font-bold rounded-full flex items-center gap-1">
                   <Star className="w-3 h-3 fill-white" />POPULAR
@@ -142,7 +142,8 @@ const SubscriptionPage = () => {
               <Button
                 onClick={() => handleSubscribe(p)}
                 disabled={subscribing === p.id}
-                className="w-full bg-emerald-900 hover:bg-emerald-800 text-white"
+                variant={p.highlight ? 'default' : 'outline'}
+                className={`w-full h-11 ${p.highlight ? 'bg-emerald-900 hover:bg-emerald-800 text-white' : 'border-emerald-900 text-emerald-900'}`}
               >
                 {subscribing === p.id ? 'Redirecionando...' : `Assinar ${p.name}`}
               </Button>
